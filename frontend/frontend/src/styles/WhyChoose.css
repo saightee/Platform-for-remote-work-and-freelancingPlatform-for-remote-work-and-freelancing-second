@@ -1,0 +1,36 @@
+.why-choose {
+    padding: 40px 20px;
+    text-align: center;
+  }
+  
+  .why-choose h2 {
+    font-size: 28px;
+    color: #333;
+    margin-bottom: 30px;
+  }
+  
+  .features {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  
+  .feature {
+    max-width: 200px;
+  }
+  
+  .feature .icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+  }
+  
+  .feature h3 {
+    font-size: 20px;
+    color: #333;
+    margin-bottom: 10px;
+  }
+  
+  .feature p {
+    color: #666;
+  }
