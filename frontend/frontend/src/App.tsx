@@ -1,6 +1,6 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import JobPostings from './components/JobPostings';
@@ -13,33 +13,50 @@ import Logout from './components/Logout';
 import './App.css';
 
 const Home: React.FC = () => {
-  const { user } = useAuth();
+  // Стили для контейнера
+  const containerStyles: React.CSSProperties = {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    padding: '0 1rem',
+  };
 
   return (
     <div className="App">
-      <Header />
-      <main>
-        <Hero />
-        <JobPostings />
-        <WhyChoose />
-        <PopularProfessions />
-        <div className="auth-links" style={{ textAlign: 'center', padding: '1rem' }}>
-          {user ? (
-            <>
-              <p style={{ marginBottom: '0.5rem' }}>Welcome, {user.email}</p>
-              <Link to="/logout" style={{ color: '#007bff', textDecoration: 'none' }}>
-                Logout
-              </Link>
-            </>
-          ) : (
-            <Link to="/register" style={{ color: '#007bff', textDecoration: 'none' }}>
-              Register
-            </Link>
-          )}
+      <div style={{ backgroundColor: '#fff' }}>
+        <div style={containerStyles}>
+          <Header />
         </div>
-        <CTA />
-      </main>
-      <Footer />
+      </div>
+      <div style={{ backgroundColor: '#ffffff' }}>
+        <div style={containerStyles}>
+          <Hero />
+        </div>
+      </div>
+      <div style={{ backgroundColor: '#f5f6fa' }}>
+        <div style={containerStyles}>
+          <JobPostings />
+        </div>
+      </div>
+      <div style={{ backgroundColor: '#fff' }}>
+        <div style={containerStyles}>
+          <WhyChoose />
+        </div>
+      </div>
+      <div style={{ backgroundColor: '#fff' }}>
+        <div style={containerStyles}>
+          <PopularProfessions />
+        </div>
+      </div>
+      <div style={{ backgroundColor: '#34495e' }}>
+        <div style={containerStyles}>
+          <CTA />
+        </div>
+      </div>
+      <div style={{ backgroundColor: '#2c3e50' }}>
+        <div style={containerStyles}>
+          <Footer />
+        </div>
+      </div>
     </div>
   );
 };

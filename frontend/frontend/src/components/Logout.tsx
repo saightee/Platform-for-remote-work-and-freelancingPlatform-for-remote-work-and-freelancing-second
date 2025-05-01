@@ -26,7 +26,7 @@ const Logout: React.FC = () => {
     <div className="auth-container">
       <div className="auth-box">
         <h2>Logout from OnlineJobs</h2>
-        <p>Are you sure you want to logout, {user.email}?</p>
+        <p>Are you sure you want to logout, {user.login}?</p> {/* Заменили user.email на user.login */}
         <button className="logout" onClick={handleLogout}>
           Logout
         </button>

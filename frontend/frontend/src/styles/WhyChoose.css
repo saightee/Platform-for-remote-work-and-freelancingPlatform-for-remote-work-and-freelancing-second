@@ -1,17 +1,17 @@
 .why-choose {
-    padding: 40px 20px;
-    text-align: center;
+    padding: 70px 20px;
+    text-align: left;
   }
   
   .why-choose h2 {
-    font-size: 28px;
+    font-size: 2rem;
     color: #333;
-    margin-bottom: 30px;
+    margin-bottom: 50px;
   }
   
   .features {
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     gap: 20px;
     flex-wrap: wrap;
   }

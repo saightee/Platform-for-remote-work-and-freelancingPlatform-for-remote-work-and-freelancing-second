@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../api/apiConfig';
 import '../styles/AuthStyles.css';
 
 const Register: React.FC = () => {
   const [email, setEmail] = useState<string>('');
+  const [login, setLogin] = useState<string>(''); // Добавляем состояние для login
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string>('');
-  const { login } = useAuth();
+  const { login: authLogin } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -15,28 +17,29 @@ const Register: React.FC = () => {
     setError('');
 
     // Базовая валидация
-    if (!email || !password) {
+    if (!email || !login || !password) {
       setError('Please fill in all fields');
       return;
     }
 
     try {
-      // Здесь будет запрос к бэкенду для регистрации
-      // Пример (раскомментируй и настрой под свой API):
-      /*
-      const response = await fetch('/api/register', {
+      // Отправляем запрос на регистрацию
+      const response = await fetch(`${API_BASE_URL}/api/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, login, password }), // Добавляем login в запрос
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Registration failed');
-      login({ email: data.email, id: data.id });
-      */
 
-      // Имитация успешной регистрации
-      const mockUser = { email, id: Date.now() };
-      login(mockUser);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Registration failed');
+      }
+
+      // Успешная регистрация: сохраняем данные пользователя и токен
+      authLogin({ email: data.email, login: data.login, id: data.id }, data.token);
       navigate('/');
     } catch (err) {
       setError((err as Error).message || 'Something went wrong');
@@ -55,6 +58,15 @@ const Register: React.FC = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email"
+          />
+        </div>
+        <div className="form-group">
+          <label>Login</label>
+          <input
+            type="text"
+            value={login}
+            onChange={(e) => setLogin(e.target.value)}
+            placeholder="Enter your login"
           />
         </div>
         <div className="form-group">

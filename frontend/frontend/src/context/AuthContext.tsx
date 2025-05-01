@@ -1,14 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { API_BASE_URL } from '../api/apiConfig';
 
 // Определяем типы для пользователя
 interface User {
   id: number;
   email: string;
+  login: string; // Добавляем поле login
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (userData: User) => void;
+  login: (userData: User, token: string) => void;
   logout: () => void;
 }
 
@@ -21,24 +23,66 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Проверяем, есть ли пользователь в localStorage при загрузке
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Проверяем токен на сервере
+      fetch(`${API_BASE_URL}/api/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('Invalid token');
+          }
+          return response.json();
+        })
+        .then((data: User) => {
+          setUser(data); // Устанавливаем пользователя, если токен валиден
+        })
+        .catch(() => {
+          // Если токен недействителен, удаляем его
+          localStorage.removeItem('token');
+          setUser(null);
+        });
     }
   }, []);
 
   // Функция для логина
-  const login = (userData: User) => {
+  const login = (userData: User, token: string) => {
     setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('token', token);
   };
 
   // Функция для логаута
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-    // Здесь можно добавить API-запрос для логаута, например:
-    // fetch('/api/logout', { method: 'POST' });
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Отправляем запрос на логаут
+      fetch(`${API_BASE_URL}/api/logout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('Logout failed');
+          }
+          return response.json();
+        })
+        .catch((err) => {
+          console.error('Logout error:', err);
+        })
+        .finally(() => {
+          // В любом случае очищаем данные на клиенте
+          setUser(null);
+          localStorage.removeItem('token');
+        });
+    } else {
+      setUser(null);
+      localStorage.removeItem('token');
+    }
   };
 
   return (
