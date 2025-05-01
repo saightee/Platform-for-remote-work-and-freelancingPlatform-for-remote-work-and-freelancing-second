@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
@@ -16,12 +16,19 @@ export class AuthService {
 
   async register(registerDto: RegisterDto) {
     const { email, password, username } = registerDto;
+
+    const existingUser = await this.usersService.findByEmail(email);
+    if (existingUser) {
+      throw new BadRequestException('Email already exists');
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await this.usersService.create({
       email,
       password: hashedPassword,
       username,
     });
+
     return { message: 'User registered', userId: user.id };
   }
 
@@ -33,17 +40,15 @@ export class AuthService {
     }
     const payload = { email: user.email, sub: user.id };
     const token = this.jwtService.sign(payload);
-    // Сохраняем токен в Redis с TTL, равным времени действия токена (1 час = 3600 секунд)
     await this.redisService.set(`token:${user.id}`, token, 3600);
     return { accessToken: token };
   }
 
   async logout(userId: number) {
-    // Добавляем токен в черный список
     const token = await this.redisService.get(`token:${userId}`);
     if (token) {
-      await this.redisService.set(`blacklist:${token}`, 'true', 3600); // Добавляем токен в черный список
-      await this.redisService.del(`token:${userId}`); // Удаляем токен из активных
+      await this.redisService.set(`blacklist:${token}`, 'true', 3600);
+      await this.redisService.del(`token:${userId}`);
     }
     return { message: 'Logout successful' };
   }

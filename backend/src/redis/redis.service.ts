@@ -13,7 +13,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-    await this.client.ping(); // Проверка подключения к Redis
+    await this.client.ping();
     console.log('Connected to Redis');
   }
 
@@ -36,5 +36,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   async del(key: string) {
     await this.client.del(key);
+  }
+
+  // Добавляем метод для тестов
+  getClient(): Redis {
+    return this.client;
   }
 }

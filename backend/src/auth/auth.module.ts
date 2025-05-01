@@ -14,7 +14,7 @@ import { RedisModule } from '../redis/redis.module';
       secret: 'mySuperSecretKey123!@#ForLocalDev2025',
       signOptions: { expiresIn: '1h' },
     }),
-    RedisModule, // Добавляем RedisModule
+    RedisModule,
   ],
   controllers: [AuthController],
   providers: [AuthService],

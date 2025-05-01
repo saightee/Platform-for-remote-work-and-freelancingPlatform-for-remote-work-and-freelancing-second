@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ClientsModule, Transport } from '@nestjs/microservices';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { RedisModule } from './redis/redis.module';
 import { User } from './users/entities/user.entity';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -18,20 +18,10 @@ import { User } from './users/entities/user.entity';
       entities: [User],
       synchronize: true,
     }),
-    ClientsModule.register([
-      {
-        name: 'RABBITMQ_SERVICE',
-        transport: Transport.RMQ,
-        options: {
-          urls: ['amqp://localhost:5672'],
-          queue: 'main_queue',
-          queueOptions: { durable: false },
-        },
-      },
-    ]),
     UsersModule,
     AuthModule,
     RedisModule,
   ],
+  controllers: [AppController],
 })
 export class AppModule {}
