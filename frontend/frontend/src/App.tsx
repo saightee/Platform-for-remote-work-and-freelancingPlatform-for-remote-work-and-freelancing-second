@@ -9,11 +9,11 @@ import PopularProfessions from './components/PopularProfessions';
 import CTA from './components/CTA';
 import Footer from './components/Footer';
 import Register from './components/Register';
+import Login from './components/Login'; // Импортируем новый компонент
 import Logout from './components/Logout';
 import './App.css';
 
 const Home: React.FC = () => {
-  // Стили для контейнера
   const containerStyles: React.CSSProperties = {
     maxWidth: '1200px',
     margin: '0 auto',
@@ -27,7 +27,7 @@ const Home: React.FC = () => {
           <Header />
         </div>
       </div>
-      <div style={{ backgroundColor: '#ffffff' }}>
+      <div style={{ backgroundColor: '#f5f6fa' }}>
         <div style={containerStyles}>
           <Hero />
         </div>
@@ -68,6 +68,7 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<Login />} /> {/* Добавляем маршрут для логина */}
           <Route path="/logout" element={<Logout />} />
         </Routes>
       </Router>

@@ -1,36 +1,46 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import '../styles/AuthStyles.css';
 
 const Logout: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  useEffect(() => {
+    const handleLogout = async () => {
+      try {
+        await logout();
+        navigate('/');
+      } catch (err: any) {
+        setError(err.message);
+      }
+    };
+
+    handleLogout();
+  }, [logout, navigate]);
+
+  const containerStyles: React.CSSProperties = {
+    textAlign: 'center',
+    padding: '3rem 0',
   };
 
-  if (!user) {
-    return (
-      <div className="auth-container">
-        <p className="auth-message">
-          You are not logged in. <Link to="/">Go to Home</Link>
-        </p>
-      </div>
-    );
-  }
+  const titleStyles: React.CSSProperties = {
+    fontSize: '1.5rem',
+    fontWeight: 700,
+    color: '#2c3e50',
+    marginBottom: '1rem',
+  };
+
+  const errorStyles: React.CSSProperties = {
+    color: 'red',
+    fontSize: '0.9rem',
+  };
 
   return (
-    <div className="auth-container">
-      <div className="auth-box">
-        <h2>Logout from OnlineJobs</h2>
-        <p>Are you sure you want to logout, {user.login}?</p> {/* Заменили user.email на user.login */}
-        <button className="logout" onClick={handleLogout}>
-          Logout
-        </button>
-      </div>
+    <div style={containerStyles}>
+      <h2 style={titleStyles}>Logging Out...</h2>
+      {error && <p style={errorStyles}>{error}</p>}
     </div>
   );
 };

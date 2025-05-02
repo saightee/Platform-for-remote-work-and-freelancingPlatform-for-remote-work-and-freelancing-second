@@ -1,98 +1,85 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { API_BASE_URL } from '../api/apiConfig';
-
-// Определяем типы для пользователя
-interface User {
-  id: number;
-  email: string;
-  login: string; // Добавляем поле login
-}
 
 interface AuthContextType {
-  user: User | null;
-  login: (userData: User, token: string) => void;
-  logout: () => void;
+  user: string | null;
+  token: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  isAuthenticated: boolean;
 }
 
-// Создаём контекст
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Провайдер контекста
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
-  // Проверяем, есть ли пользователь в localStorage при загрузке
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // Проверяем токен на сервере
-      fetch(`${API_BASE_URL}/api/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error('Invalid token');
-          }
-          return response.json();
-        })
-        .then((data: User) => {
-          setUser(data); // Устанавливаем пользователя, если токен валиден
-        })
-        .catch(() => {
-          // Если токен недействителен, удаляем его
-          localStorage.removeItem('token');
-          setUser(null);
-        });
+    const storedToken = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    if (storedToken && storedUser) {
+      setToken(storedToken);
+      setUser(storedUser);
     }
   }, []);
 
-  // Функция для логина
-  const login = (userData: User, token: string) => {
-    setUser(userData);
-    localStorage.setItem('token', token);
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await fetch('http://localhost:3000/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Login failed');
+      }
+
+      const data = await response.json();
+      setToken(data.accessToken);
+      setUser(email);
+      localStorage.setItem('token', data.accessToken);
+      localStorage.setItem('user', email);
+    } catch (error) {
+      throw error;
+    }
   };
 
-  // Функция для логаута
-  const logout = () => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // Отправляем запрос на логаут
-      fetch(`${API_BASE_URL}/api/logout`, {
+  const logout = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/auth/logout', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error('Logout failed');
-          }
-          return response.json();
-        })
-        .catch((err) => {
-          console.error('Logout error:', err);
-        })
-        .finally(() => {
-          // В любом случае очищаем данные на клиенте
-          setUser(null);
-          localStorage.removeItem('token');
-        });
-    } else {
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Logout failed');
+      }
+
+      setToken(null);
       setUser(null);
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    } catch (error) {
+      throw error;
     }
   };
 
+  const isAuthenticated = !!token && !!user;
+
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// Хук для использования контекста
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

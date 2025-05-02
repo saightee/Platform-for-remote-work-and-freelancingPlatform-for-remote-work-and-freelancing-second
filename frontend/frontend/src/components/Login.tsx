@@ -1,31 +1,20 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-const Register: React.FC = () => {
+const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [username, setUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3000/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password, username }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Registration failed');
-      }
-
+      await login(email, password);
       navigate('/');
     } catch (err: any) {
       setError(err.message);
@@ -94,17 +83,9 @@ const Register: React.FC = () => {
 
   return (
     <div style={containerStyles}>
-      <h2 style={titleStyles}>Register</h2>
+      <h2 style={titleStyles}>Login</h2>
       {error && <p style={errorStyles}>{error}</p>}
-      <form onSubmit={handleRegister} style={formStyles}>
-        <input
-          type="text"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          style={inputStyles}
-          required
-        />
+      <form onSubmit={handleLogin} style={formStyles}>
         <input
           type="email"
           placeholder="Email"
@@ -121,7 +102,7 @@ const Register: React.FC = () => {
           style={inputStyles}
           required
         />
-        <button type="submit" style={buttonStyles}>Register</button>
+        <button type="submit" style={buttonStyles}>Login</button>
       </form>
       <div style={linkContainerStyles}>
         <Link to="/forgot-password" style={linkStyles}>Forgot Password?</Link>
@@ -131,4 +112,4 @@ const Register: React.FC = () => {
   );
 };
 
-export default Register;
+export default Login;
