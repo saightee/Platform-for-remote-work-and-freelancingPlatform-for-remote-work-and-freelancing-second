@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import baseURL from '../api/apiConfig'; // Исправлен путь импорта
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');

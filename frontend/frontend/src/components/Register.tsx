@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import baseURL from '../api/apiConfig'; // Исправлен путь импорта
 
 const Register: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -13,7 +14,7 @@ const Register: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3000/auth/register', {
+      const response = await fetch(`${baseURL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
