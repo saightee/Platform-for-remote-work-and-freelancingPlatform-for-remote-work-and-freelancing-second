@@ -1,23 +1,46 @@
 .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px;
-    background-color: #fff;
-  }
-  
-  .logo {
-    font-size: 24px;
-    font-weight: bold;
-    color: #1e90ff;
-  }
-  
-  .nav a {
-    margin-left: 20px;
-    text-decoration: none;
-    color: #666;
-  }
-  
-  .nav a:hover {
-    color: #1e90ff;
-  }
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  background-color: #fff;
+  border-bottom: 1px solid #d7d7d7;
+}
+
+.logo a {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #2c3e50;
+  text-decoration: none;
+}
+
+.nav ul {
+  display: flex;
+  list-style: none;
+  gap: 1.5rem;
+}
+
+.nav a {
+  font-size: 1rem;
+  color: #2c3e50;
+  text-decoration: none;
+}
+
+.nav a:hover {
+  text-decoration: underline;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.logo-hire {
+  color: #2c3e50; /* Основной цвет сайта */
+}
+
+.logo-volve {
+  color: #3498db; /* Акцентный цвет сайта */
+  font-weight: bold;
+}
