@@ -2,19 +2,20 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const Login: React.FC = () => {
+const EmployerRegisterForm: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const { login } = useAuth();
   const navigate = useNavigate();
+  const { register } = useAuth();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     try {
-      await login(email, password);
+      await register(email, password, companyName, 'employer', { companyName });
       navigate('/');
     } catch (err: any) {
       setError(err.message);
@@ -83,9 +84,17 @@ const Login: React.FC = () => {
 
   return (
     <div style={containerStyles}>
-      <h2 style={titleStyles}>Login</h2>
+      <h2 style={titleStyles}>Employer Registration</h2>
       {error && <p style={errorStyles}>{error}</p>}
-      <form onSubmit={handleLogin} style={formStyles}>
+      <form onSubmit={handleRegister} style={formStyles}>
+        <input
+          type="text"
+          placeholder="Company Name"
+          value={companyName}
+          onChange={(e) => setCompanyName(e.target.value)}
+          style={inputStyles}
+          required
+        />
         <input
           type="email"
           placeholder="Email"
@@ -102,7 +111,7 @@ const Login: React.FC = () => {
           style={inputStyles}
           required
         />
-        <button type="submit" style={buttonStyles}>Login</button>
+        <button type="submit" style={buttonStyles}>Register</button>
       </form>
       <div style={linkContainerStyles}>
         <Link to="/forgot-password" style={linkStyles}>Forgot Password?</Link>
@@ -112,4 +121,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export default EmployerRegisterForm;

@@ -1,0 +1,101 @@
+.job-details-page {
+  padding: 2rem 0;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.back-link:hover {
+  color: #0056b3;
+}
+
+.job-details-page h1 {
+  font-size: 2rem;
+  color: #2c3e50;
+  margin-bottom: 1rem;
+}
+
+.job-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  color: #666;
+}
+
+.job-meta p {
+  margin: 0;
+}
+
+.apply-btn {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 2rem;
+}
+
+.apply-btn:hover {
+  background-color: #0056b3;
+}
+
+.job-description {
+  margin-bottom: 2rem;
+}
+
+.job-description h2 {
+  font-size: 1.5rem;
+  color: #2c3e50;
+  margin-bottom: 1rem;
+}
+
+.job-description p {
+  color: #666;
+  line-height: 1.6;
+}
+
+.company-info {
+  margin-bottom: 2rem;
+}
+
+.company-info h2 {
+  font-size: 1.5rem;
+  color: #2c3e50;
+  margin-bottom: 1rem;
+}
+
+.company-info p {
+  color: #666;
+}
+
+.share-job {
+  margin-top: 2rem;
+}
+
+.share-job h3 {
+  font-size: 1.25rem;
+  color: #2c3e50;
+  margin-bottom: 1rem;
+}
+
+.share-btn {
+  background-color: #e0e0e0;
+  border: none;
+  padding: 0.5rem 1rem;
+  margin-right: 0.5rem;
+  cursor: pointer;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.share-btn:hover {
+  background-color: #d3d3d3;
+}

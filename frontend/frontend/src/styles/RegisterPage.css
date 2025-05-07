@@ -1,0 +1,67 @@
+.register-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f5f6fa;
+  }
+  
+  .register-container {
+    background: white;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    max-width: 600px;
+    width: 100%;
+  }
+  
+  .register-container h1 {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    color: #333;
+  }
+  
+  .register-container p {
+    font-size: 1rem;
+    color: #666;
+    margin-bottom: 30px;
+  }
+  
+  .role-selection {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+  }
+  
+  .role-button {
+    flex: 1;
+    padding: 20px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .role-button:hover {
+    border-color: #007bff;
+    background: #f8f9fa;
+  }
+  
+  .role-button.selected {
+    border-color: #007bff;
+    background: #e6f0ff;
+  }
+  
+  .role-button h2 {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+    color: #333;
+  }
+  
+  .role-button p {
+    font-size: 0.9rem;
+    color: #666;
+    margin: 0;
+  }
