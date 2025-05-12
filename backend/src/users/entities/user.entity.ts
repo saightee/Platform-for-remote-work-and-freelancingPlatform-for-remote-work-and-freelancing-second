@@ -13,4 +13,7 @@ export class User {
 
   @Column()
   username: string;
+
+  @Column({ nullable: true })
+  provider?: string; // Например, 'google', 'linkedin'
 }
