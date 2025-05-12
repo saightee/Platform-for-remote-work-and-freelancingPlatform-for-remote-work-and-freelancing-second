@@ -1,32 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import baseURL from '../api/apiConfig'; // Исправлен путь импорта
+import { useAuth } from '../context/AuthContext';
 
-const Register: React.FC = () => {
+const JobSeekerRegisterForm: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [username, setUsername] = useState('');
+  const [fullName, setFullName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { register } = useAuth();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     try {
-      const response = await fetch(`${baseURL}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password, username }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Registration failed');
-      }
-
+      await register(email, password, fullName, 'jobseeker', { fullName });
       navigate('/');
     } catch (err: any) {
       setError(err.message);
@@ -95,14 +84,14 @@ const Register: React.FC = () => {
 
   return (
     <div style={containerStyles}>
-      <h2 style={titleStyles}>Register</h2>
+      <h2 style={titleStyles}>Job Seeker Registration</h2>
       {error && <p style={errorStyles}>{error}</p>}
       <form onSubmit={handleRegister} style={formStyles}>
         <input
           type="text"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          placeholder="Full Name"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
           style={inputStyles}
           required
         />
@@ -132,4 +121,4 @@ const Register: React.FC = () => {
   );
 };
 
-export default Register;
+export default JobSeekerRegisterForm;
