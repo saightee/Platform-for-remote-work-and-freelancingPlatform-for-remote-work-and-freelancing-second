@@ -1,9 +1,9 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-@Entity()
+@Entity('users')
 export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ unique: true })
   email: string;
@@ -14,6 +14,15 @@ export class User {
   @Column()
   username: string;
 
-  @Column({ nullable: true })
-  provider?: string; // Например, 'google', 'linkedin'
+  @Column({ type: 'varchar', length: 20 })
+  role: 'employer' | 'jobseeker';
+
+  @Column({ type: 'varchar', nullable: true })
+  provider?: string | null;
+
+  @CreateDateColumn()
+  created_at: Date;
+
+  @UpdateDateColumn()
+  updated_at: Date;
 }

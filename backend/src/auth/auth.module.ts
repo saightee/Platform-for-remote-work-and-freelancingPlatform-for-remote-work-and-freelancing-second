@@ -7,15 +7,15 @@ import { PassportModule } from '@nestjs/passport';
 import { RedisModule } from '../redis/redis.module';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { LinkedInStrategy } from './strategies/linkedin.strategy';
+// import { FacebookStrategy } from './strategies/facebook.strategy'; // Закомментируем
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
-
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: '../.env',
     }),
     UsersModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
@@ -33,7 +33,8 @@ import * as nodemailer from 'nodemailer';
   providers: [
     AuthService,
     GoogleStrategy,
-    LinkedInStrategy,
+    // FacebookStrategy, // Закомментируем
+    // LinkedInStrategy, // Уже отключена
     {
       provide: 'MAILER_TRANSPORT',
       useFactory: (configService: ConfigService) => {
@@ -51,4 +52,3 @@ import * as nodemailer from 'nodemailer';
   ],
 })
 export class AuthModule {}
-

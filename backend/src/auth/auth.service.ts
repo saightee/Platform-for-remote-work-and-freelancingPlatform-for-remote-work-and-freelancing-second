@@ -20,19 +20,27 @@ export class AuthService {
   async register(registerDto: RegisterDto) {
     const { email, password, username } = registerDto;
 
+    console.log('Register DTO:', registerDto);
     const existingUser = await this.usersService.findByEmail(email);
+    console.log('Existing User Check:', existingUser);
     if (existingUser) {
       throw new BadRequestException('Email already exists');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await this.usersService.create({
+    console.log('Hashed Password:', hashedPassword);
+
+    const tempToken = uuidv4();
+    const userData = {
       email,
       password: hashedPassword,
       username,
-    });
+      provider: null,
+    };
+    await this.redisService.set(`oauth:${tempToken}`, JSON.stringify(userData), 3600);
+    console.log('Temp Token for Manual Registration:', tempToken);
 
-    return { message: 'User registered', userId: user.id };
+    return { tempToken };
   }
 
   async login(loginDto: LoginDto) {
@@ -63,19 +71,42 @@ export class AuthService {
     return blacklisted === 'true';
   }
 
-  async loginWithOAuth(user: { email: string; username: string; provider: string }) {
-    let existingUser = await this.usersService.findByEmail(user.email);
-    if (!existingUser) {
-      existingUser = await this.usersService.create({
-        email: user.email,
-        username: user.username,
-        password: '',
-        provider: user.provider,
-      });
+  async storeOAuthUserData(user: { email: string; username: string; provider: string }): Promise<string> {
+    const tempToken = uuidv4();
+    await this.redisService.set(`oauth:${tempToken}`, JSON.stringify(user), 3600);
+    return tempToken;
+  }
+
+  async completeRegistration(tempToken: string, role: 'employer' | 'jobseeker', additionalData: any) {
+    const userDataString = await this.redisService.get(`oauth:${tempToken}`);
+    if (!userDataString) {
+      throw new BadRequestException('Invalid or expired token');
     }
+    const userData = JSON.parse(userDataString);
+    console.log('User Data:', userData);
+
+    let existingUser = await this.usersService.findByEmail(userData.email);
+    if (!existingUser) {
+      // Создаем пользователя в таблице users
+      const userToCreate = {
+        email: userData.email,
+        username: userData.username,
+        password: userData.password || '',
+        provider: userData.provider,
+        role,
+      };
+      existingUser = await this.usersService.create(userToCreate, additionalData);
+      console.log('New User Created:', existingUser);
+    } else {
+      console.log('Existing User Found:', existingUser);
+      await this.usersService.updateUser(existingUser.id, role, additionalData);
+      console.log('User Updated:', { role, additionalData });
+    }
+
     const payload = { email: existingUser.email, sub: existingUser.id };
-    const token = this.jwtService.sign(payload);
+    const token = this.jwtService.sign(payload, { expiresIn: '1h' });
     await this.redisService.set(`token:${existingUser.id}`, token, 3600);
+    await this.redisService.del(`oauth:${tempToken}`);
     return { accessToken: token };
   }
 
@@ -102,7 +133,7 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired reset token');
     }
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await this.usersService.updatePassword(parseInt(userId), hashedPassword);
+    await this.usersService.updatePassword(userId, hashedPassword);
     await this.redisService.del(`reset:${token}`);
     return { message: 'Password reset successful' };
   }
