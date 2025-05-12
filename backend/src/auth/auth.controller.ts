@@ -69,7 +69,7 @@ export class AuthController {
 
   @Post('select-role')
   async selectRole(
-    @Body() body: { tempToken: string; role: 'employer' | 'jobseeker'; company_name?: string; company_info?: string; referral_link?: string; skills?: string[]; experience?: string; portfolio?: string; video_intro?: string },
+    @Body() body: { tempToken: string; role: 'employer' | 'jobseeker'; company_name?: string; company_info?: string; referral_link?: string; skills?: string[]; experience?: string; portfolio?: string; video_intro?: string; timezone?: string; currency?: string },
     @Res() res: Response,
   ) {
     try {
@@ -81,6 +81,8 @@ export class AuthController {
         experience: body.experience,
         portfolio: body.portfolio,
         video_intro: body.video_intro,
+        timezone: body.timezone,
+        currency: body.currency,
       });
       console.log('Select Role - Generated Token:', user);
       return res.json(user);
@@ -92,7 +94,7 @@ export class AuthController {
 
   @Post('test-register')
   async testRegister(
-    @Body() body: { email: string; password: string; username: string; role: 'employer' | 'jobseeker'; company_name?: string; company_info?: string; referral_link?: string; skills?: string[]; experience?: string; portfolio?: string; video_intro?: string },
+    @Body() body: { email: string; password: string; username: string; role: 'employer' | 'jobseeker'; company_name?: string; company_info?: string; referral_link?: string; skills?: string[]; experience?: string; portfolio?: string; video_intro?: string; timezone?: string; currency?: string },
     @Res() res: Response,
   ) {
     const registerDto = { email: body.email, password: body.password, username: body.username };
@@ -105,6 +107,8 @@ export class AuthController {
       experience: body.experience,
       portfolio: body.portfolio,
       video_intro: body.video_intro,
+      timezone: body.timezone,
+      currency: body.currency,
     };
     const user = await this.authService.completeRegistration(tempToken, body.role, additionalData);
     return res.json(user);

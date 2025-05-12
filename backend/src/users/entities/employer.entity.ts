@@ -19,6 +19,12 @@ export class Employer {
   @Column({ nullable: true })
   referral_link?: string;
 
+  @Column({ nullable: true }) // Часовой пояс, например, "Europe/Moscow"
+  timezone?: string;
+
+  @Column({ nullable: true }) // Валюта, например, "USD"
+  currency?: string;
+
   @CreateDateColumn()
   created_at: Date;
 

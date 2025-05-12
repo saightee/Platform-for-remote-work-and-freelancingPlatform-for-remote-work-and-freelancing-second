@@ -43,6 +43,8 @@ export class UsersService {
         experience: additionalData.experience || '',
         portfolio: additionalData.portfolio || '',
         video_intro: additionalData.video_intro || '',
+        timezone: additionalData.timezone || 'UTC',
+        currency: additionalData.currency || 'USD',
       };
       const jobSeeker = this.jobSeekerRepository.create(jobSeekerEntity);
       await this.jobSeekerRepository.save(jobSeeker);
@@ -53,6 +55,8 @@ export class UsersService {
         company_name: additionalData.company_name || '',
         company_info: additionalData.company_info || '',
         referral_link: additionalData.referral_link || '',
+        timezone: additionalData.timezone || 'UTC',
+        currency: additionalData.currency || 'USD',
       };
       const employer = this.employerRepository.create(employerEntity);
       await this.employerRepository.save(employer);
@@ -74,20 +78,24 @@ export class UsersService {
     await this.usersRepository.update(userId, { role });
     if (role === 'jobseeker') {
       const jobSeekerEntity: DeepPartial<JobSeeker> = {
-        user_id: userId, 
+        user_id: userId,
         skills: additionalData.skills || [],
         experience: additionalData.experience || '',
         portfolio: additionalData.portfolio || '',
         video_intro: additionalData.video_intro || '',
+        timezone: additionalData.timezone || 'UTC',
+        currency: additionalData.currency || 'USD',
       };
       await this.jobSeekerRepository.upsert(jobSeekerEntity, ['user_id']);
       console.log('JobSeeker profile updated:', jobSeekerEntity);
     } else if (role === 'employer') {
       const employerEntity: DeepPartial<Employer> = {
-        user_id: userId, 
+        user_id: userId,
         company_name: additionalData.company_name || '',
         company_info: additionalData.company_info || '',
         referral_link: additionalData.referral_link || '',
+        timezone: additionalData.timezone || 'UTC',
+        currency: additionalData.currency || 'USD',
       };
       await this.employerRepository.upsert(employerEntity, ['user_id']);
       console.log('Employer profile updated:', employerEntity);

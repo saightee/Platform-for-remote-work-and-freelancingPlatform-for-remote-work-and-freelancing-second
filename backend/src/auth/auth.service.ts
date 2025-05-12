@@ -84,10 +84,9 @@ export class AuthService {
     }
     const userData = JSON.parse(userDataString);
     console.log('User Data:', userData);
-
+  
     let existingUser = await this.usersService.findByEmail(userData.email);
     if (!existingUser) {
-      // Создаем пользователя в таблице users
       const userToCreate = {
         email: userData.email,
         username: userData.username,
@@ -95,14 +94,24 @@ export class AuthService {
         provider: userData.provider,
         role,
       };
-      existingUser = await this.usersService.create(userToCreate, additionalData);
+      const additionalProfileData = {
+        ...additionalData,
+        timezone: additionalData.timezone || 'UTC', // Значение по умолчанию
+        currency: additionalData.currency || 'USD', // Значение по умолчанию
+      };
+      existingUser = await this.usersService.create(userToCreate, additionalProfileData);
       console.log('New User Created:', existingUser);
     } else {
       console.log('Existing User Found:', existingUser);
-      await this.usersService.updateUser(existingUser.id, role, additionalData);
-      console.log('User Updated:', { role, additionalData });
+      const additionalProfileData = {
+        ...additionalData,
+        timezone: additionalData.timezone || 'UTC',
+        currency: additionalData.currency || 'USD',
+      };
+      await this.usersService.updateUser(existingUser.id, role, additionalProfileData);
+      console.log('User Updated:', { role, additionalProfileData });
     }
-
+  
     const payload = { email: existingUser.email, sub: existingUser.id };
     const token = this.jwtService.sign(payload, { expiresIn: '1h' });
     await this.redisService.set(`token:${existingUser.id}`, token, 3600);
@@ -137,4 +146,7 @@ export class AuthService {
     await this.redisService.del(`reset:${token}`);
     return { message: 'Password reset successful' };
   }
+
+
+  
 }
