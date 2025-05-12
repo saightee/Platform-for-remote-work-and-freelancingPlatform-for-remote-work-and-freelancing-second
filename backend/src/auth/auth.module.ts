@@ -7,7 +7,7 @@ import { PassportModule } from '@nestjs/passport';
 import { RedisModule } from '../redis/redis.module';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { LinkedInStrategy } from './strategies/linkedin.strategy';
-// import { FacebookStrategy } from './strategies/facebook.strategy'; // Закомментируем
+import { JwtStrategy } from './strategies/jwt.strategy'; // Добавляем JwtStrategy
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
@@ -21,10 +21,13 @@ import * as nodemailer from 'nodemailer';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET', 'mySuperSecretKey123!@#ForLocalDev2025'),
-        signOptions: { expiresIn: '1h' },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        console.log('JWT_SECRET from ConfigService:', configService.get<string>('JWT_SECRET'));
+        return {
+          secret: configService.get<string>('JWT_SECRET', 'mySuperSecretKey123!@#ForLocalDev2025'),
+          signOptions: { expiresIn: '1h' },
+        };
+      },
       inject: [ConfigService],
     }),
     RedisModule,
@@ -33,8 +36,8 @@ import * as nodemailer from 'nodemailer';
   providers: [
     AuthService,
     GoogleStrategy,
-    // FacebookStrategy, // Закомментируем
-    // LinkedInStrategy, // Уже отключена
+    JwtStrategy, // Добавляем JwtStrategy
+    // LinkedInStrategy,
     {
       provide: 'MAILER_TRANSPORT',
       useFactory: (configService: ConfigService) => {

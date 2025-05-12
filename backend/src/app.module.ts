@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config'; 
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { ProfilesModule } from './profiles/profiles.module'; // Добавляем ProfilesModule
 import { RedisModule } from './redis/redis.module';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
@@ -12,7 +13,7 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env', 
+      envFilePath: '.env',
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -34,6 +35,7 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
     }),
     UsersModule,
     AuthModule,
+    ProfilesModule, // Добавляем ProfilesModule
     RedisModule,
   ],
   controllers: [AppController],
