@@ -1,15 +1,21 @@
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
+/* Серый фон для подстраниц регистрации */
+.section-register,
+.section-register-employer,
+.section-register-jobseeker {
+  background-color: #f0f0f0; /* Серый фон */
+  min-height: 100vh; /* Полная высота страницы */
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.App {
+/* Убедимся, что container внутри этих секций не добавляет лишних отступов */
+.section-register .container,
+.section-register-employer .container,
+.section-register-jobseeker .container {
+  padding: 0;
+  margin: 0;
+  width: 100%;
   display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-.container {
-  max-width: 1200px; /* Ограничиваем ширину контента */
-  margin: 0 auto; /* Центрируем контейнер */
-  padding: 0 1rem; /* Добавляем отступы по бокам */
+  justify-content: center;
 }

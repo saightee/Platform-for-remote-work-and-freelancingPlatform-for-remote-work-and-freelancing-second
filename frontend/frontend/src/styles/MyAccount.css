@@ -1,0 +1,128 @@
+.my-account {
+    font-family: Arial, sans-serif;
+    background-color: #F5F9FF;
+    color: #333;
+  }
+  
+  .welcome-section {
+    padding: 20px;
+  }
+  
+  .welcome-section h1 {
+    font-size: 24px;
+    color: #333;
+  }
+  
+  .upgrade-box {
+    display: flex;
+    align-items: center;
+    background-color: #FFF;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .rocket-icon {
+    width: 50px;
+    margin-right: 20px;
+  }
+  
+  .upgrade-content h2 {
+    font-size: 18px;
+    color: #0056A0;
+  }
+  
+  .upgrade-content p {
+    font-size: 14px;
+    color: #666;
+  }
+  
+  .payment-section {
+    background-color: #0056A0;
+    color: #FFF;
+    padding: 20px;
+    margin: 20px 0;
+  }
+  
+  .payment-section h2 {
+    font-size: 20px;
+    text-align: center;
+  }
+  
+  .payment-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+  }
+  
+  .payment-image img {
+    width: 150px;
+  }
+  
+  .payment-features ul {
+    list-style: none;
+    padding: 0;
+  }
+  
+  .payment-features li {
+    font-size: 14px;
+    margin: 10px 0;
+  }
+  
+  .checkmark {
+    color: #28A745;
+    margin-right: 10px;
+  }
+  
+  .job-posts-section, .workers-section, .invite-section, .guides-section {
+    padding: 20px;
+  }
+  
+  .job-posts-section h2, .workers-section h2, .invite-section h2, .guides-section h2 {
+    font-size: 20px;
+    color: #333;
+  }
+  
+  .referral-link {
+    display: flex;
+    align-items: center;
+  }
+  
+  .referral-link input {
+    flex: 1;
+    padding: 10px;
+    margin-right: 10px;
+    border: 1px solid #CCC;
+    border-radius: 4px;
+  }
+  
+  .guides-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+  }
+  
+  .green-button {
+    background-color: #28A745;
+    color: #FFF;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  
+  .green-button:hover {
+    background-color: #218838;
+  }
+  
+  .learn-more, .see-more {
+    color: #0056A0;
+    text-decoration: none;
+    font-size: 14px;
+  }
+  
+  .learn-more:hover, .see-more:hover {
+    text-decoration: underline;
+  }

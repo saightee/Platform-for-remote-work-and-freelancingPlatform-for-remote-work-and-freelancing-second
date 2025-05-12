@@ -1,0 +1,25 @@
+.jobseeker-navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #FFF;
+    padding: 10px 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .navbar-brand {
+    color: #0056A0;
+    font-size: 20px;
+    font-weight: bold;
+  }
+  
+  .navbar-links a {
+    color: #0056A0;
+    text-decoration: none;
+    margin-left: 20px;
+    font-size: 14px;
+  }
+  
+  .navbar-links a:hover {
+    text-decoration: underline;
+  }
