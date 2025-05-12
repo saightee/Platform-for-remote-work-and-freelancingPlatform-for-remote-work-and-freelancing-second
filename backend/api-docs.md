@@ -6,7 +6,7 @@
 ## Endpoints
 
 ### 1. Register a User
-- **Endpoint**: `POST /auth/register`
+- **Endpoint**: `POST api/auth/register`
 - **Description**: Registers a new user with email, password, and username.
 - **Request Body**:
   ```json
@@ -33,7 +33,7 @@
 
 
 ### 2. Login a User
-- **Endpoint**: `POST /auth/login`
+- **Endpoint**: `POST api/auth/login`
 - **Description**: Logs in a user with email and password, returns a JWT token.
 - **Request Body**:
   ```json
@@ -57,7 +57,7 @@
   }  
 
 ### 3. Logout a User
-- **Endpoint**: `POST /auth/logout`
+- **Endpoint**: `POST api/auth/logout`
 - **Description**: Logs out a user by blacklisting the JWT token.
 - **Headers**: Authorization: Bearer <token>
 - **Request Body**: None

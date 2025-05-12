@@ -5,18 +5,48 @@ import { UsersModule } from '../users/users.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { RedisModule } from '../redis/redis.module';
+import { GoogleStrategy } from './strategies/google.strategy';
+import { LinkedInStrategy } from './strategies/linkedin.strategy';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
     UsersModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.register({
-      secret: 'mySuperSecretKey123!@#ForLocalDev2025',
-      signOptions: { expiresIn: '1h' },
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET', 'mySuperSecretKey123!@#ForLocalDev2025'),
+        signOptions: { expiresIn: '1h' },
+      }),
+      inject: [ConfigService],
     }),
     RedisModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [
+    AuthService,
+    GoogleStrategy,
+    LinkedInStrategy,
+    {
+      provide: 'MAILER_TRANSPORT',
+      useFactory: (configService: ConfigService) => {
+        return nodemailer.createTransport({
+          host: configService.get<string>('SMTP_HOST'),
+          port: configService.get<number>('SMTP_PORT', 587),
+          auth: {
+            user: configService.get<string>('SMTP_USER'),
+            pass: configService.get<string>('SMTP_PASS'),
+          },
+        });
+      },
+      inject: [ConfigService],
+    },
+  ],
 })
 export class AuthModule {}
