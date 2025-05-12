@@ -1,48 +1,37 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import Footer from './Footer';
+import EmployerNavbar from './EmployerNavbar';
+import JobSeekerNavbar from './JobSeekerNavbar';
+import DefaultNavbar from './DefaultNavbar';
+import '../styles/Layout.css';
 
-const Logout: React.FC = () => {
-  const { logout } = useAuth();
-  const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
+const Layout: React.FC = () => {
+  const { role, isAuthenticated } = useAuth();
+  const location = useLocation();
 
-  useEffect(() => {
-    const handleLogout = async () => {
-      try {
-        await logout();
-        navigate('/');
-      } catch (err: any) {
-        setError(err.message);
-      }
-    };
+  console.log('isAuthenticated:', isAuthenticated, 'role:', role, 'location.pathname:', location.pathname);
+  const shouldRenderNavbar = !['/login', '/register/employer', '/register/jobseeker'].includes(location.pathname.trim());
+  console.log('shouldRenderNavbar:', shouldRenderNavbar);
 
-    handleLogout();
-  }, [logout, navigate]);
-
-  const containerStyles: React.CSSProperties = {
-    textAlign: 'center',
-    padding: '3rem 0',
-  };
-
-  const titleStyles: React.CSSProperties = {
-    fontSize: '1.5rem',
-    fontWeight: 700,
-    color: '#2c3e50',
-    marginBottom: '1rem',
-  };
-
-  const errorStyles: React.CSSProperties = {
-    color: 'red',
-    fontSize: '0.9rem',
-  };
+  const Navbar = isAuthenticated
+    ? role === 'employer'
+      ? EmployerNavbar
+      : JobSeekerNavbar
+    : DefaultNavbar;
 
   return (
-    <div style={containerStyles}>
-      <h2 style={titleStyles}>Logging Out...</h2>
-      {error && <p style={errorStyles}>{error}</p>}
-    </div>
+    <>
+      {shouldRenderNavbar ? <Navbar /> : <div>Navbar hidden for this route: {location.pathname}</div>}
+      <main className="main-content">
+        <Outlet />
+      </main>
+      <div className="section-footer">
+        <Footer />
+      </div>
+    </>
   );
 };
 
-export default Logout;
+export default Layout;

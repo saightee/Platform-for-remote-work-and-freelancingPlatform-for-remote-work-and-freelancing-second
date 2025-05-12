@@ -14,8 +14,15 @@
 }
 
 .section-footer {
-  background-color: #2c3e50;
+  background-color: #2c3e50; /* Цвет фона растягивается на всю ширину */
   width: 100%;
+  padding: 3rem 0; /* Соответствует padding из footerStyles */
+}
+
+.section-footer .container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px; /* Соответствует padding из containerStyles */
 }
 
 /* Фоны для секций главной страницы */
@@ -95,6 +102,12 @@
 
 .section-post-job {
   background-color: #f5f6fa;
+  width: 100%;
+  min-height: calc(100vh - 300px);
+}
+
+.section-myaccount {
+  background-color: #f5f9ff;
   width: 100%;
   min-height: calc(100vh - 300px);
 }

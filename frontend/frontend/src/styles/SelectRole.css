@@ -1,0 +1,53 @@
+.section-select-role .container .select-role-page {
+  max-width: 400px;
+  margin: 80px auto 80px;
+  padding: 30px 25px;
+  text-align: center;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.section-select-role .container .select-role-page:hover {
+  transform: translateY(-2px);
+}
+
+.section-select-role .container .select-role-page h2 {
+  margin-bottom: 15px;
+  color: #333;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.section-select-role .container .select-role-page p {
+  margin-bottom: 25px;
+  color: #555;
+  font-size: 16px;
+}
+
+.section-select-role .container .select-role-page .role-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.section-select-role .container .select-role-page .role-btn {
+  width: 100%;
+  max-width: 350px;
+  margin: 0 auto;
+  padding: 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.section-select-role .container .select-role-page .role-btn:hover {
+  background-color: #0056b3;
+  transform: translateY(-1px);
+}

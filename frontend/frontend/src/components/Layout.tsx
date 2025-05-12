@@ -1,26 +1,36 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
-import Header from './Header';
+import { Outlet, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import Footer from './Footer';
+import EmployerNavbar from './EmployerNavbar';
+import JobSeekerNavbar from './JobSeekerNavbar';
+import DefaultNavbar from './DefaultNavbar';
 import '../styles/Layout.css';
 
 const Layout: React.FC = () => {
+  const { role, isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  const shouldRenderLayout = !['/register', '/register/employer', '/register/jobseeker'].includes(location.pathname.trim());
+
+  const Navbar = isAuthenticated
+    ? role === 'employer'
+      ? EmployerNavbar
+      : JobSeekerNavbar
+    : DefaultNavbar;
+
   return (
-    <div className="App">
-      <div className="section-header">
-        <div className="container">
-          <Header />
-        </div>
-      </div>
-      <div className="main-content">
+    <>
+      {shouldRenderLayout && <Navbar />}
+      <main className="main-content">
         <Outlet />
-      </div>
-      <div className="section-footer">
-        <div className="container">
+      </main>
+      {shouldRenderLayout && (
+        <div className="section-footer">
           <Footer />
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 };
 

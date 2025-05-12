@@ -1,97 +1,73 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { FaGoogle, FaFacebookF } from 'react-icons/fa';
+import '../styles/Login.css';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const { login } = useAuth();
+  const [success, setSuccess] = useState<string | null>(null);
+  const auth = useAuth();
   const navigate = useNavigate();
+
+  if (!auth) {
+    console.error('Auth context is undefined in Login');
+    return <div>Error: Auth context is not available</div>;
+  }
+
+  const { login, isAuthenticated, isEmailVerified, role } = auth;
+
+  useEffect(() => {
+    if (isAuthenticated && isEmailVerified && role) {
+      navigate('/myaccount');
+    } else if (isAuthenticated && !isEmailVerified) {
+      navigate('/verify-email');
+    } else if (isAuthenticated && isEmailVerified && !role) {
+      navigate('/select-role');
+    }
+  }, [isAuthenticated, isEmailVerified, role, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
 
     try {
       await login(email, password);
-      navigate('/');
+      setSuccess('Login successful! Redirecting...');
+      setTimeout(() => {
+        if (isAuthenticated && isEmailVerified && role) {
+          navigate('/myaccount');
+        } else if (isAuthenticated && !isEmailVerified) {
+          navigate('/verify-email');
+        } else if (isAuthenticated && isEmailVerified && !role) {
+          navigate('/select-role');
+        }
+      }, 2000);
     } catch (err: any) {
-      setError(err.message);
+      console.error('Login error:', err);
+      setError(err.message || 'Login failed');
     }
   };
 
-  const containerStyles: React.CSSProperties = {
-    maxWidth: '400px',
-    margin: '50px auto',
-    padding: '2rem',
-    border: '1px solid #e9ecef',
-    borderRadius: '8px',
-    boxShadow: '0 2px 5px rgba(0, 0, 0, 0.1)',
-  };
-
-  const titleStyles: React.CSSProperties = {
-    fontSize: '1.5rem',
-    fontWeight: 700,
-    color: '#2c3e50',
-    marginBottom: '1.5rem',
-    textAlign: 'center',
-  };
-
-  const formStyles: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1rem',
-  };
-
-  const inputStyles: React.CSSProperties = {
-    padding: '0.75rem',
-    fontSize: '1rem',
-    border: '1px solid #e9ecef',
-    borderRadius: '4px',
-    outline: 'none',
-  };
-
-  const buttonStyles: React.CSSProperties = {
-    padding: '0.75rem',
-    fontSize: '1rem',
-    fontWeight: 500,
-    backgroundColor: '#007bff',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  };
-
-  const errorStyles: React.CSSProperties = {
-    color: 'red',
-    fontSize: '0.9rem',
-    textAlign: 'center',
-  };
-
-  const linkContainerStyles: React.CSSProperties = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    marginTop: '1rem',
-  };
-
-  const linkStyles: React.CSSProperties = {
-    color: '#007bff',
-    textDecoration: 'none',
-    fontSize: '0.9rem',
+  const handleSocialLogin = (provider: string) => {
+    setError(`Login with ${provider} is not implemented yet`);
   };
 
   return (
-    <div style={containerStyles}>
-      <h2 style={titleStyles}>Login</h2>
-      {error && <p style={errorStyles}>{error}</p>}
-      <form onSubmit={handleLogin} style={formStyles}>
+    <div className="login-container">
+      <h2 className="login-title">Login</h2>
+      {error && <p className="login-error">{error}</p>}
+      {success && <p className="login-success">{success}</p>}
+      <form onSubmit={handleLogin} className="login-form">
         <input
           type="email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          style={inputStyles}
+          className="login-input"
           required
         />
         <input
@@ -99,14 +75,30 @@ const Login: React.FC = () => {
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          style={inputStyles}
+          className="login-input"
           required
         />
-        <button type="submit" style={buttonStyles}>Login</button>
+        <button type="submit" className="login-button">Login</button>
       </form>
-      <div style={linkContainerStyles}>
-        <Link to="/forgot-password" style={linkStyles}>Forgot Password?</Link>
-        <Link to="/" style={linkStyles}>Go to Home</Link>
+      <div className="social-login">
+        <button
+          type="button"
+          className="social-button google-button"
+          onClick={() => handleSocialLogin('Google')}
+        >
+          <FaGoogle /> Login with Google
+        </button>
+        <button
+          type="button"
+          className="social-button facebook-button"
+          onClick={() => handleSocialLogin('Facebook')}
+        >
+          <FaFacebookF /> Login with Facebook
+        </button>
+      </div>
+      <div className="link-container">
+        <Link to="/forgot-password" className="link">Forgot Password?</Link>
+        <Link to="/" className="link">Go to Home</Link>
       </div>
     </div>
   );
