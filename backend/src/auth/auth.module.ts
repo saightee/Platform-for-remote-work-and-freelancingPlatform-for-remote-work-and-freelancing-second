@@ -10,6 +10,7 @@ import { LinkedInStrategy } from './strategies/linkedin.strategy';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -50,3 +51,4 @@ import * as nodemailer from 'nodemailer';
   ],
 })
 export class AuthModule {}
+
