@@ -24,10 +24,18 @@ const RegisterPage: React.FC = () => {
     }
 
     try {
-      await register(email, password);
-      setSuccess('Registration successful! Please verify your email.');
-      setTimeout(() => navigate('/login'), 2000);
+      const response = await register(email, password);
+      console.log('Registration response:', response);
+      const tempToken = response.tempToken || response.data?.tempToken;
+      if (tempToken) {
+        setSuccess('Registration successful! Redirecting to select role...');
+        setTimeout(() => navigate(`/select-role?tempToken=${tempToken}`), 2000);
+      } else {
+        setSuccess('Registration successful! Please verify your email.');
+        setTimeout(() => navigate('/verify-email'), 2000);
+      }
     } catch (err: any) {
+      console.error('Registration failed:', err.message);
       setError(err.message || 'Registration failed');
     }
   };
@@ -38,10 +46,12 @@ const RegisterPage: React.FC = () => {
     try {
       if (provider === 'Google') {
         await googleLogin();
+        // Редирект обрабатывается через callback в App.tsx
       } else {
         setError(`Registration with ${provider} is not implemented yet`);
       }
     } catch (err: any) {
+      console.error('Social registration failed:', err.message);
       setError(err.message || `Registration with ${provider} failed`);
     }
   };
