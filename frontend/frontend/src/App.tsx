@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
 import Hero from './components/Hero';
@@ -64,6 +64,22 @@ const Home: React.FC = () => {
   );
 };
 
+const AuthCallback: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tempToken = searchParams.get('tempToken');
+
+  useEffect(() => {
+    if (tempToken) {
+      navigate(`/select-role?tempToken=${tempToken}`);
+    } else {
+      navigate('/login');
+    }
+  }, [tempToken, navigate]);
+
+  return <div>Processing authentication...</div>;
+};
+
 const App: React.FC = () => {
   useEffect(() => {
     const handlePageShow = (event: PageTransitionEvent) => {
@@ -99,6 +115,7 @@ const App: React.FC = () => {
           <Route path="/logout" element={<div className="section-logout"><div className="container"><Logout /></div></div>} />
           <Route path="/forgot-password" element={<div className="section-forgot-password"><div className="container"><ForgotPasswordPage /></div></div>} />
           <Route path="/reset-password/:token" element={<div className="section-reset-password"><div className="container"><ResetPasswordPage /></div></div>} />
+          <Route path="/auth/callback" element={<AuthCallback />} /> {/* Новый маршрут для Google */}
         </Routes>
       </AuthProvider>
     </Router>

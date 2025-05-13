@@ -25,7 +25,7 @@ interface AuthContextType {
   verifyEmail: (token: string) => Promise<any>;
   forgotPassword: (email: string) => Promise<any>;
   resetPassword: (token: string, newPassword: string) => Promise<any>;
-  selectRole: (role: string) => Promise<any>;
+  selectRole: (role: string, tempToken: string, additionalData?: Record<string, any>) => Promise<any>;
   logout: () => void;
 }
 
@@ -65,17 +65,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const googleLogin = async () => {
     try {
-      window.location.href = `${API_BASE_URL}/api/auth/google`;
+      console.log('Redirecting to Google auth...');
+      window.location.href = `${API_BASE_URL}/api/auth/google?callbackUrl=${encodeURIComponent(window.location.origin + '/auth/callback')}`;
     } catch (error: any) {
+      console.error('Google login error:', error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Google login failed');
     }
   };
 
   const register = async (email: string, password: string) => {
     try {
+      console.log('Registering with:', { email, password });
       const response = await api.post('/auth/register', { email, password });
+      console.log('Registration response:', response.data);
       return response.data;
     } catch (error: any) {
+      console.error('Registration error:', error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Registration failed');
     }
   };
@@ -108,12 +113,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const selectRole = async (role: string) => {
+  const selectRole = async (role: string, tempToken: string, additionalData?: Record<string, any>) => {
     try {
-      const response = await api.post('/roles/select', { role });
+      console.log('Selecting role with tempToken and additional data:', { role, tempToken, additionalData });
+      const response = await api.post('/api/auth/select-role', {
+        tempToken,
+        role,
+        ...additionalData,
+      });
       setRole(role);
       return response.data;
     } catch (error: any) {
+      console.error('Role selection error:', error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Role selection failed');
     }
   };
