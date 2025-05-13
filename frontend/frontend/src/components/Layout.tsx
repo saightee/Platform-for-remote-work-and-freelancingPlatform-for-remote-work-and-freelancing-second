@@ -8,10 +8,17 @@ import DefaultNavbar from './DefaultNavbar';
 import '../styles/Layout.css';
 
 const Layout: React.FC = () => {
-  const { role, isAuthenticated } = useAuth();
+  const auth = useAuth();
+
+  if (!auth) {
+    console.error('Auth context is undefined in Layout');
+    return <div>Error: Auth context is not available</div>;
+  }
+
+  const { role, isAuthenticated } = auth;
   const location = useLocation();
 
-  const shouldRenderLayout = !['/register', '/register/employer', '/register/jobseeker'].includes(location.pathname.trim());
+  const shouldRenderLayout = !['/register', '/register/employer', '/register/jobseeker', '/login'].includes(location.pathname.trim());
 
   const Navbar = isAuthenticated
     ? role === 'employer'

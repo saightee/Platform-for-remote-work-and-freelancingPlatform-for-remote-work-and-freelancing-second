@@ -15,7 +15,6 @@ import JobSearchPage from './components/JobSearchPage';
 import JobDetailsPage from './components/JobDetailsPage';
 import MyAccount from './components/MyAccount';
 import SelectRolePage from './components/SelectRolePage';
-import CompleteProfilePage from './components/CompleteProfilePage';
 import VerifyEmailPage from './components/VerifyEmailPage';
 import ForgotPasswordPage from './components/ForgotPasswordPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
@@ -85,7 +84,6 @@ const App: React.FC = () => {
     <Router>
       <AuthProvider>
         <Routes>
-          {/* Маршруты с Layout (с навбаром и футером) */}
           <Route element={<Layout />}>
             <Route path="/" element={<Home />} />
             <Route path="/post-job" element={<div className="section-post-job"><div className="container"><PostJobForm /></div></div>} />
@@ -94,12 +92,9 @@ const App: React.FC = () => {
             <Route path="/workers" element={<WorkersPage />} />
             <Route path="/myaccount" element={<div className="section-myaccount"><div className="container"><MyAccount /></div></div>} />
           </Route>
-
-          {/* Маршруты без Layout (без навбара и футера) */}
           <Route path="/register" element={<div className="section-register"><div className="container"><RegisterPage /></div></div>} />
           <Route path="/verify-email/:token" element={<div className="section-verify-email"><div className="container"><VerifyEmailPage /></div></div>} />
           <Route path="/select-role" element={<div className="section-select-role"><div className="container"><SelectRolePage /></div></div>} />
-          <Route path="/complete-profile" element={<div className="section-complete-profile"><div className="container"><CompleteProfilePage /></div></div>} />
           <Route path="/login" element={<div className="section-login"><div className="container"><Login /></div></div>} />
           <Route path="/logout" element={<div className="section-logout"><div className="container"><Logout /></div></div>} />
           <Route path="/forgot-password" element={<div className="section-forgot-password"><div className="container"><ForgotPasswordPage /></div></div>} />

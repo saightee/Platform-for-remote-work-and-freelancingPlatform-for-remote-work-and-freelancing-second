@@ -11,18 +11,21 @@
 
 .main-content {
   width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .section-footer {
-  background-color: #2c3e50; /* Цвет фона растягивается на всю ширину */
+  background-color: #2c3e50;
   width: 100%;
-  padding: 3rem 0; /* Соответствует padding из footerStyles */
+  padding: 3rem 0;
 }
 
 .section-footer .container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 20px; /* Соответствует padding из containerStyles */
+  padding: 0 20px;
 }
 
 /* Фоны для секций главной страницы */
@@ -73,25 +76,41 @@
 .section-register {
   background-color: #f5f6fa;
   width: 100%;
-  min-height: calc(100vh - 300px);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
 }
 
 .section-register-employer {
   background-color: #f5f6fa;
   width: 100%;
-  min-height: calc(100vh - 300px);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
 }
 
 .section-register-jobseeker {
   background-color: #f5f6fa;
   width: 100%;
-  min-height: calc(100vh - 300px);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
 }
 
 .section-login {
   background-color: #f5f6fa;
   width: 100%;
-  min-height: calc(100vh - 300px);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
 }
 
 .section-logout {
@@ -110,4 +129,90 @@
   background-color: #f5f9ff;
   width: 100%;
   min-height: calc(100vh - 300px);
+}
+
+.section-myaccount .myaccount-container {
+  padding: 2rem;
+  text-align: center;
+}
+
+.section-myaccount .tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.section-myaccount .tabs button {
+  padding: 0.5rem 1rem;
+  margin: 0 0.5rem;
+  border: none;
+  background-color: #e0e0e0;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.section-myaccount .tabs .tab-active {
+  background-color: #007bff;
+  color: white;
+}
+
+.section-myaccount .job-item {
+  border: 1px solid #ddd;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 5px;
+}
+
+.section-myaccount .job-action-button {
+  padding: 0.5rem 1rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+.section-myaccount .job-action-button:hover {
+  background-color: #0056b3;
+}
+
+.section-verify-email {
+  background-color: #f5f6fa;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+}
+
+.section-select-role {
+  background-color: #f5f6fa;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+}
+
+.section-forgot-password {
+  background-color: #f5f6fa;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+}
+
+.section-reset-password {
+  background-color: #f5f6fa;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
 }

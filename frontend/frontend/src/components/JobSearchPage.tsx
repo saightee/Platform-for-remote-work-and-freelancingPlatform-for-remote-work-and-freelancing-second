@@ -1,19 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import axios from 'axios';
+import { API_BASE_URL } from '../config';
 import '../styles/JobSearchPage.css';
 
 interface Job {
   id: string;
   title: string;
-  companyName: string;
-  location: string;
-  salary: string;
-  employmentType: string;
-  postedDate: string;
   description: string;
-  hoursPerWeek: string;
-  status?: string;
-  views: number; // Новое поле для количества просмотров
+  category: string;
+  budget: number;
+  status: string;
+  createdBy: {
+    id: string;
+    name: string;
+    companyName?: string;
+  };
+  createdAt: string;
+  views?: number; // Добавим для совместимости с текущей структурой
 }
 
 const JobCardList: React.FC<{ jobs: Job[] }> = ({ jobs }) => {
@@ -30,18 +34,18 @@ const JobCardList: React.FC<{ jobs: Job[] }> = ({ jobs }) => {
               </div>
               <p className="job-description-snippet">{job.description.substring(0, 100)}...</p>
               <div className="job-meta">
-                <p><strong>Company:</strong> {job.companyName}</p>
-                <p><strong>Type:</strong> {job.employmentType}</p>
-                <p><strong>Location:</strong> 📍 {job.location}</p>
-                <p><strong>Salary:</strong> 💰 {job.salary}</p>
-                <p><strong>Hours:</strong> 🕒 {job.hoursPerWeek}</p>
-                <p><strong>Posted:</strong> {job.postedDate}</p>
+                <p><strong>Company:</strong> {job.createdBy.companyName || job.createdBy.name}</p>
+                <p><strong>Type:</strong> N/A</p> {/* Поле отсутствует в бэкенде, можно добавить в будущем */}
+                <p><strong>Location:</strong> 📍 Remote</p> {/* Поле отсутствует, предполагаем Remote */}
+                <p><strong>Salary:</strong> 💰 ${job.budget}</p>
+                <p><strong>Hours:</strong> 🕒 N/A</p> {/* Поле отсутствует */}
+                <p><strong>Posted:</strong> {new Date(job.createdAt).toLocaleDateString()}</p>
               </div>
               <Link to={`/jobs/${job.id}`} className="view-details">
                 View Details
               </Link>
               <div className="views-counter">
-                👁️ {job.views}
+                👁️ {job.views || 0}
               </div>
             </div>
           ))}
@@ -74,11 +78,11 @@ const JobTable: React.FC<{ jobs: Job[] }> = ({ jobs }) => {
             {jobs.map((job) => (
               <tr key={job.id}>
                 <td>{job.title}</td>
-                <td>{job.companyName}</td>
-                <td>{job.location}</td>
-                <td>{job.salary}</td>
-                <td>{job.employmentType}</td>
-                <td>{job.postedDate}</td>
+                <td>{job.createdBy.companyName || job.createdBy.name}</td>
+                <td>Remote</td> {/* Поле отсутствует */}
+                <td>${job.budget}</td>
+                <td>N/A</td> {/* Поле отсутствует */}
+                <td>{new Date(job.createdAt).toLocaleDateString()}</td>
                 <td>
                   <Link to={`/jobs/${job.id}`}>View Details</Link>
                 </td>
@@ -104,6 +108,7 @@ const JobSearchPage: React.FC = () => {
   });
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const location = useLocation();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -112,62 +117,22 @@ const JobSearchPage: React.FC = () => {
 
     const fetchJobs = async () => {
       try {
-        const mockJobs: Job[] = [
-          {
-            id: '1',
-            title: 'Frontend Developer',
-            companyName: 'ABC Tech',
-            location: 'Remote',
-            salary: '$80,000 - $120,000',
-            employmentType: 'Full-Time',
-            postedDate: '2025-05-01',
-            description: 'We are looking for a skilled Frontend Developer to join our team remotely...',
-            hoursPerWeek: '40 hrs/wk',
-            status: 'New',
-            views: 150,
+        const response = await axios.get('/api/jobs', {
+          baseURL: API_BASE_URL,
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          params: {
+            title: keywords || undefined,
+            category: filters.category || undefined,
+            location: locationFilter || undefined,
           },
-          {
-            id: '2',
-            title: 'Graphic Designer',
-            companyName: 'XYZ Design',
-            location: 'New York, NY',
-            salary: '$60,000 - $90,000',
-            employmentType: 'Part-Time',
-            postedDate: '2025-05-02',
-            description: 'Seeking a creative Graphic Designer for our New York office...',
-            hoursPerWeek: '20 hrs/wk',
-            status: 'Hot',
-            views: 200,
-          },
-          {
-            id: '3',
-            title: 'Marketing Manager',
-            companyName: 'Global Corp',
-            location: 'San Francisco, CA',
-            salary: '$100,000 - $150,000',
-            employmentType: 'Full-Time',
-            postedDate: '2025-05-03',
-            description: 'Looking for an experienced Marketing Manager to lead campaigns...',
-            hoursPerWeek: '40 hrs/wk',
-            views: 75,
-          },
-          {
-            id: '4',
-            title: 'Virtual Assistant',
-            companyName: 'Remote Solutions',
-            location: 'Remote',
-            salary: '$40,000 - $60,000',
-            employmentType: 'Freelance',
-            postedDate: '2025-05-04',
-            description: 'Hiring a Virtual Assistant to support our remote operations...',
-            hoursPerWeek: 'Flexible',
-            status: 'New',
-            views: 120,
-          },
-        ];
-        setJobs(mockJobs);
-      } catch (err) {
-        console.error('Failed to fetch jobs:', err);
+        });
+        const fetchedJobs = response.data.map((job: Job) => ({
+          ...job,
+          views: job.views || Math.floor(Math.random() * 200), // Добавляем views для совместимости
+        }));
+        setJobs(fetchedJobs);
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to fetch jobs');
         setJobs([]);
       }
     };
@@ -175,7 +140,7 @@ const JobSearchPage: React.FC = () => {
     fetchJobs();
     setSearchTerm(keywords);
     setFilters((prev) => ({ ...prev, location: locationFilter }));
-  }, [location.search]);
+  }, [location.search, filters.category]);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -186,20 +151,20 @@ const JobSearchPage: React.FC = () => {
     const filteredJobs = jobs.filter((job) => {
       const matchesSearch = searchTerm
         ? job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          job.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          job.createdBy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           job.description.toLowerCase().includes(searchTerm.toLowerCase())
         : true;
       const matchesCategory = filters.category
-        ? job.title.toLowerCase().includes(filters.category.toLowerCase())
+        ? job.category.toLowerCase().includes(filters.category.toLowerCase())
         : true;
       const matchesLocation = filters.location
-        ? job.location.toLowerCase().includes(filters.location.toLowerCase())
+        ? true // Поле location отсутствует в бэкенде, пропускаем фильтр
         : true;
       const matchesSalary = filters.salary
-        ? job.salary.toLowerCase().includes(filters.salary.toLowerCase())
+        ? String(job.budget).includes(filters.salary)
         : true;
       const matchesType = filters.employmentType
-        ? job.employmentType === filters.employmentType
+        ? true // Поле employmentType отсутствует, пропускаем фильтр
         : true;
       return matchesSearch && matchesCategory && matchesLocation && matchesSalary && matchesType;
     });
@@ -220,6 +185,7 @@ const JobSearchPage: React.FC = () => {
           Search
         </button>
       </div>
+      {error && <p className="job-search-error">{error}</p>}
       <div className="content-layout">
         <div className="filters">
           <h2>Filters</h2>

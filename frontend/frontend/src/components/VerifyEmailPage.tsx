@@ -1,54 +1,43 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import '../styles/VerifyEmail.css';
+import '../styles/Login.css';
 
 const VerifyEmailPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
-  const auth = useAuth();
-  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
-
-  if (!auth) {
-    console.error('Auth context is undefined in VerifyEmailPage');
-    return <div>Error: Auth context is not available</div>;
-  }
-
-  const { verifyEmail } = auth;
+  const [success, setSuccess] = useState<string | null>(null);
+  const { verifyEmail, role } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const handleVerification = async () => {
+    const verify = async () => {
       if (!token) {
-        setError('Invalid verification token');
+        setError('Invalid verification link');
         return;
       }
-
       try {
         await verifyEmail(token);
-        navigate('/select-role');
+        setSuccess('Email verified successfully! Redirecting...');
+        setTimeout(() => {
+          if (role) {
+            navigate('/myaccount');
+          } else {
+            navigate('/select-role');
+          }
+        }, 2000);
       } catch (err: any) {
-        setError(err.message);
-        setTimeout(() => navigate('/register'), 3000);
+        setError(err.message || 'Verification failed');
       }
     };
-
-    handleVerification();
-  }, [token, verifyEmail, navigate]);
+    verify();
+  }, [token, verifyEmail, role, navigate]);
 
   return (
-    <div className="verify-email-page">
-      {error ? (
-        <>
-          <h2>Email Verification Failed</h2>
-          <p className="error">{error}</p>
-          <p>Redirecting to registration page...</p>
-        </>
-      ) : (
-        <>
-          <h2>Verifying Email...</h2>
-          <p>Please wait while we verify your email.</p>
-        </>
-      )}
+    <div className="login-container">
+      <h2 className="login-title">Verifying Email</h2>
+      {error && <p className="login-error">{error}</p>}
+      {success && <p className="login-success">{success}</p>}
     </div>
   );
 };

@@ -1,101 +1,43 @@
-.job-details-page {
-  padding: 2rem 0;
+.job-details-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
-.back-link {
-  display: inline-block;
+.job-details-container h2 {
   margin-bottom: 1rem;
-  color: #007bff;
-  text-decoration: none;
-  font-weight: 500;
+  color: #333;
 }
 
-.back-link:hover {
-  color: #0056b3;
+.job-details-container p {
+  margin-bottom: 0.5rem;
 }
 
-.job-details-page h1 {
-  font-size: 2rem;
-  color: #2c3e50;
-  margin-bottom: 1rem;
-}
-
-.job-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  color: #666;
-}
-
-.job-meta p {
-  margin: 0;
-}
-
-.apply-btn {
-  background-color: #007bff;
-  color: #fff;
-  border: none;
+.job-details-button {
   padding: 0.75rem 1.5rem;
-  font-size: 1rem;
-  font-weight: 500;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
   cursor: pointer;
-  margin-bottom: 2rem;
+  margin-top: 1rem;
 }
 
-.apply-btn:hover {
+.job-details-button:hover {
   background-color: #0056b3;
 }
 
-.job-description {
-  margin-bottom: 2rem;
+.job-details-error {
+  color: #dc3545;
+  text-align: center;
+  margin-top: 1rem;
 }
 
-.job-description h2 {
-  font-size: 1.5rem;
-  color: #2c3e50;
-  margin-bottom: 1rem;
-}
-
-.job-description p {
-  color: #666;
-  line-height: 1.6;
-}
-
-.company-info {
-  margin-bottom: 2rem;
-}
-
-.company-info h2 {
-  font-size: 1.5rem;
-  color: #2c3e50;
-  margin-bottom: 1rem;
-}
-
-.company-info p {
-  color: #666;
-}
-
-.share-job {
-  margin-top: 2rem;
-}
-
-.share-job h3 {
-  font-size: 1.25rem;
-  color: #2c3e50;
-  margin-bottom: 1rem;
-}
-
-.share-btn {
-  background-color: #e0e0e0;
-  border: none;
-  padding: 0.5rem 1rem;
-  margin-right: 0.5rem;
-  cursor: pointer;
-  color: #2c3e50;
-  font-weight: 500;
-}
-
-.share-btn:hover {
-  background-color: #d3d3d3;
+.job-details-success {
+  color: #28a745;
+  text-align: center;
+  margin-top: 1rem;
 }

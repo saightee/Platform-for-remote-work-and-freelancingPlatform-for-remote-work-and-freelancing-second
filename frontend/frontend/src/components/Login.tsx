@@ -9,15 +9,8 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const auth = useAuth();
+  const { login, googleLogin, isAuthenticated, isEmailVerified, role } = useAuth();
   const navigate = useNavigate();
-
-  if (!auth) {
-    console.error('Auth context is undefined in Login');
-    return <div>Error: Auth context is not available</div>;
-  }
-
-  const { login, isAuthenticated, isEmailVerified, role } = auth;
 
   useEffect(() => {
     if (isAuthenticated && isEmailVerified && role) {
@@ -47,13 +40,22 @@ const Login: React.FC = () => {
         }
       }, 2000);
     } catch (err: any) {
-      console.error('Login error:', err);
       setError(err.message || 'Login failed');
     }
   };
 
-  const handleSocialLogin = (provider: string) => {
-    setError(`Login with ${provider} is not implemented yet`);
+  const handleSocialLogin = async (provider: string) => {
+    setError(null);
+    setSuccess(null);
+    try {
+      if (provider === 'Google') {
+        await googleLogin();
+      } else {
+        setError(`Login with ${provider} is not implemented yet`);
+      }
+    } catch (err: any) {
+      setError(err.message || `Login with ${provider} failed`);
+    }
   };
 
   return (

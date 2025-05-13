@@ -1,45 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FaGoogle, FaFacebookF } from 'react-icons/fa';
-import '../styles/Register.css';
+import '../styles/Login.css';
 
 const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [agree, setAgree] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const auth = useAuth();
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const { register, googleLogin } = useAuth();
   const navigate = useNavigate();
 
-  if (!auth) {
-    console.error('Auth context is undefined in RegisterPage');
-    return <div>Error: Auth context is not available</div>;
-  }
-
-  const { register, isAuthenticated, isEmailVerified, role } = auth;
-
-  useEffect(() => {
-    if (isAuthenticated && !isEmailVerified) {
-      navigate('/verify-email');
-    } else if (isAuthenticated && isEmailVerified && !role) {
-      navigate('/select-role');
-    } else if (isAuthenticated && isEmailVerified && role) {
-      navigate('/complete-profile');
-    }
-  }, [isAuthenticated, isEmailVerified, role, navigate]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (!agree) {
-      setError('You must agree to the Terms of Service and Privacy Policy');
-      return;
-    }
+    setError(null);
+    setSuccess(null);
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -48,91 +25,78 @@ const RegisterPage: React.FC = () => {
 
     try {
       await register(email, password);
-      setSuccess('Registration successful! Please check your email to verify your account.');
+      setSuccess('Registration successful! Please verify your email.');
+      setTimeout(() => navigate('/login'), 2000);
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     }
   };
 
-  const handleSocialLogin = (provider: string) => {
-    setError(`Login with ${provider} is not implemented yet`);
+  const handleSocialRegister = async (provider: string) => {
+    setError(null);
+    setSuccess(null);
+    try {
+      if (provider === 'Google') {
+        await googleLogin();
+      } else {
+        setError(`Registration with ${provider} is not implemented yet`);
+      }
+    } catch (err: any) {
+      setError(err.message || `Registration with ${provider} failed`);
+    }
   };
 
   return (
-    <div className="register-page">
-      <h2>Register</h2>
-      {error && <p className="error">{error}</p>}
-      {success && <p className="success">{success}</p>}
-      {!success && (
-        <>
-          <form onSubmit={handleSubmit} className="register-form">
-            <div className="form-group">
-              <label htmlFor="email">Email</label>
-              <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="password">Password</label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="confirm-password">Confirm Password</label>
-              <input
-                type="password"
-                id="confirm-password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-            </div>
-            <div className="checkbox-group">
-              <input
-                type="checkbox"
-                id="agree"
-                checked={agree}
-                onChange={(e) => setAgree(e.target.checked)}
-              />
-              <label htmlFor="agree">
-                I agree to the <a href="/terms">Terms of Service</a> and{' '}
-                <a href="/privacy">Privacy Policy</a>
-              </label>
-            </div>
-            <button type="submit" className="register-btn">
-              Register
-            </button>
-          </form>
-          <div className="social-login">
-            <button
-              type="button"
-              className="social-btn google-btn"
-              onClick={() => handleSocialLogin('Google')}
-            >
-              <FaGoogle /> Sign up with Google
-            </button>
-            <button
-              type="button"
-              className="social-btn facebook-btn"
-              onClick={() => handleSocialLogin('Facebook')}
-            >
-              <FaFacebookF /> Sign up with Facebook
-            </button>
-          </div>
-        </>
-      )}
-      <div className="links">
-        <Link to="/">Go to Home</Link>
-        <Link to="/forgot-password">Forgot Password?</Link>
+    <div className="login-container">
+      <h2 className="login-title">Register</h2>
+      {error && <p className="login-error">{error}</p>}
+      {success && <p className="login-success">{success}</p>}
+      <form onSubmit={handleRegister} className="login-form">
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="login-input"
+          required
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="login-input"
+          required
+        />
+        <input
+          type="password"
+          placeholder="Confirm Password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          className="login-input"
+          required
+        />
+        <button type="submit" className="login-button">Register</button>
+      </form>
+      <div className="social-login">
+        <button
+          type="button"
+          className="social-button google-button"
+          onClick={() => handleSocialRegister('Google')}
+        >
+          <FaGoogle /> Register with Google
+        </button>
+        <button
+          type="button"
+          className="social-button facebook-button"
+          onClick={() => handleSocialRegister('Facebook')}
+        >
+          <FaFacebookF /> Register with Facebook
+        </button>
+      </div>
+      <div className="link-container">
+        <Link to="/login" className="link">Already have an account? Login</Link>
+        <Link to="/" className="link">Go to Home</Link>
       </div>
     </div>
   );

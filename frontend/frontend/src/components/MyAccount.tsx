@@ -1,86 +1,373 @@
-import React from 'react';
-import '../styles/MyAccount.css';
-import JobPostCard from './JobPostCard';
-import WorkerCard from './WorkerCard';
-import GuideCard from './GuideCard';
-import mockData from '../mockData.json';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
+import { API_BASE_URL } from '../config';
+import '../styles/Login.css';
+
+interface Job {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  budget: number;
+  status: string;
+  applicants: { id: string; name: string }[];
+  selectedWorker?: { id: string; name: string };
+}
+
+interface CompletedJob {
+  id: string;
+  title: string;
+  employerId: string;
+  employerName: string;
+  workerId: string;
+  workerName: string;
+}
 
 const MyAccount: React.FC = () => {
-  const { jobPosts, workers, guides } = mockData;
+  const { user, role, isAuthenticated } = useAuth();
+  const [activeTab, setActiveTab] = useState<'profile' | 'categories' | 'jobs' | 'reviews'>('profile');
+  const [name, setName] = useState('');
+  const [skills, setSkills] = useState('');
+  const [experience, setExperience] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [website, setWebsite] = useState('');
+  const [categoryName, setCategoryName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [completedJobs, setCompletedJobs] = useState<CompletedJob[]>([]);
+  const [rating, setRating] = useState<number>(0);
+  const [review, setReview] = useState<string>('');
+
+  useEffect(() => {
+    if (user && isAuthenticated) {
+      setName(user.name || '');
+      setSkills(user.skills || '');
+      setExperience(user.experience || '');
+      setCompanyName(user.companyName || '');
+      setWebsite(user.website || '');
+      fetchCompletedJobs();
+    }
+    if (role === 'employer') {
+      fetchCategories();
+      fetchJobs();
+    }
+  }, [user, isAuthenticated, role]);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get('/api/categories', {
+        baseURL: API_BASE_URL,
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      setCategories(response.data.map((cat: any) => cat.name));
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to fetch categories');
+    }
+  };
+
+  const fetchJobs = async () => {
+    try {
+      const response = await axios.get('/api/jobs/my', {
+        baseURL: API_BASE_URL,
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      setJobs(response.data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to fetch jobs');
+    }
+  };
+
+  const fetchCompletedJobs = async () => {
+    try {
+      const response = await axios.get('/api/jobs/completed', {
+        baseURL: API_BASE_URL,
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      setCompletedJobs(response.data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to fetch completed jobs');
+    }
+  };
+
+  const handleProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      const profileData = role === 'employer'
+        ? { name, companyName, website }
+        : { name, skills, experience };
+
+      await axios.put('/api/profiles/me', profileData, {
+        baseURL: API_BASE_URL,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setSuccess('Profile updated successfully!');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update profile');
+    }
+  };
+
+  const handleCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await axios.post('/api/categories', { name: categoryName }, {
+        baseURL: API_BASE_URL,
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      setSuccess('Category created successfully!');
+      setCategoryName('');
+      fetchCategories();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to create category');
+    }
+  };
+
+  const handleSelectWorker = async (jobId: string, workerId: string) => {
+    try {
+      await axios.post(`/api/jobs/${jobId}/select-worker`, { workerId }, {
+        baseURL: API_BASE_URL,
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      setSuccess('Worker selected successfully!');
+      fetchJobs();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to select worker');
+    }
+  };
+
+  const handleCloseJob = async (jobId: string) => {
+    try {
+      await axios.post(`/api/jobs/${jobId}/close`, {}, {
+        baseURL: API_BASE_URL,
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      setSuccess('Job closed successfully!');
+      fetchJobs();
+      fetchCompletedJobs();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to close job');
+    }
+  };
+
+  const handleReviewSubmit = async (jobId: string, reviewedUserId: string) => {
+    try {
+      await axios.post('/api/reviews', {
+        jobId,
+        reviewedUserId,
+        rating,
+        review,
+      }, {
+        baseURL: API_BASE_URL,
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      setSuccess('Review submitted successfully!');
+      setRating(0);
+      setReview('');
+      fetchCompletedJobs();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to submit review');
+    }
+  };
+
+  if (!user || !role || !isAuthenticated) {
+    return <div>Please log in and select a role to continue.</div>;
+  }
 
   return (
-    <div className="my-account">
-      <div className="welcome-section">
-        <h1>Hello, Lendtry!</h1>
-        <div className="upgrade-box">
-          <div className="upgrade-content">
-            <img src="/rocket-icon.png" alt="Rocket Icon" className="rocket-icon" />
-            <div>
-              <h2>Make hiring more efficient with an upgraded account.</h2>
-              <p>Upgrading will get your job posts approved instantly, allow you to contact workers, and get tons of other benefits that will improve your hiring process.</p>
-              <button className="green-button">View Pricing</button>
-            </div>
-          </div>
-        </div>
+    <div className="myaccount-container">
+      <h2>Welcome, {user.email}!</h2>
+      <div className="tabs">
+        <button onClick={() => setActiveTab('profile')} className={activeTab === 'profile' ? 'tab-active' : ''}>Profile</button>
+        {role === 'employer' && (
+          <>
+            <button onClick={() => setActiveTab('categories')} className={activeTab === 'categories' ? 'tab-active' : ''}>Categories</button>
+            <button onClick={() => setActiveTab('jobs')} className={activeTab === 'jobs' ? 'tab-active' : ''}>My Jobs</button>
+          </>
+        )}
+        <button onClick={() => setActiveTab('reviews')} className={activeTab === 'reviews' ? 'tab-active' : ''}>Reviews</button>
       </div>
 
-      <div className="payment-section">
-        <h2>Pay Your Workers Easy and Conveniently</h2>
-        <div className="payment-box">
-          <div className="payment-image">
-            <img src="/payment-icon.png" alt="Payment Icon" />
-          </div>
-          <div className="payment-features">
+      {activeTab === 'profile' && (
+        <form onSubmit={handleProfileSubmit} className="login-form">
+          <input
+            type="text"
+            placeholder="Full Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="login-input"
+            required
+          />
+          {role === 'jobseeker' ? (
+            <>
+              <input
+                type="text"
+                placeholder="Skills (e.g., JavaScript, React)"
+                value={skills}
+                onChange={(e) => setSkills(e.target.value)}
+                className="login-input"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Experience (e.g., 2 years as a developer)"
+                value={experience}
+                onChange={(e) => setExperience(e.target.value)}
+                className="login-input"
+                required
+              />
+            </>
+          ) : (
+            <>
+              <input
+                type="text"
+                placeholder="Company Name"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                className="login-input"
+                required
+              />
+              <input
+                type="url"
+                placeholder="Website (optional)"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                className="login-input"
+              />
+            </>
+          )}
+          <button type="submit" className="login-button">Save Profile</button>
+          {error && <p className="login-error">{error}</p>}
+          {success && <p className="login-success">{success}</p>}
+        </form>
+      )}
+
+      {activeTab === 'categories' && role === 'employer' && (
+        <div>
+          <h3>Manage Categories</h3>
+          <form onSubmit={handleCategorySubmit} className="login-form">
+            <input
+              type="text"
+              placeholder="Category Name"
+              value={categoryName}
+              onChange={(e) => setCategoryName(e.target.value)}
+              className="login-input"
+              required
+            />
+            <button type="submit" className="login-button">Create Category</button>
+            {error && <p className="login-error">{error}</p>}
+            {success && <p className="login-success">{success}</p>}
+          </form>
+          <h4>Existing Categories</h4>
+          <ul>
+            {categories.map((category, index) => (
+              <li key={index}>{category}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {activeTab === 'jobs' && role === 'employer' && (
+        <div>
+          <h3>My Jobs</h3>
+          {error && <p className="login-error">{error}</p>}
+          {success && <p className="login-success">{success}</p>}
+          {jobs.length === 0 ? (
+            <p>No jobs posted yet.</p>
+          ) : (
             <ul>
-              <li><span className="checkmark">✔</span> Keep all your workers in one place</li>
-              <li><span className="checkmark">✔</span> Uses the actual exchange rate</li>
-              <li><span className="checkmark">✔</span> No fees</li>
-              <li><span className="checkmark">✔</span> Reminds you how much you paid last time</li>
-              <li><span className="checkmark">✔</span> Still can use Easypay after unsubscribing</li>
+              {jobs.map((job) => (
+                <li key={job.id} className="job-item">
+                  <h4>{job.title}</h4>
+                  <p><strong>Status:</strong> {job.status}</p>
+                  <p><strong>Applicants:</strong></p>
+                  {job.applicants.length === 0 ? (
+                    <p>No applicants yet.</p>
+                  ) : (
+                    <ul>
+                      {job.applicants.map((applicant) => (
+                        <li key={applicant.id}>
+                          {applicant.name}
+                          {job.status === 'open' && (
+                            <button
+                              onClick={() => handleSelectWorker(job.id, applicant.id)}
+                              className="job-action-button"
+                              style={{ marginLeft: '1rem' }}
+                            >
+                              Select
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {job.status === 'open' && (
+                    <button
+                      onClick={() => handleCloseJob(job.id)}
+                      className="job-action-button"
+                    >
+                      Close Job
+                    </button>
+                  )}
+                </li>
+              ))}
             </ul>
-            <button className="green-button">Pay Workers with EasyPay</button>
-          </div>
+          )}
         </div>
-      </div>
+      )}
 
-      <div className="job-posts-section">
-        <h2>Your Job Posts</h2>
-        {jobPosts.length === 0 ? (
-          <p>Your job posts will appear here.</p>
-        ) : (
-          jobPosts.map(post => <JobPostCard key={post.id} title={post.title} status={post.status} />)
-        )}
-        <button className="green-button">Add My First Job Post</button>
-      </div>
-
-      <div className="workers-section">
-        <h2>Your Workers</h2>
-        {workers.length === 0 ? (
-          <p>Your workers will appear here.</p>
-        ) : (
-          workers.map(worker => <WorkerCard key={worker.id} name={worker.name} role={worker.role} />)
-        )}
-      </div>
-
-      <div className="invite-section">
-        <h2>Invite Friends to OnlineJobs.ph and Earn a 40% Lifetime Commission</h2>
-        <p>Share Your Referral Link:</p>
-        <div className="referral-link">
-          <input type="text" value="http://store.onlinejobs.ph/?aid=723541" readOnly />
-          <button className="green-button">Copy Link</button>
+      {activeTab === 'reviews' && (
+        <div>
+          <h3>Completed Jobs</h3>
+          {error && <p className="login-error">{error}</p>}
+          {success && <p className="login-success">{success}</p>}
+          {completedJobs.length === 0 ? (
+            <p>No completed jobs yet.</p>
+          ) : (
+            <ul>
+              {completedJobs.map((job) => (
+                <li key={job.id} className="job-item">
+                  <h4>{job.title}</h4>
+                  <p><strong>{role === 'employer' ? 'Worker' : 'Employer'}:</strong> {role === 'employer' ? job.workerName : job.employerName}</p>
+                  <div>
+                    <label>Rating (1-5):</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="5"
+                      value={rating}
+                      onChange={(e) => setRating(Number(e.target.value))}
+                      className="login-input"
+                    />
+                  </div>
+                  <textarea
+                    placeholder="Your review"
+                    value={review}
+                    onChange={(e) => setReview(e.target.value)}
+                    className="login-input"
+                    style={{ minHeight: '100px', resize: 'vertical' }}
+                  />
+                  <button
+                    onClick={() => handleReviewSubmit(job.id, role === 'employer' ? job.workerId : job.employerId)}
+                    className="job-action-button"
+                  >
+                    Submit Review
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        <a href="#" className="learn-more">Affiliate Area - Learn More</a>
-      </div>
-
-      <div className="guides-section">
-        <h2>Your Guides for Outsourcing</h2>
-        <div className="guides-grid">
-          {guides.map((guide, index) => (
-            <GuideCard key={index} title={guide.title} link={guide.link} />
-          ))}
-        </div>
-        <a href="#" className="see-more">See More</a>
-      </div>
+      )}
     </div>
   );
 };
