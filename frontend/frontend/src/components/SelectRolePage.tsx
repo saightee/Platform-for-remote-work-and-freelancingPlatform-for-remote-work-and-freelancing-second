@@ -1,36 +1,45 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import '../styles/SelectRole.css';
+import '../styles/Login.css';
 
 const SelectRolePage: React.FC = () => {
-  const auth = useAuth();
+  const [role, setRole] = useState('jobseeker');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const { selectRole } = useAuth();
   const navigate = useNavigate();
 
-  if (!auth) {
-    console.error('Auth context is undefined in SelectRolePage');
-    return <div>Error: Auth context is not available</div>;
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
 
-  const { setRole } = auth;
-
-  const handleRoleSelection = (role: 'employer' | 'jobseeker') => {
-    setRole(role);
-    navigate('/complete-profile');
+    try {
+      await selectRole(role);
+      setSuccess('Role selected! Redirecting to your account...');
+      setTimeout(() => navigate('/myaccount'), 2000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to select role');
+    }
   };
 
   return (
-    <div className="select-role-page">
-      <h2>Select Your Role</h2>
-      <p>Please choose whether you are a job seeker or an employer.</p>
-      <div className="role-buttons">
-        <button onClick={() => handleRoleSelection('jobseeker')} className="role-btn">
-          Job Seeker
-        </button>
-        <button onClick={() => handleRoleSelection('employer')} className="role-btn">
-          Employer
-        </button>
-      </div>
+    <div className="login-container">
+      <h2 className="login-title">Select Role</h2>
+      {error && <p className="login-error">{error}</p>}
+      {success && <p className="login-success">{success}</p>}
+      <form onSubmit={handleSubmit} className="login-form">
+        <select
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          className="login-input"
+        >
+          <option value="jobseeker">Job Seeker</option>
+          <option value="employer">Employer</option>
+        </select>
+        <button type="submit" className="login-button">Select Role</button>
+      </form>
     </div>
   );
 };

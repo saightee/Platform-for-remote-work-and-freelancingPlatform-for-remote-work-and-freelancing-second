@@ -1,84 +1,53 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import '../styles/ResetPassword.css';
+  import { useNavigate, useParams } from 'react-router-dom';
+  import { useAuth } from '../context/AuthContext';
+  import '../styles/Login.css';
 
-const ResetPasswordPage: React.FC = () => {
-  const { token } = useParams<{ token: string }>();
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const auth = useAuth();
-  const navigate = useNavigate();
+  const ResetPasswordPage: React.FC = () => {
+    const { token } = useParams<{ token: string }>();
+    const [newPassword, setNewPassword] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
+    const { resetPassword } = useAuth();
+    const navigate = useNavigate();
 
-  if (!auth) {
-    console.error('Auth context is undefined in ResetPasswordPage');
-    return <div>Error: Auth context is not available</div>;
-  }
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setError(null);
+      setSuccess(null);
 
-  const { resetPassword } = auth;
+      if (!token) {
+        setError('Invalid token');
+        return;
+      }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+      try {
+        await resetPassword(token, newPassword);
+        setSuccess('Password reset successful! Redirecting to login...');
+        setTimeout(() => navigate('/login'), 2000);
+      } catch (err: any) {
+        setError(err.message || 'Failed to reset password');
+      }
+    };
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (!token) {
-      setError('Invalid reset token');
-      return;
-    }
-
-    try {
-      console.log('Calling resetPassword with token:', token);
-      await resetPassword(token, password);
-      setSuccess('Password reset successfully! Redirecting to login...');
-      setTimeout(() => navigate('/login'), 3000);
-    } catch (err: any) {
-      console.error('Reset password error:', err);
-      setError(err.message || 'Failed to reset password');
-    }
+    return (
+      <div className="login-container">
+        <h2 className="login-title">Reset Password</h2>
+        {error && <p className="login-error">{error}</p>}
+        {success && <p className="login-success">{success}</p>}
+        <form onSubmit={handleSubmit} className="login-form">
+          <input
+            type="password"
+            placeholder="New Password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="login-input"
+            required
+          />
+          <button type="submit" className="login-button">Reset Password</button>
+        </form>
+      </div>
+    );
   };
 
-  return (
-    <div className="reset-password-page">
-      <h2>Reset Password</h2>
-      {error && <p className="error">{error}</p>}
-      {success && <p className="success">{success}</p>}
-      {!success && (
-        <form onSubmit={handleSubmit} className="reset-password-form">
-          <div className="form-group">
-            <label htmlFor="password">New Password</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="confirm-password">Confirm Password</label>
-            <input
-              type="password"
-              id="confirm-password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
-          </div>
-          <button type="submit" className="reset-btn">
-            Reset Password
-          </button>
-        </form>
-      )}
-    </div>
-  );
-};
-
-export default ResetPasswordPage;
+  export default ResetPasswordPage;
