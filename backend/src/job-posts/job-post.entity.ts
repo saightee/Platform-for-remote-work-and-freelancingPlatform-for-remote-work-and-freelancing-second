@@ -22,6 +22,9 @@ export class JobPost {
   @Column({ type: 'varchar', length: 20 })
   status: 'Active' | 'Draft' | 'Closed';
 
+  @Column({ type: 'varchar', length: 20, nullable: true }) // Добавляем поле job_type
+  job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+
   @Column({ nullable: true })
   category_id?: string;
 

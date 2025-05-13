@@ -1,17 +1,18 @@
 import { Module } from '@nestjs/common';
-import { ProfilesService } from './profiles.service';
-import { ProfilesController } from './profiles.controller';
+import { ReviewsService } from './reviews.service';
+import { ReviewsController } from './reviews.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Review } from './review.entity';
 import { User } from '../users/entities/user.entity';
+import { JobApplication } from '../job-applications/job-application.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ReviewsModule } from '../reviews/reviews.module'; // Добавляем ReviewsModule
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, JobSeeker, Employer]),
+    TypeOrmModule.forFeature([Review, User, JobApplication, JobSeeker, Employer]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -20,9 +21,9 @@ import { ReviewsModule } from '../reviews/reviews.module'; // Добавляем
       }),
       inject: [ConfigService],
     }),
-    ReviewsModule, // Добавляем ReviewsModule
   ],
-  controllers: [ProfilesController],
-  providers: [ProfilesService],
+  controllers: [ReviewsController],
+  providers: [ReviewsService],
+  exports: [ReviewsService], // Экспортируем для использования в ProfilesModule
 })
-export class ProfilesModule {}
+export class ReviewsModule {}
