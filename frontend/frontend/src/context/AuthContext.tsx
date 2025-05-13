@@ -116,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const selectRole = async (role: string, tempToken: string, additionalData?: Record<string, any>) => {
     try {
       console.log('Selecting role with tempToken and additional data:', { role, tempToken, additionalData });
-      const response = await api.post('/api/auth/select-role', {
+      const response = await api.post('/auth/select-role', {
         tempToken,
         role,
         ...additionalData,
