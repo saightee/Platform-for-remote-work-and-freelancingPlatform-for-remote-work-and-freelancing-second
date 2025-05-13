@@ -11,7 +11,7 @@ const Layout: React.FC = () => {
   const { role, isAuthenticated } = useAuth();
   const location = useLocation();
 
-  const shouldRenderLayout = !['/register', '/register/employer', '/register/jobseeker'].includes(location.pathname.trim());
+  const shouldRenderLayout = !['/register', '/register/employer', '/register/jobseeker', '/login'].includes(location.pathname.trim());
 
   const Navbar = isAuthenticated
     ? role === 'employer'
