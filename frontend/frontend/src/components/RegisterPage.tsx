@@ -31,8 +31,8 @@ const RegisterPage: React.FC = () => {
         setSuccess('Registration successful! Redirecting to select role...');
         setTimeout(() => navigate(`/select-role?tempToken=${tempToken}`), 2000);
       } else {
-        setSuccess('Registration successful! Please verify your email.');
-        setTimeout(() => navigate('/verify-email'), 2000);
+        setSuccess('Registration successful! Redirecting to my account...');
+        setTimeout(() => navigate('/myaccount'), 2000); // Пропускаем email
       }
     } catch (err: any) {
       console.error('Registration failed:', err.message);
@@ -46,7 +46,6 @@ const RegisterPage: React.FC = () => {
     try {
       if (provider === 'Google') {
         await googleLogin();
-        // Редирект обрабатывается через callback в App.tsx
       } else {
         setError(`Registration with ${provider} is not implemented yet`);
       }

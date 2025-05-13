@@ -33,7 +33,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState(true); // Отключили проверку email
   const [role, setRole] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
 
@@ -56,32 +56,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('token', token);
       setUser(user);
       setIsAuthenticated(true);
-      setIsEmailVerified(user.isEmailVerified || false);
+      setIsEmailVerified(true); // Отключили проверку email
       setRole(user.role || null);
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Login failed');
+      throw new Error(error.response?.data?.message || 'Ошибка входа');
     }
   };
 
   const googleLogin = async () => {
     try {
-      console.log('Redirecting to Google auth...');
+      console.log('Перенаправление на Google...');
       window.location.href = `${API_BASE_URL}/api/auth/google?callbackUrl=${encodeURIComponent(window.location.origin + '/auth/callback')}`;
     } catch (error: any) {
-      console.error('Google login error:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || 'Google login failed');
+      console.error('Ошибка Google-логина:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Ошибка Google-логина');
     }
   };
 
   const register = async (email: string, password: string) => {
     try {
-      console.log('Registering with:', { email, password });
+      console.log('Регистрация с данными:', { email, password });
       const response = await api.post('/auth/register', { email, password });
-      console.log('Registration response:', response.data);
+      console.log('Ответ сервера:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('Registration error:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || 'Registration failed');
+      console.error('Ошибка регистрации:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Не удалось зарегистрироваться');
     }
   };
 
@@ -91,7 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsEmailVerified(true);
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Verification failed');
+      throw new Error(error.response?.data?.message || 'Ошибка подтверждения');
     }
   };
 
@@ -100,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await api.post('/auth/forgot-password', { email });
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Forgot password request failed');
+      throw new Error(error.response?.data?.message || 'Ошибка запроса восстановления пароля');
     }
   };
 
@@ -109,30 +109,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await api.post('/auth/reset-password', { token, newPassword });
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Reset password failed');
+      throw new Error(error.response?.data?.message || 'Ошибка сброса пароля');
     }
   };
 
   const selectRole = async (role: string, tempToken: string, additionalData?: Record<string, any>) => {
     try {
-      console.log('Selecting role with tempToken and additional data:', { role, tempToken, additionalData });
+      console.log('Выбор роли с tempToken и дополнительными данными:', { role, tempToken, additionalData });
       const response = await api.post('/auth/select-role', {
         tempToken,
         role,
         ...additionalData,
       });
-      setRole(role);
+      const { token } = response.data;
+      if (token) {
+        localStorage.setItem('token', token);
+        const userResponse = await api.get('/auth/me');
+        const userData = userResponse.data;
+        setUser(userData);
+        setIsAuthenticated(true);
+        setIsEmailVerified(true); // Для Google-логина email уже подтверждён
+        setRole(role);
+      }
       return response.data;
     } catch (error: any) {
-      console.error('Role selection error:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || 'Role selection failed');
+      console.error('Ошибка выбора роли:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Не удалось выбрать роль');
     }
   };
 
   const logout = () => {
     localStorage.removeItem('token');
     setIsAuthenticated(false);
-    setIsEmailVerified(false);
+    setIsEmailVerified(true); // Оставляем true, так как проверка отключена
     setRole(null);
     setUser(null);
   };
@@ -144,7 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .then((response) => {
           setUser(response.data);
           setIsAuthenticated(true);
-          setIsEmailVerified(response.data.isEmailVerified || false);
+          setIsEmailVerified(true); // Отключили проверку email
           setRole(response.data.role || null);
         })
         .catch(() => {
@@ -174,7 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth должен использоваться внутри AuthProvider');
   }
   return context;
 };

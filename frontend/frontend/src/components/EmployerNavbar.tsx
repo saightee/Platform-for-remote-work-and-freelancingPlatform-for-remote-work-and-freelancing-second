@@ -1,11 +1,22 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import '../styles/EmployerNavbar.css';
 
 const EmployerNavbar: React.FC = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
     <nav className="employer-navbar">
-      <div className="navbar-brand">OnlineJobs.ph</div>
+      <NavLink to="/" className="navbar-brand">
+        OnlineJobs.ph
+      </NavLink>
       <div className="navbar-links">
         <NavLink to="/myaccount" className={({ isActive }) => (isActive ? 'active' : '')}>
           My Account
@@ -21,6 +32,10 @@ const EmployerNavbar: React.FC = () => {
         <a href="#">ID Proof</a>
         <a href="#">Training</a>
         <a href="#">Blog</a>
+        <span className="navbar-user">Welcome, {user?.name || user?.email}</span>
+        <button onClick={handleLogout} className="logout-button">
+          Logout
+        </button>
       </div>
     </nav>
   );

@@ -5,8 +5,6 @@ import '../styles/Login.css';
 
 const SelectRolePage: React.FC = () => {
   const [role, setRole] = useState('jobseeker');
-  const [companyName, setCompanyName] = useState('');
-  const [skills, setSkills] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const { selectRole } = useAuth();
@@ -15,8 +13,9 @@ const SelectRolePage: React.FC = () => {
   const tempToken = searchParams.get('tempToken');
 
   useEffect(() => {
+    console.log('SelectRolePage mounted with tempToken:', tempToken);
     if (!tempToken) {
-      setError('Invalid or missing temp token');
+      setError('Неверный или отсутствующий временный токен');
       setTimeout(() => navigate('/register'), 2000);
     }
   }, [tempToken, navigate]);
@@ -27,24 +26,23 @@ const SelectRolePage: React.FC = () => {
     setSuccess(null);
 
     if (!tempToken) {
-      setError('Temp token is missing');
+      setError('Временный токен отсутствует');
       return;
     }
 
-    const additionalData = role === 'employer' ? { companyName } : { skills };
     try {
-      await selectRole(role, tempToken, additionalData);
-      setSuccess('Role selected! Redirecting to your account...');
+      await selectRole(role, tempToken);
+      setSuccess('Роль выбрана! Перенаправляем на ваш аккаунт...');
       setTimeout(() => navigate('/myaccount'), 2000);
     } catch (err: any) {
-      console.error('Role selection failed:', err.message);
-      setError(err.message || 'Failed to select role');
+      console.error('Ошибка выбора роли:', err.message);
+      setError(err.message || 'Не удалось выбрать роль');
     }
   };
 
   return (
     <div className="login-container">
-      <h2 className="login-title">Select Role</h2>
+      <h2 className="login-title">Выбор роли</h2>
       {error && <p className="login-error">{error}</p>}
       {success && <p className="login-success">{success}</p>}
       <form onSubmit={handleSubmit} className="login-form">
@@ -53,27 +51,10 @@ const SelectRolePage: React.FC = () => {
           onChange={(e) => setRole(e.target.value)}
           className="login-input"
         >
-          <option value="jobseeker">Job Seeker</option>
-          <option value="employer">Employer</option>
+          <option value="jobseeker">Ищущий работу</option>
+          <option value="employer">Работодатель</option>
         </select>
-        {role === 'employer' ? (
-          <input
-            type="text"
-            placeholder="Company Name"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            className="login-input"
-          />
-        ) : (
-          <input
-            type="text"
-            placeholder="Skills (comma-separated)"
-            value={skills}
-            onChange={(e) => setSkills(e.target.value)}
-            className="login-input"
-          />
-        )}
-        <button type="submit" className="login-button">Select Role</button>
+        <button type="submit" className="login-button">Выбрать роль</button>
       </form>
     </div>
   );
