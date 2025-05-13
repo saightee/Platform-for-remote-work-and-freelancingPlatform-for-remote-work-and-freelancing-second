@@ -16,7 +16,8 @@ export class AuthController {
   @Post('register')
   async register(@Body() registerDto: RegisterDto, @Res() res: Response) {
     const { tempToken } = await this.authService.register(registerDto);
-    res.redirect(`http://localhost:3000/api/auth/select-role?tempToken=${tempToken}`);
+    // Перенаправляем на фронтенд-страницу, а не на API-маршрут
+    res.redirect(`http://localhost:3000/select-role?tempToken=${tempToken}`);
   }
 
   @Post('login')
@@ -50,7 +51,7 @@ export class AuthController {
     try {
       const tempToken = await this.authService.storeOAuthUserData(req.user);
       console.log('Google Callback - Temp Token:', tempToken);
-      res.redirect(`http://localhost:3000/api/auth/select-role?tempToken=${tempToken}`);
+      res.redirect(`https://localhost:3000/select-role?tempToken=${tempToken}`);
     } catch (error) {
       console.error('Google Callback - Error:', error);
       return res.status(500).json({ message: 'Authentication failed', error: error.message });
