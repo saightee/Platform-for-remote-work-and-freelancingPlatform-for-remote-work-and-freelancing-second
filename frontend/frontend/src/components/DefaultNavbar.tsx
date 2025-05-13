@@ -5,13 +5,12 @@ import '../styles/DefaultNavbar.css';
 const DefaultNavbar: React.FC = () => {
   return (
     <nav className="default-navbar">
-      <div className="navbar-brand">Hirevolve</div>
+      <NavLink to="/" className="navbar-brand">
+        Hirevolve
+      </NavLink>
       <div className="navbar-links">
         <NavLink to="/jobs" className={({ isActive }) => (isActive ? 'active' : '')}>
           Find a Job
-        </NavLink>
-        <NavLink to="/post-job" className={({ isActive }) => (isActive ? 'active' : '')}>
-          Post a Job
         </NavLink>
         <NavLink to="/login" className={({ isActive }) => (isActive ? 'active' : '')}>
           Login

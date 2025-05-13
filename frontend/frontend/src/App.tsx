@@ -15,7 +15,7 @@ import JobSearchPage from './components/JobSearchPage';
 import JobDetailsPage from './components/JobDetailsPage';
 import MyAccount from './components/MyAccount';
 import SelectRolePage from './components/SelectRolePage';
-import VerifyEmailPage from './components/VerifyEmailPage';
+// Убрали VerifyEmailPage
 import ForgotPasswordPage from './components/ForgotPasswordPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
 
@@ -109,13 +109,13 @@ const App: React.FC = () => {
             <Route path="/myaccount" element={<div className="section-myaccount"><div className="container"><MyAccount /></div></div>} />
           </Route>
           <Route path="/register" element={<div className="section-register"><div className="container"><RegisterPage /></div></div>} />
-          <Route path="/verify-email/:token" element={<div className="section-verify-email"><div className="container"><VerifyEmailPage /></div></div>} />
+          {/* Убрали /verify-email/:token */}
           <Route path="/select-role" element={<div className="section-select-role"><div className="container"><SelectRolePage /></div></div>} />
           <Route path="/login" element={<div className="section-login"><div className="container"><Login /></div></div>} />
           <Route path="/logout" element={<div className="section-logout"><div className="container"><Logout /></div></div>} />
           <Route path="/forgot-password" element={<div className="section-forgot-password"><div className="container"><ForgotPasswordPage /></div></div>} />
           <Route path="/reset-password/:token" element={<div className="section-reset-password"><div className="container"><ResetPasswordPage /></div></div>} />
-          <Route path="/auth/callback" element={<AuthCallback />} /> {/* Новый маршрут для Google */}
+          <Route path="/auth/callback" element={<AuthCallback />} />
         </Routes>
       </AuthProvider>
     </Router>

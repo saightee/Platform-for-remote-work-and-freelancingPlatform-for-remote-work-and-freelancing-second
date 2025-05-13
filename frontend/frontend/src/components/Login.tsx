@@ -9,18 +9,16 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const { login, googleLogin, isAuthenticated, isEmailVerified, role } = useAuth();
+  const { login, googleLogin, isAuthenticated, role } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isAuthenticated && isEmailVerified && role) {
+    if (isAuthenticated && role) {
       navigate('/myaccount');
-    } else if (isAuthenticated && !isEmailVerified) {
-      navigate('/verify-email');
-    } else if (isAuthenticated && isEmailVerified && !role) {
+    } else if (isAuthenticated && !role) {
       navigate('/select-role');
     }
-  }, [isAuthenticated, isEmailVerified, role, navigate]);
+  }, [isAuthenticated, role, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,11 +29,9 @@ const Login: React.FC = () => {
       await login(email, password);
       setSuccess('Login successful! Redirecting...');
       setTimeout(() => {
-        if (isAuthenticated && isEmailVerified && role) {
+        if (isAuthenticated && role) {
           navigate('/myaccount');
-        } else if (isAuthenticated && !isEmailVerified) {
-          navigate('/verify-email');
-        } else if (isAuthenticated && isEmailVerified && !role) {
+        } else if (isAuthenticated && !role) {
           navigate('/select-role');
         }
       }, 2000);

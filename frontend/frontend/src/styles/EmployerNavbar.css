@@ -1,37 +1,41 @@
-.employer-navbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #FFF;
-    padding: 10px 20px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    max-width: 1200px;
-    margin: 0 auto;
-  }
-  
-  .navbar-brand {
-    color: #0056A0;
-    font-size: 20px;
-    font-weight: bold;
-  }
-  
-  .navbar-links {
-    display: flex;
-    align-items: center;
-  }
-  
-  .navbar-links a {
-    color: #0056A0;
-    text-decoration: none;
-    margin-left: 20px;
-    font-size: 14px;
-  }
-  
-  .navbar-links a:hover {
-    text-decoration: underline;
-  }
-  
-  .navbar-links a.active {
-    font-weight: bold;
-    color: #28A745;
-  }
+.jobseeker-navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: #333;
+  color: white;
+}
+
+.navbar-links {
+  display: flex;
+  gap: 1rem;
+}
+
+.navbar-links a,
+.navbar-links NavLink {
+  color: white;
+  text-decoration: none;
+}
+
+.navbar-links a:hover,
+.navbar-links NavLink:hover {
+  color: #ddd;
+}
+
+.navbar-user {
+  margin-left: 1rem;
+  font-weight: bold;
+}
+
+.logout-button {
+  background-color: #ff4444;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  background-color: #cc0000;
+}
