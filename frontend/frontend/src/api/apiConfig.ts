@@ -1,3 +1,3 @@
-const baseURL: string = "https://silvergoldreview.com/api";
+const baseURL: string = "https://silvergoldreview.com";
 
 export default baseURL;
