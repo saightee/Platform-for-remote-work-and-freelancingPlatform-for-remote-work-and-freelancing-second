@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
+import { ReviewsService } from '../reviews/reviews.service';
 
 @Injectable()
 export class ProfilesService {
@@ -14,6 +15,7 @@ export class ProfilesService {
     private jobSeekerRepository: Repository<JobSeeker>,
     @InjectRepository(Employer)
     private employerRepository: Repository<Employer>,
+    private reviewsService: ReviewsService, // Добавляем ReviewsService
   ) {}
 
   async getProfile(userId: string) {
@@ -21,6 +23,8 @@ export class ProfilesService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+
+    const reviews = await this.reviewsService.getReviewsForUser(userId);
 
     if (user.role === 'jobseeker') {
       const jobSeeker = await this.jobSeekerRepository.findOne({ where: { user_id: userId } });
@@ -35,8 +39,10 @@ export class ProfilesService {
         experience: jobSeeker.experience,
         portfolio: jobSeeker.portfolio,
         video_intro: jobSeeker.video_intro,
-        timezone: jobSeeker.timezone, // Будем добавлять
-        currency: jobSeeker.currency, // Будем добавлять
+        timezone: jobSeeker.timezone,
+        currency: jobSeeker.currency,
+        average_rating: jobSeeker.average_rating,
+        reviews,
       };
     } else if (user.role === 'employer') {
       const employer = await this.employerRepository.findOne({ where: { user_id: userId } });
@@ -50,8 +56,10 @@ export class ProfilesService {
         company_name: employer.company_name,
         company_info: employer.company_info,
         referral_link: employer.referral_link,
-        timezone: employer.timezone, // Будем добавлять
-        currency: employer.currency, // Будем добавлять
+        timezone: employer.timezone,
+        currency: employer.currency,
+        average_rating: employer.average_rating,
+        reviews,
       };
     } else {
       throw new UnauthorizedException('Invalid user role');

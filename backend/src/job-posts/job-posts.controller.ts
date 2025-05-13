@@ -1,4 +1,4 @@
-import { Controller, Post, Put, Get, Body, Param, Headers, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Controller, Post, Put, Get, Body, Param, Headers, UnauthorizedException, UseGuards, Query } from '@nestjs/common';
 import { JobPostsService } from './job-posts.service';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
@@ -14,7 +14,7 @@ export class JobPostsController {
   @Post()
   async createJobPost(
     @Headers('authorization') authHeader: string,
-    @Body() body: { title: string; description: string; location: string; salary: number; status: 'Active' | 'Draft' | 'Closed'; category_id?: string },
+    @Body() body: { title: string; description: string; location: string; salary: number; status: 'Active' | 'Draft' | 'Closed'; category_id?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based' },
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
@@ -30,7 +30,7 @@ export class JobPostsController {
   async updateJobPost(
     @Headers('authorization') authHeader: string,
     @Param('id') jobPostId: string,
-    @Body() body: { title?: string; description?: string; location?: string; salary?: number; status?: 'Active' | 'Draft' | 'Closed'; category_id?: string },
+    @Body() body: { title?: string; description?: string; location?: string; salary?: number; status?: 'Active' | 'Draft' | 'Closed'; category_id?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based' },
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
@@ -39,6 +39,19 @@ export class JobPostsController {
     const payload = this.jwtService.verify(token);
     const userId = payload.sub;
     return this.jobPostsService.updateJobPost(userId, jobPostId, body);
+  }
+
+  @Get('search') // Перемещаем этот маршрут выше GET /:id
+  async searchJobPosts(
+    @Query('title') title?: string,
+    @Query('location') location?: string,
+    @Query('salaryMin') salaryMin?: string,
+    @Query('salaryMax') salaryMax?: string,
+    @Query('job_type') job_type?: 'Full-time' | 'Part-time' | 'Project-based',
+    @Query('category_id') category_id?: string,
+  ) {
+    const filters = { title, location, salaryMin, salaryMax, job_type, category_id };
+    return this.jobPostsService.searchJobPosts(filters);
   }
 
   @Get(':id')

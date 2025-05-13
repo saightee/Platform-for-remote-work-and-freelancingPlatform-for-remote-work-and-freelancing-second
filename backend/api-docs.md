@@ -166,7 +166,20 @@
   "company_info": "A great company",
   "referral_link": "https://example.com/ref/test",
   "timezone": "Europe/Moscow",
-  "currency": "USD"
+  "currency": "USD",
+  "average_rating": 4.5,
+  "reviews": [
+    {
+      "id": "<reviewId>",
+      "reviewer_id": "<userId>",
+      "reviewed_id": "<userId>",
+      "job_application_id": "<jobApplicationId>",
+      "rating": 4,
+      "comment": "Great work, very professional!",
+      "created_at": "2025-05-13T18:00:00.000Z",
+      "updated_at": "2025-05-13T18:00:00.000Z"
+    }
+  ]
   }
   //For jobseeker
   ```json
@@ -179,7 +192,20 @@
   "portfolio": "https://portfolio.com",
   "video_intro": "https://video.com",
   "timezone": "Europe/Moscow",
-  "currency": "USD" 
+  "currency": "USD",
+  "average_rating": 4.0,
+  "reviews": [
+    {
+      "id": "<reviewId>",
+      "reviewer_id": "<userId>",
+      "reviewed_id": "<userId>",
+      "job_application_id": "<jobApplicationId>",
+      "rating": 4,
+      "comment": "Great work, very professional!",
+      "created_at": "2025-05-13T18:00:00.000Z",
+      "updated_at": "2025-05-13T18:00:00.000Z"
+    }
+  ]
   }
 - **Response (Error - 401, if token is invalid or missing)**: 
   ```json
@@ -263,21 +289,23 @@
     "location": "Remote",
     "salary": 50000,
     "status": "Active",
-    "category_id": "<category_id>" // Optional
+    "category_id": "<categoryId>", // Optional
+    "job_type": "Full-time" // Optional: "Full-time", "Part-time", "Project-based"
   }
 - **Response (Success - 200)**:
   ```json
   {
-    "id": "<jobPostId>",
-    "title": "Software Engineer",
-    "description": "We are looking for a skilled software engineer...",
-    "location": "Remote",
-    "salary": 50000,
-    "status": "Active",
-    "category_id": null,
-    "employer_id": "<userId>",
-    "created_at": "2025-05-13T18:00:00.000Z",
-    "updated_at": "2025-05-13T18:00:00.000Z"
+  "id": "<jobPostId>",
+  "title": "Software Engineer",
+  "description": "We are looking for a skilled software engineer...",
+  "location": "Remote",
+  "salary": 50000,
+  "status": "Active",
+  "category_id": "<categoryId>",
+  "job_type": "Full-time",
+  "employer_id": "<userId>",
+  "created_at": "2025-05-13T18:00:00.000Z",
+  "updated_at": "2025-05-13T18:00:00.000Z"
   }
 
 - **Response (Error - 401, if token is invalid or missing)**:
@@ -316,7 +344,8 @@
   "location": "Remote",
   "salary": 60000,
   "status": "Closed",
-  "category_id": "<category_id>" // Optional
+  "category_id": "<categoryId>", // Optional
+  "job_type": "Full-time" // Optional: "Full-time", "Part-time", "Project-based"
   }
 
 - **Response (Success - 200)**:
@@ -328,7 +357,8 @@
   "location": "Remote",
   "salary": 60000,
   "status": "Closed",
-  "category_id": null,
+  "category_id": "<categoryId>",
+  "job_type": "Full-time",
   "employer_id": "<userId>",
   "created_at": "2025-05-13T18:00:00.000Z",
   "updated_at": "2025-05-13T18:30:00.000Z"
@@ -371,6 +401,7 @@
     "created_at": "2025-05-13T18:00:00.000Z",
     "updated_at": "2025-05-13T18:00:00.000Z"
   },
+  "job_type": "Full-time",
   "employer_id": "<userId>",
   "employer": {
     "id": "<userId>",
@@ -411,6 +442,7 @@
       "created_at": "2025-05-13T18:00:00.000Z",
       "updated_at": "2025-05-13T18:00:00.000Z"
     },
+    "job_type": "Full-time",
     "employer_id": "<userId>",
     "employer": {
       "id": "<userId>",
@@ -727,3 +759,158 @@
   "message": "Application not found",
   "error": "Not Found"
   }
+
+### 19. Search Job Posts
+- **Endpoint**: `GET /api/job-posts/search`
+- **Description**: Searches for active job posts with optional filters.
+- **Query Parameters:**:
+  title (string, optional): Part of the job post title to search for.
+  location (string, optional): Location of the job post.
+  salaryMin (number, optional): Minimum salary.
+  salaryMax (number, optional): Maximum salary.
+  job_type (string, optional): Type of job ("Full-time", "Part-time", "Project-based").
+  category_id (string, optional): ID of the category.
+- **Example Request:**: /api/job-posts/search?title=Engineer&location=Remote&salaryMin=40000&salaryMax=60000&job_type=Full-time&category_id=<categoryId>
+- **Response (Success - 200)**:
+  ```json
+  [
+  {
+    "id": "<jobPostId>",
+    "title": "Software Engineer",
+    "description": "We are looking for a skilled software engineer...",
+    "location": "Remote",
+    "salary": 50000,
+    "status": "Active",
+    "category_id": "<categoryId>",
+    "category": {
+      "id": "<categoryId>",
+      "name": "Software Development",
+      "created_at": "2025-05-13T18:00:00.000Z",
+      "updated_at": "2025-05-13T18:00:00.000Z"
+    },
+    "job_type": "Full-time",
+    "employer_id": "<userId>",
+    "employer": {
+      "id": "<userId>",
+      "email": "employer4@example.com",
+      "username": "employer4",
+      "role": "employer"
+    },
+    "created_at": "2025-05-13T18:00:00.000Z",
+    "updated_at": "2025-05-13T18:00:00.000Z"
+  }
+  ]
+
+### 20. Create Review
+- **Endpoint**: `POST /api/reviews`
+- **Description**: Creates a review for a user (employer or jobseeker) related to a specific job application.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "job_application_id": "<jobApplicationId>",
+    "rating": 4,
+    "comment": "Great work, very professional!"
+  }
+
+- **Response (Success - 200)**:
+  ```json
+  {
+  "id": "<reviewId>",
+  "reviewer_id": "<userId>",
+  "reviewed_id": "<userId>",
+  "job_application_id": "<jobApplicationId>",
+  "rating": 4,
+  "comment": "Great work, very professional!",
+  "created_at": "2025-05-13T18:00:00.000Z",
+  "updated_at": "2025-05-13T18:00:00.000Z"
+  }
+
+- **Response (Error - 401, if token is invalid or missing)**:
+  ```json
+  {
+  "statusCode": 401,
+  "message": "Invalid token",
+  "error": "Unauthorized"
+  }
+
+- **Response (Error - 401, if user does not have permission)**:
+  ```json
+  {
+  "statusCode": 401,
+  "message": "You can only leave reviews for your own job applications",
+  "error": "Unauthorized"
+  }
+
+- **Response (Error - 400, if job application is not accepted)**:
+  ```json
+  {
+  "statusCode": 400,
+  "message": "Reviews can only be left for accepted job applications",
+  "error": "Bad Request"
+  }
+
+- **Response (Error - 400, if rating is invalid)**:
+  ```json
+  {
+  "statusCode": 400,
+  "message": "Rating must be between 1 and 5",
+  "error": "Bad Request"
+  }
+
+- **Response (Error - 400, if review already exists)**:
+  ```json
+  {
+  "statusCode": 400,
+  "message": "You have already left a review for this job application",
+  "error": "Bad Request"
+  }
+
+- **Response (Error - 404, if job application not found)**:
+  ```json
+  {
+  "statusCode": 404,
+  "message": "Job application not found",
+  "error": "Not Found"
+  }
+
+### 21. Get Reviews for User
+- **Endpoint**: `GET /api/reviews/user/:id`
+- **Description**: Retrieves all reviews for a specific user (employer or jobseeker).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: id: The ID of the user
+- **Response (Success - 200)**:
+  ```json
+  [
+  {
+    "id": "<reviewId>",
+    "reviewer_id": "<userId>",
+    "reviewed_id": "<userId>",
+    "job_application_id": "<jobApplicationId>",
+    "rating": 4,
+    "comment": "Great work, very professional!",
+    "reviewer": {
+      "id": "<userId>",
+      "email": "employer4@example.com",
+      "username": "employer4",
+      "role": "employer"
+    },
+    "job_application": {
+      "id": "<jobApplicationId>",
+      "job_post_id": "<jobPostId>",
+      "job_seeker_id": "<userId>",
+      "status": "Accepted"
+    },
+    "created_at": "2025-05-13T18:00:00.000Z",
+    "updated_at": "2025-05-13T18:00:00.000Z"
+  }
+  ]
+
+- **Response (Error - 404, if user not found)**:
+  ```json
+  {
+  "statusCode": 404,
+  "message": "User not found",
+  "error": "Not Found"
+  }
+

@@ -8,7 +8,8 @@ import { AuthModule } from './auth/auth.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { JobPostsModule } from './job-posts/job-posts.module';
 import { CategoriesModule } from './categories/categories.module';
-import { JobApplicationsModule } from './job-applications/job-applications.module'; // Добавляем JobApplicationsModule
+import { JobApplicationsModule } from './job-applications/job-applications.module';
+import { ReviewsModule } from './reviews/reviews.module'; // Добавляем ReviewsModule
 import { RedisModule } from './redis/redis.module';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
@@ -41,7 +42,8 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
     ProfilesModule,
     JobPostsModule,
     CategoriesModule,
-    JobApplicationsModule, // Добавляем JobApplicationsModule
+    JobApplicationsModule,
+    ReviewsModule, // Добавляем ReviewsModule
     RedisModule,
   ],
   controllers: [AppController],

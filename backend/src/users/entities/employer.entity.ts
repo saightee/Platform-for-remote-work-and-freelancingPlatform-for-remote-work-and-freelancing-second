@@ -19,11 +19,14 @@ export class Employer {
   @Column({ nullable: true })
   referral_link?: string;
 
-  @Column({ nullable: true }) // Часовой пояс, например, "Europe/Moscow"
+  @Column({ nullable: true })
   timezone?: string;
 
-  @Column({ nullable: true }) // Валюта, например, "USD"
+  @Column({ nullable: true })
   currency?: string;
+
+  @Column({ type: 'float', default: 0 }) // Добавляем средний рейтинг
+  average_rating: number;
 
   @CreateDateColumn()
   created_at: Date;

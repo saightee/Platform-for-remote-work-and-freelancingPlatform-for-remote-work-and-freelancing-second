@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JobPost } from './job-post.entity';
@@ -12,10 +12,10 @@ export class JobPostsService {
     private jobPostsRepository: Repository<JobPost>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
-    private categoriesService: CategoriesService, // Добавляем CategoriesService
+    private categoriesService: CategoriesService,
   ) {}
 
-  async createJobPost(userId: string, jobPostData: { title: string; description: string; location: string; salary: number; status: 'Active' | 'Draft' | 'Closed'; category_id?: string }) {
+  async createJobPost(userId: string, jobPostData: { title: string; description: string; location: string; salary: number; status: 'Active' | 'Draft' | 'Closed'; category_id?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based' }) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -24,7 +24,6 @@ export class JobPostsService {
       throw new UnauthorizedException('Only employers can create job posts');
     }
 
-    // Проверяем, существует ли категория, если указан category_id
     if (jobPostData.category_id) {
       await this.categoriesService.getCategoryById(jobPostData.category_id);
     }
@@ -37,13 +36,12 @@ export class JobPostsService {
     return savedJobPost;
   }
 
-  async updateJobPost(userId: string, jobPostId: string, updates: { title?: string; description?: string; location?: string; salary?: number; status?: 'Active' | 'Draft' | 'Closed'; category_id?: string }) {
+  async updateJobPost(userId: string, jobPostId: string, updates: { title?: string; description?: string; location?: string; salary?: number; status?: 'Active' | 'Draft' | 'Closed'; category_id?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based' }) {
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: userId } });
     if (!jobPost) {
       throw new NotFoundException('Job post not found or you do not have permission to update it');
     }
 
-    // Проверяем, существует ли категория, если указан category_id
     if (updates.category_id) {
       await this.categoriesService.getCategoryById(updates.category_id);
     }
@@ -74,4 +72,59 @@ export class JobPostsService {
 
     return this.jobPostsRepository.find({ where: { employer_id: userId }, relations: ['employer', 'category'] });
   }
+
+async searchJobPosts(filters: { title?: string; location?: string; salaryMin?: string; salaryMax?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based'; category_id?: string }) {
+  try {
+    console.log('Search filters:', filters);
+
+    // Преобразуем salaryMin и salaryMax в числа, если они есть
+    const salaryMin = filters.salaryMin ? parseInt(filters.salaryMin, 10) : undefined;
+    const salaryMax = filters.salaryMax ? parseInt(filters.salaryMax, 10) : undefined;
+
+    // Проверяем, являются ли salaryMin и salaryMax корректными числами
+    if (filters.salaryMin && isNaN(salaryMin!)) { // Добавляем !, так как мы уже проверили filters.salaryMin
+      throw new BadRequestException('salaryMin must be a valid number');
+    }
+    if (filters.salaryMax && isNaN(salaryMax!)) { // Добавляем !, так как мы уже проверили filters.salaryMax
+      throw new BadRequestException('salaryMax must be a valid number');
+    }
+
+    const query = this.jobPostsRepository.createQueryBuilder('job_post')
+      .leftJoinAndSelect('job_post.employer', 'employer')
+      .leftJoinAndSelect('job_post.category', 'category')
+      .where('job_post.status = :status', { status: 'Active' });
+
+    if (filters.title) {
+      query.andWhere('job_post.title ILIKE :title', { title: `%${filters.title}%` });
+    }
+
+    if (filters.location) {
+      query.andWhere('job_post.location ILIKE :location', { location: `%${filters.location}%` });
+    }
+
+    if (salaryMin !== undefined) {
+      query.andWhere('job_post.salary >= :salaryMin', { salaryMin });
+    }
+
+    if (salaryMax !== undefined) {
+      query.andWhere('job_post.salary <= :salaryMax', { salaryMax });
+    }
+
+    if (filters.job_type) {
+      query.andWhere('job_post.job_type = :job_type', { job_type: filters.job_type });
+    }
+
+    if (filters.category_id) {
+      query.andWhere('job_post.category_id = :category_id', { category_id: filters.category_id });
+    }
+
+    console.log('Executing query:', query.getQueryAndParameters());
+    const results = await query.getMany();
+    console.log('Search results:', results);
+    return results;
+  } catch (error) {
+    console.error('Error in searchJobPosts:', error);
+    throw new BadRequestException(error.message || 'Failed to search job posts');
+  }
+}
 }
