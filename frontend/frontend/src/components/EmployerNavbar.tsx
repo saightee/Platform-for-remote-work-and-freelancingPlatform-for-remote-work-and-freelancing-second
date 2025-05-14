@@ -32,7 +32,7 @@ const EmployerNavbar: React.FC = () => {
         <a href="#">ID Proof</a>
         <a href="#">Training</a>
         <a href="#">Blog</a>
-        <span className="navbar-user">Welcome, {user?.name || user?.email}</span>
+        <span className="navbar-user">Hello, {user?.username || user?.email}</span> {/* Изменяем на Hello, username */}
         <button onClick={handleLogout} className="logout-button">
           Logout
         </button>

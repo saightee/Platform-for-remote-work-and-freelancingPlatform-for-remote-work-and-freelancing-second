@@ -7,6 +7,7 @@ interface User {
   email: string;
   role: string | null;
   isEmailVerified: boolean;
+  username?: string; // Добавляем username
   name?: string;
   skills?: string;
   experience?: string;
@@ -20,8 +21,8 @@ interface AuthContextType {
   role: string | null;
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  googleLogin: (role?: string) => Promise<void>; // Делаем role необязательным
-  register: (email: string, password: string, role: string) => Promise<void>;
+  googleLogin: (role?: string) => Promise<void>;
+  register: (email: string, password: string, role: string, username: string) => Promise<void>;
   verifyEmail: (token: string) => Promise<any>;
   forgotPassword: (email: string) => Promise<any>;
   resetPassword: (token: string, newPassword: string) => Promise<any>;
@@ -66,7 +67,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const googleLogin = async (role?: string) => {
     try {
       console.log('Redirecting to Google with role:', role || 'none');
-      // Добавляем role в query-параметр только если он передан
       const roleQuery = role ? `&role=${encodeURIComponent(role)}` : '';
       window.location.href = `${API_BASE_URL}/api/auth/google?callbackUrl=${encodeURIComponent(window.location.origin + '/auth/callback')}${roleQuery}`;
     } catch (error: any) {
@@ -75,10 +75,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, password: string, role: string) => {
+  const register = async (email: string, password: string, role: string, username: string) => {
     try {
-      console.log('Registering with data:', { email, password, role });
-      const response = await api.post('/auth/register', { email, password, role });
+      console.log('Registering with data:', { email, password, role, username });
+      const response = await api.post('/auth/register', { email, password, role, username });
       console.log('Server response:', response.data);
       const { token, user } = response.data;
       localStorage.setItem('token', token);

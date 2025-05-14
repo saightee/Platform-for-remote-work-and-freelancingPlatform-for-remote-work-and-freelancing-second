@@ -27,7 +27,7 @@ const JobSeekerNavbar: React.FC = () => {
         <NavLink to="/my-applications" className={({ isActive }) => (isActive ? 'active' : '')}>
           My Applications
         </NavLink>
-        <span className="navbar-user">Welcome, {user?.name || user?.email}</span>
+        <span className="navbar-user">Hello, {user?.username || user?.email}</span> {/* Изменяем на Hello, username */}
         <button onClick={handleLogout} className="logout-button">
           Logout
         </button>
