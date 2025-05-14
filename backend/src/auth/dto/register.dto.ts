@@ -14,5 +14,5 @@ export class RegisterDto {
 
   @IsString()
   @IsNotEmpty()
-  role: 'employer' | 'jobseeker'; // Добавляем поле role
+  role: 'employer' | 'jobseeker' | 'admin'; // Добавляем admin
 }

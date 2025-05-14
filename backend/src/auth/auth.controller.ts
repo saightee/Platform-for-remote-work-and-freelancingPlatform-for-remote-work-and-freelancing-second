@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res, Query } from '@nestjs/common'; // Добавляем Query
+import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -44,19 +44,33 @@ export class AuthController {
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(@Request() req, @Res() res: Response, @Query('role') role: 'employer' | 'jobseeker') {
+  async googleAuthRedirect(
+    @Request() req,
+    @Res() res: Response,
+    @Query('role') role: 'employer' | 'jobseeker',
+    @Query('callbackUrl') callbackUrl: string,
+  ) {
     console.log('Google Callback - req.user:', req.user);
     try {
+      // Сохраняем данные пользователя в Redis и получаем tempToken
       const tempToken = await this.authService.storeOAuthUserData(req.user, role || 'jobseeker');
       console.log('Google Callback - Temp Token:', tempToken);
 
-      // Завершаем регистрацию сразу
+      // Завершаем регистрацию и получаем accessToken
       const user = await this.authService.completeRegistration(tempToken, role || 'jobseeker', {
         timezone: 'UTC',
         currency: 'USD',
       });
 
-      return res.json({ accessToken: user.accessToken });
+      // Формируем URL для редиректа на фронтенд
+      const redirectUrl = callbackUrl || `${req.protocol}://${req.get('host')}/auth/callback`;
+      const redirectParams = new URLSearchParams({
+        token: user.accessToken,
+        role: role || 'jobseeker',
+      }).toString();
+
+      // Перенаправляем на фронтенд с параметрами
+      return res.redirect(`${redirectUrl}?${redirectParams}`);
     } catch (error) {
       console.error('Google Callback - Error:', error);
       return res.status(500).json({ message: 'Authentication failed', error: error.message });

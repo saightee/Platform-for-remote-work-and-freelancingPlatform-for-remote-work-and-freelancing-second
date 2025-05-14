@@ -15,10 +15,10 @@ export class User {
   username: string;
 
   @Column({ type: 'varchar', length: 20 })
-  role: 'employer' | 'jobseeker';
+  role: 'employer' | 'jobseeker' | 'admin';
 
-  @Column({ type: 'varchar', nullable: true })
-  provider?: string | null;
+  @Column({ type: 'varchar', length: 50, nullable: true }) // Явно указываем тип varchar
+  provider: string | null;
 
   @CreateDateColumn()
   created_at: Date;

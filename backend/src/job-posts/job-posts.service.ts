@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { JobPost } from './job-post.entity';
 import { User } from '../users/entities/user.entity';
 import { CategoriesService } from '../categories/categories.service';
+import { JobApplication } from '../job-applications/job-application.entity'; // Импортируем JobApplication
 
 @Injectable()
 export class JobPostsService {
@@ -12,6 +13,8 @@ export class JobPostsService {
     private jobPostsRepository: Repository<JobPost>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    @InjectRepository(JobApplication) // Внедряем JobApplicationRepository
+    private jobApplicationsRepository: Repository<JobApplication>,
     private categoriesService: CategoriesService,
   ) {}
 
@@ -73,58 +76,93 @@ export class JobPostsService {
     return this.jobPostsRepository.find({ where: { employer_id: userId }, relations: ['employer', 'category'] });
   }
 
-async searchJobPosts(filters: { title?: string; location?: string; salaryMin?: string; salaryMax?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based'; category_id?: string }) {
-  try {
-    console.log('Search filters:', filters);
+  async searchJobPosts(filters: { title?: string; location?: string; salaryMin?: string; salaryMax?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based'; category_id?: string }) {
+    try {
+      console.log('Search filters:', filters);
 
-    // Преобразуем salaryMin и salaryMax в числа, если они есть
-    const salaryMin = filters.salaryMin ? parseInt(filters.salaryMin, 10) : undefined;
-    const salaryMax = filters.salaryMax ? parseInt(filters.salaryMax, 10) : undefined;
+      const salaryMin = filters.salaryMin ? parseInt(filters.salaryMin, 10) : undefined;
+      const salaryMax = filters.salaryMax ? parseInt(filters.salaryMax, 10) : undefined;
 
-    // Проверяем, являются ли salaryMin и salaryMax корректными числами
-    if (filters.salaryMin && isNaN(salaryMin!)) { // Добавляем !, так как мы уже проверили filters.salaryMin
-      throw new BadRequestException('salaryMin must be a valid number');
+      if (filters.salaryMin && isNaN(salaryMin!)) {
+        throw new BadRequestException('salaryMin must be a valid number');
+      }
+      if (filters.salaryMax && isNaN(salaryMax!)) {
+        throw new BadRequestException('salaryMax must be a valid number');
+      }
+
+      const query = this.jobPostsRepository.createQueryBuilder('job_post')
+        .leftJoinAndSelect('job_post.employer', 'employer')
+        .leftJoinAndSelect('job_post.category', 'category')
+        .where('job_post.status = :status', { status: 'Active' });
+
+      if (filters.title) {
+        query.andWhere('job_post.title ILIKE :title', { title: `%${filters.title}%` });
+      }
+
+      if (filters.location) {
+        query.andWhere('job_post.location ILIKE :location', { location: `%${filters.location}%` });
+      }
+
+      if (salaryMin !== undefined) {
+        query.andWhere('job_post.salary >= :salaryMin', { salaryMin });
+      }
+
+      if (salaryMax !== undefined) {
+        query.andWhere('job_post.salary <= :salaryMax', { salaryMax });
+      }
+
+      if (filters.job_type) {
+        query.andWhere('job_post.job_type = :job_type', { job_type: filters.job_type });
+      }
+
+      if (filters.category_id) {
+        query.andWhere('job_post.category_id = :category_id', { category_id: filters.category_id });
+      }
+
+      console.log('Executing query:', query.getQueryAndParameters());
+      const results = await query.getMany();
+      console.log('Search results:', results);
+      return results;
+    } catch (error) {
+      console.error('Error in searchJobPosts:', error);
+      throw new BadRequestException(error.message || 'Failed to search job posts');
     }
-    if (filters.salaryMax && isNaN(salaryMax!)) { // Добавляем !, так как мы уже проверили filters.salaryMax
-      throw new BadRequestException('salaryMax must be a valid number');
-    }
-
-    const query = this.jobPostsRepository.createQueryBuilder('job_post')
-      .leftJoinAndSelect('job_post.employer', 'employer')
-      .leftJoinAndSelect('job_post.category', 'category')
-      .where('job_post.status = :status', { status: 'Active' });
-
-    if (filters.title) {
-      query.andWhere('job_post.title ILIKE :title', { title: `%${filters.title}%` });
-    }
-
-    if (filters.location) {
-      query.andWhere('job_post.location ILIKE :location', { location: `%${filters.location}%` });
-    }
-
-    if (salaryMin !== undefined) {
-      query.andWhere('job_post.salary >= :salaryMin', { salaryMin });
-    }
-
-    if (salaryMax !== undefined) {
-      query.andWhere('job_post.salary <= :salaryMax', { salaryMax });
-    }
-
-    if (filters.job_type) {
-      query.andWhere('job_post.job_type = :job_type', { job_type: filters.job_type });
-    }
-
-    if (filters.category_id) {
-      query.andWhere('job_post.category_id = :category_id', { category_id: filters.category_id });
-    }
-
-    console.log('Executing query:', query.getQueryAndParameters());
-    const results = await query.getMany();
-    console.log('Search results:', results);
-    return results;
-  } catch (error) {
-    console.error('Error in searchJobPosts:', error);
-    throw new BadRequestException(error.message || 'Failed to search job posts');
   }
-}
+
+  async applyToJob(userId: string, jobPostId: string) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.role !== 'jobseeker') {
+      throw new UnauthorizedException('Only jobseekers can apply to job posts');
+    }
+
+    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
+    if (!jobPost) {
+      throw new NotFoundException('Job post not found');
+    }
+    if (jobPost.status !== 'Active') {
+      throw new BadRequestException('Cannot apply to a job post that is not active');
+    }
+
+    const existingApplication = await this.jobApplicationsRepository.findOne({
+      where: { job_post_id: jobPostId, job_seeker_id: userId },
+    });
+    if (existingApplication) {
+      throw new BadRequestException('You have already applied to this job post');
+    }
+
+    const applicationCount = await this.jobApplicationsRepository.count({ where: { job_post_id: jobPostId } });
+    if (applicationCount >= jobPost.applicationLimit) {
+      throw new BadRequestException('Application limit reached for this job post');
+    }
+
+    const application = this.jobApplicationsRepository.create({
+      job_post_id: jobPostId,
+      job_seeker_id: userId,
+      status: 'Pending',
+    });
+    return this.jobApplicationsRepository.save(application);
+  }
 }

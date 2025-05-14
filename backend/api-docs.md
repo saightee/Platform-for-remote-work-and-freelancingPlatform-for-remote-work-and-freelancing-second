@@ -873,3 +873,307 @@
   "error": "Not Found"
   }
 
+### 21. Get All Users (Admin)
+- **Endpoint**: `GET /api/admin/users`
+- **Description**: Retrieves all users (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**: 
+  ```json
+  [
+    {
+      "id": "<userId>",
+      "email": "test@example.com",
+      "username": "test",
+      "role": "employer",
+      "provider": null,
+      "created_at": "2025-05-13T18:00:00.000Z",
+      "updated_at": "2025-05-13T18:00:00.000Z"
+    }
+  ]
+
+- **Response (Error - 401, if token is invalid or missing)**: 
+  ```json
+  {
+  "statusCode": 401,
+  "message": "Invalid token",
+  "error": "Unauthorized"
+  }
+
+- **Response (Error - 401, if user is not an admin)**: 
+  ```json
+  {
+  "statusCode": 401,
+  "message": "Only admins can access this resource",
+  "error": "Unauthorized"
+  }
+
+### 22. Get User by ID (Admin)
+- **Endpoint**: `GET /api/admin/users/:id`
+- **Description**: Retrieves a specific user by ID (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: id: The ID of the user.
+- **Response (Success - 200)**: 
+  ```json
+  {
+  "id": "<userId>",
+  "email": "test@example.com",
+  "username": "test",
+  "role": "employer",
+  "provider": null,
+  "created_at": "2025-05-13T18:00:00.000Z",
+  "updated_at": "2025-05-13T18:00:00.000Z"
+  }
+
+- **Response (Error - 404, if user not found)**: 
+  ```json
+  {
+  "statusCode": 404,
+  "message": "User not found",
+  "error": "Not Found"
+  }
+
+### 23. Update User (Admin)
+- **Endpoint**: `PUT /api/admin/users/:id`
+- **Description**: Updates a specific user (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: id: The ID of the user.
+- **Request Body**: 
+  ```json
+  {
+  "email": "updated@example.com",
+  "username": "updatedUser",
+  "role": "jobseeker"
+  }
+
+- **Response (Success - 200)**: 
+  ```json
+  {
+  "id": "<userId>",
+  "email": "updated@example.com",
+  "username": "updatedUser",
+  "role": "jobseeker",
+  "provider": null,
+  "created_at": "2025-05-13T18:00:00.000Z",
+  "updated_at": "2025-05-13T18:30:00.000Z"
+  }
+
+- **Response (Error - 404, if user not found)**: 
+  ```json
+  {
+  "statusCode": 404,
+  "message": "User not found",
+  "error": "Not Found"
+  }
+
+### 24. Delete User (Admin)
+- **Endpoint**: `DELETE /api/admin/users/:id`
+- **Description**: Deletes a specific user (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: id: The ID of the user.
+- **Response (Success - 200)**: 
+  ```json
+  {
+  "message": "User deleted successfully"
+  }
+
+- **Response (Error - 404, if user not found)**: 
+  ```json
+  {
+  "statusCode": 404,
+  "message": "User not found",
+  "error": "Not Found"
+  }
+
+### 25. Get All Job Posts (Admin)
+- **Endpoint**: `GET /api/admin/job-posts`
+- **Description**: Retrieves all job posts (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**: 
+  ```json
+  [
+  {
+    "id": "<jobPostId>",
+    "title": "Software Engineer",
+    "description": "We are looking for a skilled software engineer...",
+    "location": "Remote",
+    "salary": 50000,
+    "status": "Active",
+    "category_id": "<categoryId>",
+    "category": {
+      "id": "<categoryId>",
+      "name": "Software Development",
+      "created_at": "2025-05-13T18:00:00.000Z",
+      "updated_at": "2025-05-13T18:00:00.000Z"
+    },
+    "job_type": "Full-time",
+    "employer_id": "<userId>",
+    "employer": {
+      "id": "<userId>",
+      "email": "employer4@example.com",
+      "username": "employer4",
+      "role": "employer"
+    },
+    "applicationLimit": 100,
+    "created_at": "2025-05-13T18:00:00.000Z",
+    "updated_at": "2025-05-13T18:00:00.000Z"
+  }
+  ]
+
+### 26. Update Job Post (Admin)
+- **Endpoint**: `PUT /api/admin/job-posts/:id`
+- **Description**: Updates a specific job post (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: id: The ID of the job post.
+- **Request Body**:
+  ```json
+  {
+  "title": "Senior Software Engineer",
+  "description": "Updated description...",
+  "location": "Remote",
+  "salary": 60000,
+  "status": "Closed",
+  "job_type": "Full-time",
+  "category_id": "<categoryId>",
+  "applicationLimit": 50
+  }
+
+- **Response (Success - 200)**: 
+  ```json
+  {
+  "id": "<jobPostId>",
+  "title": "Senior Software Engineer",
+  "description": "Updated description...",
+  "location": "Remote",
+  "salary": 60000,
+  "status": "Closed",
+  "category_id": "<categoryId>",
+  "job_type": "Full-time",
+  "employer_id": "<userId>",
+  "applicationLimit": 50,
+  "created_at": "2025-05-13T18:00:00.000Z",
+  "updated_at": "2025-05-13T18:30:00.000Z"
+  }
+
+### 27. Delete Job Post (Admin)
+- **Endpoint**: `DELETE /api/admin/job-posts/:id`
+- **Description**: Deletes a specific job post (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: id: The ID of the job post.
+- **Response (Success - 200)**: 
+  ```json
+  {
+  "message": "Job post deleted successfully"
+  }
+
+- **Response (Error - 404, if job post not found)**: 
+  ```json
+  {
+  "statusCode": 404,
+  "message": "Job post not found",
+  "error": "Not Found"
+  }
+
+### 28. Get All Reviews (Admin)
+- **Endpoint**: `GET /api/admin/reviews`
+- **Description**: Retrieves all reviews (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**: 
+  ```json
+  [
+  {
+    "id": "<reviewId>",
+    "reviewer_id": "<userId>",
+    "reviewed_id": "<userId>",
+    "job_application_id": "<jobApplicationId>",
+    "rating": 4,
+    "comment": "Great work, very professional!",
+    "reviewer": {
+      "id": "<userId>",
+      "email": "employer4@example.com",
+      "username": "employer4",
+      "role": "employer"
+    },
+    "reviewed": {
+      "id": "<userId>",
+      "email": "jobseeker1@example.com",
+      "username": "jobseeker1",
+      "role": "jobseeker"
+    },
+    "job_application": {
+      "id": "<jobApplicationId>",
+      "job_post_id": "<jobPostId>",
+      "job_seeker_id": "<userId>",
+      "status": "Accepted"
+    },
+    "created_at": "2025-05-13T18:00:00.000Z",
+    "updated_at": "2025-05-13T18:00:00.000Z"
+  }
+  ]
+
+### 29. Delete Review (Admin)
+- **Endpoint**: `DELETE /api/admin/reviews/:id`
+- **Description**: Deletes a specific review (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: id: The ID of the review.
+- **Response (Success - 200)**: 
+  ```json
+  {
+  "message": "Review deleted successfully"
+  }
+
+- **Response (Error - 404, if review not found)**: 
+  ```json
+  {
+  "statusCode": 404,
+  "message": "Review not found",
+  "error": "Not Found"
+  }
+
+### 30. Get Analytics (Admin)
+- **Endpoint**: `GET /api/admin/analytics`
+- **Description**: Retrieves analytics data (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**: 
+  ```json
+  {
+  "totalUsers": 50,
+  "employers": 20,
+  "jobSeekers": 30,
+  "totalJobPosts": 40,
+  "activeJobPosts": 25,
+  "totalApplications": 100,
+  "totalReviews": 15
+  }
+
+### 31. Set Application Limit for Job Post (Admin)
+- **Endpoint**: `POST /api/admin/job-posts/:id/set-application-limit`
+- **Description**: Sets the application limit for a specific job post (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: id: The ID of the job post.
+- **Request Body**: id: The ID of the job post.
+  ```json
+  {
+  "limit": 50
+  }
+- **Response (Success - 200)**: 
+  ```json
+  {
+  "message": "Application limit updated successfully",
+  "limit": 50
+  }
+
+- **Response (Error - 400, if limit is invalid)**: 
+  ```json
+  {
+  "statusCode": 400,
+  "message": "Application limit must be a non-negative number",
+  "error": "Bad Request"
+  }
+
+- **Response (Error - 404, if job post not found)**: 
+  ```json
+  {
+  "statusCode": 404,
+  "message": "Job post not found",
+  "error": "Not Found"
+  }
