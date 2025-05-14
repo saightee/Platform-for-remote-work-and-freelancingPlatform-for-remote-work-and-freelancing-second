@@ -36,7 +36,7 @@ interface AuthContextType {
   resetPassword: (token: string, newPassword: string) => Promise<any>;
   selectRole: (role: string, tempToken: string, additionalData?: Record<string, any>) => Promise<any>;
   logout: () => void;
-  setUser: (user: User | null) => void; // Добавляем setUser
+  setUser: (user: User | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -116,21 +116,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       console.log('[AuthContext] Registering with data:', { email, password, role, username }, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
       const response = await api.post('/auth/register', { email, password, role, username });
-      const { token, user } = response.data;
-      if (token && user) {
+      console.log('[AuthContext] Raw registration response:', response.data, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+
+      // Проверяем структуру ответа
+      let token: string | null | undefined;
+      let userData: User | undefined;
+
+      if (response.data && response.data.token && response.data.user) {
+        // Ожидаемая структура: { token, user }
+        token = response.data.token;
+        userData = response.data.user;
+      } else if (response.data && response.data.message === 'User registered successfully') {
+        // Если бэкенд вернул только сообщение, делаем запрос к /profile для получения данных пользователя
+        const profileResponse = await api.get('/profile');
+        console.log('[AuthContext] Fetched profile after registration:', profileResponse.data, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+        userData = profileResponse.data;
+        token = localStorage.getItem('token'); // Получаем токен из localStorage
+        if (token === null || token === undefined) {
+          throw new Error('Token not found in localStorage after profile fetch');
+        }
+      } else {
+        throw new Error('Unexpected response format from /auth/register');
+      }
+
+      if (token && userData) {
         console.log('[AuthContext] Saving token after registration:', token, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
         localStorage.setItem('token', token);
-        setUser(user);
+        setUser(userData);
         setIsAuthenticated(true);
         setIsEmailVerified(true);
         setRole(role);
-        console.log('[AuthContext] Registration successful at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'User:', user);
+        console.log('[AuthContext] Registration successful at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'User:', userData);
       } else {
         throw new Error('Token or user data missing in response');
       }
     } catch (error: any) {
       console.error('[AuthContext] Registration error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || 'Registration failed');
+      throw new Error(error.response?.data?.message || error.message || 'Registration failed');
     } finally {
       setIsLoading(false);
     }
@@ -261,7 +283,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     resetPassword,
     selectRole,
     logout,
-    setUser, // Добавляем setUser в контекст
+    setUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
