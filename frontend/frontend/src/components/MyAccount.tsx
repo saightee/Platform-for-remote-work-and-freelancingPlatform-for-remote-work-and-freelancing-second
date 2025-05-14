@@ -25,13 +25,13 @@ interface CompletedJob {
 }
 
 const MyAccount: React.FC = () => {
-  const { user, role, isAuthenticated, isLoading } = useAuth();
+  const { user, role, isAuthenticated, isLoading, setUser } = useAuth(); // Добавляем setUser
   const [activeTab, setActiveTab] = useState<'profile' | 'categories' | 'jobs' | 'reviews'>('profile');
-  const [name, setName] = useState(user?.name || '');
-  const [skills, setSkills] = useState(user?.skills || '');
+  const [name, setName] = useState(user?.username || '');
+  const [skills, setSkills] = useState(user?.skills?.join(', ') || '');
   const [experience, setExperience] = useState(user?.experience || '');
-  const [companyName, setCompanyName] = useState(user?.companyName || '');
-  const [website, setWebsite] = useState(user?.website || '');
+  const [companyName, setCompanyName] = useState(user?.company_name || '');
+  const [companyInfo, setCompanyInfo] = useState(user?.company_info || '');
   const [categoryName, setCategoryName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -42,12 +42,13 @@ const MyAccount: React.FC = () => {
   const [review, setReview] = useState<string>('');
 
   useEffect(() => {
+    console.log('[MyAccount] useEffect triggered - user:', user, 'role:', role, 'isAuthenticated:', isAuthenticated, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
     if (user && isAuthenticated) {
-      setName(user.name || '');
-      setSkills(user.skills || '');
+      setName(user.username || '');
+      setSkills(user.skills?.join(', ') || '');
       setExperience(user.experience || '');
-      setCompanyName(user.companyName || '');
-      setWebsite(user.website || '');
+      setCompanyName(user.company_name || '');
+      setCompanyInfo(user.company_info || '');
       fetchCompletedJobs();
     }
     if (role === 'employer' && isAuthenticated) {
@@ -100,15 +101,17 @@ const MyAccount: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       const profileData = role === 'employer'
-        ? { name, companyName, website }
-        : { name, skills, experience };
+        ? { role, company_name: companyName, company_info: companyInfo }
+        : { role, skills: skills.split(',').map(s => s.trim()), experience };
 
-      await axios.put('/api/profiles/me', profileData, {
+      const response = await axios.put('/api/profile', profileData, {
         baseURL: API_BASE_URL,
         headers: { Authorization: `Bearer ${token}` },
       });
       setSuccess('Profile updated successfully!');
       setTimeout(() => setSuccess(null), 3000);
+      // Обновляем данные пользователя в контексте
+      setUser(response.data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to update profile');
     }
@@ -188,7 +191,7 @@ const MyAccount: React.FC = () => {
   }
 
   if (!role) {
-    return <div>Please select a role to continue.</div>;
+    return <div>Please select a role to continue. Debug: user={JSON.stringify(user)}, role={role}, isAuthenticated={isAuthenticated}</div>;
   }
 
   return (
@@ -209,11 +212,11 @@ const MyAccount: React.FC = () => {
         <form onSubmit={handleProfileSubmit} className="login-form">
           <input
             type="text"
-            placeholder="Full Name"
+            placeholder="Username"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="login-input"
-            required
+            disabled
           />
           {role === 'jobseeker' ? (
             <>
@@ -245,10 +248,10 @@ const MyAccount: React.FC = () => {
                 required
               />
               <input
-                type="url"
-                placeholder="Website (optional)"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
+                type="text"
+                placeholder="Company Info"
+                value={companyInfo}
+                onChange={(e) => setCompanyInfo(e.target.value)}
                 className="login-input"
               />
             </>
