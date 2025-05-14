@@ -8,31 +8,24 @@ import DefaultNavbar from './DefaultNavbar';
 import '../styles/Layout.css';
 
 const Layout: React.FC = () => {
-  const auth = useAuth();
-
-  if (!auth) {
-    console.error('Auth context is undefined in Layout');
-    return <div>Error: Auth context is not available</div>;
-  }
-
-  const { role, isAuthenticated } = auth;
+  const { role, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
-  const shouldRenderLayout = !['/register', '/register/employer', '/register/jobseeker', '/login'].includes(location.pathname.trim());
+  console.log('Layout - isAuthenticated:', isAuthenticated, 'role:', role, 'location:', location.pathname, 'isLoading:', isLoading, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
 
-  const Navbar = isAuthenticated
-    ? role === 'employer'
-      ? EmployerNavbar
-      : JobSeekerNavbar
+  const shouldRenderNavbar = !['/login', '/register', '/forgot-password', '/reset-password/:token'].includes(location.pathname.trim());
+
+  const Navbar = isLoading ? null : isAuthenticated
+    ? role === 'employer' ? EmployerNavbar : JobSeekerNavbar
     : DefaultNavbar;
 
   return (
     <>
-      {shouldRenderLayout && <Navbar />}
+      {shouldRenderNavbar && Navbar && <Navbar />}
       <main className="main-content">
         <Outlet />
       </main>
-      {shouldRenderLayout && (
+      {shouldRenderNavbar && (
         <div className="section-footer">
           <Footer />
         </div>

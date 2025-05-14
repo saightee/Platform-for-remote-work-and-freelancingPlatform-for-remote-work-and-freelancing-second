@@ -27,12 +27,18 @@ const EmployerNavbar: React.FC = () => {
         <NavLink to="/workers" className={({ isActive }) => (isActive ? 'active' : '')}>
           Find a Worker
         </NavLink>
+        <NavLink to="/my-workers" className={({ isActive }) => (isActive ? 'active' : '')}>
+          My Workers
+        </NavLink>
+        <NavLink to="/my-jobs" className={({ isActive }) => (isActive ? 'active' : '')}>
+          My Jobs
+        </NavLink>
         <a href="#">Pay a Worker</a>
         <a href="#">TimeProof</a>
         <a href="#">ID Proof</a>
         <a href="#">Training</a>
         <a href="#">Blog</a>
-        <span className="navbar-user">Hello, {user?.username || user?.email}</span> {/* Изменяем на Hello, username */}
+        <span className="navbar-user">Hello, {user?.username || user?.email || 'User'}</span>
         <button onClick={handleLogout} className="logout-button">
           Logout
         </button>
