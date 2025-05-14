@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res } from '@nestjs/common';
+import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res, Query } from '@nestjs/common'; // Добавляем Query
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -14,10 +14,8 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  async register(@Body() registerDto: RegisterDto, @Res() res: Response) {
-    const { tempToken } = await this.authService.register(registerDto);
-    // Перенаправляем на фронтенд-страницу, а не на API-маршрут
-    res.redirect(`http://localhost:3000/select-role?tempToken=${tempToken}`);
+  async register(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto);
   }
 
   @Post('login')
@@ -46,72 +44,32 @@ export class AuthController {
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(@Request() req, @Res() res: Response) {
+  async googleAuthRedirect(@Request() req, @Res() res: Response, @Query('role') role: 'employer' | 'jobseeker') {
     console.log('Google Callback - req.user:', req.user);
     try {
-      const tempToken = await this.authService.storeOAuthUserData(req.user);
+      const tempToken = await this.authService.storeOAuthUserData(req.user, role || 'jobseeker');
       console.log('Google Callback - Temp Token:', tempToken);
-      res.redirect(`https://localhost:3000/select-role?tempToken=${tempToken}`);
+
+      // Завершаем регистрацию сразу
+      const user = await this.authService.completeRegistration(tempToken, role || 'jobseeker', {
+        timezone: 'UTC',
+        currency: 'USD',
+      });
+
+      return res.json({ accessToken: user.accessToken });
     } catch (error) {
       console.error('Google Callback - Error:', error);
       return res.status(500).json({ message: 'Authentication failed', error: error.message });
     }
   }
 
-  @Post('forgot-password')
-  async forgotPassword(@Body('email') email: string) {
-    return this.authService.forgotPassword(email);
-  }
-
-  @Post('reset-password')
-  async resetPassword(@Body() body: { token: string; newPassword: string }) {
-    return this.authService.resetPassword(body.token, body.newPassword);
-  }
-
-  @Post('select-role')
-  async selectRole(
-    @Body() body: { tempToken: string; role: 'employer' | 'jobseeker'; company_name?: string; company_info?: string; referral_link?: string; skills?: string[]; experience?: string; portfolio?: string; video_intro?: string; timezone?: string; currency?: string },
-    @Res() res: Response,
-  ) {
-    try {
-      const user = await this.authService.completeRegistration(body.tempToken, body.role, {
-        company_name: body.company_name,
-        company_info: body.company_info,
-        referral_link: body.referral_link,
-        skills: body.skills,
-        experience: body.experience,
-        portfolio: body.portfolio,
-        video_intro: body.video_intro,
-        timezone: body.timezone,
-        currency: body.currency,
-      });
-      console.log('Select Role - Generated Token:', user);
-      return res.json(user);
-    } catch (error) {
-      console.error('Select Role - Error:', error);
-      return res.status(500).json({ message: 'Role selection failed', error: error.message });
-    }
-  }
-
   @Post('test-register')
   async testRegister(
-    @Body() body: { email: string; password: string; username: string; role: 'employer' | 'jobseeker'; company_name?: string; company_info?: string; referral_link?: string; skills?: string[]; experience?: string; portfolio?: string; video_intro?: string; timezone?: string; currency?: string },
+    @Body() body: { email: string; password: string; username: string; role: 'employer' | 'jobseeker' },
     @Res() res: Response,
   ) {
-    const registerDto = { email: body.email, password: body.password, username: body.username };
-    const { tempToken } = await this.authService.register(registerDto);
-    const additionalData = {
-      company_name: body.company_name,
-      company_info: body.company_info,
-      referral_link: body.referral_link,
-      skills: body.skills,
-      experience: body.experience,
-      portfolio: body.portfolio,
-      video_intro: body.video_intro,
-      timezone: body.timezone,
-      currency: body.currency,
-    };
-    const user = await this.authService.completeRegistration(tempToken, body.role, additionalData);
+    const registerDto = { email: body.email, password: body.password, username: body.username, role: body.role };
+    const user = await this.authService.register(registerDto);
     return res.json(user);
   }
 }

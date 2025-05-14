@@ -18,7 +18,7 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, password, username } = registerDto;
+    const { email, password, username, role } = registerDto;
 
     console.log('Register DTO:', registerDto);
     const existingUser = await this.usersService.findByEmail(email);
@@ -30,17 +30,25 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
     console.log('Hashed Password:', hashedPassword);
 
-    const tempToken = uuidv4();
+    // Сразу создаем пользователя с указанной ролью
     const userData = {
       email,
       password: hashedPassword,
       username,
-      provider: null,
+      role,
     };
-    await this.redisService.set(`oauth:${tempToken}`, JSON.stringify(userData), 3600);
-    console.log('Temp Token for Manual Registration:', tempToken);
+    const additionalData = {
+      timezone: 'UTC', // Значения по умолчанию, пользователь заполнит позже
+      currency: 'USD',
+    };
+    const newUser = await this.usersService.create(userData, additionalData);
+    console.log('New User Created:', newUser);
 
-    return { tempToken };
+    const payload = { email: newUser.email, sub: newUser.id };
+    const token = this.jwtService.sign(payload, { expiresIn: '1h' });
+    await this.redisService.set(`token:${newUser.id}`, token, 3600);
+
+    return { accessToken: token };
   }
 
   async login(loginDto: LoginDto) {
@@ -71,9 +79,10 @@ export class AuthService {
     return blacklisted === 'true';
   }
 
-  async storeOAuthUserData(user: { email: string; username: string; provider: string }): Promise<string> {
+  async storeOAuthUserData(user: { email: string; username: string; provider: string }, role: 'employer' | 'jobseeker') {
     const tempToken = uuidv4();
-    await this.redisService.set(`oauth:${tempToken}`, JSON.stringify(user), 3600);
+    const userData = { ...user, role };
+    await this.redisService.set(`oauth:${tempToken}`, JSON.stringify(userData), 3600);
     return tempToken;
   }
 
@@ -84,7 +93,7 @@ export class AuthService {
     }
     const userData = JSON.parse(userDataString);
     console.log('User Data:', userData);
-  
+
     let existingUser = await this.usersService.findByEmail(userData.email);
     if (!existingUser) {
       const userToCreate = {
@@ -92,26 +101,16 @@ export class AuthService {
         username: userData.username,
         password: userData.password || '',
         provider: userData.provider,
-        role,
+        role: userData.role || role, // Используем роль из userData, если она есть
       };
-      const additionalProfileData = {
-        ...additionalData,
-        timezone: additionalData.timezone || 'UTC', // Значение по умолчанию
-        currency: additionalData.currency || 'USD', // Значение по умолчанию
-      };
-      existingUser = await this.usersService.create(userToCreate, additionalProfileData);
+      existingUser = await this.usersService.create(userToCreate, additionalData);
       console.log('New User Created:', existingUser);
     } else {
       console.log('Existing User Found:', existingUser);
-      const additionalProfileData = {
-        ...additionalData,
-        timezone: additionalData.timezone || 'UTC',
-        currency: additionalData.currency || 'USD',
-      };
-      await this.usersService.updateUser(existingUser.id, role, additionalProfileData);
-      console.log('User Updated:', { role, additionalProfileData });
+      await this.usersService.updateUser(existingUser.id, role, additionalData);
+      console.log('User Updated:', { role, additionalData });
     }
-  
+
     const payload = { email: existingUser.email, sub: existingUser.id };
     const token = this.jwtService.sign(payload, { expiresIn: '1h' });
     await this.redisService.set(`token:${existingUser.id}`, token, 3600);
@@ -146,7 +145,4 @@ export class AuthService {
     await this.redisService.del(`reset:${token}`);
     return { message: 'Password reset successful' };
   }
-
-
-  
 }

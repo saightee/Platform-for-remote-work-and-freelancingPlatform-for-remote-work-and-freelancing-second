@@ -7,17 +7,21 @@
 
 ### 1. Register a User
 - **Endpoint**: `POST api/auth/register`
-- **Description**: Initiates user registration with email, password, and username. Returns a temporary token for role selection.
+- **Description**: Registers a user with email, password, username, and role. Returns an access token for immediate login.
 - **Request Body**:
   ```json
   {
     "email": "test@example.com",
     "password": "password",
-    "username": "test"
+    "username": "test",
+    "role": "employer" // or "jobseeker"
   }
 
-- **Response (Success - 302): Redirects to /api/auth/select-role with a tempToken in the query**:
-  http://localhost:3000/api/auth/select-role?tempToken=<tempToken>
+- **Response (Success - 200)**:
+  ```json
+  {
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
   
 - **Response (Error - 400, if email already exists):**:
   ```json
@@ -83,15 +87,19 @@
 ### 4. Google OAuth - Initiate Authentication
 - **Endpoint**: `GET /api/auth/google`
 - **Description**: Initiates the Google OAuth authentication process.
-- **Request Parameters**: None
+- **Query Parameters**: role (string, required): The role of the user ("employer" or "jobseeker").
+- **Example Request**: /api/auth/google?role=employer
 - **Response**: Redirects the user to Google's authentication page.
 
 ### 5. Google OAuth - Callback (handled by backend)
 - **Endpoint**: `GET /api/auth/google/callback`
 - **Description**: Handles the callback from Google after authentication. Redirects the user to a role selection page with a temporary token.
 - **Query Parameters**: code: Authorization code from Google (handled automatically).
-- **Response: Redirects to /api/auth/select-role with a tempToken in the query:**:
-  http://localhost:3000/api/auth/select-role?tempToken=<tempToken>
+- **Response: Returns a JSON response with the accessToken for immediate login:**:
+    ```json
+  {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
 
 - **Error Response (500, if authentication fails):**:
   ```json
@@ -100,57 +108,8 @@
   "error": "<error message>"
   }
 
-### 6. Select Role After Registration or OAuth
-- **Endpoint**: `POST /api/auth/select-role`
-- **Description**: Completes the registration process (manual or OAuth) by allowing the user to select their role (employer or jobseeker) and provide additional data.
-- **Request Body:**: 
-  //For employer
-  ```json
-  {
-  "tempToken": "<tempToken>",
-  "role": "employer",
-  "company_name": "Test Company",
-  "company_info": "A great company",
-  "referral_link": "https://example.com/ref/test",
-  "timezone": "Europe/Moscow",
-  "currency": "USD"
-  }
-  //For jobseeker
-  ```json
-  {
-  "tempToken": "<tempToken>",
-  "role": "jobseeker",
-  "skills": ["JavaScript", "TypeScript"],
-  "experience": "2 years",
-  "portfolio": "https://portfolio.com",
-  "video_intro": "https://video.com",
-  "timezone": "Europe/Moscow",
-  "currency": "USD"
-  }
 
-
-- **Response (Success - 200):**: 
-  ```json
-  {
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-
-- **Response (Error - 400, if tempToken is invalid or expired):**: 
-  ```json
-  {
-  "statusCode": 400,
-  "message": "Invalid or expired OAuth token",
-  "error": "Bad Request"
-  }
-
-- **Response (Error - 500, if role selection fails):**: 
-  ```json
-  {
-  "message": "Role selection failed",
-  "error": "<error message>"
-  }
-
-### 7. Get Profile
+### 6. Get Profile
 - **Endpoint**: `GET /api/profile`
 - **Description**: Retrieves the authenticated user's profile based on their role.
 - **Headers**: Authorization: Bearer <token>
@@ -224,7 +183,7 @@
   }
 
 
-### 8. Update Profile
+### 7. Update Profile
 - **Endpoint**: `PUT /api/profile`
 - **Description**: Updates the authenticated user's profile based on their role.
 - **Headers**: Authorization: Bearer <token>
@@ -277,7 +236,7 @@
   "error": "Unauthorized"
   }
 
-### 9. Create Job Post
+### 8. Create Job Post
 - **Endpoint**: `POST /api/job-posts`
 - **Description**: Creates a new job post for an authenticated employer.
 - **Headers**: Authorization: Bearer <token>
@@ -332,7 +291,7 @@
   "error": "Not Found"
   }
 
-### 10. Update Job Post
+### 9. Update Job Post
 - **Endpoint**: `PUT /api/job-posts/:id`
 - **Description**: Updates an existing job post for an authenticated employer.
 - **Headers**: Authorization: Bearer <token>
@@ -380,7 +339,7 @@
   "error": "Not Found"
   }
 
-### 11. Get Job Post
+### 10. Get Job Post
 - **Endpoint**: `GET /api/job-posts/:id`
 - **Description**: Retrieves a specific job post by ID.
 - **Request Parameters**: id: The ID of the job post.
@@ -421,7 +380,7 @@
   "error": "Not Found"
   }
 
-### 12. Get Job Posts by Employer
+### 11. Get Job Posts by Employer
 - **Endpoint**: `GET /api/job-posts/my-posts`
 - **Description**: Retrieves all job posts created by the authenticated employer.
 - **Headers**: Authorization: Bearer <token>
@@ -479,7 +438,7 @@
   "error": "Not Found"
   }
 
-### 13. Create Category
+### 12. Create Category
 - **Endpoint**: `POST /api/categories`
 - **Description**: Creates a new category for job posts.
 - **Request Body:**:
@@ -513,7 +472,7 @@
   "error": "Bad Request"
   }
 
-### 14. Get Categories
+### 13. Get Categories
 - **Endpoint**: `GET /api/categories`
 - **Description**: Retrieves all categories.
 - **Response (Success - 200)**:
@@ -527,7 +486,7 @@
   }
   ]
 
-### 15. Apply to Job Post
+### 14. Apply to Job Post
 - **Endpoint**: `POST /api/job-applications`
 - **Description**: Allows a jobseeker to apply to a job post.
 - **Headers**: Authorization: Bearer <token>
@@ -588,7 +547,7 @@
   "error": "Bad Request"
   }
 
-### 16. Get My Applications (Jobseeker)
+### 15. Get My Applications (Jobseeker)
 - **Endpoint**: `GET /api/job-applications/my-applications`
 - **Description**: Retrieves all applications submitted by the authenticated jobseeker.
 - **Headers**: Authorization: Bearer <token>  
@@ -647,7 +606,7 @@
   "error": "Not Found"
   }
 
-### 17. Get Applications for Job Post (Employer)
+### 16. Get Applications for Job Post (Employer)
 - **Endpoint**: `GET /api/job-applications/job-post/:id`
 - **Description**: Retrieves all applications for a specific job post, accessible only to the employer who created the job post.
 - **Headers**: Authorization: Bearer <token>    
@@ -707,7 +666,7 @@
   "error": "Not Found"
   }
 
-### 18. Update Application Status (Employer)
+### 17. Update Application Status (Employer)
 - **Endpoint**: `PUT /api/job-applications/:id`
 - **Description**: Updates the status of a job application, accessible only to the employer who created the job post.
 - **Headers**: Authorization: Bearer <token>    
@@ -760,7 +719,7 @@
   "error": "Not Found"
   }
 
-### 19. Search Job Posts
+### 18. Search Job Posts
 - **Endpoint**: `GET /api/job-posts/search`
 - **Description**: Searches for active job posts with optional filters.
 - **Query Parameters:**:
@@ -801,7 +760,7 @@
   }
   ]
 
-### 20. Create Review
+### 19. Create Review
 - **Endpoint**: `POST /api/reviews`
 - **Description**: Creates a review for a user (employer or jobseeker) related to a specific job application.
 - **Headers**: `Authorization: Bearer <token>`
@@ -874,7 +833,7 @@
   "error": "Not Found"
   }
 
-### 21. Get Reviews for User
+### 20. Get Reviews for User
 - **Endpoint**: `GET /api/reviews/user/:id`
 - **Description**: Retrieves all reviews for a specific user (employer or jobseeker).
 - **Headers**: `Authorization: Bearer <token>`
