@@ -7,7 +7,7 @@ interface User {
   email: string;
   role: string | null;
   isEmailVerified: boolean;
-  username?: string; // Добавляем username
+  username?: string;
   name?: string;
   skills?: string;
   experience?: string;
@@ -20,6 +20,7 @@ interface AuthContextType {
   isEmailVerified: boolean;
   role: string | null;
   user: User | null;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   googleLogin: (role?: string) => Promise<void>;
   register: (email: string, password: string, role: string, username: string) => Promise<void>;
@@ -37,9 +38,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isEmailVerified, setIsEmailVerified] = useState(true);
   const [role, setRole] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const api = axios.create({
     baseURL: `${API_BASE_URL}/api`,
+    timeout: 10000, // Добавляем таймаут для предотвращения зависаний
   });
 
   api.interceptors.request.use((config) => {
@@ -52,77 +55,101 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
+      setIsLoading(true);
       const response = await api.post('/auth/login', { email, password });
       const { token, user } = response.data;
       localStorage.setItem('token', token);
       setUser(user);
       setIsAuthenticated(true);
-      setIsEmailVerified(true);
+      setIsEmailVerified(user.isEmailVerified || true);
       setRole(user.role || null);
+      console.log('[AuthContext] Login successful at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'User:', user);
     } catch (error: any) {
+      console.error('[AuthContext] Login error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Login error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const googleLogin = async (role?: string) => {
     try {
-      console.log('Redirecting to Google with role:', role || 'none');
+      setIsLoading(true);
+      console.log('[AuthContext] Redirecting to Google with role:', role || 'none', 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
       const roleQuery = role ? `&role=${encodeURIComponent(role)}` : '';
       window.location.href = `${API_BASE_URL}/api/auth/google?callbackUrl=${encodeURIComponent(window.location.origin + '/auth/callback')}${roleQuery}`;
     } catch (error: any) {
-      console.error('Google login error:', error.response?.data || error.message);
+      console.error('[AuthContext] Google login error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Google login failed');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const register = async (email: string, password: string, role: string, username: string) => {
     try {
-      console.log('Registering with data:', { email, password, role, username });
+      setIsLoading(true);
+      console.log('[AuthContext] Registering with data:', { email, password, role, username }, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
       const response = await api.post('/auth/register', { email, password, role, username });
-      console.log('Server response:', response.data);
       const { token, user } = response.data;
       localStorage.setItem('token', token);
       setUser(user);
       setIsAuthenticated(true);
-      setIsEmailVerified(true);
+      setIsEmailVerified(user.isEmailVerified || true);
       setRole(role);
+      console.log('[AuthContext] Registration successful at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'User:', user);
     } catch (error: any) {
-      console.error('Registration error:', error.response?.data || error.message);
+      console.error('[AuthContext] Registration error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Registration failed');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const verifyEmail = async (token: string) => {
     try {
+      setIsLoading(true);
       const response = await api.post('/auth/verify-email', { token });
       setIsEmailVerified(true);
       return response.data;
     } catch (error: any) {
+      console.error('[AuthContext] Verify email error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Verification error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const forgotPassword = async (email: string) => {
     try {
+      setIsLoading(true);
       const response = await api.post('/auth/forgot-password', { email });
       return response.data;
     } catch (error: any) {
+      console.error('[AuthContext] Forgot password error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Failed to send reset link');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const resetPassword = async (token: string, newPassword: string) => {
     try {
+      setIsLoading(true);
       const response = await api.post('/auth/reset-password', { token, newPassword });
       return response.data;
     } catch (error: any) {
+      console.error('[AuthContext] Reset password error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Password reset failed');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const selectRole = async (role: string, tempToken: string, additionalData?: Record<string, any>) => {
     try {
-      console.log('Selecting role with tempToken and additional data:', { role, tempToken, additionalData });
+      setIsLoading(true);
+      console.log('[AuthContext] Selecting role with tempToken and additional data:', { role, tempToken, additionalData }, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
       const response = await api.post('/auth/select-role', {
         tempToken,
         role,
@@ -135,13 +162,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userData = userResponse.data;
         setUser(userData);
         setIsAuthenticated(true);
-        setIsEmailVerified(true);
+        setIsEmailVerified(userData.isEmailVerified || true);
         setRole(role);
       }
       return response.data;
     } catch (error: any) {
-      console.error('Role selection error:', error.response?.data || error.message);
+      console.error('[AuthContext] Role selection error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Failed to select role');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -151,21 +180,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsEmailVerified(true);
     setRole(null);
     setUser(null);
+    setIsLoading(false);
+    console.log('[AuthContext] Logout at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
   };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
+    console.log('[AuthContext] Checking token on mount at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'Token:', token);
     if (token) {
+      setIsAuthenticated(true); // Предварительно устанавливаем isAuthenticated
       api.get('/auth/me')
         .then((response) => {
-          setUser(response.data);
-          setIsAuthenticated(true);
-          setIsEmailVerified(true);
-          setRole(response.data.role || null);
+          console.log('[AuthContext] /auth/me response at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), response.data);
+          const userData = response.data;
+          setUser(userData);
+          setIsEmailVerified(userData.isEmailVerified || true);
+          setRole(userData.role || null);
         })
-        .catch(() => {
-          localStorage.removeItem('token');
+        .catch((error) => {
+          console.error('[AuthContext] /auth/me error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
+          // Не сбрасываем токен, только логируем ошибку
+          setUser(null); // Сбрасываем только user, оставляем isAuthenticated
+        })
+        .finally(() => {
+          setIsLoading(false);
         });
+    } else {
+      setIsAuthenticated(false);
+      setUser(null);
+      setRole(null);
+      setIsLoading(false);
     }
   }, []);
 
@@ -174,6 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isEmailVerified,
     role,
     user,
+    isLoading,
     login,
     googleLogin,
     register,

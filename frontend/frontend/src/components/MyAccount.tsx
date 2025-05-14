@@ -25,13 +25,13 @@ interface CompletedJob {
 }
 
 const MyAccount: React.FC = () => {
-  const { user, role, isAuthenticated } = useAuth();
+  const { user, role, isAuthenticated, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'categories' | 'jobs' | 'reviews'>('profile');
-  const [name, setName] = useState('');
-  const [skills, setSkills] = useState('');
-  const [experience, setExperience] = useState('');
-  const [companyName, setCompanyName] = useState('');
-  const [website, setWebsite] = useState('');
+  const [name, setName] = useState(user?.name || '');
+  const [skills, setSkills] = useState(user?.skills || '');
+  const [experience, setExperience] = useState(user?.experience || '');
+  const [companyName, setCompanyName] = useState(user?.companyName || '');
+  const [website, setWebsite] = useState(user?.website || '');
   const [categoryName, setCategoryName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -50,7 +50,7 @@ const MyAccount: React.FC = () => {
       setWebsite(user.website || '');
       fetchCompletedJobs();
     }
-    if (role === 'employer') {
+    if (role === 'employer' && isAuthenticated) {
       fetchCategories();
       fetchJobs();
     }
@@ -179,13 +179,21 @@ const MyAccount: React.FC = () => {
     }
   };
 
-  if (!user || !role || !isAuthenticated) {
-    return <div>Please log in and select a role to continue.</div>;
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <div>Please log in to continue.</div>;
+  }
+
+  if (!role) {
+    return <div>Please select a role to continue.</div>;
   }
 
   return (
     <div className="myaccount-container">
-      <h2>Welcome, {user.email}!</h2>
+      <h2>Welcome, {user?.email || 'User'}!</h2>
       <div className="tabs">
         <button onClick={() => setActiveTab('profile')} className={activeTab === 'profile' ? 'tab-active' : ''}>Profile</button>
         {role === 'employer' && (
