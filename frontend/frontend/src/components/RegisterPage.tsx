@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react'; // Возвращаем useEffect
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FaGoogle, FaFacebookF } from 'react-icons/fa';
@@ -10,8 +10,22 @@ const RegisterPage: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const { register, googleLogin } = useAuth();
+  const [role, setRole] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(true);
+  const { register, googleLogin, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Добавляем useEffect для проверки авторизации
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/myaccount');
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleRoleSelect = (selectedRole: string) => {
+    setRole(selectedRole);
+    setShowModal(false);
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,17 +37,15 @@ const RegisterPage: React.FC = () => {
       return;
     }
 
+    if (!role) {
+      setError('Please select a role');
+      return;
+    }
+
     try {
-      const response = await register(email, password);
-      console.log('Registration response:', response);
-      const tempToken = response.tempToken || response.data?.tempToken;
-      if (tempToken) {
-        setSuccess('Registration successful! Redirecting to select role...');
-        setTimeout(() => navigate(`/select-role?tempToken=${tempToken}`), 2000);
-      } else {
-        setSuccess('Registration successful! Redirecting to my account...');
-        setTimeout(() => navigate('/myaccount'), 2000); // Пропускаем email
-      }
+      await register(email, password, role);
+      setSuccess('Registration successful! Redirecting to your account...');
+      setTimeout(() => navigate('/myaccount'), 2000);
     } catch (err: any) {
       console.error('Registration failed:', err.message);
       setError(err.message || 'Registration failed');
@@ -45,7 +57,11 @@ const RegisterPage: React.FC = () => {
     setSuccess(null);
     try {
       if (provider === 'Google') {
-        await googleLogin();
+        if (!role) {
+          setError('Please select a role before registering with Google');
+          return;
+        }
+        await googleLogin(role);
       } else {
         setError(`Registration with ${provider} is not implemented yet`);
       }
@@ -57,6 +73,30 @@ const RegisterPage: React.FC = () => {
 
   return (
     <div className="login-container">
+      {showModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2>Select Your Role</h2>
+            <div className="role-selection">
+              <div
+                className={`role-card ${role === 'jobseeker' ? 'selected' : ''}`}
+                onClick={() => handleRoleSelect('jobseeker')}
+              >
+                <h3>Job Seeker</h3>
+                <p>Find jobs and apply for projects</p>
+              </div>
+              <div
+                className={`role-card ${role === 'employer' ? 'selected' : ''}`}
+                onClick={() => handleRoleSelect('employer')}
+              >
+                <h3>Employer</h3>
+                <p>Post jobs and hire employees</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <h2 className="login-title">Register</h2>
       {error && <p className="login-error">{error}</p>}
       {success && <p className="login-success">{success}</p>}

@@ -14,8 +14,6 @@ import PostJobForm from './components/PostJobForm';
 import JobSearchPage from './components/JobSearchPage';
 import JobDetailsPage from './components/JobDetailsPage';
 import MyAccount from './components/MyAccount';
-import SelectRolePage from './components/SelectRolePage';
-// Убрали VerifyEmailPage
 import ForgotPasswordPage from './components/ForgotPasswordPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
 
@@ -67,15 +65,21 @@ const Home: React.FC = () => {
 const AuthCallback: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const tempToken = searchParams.get('tempToken');
+  const token = searchParams.get('token');
+  const role = searchParams.get('role'); // Получаем роль из query-параметров, если сервер её вернул
 
   useEffect(() => {
-    if (tempToken) {
-      navigate(`/select-role?tempToken=${tempToken}`);
+    if (token) {
+      localStorage.setItem('token', token);
+      // Если роль вернулась с сервера, можно сохранить её в localStorage (опционально)
+      if (role) {
+        localStorage.setItem('role', role);
+      }
+      navigate('/myaccount');
     } else {
       navigate('/login');
     }
-  }, [tempToken, navigate]);
+  }, [token, role, navigate]);
 
   return <div>Processing authentication...</div>;
 };
@@ -109,8 +113,6 @@ const App: React.FC = () => {
             <Route path="/myaccount" element={<div className="section-myaccount"><div className="container"><MyAccount /></div></div>} />
           </Route>
           <Route path="/register" element={<div className="section-register"><div className="container"><RegisterPage /></div></div>} />
-          {/* Убрали /verify-email/:token */}
-          <Route path="/select-role" element={<div className="section-select-role"><div className="container"><SelectRolePage /></div></div>} />
           <Route path="/login" element={<div className="section-login"><div className="container"><Login /></div></div>} />
           <Route path="/logout" element={<div className="section-logout"><div className="container"><Logout /></div></div>} />
           <Route path="/forgot-password" element={<div className="section-forgot-password"><div className="container"><ForgotPasswordPage /></div></div>} />

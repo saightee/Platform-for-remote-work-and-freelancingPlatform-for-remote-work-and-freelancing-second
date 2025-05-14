@@ -20,8 +20,8 @@ interface AuthContextType {
   role: string | null;
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  googleLogin: () => Promise<void>;
-  register: (email: string, password: string) => Promise<any>;
+  googleLogin: (role?: string) => Promise<void>; // Делаем role необязательным
+  register: (email: string, password: string, role: string) => Promise<void>;
   verifyEmail: (token: string) => Promise<any>;
   forgotPassword: (email: string) => Promise<any>;
   resetPassword: (token: string, newPassword: string) => Promise<any>;
@@ -33,7 +33,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isEmailVerified, setIsEmailVerified] = useState(true); // Отключили проверку email
+  const [isEmailVerified, setIsEmailVerified] = useState(true);
   const [role, setRole] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
 
@@ -56,32 +56,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('token', token);
       setUser(user);
       setIsAuthenticated(true);
-      setIsEmailVerified(true); // Отключили проверку email
+      setIsEmailVerified(true);
       setRole(user.role || null);
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Ошибка входа');
+      throw new Error(error.response?.data?.message || 'Login error');
     }
   };
 
-  const googleLogin = async () => {
+  const googleLogin = async (role?: string) => {
     try {
-      console.log('Перенаправление на Google...');
-      window.location.href = `${API_BASE_URL}/api/auth/google?callbackUrl=${encodeURIComponent(window.location.origin + '/auth/callback')}`;
+      console.log('Redirecting to Google with role:', role || 'none');
+      // Добавляем role в query-параметр только если он передан
+      const roleQuery = role ? `&role=${encodeURIComponent(role)}` : '';
+      window.location.href = `${API_BASE_URL}/api/auth/google?callbackUrl=${encodeURIComponent(window.location.origin + '/auth/callback')}${roleQuery}`;
     } catch (error: any) {
-      console.error('Ошибка Google-логина:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || 'Ошибка Google-логина');
+      console.error('Google login error:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Google login failed');
     }
   };
 
-  const register = async (email: string, password: string) => {
+  const register = async (email: string, password: string, role: string) => {
     try {
-      console.log('Регистрация с данными:', { email, password });
-      const response = await api.post('/auth/register', { email, password });
-      console.log('Ответ сервера:', response.data);
-      return response.data;
+      console.log('Registering with data:', { email, password, role });
+      const response = await api.post('/auth/register', { email, password, role });
+      console.log('Server response:', response.data);
+      const { token, user } = response.data;
+      localStorage.setItem('token', token);
+      setUser(user);
+      setIsAuthenticated(true);
+      setIsEmailVerified(true);
+      setRole(role);
     } catch (error: any) {
-      console.error('Ошибка регистрации:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || 'Не удалось зарегистрироваться');
+      console.error('Registration error:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Registration failed');
     }
   };
 
@@ -91,7 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsEmailVerified(true);
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Ошибка подтверждения');
+      throw new Error(error.response?.data?.message || 'Verification error');
     }
   };
 
@@ -100,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await api.post('/auth/forgot-password', { email });
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Ошибка запроса восстановления пароля');
+      throw new Error(error.response?.data?.message || 'Failed to send reset link');
     }
   };
 
@@ -109,13 +116,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await api.post('/auth/reset-password', { token, newPassword });
       return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Ошибка сброса пароля');
+      throw new Error(error.response?.data?.message || 'Password reset failed');
     }
   };
 
   const selectRole = async (role: string, tempToken: string, additionalData?: Record<string, any>) => {
     try {
-      console.log('Выбор роли с tempToken и дополнительными данными:', { role, tempToken, additionalData });
+      console.log('Selecting role with tempToken and additional data:', { role, tempToken, additionalData });
       const response = await api.post('/auth/select-role', {
         tempToken,
         role,
@@ -128,20 +135,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userData = userResponse.data;
         setUser(userData);
         setIsAuthenticated(true);
-        setIsEmailVerified(true); // Для Google-логина email уже подтверждён
+        setIsEmailVerified(true);
         setRole(role);
       }
       return response.data;
     } catch (error: any) {
-      console.error('Ошибка выбора роли:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || 'Не удалось выбрать роль');
+      console.error('Role selection error:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || 'Failed to select role');
     }
   };
 
   const logout = () => {
     localStorage.removeItem('token');
     setIsAuthenticated(false);
-    setIsEmailVerified(true); // Оставляем true, так как проверка отключена
+    setIsEmailVerified(true);
     setRole(null);
     setUser(null);
   };
@@ -153,7 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .then((response) => {
           setUser(response.data);
           setIsAuthenticated(true);
-          setIsEmailVerified(true); // Отключили проверку email
+          setIsEmailVerified(true);
           setRole(response.data.role || null);
         })
         .catch(() => {
@@ -183,7 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth должен использоваться внутри AuthProvider');
+    throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
 };
