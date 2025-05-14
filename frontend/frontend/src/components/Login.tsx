@@ -9,16 +9,14 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const { login, googleLogin, isAuthenticated, role } = useAuth();
+  const { login, googleLogin, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isAuthenticated && role) {
+    if (isAuthenticated) {
       navigate('/myaccount');
-    } else if (isAuthenticated && !role) {
-      navigate('/select-role');
     }
-  }, [isAuthenticated, role, navigate]);
+  }, [isAuthenticated, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,11 +27,7 @@ const Login: React.FC = () => {
       await login(email, password);
       setSuccess('Login successful! Redirecting...');
       setTimeout(() => {
-        if (isAuthenticated && role) {
-          navigate('/myaccount');
-        } else if (isAuthenticated && !role) {
-          navigate('/select-role');
-        }
+        navigate('/myaccount');
       }, 2000);
     } catch (err: any) {
       setError(err.message || 'Login failed');
@@ -45,7 +39,7 @@ const Login: React.FC = () => {
     setSuccess(null);
     try {
       if (provider === 'Google') {
-        await googleLogin();
+        await googleLogin(); // Теперь можно вызывать без параметра role
       } else {
         setError(`Login with ${provider} is not implemented yet`);
       }
