@@ -20,6 +20,32 @@ import ResetPasswordPage from './components/ResetPasswordPage';
 import './App.css';
 import './index.css';
 
+// Компонент для обработки callback после Google-логина
+const AuthCallback: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token');
+  const role = searchParams.get('role'); // Получаем роль из query-параметров, если сервер её вернул
+
+  useEffect(() => {
+    if (token) {
+      localStorage.setItem('token', token);
+      // Если роль вернулась с сервера, можно сохранить её в localStorage (опционально)
+      if (role) {
+        localStorage.setItem('role', role);
+      }
+      // Перенаправляем на /myaccount
+      console.log('[AuthCallback] Token saved, redirecting to /myaccount at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+      navigate('/myaccount');
+    } else {
+      console.error('[AuthCallback] No token received, redirecting to /login at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+      navigate('/login');
+    }
+  }, [token, role, navigate]);
+
+  return <div>Processing authentication...</div>;
+};
+
 const WorkersPage: React.FC = () => {
   return (
     <div className="section-workers">
@@ -60,28 +86,6 @@ const Home: React.FC = () => {
       </div>
     </>
   );
-};
-
-const AuthCallback: React.FC = () => {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
-  const role = searchParams.get('role'); // Получаем роль из query-параметров, если сервер её вернул
-
-  useEffect(() => {
-    if (token) {
-      localStorage.setItem('token', token);
-      // Если роль вернулась с сервера, можно сохранить её в localStorage (опционально)
-      if (role) {
-        localStorage.setItem('role', role);
-      }
-      navigate('/myaccount');
-    } else {
-      navigate('/login');
-    }
-  }, [token, role, navigate]);
-
-  return <div>Processing authentication...</div>;
 };
 
 const App: React.FC = () => {

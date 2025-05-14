@@ -3,16 +3,23 @@ import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
 interface User {
-  id: string;
+  id?: string;
   email: string;
   role: string | null;
-  isEmailVerified: boolean;
+  isEmailVerified?: boolean;
   username?: string;
   name?: string;
-  skills?: string;
+  skills?: string[];
   experience?: string;
-  companyName?: string;
-  website?: string;
+  company_name?: string;
+  company_info?: string;
+  referral_link?: string;
+  portfolio?: string;
+  video_intro?: string;
+  timezone?: string;
+  currency?: string;
+  average_rating?: number;
+  reviews?: any[];
 }
 
 interface AuthContextType {
@@ -29,6 +36,7 @@ interface AuthContextType {
   resetPassword: (token: string, newPassword: string) => Promise<any>;
   selectRole: (role: string, tempToken: string, additionalData?: Record<string, any>) => Promise<any>;
   logout: () => void;
+  setUser: (user: User | null) => void; // Добавляем setUser
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -42,7 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const api = axios.create({
     baseURL: `${API_BASE_URL}/api`,
-    timeout: 10000, // Добавляем таймаут для предотвращения зависаний
+    timeout: 10000,
   });
 
   api.interceptors.request.use((config) => {
@@ -50,7 +58,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    console.log('[AuthContext] Request to:', config.url, 'with token:', token, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
     return config;
+  }, (error) => {
+    console.error('[AuthContext] Request error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error);
+    return Promise.reject(error);
+  });
+
+  api.interceptors.response.use((response) => {
+    console.log('[AuthContext] Response from:', response.config.url, 'data:', response.data, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+    return response;
+  }, (error) => {
+    console.error('[AuthContext] Response error from:', error.config?.url, 'error:', error.response?.data || error.message, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+    return Promise.reject(error);
   });
 
   const login = async (email: string, password: string) => {
@@ -58,12 +78,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       const response = await api.post('/auth/login', { email, password });
       const { token, user } = response.data;
-      localStorage.setItem('token', token);
-      setUser(user);
-      setIsAuthenticated(true);
-      setIsEmailVerified(user.isEmailVerified || true);
-      setRole(user.role || null);
-      console.log('[AuthContext] Login successful at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'User:', user);
+      if (token && user) {
+        console.log('[AuthContext] Saving token after login:', token, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+        localStorage.setItem('token', token);
+        setUser(user);
+        setIsAuthenticated(true);
+        setIsEmailVerified(true);
+        setRole(user.role || null);
+        console.log('[AuthContext] Login successful at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'User:', user);
+      } else {
+        throw new Error('Token or user data missing in response');
+      }
     } catch (error: any) {
       console.error('[AuthContext] Login error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Login error');
@@ -92,12 +117,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('[AuthContext] Registering with data:', { email, password, role, username }, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
       const response = await api.post('/auth/register', { email, password, role, username });
       const { token, user } = response.data;
-      localStorage.setItem('token', token);
-      setUser(user);
-      setIsAuthenticated(true);
-      setIsEmailVerified(user.isEmailVerified || true);
-      setRole(role);
-      console.log('[AuthContext] Registration successful at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'User:', user);
+      if (token && user) {
+        console.log('[AuthContext] Saving token after registration:', token, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+        localStorage.setItem('token', token);
+        setUser(user);
+        setIsAuthenticated(true);
+        setIsEmailVerified(true);
+        setRole(role);
+        console.log('[AuthContext] Registration successful at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'User:', user);
+      } else {
+        throw new Error('Token or user data missing in response');
+      }
     } catch (error: any) {
       console.error('[AuthContext] Registration error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
       throw new Error(error.response?.data?.message || 'Registration failed');
@@ -157,13 +187,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       const { token } = response.data;
       if (token) {
+        console.log('[AuthContext] Saving token after role selection:', token, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
         localStorage.setItem('token', token);
-        const userResponse = await api.get('/auth/me');
+        const userResponse = await api.get('/profile');
         const userData = userResponse.data;
         setUser(userData);
         setIsAuthenticated(true);
-        setIsEmailVerified(userData.isEmailVerified || true);
-        setRole(role);
+        setIsEmailVerified(true);
+        setRole(userData.role || role);
+        console.log('[AuthContext] Role selected at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'User:', userData);
       }
       return response.data;
     } catch (error: any) {
@@ -188,19 +220,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const token = localStorage.getItem('token');
     console.log('[AuthContext] Checking token on mount at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'Token:', token);
     if (token) {
-      setIsAuthenticated(true); // Предварительно устанавливаем isAuthenticated
-      api.get('/auth/me')
+      api.get('/profile')
         .then((response) => {
-          console.log('[AuthContext] /auth/me response at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), response.data);
+          console.log('[AuthContext] /profile response at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), response.data);
           const userData = response.data;
           setUser(userData);
-          setIsEmailVerified(userData.isEmailVerified || true);
+          setIsAuthenticated(true);
+          setIsEmailVerified(true);
           setRole(userData.role || null);
+          console.log('[AuthContext] Role set to:', userData.role, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
         })
         .catch((error) => {
-          console.error('[AuthContext] /auth/me error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
-          // Не сбрасываем токен, только логируем ошибку
-          setUser(null); // Сбрасываем только user, оставляем isAuthenticated
+          console.error('[AuthContext] /profile error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
+          setUser(null);
+          setIsAuthenticated(false);
+          setRole(null);
         })
         .finally(() => {
           setIsLoading(false);
@@ -227,6 +261,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     resetPassword,
     selectRole,
     logout,
+    setUser, // Добавляем setUser в контекст
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
