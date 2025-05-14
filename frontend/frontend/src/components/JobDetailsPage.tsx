@@ -18,7 +18,7 @@ interface Job {
 const JobDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const auth = useAuth();
-  const { role, user } = auth; // Оставляем user
+  const { role, user } = auth;
   const navigate = useNavigate();
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +78,7 @@ const JobDetailsPage: React.FC = () => {
       <p><strong>Budget:</strong> ${job.budget}</p>
       <p><strong>Description:</strong> {job.description}</p>
       <p><strong>Status:</strong> {job.status}</p>
-      {user && user.name && <p><strong>User:</strong> {user.name}</p>} {/* Используем user */}
+      {user && user.username && <p><strong>User:</strong> {user.username}</p>} {/* Изменяем name на username */}
       {error && <p className="job-details-error">{error}</p>}
       {success && <p className="job-details-success">{success}</p>}
       {role === 'jobseeker' && job.status === 'open' && (

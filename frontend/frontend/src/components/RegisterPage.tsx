@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'; // Возвращаем useEffect
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FaGoogle, FaFacebookF } from 'react-icons/fa';
 import '../styles/Login.css';
 
 const RegisterPage: React.FC = () => {
+  const [username, setUsername] = useState(''); // Добавляем состояние для username
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -15,7 +16,6 @@ const RegisterPage: React.FC = () => {
   const { register, googleLogin, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  // Добавляем useEffect для проверки авторизации
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/myaccount');
@@ -43,7 +43,8 @@ const RegisterPage: React.FC = () => {
     }
 
     try {
-      await register(email, password, role);
+      console.log('[RegisterPage] Register attempt:', { username, email, password, role });
+      await register(email, password, role, username); // Передаём username в register
       setSuccess('Registration successful! Redirecting to your account...');
       setTimeout(() => navigate('/myaccount'), 2000);
     } catch (err: any) {
@@ -101,6 +102,14 @@ const RegisterPage: React.FC = () => {
       {error && <p className="login-error">{error}</p>}
       {success && <p className="login-success">{success}</p>}
       <form onSubmit={handleRegister} className="login-form">
+        <input
+          type="text"
+          placeholder="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="login-input"
+          required
+        />
         <input
           type="email"
           placeholder="Email"
