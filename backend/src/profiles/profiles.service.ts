@@ -23,15 +23,16 @@ export class ProfilesService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-
+  
     const reviews = await this.reviewsService.getReviewsForUser(userId);
-
+  
     if (user.role === 'jobseeker') {
       const jobSeeker = await this.jobSeekerRepository.findOne({ where: { user_id: userId } });
       if (!jobSeeker) {
         throw new NotFoundException('JobSeeker profile not found');
       }
       return {
+        id: user.id, // Добавляем id
         role: user.role,
         email: user.email,
         username: user.username,
@@ -50,6 +51,7 @@ export class ProfilesService {
         throw new NotFoundException('Employer profile not found');
       }
       return {
+        id: user.id, // Добавляем id
         role: user.role,
         email: user.email,
         username: user.username,
@@ -59,6 +61,14 @@ export class ProfilesService {
         timezone: employer.timezone,
         currency: employer.currency,
         average_rating: employer.average_rating,
+        reviews,
+      };
+    } else if (user.role === 'admin') {
+      return {
+        id: user.id, // Добавляем id
+        role: user.role,
+        email: user.email,
+        username: user.username,
         reviews,
       };
     } else {

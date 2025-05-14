@@ -23,19 +23,19 @@ export class UsersService {
     return user ?? null;
   }
 
-  async create(userData: Partial<User> & { email: string; username: string; role: 'employer' | 'jobseeker' }, additionalData: any): Promise<User> {
+  async create(userData: Partial<User> & { email: string; username: string; role: 'employer' | 'jobseeker' | 'admin' }, additionalData: any): Promise<User> {
     console.log('Creating user with data:', userData);
     const userEntity: DeepPartial<User> = {
       email: userData.email,
       username: userData.username,
       password: userData.password || '',
-      role: userData.role || 'jobseeker',
+      role: userData.role,
       provider: userData.provider || null,
     };
     const user = this.usersRepository.create(userEntity);
     const savedUser = await this.usersRepository.save(user);
     console.log('User saved to database:', savedUser);
-
+  
     if (userData.role === 'jobseeker') {
       const jobSeekerEntity: DeepPartial<JobSeeker> = {
         user_id: savedUser.id,
@@ -61,8 +61,11 @@ export class UsersService {
       const employer = this.employerRepository.create(employerEntity);
       await this.employerRepository.save(employer);
       console.log('Employer profile created:', employer);
+    } else if (userData.role === 'admin') {
+      // Для admin ничего дополнительного не создаем
+      console.log('Admin user created:', savedUser);
     }
-
+  
     return savedUser;
   }
 
