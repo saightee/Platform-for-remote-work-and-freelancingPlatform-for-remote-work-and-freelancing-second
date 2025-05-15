@@ -1,19 +1,25 @@
 .job-post-card {
-    background-color: #FFF;
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    margin-bottom: 10px;
-  }
-  
-  .job-post-card h3 {
-    font-size: 16px;
-    color: #333;
-    margin: 0;
-  }
-  
-  .job-post-card p {
-    font-size: 14px;
-    color: #666;
-    margin: 5px 0 0;
-  }
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+}
+
+.job-post-card h3 {
+  margin: 0 0 0.5rem;
+}
+
+.job-post-card p {
+  margin: 0 0 0.5rem;
+  color: #666;
+}
+
+.view-details {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.view-details:hover {
+  text-decoration: underline;
+}

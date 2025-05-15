@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
-import { API_BASE_URL } from '../config'; // Используем API_BASE_URL вместо хардкода
+import { API_BASE_URL } from '../config';
 import '../styles/PostJobForm.css';
 
 const PostJobForm: React.FC = () => {
-  const { role } = useAuth();
+  const { role, isAuthenticated } = useAuth() || { role: '', isAuthenticated: false };
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -17,36 +17,29 @@ const PostJobForm: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    if (role !== 'employer') {
-      navigate('/'); // Редирект, если пользователь не employer
+    if (!isAuthenticated || role !== 'employer') {
+      navigate('/');
       return;
     }
     fetchCategories();
-  }, [role, navigate]);
+  }, [isAuthenticated, role, navigate]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
     if (success) {
-      // Устанавливаем таймер для редиректа
-      timer = setTimeout(() => {
-        navigate('/myaccount');
-      }, 2000);
+      timer = setTimeout(() => navigate('/'), 2000);
     }
-    // Очистка таймера при размонтировании
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [success, navigate]); // Зависимость от success и navigate
+    return () => { if (timer) clearTimeout(timer); };
+  }, [success, navigate]);
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get('/api/categories', {
-        baseURL: API_BASE_URL, // Используем API_BASE_URL
+      const response = await axios.get(`${API_BASE_URL}/api/categories`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       setCategories(response.data.map((cat: any) => cat.name));
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch categories');
+      setError('Failed to fetch categories');
     }
   };
 
@@ -56,20 +49,15 @@ const PostJobForm: React.FC = () => {
     setSuccess(null);
 
     try {
-      await axios.post(
-        '/api/jobs',
-        {
-          title,
-          description,
-          category,
-          budget: parseFloat(budget),
-        },
-        {
-          baseURL: API_BASE_URL, // Используем API_BASE_URL
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        }
-      );
-      setSuccess('Job posted successfully!'); // Редирект запустится через useEffect
+      await axios.post(`${API_BASE_URL}/api/job-posts`, {
+        title,
+        description,
+        category,
+        budget: parseFloat(budget),
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      setSuccess('Job posted successfully!');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to post job');
     }
@@ -86,20 +74,17 @@ const PostJobForm: React.FC = () => {
           placeholder="Job Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="post-job-input"
           required
         />
         <textarea
           placeholder="Job Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="post-job-textarea"
           required
         />
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="post-job-input"
           required
         >
           <option value="">Select Category</option>
@@ -109,13 +94,12 @@ const PostJobForm: React.FC = () => {
         </select>
         <input
           type="number"
-          placeholder="Budget"
+          placeholder="Budget (USD)"
           value={budget}
           onChange={(e) => setBudget(e.target.value)}
-          className="post-job-input"
           required
         />
-        <button type="submit" className="post-job-button">Post Job</button>
+        <button type="submit">Post Job</button>
       </form>
     </div>
   );

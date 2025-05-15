@@ -1,18 +1,45 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
+import { API_BASE_URL } from '../config';
+
+interface Job {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  budget: number;
+  status: string;
+  createdBy: {
+    id: string;
+    username: string;
+    companyName?: string;
+  };
+  createdAt: string;
+}
 
 const JobPostings: React.FC = () => {
-  const jobs = [
-    { id: 1, title: 'Executive Virtual Assistant', company: 'TechSolutions Inc.', type: 'Remote, Full-time', location: 'Anywhere', salary: '$25-$35/hour' },
-    { id: 2, title: 'Executive Virtual Assistant', company: 'TechSolutions Inc.', type: 'Remote, Full-time', location: 'Anywhere', salary: '$25-$35/hour' },
-    { id: 3, title: 'Executive Virtual Assistant', company: 'TechSolutions Inc.', type: 'Remote, Full-time', location: 'Anywhere', salary: '$25-$35/hour' },
-    { id: 4, title: 'Executive Virtual Assistant', company: 'TechSolutions Inc.', type: 'Remote, Full-time', location: 'Anywhere', salary: '$25-$35/hour' },
-    { id: 5, title: 'Executive Virtual Assistant', company: 'TechSolutions Inc.', type: 'Remote, Full-time', location: 'Anywhere', salary: '$25-$35/hour' },
-    { id: 6, title: 'Executive Virtual Assistant', company: 'TechSolutions Inc.', type: 'Remote, Full-time', location: 'Anywhere', salary: '$25-$35/hour' },
-    { id: 7, title: 'Social Media Manager', company: 'Digital Media Co.', type: 'Remote, Part-time', location: 'Europe', salary: '$1500-$2000/month' },
-    { id: 8, title: 'Data Entry Specialist', company: 'Data Experts', type: 'Remote, Contract', location: 'Worldwide', salary: '$18-$22/hour' },
-    { id: 9, title: 'Executive Virtual Assistant', company: 'TechSolutions Inc.', type: 'Remote, Full-time', location: 'Anywhere', salary: '$25-$35/hour' },
-  ];
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${API_BASE_URL}/api/job-posts`, {
+          params: { limit: 9, sort: '-createdAt' },
+        });
+        setJobs(response.data);
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to fetch recent jobs');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobs();
+  }, []);
 
   const sectionStyles: React.CSSProperties = {
     padding: '2rem 0',
@@ -112,7 +139,7 @@ const JobPostings: React.FC = () => {
     marginBottom: '0.75rem',
   };
 
-  const applyButtonStyles: React.CSSProperties = {
+  const viewDetailsButtonStyles: React.CSSProperties = {
     display: 'block',
     width: '100%',
     padding: '0.5rem',
@@ -127,17 +154,20 @@ const JobPostings: React.FC = () => {
     cursor: 'pointer',
   };
 
+  if (loading) return <section style={sectionStyles}><div>Loading...</div></section>;
+  if (error) return <section style={sectionStyles}><div>{error}</div></section>;
+
   return (
     <section style={sectionStyles}>
       <div style={headerStyles}>
         <h2 style={titleStyles}>Recent Job Postings</h2>
-        <Link to="/jobs" style={viewAllStyles}>View all jobs</Link>
+        <Link to="/job-posts" style={viewAllStyles}>View all jobs</Link>
       </div>
       <div style={jobCardsStyles}>
         {jobs.map((job) => (
           <div key={job.id} style={jobCardStyles}>
             <h3 style={jobTitleStyles}>{job.title}</h3>
-            <p style={companyStyles}>{job.company}</p>
+            <p style={companyStyles}>{job.createdBy.companyName || job.createdBy.username}</p>
             <div style={tagsStyles}>
               <span style={tagStyles('Remote')}>
                 <span style={circleStyles('Remote')}></span>
@@ -152,8 +182,8 @@ const JobPostings: React.FC = () => {
                 Anywhere
               </span>
             </div>
-            <p style={salaryStyles}>{job.salary}</p>
-            <Link to={`/job/${job.id}`} style={applyButtonStyles}>Apply</Link>
+            <p style={salaryStyles}>${job.budget}/hour</p>
+            <Link to={`/job-posts/${job.id}`} style={viewDetailsButtonStyles}>View Details</Link>
           </div>
         ))}
       </div>

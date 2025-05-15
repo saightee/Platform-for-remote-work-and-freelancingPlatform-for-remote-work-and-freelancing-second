@@ -20,6 +20,7 @@ interface User {
   currency?: string;
   average_rating?: number;
   reviews?: any[];
+  jobDescription?: string;
 }
 
 interface AuthContextType {
@@ -39,7 +40,7 @@ interface AuthContextType {
   setUser: (user: User | null) => void;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -53,44 +54,94 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     timeout: 10000,
   });
 
-  api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    console.log('[AuthContext] Request to:', config.url, 'with token:', token, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
-    return config;
-  }, (error) => {
-    console.error('[AuthContext] Request error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error);
-    return Promise.reject(error);
-  });
+  api.interceptors.request.use(
+    (config) => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      console.log(
+        '[AuthContext] Request to:',
+        config.url,
+        'with token:',
+        token,
+        'at',
+        new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+      );
+      return config;
+    },
+    (error) => {
+      console.error('[AuthContext] Request error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error);
+      return Promise.reject(error);
+    },
+  );
 
-  api.interceptors.response.use((response) => {
-    console.log('[AuthContext] Response from:', response.config.url, 'data:', response.data, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
-    return response;
-  }, (error) => {
-    console.error('[AuthContext] Response error from:', error.config?.url, 'error:', error.response?.data || error.message, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
-    return Promise.reject(error);
-  });
+  api.interceptors.response.use(
+    (response) => {
+      console.log(
+        '[AuthContext] Response from:',
+        response.config.url,
+        'data:',
+        response.data,
+        'at',
+        new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+      );
+      return response;
+    },
+    (error) => {
+      console.error(
+        '[AuthContext] Response error from:',
+        error.config?.url,
+        'error:',
+        error.response?.data || error.message,
+        'at',
+        new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+      );
+      return Promise.reject(error);
+    },
+  );
 
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
       const response = await api.post('/auth/login', { email, password });
-      const { token, user } = response.data;
-      if (token && user) {
-        console.log('[AuthContext] Saving token after login:', token, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
-        localStorage.setItem('token', token);
-        setUser(user);
-        setIsAuthenticated(true);
-        setIsEmailVerified(true);
-        setRole(user.role || null);
-        console.log('[AuthContext] Login successful at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'User:', user);
+      const { accessToken } = response.data;
+      if (accessToken) {
+        console.log(
+          '[AuthContext] Saving token after login:',
+          accessToken,
+          'at',
+          new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+        );
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('token', accessToken);
+        }
+
+        const profileResponse = await api.get('/profile');
+        const userData = profileResponse.data;
+        if (userData) {
+          setUser(userData);
+          setIsAuthenticated(true);
+          setIsEmailVerified(true);
+          setRole(userData.role || null);
+          console.log(
+            '[AuthContext] Login successful at',
+            new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+            'User:',
+            userData,
+          );
+        } else {
+          throw new Error('User data missing in /profile response');
+        }
       } else {
-        throw new Error('Token or user data missing in response');
+        throw new Error('Access token missing in response');
       }
     } catch (error: any) {
-      console.error('[AuthContext] Login error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
+      console.error(
+        '[AuthContext] Login error at',
+        new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+        error.response?.data || error.message,
+      );
       throw new Error(error.response?.data?.message || 'Login error');
     } finally {
       setIsLoading(false);
@@ -100,11 +151,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const googleLogin = async (role?: string) => {
     try {
       setIsLoading(true);
-      console.log('[AuthContext] Redirecting to Google with role:', role || 'none', 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+      console.log(
+        '[AuthContext] Redirecting to Google with role:',
+        role || 'none',
+        'at',
+        new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+      );
       const roleQuery = role ? `&role=${encodeURIComponent(role)}` : '';
-      window.location.href = `${API_BASE_URL}/api/auth/google?callbackUrl=${encodeURIComponent(window.location.origin + '/auth/callback')}${roleQuery}`;
+      window.location.href = `${API_BASE_URL}/api/auth/google?callbackUrl=${encodeURIComponent(
+        window.location.origin + '/auth/callback',
+      )}${roleQuery}`;
     } catch (error: any) {
-      console.error('[AuthContext] Google login error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
+      console.error(
+        '[AuthContext] Google login error at',
+        new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+        error.response?.data || error.message,
+      );
       throw new Error(error.response?.data?.message || 'Google login failed');
     } finally {
       setIsLoading(false);
@@ -114,44 +176,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (email: string, password: string, role: string, username: string) => {
     try {
       setIsLoading(true);
-      console.log('[AuthContext] Registering with data:', { email, password, role, username }, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+      console.log(
+        '[AuthContext] Registering with data:',
+        { email, password, role, username },
+        'at',
+        new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+      );
       const response = await api.post('/auth/register', { email, password, role, username });
-      console.log('[AuthContext] Raw registration response:', response.data, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+      console.log(
+        '[AuthContext] Raw registration response:',
+        response.data,
+        'at',
+        new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+      );
 
-      // Проверяем структуру ответа
-      let token: string | null | undefined;
-      let userData: User | undefined;
-
-      if (response.data && response.data.token && response.data.user) {
-        // Ожидаемая структура: { token, user }
-        token = response.data.token;
-        userData = response.data.user;
-      } else if (response.data && response.data.message === 'User registered successfully') {
-        // Если бэкенд вернул только сообщение, делаем запрос к /profile для получения данных пользователя
-        const profileResponse = await api.get('/profile');
-        console.log('[AuthContext] Fetched profile after registration:', profileResponse.data, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
-        userData = profileResponse.data;
-        token = localStorage.getItem('token'); // Получаем токен из localStorage
-        if (token === null || token === undefined) {
-          throw new Error('Token not found in localStorage after profile fetch');
-        }
-      } else {
-        throw new Error('Unexpected response format from /auth/register');
+      let token: string | null | undefined = response.data.accessToken || response.data.token;
+      if (!token) {
+        throw new Error('Token is missing in response');
       }
 
-      if (token && userData) {
-        console.log('[AuthContext] Saving token after registration:', token, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+      if (typeof window !== 'undefined') {
         localStorage.setItem('token', token);
+      }
+
+      const profileResponse = await api.get('/profile');
+      const userData = profileResponse.data;
+      if (userData) {
         setUser(userData);
         setIsAuthenticated(true);
         setIsEmailVerified(true);
         setRole(role);
-        console.log('[AuthContext] Registration successful at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'User:', userData);
+        console.log(
+          '[AuthContext] Registration successful at',
+          new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+          'User:',
+          userData,
+        );
       } else {
-        throw new Error('Token or user data missing in response');
+        throw new Error('User data missing in /profile response');
       }
     } catch (error: any) {
-      console.error('[AuthContext] Registration error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
+      console.error(
+        '[AuthContext] Registration error at',
+        new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+        error.response?.data || error.message,
+      );
       throw new Error(error.response?.data?.message || error.message || 'Registration failed');
     } finally {
       setIsLoading(false);
@@ -165,7 +234,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsEmailVerified(true);
       return response.data;
     } catch (error: any) {
-      console.error('[AuthContext] Verify email error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
+      console.error(
+        '[AuthContext] Verify email error at',
+        new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+        error.response?.data || error.message,
+      );
       throw new Error(error.response?.data?.message || 'Verification error');
     } finally {
       setIsLoading(false);
@@ -178,7 +251,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await api.post('/auth/forgot-password', { email });
       return response.data;
     } catch (error: any) {
-      console.error('[AuthContext] Forgot password error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
+      console.error(
+        '[AuthContext] Forgot password error at',
+        new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+        error.response?.data || error.message,
+      );
       throw new Error(error.response?.data?.message || 'Failed to send reset link');
     } finally {
       setIsLoading(false);
@@ -191,7 +268,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await api.post('/auth/reset-password', { token, newPassword });
       return response.data;
     } catch (error: any) {
-      console.error('[AuthContext] Reset password error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
+      console.error(
+        '[AuthContext] Reset password error at',
+        new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+        error.response?.data || error.message,
+      );
       throw new Error(error.response?.data?.message || 'Password reset failed');
     } finally {
       setIsLoading(false);
@@ -201,7 +282,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const selectRole = async (role: string, tempToken: string, additionalData?: Record<string, any>) => {
     try {
       setIsLoading(true);
-      console.log('[AuthContext] Selecting role with tempToken and additional data:', { role, tempToken, additionalData }, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+      console.log(
+        '[AuthContext] Selecting role with tempToken and additional data:',
+        { role, tempToken, additionalData },
+        'at',
+        new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+      );
       const response = await api.post('/auth/select-role', {
         tempToken,
         role,
@@ -209,19 +295,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       const { token } = response.data;
       if (token) {
-        console.log('[AuthContext] Saving token after role selection:', token, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
-        localStorage.setItem('token', token);
+        console.log(
+          '[AuthContext] Saving token after role selection:',
+          token,
+          'at',
+          new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+        );
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('token', token);
+        }
         const userResponse = await api.get('/profile');
         const userData = userResponse.data;
         setUser(userData);
         setIsAuthenticated(true);
         setIsEmailVerified(true);
         setRole(userData.role || role);
-        console.log('[AuthContext] Role selected at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'User:', userData);
+        console.log(
+          '[AuthContext] Role selected at',
+          new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+          'User:',
+          userData,
+        );
       }
       return response.data;
     } catch (error: any) {
-      console.error('[AuthContext] Role selection error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
+      console.error(
+        '[AuthContext] Role selection error at',
+        new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+        error.response?.data || error.message,
+      );
       throw new Error(error.response?.data?.message || 'Failed to select role');
     } finally {
       setIsLoading(false);
@@ -229,7 +331,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+    }
     setIsAuthenticated(false);
     setIsEmailVerified(true);
     setRole(null);
@@ -239,21 +343,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    console.log('[AuthContext] Checking token on mount at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), 'Token:', token);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    console.log(
+      '[AuthContext] Checking token on mount at',
+      new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+      'Token:',
+      token,
+    );
     if (token) {
-      api.get('/profile')
+      api
+        .get('/profile')
         .then((response) => {
-          console.log('[AuthContext] /profile response at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), response.data);
+          console.log(
+            '[AuthContext] /profile response at',
+            new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+            response.data,
+          );
           const userData = response.data;
           setUser(userData);
           setIsAuthenticated(true);
           setIsEmailVerified(true);
           setRole(userData.role || null);
-          console.log('[AuthContext] Role set to:', userData.role, 'at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }));
+          console.log(
+            '[AuthContext] Role set to:',
+            userData.role,
+            'at',
+            new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+          );
         })
         .catch((error) => {
-          console.error('[AuthContext] /profile error at', new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }), error.response?.data || error.message);
+          console.error(
+            '[AuthContext] /profile error at',
+            new Date().toLocaleString('en-US', { timeZone: 'Europe/Kiev' }),
+            error.response?.data || error.message,
+          );
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('token');
+          }
           setUser(null);
           setIsAuthenticated(false);
           setRole(null);
