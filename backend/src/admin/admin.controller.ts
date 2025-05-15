@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Put, Delete, Headers, UnauthorizedException, UseGuards, Param, Body, Query } from '@nestjs/common';
-import { AdminService } from './admin.service';
-import { JwtService } from '@nestjs/jwt';
+import { Controller, Get, Post, Put, Delete, Headers, Param, Body, UnauthorizedException, BadRequestException, UseGuards, Query } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { JwtService } from '@nestjs/jwt';
+import { AdminService } from './admin.service';
 
 @Controller('admin')
 export class AdminController {
@@ -12,14 +12,21 @@ export class AdminController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get('users')
-  async getUsers(@Headers('authorization') authHeader: string) {
+  async getUsers(
+    @Headers('authorization') authHeader: string,
+    @Query('username') username?: string,
+    @Query('email') email?: string,
+    @Query('createdAfter') createdAfter?: string,
+  ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
     }
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const userId = payload.sub;
-    return this.adminService.getUsers(userId);
+
+    const filters = { username, email, createdAfter };
+    return this.adminService.getUsers(userId, filters);
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -47,7 +54,19 @@ export class AdminController {
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const userIdAdmin = payload.sub;
-    return this.adminService.updateUser(userIdAdmin, userId, body);
+  
+    if (body.role === 'admin') {
+      throw new BadRequestException('Cannot change role to admin');
+    }
+  
+    // Создаём новый объект updates, исключая 'admin'
+    const updates: { email?: string; username?: string; role?: 'employer' | 'jobseeker' } = {
+      email: body.email,
+      username: body.username,
+      role: body.role as 'employer' | 'jobseeker', // TypeScript теперь знает, что role не может быть 'admin'
+    };
+  
+    return this.adminService.updateUser(userIdAdmin, userId, updates);
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -152,5 +171,21 @@ export class AdminController {
     const payload = this.jwtService.verify(token);
     const userId = payload.sub;
     return this.adminService.setApplicationLimit(userId, jobPostId, limit);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('users/:id/reset-password')
+  async resetPassword(
+    @Headers('authorization') authHeader: string,
+    @Param('id') userId: string,
+    @Body('newPassword') newPassword: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.resetPassword(adminId, userId, newPassword);
   }
 }

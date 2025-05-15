@@ -4,6 +4,7 @@ import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
+import { CreateAdminDto } from './dto/create-admin.dto'; // Импортируем новый DTO
 import { LoginDto } from './dto/login.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { Transporter } from 'nodemailer';
@@ -17,20 +18,30 @@ export class AuthService {
     @Inject('MAILER_TRANSPORT') private mailerTransport: Transporter,
   ) {}
 
-  async register(registerDto: RegisterDto) {
-    const { email, password, username, role } = registerDto;
+  async register(dto: RegisterDto | CreateAdminDto) {
+    const { email, password, username } = dto;
 
-    console.log('Register DTO:', registerDto);
+    console.log('Register DTO:', dto);
     const existingUser = await this.usersService.findByEmail(email);
     console.log('Existing User Check:', existingUser);
     if (existingUser) {
       throw new BadRequestException('Email already exists');
     }
 
+    let role: 'employer' | 'jobseeker' | 'admin';
+    if ('secretKey' in dto) {
+      const validSecretKey = process.env.ADMIN_SECRET_KEY || 'mySuperSecretAdminKey123';
+      if (dto.secretKey !== validSecretKey) {
+        throw new UnauthorizedException('Invalid secret key');
+      }
+      role = 'admin';
+    } else {
+      role = dto.role;
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     console.log('Hashed Password:', hashedPassword);
 
-    // Сразу создаем пользователя с указанной ролью
     const userData = {
       email,
       password: hashedPassword,
@@ -38,7 +49,7 @@ export class AuthService {
       role,
     };
     const additionalData = {
-      timezone: 'UTC', // Значения по умолчанию, пользователь заполнит позже
+      timezone: 'UTC',
       currency: 'USD',
     };
     const newUser = await this.usersService.create(userData, additionalData);
@@ -101,7 +112,7 @@ export class AuthService {
         username: userData.username,
         password: userData.password || '',
         provider: userData.provider,
-        role: userData.role || role, // Используем роль из userData, если она есть
+        role: userData.role || role,
       };
       existingUser = await this.usersService.create(userToCreate, additionalData);
       console.log('New User Created:', existingUser);

@@ -1,6 +1,6 @@
 import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
-export class RegisterDto {
+export class CreateAdminDto {
   @IsEmail()
   email: string;
 
@@ -14,5 +14,5 @@ export class RegisterDto {
 
   @IsString()
   @IsNotEmpty()
-  role: 'employer' | 'jobseeker'; // Удаляем 'admin'
+  secretKey: string;
 }

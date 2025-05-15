@@ -10,7 +10,8 @@ import { JobPostsModule } from './job-posts/job-posts.module';
 import { CategoriesModule } from './categories/categories.module';
 import { JobApplicationsModule } from './job-applications/job-applications.module';
 import { ReviewsModule } from './reviews/reviews.module';
-import { AdminModule } from './admin/admin.module'; // Добавляем AdminModule
+import { AdminModule } from './admin/admin.module';
+import { FeedbackModule } from './feedback/feedback.module'; // Добавляем FeedbackModule
 import { RedisModule } from './redis/redis.module';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
@@ -45,7 +46,8 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
     CategoriesModule,
     JobApplicationsModule,
     ReviewsModule,
-    AdminModule, // Добавляем AdminModule
+    AdminModule,
+    FeedbackModule, // Добавляем FeedbackModule
     RedisModule,
   ],
   controllers: [AppController],

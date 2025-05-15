@@ -547,7 +547,46 @@
   "error": "Bad Request"
   }
 
-### 15. Get My Applications (Jobseeker)
+
+### 15. Close Job Post
+- **Endpoint**: `POST /api/job-posts/:id/close`
+- **Description**: Closes a job post (sets status to "Closed"). Only the employer who created the job can close it.
+- **Headers**: Authorization: Bearer <token>  
+- **Request Parameters**: `id`: The ID of the job post.
+- **Response (Success - 200)**: 
+  ```json
+  {
+    "id": "<jobPostId>",
+    "title": "Software Engineer",
+    "description": "We are looking for a skilled software engineer...",
+    "location": "Remote",
+    "salary": 50000,
+    "status": "Closed",
+    "category_id": "<categoryId>",
+    "job_type": "Full-time",
+    "employer_id": "<userId>",
+    "applicationLimit": 100,
+    "created_at": "2025-05-15T05:13:00.000Z",
+    "updated_at": "2025-05-15T05:13:00.000Z"
+  }
+
+- **Response (Error - 404, if job post not found)**: 
+  ```json
+  {
+  "statusCode": 404,
+  "message": "Job post not found or you do not have permission to close it",
+  "error": "Not Found"
+  }
+
+- **Response (Error - 400, if already closed)**: 
+  ```json
+  {
+  "statusCode": 400,
+  "message": "Job post is already closed",
+  "error": "Bad Request"
+  }
+
+### 16. Get My Applications (Jobseeker)
 - **Endpoint**: `GET /api/job-applications/my-applications`
 - **Description**: Retrieves all applications submitted by the authenticated jobseeker.
 - **Headers**: Authorization: Bearer <token>  
@@ -606,7 +645,7 @@
   "error": "Not Found"
   }
 
-### 16. Get Applications for Job Post (Employer)
+### 17. Get Applications for Job Post (Employer)
 - **Endpoint**: `GET /api/job-applications/job-post/:id`
 - **Description**: Retrieves all applications for a specific job post, accessible only to the employer who created the job post.
 - **Headers**: Authorization: Bearer <token>    
@@ -666,7 +705,7 @@
   "error": "Not Found"
   }
 
-### 17. Update Application Status (Employer)
+### 18. Update Application Status (Employer)
 - **Endpoint**: `PUT /api/job-applications/:id`
 - **Description**: Updates the status of a job application, accessible only to the employer who created the job post.
 - **Headers**: Authorization: Bearer <token>    
@@ -719,7 +758,7 @@
   "error": "Not Found"
   }
 
-### 18. Search Job Posts
+### 19. Search Job Posts
 - **Endpoint**: `GET /api/job-posts/search`
 - **Description**: Searches for active job posts with optional filters.
 - **Query Parameters:**:
@@ -760,7 +799,7 @@
   }
   ]
 
-### 19. Create Review
+### 20. Create Review
 - **Endpoint**: `POST /api/reviews`
 - **Description**: Creates a review for a user (employer or jobseeker) related to a specific job application.
 - **Headers**: `Authorization: Bearer <token>`
@@ -833,7 +872,7 @@
   "error": "Not Found"
   }
 
-### 20. Get Reviews for User
+### 21. Get Reviews for User
 - **Endpoint**: `GET /api/reviews/user/:id`
 - **Description**: Retrieves all reviews for a specific user (employer or jobseeker).
 - **Headers**: `Authorization: Bearer <token>`
@@ -873,21 +912,27 @@
   "error": "Not Found"
   }
 
-### 21. Get All Users (Admin)
+### 22. Get All Users (Admin)
 - **Endpoint**: `GET /api/admin/users`
-- **Description**: Retrieves all users (admin only).
+- **Description**: Retrieves all users (admin only) with optional filters.
 - **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**:
+  - `username` (string, optional): Filter by username (partial match, case-insensitive).
+  - `email` (string, optional): Filter by email (partial match, case-insensitive).
+  - `createdAfter` (string, optional): Filter users created after this date (format: `YYYY-MM-DD`).
+- **Example Request**: `/api/admin/users?username=john&email=example.com&createdAfter=2025-05-01`
+
 - **Response (Success - 200)**: 
   ```json
   [
     {
       "id": "<userId>",
-      "email": "test@example.com",
-      "username": "test",
-      "role": "employer",
+      "email": "john@example.com",
+      "username": "john_doe",
+      "role": "jobseeker",
       "provider": null,
-      "created_at": "2025-05-13T18:00:00.000Z",
-      "updated_at": "2025-05-13T18:00:00.000Z"
+      "created_at": "2025-05-15T05:13:00.000Z",
+      "updated_at": "2025-05-15T05:13:00.000Z"
     }
   ]
 
@@ -907,7 +952,7 @@
   "error": "Unauthorized"
   }
 
-### 22. Get User by ID (Admin)
+### 23. Get User by ID (Admin)
 - **Endpoint**: `GET /api/admin/users/:id`
 - **Description**: Retrieves a specific user by ID (admin only).
 - **Headers**: `Authorization: Bearer <token>`
@@ -932,7 +977,7 @@
   "error": "Not Found"
   }
 
-### 23. Update User (Admin)
+### 24. Update User (Admin)
 - **Endpoint**: `PUT /api/admin/users/:id`
 - **Description**: Updates a specific user (admin only).
 - **Headers**: `Authorization: Bearer <token>`
@@ -965,11 +1010,11 @@
   "error": "Not Found"
   }
 
-### 24. Delete User (Admin)
+### 25. Delete User (Admin)
 - **Endpoint**: `DELETE /api/admin/users/:id`
 - **Description**: Deletes a specific user (admin only).
 - **Headers**: `Authorization: Bearer <token>`
-- **Request Parameters**: id: The ID of the user.
+- **Request Parameters**: `id`: The ID of the user.
 - **Response (Success - 200)**: 
   ```json
   {
@@ -984,7 +1029,40 @@
   "error": "Not Found"
   }
 
-### 25. Get All Job Posts (Admin)
+### 26. Reset User Password (Admin)
+- **Endpoint**: `POST /api/admin/users/:id/reset-password`
+- **Description**: Resets the password for a specific user (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the user.
+- **Request Body**: 
+  ```json
+  {
+  "newPassword": "newpassword123"
+  }
+
+- **Response (Success - 200)**:
+  ```json
+  {
+  "message": "Password reset successful"
+  }
+
+- **Response (Error - 404, if user not found)**:
+  ```json
+  {
+  "statusCode": 404,
+  "message": "User not found",
+  "error": "Not Found"
+  }
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:
+  ```json
+  {
+  "statusCode": 401,
+  "message": "Invalid token",
+  "error": "Unauthorized"
+  }
+
+### 27. Get All Job Posts (Admin)
 - **Endpoint**: `GET /api/admin/job-posts`
 - **Description**: Retrieves all job posts (admin only).
 - **Headers**: `Authorization: Bearer <token>`
@@ -1019,7 +1097,7 @@
   }
   ]
 
-### 26. Update Job Post (Admin)
+### 28. Update Job Post (Admin)
 - **Endpoint**: `PUT /api/admin/job-posts/:id`
 - **Description**: Updates a specific job post (admin only).
 - **Headers**: `Authorization: Bearer <token>`
@@ -1054,7 +1132,7 @@
   "updated_at": "2025-05-13T18:30:00.000Z"
   }
 
-### 27. Delete Job Post (Admin)
+### 29. Delete Job Post (Admin)
 - **Endpoint**: `DELETE /api/admin/job-posts/:id`
 - **Description**: Deletes a specific job post (admin only).
 - **Headers**: `Authorization: Bearer <token>`
@@ -1073,7 +1151,7 @@
   "error": "Not Found"
   }
 
-### 28. Get All Reviews (Admin)
+### 30. Get All Reviews (Admin)
 - **Endpoint**: `GET /api/admin/reviews`
 - **Description**: Retrieves all reviews (admin only).
 - **Headers**: `Authorization: Bearer <token>`
@@ -1110,7 +1188,7 @@
   }
   ]
 
-### 29. Delete Review (Admin)
+### 31. Delete Review (Admin)
 - **Endpoint**: `DELETE /api/admin/reviews/:id`
 - **Description**: Deletes a specific review (admin only).
 - **Headers**: `Authorization: Bearer <token>`
@@ -1129,7 +1207,7 @@
   "error": "Not Found"
   }
 
-### 30. Get Analytics (Admin)
+### 32. Get Analytics (Admin)
 - **Endpoint**: `GET /api/admin/analytics`
 - **Description**: Retrieves analytics data (admin only).
 - **Headers**: `Authorization: Bearer <token>`
@@ -1145,7 +1223,7 @@
   "totalReviews": 15
   }
 
-### 31. Set Application Limit for Job Post (Admin)
+### 33. Set Application Limit for Job Post (Admin)
 - **Endpoint**: `POST /api/admin/job-posts/:id/set-application-limit`
 - **Description**: Sets the application limit for a specific job post (admin only).
 - **Headers**: `Authorization: Bearer <token>`
@@ -1176,4 +1254,64 @@
   "statusCode": 404,
   "message": "Job post not found",
   "error": "Not Found"
+  }
+
+### 34. Submit Feedback
+- **Endpoint**: `POST /api/feedback`
+- **Description**: Submits feedback from a jobseeker or employer.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "message": "This is my feedback about the platform."
+  }
+
+- **Response (Success - 200)**: 
+  ```json
+  {
+  "id": "<feedbackId>",
+  "user_id": "<userId>",
+  "message": "This is my feedback about the platform.",
+  "role": "jobseeker",
+  "created_at": "2025-05-15T05:13:00.000Z",
+  "updated_at": "2025-05-15T05:13:00.000Z"
+  }
+
+- **Response (Error - 401, if user is not a jobseeker or employer)**: 
+  ```json
+  {
+  "statusCode": 401,
+  "message": "Only jobseekers and employers can submit feedback",
+  "error": "Unauthorized"
+  }
+
+### 35. Get Feedback (Admin)
+- **Endpoint**: `GET /api/feedback`
+- **Description**: Retrieves all feedback submissions (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**: 
+  ```json
+  [
+  {
+    "id": "<feedbackId>",
+    "user_id": "<userId>",
+    "message": "This is my feedback about the platform.",
+    "role": "jobseeker",
+    "user": {
+      "id": "<userId>",
+      "email": "jobseeker100@example.com",
+      "username": "john_doe100",
+      "role": "jobseeker"
+    },
+    "created_at": "2025-05-15T05:13:00.000Z",
+    "updated_at": "2025-05-15T05:13:00.000Z"
+  }
+  ]
+
+- **Response (Error - 401, if user is not an admin)**:   
+  ```json
+  {
+  "statusCode": 401,
+  "message": "Only admins can view feedback",
+  "error": "Unauthorized"
   }
