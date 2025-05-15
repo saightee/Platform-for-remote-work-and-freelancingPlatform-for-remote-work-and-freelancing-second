@@ -7,10 +7,11 @@ import { JobPost } from '../job-posts/job-post.entity';
 import { User } from '../users/entities/user.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JobSeeker } from '../users/entities/jobseeker.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([JobApplication, JobPost, User]),
+    TypeOrmModule.forFeature([JobApplication, JobPost, User, JobSeeker]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

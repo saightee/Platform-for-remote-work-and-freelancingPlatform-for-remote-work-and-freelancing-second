@@ -649,36 +649,18 @@
 - **Endpoint**: `GET /api/job-applications/job-post/:id`
 - **Description**: Retrieves all applications for a specific job post, accessible only to the employer who created the job post.
 - **Headers**: `Authorization: Bearer <token>`
-- **Request Parameters**: `id`: The ID of the job post.
+- **Path Parameters**: 
+  - `id` (string, required): The ID of the job post.
 - **Response (Success - 200)**:  
   ```json
   [
-  {
-    "id": "<applicationId>",
-    "job_post_id": "<jobPostId>",
-    "job_seeker_id": "<userId>",
-    "status": "Pending",
-    "job_post": {
-      "id": "<jobPostId>",
-      "title": "Software Engineer",
-      "description": "We are looking for a skilled software engineer...",
-      "location": "Remote",
-      "salary": 50000,
-      "status": "Active",
-      "category_id": "<categoryId>",
-      "employer_id": "<employerId>",
-      "created_at": "2025-05-13T18:00:00.000Z",
-      "updated_at": "2025-05-13T18:00:00.000Z"
-    },
-    "job_seeker": {
-      "id": "<userId>",
-      "email": "jobseeker1@example.com",
-      "username": "jobseeker1",
-      "role": "jobseeker"
-    },
-    "created_at": "2025-05-13T18:00:00.000Z",
-    "updated_at": "2025-05-13T18:00:00.000Z"
-  }
+    {
+      "userId": "<jobseekerId>",
+      "username": "john_doe107",
+      "email": "jobseeker107@example.com",
+      "jobDescription": "Experienced web developer with 5 years in React.",
+      "appliedAt": "2025-05-15T06:12:00.000Z"
+    }
   ]
 
 - **Response (Error - 401, if token is invalid or missing)**:  
@@ -689,7 +671,7 @@
     "error": "Unauthorized"
   }
 
-- **Response (Error - 401, if user is not an employer)**:   
+- **Response (Error - 401, if user is not the employer of this job post)**:   
   ```json
   {
     "statusCode": 401,

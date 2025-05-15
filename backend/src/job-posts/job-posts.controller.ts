@@ -41,7 +41,7 @@ export class JobPostsController {
     return this.jobPostsService.updateJobPost(userId, jobPostId, body);
   }
 
-  @Get('search') // Перемещаем этот маршрут выше GET /:id
+  @Get('search') // Статический маршрут
   async searchJobPosts(
     @Query('title') title?: string,
     @Query('location') location?: string,
@@ -54,13 +54,8 @@ export class JobPostsController {
     return this.jobPostsService.searchJobPosts(filters);
   }
 
-  @Get(':id')
-  async getJobPost(@Param('id') jobPostId: string) {
-    return this.jobPostsService.getJobPost(jobPostId);
-  }
-
   @UseGuards(AuthGuard('jwt'))
-  @Get('my-posts')
+  @Get('my-posts') // Статический маршрут
   async getJobPostsByEmployer(@Headers('authorization') authHeader: string) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
@@ -69,6 +64,11 @@ export class JobPostsController {
     const payload = this.jwtService.verify(token);
     const userId = payload.sub;
     return this.jobPostsService.getJobPostsByEmployer(userId);
+  }
+
+  @Get(':id') // Динамический маршрут идёт последним
+  async getJobPost(@Param('id') jobPostId: string) {
+    return this.jobPostsService.getJobPost(jobPostId);
   }
 
   @UseGuards(AuthGuard('jwt'))
