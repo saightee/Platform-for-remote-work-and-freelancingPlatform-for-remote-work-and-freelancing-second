@@ -13,11 +13,10 @@ interface Job {
   status: string;
   createdBy: {
     id: string;
-    name: string;
+    username: string;
     companyName?: string;
   };
   createdAt: string;
-  views?: number; // Добавим для совместимости с текущей структурой
 }
 
 const JobCardList: React.FC<{ jobs: Job[] }> = ({ jobs }) => {
@@ -34,19 +33,14 @@ const JobCardList: React.FC<{ jobs: Job[] }> = ({ jobs }) => {
               </div>
               <p className="job-description-snippet">{job.description.substring(0, 100)}...</p>
               <div className="job-meta">
-                <p><strong>Company:</strong> {job.createdBy.companyName || job.createdBy.name}</p>
-                <p><strong>Type:</strong> N/A</p> {/* Поле отсутствует в бэкенде, можно добавить в будущем */}
-                <p><strong>Location:</strong> 📍 Remote</p> {/* Поле отсутствует, предполагаем Remote */}
+                <p><strong>Company:</strong> {job.createdBy.companyName || job.createdBy.username}</p>
+                <p><strong>Category:</strong> {job.category}</p>
                 <p><strong>Salary:</strong> 💰 ${job.budget}</p>
-                <p><strong>Hours:</strong> 🕒 N/A</p> {/* Поле отсутствует */}
                 <p><strong>Posted:</strong> {new Date(job.createdAt).toLocaleDateString()}</p>
               </div>
               <Link to={`/jobs/${job.id}`} className="view-details">
                 View Details
               </Link>
-              <div className="views-counter">
-                👁️ {job.views || 0}
-              </div>
             </div>
           ))}
         </div>
@@ -67,9 +61,8 @@ const JobTable: React.FC<{ jobs: Job[] }> = ({ jobs }) => {
             <tr>
               <th>Title</th>
               <th>Company</th>
-              <th>Location</th>
+              <th>Category</th>
               <th>Salary</th>
-              <th>Type</th>
               <th>Posted</th>
               <th>Actions</th>
             </tr>
@@ -78,10 +71,9 @@ const JobTable: React.FC<{ jobs: Job[] }> = ({ jobs }) => {
             {jobs.map((job) => (
               <tr key={job.id}>
                 <td>{job.title}</td>
-                <td>{job.createdBy.companyName || job.createdBy.name}</td>
-                <td>Remote</td> {/* Поле отсутствует */}
+                <td>{job.createdBy.companyName || job.createdBy.username}</td>
+                <td>{job.category}</td>
                 <td>${job.budget}</td>
-                <td>N/A</td> {/* Поле отсутствует */}
                 <td>{new Date(job.createdAt).toLocaleDateString()}</td>
                 <td>
                   <Link to={`/jobs/${job.id}`}>View Details</Link>
@@ -102,9 +94,7 @@ const JobSearchPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     category: '',
-    location: '',
     salary: '',
-    employmentType: '',
   });
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const location = useLocation();
@@ -113,24 +103,17 @@ const JobSearchPage: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const keywords = params.get('keywords') || '';
-    const locationFilter = params.get('location') || '';
 
     const fetchJobs = async () => {
       try {
-        const response = await axios.get('/api/jobs', {
-          baseURL: API_BASE_URL,
+        const response = await axios.get(`${API_BASE_URL}/api/jobs`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
           params: {
             title: keywords || undefined,
             category: filters.category || undefined,
-            location: locationFilter || undefined,
           },
         });
-        const fetchedJobs = response.data.map((job: Job) => ({
-          ...job,
-          views: job.views || Math.floor(Math.random() * 200), // Добавляем views для совместимости
-        }));
-        setJobs(fetchedJobs);
+        setJobs(response.data);
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to fetch jobs');
         setJobs([]);
@@ -139,7 +122,6 @@ const JobSearchPage: React.FC = () => {
 
     fetchJobs();
     setSearchTerm(keywords);
-    setFilters((prev) => ({ ...prev, location: locationFilter }));
   }, [location.search, filters.category]);
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
@@ -151,22 +133,16 @@ const JobSearchPage: React.FC = () => {
     const filteredJobs = jobs.filter((job) => {
       const matchesSearch = searchTerm
         ? job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          job.createdBy.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          job.createdBy.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
           job.description.toLowerCase().includes(searchTerm.toLowerCase())
         : true;
       const matchesCategory = filters.category
         ? job.category.toLowerCase().includes(filters.category.toLowerCase())
         : true;
-      const matchesLocation = filters.location
-        ? true // Поле location отсутствует в бэкенде, пропускаем фильтр
-        : true;
       const matchesSalary = filters.salary
         ? String(job.budget).includes(filters.salary)
         : true;
-      const matchesType = filters.employmentType
-        ? true // Поле employmentType отсутствует, пропускаем фильтр
-        : true;
-      return matchesSearch && matchesCategory && matchesLocation && matchesSalary && matchesType;
+      return matchesSearch && matchesCategory && matchesSalary;
     });
     setJobs(filteredJobs);
   };
@@ -199,38 +175,14 @@ const JobSearchPage: React.FC = () => {
             </select>
           </div>
           <div className="filter-group">
-            <label htmlFor="location">Location</label>
-            <input
-              type="text"
-              name="location"
-              value={filters.location}
-              onChange={handleFilterChange}
-              placeholder="Enter location"
-            />
-          </div>
-          <div className="filter-group">
             <label htmlFor="salary">Salary Range</label>
             <input
               type="text"
               name="salary"
               value={filters.salary}
               onChange={handleFilterChange}
-              placeholder="e.g., $50,000 - $100,000"
+              placeholder="e.g., 50000 - 100000"
             />
-          </div>
-          <div className="filter-group">
-            <label htmlFor="employmentType">Job Type</label>
-            <select
-              name="employmentType"
-              value={filters.employmentType}
-              onChange={handleFilterChange}
-            >
-              <option value="">All Types</option>
-              <option value="Remote">Remote</option>
-              <option value="Full-Time">Full Time</option>
-              <option value="Part-Time">Part Time</option>
-              <option value="Freelance">Freelance</option>
-            </select>
           </div>
           <button onClick={applyFilters}>Apply Filters</button>
         </div>
