@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial } from 'typeorm';
+import { Repository, DeepPartial, Not, IsNull } from 'typeorm';
 import { User } from './entities/user.entity';
 import { JobSeeker } from './entities/jobseeker.entity';
 import { Employer } from './entities/employer.entity';
@@ -24,6 +24,7 @@ export class UsersService {
       password: userData.password || '',
       role: userData.role,
       provider: userData.provider || null,
+      country: userData.country || null,
     };
     const user = this.usersRepository.create(userEntity);
     const savedUser = await this.usersRepository.save(user);
@@ -63,9 +64,14 @@ export class UsersService {
 
   async updatePassword(userId: string, newPassword: string): Promise<void> {
     console.log('Updating password for userId:', userId, 'with new hashed password:', newPassword);
-    await this.usersRepository.update(userId, { password: newPassword });
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
     
-    // Проверим, что пароль действительно обновился
+    user.password = newPassword;
+    await this.usersRepository.save(user);
+    
     const updatedUser = await this.usersRepository.findOne({ where: { id: userId } });
     console.log('Updated user password in DB:', updatedUser?.password);
   }
@@ -107,5 +113,45 @@ export class UsersService {
       const employer = this.employerRepository.create(employerEntity);
       await this.employerRepository.save(employer);
     }
+  }
+
+  async getRegistrationStats(startDate: Date, endDate: Date, interval: 'day' | 'week' | 'month') {
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    start.setUTCHours(0, 0, 0, 0);
+    end.setUTCHours(23, 59, 59, 999);
+
+    const query = this.usersRepository.createQueryBuilder('user')
+      .select(`DATE_TRUNC('${interval}', user.created_at AT TIME ZONE 'UTC') as period`)
+      .addSelect('COUNT(*) as count')
+      .where('user.created_at AT TIME ZONE \'UTC\' BETWEEN :startDate AND :endDate', { startDate: start, endDate: end })
+      .groupBy('period')
+      .orderBy('period', 'ASC');
+
+    const result = await query.getRawMany();
+
+    return result.map(row => ({
+      period: row.period,
+      count: parseInt(row.count, 10),
+    }));
+  }
+
+  async getGeographicDistribution() {
+    const query = this.usersRepository.createQueryBuilder('user')
+      .select('user.country as country')
+      .addSelect('COUNT(*) as count')
+      .where('user.country IS NOT NULL')
+      .groupBy('user.country')
+      .orderBy('count', 'DESC');
+
+    const result = await query.getRawMany();
+    const totalUsers = await this.usersRepository.count({ where: { country: Not(IsNull()) } });
+
+    return result.map(row => ({
+      country: row.country,
+      count: parseInt(row.count, 10),
+      percentage: totalUsers ? (parseInt(row.count, 10) / totalUsers * 100).toFixed(2) : 0,
+    }));
   }
 }

@@ -328,4 +328,22 @@ export class AdminService {
     await this.checkAdminRole(adminId);
     return this.blockedCountriesService.getBlockedCountries(adminId);
   }
+
+  async getRegistrationStats(adminId: string, startDate: string, endDate: string, interval: 'day' | 'week' | 'month') {
+    await this.checkAdminRole(adminId);
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      throw new BadRequestException('Invalid date format');
+    }
+    
+    return this.usersService.getRegistrationStats(start, end, interval);
+  }
+  
+  async getGeographicDistribution(adminId: string) {
+    await this.checkAdminRole(adminId);
+    return this.usersService.getGeographicDistribution();
+  }
   }
