@@ -271,4 +271,35 @@ export class AdminController {
     const adminId = payload.sub;
     return this.adminService.getBlockedCountries(adminId);
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('analytics/registrations')
+  async getRegistrationStats(
+    @Headers('authorization') authHeader: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Query('interval') interval: 'day' | 'week' | 'month',
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.getRegistrationStats(adminId, startDate, endDate, interval);
+  }
+  
+  @UseGuards(AuthGuard('jwt'))
+  @Get('analytics/geographic-distribution')
+  async getGeographicDistribution(
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.getGeographicDistribution(adminId);
+  }
 }

@@ -14,11 +14,14 @@ export class User {
   @Column()
   username: string;
 
-  @Column({ type: 'varchar', length: 20 })
+  @Column()
   role: 'employer' | 'jobseeker' | 'admin';
 
-  @Column({ type: 'varchar', length: 50, nullable: true }) // Явно указываем тип varchar
+  @Column({ type: 'varchar', nullable: true }) 
   provider: string | null;
+
+  @Column({ type: 'varchar', nullable: true }) 
+  country: string | null;
 
   @CreateDateColumn()
   created_at: Date;

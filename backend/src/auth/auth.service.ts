@@ -2,14 +2,14 @@ import { Injectable, UnauthorizedException, BadRequestException, Inject, Forbidd
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
-import { BlockedCountriesService } from '../blocked-countries/blocked-countries.service'; // Импортируем
+import { BlockedCountriesService } from '../blocked-countries/blocked-countries.service';
 import * as bcrypt from 'bcrypt';
+import * as geoip from 'geoip-lite'; // Добавляем импорт
 import { RegisterDto } from './dto/register.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { LoginDto } from './dto/login.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { Transporter } from 'nodemailer';
-
 @Injectable()
 export class AuthService {
   constructor(
@@ -20,14 +20,19 @@ export class AuthService {
     @Inject('MAILER_TRANSPORT') private mailerTransport: Transporter,
   ) {}
 
-async register(dto: RegisterDto | CreateAdminDto, ip?: string) {
+  async register(dto: RegisterDto | CreateAdminDto, ip?: string) {
     const { email, password, username } = dto;
 
+    // Определяем страну по IP
+    let country: string | null = null;
     if (ip) {
       const isBlocked = await this.blockedCountriesService.isCountryBlocked(ip);
       if (isBlocked) {
         throw new ForbiddenException('Registration is not allowed from your country');
       }
+      const geo = geoip.lookup(ip);
+      country = geo?.country || null;
+      console.log('Detected country for IP', ip, ':', country);
     }
 
     console.log('Register DTO:', dto);
@@ -56,6 +61,7 @@ async register(dto: RegisterDto | CreateAdminDto, ip?: string) {
       password: hashedPassword,
       username,
       role,
+      country, // Сохраняем страну
     };
     const additionalData = {
       timezone: 'UTC',

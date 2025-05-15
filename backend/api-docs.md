@@ -1298,6 +1298,68 @@
     "totalReviews": 15
   }
 
+### 35. Get Registration Stats (Admin)
+- **Endpoint**: `GET /api/admin/analytics/registrations`
+- **Description**: Retrieves registration statistics over a specified period (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**: 
+  - `startDate` (string, required): Start date in format `YYYY-MM-DD`.
+  - `endDate` (string, required): End date in format `YYYY-MM-DD`.
+  - `interval` (string, required): Interval for grouping ("day", "week", "month").
+- **Example Request**: `/api/admin/analytics/registrations?startDate=2025-05-01&endDate=2025-05-15&interval=day`
+- **Response (Success - 200)**: 
+  ```json
+    [
+      {
+        "period": "2025-05-01T00:00:00.000Z",
+        "count": 5
+      },
+      {
+        "period": "2025-05-02T00:00:00.000Z",
+        "count": 3
+      }
+    ]
+
+- **Response (Error - 400, if invalid dates)**:  
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Invalid date format",
+    "error": "Bad Request"
+  }
+
+### 36. Get Geographic Distribution (Admin)
+- **Endpoint**: `GET /api/admin/analytics/geographic-distribution`
+- **Description**: Retrieves the geographic distribution of users (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**: 
+  ```json
+  [
+    {
+      "country": "US",
+      "count": 50,
+      "percentage": "50.00"
+    },
+    {
+      "country": "CA",
+      "count": 30,
+      "percentage": "30.00"
+    },
+    {
+      "country": "UK",
+      "count": 20,
+      "percentage": "20.00"
+    }
+  ]
+
+- **Response (Error - 400, if invalid dates)**:  
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Invalid date format",
+    "error": "Bad Request"
+  }
+
 ### 35. Set Application Limit for Job Post (Admin)
 - **Endpoint**: `POST /api/admin/job-posts/:id/set-application-limit`
 - **Description**: Sets the application limit for a specific job post (admin only).
@@ -1455,3 +1517,5 @@
     "updated_at": "2025-05-15T06:12:00.000Z"
   }
   ]
+
+
