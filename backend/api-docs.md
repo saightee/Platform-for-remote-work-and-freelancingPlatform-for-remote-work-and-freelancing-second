@@ -20,7 +20,7 @@
 - **Response (Success - 200)**:
   ```json
   {
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   }
   
 - **Response (Error - 400, if email already exists):**:
@@ -59,7 +59,7 @@
 ### 3. Logout a User
 - **Endpoint**: `POST api/auth/logout`
 - **Description**: Logs out a user by blacklisting the JWT token.
-- **Headers**: Authorization: Bearer <token>
+- **Headers**: `Authorization: Bearer <token>`
 - **Request Body**: None
 
 - **Response (Success - 201)**:
@@ -68,7 +68,7 @@
     "message": "Logout successful"
   }
   
-- **Response (Error - 401, if token is invalid or already blacklisted):**:
+- **Response (Error - 401, if token is invalid or already blacklisted)**:
   ```json
   {
     "statusCode": 401,
@@ -76,7 +76,7 @@
     "error": "Unauthorized"
   }    
 
-- **Response (Error - 401, if token is missing or malformed):**:
+- **Response (Error - 401, if token is missing or malformed)**:
   ```json
   {
     "statusCode": 401,
@@ -88,126 +88,126 @@
 - **Endpoint**: `GET /api/auth/google`
 - **Description**: Initiates the Google OAuth authentication process.
 - **Query Parameters**: role (string, required): The role of the user ("employer" or "jobseeker").
-- **Example Request**: /api/auth/google?role=employer
+- **Example Request**: `/api/auth/google?role=employer`
 - **Response**: Redirects the user to Google's authentication page.
 
 ### 5. Google OAuth - Callback (handled by backend)
 - **Endpoint**: `GET /api/auth/google/callback`
 - **Description**: Handles the callback from Google after authentication. Redirects the user to a role selection page with a temporary token.
-- **Query Parameters**: code: Authorization code from Google (handled automatically).
-- **Response: Returns a JSON response with the accessToken for immediate login:**:
+- **Query Parameters**: `code: Authorization code from Google (handled automatically).`
+- **Response: Returns a JSON response with the accessToken for immediate login**:
     ```json
   {
     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   }
 
-- **Error Response (500, if authentication fails):**:
+- **Error Response (500, if authentication fails)**:
   ```json
   {
-  "message": "Authentication failed",
-  "error": "<error message>"
+    "message": "Authentication failed",
+    "error": "<error message>"
   }
 
 
 ### 6. Get Profile
 - **Endpoint**: `GET /api/profile`
 - **Description**: Retrieves the authenticated user's profile based on their role.
-- **Headers**: Authorization: Bearer <token>
-- **Request Body:**: None
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body**: None
 - **Response (Success - 200)**: 
   //For employer
   ```json
   {
-  "role": "employer",
-  "email": "test@example.com",
-  "username": "test",
-  "company_name": "Test Company",
-  "company_info": "A great company",
-  "referral_link": "https://example.com/ref/test",
-  "timezone": "Europe/Moscow",
-  "currency": "USD",
-  "average_rating": 4.5,
-  "reviews": [
-    {
-      "id": "<reviewId>",
-      "reviewer_id": "<userId>",
-      "reviewed_id": "<userId>",
-      "job_application_id": "<jobApplicationId>",
-      "rating": 4,
-      "comment": "Great work, very professional!",
-      "created_at": "2025-05-13T18:00:00.000Z",
-      "updated_at": "2025-05-13T18:00:00.000Z"
-    }
-  ]
+    "role": "employer",
+    "email": "test@example.com",
+    "username": "test",
+    "company_name": "Test Company",
+    "company_info": "A great company",
+    "referral_link": "https://example.com/ref/test",
+    "timezone": "Europe/Moscow",
+    "currency": "USD",
+    "average_rating": 4.5,
+    "reviews": [
+      {
+        "id": "<reviewId>",
+        "reviewer_id": "<userId>",
+        "reviewed_id": "<userId>",
+        "job_application_id": "<jobApplicationId>",
+        "rating": 4,
+        "comment": "Great work, very professional!",
+        "created_at": "2025-05-13T18:00:00.000Z",
+        "updated_at": "2025-05-13T18:00:00.000Z"
+      }
+    ]
   }
   //For jobseeker
   ```json
   {
-  "role": "jobseeker",
-  "email": "test@example.com",
-  "username": "test",
-  "skills": ["JavaScript", "TypeScript"],
-  "experience": "2 years",
-  "portfolio": "https://portfolio.com",
-  "video_intro": "https://video.com",
-  "timezone": "Europe/Moscow",
-  "currency": "USD",
-  "average_rating": 4.0,
-  "reviews": [
-    {
-      "id": "<reviewId>",
-      "reviewer_id": "<userId>",
-      "reviewed_id": "<userId>",
-      "job_application_id": "<jobApplicationId>",
-      "rating": 4,
-      "comment": "Great work, very professional!",
-      "created_at": "2025-05-13T18:00:00.000Z",
-      "updated_at": "2025-05-13T18:00:00.000Z"
-    }
-  ]
+    "role": "jobseeker",
+    "email": "test@example.com",
+    "username": "test",
+    "skills": ["JavaScript", "TypeScript"],
+    "experience": "2 years",
+    "portfolio": "https://portfolio.com",
+    "video_intro": "https://video.com",
+    "timezone": "Europe/Moscow",
+    "currency": "USD",
+    "average_rating": 4.0,
+    "reviews": [
+      {
+        "id": "<reviewId>",
+        "reviewer_id": "<userId>",
+        "reviewed_id": "<userId>",
+        "job_application_id": "<jobApplicationId>",
+        "rating": 4,
+        "comment": "Great work, very professional!",
+        "created_at": "2025-05-13T18:00:00.000Z",
+        "updated_at": "2025-05-13T18:00:00.000Z"
+      }
+    ]
   }
 - **Response (Error - 401, if token is invalid or missing)**: 
   ```json
   {
-  "statusCode": 401,
-  "message": "Invalid token",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 404, if user or profile not found)**: 
   ```json
   {
-  "statusCode": 404,
-  "message": "User not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
   }
 
 
 ### 7. Update Profile
 - **Endpoint**: `PUT /api/profile`
 - **Description**: Updates the authenticated user's profile based on their role.
-- **Headers**: Authorization: Bearer <token>
-- **Request Body:**:
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body**:
   //For employer
   ```json
   {
-  "role": "employer",
-  "company_name": "Updated Company",
-  "company_info": "Updated info",
-  "referral_link": "https://example.com/ref/updated",
-  "timezone": "America/New_York",
-  "currency": "EUR"
-  }
+    "role": "employer",
+    "company_name": "Updated Company",
+    "company_info": "Updated info",
+    "referral_link": "https://example.com/ref/updated",
+    "timezone": "America/New_York",
+    "currency": "EUR"
+    }
   //For jobseeker
   ```json
   {
-  "role": "jobseeker",
-  "skills": ["JavaScript", "Python"],
-  "experience": "3 years",
-  "portfolio": "https://newportfolio.com",
-  "video_intro": "https://newvideo.com",
-  "timezone": "America/New_York",
-  "currency": "EUR"
+    "role": "jobseeker",
+    "skills": ["JavaScript", "Python"],
+    "experience": "3 years",
+    "portfolio": "https://newportfolio.com",
+    "video_intro": "https://newvideo.com",
+    "timezone": "America/New_York",
+    "currency": "EUR"
   }
 
 - **Response (Success - 200): Returns the updated profile (same format as GET /api/profile)**
@@ -215,32 +215,32 @@
 - **Response (Error - 401, if token is invalid or missing)**:
   ```json
   {
-  "statusCode": 401,
-  "message": "Invalid token",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 404, if user or profile not found)**:
   ```json
   {
-  "statusCode": 404,
-  "message": "User not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
   }
 
 - **Response (Error - 401, if role mismatch)**:
   ```json
   {
-  "statusCode": 401,
-  "message": "User role mismatch",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "User role mismatch",
+    "error": "Unauthorized"
   }
 
 ### 8. Create Job Post
 - **Endpoint**: `POST /api/job-posts`
 - **Description**: Creates a new job post for an authenticated employer.
-- **Headers**: Authorization: Bearer <token>
-- **Request Body:**:
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body**:
   ```json
   {
     "title": "Software Engineer",
@@ -254,139 +254,98 @@
 - **Response (Success - 200)**:
   ```json
   {
-  "id": "<jobPostId>",
-  "title": "Software Engineer",
-  "description": "We are looking for a skilled software engineer...",
-  "location": "Remote",
-  "salary": 50000,
-  "status": "Active",
-  "category_id": "<categoryId>",
-  "job_type": "Full-time",
-  "employer_id": "<userId>",
-  "created_at": "2025-05-13T18:00:00.000Z",
-  "updated_at": "2025-05-13T18:00:00.000Z"
+    "id": "<jobPostId>",
+    "title": "Software Engineer",
+    "description": "We are looking for a skilled software engineer...",
+    "location": "Remote",
+    "salary": 50000,
+    "status": "Active",
+    "category_id": "<categoryId>",
+    "job_type": "Full-time",
+    "employer_id": "<userId>",
+    "created_at": "2025-05-13T18:00:00.000Z",
+    "updated_at": "2025-05-13T18:00:00.000Z"
   }
 
 - **Response (Error - 401, if token is invalid or missing)**:
   ```json
   {
-  "statusCode": 401,
-  "message": "Invalid token",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 401, if user is not an employer)**:
   ```json
   {
-  "statusCode": 401,
-  "message": "Only employers can create job posts",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Only employers can create job posts",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 404, if user not found)**:
   ```json
   {
-  "statusCode": 404,
-  "message": "User not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
   }
 
 ### 9. Update Job Post
 - **Endpoint**: `PUT /api/job-posts/:id`
 - **Description**: Updates an existing job post for an authenticated employer.
-- **Headers**: Authorization: Bearer <token>
+- **Headers**: `Authorization: Bearer <token>`
 - **Request Body:**:
   ```json
   {
-  "title": "Senior Software Engineer",
-  "description": "Updated description...",
-  "location": "Remote",
-  "salary": 60000,
-  "status": "Closed",
-  "category_id": "<categoryId>", // Optional
-  "job_type": "Full-time" // Optional: "Full-time", "Part-time", "Project-based"
+    "title": "Senior Software Engineer",
+    "description": "Updated description...",
+    "location": "Remote",
+    "salary": 60000,
+    "status": "Closed",
+    "category_id": "<categoryId>", // Optional
+    "job_type": "Full-time" // Optional: "Full-time", "Part-time", "Project-based"
   }
 
 - **Response (Success - 200)**:
   ```json
   {
-  "id": "<jobPostId>",
-  "title": "Senior Software Engineer",
-  "description": "Updated description...",
-  "location": "Remote",
-  "salary": 60000,
-  "status": "Closed",
-  "category_id": "<categoryId>",
-  "job_type": "Full-time",
-  "employer_id": "<userId>",
-  "created_at": "2025-05-13T18:00:00.000Z",
-  "updated_at": "2025-05-13T18:30:00.000Z"
+    "id": "<jobPostId>",
+    "title": "Senior Software Engineer",
+    "description": "Updated description...",
+    "location": "Remote",
+    "salary": 60000,
+    "status": "Closed",
+    "category_id": "<categoryId>",
+    "job_type": "Full-time",
+    "employer_id": "<userId>",
+    "created_at": "2025-05-13T18:00:00.000Z",
+    "updated_at": "2025-05-13T18:30:00.000Z"
   }
 
 - **Response (Error - 401, if token is invalid or missing)**:
   ```json
   {
-  "statusCode": 401,
-  "message": "Invalid token",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 404, if job post not found or user does not have permission)**:
   ```json
   {
-  "statusCode": 404,
-  "message": "Job post not found or you do not have permission to update it",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "Job post not found or you do not have permission to update it",
+    "error": "Not Found"
   }
 
 ### 10. Get Job Post
 - **Endpoint**: `GET /api/job-posts/:id`
 - **Description**: Retrieves a specific job post by ID.
-- **Request Parameters**: id: The ID of the job post.
+- **Request Parameters**: `id`: The ID of the job post.
 
 - **Response (Success - 200)**:
   ```json
-  {
-  "id": "<jobPostId>",
-  "title": "Senior Software Engineer",
-  "description": "Updated description...",
-  "location": "Remote",
-  "salary": 60000,
-  "status": "Closed",
-  "category_id": "<categoryId>",
-  "category": {
-    "id": "<categoryId>",
-    "name": "Software Development",
-    "created_at": "2025-05-13T18:00:00.000Z",
-    "updated_at": "2025-05-13T18:00:00.000Z"
-  },
-  "job_type": "Full-time",
-  "employer_id": "<userId>",
-  "employer": {
-    "id": "<userId>",
-    "email": "test15@example.com",
-    "username": "test15",
-    "role": "employer"
-  },
-  "created_at": "2025-05-13T18:00:00.000Z",
-  "updated_at": "2025-05-13T18:30:00.000Z"
-  }
-
-- **Response (Error - 404, if job post not found)**:  
-  ```json
-  {
-  "statusCode": 404,
-  "message": "Job post not found",
-  "error": "Not Found"
-  }
-
-### 11. Get Job Posts by Employer
-- **Endpoint**: `GET /api/job-posts/my-posts`
-- **Description**: Retrieves all job posts created by the authenticated employer.
-- **Headers**: Authorization: Bearer <token>
-- **Response (Success - 200)**:  
-  ```json
-  [
   {
     "id": "<jobPostId>",
     "title": "Senior Software Engineer",
@@ -412,30 +371,71 @@
     "created_at": "2025-05-13T18:00:00.000Z",
     "updated_at": "2025-05-13T18:30:00.000Z"
   }
+
+- **Response (Error - 404, if job post not found)**:  
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
+  }
+
+### 11. Get Job Posts by Employer
+- **Endpoint**: `GET /api/job-posts/my-posts`
+- **Description**: Retrieves all job posts created by the authenticated employer.
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:  
+  ```json
+  [
+    {
+      "id": "<jobPostId>",
+      "title": "Senior Software Engineer",
+      "description": "Updated description...",
+      "location": "Remote",
+      "salary": 60000,
+      "status": "Closed",
+      "category_id": "<categoryId>",
+      "category": {
+        "id": "<categoryId>",
+        "name": "Software Development",
+        "created_at": "2025-05-13T18:00:00.000Z",
+        "updated_at": "2025-05-13T18:00:00.000Z"
+      },
+      "job_type": "Full-time",
+      "employer_id": "<userId>",
+      "employer": {
+        "id": "<userId>",
+        "email": "test15@example.com",
+        "username": "test15",
+        "role": "employer"
+      },
+      "created_at": "2025-05-13T18:00:00.000Z",
+      "updated_at": "2025-05-13T18:30:00.000Z"
+    }
   ]
 
 - **Response (Error - 401, if token is invalid or missing)**:
   ```json
   {
-  "statusCode": 401,
-  "message": "Invalid token",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 401, if user is not an employer)**:
   ```json
   {
-  "statusCode": 401,
-  "message": "Only employers can view their job posts",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Only employers can view their job posts",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 404, if user not found)**:
   ```json
   {
-  "statusCode": 404,
-  "message": "User not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
   }
 
 ### 12. Create Category
@@ -450,26 +450,26 @@
 - **Response (Success - 200)**:
   ```json
   {
-  "id": "<categoryId>",
-  "name": "Software Development",
-  "created_at": "2025-05-13T18:00:00.000Z",
-  "updated_at": "2025-05-13T18:00:00.000Z"
+    "id": "<categoryId>",
+    "name": "Software Development",
+    "created_at": "2025-05-13T18:00:00.000Z",
+    "updated_at": "2025-05-13T18:00:00.000Z"
   }
 
 - **Response (Error - 400, if category already exists)**:
   ```json
   {
-  "statusCode": 400,
-  "message": "Category with this name already exists",
-  "error": "Bad Request"
+    "statusCode": 400,
+    "message": "Category with this name already exists",
+    "error": "Bad Request"
   }
 
 - **Response (Error - 400, if name is missing)**:
   ```json
   {
-  "statusCode": 400,
-  "message": "Category name is required",
-  "error": "Bad Request"
+    "statusCode": 400,
+    "message": "Category name is required",
+    "error": "Bad Request"
   }
 
 ### 13. Get Categories
@@ -489,7 +489,7 @@
 ### 14. Apply to Job Post
 - **Endpoint**: `POST /api/job-applications`
 - **Description**: Allows a jobseeker to apply to a job post.
-- **Headers**: Authorization: Bearer <token>
+- **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
   ```json
   {
@@ -499,59 +499,59 @@
 - **Response (Success - 200)**:
   ```json
   {
-  "id": "<applicationId>",
-  "job_post_id": "<jobPostId>",
-  "job_seeker_id": "<userId>",
-  "status": "Pending",
-  "created_at": "2025-05-13T18:00:00.000Z",
-  "updated_at": "2025-05-13T18:00:00.000Z"
+    "id": "<applicationId>",
+    "job_post_id": "<jobPostId>",
+    "job_seeker_id": "<userId>",
+    "status": "Pending",
+    "created_at": "2025-05-13T18:00:00.000Z",
+    "updated_at": "2025-05-13T18:00:00.000Z"
   }
 
 - **Response (Error - 401, if token is invalid or missing)**:
   ```json
   {
-  "statusCode": 401,
-  "message": "Invalid token",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 401, if user is not a jobseeker)**:  
   ```json
   {
-  "statusCode": 401,
-  "message": "Only jobseekers can apply to job posts",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Only jobseekers can apply to job posts",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 404, if job post not found)**: 
   ```json
   {
-  "statusCode": 404,
-  "message": "Job post not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
   }
 
 - **Response (Error - 400, if job post is not active)**: 
   ```json
   {
-  "statusCode": 400,
-  "message": "Cannot apply to a job post that is not active",
-  "error": "Bad Request"
+    "statusCode": 400,
+    "message": "Cannot apply to a job post that is not active",
+    "error": "Bad Request"
   }
 
 - **Response (Error - 400, if user already applied)**: 
   ```json
   {
-  "statusCode": 400,
-  "message": "You have already applied to this job post",
-  "error": "Bad Request"
+    "statusCode": 400,
+    "message": "You have already applied to this job post",
+    "error": "Bad Request"
   }
 
 
 ### 15. Close Job Post
 - **Endpoint**: `POST /api/job-posts/:id/close`
 - **Description**: Closes a job post (sets status to "Closed"). Only the employer who created the job can close it.
-- **Headers**: Authorization: Bearer <token>  
+- **Headers**: `Authorization: Bearer <token>`
 - **Request Parameters**: `id`: The ID of the job post.
 - **Response (Success - 200)**: 
   ```json
@@ -573,23 +573,23 @@
 - **Response (Error - 404, if job post not found)**: 
   ```json
   {
-  "statusCode": 404,
-  "message": "Job post not found or you do not have permission to close it",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "Job post not found or you do not have permission to close it",
+    "error": "Not Found"
   }
 
 - **Response (Error - 400, if already closed)**: 
   ```json
   {
-  "statusCode": 400,
-  "message": "Job post is already closed",
-  "error": "Bad Request"
+    "statusCode": 400,
+    "message": "Job post is already closed",
+    "error": "Bad Request"
   }
 
 ### 16. Get My Applications (Jobseeker)
 - **Endpoint**: `GET /api/job-applications/my-applications`
 - **Description**: Retrieves all applications submitted by the authenticated jobseeker.
-- **Headers**: Authorization: Bearer <token>  
+- **Headers**: `Authorization: Bearer <token>`
 - **Response (Success - 200)**: 
   ```json
   [
@@ -624,32 +624,32 @@
 - **Response (Error - 401, if token is invalid or missing)**: 
   ```json
   {
-  "statusCode": 401,
-  "message": "Invalid token",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 401, if user is not a jobseeker)**: 
   ```json
   {
-  "statusCode": 401,
-  "message": "Only jobseekers can view their applications",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Only jobseekers can view their applications",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 404, if user not found)**:   
   ```json
   {
-  "statusCode": 404,
-  "message": "User not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
   }
 
 ### 17. Get Applications for Job Post (Employer)
 - **Endpoint**: `GET /api/job-applications/job-post/:id`
 - **Description**: Retrieves all applications for a specific job post, accessible only to the employer who created the job post.
-- **Headers**: Authorization: Bearer <token>    
-- **Request Parameters**: id: The ID of the job post.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job post.
 - **Response (Success - 200)**:  
   ```json
   [
@@ -684,91 +684,91 @@
 - **Response (Error - 401, if token is invalid or missing)**:  
   ```json
   {
-  "statusCode": 401,
-  "message": "Invalid token",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 401, if user is not an employer)**:   
   ```json
   {
-  "statusCode": 401,
-  "message": "Only employers can view applications for their job posts",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Only employers can view applications for their job posts",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 404, if job post not found or user does not have permission)**:   
   ```json
   {
-  "statusCode": 404,
-  "message": "Job post not found or you do not have permission to view its applications",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "Job post not found or you do not have permission to view its applications",
+    "error": "Not Found"
   }
 
 ### 18. Update Application Status (Employer)
 - **Endpoint**: `PUT /api/job-applications/:id`
 - **Description**: Updates the status of a job application, accessible only to the employer who created the job post.
-- **Headers**: Authorization: Bearer <token>    
-- **Request Parameters**: id: The ID of the job application
+- **Headers**: `Authorization: Bearer <token>`  
+- **Request Parameters**: `id`: The ID of the job application
 - **Request Body**:   
   ```json
   {
-  "status": "Accepted" // or "Rejected"
+    "status": "Accepted" // or "Rejected"
   }
 - **Response (Success - 200)**: 
   ```json
   {
-  "id": "<applicationId>",
-  "job_post_id": "<jobPostId>",
-  "job_seeker_id": "<userId>",
-  "status": "Accepted",
-  "created_at": "2025-05-13T18:00:00.000Z",
-  "updated_at": "2025-05-13T18:30:00.000Z"
+    "id": "<applicationId>",
+    "job_post_id": "<jobPostId>",
+    "job_seeker_id": "<userId>",
+    "status": "Accepted",
+    "created_at": "2025-05-13T18:00:00.000Z",
+    "updated_at": "2025-05-13T18:30:00.000Z"
   }    
 
 - **Response (Error - 401, if token is invalid or missing)**:   
   ```json
   {
-  "statusCode": 401,
-  "message": "Invalid token",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 401, if user is not an employer)**:     
   ```json
   {
-  "statusCode": 401,
-  "message": "Only employers can update application status",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Only employers can update application status",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 401, if user does not have permission)**:
   ```json
   {
-  "statusCode": 401,
-  "message": "You do not have permission to update this application",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "You do not have permission to update this application",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 401, if user does not have permission)**:
   ```json
   {
-  "statusCode": 404,
-  "message": "Application not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "Application not found",
+    "error": "Not Found"
   }
 
 ### 19. Search Job Posts
 - **Endpoint**: `GET /api/job-posts/search`
 - **Description**: Searches for active job posts with optional filters.
-- **Query Parameters:**:
-  title (string, optional): Part of the job post title to search for.
-  location (string, optional): Location of the job post.
-  salaryMin (number, optional): Minimum salary.
-  salaryMax (number, optional): Maximum salary.
-  job_type (string, optional): Type of job ("Full-time", "Part-time", "Project-based").
-  category_id (string, optional): ID of the category.
-- **Example Request:**: /api/job-posts/search?title=Engineer&location=Remote&salaryMin=40000&salaryMax=60000&job_type=Full-time&category_id=<categoryId>
+- **Query Parameters**:
+  - `title (string, optional)`: Part of the job post title to search for.
+  - `location (string, optional)`: Location of the job post.
+  - `salaryMin (number, optional)`: Minimum salary.
+  - `salaryMax (number, optional)`: Maximum salary.
+  - `job_type (string, optional)`: Type of job ("Full-time", "Part-time", "Project-based").
+  - `category_id (string, optional)`: ID of the category.
+- **Example Request**: `/api/job-posts/search?title=Engineer&location=Remote&salaryMin=40000&salaryMax=60000&job_type=Full-time&category_id=<categoryId>`
 - **Response (Success - 200)**:
   ```json
   [
@@ -814,69 +814,69 @@
 - **Response (Success - 200)**:
   ```json
   {
-  "id": "<reviewId>",
-  "reviewer_id": "<userId>",
-  "reviewed_id": "<userId>",
-  "job_application_id": "<jobApplicationId>",
-  "rating": 4,
-  "comment": "Great work, very professional!",
-  "created_at": "2025-05-13T18:00:00.000Z",
-  "updated_at": "2025-05-13T18:00:00.000Z"
+    "id": "<reviewId>",
+    "reviewer_id": "<userId>",
+    "reviewed_id": "<userId>",
+    "job_application_id": "<jobApplicationId>",
+    "rating": 4,
+    "comment": "Great work, very professional!",
+    "created_at": "2025-05-13T18:00:00.000Z",
+    "updated_at": "2025-05-13T18:00:00.000Z"
   }
 
 - **Response (Error - 401, if token is invalid or missing)**:
   ```json
   {
-  "statusCode": 401,
-  "message": "Invalid token",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 401, if user does not have permission)**:
   ```json
   {
-  "statusCode": 401,
-  "message": "You can only leave reviews for your own job applications",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "You can only leave reviews for your own job applications",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 400, if job application is not accepted)**:
   ```json
   {
-  "statusCode": 400,
-  "message": "Reviews can only be left for accepted job applications",
-  "error": "Bad Request"
+    "statusCode": 400,
+    "message": "Reviews can only be left for accepted job applications",
+    "error": "Bad Request"
   }
 
 - **Response (Error - 400, if rating is invalid)**:
   ```json
   {
-  "statusCode": 400,
-  "message": "Rating must be between 1 and 5",
-  "error": "Bad Request"
+    "statusCode": 400,
+    "message": "Rating must be between 1 and 5",
+    "error": "Bad Request"
   }
 
 - **Response (Error - 400, if review already exists)**:
   ```json
   {
-  "statusCode": 400,
-  "message": "You have already left a review for this job application",
-  "error": "Bad Request"
+    "statusCode": 400,
+    "message": "You have already left a review for this job application",
+    "error": "Bad Request"
   }
 
 - **Response (Error - 404, if job application not found)**:
   ```json
   {
-  "statusCode": 404,
-  "message": "Job application not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "Job application not found",
+    "error": "Not Found"
   }
 
 ### 21. Get Reviews for User
 - **Endpoint**: `GET /api/reviews/user/:id`
 - **Description**: Retrieves all reviews for a specific user (employer or jobseeker).
 - **Headers**: `Authorization: Bearer <token>`
-- **Request Parameters**: id: The ID of the user
+- **Request Parameters**: `id`: The ID of the user
 - **Response (Success - 200)**:
   ```json
   [
@@ -907,9 +907,9 @@
 - **Response (Error - 404, if user not found)**:
   ```json
   {
-  "statusCode": 404,
-  "message": "User not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
   }
 
 ### 22. Get All Users (Admin)
@@ -939,75 +939,75 @@
 - **Response (Error - 401, if token is invalid or missing)**: 
   ```json
   {
-  "statusCode": 401,
-  "message": "Invalid token",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
   }
 
 - **Response (Error - 401, if user is not an admin)**: 
   ```json
   {
-  "statusCode": 401,
-  "message": "Only admins can access this resource",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Only admins can access this resource",
+    "error": "Unauthorized"
   }
 
 ### 23. Get User by ID (Admin)
 - **Endpoint**: `GET /api/admin/users/:id`
 - **Description**: Retrieves a specific user by ID (admin only).
 - **Headers**: `Authorization: Bearer <token>`
-- **Request Parameters**: id: The ID of the user.
+- **Request Parameters**: `id`: The ID of the user.
 - **Response (Success - 200)**: 
   ```json
   {
-  "id": "<userId>",
-  "email": "test@example.com",
-  "username": "test",
-  "role": "employer",
-  "provider": null,
-  "created_at": "2025-05-13T18:00:00.000Z",
-  "updated_at": "2025-05-13T18:00:00.000Z"
+    "id": "<userId>",
+    "email": "test@example.com",
+    "username": "test",
+    "role": "employer",
+    "provider": null,
+    "created_at": "2025-05-13T18:00:00.000Z",
+    "updated_at": "2025-05-13T18:00:00.000Z"
   }
 
 - **Response (Error - 404, if user not found)**: 
   ```json
   {
-  "statusCode": 404,
-  "message": "User not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
   }
 
 ### 24. Update User (Admin)
 - **Endpoint**: `PUT /api/admin/users/:id`
 - **Description**: Updates a specific user (admin only).
 - **Headers**: `Authorization: Bearer <token>`
-- **Request Parameters**: id: The ID of the user.
+- **Request Parameters**: `id`: The ID of the user.
 - **Request Body**: 
   ```json
   {
-  "email": "updated@example.com",
-  "username": "updatedUser",
-  "role": "jobseeker"
+    "email": "updated@example.com",
+    "username": "updatedUser",
+    "role": "jobseeker"
   }
 
 - **Response (Success - 200)**: 
   ```json
   {
-  "id": "<userId>",
-  "email": "updated@example.com",
-  "username": "updatedUser",
-  "role": "jobseeker",
-  "provider": null,
-  "created_at": "2025-05-13T18:00:00.000Z",
-  "updated_at": "2025-05-13T18:30:00.000Z"
+    "id": "<userId>",
+    "email": "updated@example.com",
+    "username": "updatedUser",
+    "role": "jobseeker",
+    "provider": null,
+    "created_at": "2025-05-13T18:00:00.000Z",
+    "updated_at": "2025-05-13T18:30:00.000Z"
   }
 
 - **Response (Error - 404, if user not found)**: 
   ```json
   {
-  "statusCode": 404,
-  "message": "User not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
   }
 
 ### 25. Delete User (Admin)
@@ -1018,15 +1018,15 @@
 - **Response (Success - 200)**: 
   ```json
   {
-  "message": "User deleted successfully"
+    "message": "User deleted successfully"
   }
 
 - **Response (Error - 404, if user not found)**: 
   ```json
   {
-  "statusCode": 404,
-  "message": "User not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
   }
 
 ### 26. Reset User Password (Admin)
@@ -1037,38 +1037,140 @@
 - **Request Body**: 
   ```json
   {
-  "newPassword": "newpassword123"
+    "newPassword": "newpassword123"
   }
 
 - **Response (Success - 200)**:
   ```json
   {
-  "message": "Password reset successful"
+    "message": "Password reset successful"
   }
 
 - **Response (Error - 404, if user not found)**:
   ```json
   {
-  "statusCode": 404,
-  "message": "User not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
   }
 
 - **Response (Error - 401, if token is invalid or user is not an admin)**:
   ```json
   {
-  "statusCode": 401,
-  "message": "Invalid token",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
   }
 
 ### 27. Get All Job Posts (Admin)
 - **Endpoint**: `GET /api/admin/job-posts`
-- **Description**: Retrieves all job posts (admin only).
+- **Description**: Retrieves all job posts (admin only) with optional filters.
 - **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**: 
+  - `status` (string, optional): Filter by status ("Active", "Draft", "Closed").
+  - `pendingReview` (string, optional): Filter by pending review status ("true" or "false").
+- **Example Request**: `/api/admin/job-posts?status=Active&pendingReview=true`
 - **Response (Success - 200)**: 
   ```json
   [
+    {
+      "id": "<jobPostId>",
+      "title": "Software Engineer",
+      "description": "We are looking for a skilled software engineer...",
+      "location": "Remote",
+      "salary": 50000,
+      "status": "Active",
+      "pending_review": true,
+      "category_id": "<categoryId>",
+      "category": {
+        "id": "<categoryId>",
+        "name": "Software Development",
+        "created_at": "2025-05-15T06:12:00.000Z",
+        "updated_at": "2025-05-15T06:12:00.000Z"
+      },
+      "job_type": "Full-time",
+      "employer_id": "<employerId>",
+      "employer": {
+        "id": "<employerId>",
+        "email": "employer100@example.com",
+        "username": "jane_smith100",
+        "role": "employer"
+      },
+      "applicationLimit": 100,
+      "created_at": "2025-05-15T06:12:00.000Z",
+      "updated_at": "2025-05-15T06:12:00.000Z"
+    }
+  ]
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+### 28. Update Job Post (Admin)
+- **Endpoint**: `PUT /api/admin/job-posts/:id`
+- **Description**: Updates a specific job post (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job post.
+- **Request Body**:
+  ```json
+  {
+    "title": "Senior Software Engineer",
+    "description": "Updated description...",
+    "location": "Remote",
+    "salary": 60000,
+    "status": "Closed",
+    "job_type": "Full-time",
+    "category_id": "<categoryId>",
+    "applicationLimit": 50
+  }
+
+- **Response (Success - 200)**: 
+  ```json
+  {
+    "id": "<jobPostId>",
+    "title": "Senior Software Engineer",
+    "description": "Updated description...",
+    "location": "Remote",
+    "salary": 60000,
+    "status": "Closed",
+    "category_id": "<categoryId>",
+    "job_type": "Full-time",
+    "employer_id": "<userId>",
+    "applicationLimit": 50,
+    "created_at": "2025-05-13T18:00:00.000Z",
+    "updated_at": "2025-05-13T18:30:00.000Z"
+  }
+
+### 29. Delete Job Post (Admin)
+- **Endpoint**: `DELETE /api/admin/job-posts/:id`
+- **Description**: Deletes a specific job post (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job post.
+- **Response (Success - 200)**: 
+  ```json
+  {
+    "message": "Job post deleted successfully"
+  }
+
+- **Response (Error - 404, if job post not found)**: 
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
+  }
+
+### 30. Approve Job Post (Admin)
+- **Endpoint**: `POST /api/admin/job-posts/:id/approve`
+- **Description**: Approves a job post by setting pending_review to false (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job post.
+- **Response (Success - 200)**: 
+  ```json
   {
     "id": "<jobPostId>",
     "title": "Software Engineer",
@@ -1076,82 +1178,55 @@
     "location": "Remote",
     "salary": 50000,
     "status": "Active",
+    "pending_review": false,
     "category_id": "<categoryId>",
-    "category": {
-      "id": "<categoryId>",
-      "name": "Software Development",
-      "created_at": "2025-05-13T18:00:00.000Z",
-      "updated_at": "2025-05-13T18:00:00.000Z"
-    },
     "job_type": "Full-time",
-    "employer_id": "<userId>",
-    "employer": {
-      "id": "<userId>",
-      "email": "employer4@example.com",
-      "username": "employer4",
-      "role": "employer"
-    },
+    "employer_id": "<employerId>",
     "applicationLimit": 100,
-    "created_at": "2025-05-13T18:00:00.000Z",
-    "updated_at": "2025-05-13T18:00:00.000Z"
-  }
-  ]
-
-### 28. Update Job Post (Admin)
-- **Endpoint**: `PUT /api/admin/job-posts/:id`
-- **Description**: Updates a specific job post (admin only).
-- **Headers**: `Authorization: Bearer <token>`
-- **Request Parameters**: id: The ID of the job post.
-- **Request Body**:
-  ```json
-  {
-  "title": "Senior Software Engineer",
-  "description": "Updated description...",
-  "location": "Remote",
-  "salary": 60000,
-  "status": "Closed",
-  "job_type": "Full-time",
-  "category_id": "<categoryId>",
-  "applicationLimit": 50
-  }
-
-- **Response (Success - 200)**: 
-  ```json
-  {
-  "id": "<jobPostId>",
-  "title": "Senior Software Engineer",
-  "description": "Updated description...",
-  "location": "Remote",
-  "salary": 60000,
-  "status": "Closed",
-  "category_id": "<categoryId>",
-  "job_type": "Full-time",
-  "employer_id": "<userId>",
-  "applicationLimit": 50,
-  "created_at": "2025-05-13T18:00:00.000Z",
-  "updated_at": "2025-05-13T18:30:00.000Z"
-  }
-
-### 29. Delete Job Post (Admin)
-- **Endpoint**: `DELETE /api/admin/job-posts/:id`
-- **Description**: Deletes a specific job post (admin only).
-- **Headers**: `Authorization: Bearer <token>`
-- **Request Parameters**: id: The ID of the job post.
-- **Response (Success - 200)**: 
-  ```json
-  {
-  "message": "Job post deleted successfully"
+    "created_at": "2025-05-15T06:12:00.000Z",
+    "updated_at": "2025-05-15T06:12:00.000Z"
   }
 
 - **Response (Error - 404, if job post not found)**: 
-  ```json
+  ```json  
   {
-  "statusCode": 404,
-  "message": "Job post not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
   }
 
-### 30. Get All Reviews (Admin)
+### 31. Flag Job Post for Review (Admin)
+- **Endpoint**: `POST /api/admin/job-posts/:id/flag`
+- **Description**: Flags a job post for review by setting pending_review to true (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job post.
+- **Response (Success - 200)**: 
+  ```json
+  {
+    "id": "<jobPostId>",
+    "title": "Software Engineer",
+    "description": "We are looking for a skilled software engineer...",
+    "location": "Remote",
+    "salary": 50000,
+    "status": "Active",
+    "pending_review": true,
+    "category_id": "<categoryId>",
+    "job_type": "Full-time",
+    "employer_id": "<employerId>",
+    "applicationLimit": 100,
+    "created_at": "2025-05-15T06:12:00.000Z",
+    "updated_at": "2025-05-15T06:12:00.000Z"
+  }
+
+- **Response (Error - 404, if job post not found)**: 
+  ```json  
+  {
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
+  }
+
+### 32. Get All Reviews (Admin)
 - **Endpoint**: `GET /api/admin/reviews`
 - **Description**: Retrieves all reviews (admin only).
 - **Headers**: `Authorization: Bearer <token>`
@@ -1188,75 +1263,75 @@
   }
   ]
 
-### 31. Delete Review (Admin)
+### 33. Delete Review (Admin)
 - **Endpoint**: `DELETE /api/admin/reviews/:id`
 - **Description**: Deletes a specific review (admin only).
 - **Headers**: `Authorization: Bearer <token>`
-- **Request Parameters**: id: The ID of the review.
+- **Request Parameters**: `id`: The ID of the review.
 - **Response (Success - 200)**: 
   ```json
   {
-  "message": "Review deleted successfully"
+    "message": "Review deleted successfully"
   }
 
 - **Response (Error - 404, if review not found)**: 
   ```json
   {
-  "statusCode": 404,
-  "message": "Review not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "Review not found",
+    "error": "Not Found"
   }
 
-### 32. Get Analytics (Admin)
+### 34. Get Analytics (Admin)
 - **Endpoint**: `GET /api/admin/analytics`
 - **Description**: Retrieves analytics data (admin only).
 - **Headers**: `Authorization: Bearer <token>`
 - **Response (Success - 200)**: 
   ```json
   {
-  "totalUsers": 50,
-  "employers": 20,
-  "jobSeekers": 30,
-  "totalJobPosts": 40,
-  "activeJobPosts": 25,
-  "totalApplications": 100,
-  "totalReviews": 15
+    "totalUsers": 50,
+    "employers": 20,
+    "jobSeekers": 30,
+    "totalJobPosts": 40,
+    "activeJobPosts": 25,
+    "totalApplications": 100,
+    "totalReviews": 15
   }
 
-### 33. Set Application Limit for Job Post (Admin)
+### 35. Set Application Limit for Job Post (Admin)
 - **Endpoint**: `POST /api/admin/job-posts/:id/set-application-limit`
 - **Description**: Sets the application limit for a specific job post (admin only).
 - **Headers**: `Authorization: Bearer <token>`
-- **Request Parameters**: id: The ID of the job post.
-- **Request Body**: id: The ID of the job post.
+- **Request Parameters**: `id`: The ID of the job post.
+- **Request Body**: `id`: The ID of the job post.
   ```json
   {
-  "limit": 50
+    "limit": 50
   }
 - **Response (Success - 200)**: 
   ```json
   {
-  "message": "Application limit updated successfully",
-  "limit": 50
+    "message": "Application limit updated successfully",
+    "limit": 50
   }
 
 - **Response (Error - 400, if limit is invalid)**: 
   ```json
   {
-  "statusCode": 400,
-  "message": "Application limit must be a non-negative number",
-  "error": "Bad Request"
+    "statusCode": 400,
+    "message": "Application limit must be a non-negative number",
+    "error": "Bad Request"
   }
 
 - **Response (Error - 404, if job post not found)**: 
   ```json
   {
-  "statusCode": 404,
-  "message": "Job post not found",
-  "error": "Not Found"
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
   }
 
-### 34. Submit Feedback
+### 36. Submit Feedback
 - **Endpoint**: `POST /api/feedback`
 - **Description**: Submits feedback from a jobseeker or employer.
 - **Headers**: `Authorization: Bearer <token>`
@@ -1269,23 +1344,23 @@
 - **Response (Success - 200)**: 
   ```json
   {
-  "id": "<feedbackId>",
-  "user_id": "<userId>",
-  "message": "This is my feedback about the platform.",
-  "role": "jobseeker",
-  "created_at": "2025-05-15T05:13:00.000Z",
-  "updated_at": "2025-05-15T05:13:00.000Z"
+    "id": "<feedbackId>",
+    "user_id": "<userId>",
+    "message": "This is my feedback about the platform.",
+    "role": "jobseeker",
+    "created_at": "2025-05-15T05:13:00.000Z",
+    "updated_at": "2025-05-15T05:13:00.000Z"
   }
 
 - **Response (Error - 401, if user is not a jobseeker or employer)**: 
   ```json
   {
-  "statusCode": 401,
-  "message": "Only jobseekers and employers can submit feedback",
-  "error": "Unauthorized"
+    "statusCode": 401,
+    "message": "Only jobseekers and employers can submit feedback",
+    "error": "Unauthorized"
   }
 
-### 35. Get Feedback (Admin)
+### 37. Get Feedback (Admin)
 - **Endpoint**: `GET /api/feedback`
 - **Description**: Retrieves all feedback submissions (admin only).
 - **Headers**: `Authorization: Bearer <token>`
@@ -1315,3 +1390,68 @@
   "message": "Only admins can view feedback",
   "error": "Unauthorized"
   }
+
+### 38. Add Blocked Country (Admin)
+- **Endpoint**: `POST /api/admin/blocked-countries`
+- **Description**: Adds a country to the blocked list (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body**: 
+  ```json
+  {
+    "countryCode": "IN"
+  }
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "<blockedCountryId>",
+    "country_code": "IN",
+    "created_at": "2025-05-15T06:12:00.000Z",
+    "updated_at": "2025-05-15T06:12:00.000Z"
+  }
+
+- **Response (Error - 400, if country is already blocked)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Country is already blocked",
+    "error": "Bad Request"
+  }
+
+### 39. Remove Blocked Country (Admin)
+- **Endpoint**: `DELETE /api/admin/blocked-countries/:countryCode`
+- **Description**: Removes a country from the blocked list (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `countryCode`: The country code to remove (e.g., "IN").
+- **Response (Success - 200)**: 
+  ```json
+  {
+    "message": "Country removed from blocked list"
+  }
+- **Response (Error - 400, if country is not blocked)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Country is not blocked",
+    "error": "Bad Request"
+  }
+
+### 40. Get Blocked Countries (Admin)
+- **Endpoint**: `GET /api/admin/blocked-countries`
+- **Description**: Retrieves the list of blocked countries (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**: 
+  ```json
+  [
+  {
+    "id": "<blockedCountryId>",
+    "country_code": "IN",
+    "created_at": "2025-05-15T06:12:00.000Z",
+    "updated_at": "2025-05-15T06:12:00.000Z"
+  },
+  {
+    "id": "<blockedCountryId>",
+    "country_code": "PK",
+    "created_at": "2025-05-15T06:12:00.000Z",
+    "updated_at": "2025-05-15T06:12:00.000Z"
+  }
+  ]

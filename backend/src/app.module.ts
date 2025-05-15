@@ -11,8 +11,9 @@ import { CategoriesModule } from './categories/categories.module';
 import { JobApplicationsModule } from './job-applications/job-applications.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { AdminModule } from './admin/admin.module';
-import { FeedbackModule } from './feedback/feedback.module'; // Добавляем FeedbackModule
+import { FeedbackModule } from './feedback/feedback.module';
 import { RedisModule } from './redis/redis.module';
+import { BlockedCountriesModule } from './blocked-countries/blocked-countries.module'; // Добавляем
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 @Module({
@@ -47,8 +48,9 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
     JobApplicationsModule,
     ReviewsModule,
     AdminModule,
-    FeedbackModule, // Добавляем FeedbackModule
+    FeedbackModule,
     RedisModule,
+    BlockedCountriesModule, // Добавляем
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,7 +1,7 @@
-import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res, Query } from '@nestjs/common';
+import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res, Query, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
-import { CreateAdminDto } from './dto/create-admin.dto'; // Импортируем новый DTO
+import { CreateAdminDto } from './dto/create-admin.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
@@ -15,8 +15,16 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+  async register(
+    @Body() registerDto: RegisterDto,
+    @Headers('x-forwarded-for') xForwardedFor?: string,
+    @Headers('x-real-ip') xRealIp?: string,
+    @Req() req?: any,
+  ) {
+    // Получаем IP-адрес
+    const ip = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
+    console.log('Client IP:', ip);
+    return this.authService.register(registerDto, ip);
   }
 
   @Post('login')
