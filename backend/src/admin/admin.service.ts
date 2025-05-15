@@ -7,7 +7,8 @@ import { Review } from '../reviews/review.entity';
 import { JobApplication } from '../job-applications/job-application.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
-import { UsersService } from '../users/users.service'; // Импортируем UsersService
+import { UsersService } from '../users/users.service';
+import { BlockedCountriesService } from '../blocked-countries/blocked-countries.service'; // Импортируем
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -25,7 +26,8 @@ export class AdminService {
     private jobSeekerRepository: Repository<JobSeeker>,
     @InjectRepository(Employer)
     private employerRepository: Repository<Employer>,
-    private usersService: UsersService, // Внедряем UsersService
+    private usersService: UsersService,
+    private blockedCountriesService: BlockedCountriesService, // Внедряем
   ) {}
 
   private async checkAdminRole(userId: string) {
@@ -141,9 +143,44 @@ export class AdminService {
     }
   }
 
-  async getJobPosts(adminId: string) {
+  async getJobPosts(adminId: string, filters: { status?: 'Active' | 'Draft' | 'Closed'; pendingReview?: boolean }) {
     await this.checkAdminRole(adminId);
-    return this.jobPostsRepository.find({ relations: ['employer', 'category'] });
+
+    const query = this.jobPostsRepository.createQueryBuilder('job_post')
+      .leftJoinAndSelect('job_post.employer', 'employer')
+      .leftJoinAndSelect('job_post.category', 'category');
+
+    if (filters.status) {
+      query.andWhere('job_post.status = :status', { status: filters.status });
+    }
+
+    if (filters.pendingReview !== undefined) {
+      query.andWhere('job_post.pending_review = :pendingReview', { pendingReview: filters.pendingReview });
+    }
+
+    return query.getMany();
+  }
+
+  async approveJobPost(adminId: string, jobPostId: string) {
+  await this.checkAdminRole(adminId);
+  const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
+  if (!jobPost) {
+    throw new NotFoundException('Job post not found');
+  }
+
+  jobPost.pending_review = false;
+  return this.jobPostsRepository.save(jobPost);
+  }
+
+  async flagJobPost(adminId: string, jobPostId: string) {
+    await this.checkAdminRole(adminId);
+    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
+    if (!jobPost) {
+      throw new NotFoundException('Job post not found');
+    }
+
+    jobPost.pending_review = true;
+    return this.jobPostsRepository.save(jobPost);
   }
 
   async getJobPost(adminId: string, jobPostId: string) {
@@ -181,8 +218,17 @@ export class AdminService {
       throw new NotFoundException('Job post not found');
     }
 
+    // Удаляем связанные заявки
     await this.jobApplicationsRepository.delete({ job_post_id: jobPostId });
-    await this.reviewsRepository.delete({ job_application: { job_post_id: jobPostId } });
+
+    // Удаляем связанные отзывы через QueryBuilder
+    await this.reviewsRepository.createQueryBuilder()
+      .delete()
+      .from(Review)
+      .where('job_application_id IN (SELECT id FROM job_applications WHERE job_post_id = :jobPostId)', { jobPostId })
+      .execute();
+
+    // Удаляем саму вакансию
     await this.jobPostsRepository.delete(jobPostId);
     return { message: 'Job post deleted successfully' };
   }
@@ -265,5 +311,21 @@ export class AdminService {
     console.log('Updated user password:', updatedUser?.password);
     
     return { message: 'Password reset successful' };
+  }
+
+  async addBlockedCountry(adminId: string, countryCode: string) {
+    await this.checkAdminRole(adminId);
+    return this.blockedCountriesService.addBlockedCountry(adminId, countryCode);
+  }
+
+  async removeBlockedCountry(adminId: string, countryCode: string) {
+    await this.checkAdminRole(adminId);
+    await this.blockedCountriesService.removeBlockedCountry(adminId, countryCode);
+    return { message: 'Country removed from blocked list' };
+  }
+
+  async getBlockedCountries(adminId: string) {
+    await this.checkAdminRole(adminId);
+    return this.blockedCountriesService.getBlockedCountries(adminId);
   }
   }

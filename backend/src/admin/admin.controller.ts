@@ -83,14 +83,53 @@ export class AdminController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get('job-posts')
-  async getJobPosts(@Headers('authorization') authHeader: string) {
+  async getJobPosts(
+    @Headers('authorization') authHeader: string,
+    @Query('status') status?: 'Active' | 'Draft' | 'Closed',
+    @Query('pendingReview') pendingReview?: string,
+  ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
     }
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
-    const userId = payload.sub;
-    return this.adminService.getJobPosts(userId);
+    const adminId = payload.sub;
+
+    const filters: { status?: 'Active' | 'Draft' | 'Closed'; pendingReview?: boolean } = {};
+    if (status) filters.status = status;
+    if (pendingReview !== undefined) filters.pendingReview = pendingReview === 'true';
+
+    return this.adminService.getJobPosts(adminId, filters);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('job-posts/:id/approve')
+  async approveJobPost(
+    @Headers('authorization') authHeader: string,
+    @Param('id') jobPostId: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.approveJobPost(adminId, jobPostId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('job-posts/:id/flag')
+  async flagJobPost(
+    @Headers('authorization') authHeader: string,
+    @Param('id') jobPostId: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.flagJobPost(adminId, jobPostId);
   }
 
   @UseGuards(AuthGuard('jwt'))
@@ -187,5 +226,49 @@ export class AdminController {
     const payload = this.jwtService.verify(token);
     const adminId = payload.sub;
     return this.adminService.resetPassword(adminId, userId, newPassword);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('blocked-countries')
+  async addBlockedCountry(
+    @Headers('authorization') authHeader: string,
+    @Body('countryCode') countryCode: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.addBlockedCountry(adminId, countryCode);
+  }
+  
+  @UseGuards(AuthGuard('jwt'))
+  @Delete('blocked-countries/:countryCode')
+  async removeBlockedCountry(
+    @Headers('authorization') authHeader: string,
+    @Param('countryCode') countryCode: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.removeBlockedCountry(adminId, countryCode);
+  }
+  
+  @UseGuards(AuthGuard('jwt'))
+  @Get('blocked-countries')
+  async getBlockedCountries(
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.getBlockedCountries(adminId);
   }
 }

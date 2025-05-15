@@ -1,10 +1,11 @@
-import { Injectable, UnauthorizedException, BadRequestException, Inject } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, Inject, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
+import { BlockedCountriesService } from '../blocked-countries/blocked-countries.service'; // Импортируем
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
-import { CreateAdminDto } from './dto/create-admin.dto'; // Импортируем новый DTO
+import { CreateAdminDto } from './dto/create-admin.dto';
 import { LoginDto } from './dto/login.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { Transporter } from 'nodemailer';
@@ -15,11 +16,19 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private redisService: RedisService,
+    private blockedCountriesService: BlockedCountriesService, // Внедряем
     @Inject('MAILER_TRANSPORT') private mailerTransport: Transporter,
   ) {}
 
-  async register(dto: RegisterDto | CreateAdminDto) {
+async register(dto: RegisterDto | CreateAdminDto, ip?: string) {
     const { email, password, username } = dto;
+
+    if (ip) {
+      const isBlocked = await this.blockedCountriesService.isCountryBlocked(ip);
+      if (isBlocked) {
+        throw new ForbiddenException('Registration is not allowed from your country');
+      }
+    }
 
     console.log('Register DTO:', dto);
     const existingUser = await this.usersService.findByEmail(email);

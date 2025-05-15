@@ -26,14 +26,15 @@ export class JobPostsService {
     if (user.role !== 'employer') {
       throw new UnauthorizedException('Only employers can create job posts');
     }
-
+  
     if (jobPostData.category_id) {
       await this.categoriesService.getCategoryById(jobPostData.category_id);
     }
-
+  
     const jobPost = this.jobPostsRepository.create({
       ...jobPostData,
       employer_id: userId,
+      pending_review: true, // Новые вакансии требуют проверки
     });
     const savedJobPost = await this.jobPostsRepository.save(jobPost);
     return savedJobPost;

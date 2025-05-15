@@ -16,21 +16,24 @@ export class JobPost {
   @Column()
   location: string;
 
-  @Column()
+  @Column('int')
   salary: number;
 
   @Column({ type: 'varchar', length: 20 })
   status: 'Active' | 'Draft' | 'Closed';
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+  @Column({ default: true }) 
+  pending_review: boolean;
 
   @Column({ nullable: true })
-  category_id?: string;
+  category_id: string;
 
-  @ManyToOne(() => Category, { nullable: true })
+  @ManyToOne(() => Category)
   @JoinColumn({ name: 'category_id' })
-  category?: Category;
+  category: Category;
+
+  @Column({ nullable: true })
+  job_type: 'Full-time' | 'Part-time' | 'Project-based';
 
   @Column()
   employer_id: string;
@@ -39,7 +42,7 @@ export class JobPost {
   @JoinColumn({ name: 'employer_id' })
   employer: User;
 
-  @Column({ type: 'integer', default: 100 }) // Добавляем поле applicationLimit с дефолтным значением 100
+  @Column({ default: 100 })
   applicationLimit: number;
 
   @CreateDateColumn()
