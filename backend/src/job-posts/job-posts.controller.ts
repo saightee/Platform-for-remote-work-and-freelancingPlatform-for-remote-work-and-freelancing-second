@@ -70,4 +70,19 @@ export class JobPostsController {
     const userId = payload.sub;
     return this.jobPostsService.getJobPostsByEmployer(userId);
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':id/close')
+  async closeJobPost(
+    @Headers('authorization') authHeader: string,
+    @Param('id') jobPostId: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+    return this.jobPostsService.closeJobPost(userId, jobPostId);
+  }
 }

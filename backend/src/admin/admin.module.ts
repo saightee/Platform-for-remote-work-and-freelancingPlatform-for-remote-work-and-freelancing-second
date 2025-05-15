@@ -10,6 +10,7 @@ import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { UsersService } from '../users/users.service'; // Импортируем UsersService
 
 @Module({
   imports: [
@@ -24,6 +25,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     }),
   ],
   controllers: [AdminController],
-  providers: [AdminService],
+  providers: [AdminService, UsersService], // Добавляем UsersService
 })
 export class AdminModule {}

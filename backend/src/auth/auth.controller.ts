@@ -1,6 +1,7 @@
 import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
+import { CreateAdminDto } from './dto/create-admin.dto'; // Импортируем новый DTO
 import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
@@ -52,29 +53,30 @@ export class AuthController {
   ) {
     console.log('Google Callback - req.user:', req.user);
     try {
-      // Сохраняем данные пользователя в Redis и получаем tempToken
       const tempToken = await this.authService.storeOAuthUserData(req.user, role || 'jobseeker');
       console.log('Google Callback - Temp Token:', tempToken);
 
-      // Завершаем регистрацию и получаем accessToken
       const user = await this.authService.completeRegistration(tempToken, role || 'jobseeker', {
         timezone: 'UTC',
         currency: 'USD',
       });
 
-      // Формируем URL для редиректа на фронтенд
       const redirectUrl = callbackUrl || `${req.protocol}://${req.get('host')}/auth/callback`;
       const redirectParams = new URLSearchParams({
         token: user.accessToken,
         role: role || 'jobseeker',
       }).toString();
 
-      // Перенаправляем на фронтенд с параметрами
       return res.redirect(`${redirectUrl}?${redirectParams}`);
     } catch (error) {
       console.error('Google Callback - Error:', error);
       return res.status(500).json({ message: 'Authentication failed', error: error.message });
     }
+  }
+
+  @Post('create-admin')
+  async createAdmin(@Body() createAdminDto: CreateAdminDto) {
+    return this.authService.register(createAdminDto);
   }
 
   @Post('test-register')

@@ -165,4 +165,17 @@ export class JobPostsService {
     });
     return this.jobApplicationsRepository.save(application);
   }
+
+  async closeJobPost(userId: string, jobPostId: string) {
+  const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: userId } });
+  if (!jobPost) {
+    throw new NotFoundException('Job post not found or you do not have permission to close it');
+  }
+  if (jobPost.status === 'Closed') {
+    throw new BadRequestException('Job post is already closed');
+  }
+
+  jobPost.status = 'Closed';
+  return this.jobPostsRepository.save(jobPost);
+}
 }
