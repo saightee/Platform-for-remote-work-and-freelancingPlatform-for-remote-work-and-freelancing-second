@@ -73,8 +73,15 @@ export class JobPostsService {
     if (user.role !== 'employer') {
       throw new UnauthorizedException('Only employers can view their job posts');
     }
-
-    return this.jobPostsRepository.find({ where: { employer_id: userId }, relations: ['employer', 'category'] });
+  
+    const jobPosts = await this.jobPostsRepository.find({
+      where: { employer_id: userId },
+      relations: ['category'], // Подгружаем только category
+    });
+  
+    console.log('Job Posts:', JSON.stringify(jobPosts, null, 2)); // Логируем для отладки
+  
+    return jobPosts;
   }
 
   async searchJobPosts(filters: { title?: string; location?: string; salaryMin?: string; salaryMax?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based'; category_id?: string }) {
