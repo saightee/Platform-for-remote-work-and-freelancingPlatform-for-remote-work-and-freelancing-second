@@ -33,7 +33,9 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
           password: configService.get('POSTGRES_PASSWORD', 'onlinejobs123'),
           database: configService.get('POSTGRES_DB', 'onlinejobs_db'),
           autoLoadEntities: true,
-          synchronize: true,
+          synchronize: false,
+          migrations: ['dist/migration/*.js'], 
+          migrationsRun: true,
         };
         console.log('Database Config:', dbConfig);
         return dbConfig;
