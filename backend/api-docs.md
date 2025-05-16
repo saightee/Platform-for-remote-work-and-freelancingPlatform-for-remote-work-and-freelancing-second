@@ -118,6 +118,7 @@
   //For employer
   ```json
   {
+    "id": "<userId>",
     "role": "employer",
     "email": "test@example.com",
     "username": "test",
@@ -127,6 +128,8 @@
     "timezone": "Europe/Moscow",
     "currency": "USD",
     "average_rating": 4.5,
+    "avatar": "https://example.com/avatar.jpg",
+    "identity_verified": true,
     "reviews": [
       {
         "id": "<reviewId>",
@@ -143,6 +146,7 @@
   //For jobseeker
   ```json
   {
+    "id": "<userId>",
     "role": "jobseeker",
     "email": "test@example.com",
     "username": "test",
@@ -153,6 +157,8 @@
     "timezone": "Europe/Moscow",
     "currency": "USD",
     "average_rating": 4.0,
+    "avatar": "https://example.com/avatar.jpg",
+    "identity_verified": false,
     "reviews": [
       {
         "id": "<reviewId>",
@@ -197,7 +203,7 @@
     "referral_link": "https://example.com/ref/updated",
     "timezone": "America/New_York",
     "currency": "EUR"
-    }
+  }
   //For jobseeker
   ```json
   {
@@ -1500,4 +1506,167 @@
   }
   ]
 
+### 41. Get Top Employers (Admin)
+- **Endpoint**: `GET /api/admin/leaderboards/top-employers`
+- **Description**: Retrieves the top employers by the number of job posts (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**: 
+  - `limit` (number, optional): Number of results to return (default: 10).
+- **Response (Success - 200)**:   
+  ```json
+  [
+    {
+      "employer_id": "<employerId>",
+      "username": "jane_smith113",
+      "job_count": 5
+    }
+  ]
 
+- **Response (Error - 401, if user is not an admin)**:   
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Unauthorized",
+    "error": "Unauthorized"
+  }
+
+### 42. Get Top Jobseekers (Admin)
+- **Endpoint**: `GET /api/admin/leaderboards/top-jobseekers`
+- **Description**: Retrieves the top jobseekers by the number of applications (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**: 
+  - `limit` (number, optional): Number of results to return (default: 10).
+- **Response (Success - 200)**:   
+  ```json
+  [
+    {
+      "job_seeker_id": "<jobseekerId>",
+      "username": "john_doe113",
+      "application_count": 10
+    }
+  ]
+
+- **Response (Error - 401, if user is not an admin)**:   
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Unauthorized",
+    "error": "Unauthorized"
+  }  
+
+### 43. Upload Avatar
+- **Endpoint**: `POST /api/profile/upload-avatar`
+- **Description**: Uploads an avatar for the authenticated user.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body**: 
+    ```json
+  {
+    "avatarUrl": "https://example.com/avatar.jpg"
+  }
+
+- **Response (Success - 200)**: Returns the updated profile (same format as GET /api/profile)
+
+- **Response (Error - 401, if token is invalid or missing)**
+      ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 401, if avatar URL is missing)**
+      ```json
+  {
+    "statusCode": 401,
+    "message": "Avatar URL is required",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 404, if user not found)**
+      ```json
+  {
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
+  }
+
+### 44. Upload Identity Document
+- **Endpoint**: `POST /api/profile/upload-identit`
+- **Description**: Uploads an identity document for verification for the authenticated user.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body**: 
+    ```json
+  {
+    "documentUrl": "https://example.com/document.pdf"
+  }
+
+- **Response (Success - 200)**: Returns the updated profile (same format as GET /api/profile)
+
+- **Response (Error - 401, if token is invalid or missing)**
+      ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 401, if avatar URL is missing)**
+      ```json
+  {
+    "statusCode": 401,
+    "message": "Document URL is required",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 404, if user not found)**
+      ```json
+  {
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
+  }
+
+### 45. Verify Identity (Admin)
+- **Endpoint**: `POST /api/admin/profile/:id/verify-identity`
+- **Description**: Verifies or rejects the identity of a user by setting the identity_verified field (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the user.
+- **Request Body**:
+  ```json
+  {
+    "verify": true
+  }
+
+- **Response (Success - 200)**: Returns the updated profile (same format as GET /api/profile)
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Unauthorized",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 401, if verify parameter is invalid)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Verify parameter must be a boolean",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 404, if user not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
+  }
+
+- **Response (Error - 404, if no document uploaded)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "No identity document uploaded",
+    "error": "Not Found"
+  } 

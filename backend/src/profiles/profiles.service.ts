@@ -15,7 +15,7 @@ export class ProfilesService {
     private jobSeekerRepository: Repository<JobSeeker>,
     @InjectRepository(Employer)
     private employerRepository: Repository<Employer>,
-    private reviewsService: ReviewsService, // Добавляем ReviewsService
+    private reviewsService: ReviewsService,
   ) {}
 
   async getProfile(userId: string) {
@@ -23,16 +23,16 @@ export class ProfilesService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-  
+
     const reviews = await this.reviewsService.getReviewsForUser(userId);
-  
+
     if (user.role === 'jobseeker') {
       const jobSeeker = await this.jobSeekerRepository.findOne({ where: { user_id: userId } });
       if (!jobSeeker) {
         throw new NotFoundException('JobSeeker profile not found');
       }
       return {
-        id: user.id, // Добавляем id
+        id: user.id,
         role: user.role,
         email: user.email,
         username: user.username,
@@ -44,6 +44,8 @@ export class ProfilesService {
         currency: jobSeeker.currency,
         average_rating: jobSeeker.average_rating,
         reviews,
+        avatar: user.avatar, // Добавляем поле аватарки
+        identity_verified: user.identity_verified, // Добавляем индикатор верификации
       };
     } else if (user.role === 'employer') {
       const employer = await this.employerRepository.findOne({ where: { user_id: userId } });
@@ -51,7 +53,7 @@ export class ProfilesService {
         throw new NotFoundException('Employer profile not found');
       }
       return {
-        id: user.id, // Добавляем id
+        id: user.id,
         role: user.role,
         email: user.email,
         username: user.username,
@@ -62,14 +64,18 @@ export class ProfilesService {
         currency: employer.currency,
         average_rating: employer.average_rating,
         reviews,
+        avatar: user.avatar, // Добавляем поле аватарки
+        identity_verified: user.identity_verified, // Добавляем индикатор верификации
       };
     } else if (user.role === 'admin') {
       return {
-        id: user.id, // Добавляем id
+        id: user.id,
         role: user.role,
         email: user.email,
         username: user.username,
         reviews,
+        avatar: user.avatar, // Добавляем поле аватарки
+        identity_verified: user.identity_verified, // Добавляем индикатор верификации
       };
     } else {
       throw new UnauthorizedException('Invalid user role');
@@ -120,5 +126,43 @@ export class ProfilesService {
     } else {
       throw new UnauthorizedException('Invalid user role');
     }
+  }
+
+  async uploadAvatar(userId: string, avatarUrl: string) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.avatar = avatarUrl;
+    await this.usersRepository.save(user);
+    return this.getProfile(userId);
+  }
+
+  async uploadIdentityDocument(userId: string, documentUrl: string) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.identity_document = documentUrl;
+    user.identity_verified = false; // Пока документ не проверен, статус верификации — false
+    await this.usersRepository.save(user);
+    return this.getProfile(userId);
+  }
+
+  async verifyIdentity(userId: string, verify: boolean) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.identity_document) {
+      throw new NotFoundException('No identity document uploaded');
+    }
+
+    user.identity_verified = verify;
+    await this.usersRepository.save(user);
+    return this.getProfile(userId);
   }
 }

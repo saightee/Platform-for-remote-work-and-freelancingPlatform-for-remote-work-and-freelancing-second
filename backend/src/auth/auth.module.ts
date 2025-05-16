@@ -7,10 +7,11 @@ import { PassportModule } from '@nestjs/passport';
 import { RedisModule } from '../redis/redis.module';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { LinkedInStrategy } from './strategies/linkedin.strategy';
-import { JwtStrategy } from './strategies/jwt.strategy'; 
+import { JwtStrategy } from './strategies/jwt.strategy';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
-import { BlockedCountriesModule } from '../blocked-countries/blocked-countries.module'; 
+import { BlockedCountriesModule } from '../blocked-countries/blocked-countries.module';
+import { AdminGuard } from './guards/admin.guard';
 
 @Module({
   imports: [
@@ -38,8 +39,9 @@ import { BlockedCountriesModule } from '../blocked-countries/blocked-countries.m
   providers: [
     AuthService,
     GoogleStrategy,
-    JwtStrategy, 
+    JwtStrategy,
     // LinkedInStrategy,
+    AdminGuard,
     {
       provide: 'MAILER_TRANSPORT',
       useFactory: (configService: ConfigService) => {
@@ -55,5 +57,6 @@ import { BlockedCountriesModule } from '../blocked-countries/blocked-countries.m
       inject: [ConfigService],
     },
   ],
+  exports: [JwtModule, AdminGuard], // Экспортируем JwtModule и AdminGuard
 })
 export class AuthModule {}
