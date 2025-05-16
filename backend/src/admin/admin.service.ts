@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { JobPost } from '../job-posts/job-post.entity';
 import { Review } from '../reviews/review.entity';
@@ -114,27 +114,56 @@ export class AdminService {
     }
 
     try {
+      // 1. Находим все заявки, где пользователь является job_seeker
+      const applicationsAsSeeker = await this.jobApplicationsRepository.find({ where: { job_seeker_id: userId } });
+
+      // 2. Находим все вакансии пользователя (если он employer) и связанные с ними заявки
+      const postsAsEmployer = await this.jobPostsRepository.find({ where: { employer_id: userId } });
+      const postIds = postsAsEmployer.map(post => post.id);
+      const applicationsAsEmployer = postIds.length > 0
+        ? await this.jobApplicationsRepository.find({ where: { job_post_id: In(postIds) } })
+        : [];
+
+      // 3. Собираем все ID заявок (как job_seeker и как employer)
+      const allApplicationIds = [
+        ...applicationsAsSeeker.map(app => app.id),
+        ...applicationsAsEmployer.map(app => app.id)
+      ];
+
+      // 4. Удаляем все отзывы, связанные с этими заявками
+      if (allApplicationIds.length > 0) {
+        await this.reviewsRepository.createQueryBuilder()
+          .delete()
+          .from(Review)
+          .where('job_application_id IN (:...applicationIds)', { applicationIds: allApplicationIds })
+          .execute();
+      }
+
+      // 5. Удаляем все заявки, где пользователь является job_seeker
+      await this.jobApplicationsRepository.delete({ job_seeker_id: userId });
+
+      // 6. Удаляем заявки, связанные с вакансиями пользователя (если он employer)
+      if (postIds.length > 0) {
+        await this.jobApplicationsRepository.delete({ job_post_id: In(postIds) });
+      }
+
+      // 7. Удаляем все отзывы, где пользователь является reviewer или reviewed
+      await this.reviewsRepository.delete({ reviewer_id: userId });
+      await this.reviewsRepository.delete({ reviewed_id: userId });
+
+      // 8. Удаляем вакансии пользователя (если он employer)
+      if (user.role === 'employer') {
+        await this.jobPostsRepository.delete({ employer_id: userId });
+      }
+
+      // 9. Удаляем профиль пользователя
       if (user.role === 'jobseeker') {
         await this.jobSeekerRepository.delete({ user_id: userId });
       } else if (user.role === 'employer') {
         await this.employerRepository.delete({ user_id: userId });
       }
 
-      await this.jobApplicationsRepository.delete({ job_seeker_id: userId });
-
-      await this.jobApplicationsRepository.createQueryBuilder()
-        .delete()
-        .from(JobApplication)
-        .where('job_post_id IN (SELECT id FROM job_posts WHERE employer_id = :userId)', { userId })
-        .execute();
-
-      await this.reviewsRepository.delete({ reviewer_id: userId });
-      await this.reviewsRepository.delete({ reviewed_id: userId });
-
-      if (user.role === 'employer') {
-        await this.jobPostsRepository.delete({ employer_id: userId });
-      }
-
+      // 10. Удаляем самого пользователя
       await this.usersRepository.delete(userId);
       return { message: 'User deleted successfully' };
     } catch (error) {
@@ -218,19 +247,30 @@ export class AdminService {
       throw new NotFoundException('Job post not found');
     }
 
-    // Удаляем связанные заявки
-    await this.jobApplicationsRepository.delete({ job_post_id: jobPostId });
+    try {
+      // Находим все заявки, связанные с вакансией
+      const applications = await this.jobApplicationsRepository.find({ where: { job_post_id: jobPostId } });
 
-    // Удаляем связанные отзывы через QueryBuilder
-    await this.reviewsRepository.createQueryBuilder()
-      .delete()
-      .from(Review)
-      .where('job_application_id IN (SELECT id FROM job_applications WHERE job_post_id = :jobPostId)', { jobPostId })
-      .execute();
+      // Удаляем все отзывы, связанные с этими заявками
+      if (applications.length > 0) {
+        const applicationIds = applications.map(app => app.id);
+        await this.reviewsRepository.createQueryBuilder()
+          .delete()
+          .from(Review)
+          .where('job_application_id IN (:...applicationIds)', { applicationIds })
+          .execute();
+      }
 
-    // Удаляем саму вакансию
-    await this.jobPostsRepository.delete(jobPostId);
-    return { message: 'Job post deleted successfully' };
+      // Удаляем связанные заявки
+      await this.jobApplicationsRepository.delete({ job_post_id: jobPostId });
+
+      // Удаляем саму вакансию
+      await this.jobPostsRepository.delete(jobPostId);
+      return { message: 'Job post deleted successfully' };
+    } catch (error) {
+      console.error('Error deleting job post:', error);
+      throw new BadRequestException('Failed to delete job post: ' + error.message);
+    }
   }
 
   async getReviews(adminId: string) {

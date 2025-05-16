@@ -1,13 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ProfilesService } from './profiles.service';
 import { ProfilesController } from './profiles.controller';
+import { AdminProfilesController } from './profiles.controller'; // Добавляем
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../users/entities/user.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ReviewsModule } from '../reviews/reviews.module'; // Добавляем ReviewsModule
+import { ReviewsModule } from '../reviews/reviews.module';
 
 @Module({
   imports: [
@@ -20,9 +21,9 @@ import { ReviewsModule } from '../reviews/reviews.module'; // Добавляем
       }),
       inject: [ConfigService],
     }),
-    ReviewsModule, // Добавляем ReviewsModule
+    ReviewsModule,
   ],
-  controllers: [ProfilesController],
+  controllers: [ProfilesController, AdminProfilesController], // Добавляем AdminProfilesController
   providers: [ProfilesService],
 })
 export class ProfilesModule {}

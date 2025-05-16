@@ -13,7 +13,8 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { AdminModule } from './admin/admin.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { RedisModule } from './redis/redis.module';
-import { BlockedCountriesModule } from './blocked-countries/blocked-countries.module'; // Добавляем
+import { BlockedCountriesModule } from './blocked-countries/blocked-countries.module';
+import { LeaderboardsModule } from './leaderboards/leaderboards.module'; // Добавляем
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 @Module({
@@ -34,7 +35,7 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
           database: configService.get('POSTGRES_DB', 'onlinejobs_db'),
           autoLoadEntities: true,
           synchronize: false,
-          migrations: ['dist/migration/*.js'], 
+          migrations: ['dist/migration/*.js'],
           migrationsRun: true,
         };
         console.log('Database Config:', dbConfig);
@@ -52,7 +53,8 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
     AdminModule,
     FeedbackModule,
     RedisModule,
-    BlockedCountriesModule, // Добавляем
+    BlockedCountriesModule,
+    LeaderboardsModule, // Добавляем
   ],
   controllers: [AppController],
   providers: [AppService],

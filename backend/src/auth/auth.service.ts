@@ -4,19 +4,20 @@ import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
 import { BlockedCountriesService } from '../blocked-countries/blocked-countries.service';
 import * as bcrypt from 'bcrypt';
-import * as geoip from 'geoip-lite'; // Добавляем импорт
+import * as geoip from 'geoip-lite';
 import { RegisterDto } from './dto/register.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { LoginDto } from './dto/login.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { Transporter } from 'nodemailer';
+
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
     private redisService: RedisService,
-    private blockedCountriesService: BlockedCountriesService, // Внедряем
+    private blockedCountriesService: BlockedCountriesService,
     @Inject('MAILER_TRANSPORT') private mailerTransport: Transporter,
   ) {}
 
@@ -70,7 +71,7 @@ export class AuthService {
     const newUser = await this.usersService.create(userData, additionalData);
     console.log('New User Created:', newUser);
 
-    const payload = { email: newUser.email, sub: newUser.id };
+    const payload = { email: newUser.email, sub: newUser.id, role: newUser.role }; // Добавляем role
     const token = this.jwtService.sign(payload, { expiresIn: '1h' });
     await this.redisService.set(`token:${newUser.id}`, token, 3600);
 
@@ -84,7 +85,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
     const expiresIn = rememberMe ? '30d' : '1h';
-    const payload = { email: user.email, sub: user.id };
+    const payload = { email: user.email, sub: user.id, role: user.role }; // Добавляем role
     const token = this.jwtService.sign(payload, { expiresIn });
     const expirySeconds = rememberMe ? 30 * 24 * 3600 : 3600;
     await this.redisService.set(`token:${user.id}`, token, expirySeconds);
@@ -137,7 +138,7 @@ export class AuthService {
       console.log('User Updated:', { role, additionalData });
     }
 
-    const payload = { email: existingUser.email, sub: existingUser.id };
+    const payload = { email: existingUser.email, sub: existingUser.id, role: existingUser.role }; // Добавляем role
     const token = this.jwtService.sign(payload, { expiresIn: '1h' });
     await this.redisService.set(`token:${existingUser.id}`, token, 3600);
     await this.redisService.del(`oauth:${tempToken}`);
