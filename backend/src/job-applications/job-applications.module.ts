@@ -8,6 +8,7 @@ import { User } from '../users/entities/user.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
+import { ApplicationLimitsModule } from '../application-limits/application-limits.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { JobSeeker } from '../users/entities/jobseeker.entity';
       }),
       inject: [ConfigService],
     }),
+    ApplicationLimitsModule,
   ],
   controllers: [JobApplicationsController],
   providers: [JobApplicationsService],

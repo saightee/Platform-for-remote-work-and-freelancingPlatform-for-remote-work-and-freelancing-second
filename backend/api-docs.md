@@ -1670,3 +1670,96 @@
     "message": "No identity document uploaded",
     "error": "Not Found"
   } 
+
+### 46. Set Global Application Limit (Admin)
+- **Endpoint**: `POST /api/admin/settings/application-limit`
+- **Description**: Sets the global application limit for all job posts (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "limit": 1000
+  }
+
+- **Response (Success - 200)**:
+  ```json
+  {
+    "message": "Global application limit updated successfully",
+    "limit": 1000
+  } 
+
+- **Response (Error - 400, if limit is invalid)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Global application limit must be a non-negative number",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 401, if user is not an admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Unauthorized",
+    "error": "Unauthorized"
+  }
+
+### 47. Get Global Application Limit (Admin)
+- **Endpoint**: `GET /api/admin/settings/application-limit`
+- **Description**: Retrieves the global application limit (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  ```json
+  {
+    "globalApplicationLimit": 1000
+  }
+
+- **Response (Error - 401, if user is not an admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Unauthorized",
+    "error": "Unauthorized"
+  }
+
+### 48. Set Application Limit for Job Post (Employer)
+- **Endpoint**: `POST /api/job-posts/:id/set-application-limit`
+- **Description**: Sets the application limit for a specific job post (employer only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job post
+- **Request Body**:
+  ```json
+  {
+    "limit": 50
+  }
+
+- **Response (Success - 200)**:
+  ```json
+  {
+    "message": "Application limit updated successfully",
+    "limit": 50
+  }
+
+- **Response (Error - 400, if limit exceeds global limit)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Application limit cannot exceed global limit of 1000",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 401, if user is not an employer)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only employers can set application limits",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 404, if job post not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job post not found or you do not have permission to update it",
+    "error": "Not Found"
+  }

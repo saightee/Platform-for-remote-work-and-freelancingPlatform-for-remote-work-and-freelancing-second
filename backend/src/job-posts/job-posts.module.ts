@@ -8,6 +8,8 @@ import { JobApplication } from '../job-applications/job-application.entity'; // 
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CategoriesModule } from '../categories/categories.module';
+import { ApplicationLimitsModule } from '../application-limits/application-limits.module';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { CategoriesModule } from '../categories/categories.module';
       inject: [ConfigService],
     }),
     CategoriesModule,
+    ApplicationLimitsModule,
+    SettingsModule,
   ],
   controllers: [JobPostsController],
   providers: [JobPostsService],

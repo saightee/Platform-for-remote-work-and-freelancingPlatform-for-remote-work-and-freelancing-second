@@ -5,13 +5,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../users/entities/user.entity';
 import { JobPost } from '../job-posts/job-post.entity';
 import { Review } from '../reviews/review.entity';
-import { JobApplication } from '../job-applications/job-application.entity'; // Исправляем путь
+import { JobApplication } from '../job-applications/job-application.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
+import { SettingsModule } from '../settings/settings.module';
 import { BlockedCountriesModule } from '../blocked-countries/blocked-countries.module';
+import { ApplicationLimitsModule } from '../application-limits/application-limits.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { BlockedCountriesModule } from '../blocked-countries/blocked-countries.m
       inject: [ConfigService],
     }),
     BlockedCountriesModule,
+    SettingsModule,
+    ApplicationLimitsModule,
   ],
   controllers: [AdminController],
   providers: [AdminService, UsersService],

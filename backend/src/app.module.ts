@@ -14,7 +14,7 @@ import { AdminModule } from './admin/admin.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { RedisModule } from './redis/redis.module';
 import { BlockedCountriesModule } from './blocked-countries/blocked-countries.module';
-import { LeaderboardsModule } from './leaderboards/leaderboards.module'; // Добавляем
+import { LeaderboardsModule } from './leaderboards/leaderboards.module'; 
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 @Module({
@@ -54,7 +54,7 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
     FeedbackModule,
     RedisModule,
     BlockedCountriesModule,
-    LeaderboardsModule, // Добавляем
+    LeaderboardsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
