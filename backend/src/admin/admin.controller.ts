@@ -54,18 +54,18 @@ export class AdminController {
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const userIdAdmin = payload.sub;
-  
+
     if (body.role === 'admin') {
       throw new BadRequestException('Cannot change role to admin');
     }
-  
+
     // Создаём новый объект updates, исключая 'admin'
     const updates: { email?: string; username?: string; role?: 'employer' | 'jobseeker' } = {
       email: body.email,
       username: body.username,
       role: body.role as 'employer' | 'jobseeker', // TypeScript теперь знает, что role не может быть 'admin'
     };
-  
+
     return this.adminService.updateUser(userIdAdmin, userId, updates);
   }
 
@@ -213,6 +213,33 @@ export class AdminController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Post('settings/application-limit')
+  async setGlobalApplicationLimit(
+    @Headers('authorization') authHeader: string,
+    @Body('limit') limit: number,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+    return this.adminService.setGlobalApplicationLimit(userId, limit);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('settings/application-limit')
+  async getGlobalApplicationLimit(@Headers('authorization') authHeader: string) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+    return this.adminService.getGlobalApplicationLimit(userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Post('users/:id/reset-password')
   async resetPassword(
     @Headers('authorization') authHeader: string,
@@ -242,7 +269,7 @@ export class AdminController {
     const adminId = payload.sub;
     return this.adminService.addBlockedCountry(adminId, countryCode);
   }
-  
+
   @UseGuards(AuthGuard('jwt'))
   @Delete('blocked-countries/:countryCode')
   async removeBlockedCountry(
@@ -257,7 +284,7 @@ export class AdminController {
     const adminId = payload.sub;
     return this.adminService.removeBlockedCountry(adminId, countryCode);
   }
-  
+
   @UseGuards(AuthGuard('jwt'))
   @Get('blocked-countries')
   async getBlockedCountries(
@@ -288,7 +315,7 @@ export class AdminController {
     const adminId = payload.sub;
     return this.adminService.getRegistrationStats(adminId, startDate, endDate, interval);
   }
-  
+
   @UseGuards(AuthGuard('jwt'))
   @Get('analytics/geographic-distribution')
   async getGeographicDistribution(

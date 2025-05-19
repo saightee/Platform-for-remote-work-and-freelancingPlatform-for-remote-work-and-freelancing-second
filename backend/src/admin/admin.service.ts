@@ -8,7 +8,9 @@ import { JobApplication } from '../job-applications/job-application.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { UsersService } from '../users/users.service';
-import { BlockedCountriesService } from '../blocked-countries/blocked-countries.service'; // Импортируем
+import { BlockedCountriesService } from '../blocked-countries/blocked-countries.service';
+import { SettingsService } from '../settings/settings.service'; 
+import { ApplicationLimitsService } from '../application-limits/application-limits.service'; 
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -27,7 +29,9 @@ export class AdminService {
     @InjectRepository(Employer)
     private employerRepository: Repository<Employer>,
     private usersService: UsersService,
-    private blockedCountriesService: BlockedCountriesService, // Внедряем
+    private blockedCountriesService: BlockedCountriesService,
+    private settingsService: SettingsService, 
+    private applicationLimitsService: ApplicationLimitsService, 
   ) {}
 
   private async checkAdminRole(userId: string) {
@@ -191,14 +195,14 @@ export class AdminService {
   }
 
   async approveJobPost(adminId: string, jobPostId: string) {
-  await this.checkAdminRole(adminId);
-  const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
-  if (!jobPost) {
-    throw new NotFoundException('Job post not found');
-  }
+    await this.checkAdminRole(adminId);
+    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
+    if (!jobPost) {
+      throw new NotFoundException('Job post not found');
+    }
 
-  jobPost.pending_review = false;
-  return this.jobPostsRepository.save(jobPost);
+    jobPost.pending_review = false;
+    return this.jobPostsRepository.save(jobPost);
   }
 
   async flagJobPost(adminId: string, jobPostId: string) {
@@ -228,6 +232,8 @@ export class AdminService {
       throw new NotFoundException('Job post not found');
     }
 
+    const globalLimit = await this.settingsService.getGlobalApplicationLimit();
+
     if (updates.title) jobPost.title = updates.title;
     if (updates.description) jobPost.description = updates.description;
     if (updates.location) jobPost.location = updates.location;
@@ -235,7 +241,13 @@ export class AdminService {
     if (updates.status) jobPost.status = updates.status;
     if (updates.category_id) jobPost.category_id = updates.category_id;
     if (updates.job_type) jobPost.job_type = updates.job_type;
-    if (updates.applicationLimit) jobPost.applicationLimit = updates.applicationLimit;
+    if (updates.applicationLimit !== undefined) {
+      if (updates.applicationLimit > globalLimit) {
+        throw new BadRequestException(`Application limit cannot exceed global limit of ${globalLimit}`);
+      }
+      jobPost.applicationLimit = updates.applicationLimit;
+      await this.applicationLimitsService.initializeLimits(jobPostId, updates.applicationLimit);
+    }
 
     return this.jobPostsRepository.save(jobPost);
   }
@@ -331,9 +343,33 @@ export class AdminService {
       throw new NotFoundException('Job post not found');
     }
 
+    const globalLimit = await this.settingsService.getGlobalApplicationLimit();
+    if (limit > globalLimit) {
+      throw new BadRequestException(`Application limit cannot exceed global limit of ${globalLimit}`);
+    }
+
     jobPost.applicationLimit = limit;
     await this.jobPostsRepository.save(jobPost);
+
+    // Инициализируем распределение по дням
+    await this.applicationLimitsService.initializeLimits(jobPostId, limit);
+
     return { message: 'Application limit updated successfully', limit };
+  }
+
+  async setGlobalApplicationLimit(adminId: string, limit: number) {
+    await this.checkAdminRole(adminId);
+    if (limit < 0) {
+      throw new BadRequestException('Global application limit must be a non-negative number');
+    }
+    await this.settingsService.setGlobalApplicationLimit(limit);
+    return { message: 'Global application limit updated successfully', limit };
+  }
+
+  async getGlobalApplicationLimit(adminId: string) {
+    await this.checkAdminRole(adminId);
+    const limit = await this.settingsService.getGlobalApplicationLimit();
+    return { globalApplicationLimit: limit };
   }
 
   async resetPassword(adminId: string, userId: string, newPassword: string) {
@@ -342,14 +378,14 @@ export class AdminService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-  
+
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     console.log('New hashed password:', hashedPassword);
     await this.usersService.updatePassword(userId, hashedPassword);
-    
+
     const updatedUser = await this.usersRepository.findOne({ where: { id: userId } });
     console.log('Updated user password:', updatedUser?.password);
-    
+
     return { message: 'Password reset successful' };
   }
 
@@ -371,19 +407,19 @@ export class AdminService {
 
   async getRegistrationStats(adminId: string, startDate: string, endDate: string, interval: 'day' | 'week' | 'month') {
     await this.checkAdminRole(adminId);
-    
+
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       throw new BadRequestException('Invalid date format');
     }
-    
+
     return this.usersService.getRegistrationStats(start, end, interval);
   }
-  
+
   async getGeographicDistribution(adminId: string) {
     await this.checkAdminRole(adminId);
     return this.usersService.getGeographicDistribution();
   }
-  }
+}
