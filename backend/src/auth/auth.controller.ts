@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res, Query, Req } from '@nestjs/common';
+import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res, Query, Req, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
@@ -6,6 +6,8 @@ import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { v4 as uuidv4 } from 'uuid';
 
 @Controller('auth')
 export class AuthController {
@@ -21,7 +23,6 @@ export class AuthController {
     @Headers('x-real-ip') xRealIp?: string,
     @Req() req?: any,
   ) {
-    // Получаем IP-адрес
     const ip = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
     console.log('Client IP:', ip);
     return this.authService.register(registerDto, ip);
@@ -48,8 +49,10 @@ export class AuthController {
   }
 
   @Get('google')
-  @UseGuards(AuthGuard('google'))
-  async googleAuth(@Request() req) {}
+  @UseGuards(GoogleAuthGuard)
+  async googleAuth() {
+    // GoogleAuthGuard перенаправляет на Google
+  }
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
@@ -61,7 +64,7 @@ export class AuthController {
   ) {
     console.log('Google Callback - req.user:', req.user);
     try {
-      const tempToken = await this.authService.storeOAuthUserData(req.user, role || 'jobseeker');
+      const tempToken = await this.authService.storeOAuthUserData(req.user);
       console.log('Google Callback - Temp Token:', tempToken);
 
       const user = await this.authService.completeRegistration(tempToken, role || 'jobseeker', {
@@ -72,7 +75,7 @@ export class AuthController {
       const redirectUrl = callbackUrl || `${req.protocol}://${req.get('host')}/auth/callback`;
       const redirectParams = new URLSearchParams({
         token: user.accessToken,
-        role: role || 'jobseeker',
+        role: req.user.role, // Используем role из req.user
       }).toString();
 
       return res.redirect(`${redirectUrl}?${redirectParams}`);
