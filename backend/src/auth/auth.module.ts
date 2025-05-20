@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { AuthService } from './auth.service';
+import { AuthService } from './auth.service'; // Исправляем: убираем пробел
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { JwtModule } from '@nestjs/jwt';
@@ -8,10 +8,12 @@ import { RedisModule } from '../redis/redis.module';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { LinkedInStrategy } from './strategies/linkedin.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { RedisService } from '../redis/redis.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { BlockedCountriesModule } from '../blocked-countries/blocked-countries.module';
 import { AdminGuard } from './guards/admin.guard';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 
 @Module({
   imports: [
@@ -40,6 +42,8 @@ import { AdminGuard } from './guards/admin.guard';
     AuthService,
     GoogleStrategy,
     JwtStrategy,
+    RedisService,
+    GoogleAuthGuard,
     // LinkedInStrategy,
     AdminGuard,
     {
@@ -57,6 +61,6 @@ import { AdminGuard } from './guards/admin.guard';
       inject: [ConfigService],
     },
   ],
-  exports: [JwtModule, AdminGuard], // Экспортируем JwtModule и AdminGuard
+  exports: [JwtModule, AdminGuard],
 })
 export class AuthModule {}
