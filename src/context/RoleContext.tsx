@@ -1,0 +1,64 @@
+import { createContext, useContext, useState, useEffect } from 'react';
+import { getProfile } from '../services/api';
+import { Profile } from '@types';
+
+interface RoleContextType {
+  currentRole: 'employer' | 'jobseeker' | 'admin' | null;
+  profile: Profile | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
+const RoleContext = createContext<RoleContextType | undefined>(undefined);
+
+export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [currentRole, setCurrentRole] = useState<'employer' | 'jobseeker' | 'admin' | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        const profileData = await getProfile();
+        setProfile(profileData);
+        setCurrentRole(profileData.role);
+      } catch (error: any) {
+        console.error('Error fetching profile in RoleContext:', error);
+        setError('Failed to load profile.');
+        // Если ошибка 401 (Unauthorized), очищаем токен
+        if (error.response?.status === 401) {
+          localStorage.removeItem('token');
+          setProfile(null);
+          setCurrentRole(null);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
+  return (
+    <RoleContext.Provider value={{ currentRole, profile, isLoading, error }}>
+      {children}
+    </RoleContext.Provider>
+  );
+};
+
+export const useRole = () => {
+  const context = useContext(RoleContext);
+  if (!context) {
+    throw new Error('useRole must be used within a RoleProvider');
+  }
+  return context;
+};
