@@ -12,6 +12,8 @@ import { BlockedCountriesService } from '../blocked-countries/blocked-countries.
 import { SettingsService } from '../settings/settings.service';
 import { ApplicationLimitsService } from '../application-limits/application-limits.service';
 import { ApplicationLimit } from '../application-limits/application-limit.entity';
+import { LeaderboardsService } from '../leaderboards/leaderboards.service';
+import { createObjectCsvStringifier } from 'csv-writer';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -35,6 +37,7 @@ export class AdminService {
     private blockedCountriesService: BlockedCountriesService,
     private settingsService: SettingsService,
     private applicationLimitsService: ApplicationLimitsService,
+    private leaderboardsService: LeaderboardsService, // Добавляем
   ) {}
 
   async checkAdminRole(userId: string) {
@@ -418,5 +421,73 @@ export class AdminService {
   async getGeographicDistribution(adminId: string) {
     await this.checkAdminRole(adminId);
     return this.usersService.getGeographicDistribution();
+  }
+  
+  async blockUser(adminId: string, userId: string) {
+  await this.checkAdminRole(adminId);
+  const user = await this.usersRepository.findOne({ where: { id: userId } });
+  if (!user) {
+    throw new NotFoundException('User not found');
+  }
+  
+  if (user.status === 'blocked') {
+    throw new BadRequestException('User is already blocked');
+  }
+  
+  user.status = 'blocked';
+  await this.usersRepository.save(user);
+  return { message: 'User blocked successfully' };
+  }
+
+  async unblockUser(adminId: string, userId: string) {
+    await this.checkAdminRole(adminId);
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.status === 'active') {
+      throw new BadRequestException('User is already active');
+    }
+
+    user.status = 'active';
+    await this.usersRepository.save(user);
+    return { message: 'User unblocked successfully' };
+  }
+
+  async getTopJobseekersByViews(adminId: string, limit: number = 10) {
+    await this.checkAdminRole(adminId);
+    return this.leaderboardsService.getTopJobseekersByViews(adminId, limit);
+  }
+
+  async exportUsersToCsv(adminId: string): Promise<string> {
+    await this.checkAdminRole(adminId);
+    
+    const users = await this.usersRepository.find();
+    
+    const csvStringifier = createObjectCsvStringifier({
+      header: [
+        { id: 'id', title: 'User ID' },
+        { id: 'email', title: 'Email' },
+        { id: 'username', title: 'Username' },
+        { id: 'role', title: 'Role' },
+        { id: 'status', title: 'Status' },
+        { id: 'created_at', title: 'Created At' },
+        { id: 'updated_at', title: 'Updated At' },
+      ],
+    });
+  
+    const records = users.map(user => ({
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      role: user.role,
+      status: user.status,
+      created_at: user.created_at.toISOString(),
+      updated_at: user.updated_at.toISOString(),
+    }));
+  
+    const csvData = csvStringifier.getHeaderString() + csvStringifier.stringifyRecords(records);
+    return csvData;
   }
 }

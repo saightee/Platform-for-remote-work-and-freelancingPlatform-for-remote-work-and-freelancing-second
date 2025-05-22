@@ -36,6 +36,9 @@ export class JobSeeker {
   @Column({ type: 'float', default: 0 })
   average_rating: number;
 
+  @Column({ default: 0 })
+  profile_views: number;
+
   @CreateDateColumn()
   created_at: Date;
 

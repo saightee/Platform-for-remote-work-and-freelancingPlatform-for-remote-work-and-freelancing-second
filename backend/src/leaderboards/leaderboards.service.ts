@@ -1,56 +1,66 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User } from '../users/entities/user.entity';
-import { JobPost } from '../job-posts/job-post.entity';
-import { JobApplication } from '../job-applications/job-application.entity';
+import { JobSeeker } from '../users/entities/jobseeker.entity'; // Добавляем
+import { Employer } from '../users/entities/employer.entity';
 
 @Injectable()
 export class LeaderboardsService {
   constructor(
-    @InjectRepository(User)
-    private usersRepository: Repository<User>,
-    @InjectRepository(JobPost)
-    private jobPostsRepository: Repository<JobPost>,
-    @InjectRepository(JobApplication)
-    private jobApplicationsRepository: Repository<JobApplication>,
+    @InjectRepository(JobSeeker) // Добавляем
+    private jobSeekerRepository: Repository<JobSeeker>,
+    @InjectRepository(Employer)
+    private employerRepository: Repository<Employer>,
   ) {}
 
   async getTopEmployers(limit: number = 10) {
-    const topEmployers = await this.jobPostsRepository
-      .createQueryBuilder('job_post')
-      .select('job_post.employer_id', 'employer_id')
-      .addSelect('COUNT(job_post.id)', 'job_count')
-      .innerJoin('job_post.employer', 'employer')
-      .groupBy('job_post.employer_id')
-      .addGroupBy('employer.username')
-      .orderBy('job_count', 'DESC')
-      .limit(limit)
-      .getRawMany();
+    const employers = await this.employerRepository
+      .createQueryBuilder('employer')
+      .leftJoinAndSelect('employer.user', 'user')
+      .where('user.role = :role', { role: 'employer' })
+      .orderBy('employer.average_rating', 'DESC')
+      .take(limit)
+      .getMany();
 
-    return topEmployers.map((entry) => ({
-      employer_id: entry.employer_id,
-      username: entry.employer_username,
-      job_count: parseInt(entry.job_count, 10),
+    return employers.map(employer => ({
+      userId: employer.user_id,
+      username: employer.user.username,
+      email: employer.user.email,
+      averageRating: employer.average_rating,
     }));
   }
 
   async getTopJobseekers(limit: number = 10) {
-    const topJobseekers = await this.jobApplicationsRepository
-      .createQueryBuilder('application')
-      .select('application.job_seeker_id', 'job_seeker_id')
-      .addSelect('COUNT(application.id)', 'application_count')
-      .innerJoin('application.job_seeker', 'job_seeker')
-      .groupBy('application.job_seeker_id')
-      .addGroupBy('job_seeker.username')
-      .orderBy('application_count', 'DESC')
-      .limit(limit)
-      .getRawMany();
+    const jobseekers = await this.jobSeekerRepository
+      .createQueryBuilder('jobSeeker')
+      .leftJoinAndSelect('jobSeeker.user', 'user')
+      .where('user.role = :role', { role: 'jobseeker' })
+      .orderBy('jobSeeker.average_rating', 'DESC')
+      .take(limit)
+      .getMany();
 
-    return topJobseekers.map((entry) => ({
-      job_seeker_id: entry.job_seeker_id,
-      username: entry.job_seeker_username,
-      application_count: parseInt(entry.application_count, 10),
+    return jobseekers.map(jobSeeker => ({
+      userId: jobSeeker.user_id,
+      username: jobSeeker.user.username,
+      email: jobSeeker.user.email,
+      averageRating: jobSeeker.average_rating,
+    }));
+  }
+
+  async getTopJobseekersByViews(adminId: string, limit: number = 10) {
+    const jobseekers = await this.jobSeekerRepository
+      .createQueryBuilder('jobSeeker')
+      .leftJoinAndSelect('jobSeeker.user', 'user')
+      .where('user.role = :role', { role: 'jobseeker' })
+      .orderBy('jobSeeker.profile_views', 'DESC')
+      .take(limit)
+      .getMany();
+
+    return jobseekers.map(jobSeeker => ({
+      userId: jobSeeker.user_id,
+      username: jobSeeker.user.username,
+      email: jobSeeker.user.email,
+      profileViews: jobSeeker.profile_views,
     }));
   }
 }

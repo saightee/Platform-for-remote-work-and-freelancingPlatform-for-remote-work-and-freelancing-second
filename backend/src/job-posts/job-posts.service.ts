@@ -111,57 +111,60 @@ export class JobPostsService {
     return jobPosts;
   }
 
-  async searchJobPosts(filters: { title?: string; location?: string; salaryMin?: string; salaryMax?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based'; category_id?: string }) {
-    try {
-      console.log('Search filters:', filters);
-
-      const salaryMin = filters.salaryMin ? parseInt(filters.salaryMin, 10) : undefined;
-      const salaryMax = filters.salaryMax ? parseInt(filters.salaryMax, 10) : undefined;
-
-      if (filters.salaryMin && isNaN(salaryMin!)) {
-        throw new BadRequestException('salaryMin must be a valid number');
-      }
-      if (filters.salaryMax && isNaN(salaryMax!)) {
-        throw new BadRequestException('salaryMax must be a valid number');
-      }
-
-      const query = this.jobPostsRepository.createQueryBuilder('job_post')
-        .leftJoinAndSelect('job_post.employer', 'employer')
-        .leftJoinAndSelect('job_post.category', 'category')
-        .where('job_post.status = :status', { status: 'Active' });
-
-      if (filters.title) {
-        query.andWhere('job_post.title ILIKE :title', { title: `%${filters.title}%` });
-      }
-
-      if (filters.location) {
-        query.andWhere('job_post.location ILIKE :location', { location: `%${filters.location}%` });
-      }
-
-      if (salaryMin !== undefined) {
-        query.andWhere('job_post.salary >= :salaryMin', { salaryMin });
-      }
-
-      if (salaryMax !== undefined) {
-        query.andWhere('job_post.salary <= :salaryMax', { salaryMax });
-      }
-
-      if (filters.job_type) {
-        query.andWhere('job_post.job_type = :job_type', { job_type: filters.job_type });
-      }
-
-      if (filters.category_id) {
-        query.andWhere('job_post.category_id = :category_id', { category_id: filters.category_id });
-      }
-
-      console.log('Executing query:', query.getQueryAndParameters());
-      const results = await query.getMany();
-      console.log('Search results:', results);
-      return results;
-    } catch (error) {
-      console.error('Error in searchJobPosts:', error);
-      throw new BadRequestException(error.message || 'Failed to search job posts');
+  async searchJobPosts(filters: {
+    title?: string;
+    location?: string;
+    job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+    salary_min?: number;
+    salary_max?: number;
+    category_id?: string;
+    required_skills?: string[];
+    page?: number;
+    limit?: number;
+    sort_by?: 'created_at' | 'salary';
+    sort_order?: 'ASC' | 'DESC';
+  }) {
+    const query = this.jobPostsRepository.createQueryBuilder('jobPost')
+      .leftJoinAndSelect('jobPost.employer', 'employer')
+      .leftJoinAndSelect('jobPost.category', 'category')
+      .where('jobPost.status = :status', { status: 'Active' })
+      .andWhere('jobPost.pending_review = :pendingReview', { pendingReview: false });
+  
+    // Фильтры
+    if (filters.title) {
+      query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.title}%` });
     }
+    if (filters.location) {
+      query.andWhere('jobPost.location ILIKE :location', { location: `%${filters.location}%` });
+    }
+    if (filters.job_type) {
+      query.andWhere('jobPost.job_type = :job_type', { job_type: filters.job_type });
+    }
+    if (filters.salary_min) {
+      query.andWhere('jobPost.salary >= :salary_min', { salary_min: filters.salary_min });
+    }
+    if (filters.salary_max) {
+      query.andWhere('jobPost.salary <= :salary_max', { salary_max: filters.salary_max });
+    }
+    if (filters.category_id) {
+      query.andWhere('jobPost.category_id = :category_id', { category_id: filters.category_id });
+    }
+    if (filters.required_skills && filters.required_skills.length > 0) {
+      query.andWhere('jobPost.required_skills && :required_skills', { required_skills: filters.required_skills });
+    }
+  
+    // Пагинация
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+    const skip = (page - 1) * limit;
+    query.skip(skip).take(limit);
+  
+    // Сортировка
+    const sortBy = filters.sort_by || 'created_at';
+    const sortOrder = filters.sort_order || 'DESC';
+    query.orderBy(`jobPost.${sortBy}`, sortOrder);
+  
+    return query.getMany();
   }
 
   async applyToJob(userId: string, jobPostId: string) {
@@ -254,4 +257,6 @@ export class JobPostsService {
     await this.jobPostsRepository.save(jobPost);
     return { message: 'View count incremented', views: jobPost.views };
     }
+
+    
 }

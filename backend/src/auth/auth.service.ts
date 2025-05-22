@@ -84,11 +84,22 @@ export class AuthService {
     if (!user || !(await bcrypt.compare(password, user.password))) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const expiresIn = rememberMe ? '30d' : '1h';
+  
+    if (user.status === 'blocked') {
+      throw new UnauthorizedException('User is blocked');
+    }
+  
+    const isBlacklisted = await this.isTokenBlacklisted(`token:${user.id}`);
+    if (isBlacklisted) {
+      throw new UnauthorizedException('Previous session was invalidated');
+    }
+  
     const payload = { email: user.email, sub: user.id, role: user.role };
+    const expiresIn = rememberMe ? '7d' : '1h';
     const token = this.jwtService.sign(payload, { expiresIn });
-    const expirySeconds = rememberMe ? 30 * 24 * 3600 : 3600;
+    const expirySeconds = rememberMe ? 7 * 24 * 60 * 60 : 3600;
     await this.redisService.set(`token:${user.id}`, token, expirySeconds);
+  
     return { accessToken: token };
   }
 

@@ -181,4 +181,23 @@ export class ProfilesService {
     await this.usersRepository.save(user);
     return this.getProfile(userId);
   }
+
+  async incrementProfileView(userId: string) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.role !== 'jobseeker') {
+      throw new BadRequestException('Profile views can only be incremented for jobseekers');
+    }
+    
+    const jobSeeker = await this.jobSeekerRepository.findOne({ where: { user_id: userId } });
+    if (!jobSeeker) {
+      throw new NotFoundException('JobSeeker profile not found');
+    }
+    
+    jobSeeker.profile_views = (jobSeeker.profile_views || 0) + 1;
+    await this.jobSeekerRepository.save(jobSeeker);
+    return { message: 'Profile view count incremented', profile_views: jobSeeker.profile_views };
+    }
 }

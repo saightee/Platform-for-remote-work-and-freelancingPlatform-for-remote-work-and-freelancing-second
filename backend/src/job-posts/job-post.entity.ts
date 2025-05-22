@@ -48,6 +48,9 @@ export class JobPost {
   @Column({ default: 0 }) // Добавлено
   views: number;
 
+  @Column('text', { array: true, nullable: true })
+  required_skills?: string[];
+
   @CreateDateColumn()
   created_at: Date;
 

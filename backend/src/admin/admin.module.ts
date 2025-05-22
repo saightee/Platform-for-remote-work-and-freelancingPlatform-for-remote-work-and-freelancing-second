@@ -15,7 +15,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from '../users/users.module';
 import { BlockedCountriesModule } from '../blocked-countries/blocked-countries.module';
 import { SettingsModule } from '../settings/settings.module';
-import { ApplicationLimitsModule } from '../application-limits/application-limits.module'; // Добавляем
+import { ApplicationLimitsModule } from '../application-limits/application-limits.module';
+import { LeaderboardsModule } from '../leaderboards/leaderboards.module'; // Добавляем
 
 @Module({
   imports: [
@@ -31,7 +32,8 @@ import { ApplicationLimitsModule } from '../application-limits/application-limit
     UsersModule,
     BlockedCountriesModule,
     SettingsModule,
-    ApplicationLimitsModule, // Добавляем
+    ApplicationLimitsModule,
+    LeaderboardsModule, // Добавляем
   ],
   controllers: [AdminController],
   providers: [AdminService],

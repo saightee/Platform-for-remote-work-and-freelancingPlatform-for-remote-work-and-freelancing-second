@@ -41,16 +41,48 @@ export class JobPostsController {
     return this.jobPostsService.updateJobPost(userId, jobPostId, body);
   }
 
-  @Get('search')
+  @Get()
   async searchJobPosts(
-    @Query('title') title?: string,
-    @Query('location') location?: string,
-    @Query('salaryMin') salaryMin?: string,
-    @Query('salaryMax') salaryMax?: string,
-    @Query('job_type') job_type?: 'Full-time' | 'Part-time' | 'Project-based',
-    @Query('category_id') category_id?: string,
+    @Query('title') title: string,
+    @Query('location') location: string,
+    @Query('job_type') job_type: 'Full-time' | 'Part-time' | 'Project-based',
+    @Query('salary_min') salary_min: string,
+    @Query('salary_max') salary_max: string,
+    @Query('category_id') category_id: string,
+    @Query('required_skills') required_skills: string | string[],
+    @Query('page') page: string,
+    @Query('limit') limit: string,
+    @Query('sort_by') sort_by: 'created_at' | 'salary',
+    @Query('sort_order') sort_order: 'ASC' | 'DESC',
   ) {
-    const filters = { title, location, salaryMin, salaryMax, job_type, category_id };
+    const filters: {
+      title?: string;
+      location?: string;
+      job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+      salary_min?: number;
+      salary_max?: number;
+      category_id?: string;
+      required_skills?: string[];
+      page?: number;
+      limit?: number;
+      sort_by?: 'created_at' | 'salary';
+      sort_order?: 'ASC' | 'DESC';
+    } = {};
+  
+    if (title) filters.title = title;
+    if (location) filters.location = location;
+    if (job_type) filters.job_type = job_type;
+    if (salary_min) filters.salary_min = parseInt(salary_min, 10);
+    if (salary_max) filters.salary_max = parseInt(salary_max, 10);
+    if (category_id) filters.category_id = category_id;
+    if (required_skills) {
+      filters.required_skills = Array.isArray(required_skills) ? required_skills : [required_skills];
+    }
+    if (page) filters.page = parseInt(page, 10);
+    if (limit) filters.limit = parseInt(limit, 10);
+    if (sort_by) filters.sort_by = sort_by;
+    if (sort_order) filters.sort_order = sort_order;
+  
     return this.jobPostsService.searchJobPosts(filters);
   }
 

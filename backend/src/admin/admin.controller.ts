@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Put, Delete, Param, Query, Body, Headers, UnauthorizedException, UseGuards, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Query, Body, Headers, UnauthorizedException, UseGuards, BadRequestException, Res } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { SettingsService } from '../settings/settings.service';
+import { Response } from 'express';
 
 @Controller('admin')
 export class AdminController {
@@ -12,6 +13,29 @@ export class AdminController {
     private settingsService: SettingsService,
     private jwtService: JwtService,
   ) {}
+
+  @Get('users/export-csv')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async exportUsersToCsv(
+    @Headers('authorization') authHeader: string,
+    @Res() res: Response,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+
+    const csvData = await this.adminService.exportUsersToCsv(adminId);
+
+    res.set({
+      'Content-Type': 'text/csv',
+      'Content-Disposition': 'attachment; filename="users.csv"',
+    });
+
+    res.send(csvData);
+  }
 
   @Get('users')
   @UseGuards(AuthGuard('jwt'), AdminGuard)
@@ -387,4 +411,59 @@ export class AdminController {
   ) {
     return this.adminService.verifyIdentity(userId, verify, authHeader);
   }
+
+  @Post('users/:id/block')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async blockUser(
+    @Param('id') userId: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userIdAdmin = payload.sub;
+
+    return this.adminService.blockUser(userIdAdmin, userId);
+  }
+
+  @Post('users/:id/unblock')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async unblockUser(
+    @Param('id') userId: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userIdAdmin = payload.sub;
+
+    return this.adminService.unblockUser(userIdAdmin, userId);
+  }
+
+  @Get('leaderboards/top-jobseekers-by-views')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async getTopJobseekersByViews(
+    @Query('limit') limit: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+
+    const parsedLimit = limit ? parseInt(limit, 10) : 10;
+    if (isNaN(parsedLimit) || parsedLimit < 1) {
+      throw new BadRequestException('Limit must be a positive integer');
+    }
+
+    return this.adminService.getTopJobseekersByViews(adminId, parsedLimit);
+  }
+
+
 }
