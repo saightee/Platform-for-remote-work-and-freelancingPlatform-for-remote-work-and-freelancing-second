@@ -1,18 +1,19 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProfilesService } from './profiles.service';
 import { ProfilesController } from './profiles.controller';
-import { AdminProfilesController } from './profiles.controller'; // Добавляем
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../users/entities/user.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
+import { ReviewsModule } from '../reviews/reviews.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ReviewsModule } from '../reviews/reviews.module';
+import { SkillCategory } from '../skill-categories/skill-category.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, JobSeeker, Employer]),
+    TypeOrmModule.forFeature([User, JobSeeker, Employer, SkillCategory]),
+    ReviewsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -21,9 +22,8 @@ import { ReviewsModule } from '../reviews/reviews.module';
       }),
       inject: [ConfigService],
     }),
-    ReviewsModule,
   ],
-  controllers: [ProfilesController, AdminProfilesController], // Добавляем AdminProfilesController
+  controllers: [ProfilesController], // Удаляем AdminProfilesController
   providers: [ProfilesService],
 })
 export class ProfilesModule {}

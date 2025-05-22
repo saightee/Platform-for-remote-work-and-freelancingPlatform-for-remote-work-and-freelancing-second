@@ -101,4 +101,9 @@ export class JobPostsController {
     const userId = payload.sub;
     return this.jobPostsService.setApplicationLimit(userId, jobPostId, limit);
   }
+
+  @Post(':id/increment-view')
+  async incrementJobView(@Param('id') jobPostId: string) {
+  return this.jobPostsService.incrementJobView(jobPostId);
+  }
 }

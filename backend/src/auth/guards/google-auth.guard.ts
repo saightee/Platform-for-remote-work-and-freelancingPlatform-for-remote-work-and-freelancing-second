@@ -1,11 +1,9 @@
 import { Injectable, ExecutionContext, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { v4 as uuidv4 } from 'uuid';
-import { RedisService } from '../../redis/redis.service';
 
 @Injectable()
 export class GoogleAuthGuard extends AuthGuard('google') {
-  constructor(private redisService: RedisService) {
+  constructor() {
     super({
       state: true, // Включаем state
     });
@@ -19,18 +17,9 @@ export class GoogleAuthGuard extends AuthGuard('google') {
       throw new BadRequestException('Invalid or missing role');
     }
 
-    // Сохраняем role в Redis с временным ключом
-    const tempId = uuidv4();
-    console.log('GoogleAuthGuard - Saving to Redis:', `temp-auth:${tempId}`, role);
-    await this.redisService.set(`temp-auth:${tempId}`, role, 600); // Храним 10 минут
-
-    // Проверяем, что значение сохранено
-    const savedRole = await this.redisService.get(`temp-auth:${tempId}`);
-    console.log('GoogleAuthGuard - Retrieved from Redis:', savedRole);
-
-    // Сохраняем tempId в сессии
-    request.session.tempId = tempId;
-    console.log('GoogleAuthGuard - Session tempId:', request.session.tempId);
+    // Передаём роль через state
+    request.query.state = JSON.stringify({ role });
+    console.log('GoogleAuthGuard - State:', request.query.state);
 
     return super.canActivate(context) as Promise<boolean>;
   }

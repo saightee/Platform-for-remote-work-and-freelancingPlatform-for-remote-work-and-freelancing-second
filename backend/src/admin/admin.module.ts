@@ -8,16 +8,18 @@ import { Review } from '../reviews/review.entity';
 import { JobApplication } from '../job-applications/job-application.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
+import { ApplicationLimit } from '../application-limits/application-limit.entity';
+import { SkillCategory } from '../skill-categories/skill-category.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { UsersService } from '../users/users.service';
-import { SettingsModule } from '../settings/settings.module';
+import { UsersModule } from '../users/users.module';
 import { BlockedCountriesModule } from '../blocked-countries/blocked-countries.module';
-import { ApplicationLimitsModule } from '../application-limits/application-limits.module';
+import { SettingsModule } from '../settings/settings.module';
+import { ApplicationLimitsModule } from '../application-limits/application-limits.module'; // Добавляем
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, JobPost, Review, JobApplication, JobSeeker, Employer]),
+    TypeOrmModule.forFeature([User, JobPost, Review, JobApplication, JobSeeker, Employer, ApplicationLimit, SkillCategory]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -26,11 +28,12 @@ import { ApplicationLimitsModule } from '../application-limits/application-limit
       }),
       inject: [ConfigService],
     }),
+    UsersModule,
     BlockedCountriesModule,
     SettingsModule,
-    ApplicationLimitsModule,
+    ApplicationLimitsModule, // Добавляем
   ],
   controllers: [AdminController],
-  providers: [AdminService, UsersService],
+  providers: [AdminService],
 })
 export class AdminModule {}

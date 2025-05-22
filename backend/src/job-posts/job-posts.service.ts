@@ -244,4 +244,14 @@ export class JobPostsService {
 
     return { message: 'Application limit updated successfully', limit };
   }
+
+  async incrementJobView(jobPostId: string) {
+    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
+    if (!jobPost) {
+      throw new NotFoundException('Job post not found');
+    }
+    jobPost.views = (jobPost.views || 0) + 1;
+    await this.jobPostsRepository.save(jobPost);
+    return { message: 'View count incremented', views: jobPost.views };
+    }
 }

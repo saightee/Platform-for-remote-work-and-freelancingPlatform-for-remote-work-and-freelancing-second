@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial, Not, IsNull } from 'typeorm';
+import { Repository, DeepPartial, Not, IsNull, In } from 'typeorm';
 import { User } from './entities/user.entity';
 import { JobSeeker } from './entities/jobseeker.entity';
 import { Employer } from './entities/employer.entity';
+import { SkillCategory } from '../skill-categories/skill-category.entity';
 
 @Injectable()
 export class UsersService {
@@ -14,9 +15,14 @@ export class UsersService {
     private jobSeekerRepository: Repository<JobSeeker>,
     @InjectRepository(Employer)
     private employerRepository: Repository<Employer>,
+    @InjectRepository(SkillCategory)
+    private skillCategoriesRepository: Repository<SkillCategory>,
   ) {}
 
-  async create(userData: Partial<User> & { email: string; username: string; role: 'employer' | 'jobseeker' | 'admin' }, additionalData: any): Promise<User> {
+  async create(
+    userData: Partial<User> & { email: string; username: string; role: 'employer' | 'jobseeker' | 'admin' },
+    additionalData: any,
+  ): Promise<User> {
     console.log('Creating user with data:', userData);
     const userEntity: DeepPartial<User> = {
       email: userData.email,
@@ -31,9 +37,18 @@ export class UsersService {
     console.log('User saved to database:', savedUser);
 
     if (userData.role === 'jobseeker') {
+      // Загружаем категории навыков, если указаны
+      let skillCategories: SkillCategory[] = [];
+      if (additionalData.skillCategoryIds && Array.isArray(additionalData.skillCategoryIds)) {
+        skillCategories = await this.skillCategoriesRepository.find({
+          where: { id: In(additionalData.skillCategoryIds) },
+        });
+      }
+
       const jobSeekerEntity: DeepPartial<JobSeeker> = {
         user_id: savedUser.id,
         skills: additionalData.skills || [],
+        skillCategories,
         experience: additionalData.experience || '',
         portfolio: additionalData.portfolio || '',
         video_intro: additionalData.video_intro || '',
@@ -62,24 +77,6 @@ export class UsersService {
     return savedUser;
   }
 
-  async updatePassword(userId: string, newPassword: string): Promise<void> {
-    console.log('Updating password for userId:', userId, 'with new hashed password:', newPassword);
-    const user = await this.usersRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    
-    user.password = newPassword;
-    await this.usersRepository.save(user);
-    
-    const updatedUser = await this.usersRepository.findOne({ where: { id: userId } });
-    console.log('Updated user password in DB:', updatedUser?.password);
-  }
-
-  async findByEmail(email: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { email } });
-  }
-
   async updateUser(userId: string, role: 'employer' | 'jobseeker', additionalData: any) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
@@ -90,9 +87,18 @@ export class UsersService {
     await this.usersRepository.save(user);
 
     if (role === 'jobseeker') {
+      // Загружаем категории навыков, если указаны
+      let skillCategories: SkillCategory[] = [];
+      if (additionalData.skillCategoryIds && Array.isArray(additionalData.skillCategoryIds)) {
+        skillCategories = await this.skillCategoriesRepository.find({
+          where: { id: In(additionalData.skillCategoryIds) },
+        });
+      }
+
       const jobSeekerEntity: DeepPartial<JobSeeker> = {
         user_id: userId,
         skills: additionalData.skills || [],
+        skillCategories,
         experience: additionalData.experience || '',
         portfolio: additionalData.portfolio || '',
         video_intro: additionalData.video_intro || '',
@@ -115,8 +121,25 @@ export class UsersService {
     }
   }
 
-  async getRegistrationStats(startDate: Date, endDate: Date, interval: 'day' | 'week' | 'month') {
+  async updatePassword(userId: string, newPassword: string): Promise<void> {
+    console.log('Updating password for userId:', userId, 'with new hashed password:', newPassword);
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    
+    user.password = newPassword;
+    await this.usersRepository.save(user);
+    
+    const updatedUser = await this.usersRepository.findOne({ where: { id: userId } });
+    console.log('Updated user password in DB:', updatedUser?.password);
+  }
 
+  async findByEmail(email: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { email } });
+  }
+
+  async getRegistrationStats(startDate: Date, endDate: Date, interval: 'day' | 'week' | 'month') {
     const start = new Date(startDate);
     const end = new Date(endDate);
     start.setUTCHours(0, 0, 0, 0);

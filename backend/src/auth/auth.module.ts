@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { AuthService } from './auth.service'; // Исправляем: убираем пробел
+import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { UsersModule } from '../users/users.module';
+import { UsersModule } from '../users/users.module'; // Импортирует UsersService
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { RedisModule } from '../redis/redis.module';
+import { RedisModule } from '../redis/redis.module'; // Импортирует RedisService
 import { GoogleStrategy } from './strategies/google.strategy';
 import { LinkedInStrategy } from './strategies/linkedin.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -21,7 +21,7 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
       isGlobal: true,
       envFilePath: '../.env',
     }),
-    UsersModule,
+    UsersModule, // Предоставляет UsersService
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -34,7 +34,7 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
       },
       inject: [ConfigService],
     }),
-    RedisModule,
+    RedisModule, // Предоставляет RedisService
     BlockedCountriesModule,
   ],
   controllers: [AuthController],

@@ -1,8 +1,7 @@
-import { Controller, Get, Put, Post, Body, Headers, UnauthorizedException, UseGuards, Param } from '@nestjs/common';
+import { Controller, Get, Put, Post, Headers, UnauthorizedException, Body, Param, UseGuards } from '@nestjs/common';
 import { ProfilesService } from './profiles.service';
-import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
-import { AdminGuard } from '../auth/guards/admin.guard';
+import { JwtService } from '@nestjs/jwt';
 
 @Controller('profile')
 export class ProfilesController {
@@ -11,8 +10,8 @@ export class ProfilesController {
     private jwtService: JwtService,
   ) {}
 
-  @UseGuards(AuthGuard('jwt'))
   @Get()
+  @UseGuards(AuthGuard('jwt'))
   async getProfile(@Headers('authorization') authHeader: string) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
@@ -23,11 +22,11 @@ export class ProfilesController {
     return this.profilesService.getProfile(userId);
   }
 
-  @UseGuards(AuthGuard('jwt'))
   @Put()
+  @UseGuards(AuthGuard('jwt'))
   async updateProfile(
     @Headers('authorization') authHeader: string,
-    @Body() body: { role: 'employer' | 'jobseeker'; company_name?: string; company_info?: string; referral_link?: string; skills?: string[]; experience?: string; portfolio?: string; video_intro?: string; timezone?: string; currency?: string },
+    @Body() body: any,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
@@ -35,11 +34,12 @@ export class ProfilesController {
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const userId = payload.sub;
-    return this.profilesService.updateProfile(userId, body.role, body);
+
+    return this.profilesService.updateProfile(userId, body);
   }
 
-  @UseGuards(AuthGuard('jwt'))
   @Post('upload-avatar')
+  @UseGuards(AuthGuard('jwt'))
   async uploadAvatar(
     @Headers('authorization') authHeader: string,
     @Body('avatarUrl') avatarUrl: string,
@@ -47,44 +47,26 @@ export class ProfilesController {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
     }
-    if (!avatarUrl) {
-      throw new UnauthorizedException('Avatar URL is required');
-    }
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const userId = payload.sub;
+
     return this.profilesService.uploadAvatar(userId, avatarUrl);
   }
 
-  @UseGuards(AuthGuard('jwt'))
   @Post('upload-identity')
-  async uploadIdentityDocument(
+  @UseGuards(AuthGuard('jwt'))
+  async uploadIdentity(
     @Headers('authorization') authHeader: string,
     @Body('documentUrl') documentUrl: string,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
     }
-    if (!documentUrl) {
-      throw new UnauthorizedException('Document URL is required');
-    }
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const userId = payload.sub;
+
     return this.profilesService.uploadIdentityDocument(userId, documentUrl);
-  }
-}
-
-@Controller('admin/profile')
-export class AdminProfilesController {
-  constructor(private profilesService: ProfilesService) {}
-
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
-  @Post(':id/verify-identity')
-  async verifyIdentity(@Param('id') userId: string, @Body('verify') verify: boolean) {
-    if (typeof verify !== 'boolean') {
-      throw new UnauthorizedException('Verify parameter must be a boolean');
-    }
-    return this.profilesService.verifyIdentity(userId, verify);
   }
 }

@@ -87,19 +87,19 @@
 ### 4. Google OAuth - Initiate Authentication
 - **Endpoint**: `GET /api/auth/google`
 - **Description**: Initiates the Google OAuth authentication process.
-- **Query Parameters**: role (string, required): The role of the user ("employer" or "jobseeker").
+- **Query Parameters**: `role` (string, required): The role of the user ("employer" or "jobseeker").
 - **Example Request**: `/api/auth/google?role=employer`
 - **Response**: Redirects the user to Google's authentication page.
 
 ### 5. Google OAuth - Callback (handled by backend)
 - **Endpoint**: `GET /api/auth/google/callback`
-- **Description**: Handles the callback from Google after authentication. Redirects the user to a role selection page with a temporary token.
-- **Query Parameters**: `code: Authorization code from Google (handled automatically).`
-- **Response: Returns a JSON response with the accessToken for immediate login**:
-    ```json
-  {
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
+- **Description**: Handles the callback from Google after authentication. Redirects the user to a callback URL with a token and role for further processing.
+- **Query Parameters**: 
+  `code`: Authorization code from Google (handled automatically).
+  `callbackUrl`: (optional): Custom URL to redirect to after authentication.
+- **Response:**: Redirects to the specified callbackUrl or default /auth/callback with query parameters: /auth/callback?token=<jwt-token>&role=<employer|jobseeker>
+  `token`: JWT token for user authentication.
+  `role`: The role of the user ("employer" or "jobseeker").
 
 - **Error Response (500, if authentication fails)**:
   ```json
@@ -108,6 +108,28 @@
     "error": "<error message>"
   }
 
+### 5.1. Google OAuth - Login
+- **Endpoint**: `POST /api/auth/google-login`
+- **Description**: Completes the login process for a user authenticated via Google OAuth.
+- **Request Body**: 
+  ```json
+  {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+
+- **Response (Success - 200)**:
+  ```json
+  {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+
+- **Response (Error - 401, if token is invalid)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
 
 ### 6. Get Profile
 - **Endpoint**: `GET /api/profile`
@@ -151,6 +173,14 @@
     "email": "test@example.com",
     "username": "test",
     "skills": ["JavaScript", "TypeScript"],
+    "skillCategories": [
+      {
+        "id": "<skillCategoryId>",
+        "name": "Web Development",
+        "created_at": "2025-05-22T18:00:00.000Z",
+        "updated_at": "2025-05-22T18:00:00.000Z"
+      }
+    ],
     "experience": "2 years",
     "portfolio": "https://portfolio.com",
     "video_intro": "https://video.com",
@@ -167,8 +197,8 @@
         "job_application_id": "<jobApplicationId>",
         "rating": 4,
         "comment": "Great work, very professional!",
-        "created_at": "2025-05-13T18:00:00.000Z",
-        "updated_at": "2025-05-13T18:00:00.000Z"
+        "created_at": "2025-05-22T18:00:00.000Z",
+        "updated_at": "2025-05-22T18:00:00.000Z"
       }
     ]
   }
@@ -209,6 +239,7 @@
   {
     "role": "jobseeker",
     "skills": ["JavaScript", "Python"],
+    "skillCategoryIds": ["<skillCategoryId1>", "<skillCategoryId2>"],
     "experience": "3 years",
     "portfolio": "https://newportfolio.com",
     "video_intro": "https://newvideo.com",
@@ -1764,4 +1795,71 @@
     "error": "Not Found"
   }
 
-  
+### 49. Increment Job Post Views
+- **Endpoint**: `POST /api/jobs/:id/increment-view`
+- **Description**: Increments the view count for a specific job post.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job post
+- **Response (Success - 200)**:
+  ```json
+  {
+    "message": "View count incremented",
+    "views": 1
+  }
+
+- **Response (Error - 404, if job post not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
+  }
+
+### 50. Create Skill Category
+- **Endpoint**: `POST /api/skill-categories`
+- **Description**: Creates a new skill category for jobseekers (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "name": "Web Development"
+  }
+
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "<skillCategoryId>",
+    "name": "Web Development",
+    "created_at": "2025-05-22T18:00:00.000Z",
+    "updated_at": "2025-05-22T18:00:00.000Z"
+  }
+
+- **Response (Error - 400, if category already exists)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Skill category with this name already exists",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only admins can access this resource",
+    "error": "Unauthorized"
+  } 
+
+### 51. Get Skill Categories
+- **Endpoint**: `GET /api/skill-categories`
+- **Description**: Retrieves all skill categories.
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "id": "<skillCategoryId>",
+      "name": "Web Development",
+      "created_at": "2025-05-22T18:00:00.000Z",
+      "updated_at": "2025-05-22T18:00:00.000Z"
+    }
+  ]
