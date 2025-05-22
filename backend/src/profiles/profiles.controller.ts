@@ -69,4 +69,9 @@ export class ProfilesController {
 
     return this.profilesService.uploadIdentityDocument(userId, documentUrl);
   }
+
+  @Post(':id/increment-view')
+  async incrementProfileView(@Param('id') userId: string) {
+    return this.profilesService.incrementProfileView(userId);
+}
 }

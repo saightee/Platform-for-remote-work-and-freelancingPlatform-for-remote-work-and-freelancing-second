@@ -32,6 +32,9 @@ export class User {
   @Column({ type: 'varchar', nullable: true }) // Добавляем поле для документа
   identity_document: string | null;
 
+  @Column({ type: 'varchar', default: 'active' })
+  status: 'active' | 'blocked';
+
   @CreateDateColumn()
   created_at: Date;
 

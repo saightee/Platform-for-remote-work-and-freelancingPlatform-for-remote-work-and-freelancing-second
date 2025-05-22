@@ -777,45 +777,59 @@
     "error": "Not Found"
   }
 
-### 19. Search Job Posts
-- **Endpoint**: `GET /api/job-posts/search`
-- **Description**: Searches for active job posts with optional filters.
+### 19. Get All Job Posts
+- **Endpoint**: `GET /api/job-posts`
+- **Description**: Retrieves all active and approved job posts with optional filters, pagination, and sorting.
 - **Query Parameters**:
-  - `title (string, optional)`: Part of the job post title to search for.
-  - `location (string, optional)`: Location of the job post.
-  - `salaryMin (number, optional)`: Minimum salary.
-  - `salaryMax (number, optional)`: Maximum salary.
-  - `job_type (string, optional)`: Type of job ("Full-time", "Part-time", "Project-based").
-  - `category_id (string, optional)`: ID of the category.
+  - `title` (string, optional): Filter by job title (partial match).
+  - `location` (string, optional): Filter by location (partial match).
+  - `job_type` (string, optional): Filter by job type ("Full-time", "Part-time", "Project-based").
+  - `salary_min` (number, optional): Filter by minimum salary.
+  - `salary_max` (number, optional): Filter by maximum salary.
+  - `category_id` (string, optional): Filter by category ID.
+  - `required_skills` (string or string[], optional): Filter by required skills (e.g., "required_skills=JavaScript" or "required_skills[]=JavaScript&required_skills[]=Python").
+  - `page` (number, optional): Page number for pagination (default: 1).
+  - `limit` (number, optional): Number of items per page (default: 10).
+  - `sort_by` (string, optional): Field to sort by ("created_at" or "salary", default: "created_at").
+  - `sort_order` (string, optional): Sort order ("ASC" or "DESC", default: "DESC").
 - **Example Request**: `/api/job-posts/search?title=Engineer&location=Remote&salaryMin=40000&salaryMax=60000&job_type=Full-time&category_id=<categoryId>`
 - **Response (Success - 200)**:
   ```json
   [
-  {
-    "id": "<jobPostId>",
-    "title": "Software Engineer",
-    "description": "We are looking for a skilled software engineer...",
-    "location": "Remote",
-    "salary": 50000,
-    "status": "Active",
-    "category_id": "<categoryId>",
-    "category": {
-      "id": "<categoryId>",
-      "name": "Software Development",
-      "created_at": "2025-05-13T18:00:00.000Z",
-      "updated_at": "2025-05-13T18:00:00.000Z"
-    },
-    "job_type": "Full-time",
-    "employer_id": "<userId>",
-    "employer": {
-      "id": "<userId>",
-      "email": "employer4@example.com",
-      "username": "employer4",
-      "role": "employer"
-    },
-    "created_at": "2025-05-13T18:00:00.000Z",
-    "updated_at": "2025-05-13T18:00:00.000Z"
-  }
+    {
+      "id": "<jobPostId>",
+      "title": "Software Engineer",
+      "description": "We are looking for a skilled engineer...",
+      "location": "Remote",
+      "salary": 50000,
+      "status": "Active",
+      "pending_review": false,
+      "category_id": "<categoryId>",
+      "category": {
+        "id": "<categoryId>",
+        "name": "Engineering",
+        "created_at": "2025-05-22T10:00:00.000Z",
+        "updated_at": "2025-05-22T10:00:00.000Z"
+      },
+      "job_type": "Full-time",
+      "employer_id": "<employerId>",
+      "employer": {
+        "user_id": "<employerId>",
+        "company_name": "Tech Corp",
+        "company_info": "A tech company",
+        "referral_link": null,
+        "timezone": "UTC",
+        "currency": "USD",
+        "average_rating": 0,
+        "created_at": "2025-05-22T10:00:00.000Z",
+        "updated_at": "2025-05-22T10:00:00.000Z"
+      },
+      "applicationLimit": 100,
+      "views": 0,
+      "required_skills": ["JavaScript", "TypeScript"],
+      "created_at": "2025-05-22T10:00:00.000Z",
+      "updated_at": "2025-05-22T10:00:00.000Z"
+    }
   ]
 
 ### 20. Create Review
@@ -1863,3 +1877,152 @@
       "updated_at": "2025-05-22T18:00:00.000Z"
     }
   ]
+
+### 52. Get Skill Categories
+- **Endpoint**: `POST /api/admin/users/:id/block`
+- **Description**: Blocks a specific user (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the user.
+- **Response (Success - 200)**:
+  ```json
+  {
+    "message": "User blocked successfully"
+  }
+
+- **Response (Error - 404, if user not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
+  }
+
+- **Response (Error - 400, if user already blocked)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "User is already blocked",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+### 53. Unblock User (Admin)
+- **Endpoint**: `POST /api/admin/users/:id/unblock`
+- **Description**: Unblocks a specific user (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the user.  
+- **Response (Success - 200)**:
+  ```json
+  {
+    "message": "User unblocked successfully"
+  }
+
+- **Response (Error - 404, if user not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
+  }
+
+- **Response (Error - 400, if user already active)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "User is already active",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+### 54. Increment Profile Views
+- **Endpoint**: `POST /api/profile/:id/increment-view`
+- **Description**: Increments the view count for a specific jobseeker's profile.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the user (jobseeker).
+- **Response (Success - 200)**:
+  ```json
+  {
+    "message": "Profile view count incremented",
+    "profile_views": 1
+  }
+
+- **Response (Error - 404, if user or profile not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
+  }
+
+- **Response (Error - 400, if user is not a jobseeker)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Profile views can only be incremented for jobseekers",
+    "error": "Bad Request"
+  }
+
+### 55. Get Top Jobseekers by Profile Views (Admin)
+- **Endpoint**: `GET /api/admin/leaderboards/top-jobseekers-by-views`
+- **Description**: Retrieves the top jobseekers by profile views (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**: `limit` (number, optional): Number of jobseekers to return (default: 10).
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "userId": "<jobseekerId>",
+      "username": "john_doe",
+      "email": "john@example.com",
+      "profileViews": 100
+    }
+  ]
+
+- **Response (Error - 400, if limit is invalid)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Limit must be a positive integer",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+### 56. Export Users to CSV (Admin)
+- **Endpoint**: `GET /api/admin/users/export-csv`
+- **Description**: Exports all users to a CSV file (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  - Content-Type: `text/csv`
+  - Content-Disposition: `attachment; filename="users.csv"`
+  - Example file content: User ID,Email,Username,Role,Status,Created At,Updated At
+  <userid1>,<a href="mailto:user1@example.com">user1@example.com</a>,user1,jobseeker,active,2025-05-22T10:00:00.000Z,2025-05-22T10:00:00.000Z</userid1>
+  <userid2>,<a href="mailto:user2@example.com">user2@example.com</a>,user2,employer,blocked,2025-05-22T11:00:00.000Z,2025-05-22T11:00:00.000Z</userid2>
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:  
+    ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
