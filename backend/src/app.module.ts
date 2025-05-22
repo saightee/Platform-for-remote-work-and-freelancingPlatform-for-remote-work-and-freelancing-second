@@ -14,7 +14,9 @@ import { AdminModule } from './admin/admin.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { RedisModule } from './redis/redis.module';
 import { BlockedCountriesModule } from './blocked-countries/blocked-countries.module';
-import { LeaderboardsModule } from './leaderboards/leaderboards.module'; 
+import { LeaderboardsModule } from './leaderboards/leaderboards.module';
+import { SkillCategoriesModule } from './skill-categories/skill-categories.module';
+import { ApplicationLimitsModule } from './application-limits/application-limits.module'; // Убедимся, что импортируется
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 @Module({
@@ -55,6 +57,8 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
     RedisModule,
     BlockedCountriesModule,
     LeaderboardsModule,
+    SkillCategoriesModule,
+    ApplicationLimitsModule, // Убедимся, что импортируется
   ],
   controllers: [AppController],
   providers: [AppService],

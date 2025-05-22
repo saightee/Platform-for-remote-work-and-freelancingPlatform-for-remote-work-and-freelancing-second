@@ -9,8 +9,9 @@ import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { UsersService } from '../users/users.service';
 import { BlockedCountriesService } from '../blocked-countries/blocked-countries.service';
-import { SettingsService } from '../settings/settings.service'; 
-import { ApplicationLimitsService } from '../application-limits/application-limits.service'; 
+import { SettingsService } from '../settings/settings.service';
+import { ApplicationLimitsService } from '../application-limits/application-limits.service';
+import { ApplicationLimit } from '../application-limits/application-limit.entity';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -28,13 +29,15 @@ export class AdminService {
     private jobSeekerRepository: Repository<JobSeeker>,
     @InjectRepository(Employer)
     private employerRepository: Repository<Employer>,
+    @InjectRepository(ApplicationLimit)
+    private applicationLimitsRepository: Repository<ApplicationLimit>,
     private usersService: UsersService,
     private blockedCountriesService: BlockedCountriesService,
-    private settingsService: SettingsService, 
-    private applicationLimitsService: ApplicationLimitsService, 
+    private settingsService: SettingsService,
+    private applicationLimitsService: ApplicationLimitsService,
   ) {}
 
-  private async checkAdminRole(userId: string) {
+  async checkAdminRole(userId: string) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -45,7 +48,6 @@ export class AdminService {
   }
 
   async getUsers(adminId: string, filters: { username?: string; email?: string; createdAfter?: string }) {
-    console.log('Getting users for adminId:', adminId);
     await this.checkAdminRole(adminId);
 
     const query = this.usersRepository.createQueryBuilder('user');
@@ -53,21 +55,21 @@ export class AdminService {
     if (filters.username) {
       query.andWhere('user.username ILIKE :username', { username: `%${filters.username}%` });
     }
-
     if (filters.email) {
       query.andWhere('user.email ILIKE :email', { email: `%${filters.email}%` });
     }
-
     if (filters.createdAfter) {
-      query.andWhere('user.created_at >= :createdAfter', { createdAfter: filters.createdAfter });
+      const createdAfterDate = new Date(filters.createdAfter);
+      if (isNaN(createdAfterDate.getTime())) {
+        throw new BadRequestException('Invalid createdAfter date format');
+      }
+      query.andWhere('user.created_at >= :createdAfter', { createdAfter: createdAfterDate });
     }
 
-    const users = await query.getMany();
-    console.log('Fetched users:', users);
-    return users;
+    return query.getMany();
   }
 
-  async getUser(adminId: string, userId: string) {
+  async getUserById(adminId: string, userId: string) {
     await this.checkAdminRole(adminId);
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
@@ -76,27 +78,35 @@ export class AdminService {
     return user;
   }
 
-  async updateUser(adminId: string, userId: string, updates: { email?: string; username?: string; role?: 'employer' | 'jobseeker' }) {
+  async updateUser(adminId: string, userId: string, updateData: { email?: string; username?: string; role?: 'employer' | 'jobseeker' | 'admin' }) {
     await this.checkAdminRole(adminId);
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    if (updates.email) user.email = updates.email;
-    if (updates.username) user.username = updates.username;
-    if (updates.role) {
-      user.role = updates.role;
-
-      // Обновляем связанные таблицы в зависимости от роли
-      if (updates.role === 'jobseeker') {
+    if (updateData.email) {
+      user.email = updateData.email;
+    }
+    if (updateData.username) {
+      user.username = updateData.username;
+    }
+    if (updateData.role) {
+      user.role = updateData.role;
+      if (user.role === 'jobseeker') {
+        const existingJobSeeker = await this.jobSeekerRepository.findOne({ where: { user_id: userId } });
+        if (!existingJobSeeker) {
+          const jobSeeker = this.jobSeekerRepository.create({ user_id: userId });
+          await this.jobSeekerRepository.save(jobSeeker);
+        }
         await this.employerRepository.delete({ user_id: userId });
-        const jobSeeker = this.jobSeekerRepository.create({ user_id: userId });
-        await this.jobSeekerRepository.save(jobSeeker);
-      } else if (updates.role === 'employer') {
+      } else if (user.role === 'employer') {
+        const existingEmployer = await this.employerRepository.findOne({ where: { user_id: userId } });
+        if (!existingEmployer) {
+          const employer = this.employerRepository.create({ user_id: userId });
+          await this.employerRepository.save(employer);
+        }
         await this.jobSeekerRepository.delete({ user_id: userId });
-        const employer = this.employerRepository.create({ user_id: userId });
-        await this.employerRepository.save(employer);
       }
     }
 
@@ -104,70 +114,60 @@ export class AdminService {
   }
 
   async deleteUser(adminId: string, userId: string) {
-    console.log('Deleting user with ID:', userId);
     await this.checkAdminRole(adminId);
-
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(userId)) {
-      throw new BadRequestException('Invalid user ID format');
-    }
-
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
     try {
-      // 1. Находим все заявки, где пользователь является job_seeker
-      const applicationsAsSeeker = await this.jobApplicationsRepository.find({ where: { job_seeker_id: userId } });
-
-      // 2. Находим все вакансии пользователя (если он employer) и связанные с ними заявки
-      const postsAsEmployer = await this.jobPostsRepository.find({ where: { employer_id: userId } });
-      const postIds = postsAsEmployer.map(post => post.id);
-      const applicationsAsEmployer = postIds.length > 0
-        ? await this.jobApplicationsRepository.find({ where: { job_post_id: In(postIds) } })
-        : [];
-
-      // 3. Собираем все ID заявок (как job_seeker и как employer)
-      const allApplicationIds = [
-        ...applicationsAsSeeker.map(app => app.id),
-        ...applicationsAsEmployer.map(app => app.id)
-      ];
-
-      // 4. Удаляем все отзывы, связанные с этими заявками
-      if (allApplicationIds.length > 0) {
-        await this.reviewsRepository.createQueryBuilder()
-          .delete()
-          .from(Review)
-          .where('job_application_id IN (:...applicationIds)', { applicationIds: allApplicationIds })
-          .execute();
+      // Удаляем связанные записи
+      if (user.role === 'employer') {
+        // Удаляем вакансии работодателя
+        const jobPosts = await this.jobPostsRepository.find({ where: { employer_id: userId } });
+        for (const jobPost of jobPosts) {
+          const applications = await this.jobApplicationsRepository.find({ where: { job_post_id: jobPost.id } });
+          if (applications.length > 0) {
+            const applicationIds = applications.map(app => app.id);
+            await this.reviewsRepository.createQueryBuilder()
+              .delete()
+              .from(Review)
+              .where('job_application_id IN (:...applicationIds)', { applicationIds })
+              .execute();
+          }
+          await this.jobApplicationsRepository.delete({ job_post_id: jobPost.id });
+          await this.applicationLimitsRepository.delete({ job_post_id: jobPost.id });
+          await this.jobPostsRepository.delete(jobPost.id);
+        }
+      } else if (user.role === 'jobseeker') {
+        // Удаляем заявки фрилансера
+        const applications = await this.jobApplicationsRepository.find({ where: { job_seeker_id: userId } });
+        if (applications.length > 0) {
+          const applicationIds = applications.map(app => app.id);
+          await this.reviewsRepository.createQueryBuilder()
+            .delete()
+            .from(Review)
+            .where('job_application_id IN (:...applicationIds)', { applicationIds })
+            .execute();
+        }
+        await this.jobApplicationsRepository.delete({ job_seeker_id: userId });
       }
 
-      // 5. Удаляем все заявки, где пользователь является job_seeker
-      await this.jobApplicationsRepository.delete({ job_seeker_id: userId });
-
-      // 6. Удаляем заявки, связанные с вакансиями пользователя (если он employer)
-      if (postIds.length > 0) {
-        await this.jobApplicationsRepository.delete({ job_post_id: In(postIds) });
-      }
-
-      // 7. Удаляем все отзывы, где пользователь является reviewer или reviewed
+      // Удаляем отзывы, где пользователь — reviewer или reviewed
       await this.reviewsRepository.delete({ reviewer_id: userId });
       await this.reviewsRepository.delete({ reviewed_id: userId });
 
-      // 8. Удаляем вакансии пользователя (если он employer)
-      if (user.role === 'employer') {
-        await this.jobPostsRepository.delete({ employer_id: userId });
-      }
+      // Удаляем обратную связь
+      await this.usersRepository.manager.getRepository('Feedback').delete({ user_id: userId });
 
-      // 9. Удаляем профиль пользователя
+      // Удаляем профиль (JobSeeker или Employer)
       if (user.role === 'jobseeker') {
         await this.jobSeekerRepository.delete({ user_id: userId });
       } else if (user.role === 'employer') {
         await this.employerRepository.delete({ user_id: userId });
       }
 
-      // 10. Удаляем самого пользователя
+      // Удаляем пользователя
       await this.usersRepository.delete(userId);
       return { message: 'User deleted successfully' };
     } catch (error) {
@@ -176,77 +176,57 @@ export class AdminService {
     }
   }
 
-  async getJobPosts(adminId: string, filters: { status?: 'Active' | 'Draft' | 'Closed'; pendingReview?: boolean }) {
+  async resetPassword(adminId: string, userId: string, newPassword: string) {
     await this.checkAdminRole(adminId);
-
-    const query = this.jobPostsRepository.createQueryBuilder('job_post')
-      .leftJoinAndSelect('job_post.employer', 'employer')
-      .leftJoinAndSelect('job_post.category', 'category');
-
-    if (filters.status) {
-      query.andWhere('job_post.status = :status', { status: filters.status });
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
+    const salt = await bcrypt.genSalt();
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    await this.usersService.updatePassword(userId, hashedPassword);
+    return { message: 'Password reset successful' };
+  }
+
+  async getJobPosts(adminId: string, filters: { status?: string; pendingReview?: boolean }) {
+    await this.checkAdminRole(adminId);
+
+    const query = this.jobPostsRepository.createQueryBuilder('jobPost')
+      .leftJoinAndSelect('jobPost.category', 'category')
+      .leftJoinAndSelect('jobPost.employer', 'employer');
+
+    if (filters.status) {
+      query.andWhere('jobPost.status = :status', { status: filters.status });
+    }
     if (filters.pendingReview !== undefined) {
-      query.andWhere('job_post.pending_review = :pendingReview', { pendingReview: filters.pendingReview });
+      query.andWhere('jobPost.pending_review = :pendingReview', { pendingReview: filters.pendingReview });
     }
 
     return query.getMany();
   }
 
-  async approveJobPost(adminId: string, jobPostId: string) {
+  async updateJobPost(adminId: string, jobPostId: string, updateData: { title?: string; description?: string; location?: string; salary?: number; status?: 'Active' | 'Draft' | 'Closed' }) {
     await this.checkAdminRole(adminId);
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
     if (!jobPost) {
       throw new NotFoundException('Job post not found');
     }
 
-    jobPost.pending_review = false;
-    return this.jobPostsRepository.save(jobPost);
-  }
-
-  async flagJobPost(adminId: string, jobPostId: string) {
-    await this.checkAdminRole(adminId);
-    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
-    if (!jobPost) {
-      throw new NotFoundException('Job post not found');
+    if (updateData.title) {
+      jobPost.title = updateData.title;
     }
-
-    jobPost.pending_review = true;
-    return this.jobPostsRepository.save(jobPost);
-  }
-
-  async getJobPost(adminId: string, jobPostId: string) {
-    await this.checkAdminRole(adminId);
-    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId }, relations: ['employer', 'category'] });
-    if (!jobPost) {
-      throw new NotFoundException('Job post not found');
+    if (updateData.description) {
+      jobPost.description = updateData.description;
     }
-    return jobPost;
-  }
-
-  async updateJobPost(adminId: string, jobPostId: string, updates: { title?: string; description?: string; location?: string; salary?: number; status?: 'Active' | 'Draft' | 'Closed'; category_id?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based'; applicationLimit?: number }) {
-    await this.checkAdminRole(adminId);
-    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
-    if (!jobPost) {
-      throw new NotFoundException('Job post not found');
+    if (updateData.location) {
+      jobPost.location = updateData.location;
     }
-
-    const globalLimit = await this.settingsService.getGlobalApplicationLimit();
-
-    if (updates.title) jobPost.title = updates.title;
-    if (updates.description) jobPost.description = updates.description;
-    if (updates.location) jobPost.location = updates.location;
-    if (updates.salary) jobPost.salary = updates.salary;
-    if (updates.status) jobPost.status = updates.status;
-    if (updates.category_id) jobPost.category_id = updates.category_id;
-    if (updates.job_type) jobPost.job_type = updates.job_type;
-    if (updates.applicationLimit !== undefined) {
-      if (updates.applicationLimit > globalLimit) {
-        throw new BadRequestException(`Application limit cannot exceed global limit of ${globalLimit}`);
-      }
-      jobPost.applicationLimit = updates.applicationLimit;
-      await this.applicationLimitsService.initializeLimits(jobPostId, updates.applicationLimit);
+    if (updateData.salary) {
+      jobPost.salary = updateData.salary;
+    }
+    if (updateData.status) {
+      jobPost.status = updateData.status;
     }
 
     return this.jobPostsRepository.save(jobPost);
@@ -276,6 +256,9 @@ export class AdminService {
       // Удаляем связанные заявки
       await this.jobApplicationsRepository.delete({ job_post_id: jobPostId });
 
+      // Удаляем связанные лимиты заявок
+      await this.applicationLimitsRepository.delete({ job_post_id: jobPostId });
+
       // Удаляем саму вакансию
       await this.jobPostsRepository.delete(jobPostId);
       return { message: 'Job post deleted successfully' };
@@ -285,6 +268,28 @@ export class AdminService {
     }
   }
 
+  async approveJobPost(adminId: string, jobPostId: string) {
+    await this.checkAdminRole(adminId);
+    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
+    if (!jobPost) {
+      throw new NotFoundException('Job post not found');
+    }
+
+    jobPost.pending_review = false;
+    return this.jobPostsRepository.save(jobPost);
+  }
+
+  async flagJobPost(adminId: string, jobPostId: string) {
+    await this.checkAdminRole(adminId);
+    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
+    if (!jobPost) {
+      throw new NotFoundException('Job post not found');
+    }
+
+    jobPost.pending_review = true;
+    return this.jobPostsRepository.save(jobPost);
+  }
+
   async getReviews(adminId: string) {
     await this.checkAdminRole(adminId);
     return this.reviewsRepository.find({ relations: ['reviewer', 'reviewed', 'job_application'] });
@@ -292,23 +297,36 @@ export class AdminService {
 
   async deleteReview(adminId: string, reviewId: string) {
     await this.checkAdminRole(adminId);
-    const review = await this.reviewsRepository.findOne({ where: { id: reviewId }, relations: ['reviewed', 'job_application'] });
+    const review = await this.reviewsRepository.findOne({ where: { id: reviewId } });
     if (!review) {
       throw new NotFoundException('Review not found');
     }
 
-    const reviewedUser = review.reviewed;
     await this.reviewsRepository.delete(reviewId);
 
-    const remainingReviews = await this.reviewsRepository.find({ where: { reviewed_id: reviewedUser.id } });
-    const averageRating = remainingReviews.length
-      ? remainingReviews.reduce((sum, rev) => sum + rev.rating, 0) / remainingReviews.length
+    const reviewedUserId = review.reviewed_id;
+    const reviewedUser = await this.usersRepository.findOne({ where: { id: reviewedUserId } });
+    if (!reviewedUser) {
+      return { message: 'Review deleted successfully' };
+    }
+
+    const reviews = await this.reviewsRepository.find({ where: { reviewed_id: reviewedUserId } });
+    const averageRating = reviews.length > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
       : 0;
 
-    if (review.job_application.job_seeker_id === reviewedUser.id) {
-      await this.jobSeekerRepository.update(review.job_application.job_seeker_id, { average_rating: averageRating });
-    } else {
-      await this.employerRepository.update(review.job_application.job_seeker_id, { average_rating: averageRating });
+    if (reviewedUser.role === 'jobseeker') {
+      const jobSeeker = await this.jobSeekerRepository.findOne({ where: { user_id: reviewedUserId } });
+      if (jobSeeker) {
+        jobSeeker.average_rating = averageRating;
+        await this.jobSeekerRepository.save(jobSeeker);
+      }
+    } else if (reviewedUser.role === 'employer') {
+      const employer = await this.employerRepository.findOne({ where: { user_id: reviewedUserId } });
+      if (employer) {
+        employer.average_rating = averageRating;
+        await this.employerRepository.save(employer);
+      }
     }
 
     return { message: 'Review deleted successfully' };
@@ -338,6 +356,7 @@ export class AdminService {
 
   async setApplicationLimit(adminId: string, jobPostId: string, limit: number) {
     await this.checkAdminRole(adminId);
+
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
     if (!jobPost) {
       throw new NotFoundException('Job post not found');
@@ -351,71 +370,49 @@ export class AdminService {
     jobPost.applicationLimit = limit;
     await this.jobPostsRepository.save(jobPost);
 
-    // Инициализируем распределение по дням
     await this.applicationLimitsService.initializeLimits(jobPostId, limit);
 
     return { message: 'Application limit updated successfully', limit };
   }
 
-  async setGlobalApplicationLimit(adminId: string, limit: number) {
-    await this.checkAdminRole(adminId);
-    if (limit < 0) {
-      throw new BadRequestException('Global application limit must be a non-negative number');
+  async verifyIdentity(userId: string, verify: boolean, authHeader: string) {
+    if (typeof verify !== 'boolean') {
+      throw new BadRequestException('Verify parameter must be a boolean');
     }
-    await this.settingsService.setGlobalApplicationLimit(limit);
-    return { message: 'Global application limit updated successfully', limit };
-  }
 
-  async getGlobalApplicationLimit(adminId: string) {
-    await this.checkAdminRole(adminId);
-    const limit = await this.settingsService.getGlobalApplicationLimit();
-    return { globalApplicationLimit: limit };
-  }
-
-  async resetPassword(adminId: string, userId: string, newPassword: string) {
-    await this.checkAdminRole(adminId);
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    console.log('New hashed password:', hashedPassword);
-    await this.usersService.updatePassword(userId, hashedPassword);
+    if (!user.identity_document) {
+      throw new NotFoundException('No identity document uploaded');
+    }
 
-    const updatedUser = await this.usersRepository.findOne({ where: { id: userId } });
-    console.log('Updated user password:', updatedUser?.password);
+    user.identity_verified = verify;
+    await this.usersRepository.save(user);
 
-    return { message: 'Password reset successful' };
+    return { message: 'Identity verification status updated', identity_verified: user.identity_verified };
   }
 
   async addBlockedCountry(adminId: string, countryCode: string) {
     await this.checkAdminRole(adminId);
-    return this.blockedCountriesService.addBlockedCountry(adminId, countryCode);
+    return this.blockedCountriesService.addBlockedCountry(countryCode);
   }
 
   async removeBlockedCountry(adminId: string, countryCode: string) {
     await this.checkAdminRole(adminId);
-    await this.blockedCountriesService.removeBlockedCountry(adminId, countryCode);
-    return { message: 'Country removed from blocked list' };
+    return this.blockedCountriesService.removeBlockedCountry(countryCode);
   }
 
   async getBlockedCountries(adminId: string) {
     await this.checkAdminRole(adminId);
-    return this.blockedCountriesService.getBlockedCountries(adminId);
+    return this.blockedCountriesService.getBlockedCountries();
   }
 
-  async getRegistrationStats(adminId: string, startDate: string, endDate: string, interval: 'day' | 'week' | 'month') {
+  async getRegistrationStats(adminId: string, startDate: Date, endDate: Date, interval: 'day' | 'week' | 'month') {
     await this.checkAdminRole(adminId);
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      throw new BadRequestException('Invalid date format');
-    }
-
-    return this.usersService.getRegistrationStats(start, end, interval);
+    return this.usersService.getRegistrationStats(startDate, endDate, interval);
   }
 
   async getGeographicDistribution(adminId: string) {

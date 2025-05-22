@@ -119,7 +119,7 @@ export class AuthService {
     }
     const userData = JSON.parse(userDataString);
     console.log('User Data:', userData);
-
+  
     let existingUser = await this.usersService.findByEmail(userData.email);
     if (!existingUser) {
       const userToCreate = {
@@ -127,7 +127,7 @@ export class AuthService {
         username: userData.username,
         password: userData.password || '',
         provider: userData.provider,
-        role: userData.role || role, 
+        role: userData.role || role,
       };
       existingUser = await this.usersService.create(userToCreate, additionalData);
       console.log('New User Created:', existingUser);
@@ -136,7 +136,7 @@ export class AuthService {
       await this.usersService.updateUser(existingUser.id, userData.role || role, additionalData);
       console.log('User Updated:', { role: userData.role || role, additionalData });
     }
-
+  
     const payload = { email: existingUser.email, sub: existingUser.id, role: existingUser.role };
     const token = this.jwtService.sign(payload, { expiresIn: '1h' });
     await this.redisService.set(`token:${existingUser.id}`, token, 3600);

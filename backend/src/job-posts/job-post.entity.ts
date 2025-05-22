@@ -45,6 +45,9 @@ export class JobPost {
   @Column({ default: 100 })
   applicationLimit: number;
 
+  @Column({ default: 0 }) // Добавлено
+  views: number;
+
   @CreateDateColumn()
   created_at: Date;
 

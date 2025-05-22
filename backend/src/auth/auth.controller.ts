@@ -8,12 +8,16 @@ import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { v4 as uuidv4 } from 'uuid';
+import { UsersService } from '../users/users.service'; // Добавляем
+import { RedisService } from '../redis/redis.service'; // Добавляем
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private authService: AuthService,
     private jwtService: JwtService,
+    private usersService: UsersService, // Добавляем
+    private redisService: RedisService, // Добавляем
   ) {}
 
   @Post('register')
@@ -31,6 +35,25 @@ export class AuthController {
   @Post('login')
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Post('google-login')
+  async googleLogin(@Body('token') token: string) {
+    try {
+      const payload = this.jwtService.verify(token);
+      const user = await this.usersService.findByEmail(payload.email);
+      if (!user || user.provider !== 'google') {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      const newPayload = { email: user.email, sub: user.id, role: user.role };
+      const newToken = this.jwtService.sign(newPayload, { expiresIn: '1h' });
+      await this.redisService.set(`token:${user.id}`, newToken, 3600);
+
+      return { accessToken: newToken };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid token');
+    }
   }
 
   @Post('logout')
@@ -59,7 +82,6 @@ export class AuthController {
   async googleAuthRedirect(
     @Request() req,
     @Res() res: Response,
-    @Query('role') role: 'employer' | 'jobseeker',
     @Query('callbackUrl') callbackUrl: string,
   ) {
     console.log('Google Callback - req.user:', req.user);
@@ -67,7 +89,7 @@ export class AuthController {
       const tempToken = await this.authService.storeOAuthUserData(req.user);
       console.log('Google Callback - Temp Token:', tempToken);
 
-      const user = await this.authService.completeRegistration(tempToken, role || 'jobseeker', {
+      const user = await this.authService.completeRegistration(tempToken, req.user.role, {
         timezone: 'UTC',
         currency: 'USD',
       });
@@ -75,7 +97,7 @@ export class AuthController {
       const redirectUrl = callbackUrl || `${req.protocol}://${req.get('host')}/auth/callback`;
       const redirectParams = new URLSearchParams({
         token: user.accessToken,
-        role: req.user.role, // Используем role из req.user
+        role: req.user.role,
       }).toString();
 
       return res.redirect(`${redirectUrl}?${redirectParams}`);
