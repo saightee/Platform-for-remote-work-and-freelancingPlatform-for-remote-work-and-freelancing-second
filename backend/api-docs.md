@@ -527,6 +527,7 @@
 - **Endpoint**: `POST /api/job-applications`
 - **Description**: Allows a jobseeker to apply to a job post.
 - **Headers**: `Authorization: Bearer <token>`
+- **Note**: Applications are limited per job post (default: 100) and distributed over 4 days (60/20/10/10%). If the limit is reached for the current day, a "Job full" error is returned.
 - **Request Body**:
   ```json
   {
@@ -1553,7 +1554,7 @@
 
 ### 41. Get Top Employers (Admin)
 - **Endpoint**: `GET /api/admin/leaderboards/top-employers`
-- **Description**: Retrieves the top employers by the number of job posts (admin only).
+- **Description**: Retrieves the top employers by average rating (admin only).
 - **Headers**: `Authorization: Bearer <token>`
 - **Query Parameters**: 
   - `limit` (number, optional): Number of results to return (default: 10).
@@ -1585,9 +1586,10 @@
   ```json
   [
     {
-      "job_seeker_id": "<jobseekerId>",
-      "username": "john_doe113",
-      "application_count": 10
+      "userId": "<jobseekerId>",
+      "username": "john_doe",
+      "email": "john@example.com",
+      "averageRating": 4
     }
   ]
 
@@ -1636,7 +1638,7 @@
   }
 
 ### 44. Upload Identity Document
-- **Endpoint**: `POST /api/profile/upload-identit`
+- **Endpoint**: `POST /api/profile/upload-identity`
 - **Description**: Uploads an identity document for verification for the authenticated user.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**: 
@@ -1878,7 +1880,7 @@
     }
   ]
 
-### 52. Get Skill Categories
+### 52. Block User (Admin)
 - **Endpoint**: `POST /api/admin/users/:id/block`
 - **Description**: Blocks a specific user (admin only).
 - **Headers**: `Authorization: Bearer <token>`

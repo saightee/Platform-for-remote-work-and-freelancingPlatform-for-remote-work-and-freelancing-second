@@ -10,6 +10,6 @@ import { Category } from './category.entity';
   ],
   controllers: [CategoriesController],
   providers: [CategoriesService],
-  exports: [CategoriesService], // Экспортируем сервис для использования в JobPostsModule
+  exports: [CategoriesService], 
 })
 export class CategoriesModule {}
