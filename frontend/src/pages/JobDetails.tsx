@@ -1,12 +1,15 @@
+// src/pages/JobDetails.tsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getJobPost, applyToJob } from '../services/api';
+import { getJobPost, applyToJob, incrementJobView } from '../services/api';
 import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import { FaEye } from 'react-icons/fa';
+import { format, zonedTimeToUtc } from 'date-fns-tz';
+import { parseISO } from 'date-fns';
 
 const JobDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +25,8 @@ const JobDetails: React.FC = () => {
         if (id) {
           const jobData = await getJobPost(id);
           setJob(jobData);
+          const response = await incrementJobView(id);
+          setJob((prev) => (prev ? { ...prev, views: response.views || (jobData.views || 0) + 1 } : prev));
         }
       } catch (err) {
         console.error('Error fetching job:', err);
@@ -53,8 +58,22 @@ const JobDetails: React.FC = () => {
     }
   };
 
-  if (loading) return <div>Loading...</div>;
+  const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
+    if (!dateString) return 'Not specified';
+    try {
+      const date = parseISO(dateString);
+      if (timezone) {
+        const zonedDate = zonedTimeToUtc(date, timezone);
+        return format(zonedDate, 'PPpp', { timeZone: timezone });
+      }
+      return format(date, 'PPpp');
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid date';
+    }
+  };
 
+  if (loading) return <div>Loading...</div>;
   if (!job) return <div>Job not found.</div>;
 
   return (
@@ -66,10 +85,18 @@ const JobDetails: React.FC = () => {
         <div className="job-details-content">
           <div className="job-details-info">
             <p><strong>Location:</strong> {job.location || 'Not specified'}</p>
-            <p><strong>Salary Range:</strong> {job.salaryMin && job.salaryMax ? `$${job.salaryMin} - $${job.salaryMax}` : 'Not specified'}</p>
+            <p>
+              <strong>Salary:</strong>{' '}
+              {job.salary
+                ? `${profile?.currency || '$'}${job.salary}`
+                : 'Not specified'}
+            </p>
             <p><strong>Job Type:</strong> {job.job_type || 'Not specified'}</p>
             <p><strong>Category:</strong> {job.category?.name || 'Not specified'}</p>
-            <p><strong>Posted On:</strong> {new Date(job.created_at).toLocaleDateString()}</p>
+            <p>
+              <strong>Posted On:</strong>{' '}
+              {formatDateInTimezone(job.created_at, profile?.timezone)}
+            </p>
             <p><strong>Status:</strong> {job.status}</p>
             <p><strong>Views:</strong> <FaEye /> {job.views || 0}</p>
             <h2>Description</h2>
@@ -79,7 +106,7 @@ const JobDetails: React.FC = () => {
             {profile?.role === 'jobseeker' && job.status === 'open' && (
               <button onClick={handleApply}>Apply Now</button>
             )}
-            {(!profile || profile.role !== 'jobseeker') && (
+            {(!profile || profile?.role !== 'jobseeker') && (
               <button onClick={() => navigate('/login')}>Login to Apply</button>
             )}
           </div>

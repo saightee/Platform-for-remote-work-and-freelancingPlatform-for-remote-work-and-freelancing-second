@@ -1,23 +1,30 @@
-import { useState } from 'react';
+// src/pages/Login.tsx
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { login, googleAuthInitiateForLogin } from '../services/api';
 import { FaGoogle } from 'react-icons/fa';
+import { useRole } from '../context/RoleContext';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const navigate = useNavigate();
+  const { profile, refreshProfile } = useRole();
 
   const handleSubmit = async (e: React.MouseEvent) => {
     e.preventDefault();
     try {
+      setErrorMessage(null);
       const { accessToken } = await login({ email, password });
       localStorage.setItem('token', accessToken);
-      navigate('/');
-    } catch (error) {
+      await refreshProfile();
+      setIsAuthenticated(true);
+    } catch (error: any) {
       console.error('Login error:', error);
-      alert('Login failed. Please try again.');
+      setErrorMessage(error.response?.data?.message || 'Login failed. Please try again.');
     }
   };
 
@@ -25,10 +32,23 @@ const Login: React.FC = () => {
     googleAuthInitiateForLogin();
   };
 
+  useEffect(() => {
+    if (isAuthenticated && profile) {
+      // Временно отключаем проверку роли
+      // if (profile.role === 'admin') {
+      //   navigate('/admin');
+      // } else {
+      //   navigate('/');
+      // }
+      navigate('/'); // Перенаправляем всех на главную страницу
+    }
+  }, [isAuthenticated, profile, navigate]);
+
   return (
     <div className="register-container">
       <div className="register-box">
         <h2>Sign In</h2>
+        {errorMessage && <p style={{ color: 'red', textAlign: 'center' }}>{errorMessage}</p>}
         <div className="register-form">
           <div className="form-group">
             <label>Email</label>

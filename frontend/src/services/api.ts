@@ -1,3 +1,4 @@
+// src/services/api.ts
 import axios from 'axios';
 import { 
   User, Profile, JobPost, Category, JobApplication, Review, Feedback, 
@@ -43,6 +44,11 @@ export const googleAuthInitiate = (role: 'employer' | 'jobseeker') => {
 export const googleAuthInitiateForLogin = () => {
   const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
   window.location.href = `${baseUrl}/auth/google`;
+};
+
+export const googleAuthLogin = async (token: string) => {
+  const response = await api.post<{ accessToken: string }>('/auth/google-login', { token });
+  return response.data;
 };
 
 // Profile
@@ -94,6 +100,7 @@ export const searchJobPosts = async (params: {
   salaryMax?: number;
   job_type?: string;
   category_id?: string;
+  required_skills?: string;
 }) => {
   const response = await api.get<JobPost[]>('/job-posts/search', { params });
   return response.data;
@@ -109,6 +116,16 @@ export const setJobPostApplicationLimit = async (id: string, limit: number) => {
     `/job-posts/${id}/set-application-limit`,
     { limit }
   );
+  return response.data;
+};
+
+export const incrementJobView = async (id: string) => {
+  const response = await api.post(`/jobs/${id}/increment-view`);
+  return response.data;
+};
+
+export const applyToJob = async (id: string) => {
+  const response = await api.post(`/job-applications/${id}/apply`);
   return response.data;
 };
 
@@ -289,7 +306,7 @@ export const submitFeedback = async (message: string) => {
 };
 
 export const getFeedback = async () => {
-  const response = await api.get<Feedback[]>('/feedback');
+  const response = await api.get<Feedback[]>('/admin/feedback');
   return response.data;
 };
 
@@ -306,16 +323,5 @@ export const removeBlockedCountry = async (countryCode: string) => {
 
 export const getBlockedCountries = async () => {
   const response = await api.get<BlockedCountry[]>('/admin/blocked-countries');
-  return response.data;
-};
-
-export const incrementJobView = async (id: string) => {
-  const response = await api.post(`/jobs/${id}/increment-view`);
-  return response.data;
-};
-
-
-export const applyToJob = async (id: string) => {
-  const response = await api.post(`/jobs/${id}/apply`);
   return response.data;
 };

@@ -1,3 +1,4 @@
+// src/pages/FindJob.tsx
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '../components/Header';
@@ -6,8 +7,10 @@ import Copyright from '../components/Copyright';
 import { searchJobPosts, getCategories, incrementJobView } from '../services/api';
 import { JobPost, Category } from '@types';
 import { FaEye } from 'react-icons/fa';
+import { useRole } from '../context/RoleContext';
 
 const FindJob: React.FC = () => {
+  const { profile } = useRole();
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [filters, setFilters] = useState<{
@@ -17,8 +20,10 @@ const FindJob: React.FC = () => {
     salaryMax?: number;
     job_type?: string;
     category_id?: string;
+    required_skills?: string;
   }>({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [requiredSkills, setRequiredSkills] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,12 +65,18 @@ const FindJob: React.FC = () => {
     setFilters((prev) => ({
       ...prev,
       title: searchQuery || undefined,
+      required_skills: requiredSkills || undefined,
     }));
   };
 
   const handleViewDetails = async (jobId: string) => {
     try {
-      await incrementJobView(jobId);
+      const response = await incrementJobView(jobId);
+      setJobs((prevJobs) =>
+        prevJobs.map((job) =>
+          job.id === jobId ? { ...job, views: response.views || (job.views || 0) + 1 } : job
+        )
+      );
     } catch (err) {
       console.error('Error incrementing job view:', err);
     }
@@ -150,6 +161,15 @@ const FindJob: React.FC = () => {
                 ))}
               </select>
             </div>
+            <div className="form-group">
+              <label>Required Skills (comma-separated)</label>
+              <input
+                type="text"
+                value={requiredSkills}
+                onChange={(e) => setRequiredSkills(e.target.value)}
+                placeholder="e.g., JavaScript, Python"
+              />
+            </div>
           </div>
 
           <div className="find-job-results">
@@ -162,7 +182,12 @@ const FindJob: React.FC = () => {
                   <div key={job.id} className="job-card">
                     <h3>{job.title}</h3>
                     <p><strong>Location:</strong> {job.location || 'Not specified'}</p>
-                    <p><strong>Salary Range:</strong> {job.salaryMin && job.salaryMax ? `$${job.salaryMin} - $${job.salaryMax}` : 'Not specified'}</p>
+                    <p>
+                      <strong>Salary:</strong>{' '}
+                      {job.salary
+                        ? `${profile?.currency || '$'}${job.salary}`
+                        : 'Not specified'}
+                    </p>
                     <p><strong>Job Type:</strong> {job.job_type || 'Not specified'}</p>
                     <p>{truncateDescription(job.description, 100)}</p>
                     <div className="job-card-footer">
