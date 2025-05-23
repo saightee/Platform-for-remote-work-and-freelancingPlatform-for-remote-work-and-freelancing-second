@@ -1,4 +1,3 @@
-// src/pages/MyJobPosts.tsx
 import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -17,21 +16,26 @@ const MyJobPosts: React.FC = () => {
   >({ jobPostId: '', apps: [] });
   const [limit, setLimit] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchJobPosts = async () => {
       if (!profile || profile.role !== 'employer') {
         setJobPosts([]);
-        setError('This page is only available for Employers.');
+        setError('Эта страница доступна только для работодателей.');
+        setIsLoading(false);
         return;
       }
 
       try {
+        setIsLoading(true);
         const posts = await getMyJobPosts();
         setJobPosts(posts);
       } catch (err) {
-        console.error('Error fetching job posts:', err);
-        setError('Failed to load job posts. Please try again.');
+        console.error('Ошибка загрузки вакансий:', err);
+        setError('Не удалось загрузить вакансии. Пожалуйста, попробуйте снова.');
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchJobPosts();
@@ -41,10 +45,10 @@ const MyJobPosts: React.FC = () => {
     try {
       const updatedPost = await updateJobPost(id, updatedData);
       setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
-      alert('Job post updated successfully!');
+      alert('Вакансия успешно обновлена!');
     } catch (err) {
-      console.error('Error updating job post:', err);
-      alert('Failed to update job post.');
+      console.error('Ошибка обновления вакансии:', err);
+      alert('Не удалось обновить вакансию.');
     }
   };
 
@@ -52,21 +56,21 @@ const MyJobPosts: React.FC = () => {
     try {
       const updatedPost = await closeJobPost(id);
       setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
-      alert('Job post closed successfully!');
+      alert('Вакансия успешно закрыта!');
     } catch (err) {
-      console.error('Error closing job post:', err);
-      alert('Failed to close job post.');
+      console.error('Ошибка закрытия вакансии:', err);
+      alert('Не удалось закрыть вакансию.');
     }
   };
 
   const handleSetLimit = async (id: string) => {
     try {
       await setJobPostApplicationLimit(id, limit);
-      alert('Application limit set successfully!');
+      alert('Лимит заявок успешно установлен!');
       setLimit(0);
     } catch (err) {
-      console.error('Error setting application limit:', err);
-      alert('Failed to set application limit.');
+      console.error('Ошибка установки лимита заявок:', err);
+      alert('Не удалось установить лимит заявок.');
     }
   };
 
@@ -75,13 +79,13 @@ const MyJobPosts: React.FC = () => {
       const apps = await getApplicationsForJobPost(jobPostId);
       setApplications({ jobPostId, apps });
     } catch (err) {
-      console.error('Error fetching applications:', err);
-      alert('Failed to fetch applications.');
+      console.error('Ошибка загрузки заявок:', err);
+      alert('Не удалось загрузить заявки.');
     }
   };
 
   const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
-    if (!dateString) return 'Not specified';
+    if (!dateString) return 'Не указано';
     try {
       const date = parseISO(dateString);
       if (timezone) {
@@ -90,17 +94,31 @@ const MyJobPosts: React.FC = () => {
       }
       return format(date, 'PPpp');
     } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'Invalid date';
+      console.error('Ошибка форматирования даты:', error);
+      return 'Недействительная дата';
     }
   };
+
+  if (isLoading) {
+    return (
+      <div>
+        <Header />
+        <div className="container">
+          <h2>Мои вакансии</h2>
+          <p>Загрузка...</p>
+        </div>
+        <Footer />
+        <Copyright />
+      </div>
+    );
+  }
 
   if (!profile || profile.role !== 'employer') {
     return (
       <div>
         <Header />
         <div className="container">
-          <h2>My Job Posts</h2>
+          <h2>Мои вакансии</h2>
           <p>{error}</p>
         </div>
         <Footer />
@@ -113,20 +131,20 @@ const MyJobPosts: React.FC = () => {
     <div>
       <Header />
       <div className="container my-job-posts-container">
-        <h2>My Job Posts</h2>
+        <h2>Мои вакансии</h2>
         {error && <p className="error-message">{error}</p>}
         {jobPosts.length > 0 ? (
           <div className="job-grid">
             {jobPosts.map((post) => (
               <div key={post.id} className="job-card">
                 <h3>{post.title}</h3>
-                <p><strong>Status:</strong> {post.status}</p>
-                <p><strong>Application Limit:</strong> {post.applicationLimit || 'No limit'}</p>
+                <p><strong>Статус:</strong> {post.status}</p>
+                <p><strong>Лимит заявок:</strong> {post.applicationLimit || 'Без лимита'}</p>
                 <button onClick={() => handleClose(post.id)} className="action-button warning">
-                  Close Job
+                  Закрыть вакансию
                 </button>
                 <div className="form-group">
-                  <label>Set Application Limit:</label>
+                  <label>Установить лимит заявок:</label>
                   <input
                     type="number"
                     value={limit}
@@ -134,24 +152,24 @@ const MyJobPosts: React.FC = () => {
                     min="0"
                   />
                   <button onClick={() => handleSetLimit(post.id)} className="action-button">
-                    Set Limit
+                    Установить лимит
                   </button>
                 </div>
                 <button
                   onClick={() => handleViewApplications(post.id)}
                   className="action-button success"
                 >
-                  View Applications
+                  Посмотреть заявки
                 </button>
                 {applications.jobPostId === post.id && applications.apps.length > 0 && (
                   <div className="applications-section">
-                    <h4>Applications:</h4>
+                    <h4>Заявки:</h4>
                     <ul>
                       {applications.apps.map((app, index) => (
                         <li key={index}>
-                          <strong>{app.username}</strong> ({app.email}) - Applied at:{' '}
+                          <strong>{app.username}</strong> ({app.email}) - Подал заявку:{' '}
                           {formatDateInTimezone(app.appliedAt, profile.timezone)} <br />
-                          <strong>Description:</strong> {app.jobDescription || 'Not provided'}
+                          <strong>Описание:</strong> {app.jobDescription || 'Не указано'}
                         </li>
                       ))}
                     </ul>
@@ -161,7 +179,7 @@ const MyJobPosts: React.FC = () => {
             ))}
           </div>
         ) : (
-          <p>No job posts found.</p>
+          <p>Вакансии не найдены.</p>
         )}
       </div>
       <Footer />

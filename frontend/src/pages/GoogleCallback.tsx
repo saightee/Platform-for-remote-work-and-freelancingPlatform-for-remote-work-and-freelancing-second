@@ -1,4 +1,3 @@
-// src/pages/GoogleCallback.tsx
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
@@ -21,7 +20,7 @@ const GoogleCallback: React.FC = () => {
 
     const handleAuth = async () => {
       if (!accessToken) {
-        setError('Google authentication failed: No access token provided.');
+        setError('Ошибка авторизации через Google: токен доступа не предоставлен. Пожалуйста, попробуйте снова или обратитесь в поддержку.');
         return;
       }
 
@@ -39,13 +38,9 @@ const GoogleCallback: React.FC = () => {
           setIsAuthenticated(true);
         }
       } catch (error: any) {
-        console.error('Google authentication error:', error);
-        const errorMessage = error.response?.data?.message || 'Google authentication failed. Please try again.';
-        if (error.response?.status === 401) {
-          setError('Invalid token. Please try logging in again.');
-        } else {
-          setError(errorMessage);
-        }
+        console.error('Ошибка авторизации через Google:', error);
+        const errorMessage = error.response?.data?.message || 'Ошибка авторизации через Google. Пожалуйста, попробуйте снова или обратитесь в поддержку.';
+        setError(errorMessage);
       }
     };
 
@@ -54,12 +49,6 @@ const GoogleCallback: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      // Временно отключаем проверку роли
-      // if (profile && profile.role === 'admin') {
-      //   navigate('/admin');
-      // } else {
-      //   navigate('/');
-      // }
       navigate('/'); // Перенаправляем всех на главную страницу
     } else if (error) {
       alert(error);
@@ -71,7 +60,8 @@ const GoogleCallback: React.FC = () => {
     <div>
       <Header />
       <div className="container">
-        <h2>Processing Google Authentication...</h2>
+        <h2>Обработка авторизации через Google...</h2>
+        {error && <p className="error-message">{error}</p>}
       </div>
       <Footer />
       <Copyright />

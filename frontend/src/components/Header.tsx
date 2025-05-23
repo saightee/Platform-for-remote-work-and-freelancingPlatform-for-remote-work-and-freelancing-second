@@ -23,14 +23,23 @@ const Header: React.FC = () => {
   return (
     <header className="header-container">
       <div className="header-content">
-        <Link to="/" className="logo">HireVolve</Link>
+        <Link to="/" className="logo">HireValve</Link>
         <nav>
           {isAuthenticated ? (
             <>
               <Link to="/profile">Profile</Link>
-              {profile.role === 'jobseeker' && <Link to="/my-applications">My Applications</Link>}
-              {profile.role === 'employer' && <Link to="/my-job-posts">My Job Posts</Link>}
-              {/* {profile.role === 'admin' && <Link to="/admin">Admin Dashboard</Link>} */}
+              {profile.role === 'jobseeker' && (
+                <>
+                  <Link to="/my-applications">My Applications</Link>
+                  <Link to="/find-job">Find Job</Link>
+                </>
+              )}
+              {profile.role === 'employer' && (
+                <>
+                  <Link to="/my-job-posts">My Job Posts</Link>
+                  <Link to="/post-job">Post Job</Link>
+                </>
+              )}
               <Link to="/feedback">Feedback</Link>
               <button onClick={handleLogout}>Logout</button>
             </>

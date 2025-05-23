@@ -4,7 +4,7 @@ import SearchBar from '../components/SearchBar';
 import JobCard from '../components/JobCard';
 import FeatureCard from '../components/FeatureCard';
 import Footer from '../components/Footer';
-import Copyright from '../components/Copyright'; // Добавили импорт
+import Copyright from '../components/Copyright';
 import { searchJobPosts } from '../services/api';
 import { JobPost } from '@types';
 import { Link } from 'react-router-dom';
@@ -18,8 +18,10 @@ const Home: React.FC = () => {
       try {
         const jobsData = await searchJobPosts(filters);
         setJobs(jobsData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
+      } catch (error: any) {
+        console.error('Ошибка при загрузке вакансий:', error);
+        // Показываем пустой список вместо ошибки, чтобы не ломать интерфейс
+        setJobs([]);
       }
     };
     fetchData();
@@ -66,7 +68,7 @@ const Home: React.FC = () => {
         </div>
 
         <div className="features">
-          <h2>Why Choose SilverGoldReview</h2>
+          <h2>Why Choose HireValve</h2>
           <div className="feature-grid">
             <FeatureCard
               title="Smart Matching"
@@ -84,7 +86,7 @@ const Home: React.FC = () => {
               title="Performance Tracking"
               description="Monitor progress and ensure quality."
             />
-              <FeatureCard
+            <FeatureCard
               title="Secure Payments"
               description="Safe and reliable payment processing."
             />
