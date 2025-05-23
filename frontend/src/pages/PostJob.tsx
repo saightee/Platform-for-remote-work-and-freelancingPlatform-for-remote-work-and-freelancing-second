@@ -1,18 +1,20 @@
+// src/pages/PostJob.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import Copyright from '../components/Copyright'; // Добавили импорт
+import Copyright from '../components/Copyright';
 import { createJobPost, getCategories, setJobPostApplicationLimit } from '../services/api';
 import { Category } from '@types';
+import { useRole } from '../context/RoleContext';
 
 const PostJob: React.FC = () => {
   const navigate = useNavigate();
+  const { profile } = useRole();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
-  const [salaryMin, setSalaryMin] = useState<number | ''>('');
-  const [salaryMax, setSalaryMax] = useState<number | ''>('');
+  const [salary, setSalary] = useState<number | ''>(''); // Заменяем salaryMin и salaryMax на salary
   const [jobType, setJobType] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [applicationLimit, setApplicationLimit] = useState<number | ''>('');
@@ -20,6 +22,13 @@ const PostJob: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Проверяем роль пользователя
+    if (!profile || profile.role !== 'employer') {
+      setError('Only employers can post jobs.');
+      navigate('/'); // Перенаправляем, если не employer
+      return;
+    }
+
     const fetchCategories = async () => {
       try {
         const categoriesData = await getCategories();
@@ -30,7 +39,7 @@ const PostJob: React.FC = () => {
       }
     };
     fetchCategories();
-  }, []);
+  }, [profile, navigate]);
 
   const handleSubmit = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -40,8 +49,8 @@ const PostJob: React.FC = () => {
         title,
         description,
         location: location || undefined,
-        salaryMin: salaryMin || undefined,
-        salaryMax: salaryMax || undefined,
+        salary: salary || undefined, // Используем salary
+        status: 'Active', // Добавляем status
         job_type: jobType || undefined,
         category_id: categoryId || undefined,
       };
@@ -50,11 +59,25 @@ const PostJob: React.FC = () => {
         await setJobPostApplicationLimit(response.id, Number(applicationLimit));
       }
       navigate('/my-job-posts');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating job post:', err);
-      setError('Failed to create job post. Please try again.');
+      setError(err.response?.data?.message || 'Failed to create job post. Please try again.');
     }
   };
+
+  if (!profile || profile.role !== 'employer') {
+    return (
+      <div>
+        <Header />
+        <div className="container">
+          <h2>Post a Job</h2>
+          <p>This page is only available for Employers.</p>
+        </div>
+        <Footer />
+        <Copyright />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -97,22 +120,12 @@ const PostJob: React.FC = () => {
               </div>
               <div className="form-column">
                 <div className="form-group">
-                  <label>Minimum Salary</label>
+                  <label>Salary</label>
                   <input
                     type="number"
-                    value={salaryMin}
-                    onChange={(e) => setSalaryMin(e.target.value ? Number(e.target.value) : '')}
-                    placeholder="Enter minimum salary"
-                    min="0"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Maximum Salary</label>
-                  <input
-                    type="number"
-                    value={salaryMax}
-                    onChange={(e) => setSalaryMax(e.target.value ? Number(e.target.value) : '')}
-                    placeholder="Enter maximum salary"
+                    value={salary}
+                    onChange={(e) => setSalary(e.target.value ? Number(e.target.value) : '')}
+                    placeholder="Enter salary"
                     min="0"
                   />
                 </div>

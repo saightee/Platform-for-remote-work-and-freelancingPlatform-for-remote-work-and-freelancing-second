@@ -1,7 +1,9 @@
+// src/pages/Register.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { register, googleAuthInitiate } from '../services/api';
 import { FaGoogle } from 'react-icons/fa';
+import { useRole } from '../context/RoleContext';
 
 const Register: React.FC = () => {
   const { role } = useParams<{ role: 'employer' | 'jobseeker' }>();
@@ -9,7 +11,9 @@ const Register: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { refreshProfile } = useRole();
 
   useEffect(() => {
     if (!role || !['employer', 'jobseeker'].includes(role)) {
@@ -21,16 +25,19 @@ const Register: React.FC = () => {
     e.preventDefault();
     if (!role) return;
     if (password !== confirmPassword) {
-      alert('Passwords do not match!');
+      setErrorMessage('Passwords do not match!');
       return;
     }
     try {
+      setErrorMessage(null);
+      console.log('Registering with:', { username, email, password, role }); // Логируем данные
       const { accessToken } = await register({ username, email, password, role });
       localStorage.setItem('token', accessToken);
+      await refreshProfile();
       navigate('/');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Register error:', error);
-      alert('Registration failed. Please try again.');
+      setErrorMessage(error.response?.data?.message || 'Registration failed. Please try again.');
     }
   };
 
@@ -46,6 +53,7 @@ const Register: React.FC = () => {
     <div className="register-container">
       <div className="register-box">
         <h2>Sign Up</h2>
+        {errorMessage && <p style={{ color: 'red', textAlign: 'center' }}>{errorMessage}</p>}
         <div className="register-form">
           <div className="form-group">
             <label>Username</label>

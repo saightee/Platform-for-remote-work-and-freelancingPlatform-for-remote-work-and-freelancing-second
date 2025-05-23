@@ -1,3 +1,5 @@
+// src/@types/index.ts
+
 export interface User {
   id: string;
   email: string;
@@ -39,9 +41,15 @@ export interface JobSeekerProfile {
   avatar?: string;
   identity_verified: boolean;
   reviews: Review[];
+  skillCategories?: SkillCategory[];
 }
 
 export type Profile = EmployerProfile | JobSeekerProfile;
+
+export interface SkillCategory {
+  id: string;
+  name: string;
+}
 
 export interface JobPost {
   id: string;
@@ -49,7 +57,6 @@ export interface JobPost {
   description: string;
   location: string;
   salary: number;
-  // status: 'Active' | 'Closed' | 'Draft';
   category_id?: string;
   category?: Category;
   job_type?: 'Full-time' | 'Part-time' | 'Project-based';
@@ -146,4 +153,13 @@ export interface LoginCredentials {
 export interface RegisterCredentials extends LoginCredentials {
   username: string;
   role: 'employer' | 'jobseeker';
+}
+
+// Добавляем тип для данных, возвращаемых в getApplicationsForJobPost
+export interface JobApplicationDetails {
+  userId: string;
+  username: string;
+  email: string;
+  jobDescription: string;
+  appliedAt: string;
 }

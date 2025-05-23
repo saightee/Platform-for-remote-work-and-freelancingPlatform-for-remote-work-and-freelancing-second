@@ -278,26 +278,34 @@ header nav .nav-divider {
 .job-card {
   background-color: white;
   padding: 20px;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
   position: relative;
+}
+
+.job-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
 .job-card h3 {
   margin: 0 0 10px;
   font-size: 20px;
+  color: #333;
 }
 
 .job-card p {
   margin: 5px 0;
   font-size: 14px;
+  color: #666;
 }
 
 .job-card-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 10px;
+  margin-top: 15px;
 }
 
 .view-details-button {
@@ -1139,4 +1147,130 @@ table tr:nth-child(even) {
 .job-details-actions button {
   padding: 10px 30px;
   font-size: 16px;
+}
+
+/* Action Buttons */
+.action-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+  cursor: pointer;
+  margin: 5px 0;
+  transition: background-color 0.2s;
+}
+
+.action-button.success {
+  background-color: #28a745;
+  color: white;
+}
+
+.action-button.success:hover {
+  background-color: #218838;
+}
+
+.action-button.warning {
+  background-color: #ffc107;
+  color: #333;
+}
+
+.action-button.warning:hover {
+  background-color: #e0a800;
+}
+
+.action-button.danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.action-button.danger:hover {
+  background-color: #c82333;
+}
+
+/* Applications Section */
+.applications-section {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-radius: 5px;
+}
+
+.applications-section h4 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  color: #333;
+}
+
+.applications-section ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.applications-section li {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+  color: #333;
+}
+
+.applications-section li:last-child {
+  border-bottom: none;
+}
+
+
+/* Admin Dashboard Styles */
+.admin-dashboard-container {
+  padding-bottom: 40px;
+}
+
+.admin-section {
+  margin-top: 20px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 12px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+.admin-table th {
+  background-color: #3498db;
+  color: white;
+}
+
+.admin-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.analytics-card {
+  background-color: white;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.analytics-card p {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.analytics-card p strong {
+  color: #3498db;
 }

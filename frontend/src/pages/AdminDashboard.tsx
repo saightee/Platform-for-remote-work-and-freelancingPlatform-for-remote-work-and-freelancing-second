@@ -1,6 +1,8 @@
+// src/pages/AdminDashboard.tsx
 import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import Copyright from '../components/Copyright';
 import { 
   getAllUsers, getUserById, updateUser, deleteUser, resetUserPassword,
   getAllJobPosts, updateJobPostAdmin, deleteJobPostAdmin, approveJobPost, flagJobPost,
@@ -9,9 +11,13 @@ import {
   verifyIdentity, setGlobalApplicationLimit, getGlobalApplicationLimit,
   addBlockedCountry, removeBlockedCountry, getBlockedCountries, getFeedback
 } from '../services/api';
-import { User, JobPost, Review, Feedback, BlockedCountry } from '../types';
+import { User, JobPost, Review, Feedback, BlockedCountry } from '@types';
+import { useRole } from '../context/RoleContext';
+import { format, zonedTimeToUtc } from 'date-fns-tz';
+import { parseISO } from 'date-fns';
 
 const AdminDashboard: React.FC = () => {
+  const { profile, isLoading: profileLoading } = useRole();
   const [users, setUsers] = useState<User[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -31,8 +37,25 @@ const AdminDashboard: React.FC = () => {
   const [globalLimit, setGlobalLimit] = useState<number>(0);
   const [newLimit, setNewLimit] = useState<number>(0);
   const [countryCode, setCountryCode] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
+    if (profileLoading) return;
+
+    // Временное утверждение типов для profile
+    const typedProfile = profile as { role: string } | null;
+    if (!typedProfile || typedProfile.role !== 'admin') {
+      setError('This page is only available for Admins.');
+      setIsAuthorized(false);
+    } else {
+      setIsAuthorized(true);
+    }
+  }, [profile, profileLoading]);
+
+  useEffect(() => {
+    if (!isAuthorized || !profile) return;
+
     const fetchData = async () => {
       try {
         const usersData = await getAllUsers({});
@@ -73,20 +96,22 @@ const AdminDashboard: React.FC = () => {
         setGlobalLimit(globalLimitData.globalApplicationLimit);
       } catch (error) {
         console.error('Error fetching admin data:', error);
-        alert('Failed to load admin data. Please try again.');
+        setError('Failed to load admin data. Please try again.');
       }
     };
     fetchData();
-  }, []);
+  }, [isAuthorized, profile]);
 
   const handleDeleteUser = async (id: string) => {
-    try {
-      await deleteUser(id);
-      setUsers(users.filter((user) => user.id !== id));
-      alert('User deleted successfully!');
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      alert('Failed to delete user.');
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      try {
+        await deleteUser(id);
+        setUsers(users.filter((user) => user.id !== id));
+        alert('User deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        alert('Failed to delete user.');
+      }
     }
   };
 
@@ -104,13 +129,15 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteJobPost = async (id: string) => {
-    try {
-      await deleteJobPostAdmin(id);
-      setJobPosts(jobPosts.filter((post) => post.id !== id));
-      alert('Job post deleted successfully!');
-    } catch (error) {
-      console.error('Error deleting job post:', error);
-      alert('Failed to delete job post.');
+    if (window.confirm('Are you sure you want to delete this job post?')) {
+      try {
+        await deleteJobPostAdmin(id);
+        setJobPosts(jobPosts.filter((post) => post.id !== id));
+        alert('Job post deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting job post:', error);
+        alert('Failed to delete job post.');
+      }
     }
   };
 
@@ -148,13 +175,15 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteReview = async (id: string) => {
-    try {
-      await deleteReview(id);
-      setReviews(reviews.filter((review) => review.id !== id));
-      alert('Review deleted successfully!');
-    } catch (error) {
-      console.error('Error deleting review:', error);
-      alert('Failed to delete review.');
+    if (window.confirm('Are you sure you want to delete this review?')) {
+      try {
+        await deleteReview(id);
+        setReviews(reviews.filter((review) => review.id !== id));
+        alert('Review deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting review:', error);
+        alert('Failed to delete review.');
+      }
     }
   };
 
@@ -192,269 +221,382 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleRemoveBlockedCountry = async (countryCode: string) => {
-    try {
-      await removeBlockedCountry(countryCode);
-      setBlockedCountries(blockedCountries.filter((country) => country.country_code !== countryCode));
-      alert('Country unblocked successfully!');
-    } catch (error) {
-      console.error('Error unblocking country:', error);
-      alert('Failed to unblock country.');
+    if (window.confirm(`Are you sure you want to unblock ${countryCode}?`)) {
+      try {
+        await removeBlockedCountry(countryCode);
+        setBlockedCountries(blockedCountries.filter((country) => country.country_code !== countryCode));
+        alert('Country unblocked successfully!');
+      } catch (error) {
+        console.error('Error unblocking country:', error);
+        alert('Failed to unblock country.');
+      }
     }
   };
+
+  const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
+    if (!dateString) return 'Not specified';
+    try {
+      const date = parseISO(dateString);
+      if (timezone) {
+        const zonedDate = zonedTimeToUtc(date, timezone);
+        return format(zonedDate, 'PPpp', { timeZone: timezone });
+      }
+      return format(date, 'PPpp');
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid date';
+    }
+  };
+
+  if (profileLoading) {
+    return (
+      <div>
+        <Header />
+        <div className="container">
+          <h2>Admin Dashboard</h2>
+          <p>Loading...</p>
+        </div>
+        <Footer />
+        <Copyright />
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div>
+        <Header />
+        <div className="container">
+          <h2>Admin Dashboard</h2>
+          <p>{error}</p>
+        </div>
+        <Footer />
+        <Copyright />
+      </div>
+    );
+  }
 
   return (
     <div>
       <Header />
-      <div className="container">
+      <div className="container admin-dashboard-container">
         <h2>Admin Dashboard</h2>
+        {error && <p className="error-message">{error}</p>}
 
-        <h3>Users</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Username</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id}>
-                <td>{user.id}</td>
-                <td>{user.username}</td>
-                <td>{user.email}</td>
-                <td>{user.role}</td>
-                <td>
-                  <button onClick={() => handleDeleteUser(user.id)}>Delete</button>
-                  <button onClick={() => handleResetPassword(user.id)}>Reset Password</button>
-                  <button onClick={() => handleVerifyIdentity(user.id, true)}>Verify Identity</button>
-                  <button onClick={() => handleVerifyIdentity(user.id, false)}>Reject Identity</button>
-                </td>
+        <div className="admin-section">
+          <h3>Users</h3>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <h3>Job Posts</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Title</th>
-              <th>Status</th>
-              <th>Pending Review</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {jobPosts.map((post) => (
-              <tr key={post.id}>
-                <td>{post.id}</td>
-                <td>{post.title}</td>
-                <td>{post.status}</td>
-                <td>{post.pending_review ? 'Yes' : 'No'}</td>
-                <td>
-                  <button onClick={() => handleDeleteJobPost(post.id)}>Delete</button>
-                  <button onClick={() => handleApproveJobPost(post.id)}>Approve</button>
-                  <button onClick={() => handleFlagJobPost(post.id)}>Flag for Review</button>
-                  <div className="form-group">
-                    <label>Application Limit:</label>
-                    <input
-                      type="number"
-                      value={newLimit}
-                      onChange={(e) => setNewLimit(Number(e.target.value))}
-                    />
-                    <button onClick={() => handleSetJobPostLimit(post.id)}>Set Limit</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <h3>Reviews</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Reviewer</th>
-              <th>Reviewed</th>
-              <th>Rating</th>
-              <th>Comment</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reviews.map((review) => (
-              <tr key={review.id}>
-                <td>{review.id}</td>
-                <td>{review.reviewer_id}</td>
-                <td>{review.reviewed_id}</td>
-                <td>{review.rating}</td>
-                <td>{review.comment}</td>
-                <td>
-                  <button onClick={() => handleDeleteReview(review.id)}>Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <h3>Feedback</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>User</th>
-              <th>Message</th>
-              <th>Role</th>
-            </tr>
-          </thead>
-          <tbody>
-            {feedbacks.map((feedback) => (
-              <tr key={feedback.id}>
-                <td>{feedback.id}</td>
-                <td>{feedback.user?.username}</td>
-                <td>{feedback.message}</td>
-                <td>{feedback.role}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <h3>Blocked Countries</h3>
-        <div className="form-group">
-          <label>Add Blocked Country (Country Code):</label>
-          <input
-            type="text"
-            value={countryCode}
-            onChange={(e) => setCountryCode(e.target.value)}
-          />
-          <button onClick={handleAddBlockedCountry}>Add</button>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id}>
+                  <td>{user.id}</td>
+                  <td>{user.username}</td>
+                  <td>{user.email}</td>
+                  <td>{user.role}</td>
+                  <td>
+                    <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
+                      Delete
+                    </button>
+                    <button onClick={() => handleResetPassword(user.id)} className="action-button">
+                      Reset Password
+                    </button>
+                    <button onClick={() => handleVerifyIdentity(user.id, true)} className="action-button success">
+                      Verify Identity
+                    </button>
+                    <button onClick={() => handleVerifyIdentity(user.id, false)} className="action-button warning">
+                      Reject Identity
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Country Code</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {blockedCountries.map((country) => (
-              <tr key={country.id}>
-                <td>{country.country_code}</td>
-                <td>
-                  <button onClick={() => handleRemoveBlockedCountry(country.country_code)}>
-                    Remove
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
 
-        <h3>Analytics</h3>
-        {analytics && (
-          <div>
-            <p>Total Users: {analytics.totalUsers}</p>
-            <p>Employers: {analytics.employers}</p>
-            <p>Job Seekers: {analytics.jobSeekers}</p>
-            <p>Total Job Posts: {analytics.totalJobPosts}</p>
-            <p>Active Job Posts: {analytics.activeJobPosts}</p>
-            <p>Total Applications: {analytics.totalApplications}</p>
-            <p>Total Reviews: {analytics.totalReviews}</p>
+        <div className="admin-section">
+          <h3>Job Posts</h3>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Pending Review</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobPosts.map((post) => (
+                <tr key={post.id}>
+                  <td>{post.id}</td>
+                  <td>{post.title}</td>
+                  <td>{post.status}</td>
+                  <td>{post.pending_review ? 'Yes' : 'No'}</td>
+                  <td>
+                    <button onClick={() => handleDeleteJobPost(post.id)} className="action-button danger">
+                      Delete
+                    </button>
+                    <button onClick={() => handleApproveJobPost(post.id)} className="action-button success">
+                      Approve
+                    </button>
+                    <button onClick={() => handleFlagJobPost(post.id)} className="action-button warning">
+                      Flag for Review
+                    </button>
+                    <div className="form-group">
+                      <label>Application Limit:</label>
+                      <input
+                        type="number"
+                        value={newLimit}
+                        onChange={(e) => setNewLimit(Number(e.target.value))}
+                        min="0"
+                      />
+                      <button onClick={() => handleSetJobPostLimit(post.id)} className="action-button">
+                        Set Limit
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="admin-section">
+          <h3>Reviews</h3>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Reviewer</th>
+                <th>Reviewed</th>
+                <th>Rating</th>
+                <th>Comment</th>
+                <th>Created At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reviews.map((review) => (
+                <tr key={review.id}>
+                  <td>{review.id}</td>
+                  <td>{review.reviewer_id}</td>
+                  <td>{review.reviewed_id}</td>
+                  <td>{review.rating}</td>
+                  <td>{review.comment}</td>
+                  {/* Временно отключаем formatDateInTimezone */}
+                  <td>{review.created_at || 'Not specified'}</td>
+                  <td>
+                    <button onClick={() => handleDeleteReview(review.id)} className="action-button danger">
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="admin-section">
+          <h3>Feedback</h3>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>User</th>
+                <th>Message</th>
+                <th>Role</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {feedbacks.map((feedback) => (
+                <tr key={feedback.id}>
+                  <td>{feedback.id}</td>
+                  <td>{feedback.user?.username || 'Anonymous'}</td>
+                  <td>{feedback.message}</td>
+                  <td>{feedback.role}</td>
+                  {/* Временно отключаем formatDateInTimezone */}
+                  <td>{feedback.created_at || 'Not specified'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="admin-section">
+          <h3>Blocked Countries</h3>
+          <div className="form-group">
+            <label>Add Blocked Country (Country Code):</label>
+            <input
+              type="text"
+              value={countryCode}
+              onChange={(e) => setCountryCode(e.target.value)}
+            />
+            <button onClick={handleAddBlockedCountry} className="action-button success">
+              Add
+            </button>
           </div>
-        )}
-
-        <h3>Registration Stats</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Period</th>
-              <th>Count</th>
-            </tr>
-          </thead>
-          <tbody>
-            {registrationStats.map((stat, index) => (
-              <tr key={index}>
-                <td>{stat.period}</td>
-                <td>{stat.count}</td>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Country Code</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {blockedCountries.map((country) => (
+                <tr key={country.id}>
+                  <td>{country.country_code}</td>
+                  <td>
+                    <button onClick={() => handleRemoveBlockedCountry(country.country_code)} className="action-button danger">
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-        <h3>Geographic Distribution</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Country</th>
-              <th>Count</th>
-              <th>Percentage</th>
-            </tr>
-          </thead>
-          <tbody>
-            {geographicDistribution.map((dist, index) => (
-              <tr key={index}>
-                <td>{dist.country}</td>
-                <td>{dist.count}</td>
-                <td>{dist.percentage}%</td>
+        <div className="admin-section">
+          <h3>Analytics</h3>
+          {analytics && (
+            <div className="analytics-grid">
+              <div className="analytics-card">
+                <p><strong>Total Users:</strong> {analytics.totalUsers}</p>
+              </div>
+              <div className="analytics-card">
+                <p><strong>Employers:</strong> {analytics.employers}</p>
+              </div>
+              <div className="analytics-card">
+                <p><strong>Job Seekers:</strong> {analytics.jobSeekers}</p>
+              </div>
+              <div className="analytics-card">
+                <p><strong>Total Job Posts:</strong> {analytics.totalJobPosts}</p>
+              </div>
+              <div className="analytics-card">
+                <p><strong>Active Job Posts:</strong> {analytics.activeJobPosts}</p>
+              </div>
+              <div className="analytics-card">
+                <p><strong>Total Applications:</strong> {analytics.totalApplications}</p>
+              </div>
+              <div className="analytics-card">
+                <p><strong>Total Reviews:</strong> {analytics.totalReviews}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="admin-section">
+          <h3>Registration Stats</h3>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Period</th>
+                <th>Count</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {registrationStats.map((stat, index) => (
+                <tr key={index}>
+                  <td>{stat.period}</td>
+                  <td>{stat.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-        <h3>Top Employers</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>Job Count</th>
-            </tr>
-          </thead>
-          <tbody>
-            {topEmployers.map((employer, index) => (
-              <tr key={index}>
-                <td>{employer.username}</td>
-                <td>{employer.job_count}</td>
+        <div className="admin-section">
+          <h3>Geographic Distribution</h3>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Country</th>
+                <th>Count</th>
+                <th>Percentage</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {geographicDistribution.map((dist, index) => (
+                <tr key={index}>
+                  <td>{dist.country}</td>
+                  <td>{dist.count}</td>
+                  <td>{dist.percentage}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-        <h3>Top Jobseekers</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>Application Count</th>
-            </tr>
-          </thead>
-          <tbody>
-            {topJobseekers.map((jobseeker, index) => (
-              <tr key={index}>
-                <td>{jobseeker.username}</td>
-                <td>{jobseeker.application_count}</td>
+        <div className="admin-section">
+          <h3>Top Employers</h3>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Job Count</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {topEmployers.map((employer, index) => (
+                <tr key={index}>
+                  <td>{employer.username}</td>
+                  <td>{employer.job_count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-        <h3>Global Application Limit</h3>
-        <p>Current Limit: {globalLimit}</p>
-        <div className="form-group">
-          <label>New Global Limit:</label>
-          <input
-            type="number"
-            value={newLimit}
-            onChange={(e) => setNewLimit(Number(e.target.value))}
-          />
-          <button onClick={handleSetGlobalLimit}>Set Global Limit</button>
+        <div className="admin-section">
+          <h3>Top Jobseekers</h3>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Application Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topJobseekers.map((jobseeker, index) => (
+                <tr key={index}>
+                  <td>{jobseeker.username}</td>
+                  <td>{jobseeker.application_count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="admin-section">
+          <h3>Global Application Limit</h3>
+          <p><strong>Current Limit:</strong> {globalLimit}</p>
+          <div className="form-group">
+            <label>New Global Limit:</label>
+            <input
+              type="number"
+              value={newLimit}
+              onChange={(e) => setNewLimit(Number(e.target.value))}
+              min="0"
+            />
+            <button onClick={handleSetGlobalLimit} className="action-button success">
+              Set Global Limit
+            </button>
+          </div>
         </div>
       </div>
       <Footer />
+      <Copyright />
     </div>
   );
 };

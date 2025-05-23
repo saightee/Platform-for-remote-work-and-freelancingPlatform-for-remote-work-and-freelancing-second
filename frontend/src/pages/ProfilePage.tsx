@@ -1,8 +1,9 @@
+// src/pages/ProfilePage.tsx
 import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { getProfile, updateProfile, uploadAvatar, uploadIdentityDocument } from '../services/api';
-import { Profile } from '@types';
+import { Profile, SkillCategory } from '@types';
 import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
 
@@ -13,6 +14,7 @@ const ProfilePage: React.FC = () => {
   const [documentUrl, setDocumentUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -50,6 +52,7 @@ const ProfilePage: React.FC = () => {
     try {
       const updatedProfile = await updateProfile(profile);
       setProfile(updatedProfile);
+      setIsEditing(false);
       alert('Profile updated successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -91,134 +94,158 @@ const ProfilePage: React.FC = () => {
       <div className="container">
         <h2>My Profile (Role: {profile.role})</h2>
         <div>
-          <div className="form-group">
-            <label>Username:</label>
-            <input
-              type="text"
-              value={profile.username}
-              onChange={(e) => setProfile({ ...profile, username: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label>Email:</label>
-            <input
-              type="email"
-              value={profile.email}
-              onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-            />
-          </div>
-          {profile.role === 'employer' && (
+          {isEditing ? (
             <>
               <div className="form-group">
-                <label>Company Name:</label>
+                <label>Username:</label>
                 <input
                   type="text"
-                  value={profile.company_name || ''}
-                  onChange={(e) =>
-                    setProfile({ ...profile, company_name: e.target.value })
-                  }
+                  value={profile.username}
+                  onChange={(e) => setProfile({ ...profile, username: e.target.value })}
+                  placeholder="Enter your username"
                 />
               </div>
               <div className="form-group">
-                <label>Company Info:</label>
-                <textarea
-                  value={profile.company_info || ''}
-                  onChange={(e) =>
-                    setProfile({ ...profile, company_info: e.target.value })
-                  }
+                <label>Email:</label>
+                <input
+                  type="email"
+                  value={profile.email}
+                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                  placeholder="Enter your email"
                 />
               </div>
+              {profile.role === 'employer' && (
+                <>
+                  <div className="form-group">
+                    <label>Company Name:</label>
+                    <input
+                      type="text"
+                      value={profile.company_name || ''}
+                      onChange={(e) =>
+                        setProfile({ ...profile, company_name: e.target.value })
+                      }
+                      placeholder="Enter company name"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Company Info:</label>
+                    <textarea
+                      value={profile.company_info || ''}
+                      onChange={(e) =>
+                        setProfile({ ...profile, company_info: e.target.value })
+                      }
+                      placeholder="Enter company info"
+                    />
+                  </div>
+                </>
+              )}
+              {profile.role === 'jobseeker' && (
+                <>
+                  <div className="form-group">
+                    <label>Skills (comma-separated):</label>
+                    <input
+                      type="text"
+                      value={profile.skills?.join(', ') || ''}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          skills: e.target.value.split(',').map((s) => s.trim()),
+                        })
+                      }
+                      placeholder="e.g., JavaScript, Python"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Experience:</label>
+                    <input
+                      type="text"
+                      value={profile.experience || ''}
+                      onChange={(e) =>
+                        setProfile({ ...profile, experience: e.target.value })
+                      }
+                      placeholder="Enter your experience"
+                    />
+                  </div>
+                </>
+              )}
+              <div className="form-group">
+                <label>Timezone:</label>
+                <input
+                  type="text"
+                  value={profile.timezone || ''}
+                  onChange={(e) => setProfile({ ...profile, timezone: e.target.value })}
+                  placeholder="Enter your timezone"
+                />
+              </div>
+              <div className="form-group">
+                <label>Currency:</label>
+                <input
+                  type="text"
+                  value={profile.currency || ''}
+                  onChange={(e) => setProfile({ ...profile, currency: e.target.value })}
+                  placeholder="Enter your currency"
+                />
+              </div>
+              <button onClick={handleUpdateProfile}>Save Profile</button>
+              <button onClick={() => setIsEditing(false)} style={{ marginLeft: '10px' }}>
+                Cancel
+              </button>
             </>
-          )}
-          {profile.role === 'jobseeker' && (
+          ) : (
             <>
-              <div className="form-group">
-                <label>Skills (comma-separated):</label>
-                <input
-                  type="text"
-                  value={profile.skills?.join(', ') || ''}
-                  onChange={(e) =>
-                    setProfile({
-                      ...profile,
-                      skills: e.target.value.split(',').map((s) => s.trim()),
-                    })
-                  }
-                />
-              </div>
-              <div className="form-group">
-                <label>Experience:</label>
-                <input
-                  type="text"
-                  value={profile.experience || ''}
-                  onChange={(e) =>
-                    setProfile({ ...profile, experience: e.target.value })
-                  }
-                />
-              </div>
+              <p><strong>Username:</strong> {profile.username}</p>
+              <p><strong>Email:</strong> {profile.email}</p>
+              {profile.role === 'employer' && (
+                <>
+                  <p><strong>Company Name:</strong> {profile.company_name || 'Not specified'}</p>
+                  <p><strong>Company Info:</strong> {profile.company_info || 'Not specified'}</p>
+                </>
+              )}
+              {profile.role === 'jobseeker' && (
+                <>
+                  <p><strong>Skills:</strong> {profile.skills?.join(', ') || 'Not specified'}</p>
+                  <p>
+                    <strong>Skill Categories:</strong>{' '}
+                    {profile.skillCategories?.map((category: SkillCategory) => category.name).join(', ') || 'Not specified'}
+                  </p>
+                  <p><strong>Experience:</strong> {profile.experience || 'Not specified'}</p>
+                </>
+              )}
+              <p><strong>Timezone:</strong> {profile.timezone || 'Not specified'}</p>
+              <p><strong>Currency:</strong> {profile.currency || 'Not specified'}</p>
+              <button onClick={() => setIsEditing(true)}>Edit Profile</button>
             </>
           )}
-          <div className="form-group">
-            <label>Timezone:</label>
-            <input
-              type="text"
-              value={profile.timezone || ''}
-              onChange={(e) => setProfile({ ...profile, timezone: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label>Currency:</label>
-            <input
-              type="text"
-              value={profile.currency || ''}
-              onChange={(e) => setProfile({ ...profile, currency: e.target.value })}
-            />
-          </div>
-          <button onClick={handleUpdateProfile}>Update Profile</button>
+        </div>
 
-          <div style={{ marginTop: '20px' }}>
-            <h3>Upload Avatar</h3>
-            <div className="form-group">
-              <label>Avatar URL:</label>
-              <input
-                type="text"
-                value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.target.value)}
-              />
-            </div>
-            <button onClick={handleUploadAvatar}>Upload Avatar</button>
-          </div>
+        <h3>Upload Avatar</h3>
+        <div className="form-group">
+          <input
+            type="text"
+            value={avatarUrl}
+            onChange={(e) => setAvatarUrl(e.target.value)}
+            placeholder="Enter avatar URL"
+          />
+          <button onClick={handleUploadAvatar}>Upload Avatar</button>
+        </div>
 
-          <div style={{ marginTop: '20px' }}>
+        {profile.role === 'jobseeker' && (
+          <>
             <h3>Upload Identity Document</h3>
             <div className="form-group">
-              <label>Document URL:</label>
               <input
                 type="text"
                 value={documentUrl}
                 onChange={(e) => setDocumentUrl(e.target.value)}
+                placeholder="Enter document URL"
               />
+              <button onClick={handleUploadDocument}>Upload Document</button>
             </div>
-            <button onClick={handleUploadDocument}>Upload Document</button>
-          </div>
-
-          <div style={{ marginTop: '20px' }}>
-            <h3>Reviews</h3>
-            {profile.reviews.length > 0 ? (
-              <ul>
-                {profile.reviews.map((review) => (
-                  <li key={review.id}>
-                    {review.rating} stars - {review.comment} (by {review.reviewer_id})
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No reviews yet.</p>
-            )}
-          </div>
-        </div>
+          </>
+        )}
       </div>
       <Footer />
-       <Copyright />
+      <Copyright />
     </div>
   );
 };
