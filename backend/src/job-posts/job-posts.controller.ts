@@ -118,22 +118,6 @@ export class JobPostsController {
     return this.jobPostsService.closeJobPost(userId, jobPostId);
   }
 
-  @UseGuards(AuthGuard('jwt'))
-  @Post(':id/set-application-limit')
-  async setApplicationLimit(
-    @Headers('authorization') authHeader: string,
-    @Param('id') jobPostId: string,
-    @Body('limit') limit: number,
-  ) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Invalid token');
-    }
-    const token = authHeader.replace('Bearer ', '');
-    const payload = this.jwtService.verify(token);
-    const userId = payload.sub;
-    return this.jobPostsService.setApplicationLimit(userId, jobPostId, limit);
-  }
-
   @Post(':id/increment-view')
   async incrementJobView(@Param('id') jobPostId: string) {
   return this.jobPostsService.incrementJobView(jobPostId);

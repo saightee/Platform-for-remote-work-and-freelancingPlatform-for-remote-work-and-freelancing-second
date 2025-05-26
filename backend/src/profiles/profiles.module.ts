@@ -8,11 +8,11 @@ import { Employer } from '../users/entities/employer.entity';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { SkillCategory } from '../skill-categories/skill-category.entity';
+import { Category } from '../categories/category.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, JobSeeker, Employer, SkillCategory]),
+    TypeOrmModule.forFeature([User, JobSeeker, Employer, Category]),
     ReviewsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -23,7 +23,7 @@ import { SkillCategory } from '../skill-categories/skill-category.entity';
       inject: [ConfigService],
     }),
   ],
-  controllers: [ProfilesController], // Удаляем AdminProfilesController
+  controllers: [ProfilesController],
   providers: [ProfilesService],
 })
 export class ProfilesModule {}

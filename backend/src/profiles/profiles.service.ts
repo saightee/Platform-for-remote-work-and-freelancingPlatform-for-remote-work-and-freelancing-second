@@ -5,7 +5,7 @@ import { User } from '../users/entities/user.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { ReviewsService } from '../reviews/reviews.service';
-import { SkillCategory } from '../skill-categories/skill-category.entity';
+import { Category } from '../categories/category.entity';
 
 @Injectable()
 export class ProfilesService {
@@ -16,8 +16,8 @@ export class ProfilesService {
     private jobSeekerRepository: Repository<JobSeeker>,
     @InjectRepository(Employer)
     private employerRepository: Repository<Employer>,
-    @InjectRepository(SkillCategory)
-    private skillCategoriesRepository: Repository<SkillCategory>,
+    @InjectRepository(Category)
+    private categoriesRepository: Repository<Category>,
     private reviewsService: ReviewsService,
   ) {}
 
@@ -32,7 +32,7 @@ export class ProfilesService {
     if (user.role === 'jobseeker') {
       const jobSeeker = await this.jobSeekerRepository.findOne({
         where: { user_id: userId },
-        relations: ['skillCategories'],
+        relations: ['categories'],
       });
       if (!jobSeeker) {
         throw new NotFoundException('JobSeeker profile not found');
@@ -43,7 +43,7 @@ export class ProfilesService {
         email: user.email,
         username: user.username,
         skills: jobSeeker.skills,
-        skillCategories: jobSeeker.skillCategories,
+        categories: jobSeeker.categories,
         experience: jobSeeker.experience,
         portfolio: jobSeeker.portfolio,
         video_intro: jobSeeker.video_intro,
@@ -92,7 +92,7 @@ export class ProfilesService {
     if (user.role === 'jobseeker') {
       const jobSeeker = await this.jobSeekerRepository.findOne({
         where: { user_id: userId },
-        relations: ['skillCategories'],
+        relations: ['categories'],
       });
       if (!jobSeeker) {
         throw new NotFoundException('JobSeeker profile not found');
@@ -101,11 +101,11 @@ export class ProfilesService {
       if (updateData.skills && Array.isArray(updateData.skills)) {
         jobSeeker.skills = updateData.skills;
       }
-      if (updateData.skillCategoryIds && Array.isArray(updateData.skillCategoryIds)) {
-        const skillCategories = await this.skillCategoriesRepository.find({
-          where: { id: In(updateData.skillCategoryIds) },
+      if (updateData.categoryIds && Array.isArray(updateData.categoryIds)) {
+        const categories = await this.categoriesRepository.find({
+          where: { id: In(updateData.categoryIds) },
         });
-        jobSeeker.skillCategories = skillCategories;
+        jobSeeker.categories = categories;
       }
       if (updateData.experience) {
         jobSeeker.experience = updateData.experience;
@@ -199,5 +199,5 @@ export class ProfilesService {
     jobSeeker.profile_views = (jobSeeker.profile_views || 0) + 1;
     await this.jobSeekerRepository.save(jobSeeker);
     return { message: 'Profile view count incremented', profile_views: jobSeeker.profile_views };
-    }
+  }
 }

@@ -9,18 +9,17 @@ import { JobApplication } from '../job-applications/job-application.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { ApplicationLimit } from '../application-limits/application-limit.entity';
-import { SkillCategory } from '../skill-categories/skill-category.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from '../users/users.module';
 import { BlockedCountriesModule } from '../blocked-countries/blocked-countries.module';
 import { SettingsModule } from '../settings/settings.module';
 import { ApplicationLimitsModule } from '../application-limits/application-limits.module';
-import { LeaderboardsModule } from '../leaderboards/leaderboards.module'; // Добавляем
+import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, JobPost, Review, JobApplication, JobSeeker, Employer, ApplicationLimit, SkillCategory]),
+    TypeOrmModule.forFeature([User, JobPost, Review, JobApplication, JobSeeker, Employer, ApplicationLimit]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -33,7 +32,7 @@ import { LeaderboardsModule } from '../leaderboards/leaderboards.module'; // Д�
     BlockedCountriesModule,
     SettingsModule,
     ApplicationLimitsModule,
-    LeaderboardsModule, // Добавляем
+    LeaderboardsModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

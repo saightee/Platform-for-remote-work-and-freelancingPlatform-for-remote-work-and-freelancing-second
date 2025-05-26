@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryColumn, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, ManyToMany, JoinTable } from 'typeorm';
 import { User } from './user.entity';
-import { SkillCategory } from '../../skill-categories/skill-category.entity'; // Добавляем
+import { Category } from '../../categories/category.entity';
 
 @Entity('jobseekers')
 export class JobSeeker {
@@ -14,9 +14,9 @@ export class JobSeeker {
   @Column('text', { array: true, nullable: true })
   skills?: string[];
 
-  @ManyToMany(() => SkillCategory) // Добавляем
+  @ManyToMany(() => Category)
   @JoinTable()
-  skillCategories: SkillCategory[];
+  categories: Category[];
 
   @Column({ nullable: true })
   experience?: string;
