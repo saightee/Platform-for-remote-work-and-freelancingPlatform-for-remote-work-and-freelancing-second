@@ -93,16 +93,39 @@ export const getMyJobPosts = async () => {
   return response.data;
 };
 
+// export const searchJobPosts = async (params: {
+//   title?: string;
+//   location?: string;
+//   salaryMin?: number;
+//   salaryMax?: number;
+//   job_type?: string;
+//   category_id?: string;
+//   required_skills?: string;
+// }) => {
+//   const response = await api.get<JobPost[]>('/job-posts/search', { params });
+//   return response.data;
+// };
+
+// export const closeJobPost = async (id: string) => {
+//   const response = await api.post<JobPost>(`/job-posts/${id}/close`);
+//   return response.data;
+// };
+
+// src/services/api.ts
 export const searchJobPosts = async (params: {
   title?: string;
   location?: string;
-  salaryMin?: number;
-  salaryMax?: number;
+  salary_min?: number;
+  salary_max?: number;
   job_type?: string;
   category_id?: string;
-  required_skills?: string;
+  required_skills?: string | string[];
+  page?: number;
+  limit?: number;
+  sort_by?: string;
+  sort_order?: string;
 }) => {
-  const response = await api.get<JobPost[]>('/job-posts/search', { params });
+  const response = await api.get<JobPost[]>('/job-posts', { params });
   return response.data;
 };
 
@@ -110,6 +133,8 @@ export const closeJobPost = async (id: string) => {
   const response = await api.post<JobPost>(`/job-posts/${id}/close`);
   return response.data;
 };
+
+
 
 export const setJobPostApplicationLimit = async (id: string, limit: number) => {
   const response = await api.post<{ message: string; limit: number }>(

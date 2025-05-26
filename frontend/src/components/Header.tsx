@@ -41,6 +41,7 @@ const Header: React.FC = () => {
                 </>
               )}
               <Link to="/feedback">Feedback</Link>
+              <span className="greeting">Hello, {profile.username}</span>
               <button onClick={handleLogout}>Logout</button>
             </>
           ) : (

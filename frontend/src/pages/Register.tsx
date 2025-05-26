@@ -92,11 +92,11 @@ const Register: React.FC = () => {
             />
           </div>
           <button onClick={handleSubmit}>Sign Up as {role === 'employer' ? 'Employer' : 'Jobseeker'}</button>
-          <div className="google-login">
+          {/* <div className="google-login">
             <button onClick={handleGoogleRegister} className="google-button">
               <FaGoogle style={{ marginRight: '8px' }} /> Sign Up with Google
             </button>
-          </div>
+          </div> */}
           <div className="form-links">
             <p>
               Already have an account? <Link to="/login">Login</Link>

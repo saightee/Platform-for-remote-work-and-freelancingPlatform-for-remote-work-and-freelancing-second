@@ -1,4 +1,3 @@
-// src/pages/FindJob.tsx
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '../components/Header';
@@ -16,8 +15,8 @@ const FindJob: React.FC = () => {
   const [filters, setFilters] = useState<{
     title?: string;
     location?: string;
-    salaryMin?: number;
-    salaryMax?: number;
+    salary_min?: number;
+    salary_max?: number;
     job_type?: string;
     category_id?: string;
     required_skills?: string;
@@ -121,8 +120,8 @@ const FindJob: React.FC = () => {
               <label>Minimum Salary</label>
               <input
                 type="number"
-                name="salaryMin"
-                value={filters.salaryMin || ''}
+                name="salary_min"
+                value={filters.salary_min || ''}
                 onChange={handleFilterChange}
                 placeholder="Enter min salary"
                 min="0"
@@ -132,8 +131,8 @@ const FindJob: React.FC = () => {
               <label>Maximum Salary</label>
               <input
                 type="number"
-                name="salaryMax"
-                value={filters.salaryMax || ''}
+                name="salary_max"
+                value={filters.salary_max || ''}
                 onChange={handleFilterChange}
                 placeholder="Enter max salary"
                 min="0"

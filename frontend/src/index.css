@@ -270,10 +270,11 @@ header nav .nav-divider {
 /* Job Listings */
 .job-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(3, 1fr); /* Exactly 3 columns */
   gap: 20px;
   margin: 40px 0;
 }
+
 
 .job-card {
   background-color: white;
@@ -1273,4 +1274,59 @@ table tr:nth-child(even) {
 
 .analytics-card p strong {
   color: #3498db;
+}
+
+/* Profile Page */
+.profile-container {
+  padding-bottom: 40px;
+}
+
+.profile-avatar-section {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.profile-avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile-avatar-icon {
+  width: 100px;
+  height: 100px;
+  color: #666;
+}
+
+.avatar-upload-group input.avatar-url-input {
+  max-width: 200px;
+}
+
+.avatar-upload-group input[type="file"] {
+  padding: 8px;
+  border: none;
+}
+
+.edit-form {
+  background-color: #f1f3f5;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 15px;
+}
+.edit-form .form-group {
+  margin-bottom: 15px;
+}
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+header nav .greeting {
+  color: #333;
+  font-size: 16px;
+  font-weight: 400;
+  margin-right: 10px;
 }

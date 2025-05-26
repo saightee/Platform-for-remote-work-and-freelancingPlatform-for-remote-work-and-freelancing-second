@@ -78,17 +78,20 @@ const Login: React.FC = () => {
             <label htmlFor="remember-me">Remember Me</label>
           </div>
           <button onClick={handleSubmit}>Sign In</button>
-          <div className="google-login">
+          {/* <div className="google-login">
             <button onClick={handleGoogleLogin} className="google-button">
               <FaGoogle style={{ marginRight: '8px' }} /> Sign In with Google
             </button>
-          </div>
+          </div> */}
           <div className="form-links">
             <p>
               Forgot password? <Link to="/reset-password">Reset</Link>
             </p>
             <p>
               Don’t have an account? <Link to="/role-selection">Register</Link>
+            </p>
+                <p>
+              <Link to="/">Go to Home</Link>
             </p>
           </div>
         </div>

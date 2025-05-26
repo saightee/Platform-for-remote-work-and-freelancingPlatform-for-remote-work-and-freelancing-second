@@ -1,4 +1,3 @@
-// src/pages/AdminDashboard.tsx
 import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -39,11 +38,11 @@ const AdminDashboard: React.FC = () => {
   const [countryCode, setCountryCode] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  const [showPendingOnly, setShowPendingOnly] = useState<boolean>(true); // Новый стейт для фильтра
 
   useEffect(() => {
     if (profileLoading) return;
 
-    // Временное утверждение типов для profile
     const typedProfile = profile as { role: string } | null;
     if (!typedProfile || typedProfile.role !== 'admin') {
       setError('This page is only available for Admins.');
@@ -61,7 +60,7 @@ const AdminDashboard: React.FC = () => {
         const usersData = await getAllUsers({});
         setUsers(usersData);
 
-        const jobPostsData = await getAllJobPosts({});
+        const jobPostsData = await getAllJobPosts({ pendingReview: showPendingOnly ? 'true' : undefined });
         setJobPosts(jobPostsData);
 
         const reviewsData = await getAllReviews();
@@ -100,7 +99,7 @@ const AdminDashboard: React.FC = () => {
       }
     };
     fetchData();
-  }, [isAuthorized, profile]);
+  }, [isAuthorized, profile, showPendingOnly]); // Добавляем showPendingOnly в зависимости
 
   const handleDeleteUser = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
@@ -324,6 +323,16 @@ const AdminDashboard: React.FC = () => {
 
         <div className="admin-section">
           <h3>Job Posts</h3>
+          <div className="form-group">
+            <label>
+              <input
+                type="checkbox"
+                checked={showPendingOnly}
+                onChange={() => setShowPendingOnly(!showPendingOnly)}
+              />
+              Show only pending review
+            </label>
+          </div>
           <table className="admin-table">
             <thead>
               <tr>
@@ -392,7 +401,6 @@ const AdminDashboard: React.FC = () => {
                   <td>{review.reviewed_id}</td>
                   <td>{review.rating}</td>
                   <td>{review.comment}</td>
-                  {/* Временно отключаем formatDateInTimezone */}
                   <td>{review.created_at || 'Not specified'}</td>
                   <td>
                     <button onClick={() => handleDeleteReview(review.id)} className="action-button danger">
@@ -424,7 +432,6 @@ const AdminDashboard: React.FC = () => {
                   <td>{feedback.user?.username || 'Anonymous'}</td>
                   <td>{feedback.message}</td>
                   <td>{feedback.role}</td>
-                  {/* Временно отключаем formatDateInTimezone */}
                   <td>{feedback.created_at || 'Not specified'}</td>
                 </tr>
               ))}
