@@ -7,7 +7,7 @@
 
 ### 1. Register a User
 - **Endpoint**: `POST api/auth/register`
-- **Description**: Registers a user with email, password, username, and role. Returns an access token for immediate login.
+- **Description**: Registers a user with email, password, username, and role (employer or jobseeker). Returns an access token for immediate login.
 - **Request Body**:
   ```json
   {
@@ -23,7 +23,7 @@
     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   }
   
-- **Response (Error - 400, if email already exists):**:
+- **Response (Error - 400, if email already exists)**:
   ```json
   {
     "statusCode": 400,
@@ -31,6 +31,13 @@
     "error": "Bad Request"
   }
 
+- **Response (Error - 403, if country is blocked)**:
+  ```json
+  {
+  "statusCode": 403,
+  "message": "Registration is not allowed from your country",
+  "error": "Forbidden"
+  }
 
 ### 2. Login a User
 - **Endpoint**: `POST api/auth/login`
@@ -39,10 +46,11 @@
   ```json
   {
     "email": "test@example.com",
-    "password": "password"
+    "password": "password",
+    "rememberMe": false // Optional, extends token expiry to 7 days if true
   }
 
-- **Response (Success - 201)**:
+- **Response (Success - 200)**:
   ```json
   {
     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -54,7 +62,15 @@
     "statusCode": 401,
     "message": "Invalid credentials",
     "error": "Unauthorized"
-  }  
+  }
+
+- **Response (Error - 401, if user is blocked):**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "User is blocked",
+    "error": "Unauthorized"
+  }
 
 ### 3. Logout a User
 - **Endpoint**: `POST api/auth/logout`
@@ -239,7 +255,7 @@
   {
     "role": "jobseeker",
     "skills": ["JavaScript", "Python"],
-    "skillCategoryIds": ["<skillCategoryId1>", "<skillCategoryId2>"],
+    "categoryIds": ["<categoryId1>", "<categoryId2>"],
     "experience": "3 years",
     "portfolio": "https://newportfolio.com",
     "video_intro": "https://newvideo.com",
@@ -525,9 +541,8 @@
 
 ### 14. Apply to Job Post
 - **Endpoint**: `POST /api/job-applications`
-- **Description**: Allows a jobseeker to apply to a job post.
+- **Description**: Allows a jobseeker to apply to a job post. Applications are limited per job post (default: 100) and distributed over 4 days (60/20/10/10%). If the limit is reached for the current day, a "Job full" error is returned.
 - **Headers**: `Authorization: Bearer <token>`
-- **Note**: Applications are limited per job post (default: 100) and distributed over 4 days (60/20/10/10%). If the limit is reached for the current day, a "Job full" error is returned.
 - **Request Body**:
   ```json
   {
@@ -585,6 +600,21 @@
     "error": "Bad Request"
   }
 
+- **Response (Error - 400, if application limit reached)**: 
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Job full",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 400, if application period ended)**: 
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Application period has ended",
+    "error": "Bad Request"
+  }
 
 ### 15. Close Job Post
 - **Endpoint**: `POST /api/job-posts/:id/close`
@@ -1396,7 +1426,7 @@
 
 ### 35. Set Application Limit for Job Post (Admin)
 - **Endpoint**: `POST /api/admin/job-posts/:id/set-application-limit`
-- **Description**: Sets the application limit for a specific job post (admin only).
+- **Description**: Sets the application limit for a specific job post (admin only). Employers cannot set limits.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Parameters**: `id`: The ID of the job post.
 - **Request Body**: `id`: The ID of the job post.
@@ -1411,11 +1441,11 @@
     "limit": 50
   }
 
-- **Response (Error - 400, if limit is invalid)**: 
+- **Response (Error - 400, if limit exceeds global limit)**: 
   ```json
   {
     "statusCode": 400,
-    "message": "Application limit must be a non-negative number",
+    "message": "Application limit cannot exceed global limit of 1000",
     "error": "Bad Request"
   }
 
@@ -1603,74 +1633,32 @@
 
 ### 43. Upload Avatar
 - **Endpoint**: `POST /api/profile/upload-avatar`
-- **Description**: Uploads an avatar for the authenticated user.
+- **Description**: Uploads an avatar image for the authenticated user from their device.
 - **Headers**: `Authorization: Bearer <token>`
-- **Request Body**: 
-    ```json
-  {
-    "avatarUrl": "https://example.com/avatar.jpg"
-  }
-
+- **Request Body**: Form-data with a field `avatar` (file: JPEG, JPG, PNG, max 5MB)
 - **Response (Success - 200)**: Returns the updated profile (same format as GET /api/profile)
 
-- **Response (Error - 401, if token is invalid or missing)**
+- **Response (Error - 400, if file is missing or invalid)**
       ```json
   {
-    "statusCode": 401,
-    "message": "Invalid token",
-    "error": "Unauthorized"
-  }
-
-- **Response (Error - 401, if avatar URL is missing)**
-      ```json
-  {
-    "statusCode": 401,
-    "message": "Avatar URL is required",
-    "error": "Unauthorized"
-  }
-
-- **Response (Error - 404, if user not found)**
-      ```json
-  {
-    "statusCode": 404,
-    "message": "User not found",
-    "error": "Not Found"
+    "statusCode": 400,
+    "message": "Only JPEG, JPG, and PNG files are allowed",
+    "error": "Bad Request"
   }
 
 ### 44. Upload Identity Document
 - **Endpoint**: `POST /api/profile/upload-identity`
-- **Description**: Uploads an identity document for verification for the authenticated user.
+- **Description**: Uploads an identity document for verification from the authenticated user’s device.
 - **Headers**: `Authorization: Bearer <token>`
-- **Request Body**: 
-    ```json
-  {
-    "documentUrl": "https://example.com/document.pdf"
-  }
-
+- **Request Body**: Form-data with a field document (file: JPEG, JPG, PNG, PDF, max 10MB)
 - **Response (Success - 200)**: Returns the updated profile (same format as GET /api/profile)
 
-- **Response (Error - 401, if token is invalid or missing)**
+- **Response (Error - 400, if file is missing or invalid)**
       ```json
   {
-    "statusCode": 401,
-    "message": "Invalid token",
-    "error": "Unauthorized"
-  }
-
-- **Response (Error - 401, if avatar URL is missing)**
-      ```json
-  {
-    "statusCode": 401,
-    "message": "Document URL is required",
-    "error": "Unauthorized"
-  }
-
-- **Response (Error - 404, if user not found)**
-      ```json
-  {
-    "statusCode": 404,
-    "message": "User not found",
-    "error": "Not Found"
+    "statusCode": 400,
+    "message": "Only JPEG, JPG, PNG, and PDF files are allowed",
+    "error": "Bad Request"
   }
 
 ### 45. Verify Identity (Admin)
@@ -1769,52 +1757,9 @@
     "error": "Unauthorized"
   }
 
-### 48. Set Application Limit for Job Post (Employer)
-- **Endpoint**: `POST /api/job-posts/:id/set-application-limit`
-- **Description**: Sets the application limit for a specific job post (employer only).
-- **Headers**: `Authorization: Bearer <token>`
-- **Request Parameters**: `id`: The ID of the job post
-- **Request Body**:
-  ```json
-  {
-    "limit": 50
-  }
-
-- **Response (Success - 200)**:
-  ```json
-  {
-    "message": "Application limit updated successfully",
-    "limit": 50
-  }
-
-- **Response (Error - 400, if limit exceeds global limit)**:
-  ```json
-  {
-    "statusCode": 400,
-    "message": "Application limit cannot exceed global limit of 1000",
-    "error": "Bad Request"
-  }
-
-- **Response (Error - 401, if user is not an employer)**:
-  ```json
-  {
-    "statusCode": 401,
-    "message": "Only employers can set application limits",
-    "error": "Unauthorized"
-  }
-
-- **Response (Error - 404, if job post not found)**:
-  ```json
-  {
-    "statusCode": 404,
-    "message": "Job post not found or you do not have permission to update it",
-    "error": "Not Found"
-  }
-
 ### 49. Increment Job Post Views
-- **Endpoint**: `POST /api/jobs/:id/increment-view`
+- **Endpoint**: `POST /api/job-posts/:id/increment-view`
 - **Description**: Increments the view count for a specific job post.
-- **Headers**: `Authorization: Bearer <token>`
 - **Request Parameters**: `id`: The ID of the job post
 - **Response (Success - 200)**:
   ```json
@@ -1830,55 +1775,6 @@
     "message": "Job post not found",
     "error": "Not Found"
   }
-
-### 50. Create Skill Category
-- **Endpoint**: `POST /api/skill-categories`
-- **Description**: Creates a new skill category for jobseekers (admin only).
-- **Headers**: `Authorization: Bearer <token>`
-- **Request Body**:
-  ```json
-  {
-    "name": "Web Development"
-  }
-
-- **Response (Success - 200)**:
-  ```json
-  {
-    "id": "<skillCategoryId>",
-    "name": "Web Development",
-    "created_at": "2025-05-22T18:00:00.000Z",
-    "updated_at": "2025-05-22T18:00:00.000Z"
-  }
-
-- **Response (Error - 400, if category already exists)**:
-  ```json
-  {
-    "statusCode": 400,
-    "message": "Skill category with this name already exists",
-    "error": "Bad Request"
-  }
-
-- **Response (Error - 401, if token is invalid or user is not an admin)**:
-  ```json
-  {
-    "statusCode": 401,
-    "message": "Only admins can access this resource",
-    "error": "Unauthorized"
-  } 
-
-### 51. Get Skill Categories
-- **Endpoint**: `GET /api/skill-categories`
-- **Description**: Retrieves all skill categories.
-- **Response (Success - 200)**:
-  ```json
-  [
-    {
-      "id": "<skillCategoryId>",
-      "name": "Web Development",
-      "created_at": "2025-05-22T18:00:00.000Z",
-      "updated_at": "2025-05-22T18:00:00.000Z"
-    }
-  ]
 
 ### 52. Block User (Admin)
 - **Endpoint**: `POST /api/admin/users/:id/block`

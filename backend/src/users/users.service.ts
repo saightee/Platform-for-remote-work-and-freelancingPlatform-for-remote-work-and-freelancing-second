@@ -4,7 +4,6 @@ import { Repository, DeepPartial, Not, IsNull, In } from 'typeorm';
 import { User } from './entities/user.entity';
 import { JobSeeker } from './entities/jobseeker.entity';
 import { Employer } from './entities/employer.entity';
-import { SkillCategory } from '../skill-categories/skill-category.entity';
 
 @Injectable()
 export class UsersService {
@@ -15,8 +14,6 @@ export class UsersService {
     private jobSeekerRepository: Repository<JobSeeker>,
     @InjectRepository(Employer)
     private employerRepository: Repository<Employer>,
-    @InjectRepository(SkillCategory)
-    private skillCategoriesRepository: Repository<SkillCategory>,
   ) {}
 
   async create(
@@ -37,18 +34,9 @@ export class UsersService {
     console.log('User saved to database:', savedUser);
 
     if (userData.role === 'jobseeker') {
-      // Загружаем категории навыков, если указаны
-      let skillCategories: SkillCategory[] = [];
-      if (additionalData.skillCategoryIds && Array.isArray(additionalData.skillCategoryIds)) {
-        skillCategories = await this.skillCategoriesRepository.find({
-          where: { id: In(additionalData.skillCategoryIds) },
-        });
-      }
-
       const jobSeekerEntity: DeepPartial<JobSeeker> = {
         user_id: savedUser.id,
         skills: additionalData.skills || [],
-        skillCategories,
         experience: additionalData.experience || '',
         portfolio: additionalData.portfolio || '',
         video_intro: additionalData.video_intro || '',
@@ -87,18 +75,9 @@ export class UsersService {
     await this.usersRepository.save(user);
 
     if (role === 'jobseeker') {
-      // Загружаем категории навыков, если указаны
-      let skillCategories: SkillCategory[] = [];
-      if (additionalData.skillCategoryIds && Array.isArray(additionalData.skillCategoryIds)) {
-        skillCategories = await this.skillCategoriesRepository.find({
-          where: { id: In(additionalData.skillCategoryIds) },
-        });
-      }
-
       const jobSeekerEntity: DeepPartial<JobSeeker> = {
         user_id: userId,
         skills: additionalData.skills || [],
-        skillCategories,
         experience: additionalData.experience || '',
         portfolio: additionalData.portfolio || '',
         video_intro: additionalData.video_intro || '',

@@ -1,6 +1,8 @@
+// app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { MulterModule } from '@nestjs/platform-express';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -15,8 +17,7 @@ import { FeedbackModule } from './feedback/feedback.module';
 import { RedisModule } from './redis/redis.module';
 import { BlockedCountriesModule } from './blocked-countries/blocked-countries.module';
 import { LeaderboardsModule } from './leaderboards/leaderboards.module';
-import { SkillCategoriesModule } from './skill-categories/skill-categories.module';
-import { ApplicationLimitsModule } from './application-limits/application-limits.module'; // Убедимся, что импортируется
+import { ApplicationLimitsModule } from './application-limits/application-limits.module';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 @Module({
@@ -45,6 +46,9 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
       },
       inject: [ConfigService],
     }),
+    MulterModule.register({
+      dest: './uploads',
+    }),
     UsersModule,
     AuthModule,
     ProfilesModule,
@@ -57,8 +61,7 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
     RedisModule,
     BlockedCountriesModule,
     LeaderboardsModule,
-    SkillCategoriesModule,
-    ApplicationLimitsModule, // Убедимся, что импортируется
+    ApplicationLimitsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

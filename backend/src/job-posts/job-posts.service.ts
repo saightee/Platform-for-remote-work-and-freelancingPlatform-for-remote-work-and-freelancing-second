@@ -221,33 +221,6 @@ export class JobPostsService {
     return this.jobPostsRepository.save(jobPost);
   }
 
-  async setApplicationLimit(userId: string, jobPostId: string, limit: number) {
-    const user = await this.usersRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    if (user.role !== 'employer') {
-      throw new UnauthorizedException('Only employers can set application limits');
-    }
-
-    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: userId } });
-    if (!jobPost) {
-      throw new NotFoundException('Job post not found or you do not have permission to update it');
-    }
-
-    const globalLimit = await this.settingsService.getGlobalApplicationLimit();
-    if (limit > globalLimit) {
-      throw new BadRequestException(`Application limit cannot exceed global limit of ${globalLimit}`);
-    }
-
-    jobPost.applicationLimit = limit;
-    await this.jobPostsRepository.save(jobPost);
-
-    await this.applicationLimitsService.initializeLimits(jobPostId, limit);
-
-    return { message: 'Application limit updated successfully', limit };
-  }
-
   async incrementJobView(jobPostId: string) {
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
     if (!jobPost) {
