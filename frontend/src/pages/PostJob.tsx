@@ -1,10 +1,9 @@
-// src/pages/PostJob.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { createJobPost, getCategories, setJobPostApplicationLimit } from '../services/api';
+import { createJobPost, getCategories } from '../services/api';
 import { Category } from '@types';
 import { useRole } from '../context/RoleContext';
 
@@ -14,18 +13,16 @@ const PostJob: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
-  const [salary, setSalary] = useState<number | ''>(''); // Заменяем salaryMin и salaryMax на salary
+  const [salary, setSalary] = useState<number | ''>('');
   const [jobType, setJobType] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [applicationLimit, setApplicationLimit] = useState<number | ''>('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Проверяем роль пользователя
     if (!profile || profile.role !== 'employer') {
       setError('Only employers can post jobs.');
-      navigate('/'); // Перенаправляем, если не employer
+      navigate('/');
       return;
     }
 
@@ -49,15 +46,12 @@ const PostJob: React.FC = () => {
         title,
         description,
         location: location || undefined,
-        salary: salary || undefined, // Используем salary
-        status: 'Active', // Добавляем status
+        salary: salary || undefined,
+        status: 'Active',
         job_type: jobType || undefined,
         category_id: categoryId || undefined,
       };
-      const response = await createJobPost(jobData);
-      if (applicationLimit && response.id) {
-        await setJobPostApplicationLimit(response.id, Number(applicationLimit));
-      }
+      await createJobPost(jobData);
       navigate('/my-job-posts');
     } catch (err: any) {
       console.error('Error creating job post:', err);
@@ -150,16 +144,6 @@ const PostJob: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                </div>
-                <div className="form-group">
-                  <label>Application Limit</label>
-                  <input
-                    type="number"
-                    value={applicationLimit}
-                    onChange={(e) => setApplicationLimit(e.target.value ? Number(e.target.value) : '')}
-                    placeholder="Enter application limit"
-                    min="0"
-                  />
                 </div>
               </div>
             </div>

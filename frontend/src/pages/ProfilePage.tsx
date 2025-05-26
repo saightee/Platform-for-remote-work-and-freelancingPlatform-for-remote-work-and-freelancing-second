@@ -5,9 +5,10 @@ import { getProfile, updateProfile, uploadAvatar, uploadIdentityDocument } from 
 import { Profile, SkillCategory } from '@types';
 import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
+import { FaUserCircle } from 'react-icons/fa';
 
 const ProfilePage: React.FC = () => {
-  const { profile: initialProfile } = useRole();
+  const { profile: initialProfile, refreshProfile } = useRole();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [documentUrl, setDocumentUrl] = useState('');
@@ -18,7 +19,7 @@ const ProfilePage: React.FC = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      setError('Вы должны быть авторизованы для просмотра этой страницы.');
+      setError('You must be logged in to view this page.');
       setIsLoading(false);
       return;
     }
@@ -30,8 +31,8 @@ const ProfilePage: React.FC = () => {
         const profileData = await getProfile();
         setProfile(profileData);
       } catch (error) {
-        console.error('Ошибка загрузки профиля:', error);
-        setError('Не удалось загрузить профиль. Пожалуйста, попробуйте позже.');
+        console.error('Error fetching profile:', error);
+        setError('Failed to load profile. Please try again later.');
       } finally {
         setIsLoading(false);
       }
@@ -52,82 +53,96 @@ const ProfilePage: React.FC = () => {
       const updatedProfile = await updateProfile(profile);
       setProfile(updatedProfile);
       setIsEditing(false);
-      alert('Профиль успешно обновлён!');
+      await refreshProfile();
+      alert('Profile updated successfully!');
     } catch (error) {
-      console.error('Ошибка обновления профиля:', error);
-      alert('Не удалось обновить профиль.');
+      console.error('Error updating profile:', error);
+      alert('Failed to update profile.');
     }
   };
 
   const handleUploadAvatar = async () => {
-    // Валидация avatarUrl
     if (!avatarUrl) {
-      alert('Пожалуйста, введите действительный URL аватара.');
+      alert('Please provide a valid avatar URL.');
       return;
     }
     const urlPattern = /^(https?:\/\/[^\s/$.?#].[^\s]*)$/i;
     if (!urlPattern.test(avatarUrl)) {
-      alert('Пожалуйста, введите действительный URL (например, https://example.com/avatar.jpg).');
+      alert('Please enter a valid URL (e.g., https://example.com/avatar.jpg).');
       return;
     }
 
     try {
-      console.log('Загрузка аватара с URL:', avatarUrl);
       const updatedProfile = await uploadAvatar(avatarUrl);
       setProfile(updatedProfile);
       setAvatarUrl('');
-      alert('Аватар успешно загружен!');
+      await refreshProfile();
+      alert('Avatar uploaded successfully!');
     } catch (error: any) {
-      console.error('Ошибка загрузки аватара:', error);
-      const errorMessage = error.response?.data?.message || 'Не удалось загрузить аватар. Убедитесь, что URL действителен.';
+      console.error('Error uploading avatar:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to upload avatar. Ensure the URL is valid.';
       alert(errorMessage);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // API не поддерживает прямую загрузку файлов, поэтому показываем заглушку
+      alert('File upload is not supported yet. Please provide a URL for the avatar.');
     }
   };
 
   const handleUploadDocument = async () => {
-    // Валидация documentUrl
     if (!documentUrl) {
-      alert('Пожалуйста, введите действительный URL документа.');
+      alert('Please provide a valid document URL.');
       return;
     }
     const urlPattern = /^(https?:\/\/[^\s/$.?#].[^\s]*)$/i;
     if (!urlPattern.test(documentUrl)) {
-      alert('Пожалуйста, введите действительный URL (например, https://example.com/document.pdf).');
+      alert('Please enter a valid URL (e.g., https://example.com/document.pdf).');
       return;
     }
 
     try {
-      console.log('Загрузка документа с URL:', documentUrl);
       const updatedProfile = await uploadIdentityDocument(documentUrl);
       setProfile(updatedProfile);
       setDocumentUrl('');
-      alert('Документ успешно загружен!');
+      await refreshProfile();
+      alert('Document uploaded successfully!');
     } catch (error: any) {
-      console.error('Ошибка загрузки документа:', error);
-      const errorMessage = error.response?.data?.message || 'Не удалось загрузить документ. Убедитесь, что URL действителен.';
+      console.error('Error uploading document:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to upload document. Ensure the URL is valid.';
       alert(errorMessage);
     }
   };
 
-  if (isLoading) return <div>Загрузка...</div>;
+  if (isLoading) return <div>Loading...</div>;
   if (error) return <div>{error}</div>;
-  if (!profile) return <div>Данные профиля недоступны.</div>;
+  if (!profile) return <div>Profile data is unavailable.</div>;
 
   return (
     <div>
       <Header />
-      <div className="container">
-        <h2>Мой профиль (Роль: {profile.role})</h2>
+      <div className="container profile-container">
+        <h2>My Profile (Role: {profile.role})</h2>
+        <div className="profile-avatar-section">
+          {profile.avatar ? (
+            <img src={profile.avatar} alt="Avatar" className="profile-avatar" />
+          ) : (
+            <FaUserCircle className="profile-avatar-icon" />
+          )}
+        </div>
         <div>
           {isEditing ? (
             <>
               <div className="form-group">
-                <label>Имя пользователя:</label>
+                <label>Username:</label>
                 <input
                   type="text"
                   value={profile.username}
                   onChange={(e) => setProfile({ ...profile, username: e.target.value })}
-                  placeholder="Введите ваше имя пользователя"
+                  placeholder="Enter your username"
                 />
               </div>
               <div className="form-group">
@@ -136,30 +151,26 @@ const ProfilePage: React.FC = () => {
                   type="email"
                   value={profile.email}
                   onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                  placeholder="Введите ваш email"
+                  placeholder="Enter your email"
                 />
               </div>
               {profile.role === 'employer' && (
                 <>
                   <div className="form-group">
-                    <label>Название компании:</label>
+                    <label>Company Name:</label>
                     <input
                       type="text"
                       value={profile.company_name || ''}
-                      onChange={(e) =>
-                        setProfile({ ...profile, company_name: e.target.value })
-                      }
-                      placeholder="Введите название компании"
+                      onChange={(e) => setProfile({ ...profile, company_name: e.target.value })}
+                      placeholder="Enter company name"
                     />
                   </div>
                   <div className="form-group">
-                    <label>Информация о компании:</label>
+                    <label>Company Info:</label>
                     <textarea
                       value={profile.company_info || ''}
-                      onChange={(e) =>
-                        setProfile({ ...profile, company_info: e.target.value })
-                      }
-                      placeholder="Введите информацию о компании"
+                      onChange={(e) => setProfile({ ...profile, company_info: e.target.value })}
+                      placeholder="Enter company information"
                     />
                   </div>
                 </>
@@ -167,7 +178,7 @@ const ProfilePage: React.FC = () => {
               {profile.role === 'jobseeker' && (
                 <>
                   <div className="form-group">
-                    <label>Навыки (через запятую):</label>
+                    <label>Skills (comma-separated):</label>
                     <input
                       type="text"
                       value={profile.skills?.join(', ') || ''}
@@ -177,94 +188,98 @@ const ProfilePage: React.FC = () => {
                           skills: e.target.value.split(',').map((s) => s.trim()),
                         })
                       }
-                      placeholder="например, JavaScript, Python"
+                      placeholder="e.g., JavaScript, Python"
                     />
                   </div>
                   <div className="form-group">
-                    <label>Опыт:</label>
+                    <label>Experience:</label>
                     <input
                       type="text"
                       value={profile.experience || ''}
-                      onChange={(e) =>
-                        setProfile({ ...profile, experience: e.target.value })
-                      }
-                      placeholder="Введите ваш опыт"
+                      onChange={(e) => setProfile({ ...profile, experience: e.target.value })}
+                      placeholder="Enter your experience"
                     />
                   </div>
                 </>
               )}
               <div className="form-group">
-                <label>Часовой пояс:</label>
+                <label>Timezone:</label>
                 <input
                   type="text"
                   value={profile.timezone || ''}
                   onChange={(e) => setProfile({ ...profile, timezone: e.target.value })}
-                  placeholder="Введите ваш часовой пояс"
+                  placeholder="Enter your timezone"
                 />
               </div>
               <div className="form-group">
-                <label>Валюта:</label>
+                <label>Currency:</label>
                 <input
                   type="text"
                   value={profile.currency || ''}
                   onChange={(e) => setProfile({ ...profile, currency: e.target.value })}
-                  placeholder="Введите вашу валюту"
+                  placeholder="Enter your currency"
                 />
               </div>
-              <button onClick={handleUpdateProfile}>Сохранить профиль</button>
+              <button onClick={handleUpdateProfile}>Save Profile</button>
               <button onClick={() => setIsEditing(false)} style={{ marginLeft: '10px' }}>
-                Отмена
+                Cancel
               </button>
             </>
           ) : (
             <>
-              <p><strong>Имя пользователя:</strong> {profile.username}</p>
+              <p><strong>Username:</strong> {profile.username}</p>
               <p><strong>Email:</strong> {profile.email}</p>
               {profile.role === 'employer' && (
                 <>
-                  <p><strong>Название компании:</strong> {profile.company_name || 'Не указано'}</p>
-                  <p><strong>Информация о компании:</strong> {profile.company_info || 'Не указано'}</p>
+                  <p><strong>Company Name:</strong> {profile.company_name || 'Not specified'}</p>
+                  <p><strong>Company Info:</strong> {profile.company_info || 'Not specified'}</p>
                 </>
               )}
               {profile.role === 'jobseeker' && (
                 <>
-                  <p><strong>Навыки:</strong> {profile.skills?.join(', ') || 'Не указано'}</p>
+                  <p><strong>Skills:</strong> {profile.skills?.join(', ') || 'Not specified'}</p>
                   <p>
-                    <strong>Категории навыков:</strong>{' '}
-                    {profile.skillCategories?.map((category: SkillCategory) => category.name).join(', ') || 'Не указано'}
+                    <strong>Skill Categories:</strong>{' '}
+                    {profile.skillCategories?.map((category: SkillCategory) => category.name).join(', ') || 'Not specified'}
                   </p>
-                  <p><strong>Опыт:</strong> {profile.experience || 'Не указано'}</p>
+                  <p><strong>Experience:</strong> {profile.experience || 'Not specified'}</p>
                 </>
               )}
-              <p><strong>Часовой пояс:</strong> {profile.timezone || 'Не указано'}</p>
-              <p><strong>Валюта:</strong> {profile.currency || 'Не указано'}</p>
-              <button onClick={() => setIsEditing(true)}>Редактировать профиль</button>
+              <p><strong>Timezone:</strong> {profile.timezone || 'Not specified'}</p>
+              <p><strong>Currency:</strong> {profile.currency || 'Not specified'}</p>
+              <button onClick={() => setIsEditing(true)}>Edit Profile</button>
             </>
           )}
         </div>
 
-        <h3>Загрузить аватар</h3>
-        <div className="form-group">
+        <h3>Upload Avatar</h3>
+        <div className="form-group avatar-upload-group">
           <input
             type="text"
             value={avatarUrl}
             onChange={(e) => setAvatarUrl(e.target.value)}
-            placeholder="Введите URL аватара"
+            placeholder="Enter avatar URL"
+            className="avatar-url-input"
           />
-          <button onClick={handleUploadAvatar}>Загрузить аватар</button>
+          <button onClick={handleUploadAvatar}>Upload via URL</button>
+        </div>
+        <div className="form-group avatar-upload-group">
+          <input type="file" accept="image/*" onChange={handleFileUpload} />
+          <button disabled>Upload from Computer</button>
         </div>
 
         {profile.role === 'jobseeker' && (
           <>
-            <h3>Загрузить документ для верификации личности</h3>
+            <h3>Upload Identity Document</h3>
             <div className="form-group">
               <input
                 type="text"
                 value={documentUrl}
                 onChange={(e) => setDocumentUrl(e.target.value)}
-                placeholder="Введите URL документа"
+                placeholder="Enter document URL"
+                className="avatar-url-input"
               />
-              <button onClick={handleUploadDocument}>Загрузить документ</button>
+              <button onClick={handleUploadDocument}>Upload Document</button>
             </div>
           </>
         )}

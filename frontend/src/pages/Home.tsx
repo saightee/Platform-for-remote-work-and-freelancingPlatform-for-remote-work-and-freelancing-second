@@ -16,11 +16,10 @@ const Home: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const jobsData = await searchJobPosts(filters);
+        const jobsData = await searchJobPosts({ ...filters, limit: 12 });
         setJobs(jobsData);
       } catch (error: any) {
         console.error('Ошибка при загрузке вакансий:', error);
-        // Показываем пустой список вместо ошибки, чтобы не ломать интерфейс
         setJobs([]);
       }
     };
@@ -47,8 +46,7 @@ const Home: React.FC = () => {
     "transcription specialist",
     "Travel Planner",
     "PERSONAL ASSISTANT",
-    "SEO Specialist",
-    "Project Coordinator"
+    "SEO Specialist"
   ];
 
   return (
