@@ -27,7 +27,8 @@ export class AuthController {
     @Headers('x-real-ip') xRealIp?: string,
     @Req() req?: any,
   ) {
-    const ip = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
+    const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
+    const ip = ipHeader.split(',')[0].trim(); 
     console.log('Client IP:', ip);
     return this.authService.register(registerDto, ip);
   }
