@@ -1924,3 +1924,173 @@
     "message": "Invalid token",
     "error": "Unauthorized"
   }
+
+### 57. Get Top Employers by Job Posts (Admin)
+- **Endpoint**: `GET /api/admin/leaderboards/top-employers-by-posts`
+- **Description**: Retrieves the top employers by the number of job posts created (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**: `limit` (number, optional): Number of results to return (default: 10).
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "userId": "<employerId>",
+      "username": "jane_smith",
+      "email": "employer@example.com",
+      "jobCount": 5
+    }
+  ]
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:  
+    ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+### 58. Get Growth Trends (Admin)
+- **Endpoint**: `GET /api/admin/analytics/growth-trends`
+- **Description**: Retrieves growth trends for registrations and job posts over the last 7 or 30 days, grouped by day (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**: `period` (string, optional): Time period ("7d" or "30d", default: "7d").
+- **Response (Success - 200)**:
+  ```json
+  {
+    "registrations": [
+      {
+        "period": "2025-05-20T00:00:00.000Z",
+        "count": 5
+      },
+      {
+        "period": "2025-05-21T00:00:00.000Z",
+        "count": 3
+      }
+    ],
+    "jobPosts": [
+      {
+        "period": "2025-05-20T00:00:00.000Z",
+        "count": 2
+      },
+      {
+        "period": "2025-05-21T00:00:00.000Z",
+        "count": 4
+      }
+    ]
+  }
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:  
+    ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }  
+
+### 59. Get Recent Registrations (Admin)
+- **Endpoint**: `GET /api/admin/analytics/recent-registrations`
+- **Description**: Retrieves the last 5 registrations of jobseekers and employers (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**: `limit` (number, optional): Number of results per role (default: 5).
+- **Response (Success - 200)**:
+  ```json
+  {
+    "jobseekers": [
+      {
+        "id": "<userId>",
+        "email": "jobseeker@example.com",
+        "username": "john_doe",
+        "role": "jobseeker",
+        "created_at": "2025-05-27T06:00:00.000Z"
+      }
+    ],
+    "employers": [
+      {
+        "id": "<userId>",
+        "email": "employer@example.com",
+        "username": "jane_smith",
+        "role": "employer",
+        "created_at": "2025-05-27T06:00:00.000Z"
+      }
+    ]
+  }
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:  
+    ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }    
+
+### 60. Get Job Posts with Applications (Admin)
+- **Endpoint**: `GET /api/admin/job-posts/applications`
+- **Description**: Retrieves all job posts with their application counts (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**: `limit` (number, optional): Number of results per role (default: 5).
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "id": "<jobPostId>",
+      "title": "Software Engineer",
+      "status": "Active",
+      "applicationCount": 10,
+      "created_at": "2025-05-27T06:00:00.000Z"
+    }
+  ]
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:  
+    ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+### 61. Get Online Users (Admin)
+- **Endpoint**: `GET /api/admin/analytics/online-users`
+- **Description**: Retrieves the count of online jobseekers and employers (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  ```json
+  {
+    "jobseekers": 15,
+    "employers": 5
+  }
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:  
+    ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+### 62. Get User Online Status
+- **Endpoint**: `GET /api/users/:id/online`
+- **Description**: Checks if a specific user is online.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the user.
+- **Response (Success - 200)**:
+  ```json
+  {
+    "userId": "<userId>",
+    "isOnline": true
+  }
+
+- **Response (Error - 401, if token is invalid)**:  
+    ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 404, if user not found)**:  
+    ```json
+  {
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
+  }

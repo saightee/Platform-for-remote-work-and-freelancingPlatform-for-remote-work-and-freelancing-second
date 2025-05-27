@@ -156,4 +156,7 @@ export class UsersService {
       percentage: totalUsers ? (parseInt(row.count, 10) / totalUsers * 100).toFixed(2) : 0,
     }));
   }
+
+  async getUserById(userId: string): Promise<User | null> {
+  return this.usersRepository.findOne({ where: { id: userId } });}
 }
