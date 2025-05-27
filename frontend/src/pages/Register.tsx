@@ -1,8 +1,7 @@
-// src/pages/Register.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { register, googleAuthInitiate } from '../services/api';
-import { FaGoogle } from 'react-icons/fa';
+import { register } from '../services/api'; // Раскомментируем только register
+// import { FaGoogle } from 'react-icons/fa';
 import { useRole } from '../context/RoleContext';
 
 const Register: React.FC = () => {
@@ -30,22 +29,25 @@ const Register: React.FC = () => {
     }
     try {
       setErrorMessage(null);
-      console.log('Registering with:', { username, email, password, role }); // Логируем данные
       const { accessToken } = await register({ username, email, password, role });
       localStorage.setItem('token', accessToken);
       await refreshProfile();
       navigate('/');
     } catch (error: any) {
       console.error('Register error:', error);
-      setErrorMessage(error.response?.data?.message || 'Registration failed. Please try again.');
+      if (error.response?.status === 403 && error.response?.data?.message === 'Registration is not allowed from your country') {
+        setErrorMessage('Registration is not allowed from your country.');
+      } else {
+        setErrorMessage(error.response?.data?.message || 'Registration failed. Please try again.');
+      }
     }
   };
 
-  const handleGoogleRegister = () => {
-    if (role) {
-      googleAuthInitiate(role);
-    }
-  };
+  // const handleGoogleRegister = () => {
+  //   if (role) {
+  //     googleAuthInitiate(role);
+  //   }
+  // };
 
   if (!role) return null;
 
@@ -92,11 +94,6 @@ const Register: React.FC = () => {
             />
           </div>
           <button onClick={handleSubmit}>Sign Up as {role === 'employer' ? 'Employer' : 'Jobseeker'}</button>
-          {/* <div className="google-login">
-            <button onClick={handleGoogleRegister} className="google-button">
-              <FaGoogle style={{ marginRight: '8px' }} /> Sign Up with Google
-            </button>
-          </div> */}
           <div className="form-links">
             <p>
               Already have an account? <Link to="/login">Login</Link>

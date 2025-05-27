@@ -1,9 +1,15 @@
-// src/services/api.ts
 import axios from 'axios';
+import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { 
   User, Profile, JobPost, Category, JobApplication, Review, Feedback, 
   BlockedCountry, LoginCredentials, RegisterCredentials 
 } from '@types';
+
+const getFingerprint = async () => {
+  const fp = await FingerprintJS.load();
+  const result = await fp.get();
+  return result.visitorId;
+};
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
@@ -12,7 +18,7 @@ const api = axios.create({
   },
 });
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -22,7 +28,12 @@ api.interceptors.request.use((config) => {
 
 // Authentication
 export const register = async (credentials: RegisterCredentials) => {
-  const response = await api.post<{ accessToken: string }>('/auth/register', credentials);
+  const fingerprint = await getFingerprint();
+  const response = await api.post<{ accessToken: string }>('/auth/register', credentials, {
+    headers: {
+      'x-fingerprint': fingerprint,
+    },
+  });
   return response.data;
 };
 
@@ -36,18 +47,13 @@ export const logout = async () => {
   return response.data;
 };
 
-export const googleAuthInitiate = (role: 'employer' | 'jobseeker') => {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
-  window.location.href = `${baseUrl}/auth/google?role=${role}`;
+export const requestPasswordReset = async (email: string) => {
+  const response = await api.post<{ message: string }>('/auth/reset-password-request', { email });
+  return response.data;
 };
 
-export const googleAuthInitiateForLogin = () => {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
-  window.location.href = `${baseUrl}/auth/google`;
-};
-
-export const googleAuthLogin = async (token: string) => {
-  const response = await api.post<{ accessToken: string }>('/auth/google-login', { token });
+export const confirmPasswordReset = async (token: string, newPassword: string) => {
+  const response = await api.post<{ message: string }>('/auth/reset-password', { token, newPassword });
   return response.data;
 };
 
@@ -57,18 +63,32 @@ export const getProfile = async () => {
   return response.data;
 };
 
+export const getUserProfileById = async (id: string) => {
+  const response = await api.get<Profile>(`/users/${id}`);
+  return response.data;
+};
+
 export const updateProfile = async (data: Partial<Profile>) => {
   const response = await api.put<Profile>('/profile', data);
   return response.data;
 };
 
-export const uploadAvatar = async (avatarUrl: string) => {
-  const response = await api.post<Profile>('/profile/upload-avatar', { avatarUrl });
+export const deleteAccount = async () => {
+  const response = await api.delete<{ message: string }>('/profile');
   return response.data;
 };
 
-export const uploadIdentityDocument = async (documentUrl: string) => {
-  const response = await api.post<Profile>('/profile/upload-identity', { documentUrl });
+export const uploadAvatar = async (formData: FormData) => {
+  const response = await api.post<Profile>('/profile/upload-avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
+export const uploadIdentityDocument = async (formData: FormData) => {
+  const response = await api.post<Profile>('/profile/upload-identity', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return response.data;
 };
 
@@ -93,25 +113,6 @@ export const getMyJobPosts = async () => {
   return response.data;
 };
 
-// export const searchJobPosts = async (params: {
-//   title?: string;
-//   location?: string;
-//   salaryMin?: number;
-//   salaryMax?: number;
-//   job_type?: string;
-//   category_id?: string;
-//   required_skills?: string;
-// }) => {
-//   const response = await api.get<JobPost[]>('/job-posts/search', { params });
-//   return response.data;
-// };
-
-// export const closeJobPost = async (id: string) => {
-//   const response = await api.post<JobPost>(`/job-posts/${id}/close`);
-//   return response.data;
-// };
-
-// src/services/api.ts
 export const searchJobPosts = async (params: {
   title?: string;
   location?: string;
@@ -129,28 +130,38 @@ export const searchJobPosts = async (params: {
   return response.data;
 };
 
+export const searchJobseekers = async (params: {
+  username?: string;
+  skills?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  const response = await api.get<Profile[]>('/users', {
+    params: { ...params, role: 'jobseeker' },
+  });
+  return response.data;
+};
+
 export const closeJobPost = async (id: string) => {
   const response = await api.post<JobPost>(`/job-posts/${id}/close`);
   return response.data;
 };
 
+export const incrementJobView = async (id: string) => {
+  const response = await api.post<{ message: string; views: number }>(`/job-posts/${id}/increment-view`);
+  return response.data;
+};
 
+export const applyToJob = async (id: string) => {
+  const response = await api.post(`/job-applications/${id}/apply`);
+  return response.data;
+};
 
 export const setJobPostApplicationLimit = async (id: string, limit: number) => {
   const response = await api.post<{ message: string; limit: number }>(
     `/job-posts/${id}/set-application-limit`,
     { limit }
   );
-  return response.data;
-};
-
-export const incrementJobView = async (id: string) => {
-  const response = await api.post(`/jobs/${id}/increment-view`);
-  return response.data;
-};
-
-export const applyToJob = async (id: string) => {
-  const response = await api.post(`/job-applications/${id}/apply`);
   return response.data;
 };
 
@@ -178,7 +189,7 @@ export const getMyApplications = async () => {
 
 export const getApplicationsForJobPost = async (jobPostId: string) => {
   const response = await api.get<
-    { userId: string; username: string; email: string; jobDescription: string; appliedAt: string }[]
+    { id: string; userId: string; username: string; email: string; jobDescription: string; appliedAt: string; status: string }[]
   >(`/job-applications/job-post/${jobPostId}`);
   return response.data;
 };
@@ -222,6 +233,37 @@ export const deleteUser = async (id: string) => {
 
 export const resetUserPassword = async (id: string, newPassword: string) => {
   const response = await api.post<{ message: string }>(`/admin/users/${id}/reset-password`, { newPassword });
+  return response.data;
+};
+
+export const blockUser = async (id: string) => {
+  const response = await api.post<{ message: string }>(`/admin/users/${id}/block`);
+  return response.data;
+};
+
+export const unblockUser = async (id: string) => {
+  const response = await api.post<{ message: string }>(`/admin/users/${id}/unblock`);
+  return response.data;
+};
+
+export const getUserRiskScore = async (id: string) => {
+  const response = await api.get<{ userId: string; riskScore: number; details: { duplicateIp: boolean; proxyDetected: boolean; duplicateFingerprint: boolean } }>(`/admin/users/${id}/risk-score`);
+  return response.data;
+};
+
+export const exportUsersToCSV = async () => {
+  const response = await api.get('/admin/users/export-csv', { responseType: 'blob' });
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', 'users.csv');
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+};
+
+export const getUserOnlineStatus = async (id: string) => {
+  const response = await api.get<{ userId: string; isOnline: boolean }>(`/users/${id}/online`);
   return response.data;
 };
 

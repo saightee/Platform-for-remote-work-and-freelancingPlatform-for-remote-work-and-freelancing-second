@@ -1,5 +1,7 @@
+
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { requestPasswordReset } from '../services/api';
 
 const ResetPassword: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -11,13 +13,11 @@ const ResetPassword: React.FC = () => {
     try {
       setError(null);
       setMessage(null);
-      // Здесь должен быть API-запрос для сброса пароля
-      // Например: await resetPassword(email);
-      // Пока используем заглушку
+      await requestPasswordReset(email);
       setMessage('If an account with this email exists, a reset link has been sent.');
-    } catch (err) {
-      console.error('Reset password error:', err);
-      setError('Failed to send reset link. Please try again.');
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      setError(error.response?.data?.message || 'Failed to send reset link. Please try again.');
     }
   };
 
@@ -25,6 +25,8 @@ const ResetPassword: React.FC = () => {
     <div className="register-container">
       <div className="register-box">
         <h2>Reset Password</h2>
+        {message && <p style={{ color: 'green', textAlign: 'center' }}>{message}</p>}
+        {error && <p style={{ color: 'red', textAlign: 'center' }}>{error}</p>}
         <div className="register-form">
           <div className="form-group">
             <label>Email</label>
@@ -35,8 +37,6 @@ const ResetPassword: React.FC = () => {
               placeholder="Enter your email"
             />
           </div>
-          {message && <p style={{ color: 'green', textAlign: 'center' }}>{message}</p>}
-          {error && <p style={{ color: 'red', textAlign: 'center' }}>{error}</p>}
           <button onClick={handleSubmit}>Send Reset Link</button>
           <div className="form-links">
             <p>
