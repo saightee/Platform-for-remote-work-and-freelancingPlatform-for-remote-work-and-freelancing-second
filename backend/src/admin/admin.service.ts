@@ -13,6 +13,7 @@ import { SettingsService } from '../settings/settings.service';
 import { ApplicationLimitsService } from '../application-limits/application-limits.service';
 import { ApplicationLimit } from '../application-limits/application-limit.entity';
 import { LeaderboardsService } from '../leaderboards/leaderboards.service';
+import { RedisService } from '../redis/redis.service'; 
 import { createObjectCsvStringifier } from 'csv-writer';
 import * as bcrypt from 'bcrypt';
 
@@ -37,7 +38,8 @@ export class AdminService {
     private blockedCountriesService: BlockedCountriesService,
     private settingsService: SettingsService,
     private applicationLimitsService: ApplicationLimitsService,
-    private leaderboardsService: LeaderboardsService, // Добавляем
+    private leaderboardsService: LeaderboardsService,
+    private redisService: RedisService, // Инжектируем
   ) {}
 
   async checkAdminRole(userId: string) {
@@ -489,5 +491,76 @@ export class AdminService {
   
     const csvData = csvStringifier.getHeaderString() + csvStringifier.stringifyRecords(records);
     return csvData;
+  }
+
+  async getGrowthTrends(adminId: string, period: '7d' | '30d') {
+    await this.checkAdminRole(adminId);
+    const days = period === '7d' ? 7 : 30;
+    const endDate = new Date();
+    const startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - days);
+
+    const registrations = await this.usersService.getRegistrationStats(startDate, endDate, 'day');
+    const jobPosts = await this.jobPostsRepository
+      .createQueryBuilder('jobPost')
+      .select(`DATE_TRUNC('day', jobPost.created_at) as period`)
+      .addSelect('COUNT(*) as count')
+      .where('jobPost.created_at BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .groupBy('period')
+      .orderBy('period', 'ASC')
+      .getRawMany();
+
+    return {
+      registrations: registrations.map(r => ({ period: r.period, count: r.count })),
+      jobPosts: jobPosts.map(j => ({ period: j.period, count: parseInt(j.count, 10) })),
+    };
+  }
+
+  async getRecentRegistrations(adminId: string, limit: number = 5) {
+    await this.checkAdminRole(adminId);
+    const users = await this.usersRepository.find({
+      where: [{ role: 'jobseeker' }, { role: 'employer' }],
+      order: { created_at: 'DESC' },
+      take: limit * 2,
+    });
+    return {
+      jobseekers: users.filter(u => u.role === 'jobseeker').slice(0, limit).map(u => ({
+        id: u.id,
+        email: u.email,
+        username: u.username,
+        role: u.role,
+        created_at: u.created_at,
+      })),
+      employers: users.filter(u => u.role === 'employer').slice(0, limit).map(u => ({
+        id: u.id,
+        email: u.email,
+        username: u.username,
+        role: u.role,
+        created_at: u.created_at,
+      })),
+    };
+  }
+
+  async getJobPostsWithApplications(adminId: string) {
+    await this.checkAdminRole(adminId);
+    const jobPosts = await this.jobPostsRepository
+      .createQueryBuilder('jobPost')
+      .leftJoin('jobPost.applications', 'application')
+      .addSelect('COUNT(application.id) as applicationCount')
+      .groupBy('jobPost.id')
+      .getRawAndEntities();
+  
+    return jobPosts.entities.map((post, index) => ({
+      id: post.id,
+      title: post.title,
+      status: post.status,
+      applicationCount: parseInt(jobPosts.raw[index].applicationCount) || 0,
+      created_at: post.created_at,
+    }));
+  }
+
+  async getOnlineUsers(adminId: string) {
+    await this.checkAdminRole(adminId);
+    return this.redisService.getOnlineUsers();
   }
 }

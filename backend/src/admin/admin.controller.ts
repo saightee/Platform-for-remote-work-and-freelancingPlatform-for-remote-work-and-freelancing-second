@@ -465,5 +465,58 @@ export class AdminController {
     return this.adminService.getTopJobseekersByViews(adminId, parsedLimit);
   }
 
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Get('analytics/growth-trends')
+  async getGrowthTrends(
+    @Query('period') period: '7d' | '30d' = '7d',
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.getGrowthTrends(adminId, period);
+  }
 
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Get('analytics/recent-registrations')
+  async getRecentRegistrations(
+    @Query('limit') limit: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    const parsedLimit = limit ? parseInt(limit, 10) : 5;
+    return this.adminService.getRecentRegistrations(adminId, parsedLimit);
+  }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Get('job-posts/applications')
+  async getJobPostsWithApplications(@Headers('authorization') authHeader: string) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.getJobPostsWithApplications(adminId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Get('analytics/online-users')
+  async getOnlineUsers(@Headers('authorization') authHeader: string) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.getOnlineUsers(adminId);
+  }
 }

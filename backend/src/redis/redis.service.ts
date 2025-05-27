@@ -38,7 +38,22 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     await this.client.del(key);
   }
 
-  // Добавляем метод для тестов
+  async setUserOnline(userId: string, role: 'jobseeker' | 'employer') {
+    await this.client.set(`online:${userId}`, role, 'EX', 300); // 5 минут
+  }
+
+  async getOnlineUsers() {
+    const keys = await this.client.keys('online:*');
+    const users = await Promise.all(keys.map(async key => ({
+      userId: key.replace('online:', ''),
+      role: await this.client.get(key),
+    })));
+    return {
+      jobseekers: users.filter(u => u.role === 'jobseeker').length,
+      employers: users.filter(u => u.role === 'employer').length,
+    };
+  }
+
   getClient(): Redis {
     return this.client;
   }

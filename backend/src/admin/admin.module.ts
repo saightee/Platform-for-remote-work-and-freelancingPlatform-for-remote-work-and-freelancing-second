@@ -16,6 +16,7 @@ import { BlockedCountriesModule } from '../blocked-countries/blocked-countries.m
 import { SettingsModule } from '../settings/settings.module';
 import { ApplicationLimitsModule } from '../application-limits/application-limits.module';
 import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
     SettingsModule,
     ApplicationLimitsModule,
     LeaderboardsModule,
+    RedisModule, // Убедимся, что добавлен
   ],
   controllers: [AdminController],
   providers: [AdminService],
