@@ -1,7 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { getMyJobPosts, updateJobPost, closeJobPost, setJobPostApplicationLimit, getApplicationsForJobPost, getCategories } from '../services/api';
+import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus } from '../services/api';
 import { JobPost, Category } from '@types';
 import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
@@ -12,9 +13,8 @@ const MyJobPosts: React.FC = () => {
   const { profile } = useRole();
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [applications, setApplications] = useState<
-    { jobPostId: string; apps: { userId: string; username: string; email: string; jobDescription: string; appliedAt: string }[] }
+    { jobPostId: string; apps: { id: string; userId: string; username: string; email: string; jobDescription: string; appliedAt: string; status: string }[] }
   >({ jobPostId: '', apps: [] });
-  const [limit, setLimit] = useState<number | ''>('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -63,22 +63,6 @@ const MyJobPosts: React.FC = () => {
     } catch (err) {
       console.error('Error closing job post:', err);
       alert('Failed to close job post.');
-    }
-  };
-
-  const handleSetLimit = async (id: string) => {
-    if (limit === '' || limit < 0) {
-      alert('Please enter a valid application limit.');
-      return;
-    }
-    try {
-      await setJobPostApplicationLimit(id, Number(limit));
-      setJobPosts(jobPosts.map((post) => (post.id === id ? { ...post, applicationLimit: Number(limit) } : post)));
-      alert('Application limit set successfully!');
-      setLimit('');
-    } catch (err) {
-      console.error('Error setting application limit:', err);
-      alert('Failed to set application limit.');
     }
   };
 
@@ -281,31 +265,68 @@ const MyJobPosts: React.FC = () => {
                         View Applications
                       </button>
                     </div>
-                    <div className="form-group">
-                      <label>Set Application Limit:</label>
-                      <input
-                        type="number"
-                        value={limit}
-                        onChange={(e) => setLimit(e.target.value ? Number(e.target.value) : '')}
-                        min="0"
-                        placeholder="Enter limit"
-                      />
-                      <button onClick={() => handleSetLimit(post.id)} className="action-button">
-                        Set Limit
-                      </button>
-                    </div>
                     {applications.jobPostId === post.id && applications.apps.length > 0 && (
-                      <div className="applications-section">
+                      <div className="application-details-section">
                         <h4>Applications:</h4>
-                        <ul>
-                          {applications.apps.map((app, index) => (
-                            <li key={index}>
-                              <strong>{app.username}</strong> ({app.email}) - Applied:{' '}
-                              {formatDateInTimezone(app.appliedAt, profile.timezone)} <br />
-                              <strong>Description:</strong> {app.jobDescription || 'Not specified'}
-                            </li>
-                          ))}
-                        </ul>
+                        <table className="application-table">
+                          <thead>
+                            <tr>
+                              <th>Username</th>
+                              <th>Email</th>
+                              <th>Description</th>
+                              <th>Applied On</th>
+                              <th>Status</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {applications.apps.map((app, index) => (
+                              <tr key={index}>
+                                <td>{app.username}</td>
+                                <td>{app.email}</td>
+                                <td>{app.jobDescription || 'Not provided'}</td>
+                                <td>{formatDateInTimezone(app.appliedAt, profile.timezone)}</td>
+                                <td>{app.status || 'Pending'}</td>
+                                <td>
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await updateApplicationStatus(app.id, 'Accepted');
+                                        alert('Application accepted!');
+                                        const updatedApps = await getApplicationsForJobPost(post.id);
+                                        setApplications({ jobPostId: post.id, apps: updatedApps });
+                                      } catch (error) {
+                                        console.error('Error accepting application:', error);
+                                        alert('Failed to accept application.');
+                                      }
+                                    }}
+                                    className="action-button success"
+                                    disabled={app.status !== 'Pending'}
+                                  >
+                                    Accept
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await updateApplicationStatus(app.id, 'Rejected');
+                                        alert('Application rejected!');
+                                        const updatedApps = await getApplicationsForJobPost(post.id);
+                                        setApplications({ jobPostId: post.id, apps: updatedApps });
+                                      } catch (error) {
+                                        console.error('Error rejecting application:', error);
+                                        alert('Failed to reject application.');
+                                      }
+                                    }}
+                                    className="action-button danger"
+                                    disabled={app.status !== 'Pending'}
+                                  >
+                                    Reject
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </>
