@@ -5,6 +5,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { SettingsService } from '../settings/settings.service';
 import { Response } from 'express';
+import { AntiFraudService } from '../anti-fraud/anti-fraud.service';
 
 @Controller('admin')
 export class AdminController {
@@ -12,6 +13,7 @@ export class AdminController {
     private adminService: AdminService,
     private settingsService: SettingsService,
     private jwtService: JwtService,
+    private antiFraudService: AntiFraudService, // Инжектируем
   ) {}
 
   @Get('users/export-csv')
@@ -130,6 +132,22 @@ export class AdminController {
     const userIdAdmin = payload.sub;
 
     return this.adminService.resetPassword(userIdAdmin, userId, newPassword);
+  }
+
+  @Get('users/:id/risk-score')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async getUserRiskScore(
+    @Param('id') userId: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    await this.adminService.checkAdminRole(adminId);
+    return this.antiFraudService.getRiskScore(userId);
   }
 
   @Get('job-posts')

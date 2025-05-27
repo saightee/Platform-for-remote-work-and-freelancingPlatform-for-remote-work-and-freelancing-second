@@ -9,6 +9,7 @@ import { JobApplication } from '../job-applications/job-application.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { ApplicationLimit } from '../application-limits/application-limit.entity';
+import { UserFingerprint } from '../anti-fraud/entities/user-fingerprint.entity'; // Добавляем
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from '../users/users.module';
@@ -17,10 +18,11 @@ import { SettingsModule } from '../settings/settings.module';
 import { ApplicationLimitsModule } from '../application-limits/application-limits.module';
 import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
 import { RedisModule } from '../redis/redis.module';
+import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, JobPost, Review, JobApplication, JobSeeker, Employer, ApplicationLimit]),
+    TypeOrmModule.forFeature([User, JobPost, Review, JobApplication, JobSeeker, Employer, ApplicationLimit, UserFingerprint]), // Добавляем UserFingerprint
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -34,7 +36,8 @@ import { RedisModule } from '../redis/redis.module';
     SettingsModule,
     ApplicationLimitsModule,
     LeaderboardsModule,
-    RedisModule, // Убедимся, что добавлен
+    RedisModule,
+    AntiFraudModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

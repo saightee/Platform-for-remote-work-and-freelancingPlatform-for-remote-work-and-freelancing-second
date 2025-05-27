@@ -35,6 +35,9 @@ export class User {
   @Column({ type: 'varchar', default: 'active' })
   status: 'active' | 'blocked';
 
+  @Column({ type: 'int', default: 0 }) // Добавляем risk_score
+  risk_score: number;
+
   @CreateDateColumn()
   created_at: Date;
 
