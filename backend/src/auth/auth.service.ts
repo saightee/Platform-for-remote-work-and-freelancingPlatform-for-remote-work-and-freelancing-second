@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
 import { BlockedCountriesService } from '../blocked-countries/blocked-countries.service';
+import { AntiFraudService } from '../anti-fraud/anti-fraud.service'; // Добавляем
 import * as bcrypt from 'bcrypt';
 import * as geoip from 'geoip-lite';
 import { RegisterDto } from './dto/register.dto';
@@ -11,6 +12,7 @@ import { LoginDto } from './dto/login.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { Transporter } from 'nodemailer';
 
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -18,10 +20,11 @@ export class AuthService {
     private jwtService: JwtService,
     private redisService: RedisService,
     private blockedCountriesService: BlockedCountriesService,
+    private antiFraudService: AntiFraudService,
     @Inject('MAILER_TRANSPORT') private mailerTransport: Transporter,
   ) {}
 
-  async register(dto: RegisterDto | CreateAdminDto, ip?: string) {
+  async register(dto: RegisterDto | CreateAdminDto, ip: string, fingerprint?: string) {
     const { email, password, username } = dto;
 
     // Определяем страну по IP
@@ -32,7 +35,7 @@ export class AuthService {
         throw new ForbiddenException('Registration is not allowed from your country');
       }
       const geo = geoip.lookup(ip);
-      country = geo?.country || null;
+      country = geo?.country ?? null;
       console.log('Detected country for IP', ip, ':', country);
     }
 
@@ -70,6 +73,11 @@ export class AuthService {
     };
     const newUser = await this.usersService.create(userData, additionalData);
     console.log('New User Created:', newUser);
+
+    // Вычисляем риск-скоринг
+    if (fingerprint && ip) {
+      await this.antiFraudService.calculateRiskScore(newUser.id, fingerprint, ip);
+    }
 
     const payload = { email: newUser.email, sub: newUser.id, role: newUser.role };
     const token = this.jwtService.sign(payload, { expiresIn: '1h' });

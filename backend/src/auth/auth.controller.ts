@@ -8,16 +8,16 @@ import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { v4 as uuidv4 } from 'uuid';
-import { UsersService } from '../users/users.service'; // Добавляем
-import { RedisService } from '../redis/redis.service'; // Добавляем
+import { UsersService } from '../users/users.service';
+import { RedisService } from '../redis/redis.service';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private authService: AuthService,
     private jwtService: JwtService,
-    private usersService: UsersService, // Добавляем
-    private redisService: RedisService, // Добавляем
+    private usersService: UsersService,
+    private redisService: RedisService,
   ) {}
 
   @Post('register')
@@ -25,12 +25,16 @@ export class AuthController {
     @Body() registerDto: RegisterDto,
     @Headers('x-forwarded-for') xForwardedFor?: string,
     @Headers('x-real-ip') xRealIp?: string,
+    @Headers('x-fingerprint') fingerprint?: string,
     @Req() req?: any,
   ) {
     const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
-    const ip = ipHeader.split(',')[0].trim(); 
+    const ip = ipHeader.split(',')[0].trim();
     console.log('Client IP:', ip);
-    return this.authService.register(registerDto, ip);
+    if (!fingerprint) {
+      throw new BadRequestException('Fingerprint is required');
+    }
+    return this.authService.register(registerDto, ip, fingerprint);
   }
 
   @Post('login')
@@ -109,17 +113,33 @@ export class AuthController {
   }
 
   @Post('create-admin')
-  async createAdmin(@Body() createAdminDto: CreateAdminDto) {
-    return this.authService.register(createAdminDto);
+  async createAdmin(
+    @Body() createAdminDto: CreateAdminDto,
+    @Headers('x-forwarded-for') xForwardedFor?: string,
+    @Headers('x-real-ip') xRealIp?: string,
+    @Headers('x-fingerprint') fingerprint?: string,
+    @Req() req?: any,
+  ) {
+    const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
+    const ip = ipHeader.split(',')[0].trim();
+    console.log('Client IP:', ip);
+    return this.authService.register(createAdminDto, ip, fingerprint);
   }
 
   @Post('test-register')
   async testRegister(
     @Body() body: { email: string; password: string; username: string; role: 'employer' | 'jobseeker' },
     @Res() res: Response,
+    @Headers('x-forwarded-for') xForwardedFor?: string,
+    @Headers('x-real-ip') xRealIp?: string,
+    @Headers('x-fingerprint') fingerprint?: string,
+    @Req() req?: any,
   ) {
+    const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
+    const ip = ipHeader.split(',')[0].trim();
+    console.log('Client IP:', ip);
     const registerDto = { email: body.email, password: body.password, username: body.username, role: body.role };
-    const user = await this.authService.register(registerDto);
+    const user = await this.authService.register(registerDto, ip, fingerprint);
     return res.json(user);
   }
 }

@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { UsersModule } from '../users/users.module'; // Импортирует UsersService
+import { UsersModule } from '../users/users.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { RedisModule } from '../redis/redis.module'; // Импортирует RedisService
+import { RedisModule } from '../redis/redis.module';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { LinkedInStrategy } from './strategies/linkedin.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -14,6 +14,7 @@ import * as nodemailer from 'nodemailer';
 import { BlockedCountriesModule } from '../blocked-countries/blocked-countries.module';
 import { AdminGuard } from './guards/admin.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { AntiFraudModule } from '../anti-fraud/anti-fraud.module'; // Добавляем
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
       isGlobal: true,
       envFilePath: '../.env',
     }),
-    UsersModule, // Предоставляет UsersService
+    UsersModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -34,8 +35,9 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
       },
       inject: [ConfigService],
     }),
-    RedisModule, // Предоставляет RedisService
+    RedisModule,
     BlockedCountriesModule,
+    AntiFraudModule, // Добавляем
   ],
   controllers: [AuthController],
   providers: [

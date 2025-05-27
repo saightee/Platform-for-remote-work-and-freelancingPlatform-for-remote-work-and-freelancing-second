@@ -13,9 +13,11 @@ import { SettingsService } from '../settings/settings.service';
 import { ApplicationLimitsService } from '../application-limits/application-limits.service';
 import { ApplicationLimit } from '../application-limits/application-limit.entity';
 import { LeaderboardsService } from '../leaderboards/leaderboards.service';
-import { RedisService } from '../redis/redis.service'; 
+import { RedisService } from '../redis/redis.service';
 import { createObjectCsvStringifier } from 'csv-writer';
 import * as bcrypt from 'bcrypt';
+import { AntiFraudService } from '../anti-fraud/anti-fraud.service'; // Добавляем
+import { UserFingerprint } from '../anti-fraud/entities/user-fingerprint.entity';
 
 @Injectable()
 export class AdminService {
@@ -34,12 +36,15 @@ export class AdminService {
     private employerRepository: Repository<Employer>,
     @InjectRepository(ApplicationLimit)
     private applicationLimitsRepository: Repository<ApplicationLimit>,
+    @InjectRepository(UserFingerprint)
+    private fingerprintRepository: Repository<UserFingerprint>,
     private usersService: UsersService,
     private blockedCountriesService: BlockedCountriesService,
     private settingsService: SettingsService,
     private applicationLimitsService: ApplicationLimitsService,
     private leaderboardsService: LeaderboardsService,
-    private redisService: RedisService, // Инжектируем
+    private redisService: RedisService,
+    private antiFraudService: AntiFraudService,
   ) {}
 
   async checkAdminRole(userId: string) {
@@ -119,66 +124,51 @@ export class AdminService {
   }
 
   async deleteUser(adminId: string, userId: string) {
-    await this.checkAdminRole(adminId);
-    const user = await this.usersRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    try {
-      // Удаляем связанные записи
-      if (user.role === 'employer') {
-        // Удаляем вакансии работодателя
-        const jobPosts = await this.jobPostsRepository.find({ where: { employer_id: userId } });
-        for (const jobPost of jobPosts) {
-          const applications = await this.jobApplicationsRepository.find({ where: { job_post_id: jobPost.id } });
-          if (applications.length > 0) {
-            const applicationIds = applications.map(app => app.id);
-            await this.reviewsRepository.createQueryBuilder()
-              .delete()
-              .from(Review)
-              .where('job_application_id IN (:...applicationIds)', { applicationIds })
-              .execute();
+      await this.checkAdminRole(adminId);
+      const user = await this.usersRepository.findOne({ where: { id: userId } });
+      if (!user) {
+          throw new NotFoundException('User not found');
+      }
+    
+      try {
+          // Удаляем связанные записи
+          if (user.role === 'employer') {
+              const jobPosts = await this.jobPostsRepository.find({ where: { employer_id: userId } });
+              for (const jobPost of jobPosts) {
+                  const applications = await this.jobApplicationsRepository.find({ where: { job_post_id: jobPost.id } });
+                  if (applications.length > 0) {
+                      const applicationIds = applications.map(app => app.id);
+                      await this.reviewsRepository.delete({ job_application_id: In(applicationIds) });
+                  }
+                  await this.jobApplicationsRepository.delete({ job_post_id: jobPost.id });
+                  await this.applicationLimitsRepository.delete({ job_post_id: jobPost.id });
+                  await this.jobPostsRepository.delete(jobPost.id);
+              }
+              await this.employerRepository.delete({ user_id: userId });
+          } else if (user.role === 'jobseeker') {
+              const applications = await this.jobApplicationsRepository.find({ where: { job_seeker_id: userId } });
+              if (applications.length > 0) {
+                  const applicationIds = applications.map(app => app.id);
+                  await this.reviewsRepository.delete({ job_application_id: In(applicationIds) });
+              }
+              await this.jobApplicationsRepository.delete({ job_seeker_id: userId });
+              await this.jobSeekerRepository.delete({ user_id: userId });
           }
-          await this.jobApplicationsRepository.delete({ job_post_id: jobPost.id });
-          await this.applicationLimitsRepository.delete({ job_post_id: jobPost.id });
-          await this.jobPostsRepository.delete(jobPost.id);
-        }
-      } else if (user.role === 'jobseeker') {
-        // Удаляем заявки фрилансера
-        const applications = await this.jobApplicationsRepository.find({ where: { job_seeker_id: userId } });
-        if (applications.length > 0) {
-          const applicationIds = applications.map(app => app.id);
-          await this.reviewsRepository.createQueryBuilder()
-            .delete()
-            .from(Review)
-            .where('job_application_id IN (:...applicationIds)', { applicationIds })
-            .execute();
-        }
-        await this.jobApplicationsRepository.delete({ job_seeker_id: userId });
+        
+          // Удаляем отзывы
+          await this.reviewsRepository.delete({ reviewer_id: userId });
+          await this.reviewsRepository.delete({ reviewed_id: userId });
+        
+          // Явно удаляем записи из user_fingerprints
+          await this.fingerprintRepository.delete({ user_id: userId });
+        
+          // Удаляем пользователя
+          await this.usersRepository.delete(userId);
+          return { message: 'User deleted successfully' };
+      } catch (error) {
+          console.error('Error deleting user:', error);
+          throw new BadRequestException('Failed to delete user: ' + error.message);
       }
-
-      // Удаляем отзывы, где пользователь — reviewer или reviewed
-      await this.reviewsRepository.delete({ reviewer_id: userId });
-      await this.reviewsRepository.delete({ reviewed_id: userId });
-
-      // Удаляем обратную связь
-      await this.usersRepository.manager.getRepository('Feedback').delete({ user_id: userId });
-
-      // Удаляем профиль (JobSeeker или Employer)
-      if (user.role === 'jobseeker') {
-        await this.jobSeekerRepository.delete({ user_id: userId });
-      } else if (user.role === 'employer') {
-        await this.employerRepository.delete({ user_id: userId });
-      }
-
-      // Удаляем пользователя
-      await this.usersRepository.delete(userId);
-      return { message: 'User deleted successfully' };
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      throw new BadRequestException('Failed to delete user: ' + error.message);
-    }
   }
 
   async resetPassword(adminId: string, userId: string, newPassword: string) {
@@ -542,25 +532,30 @@ export class AdminService {
   }
 
   async getJobPostsWithApplications(adminId: string) {
-    await this.checkAdminRole(adminId);
-    const jobPosts = await this.jobPostsRepository
-      .createQueryBuilder('jobPost')
-      .leftJoin('jobPost.applications', 'application')
-      .addSelect('COUNT(application.id) as applicationCount')
-      .groupBy('jobPost.id')
-      .getRawAndEntities();
+      await this.checkAdminRole(adminId);
+      const jobPosts = await this.jobPostsRepository
+          .createQueryBuilder('jobPost')
+          .leftJoin('jobPost.applications', 'application')
+          .addSelect('COUNT(application.id) as applicationCount')
+          .groupBy('jobPost.id')
+          .getRawAndEntities();
   
-    return jobPosts.entities.map((post, index) => ({
-      id: post.id,
-      title: post.title,
-      status: post.status,
-      applicationCount: parseInt(jobPosts.raw[index].applicationCount) || 0,
-      created_at: post.created_at,
-    }));
+      return jobPosts.entities.map((post, index) => ({
+          id: post.id,
+          title: post.title,
+          status: post.status,
+          applicationCount: parseInt(jobPosts.raw[index].applicationCount) || 0,
+          created_at: post.created_at,
+      }));
   }
 
   async getOnlineUsers(adminId: string) {
     await this.checkAdminRole(adminId);
     return this.redisService.getOnlineUsers();
+  }
+
+  async getUserRiskScore(adminId: string, userId: string) {
+    await this.checkAdminRole(adminId);
+    return this.antiFraudService.getRiskScore(userId);
   }
 }

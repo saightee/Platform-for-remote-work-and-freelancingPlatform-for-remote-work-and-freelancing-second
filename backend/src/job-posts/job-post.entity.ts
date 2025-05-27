@@ -1,6 +1,7 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm'; // Добавляем CreateDateColumn, UpdateDateColumn
 import { User } from '../users/entities/user.entity';
 import { Category } from '../categories/category.entity';
+import { JobApplication } from '../job-applications/job-application.entity'; // Добавляем
 
 @Entity('job_posts')
 export class JobPost {
@@ -22,7 +23,7 @@ export class JobPost {
   @Column({ type: 'varchar', length: 20 })
   status: 'Active' | 'Draft' | 'Closed';
 
-  @Column({ default: true }) 
+  @Column({ default: true })
   pending_review: boolean;
 
   @Column({ nullable: true })
@@ -45,11 +46,14 @@ export class JobPost {
   @Column({ default: 100 })
   applicationLimit: number;
 
-  @Column({ default: 0 }) // Добавлено
+  @Column({ default: 0 })
   views: number;
 
   @Column('text', { array: true, nullable: true })
   required_skills?: string[];
+
+  @OneToMany(() => JobApplication, application => application.job_post) // Связь с заявками
+  applications: JobApplication[];
 
   @CreateDateColumn()
   created_at: Date;
