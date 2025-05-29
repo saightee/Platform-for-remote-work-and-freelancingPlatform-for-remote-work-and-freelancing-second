@@ -2,7 +2,7 @@ name: CI Tests
 
 on:
   push:
-    branches: [develop] # Запуск при пуше в develop
+    branches: [develop]
   schedule:
     - cron: '0 0 * * *' # Ежедневно в полночь (UTC)
   workflow_dispatch: # Ручной запуск
@@ -21,23 +21,18 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        working-directory: backend # Переходим в папку backend
+        working-directory: backend
         run: npm ci
 
       - name: Run tests
         working-directory: backend
         env:
           BASE_URL: https://jobforge.net
-        run: npm test
-
-      - name: Generate Allure report
-        if: always()
-        working-directory: backend
         run: npm run test:report
 
-      - name: Upload Allure report
+      - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: allure-report
-          path: backend/allure-results
+          name: test-report
+          path: backend/test-report/report.html
