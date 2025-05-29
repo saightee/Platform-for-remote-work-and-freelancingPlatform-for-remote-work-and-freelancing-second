@@ -2130,3 +2130,48 @@
     "message": "Invalid token",
     "error": "Unauthorized"
   }
+
+### 64. Search Talents
+- **Description**: Retrieves a list of freelancers based on specified filters such as skills, experience, rating, and timezone, with pagination and sorting options.
+- **Request Parameters**:
+  - `skills` (string or string[], optional): Filter by skills (e.g., "skills=Python" or "skills[]=Python&skills[]=JavaScript").
+  - `experience` (string, optional): Filter by experience (partial match, e.g., "3 years").
+  - `rating` (number, optional): Filter by minimum average rating (0 to 5, e.g., "4").
+  - `timezone` (string, optional): Filter by timezone (e.g., "America/New_York").
+  - `page` (number, optional): Page number for pagination (default: 1).
+  - `limit` (number, optional): Number of items per page (default: 10).
+  - `sort_by` (string, optional): Field to sort by ("average_rating" or "profile_views", default: "average_rating").
+  - `sort_order` (string, optional): Sort order ("ASC" or "DESC", default: "DESC").
+- **Example Request**: `/api/talents?skills=Python&experience=3 years&rating=4&timezone=America/New_York&page=1&limit=10&sort_by=average_rating&sort_order=DESC`
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "id": "<userId>",
+      "username": "john_doe",
+      "email": "john@example.com",
+      "skills": ["Python", "JavaScript"],
+      "categories": [
+        {
+          "id": "<categoryId>",
+          "name": "Web Development"
+        }
+      ],
+      "experience": "3 years",
+      "portfolio": "https://portfolio.com",
+      "video_intro": "https://video.com",
+      "timezone": "America/New_York",
+      "currency": "USD",
+      "average_rating": 4.5,
+      "profile_views": 100,
+      "identity_verified": true
+    }
+  ]
+
+- **Response (Error - 400, if invalid parameters)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Rating must be between 0 and 5",
+    "error": "Bad Request"
+  }

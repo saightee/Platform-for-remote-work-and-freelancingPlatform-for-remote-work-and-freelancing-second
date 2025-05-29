@@ -19,6 +19,7 @@ import { BlockedCountriesModule } from './blocked-countries/blocked-countries.mo
 import { LeaderboardsModule } from './leaderboards/leaderboards.module';
 import { ApplicationLimitsModule } from './application-limits/application-limits.module';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { TalentsModule } from './talents/talents.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
     BlockedCountriesModule,
     LeaderboardsModule,
     ApplicationLimitsModule,
+    TalentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
