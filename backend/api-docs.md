@@ -2132,6 +2132,7 @@
   }
 
 ### 64. Search Talents
+- **Endpoint**: `GET /api/talents`
 - **Description**: Retrieves a list of freelancers based on specified filters such as skills, experience, rating, and timezone, with pagination and sorting options.
 - **Request Parameters**:
   - `skills` (string or string[], optional): Filter by skills (e.g., "skills=Python" or "skills[]=Python&skills[]=JavaScript").
