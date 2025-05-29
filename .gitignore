@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-node_modules/
-.env
-dist/
-=======
 # Logs
 logs
 *.log
@@ -12,28 +7,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
+# Dependencies and build output
+node_modules/
+dist/
+dist-ssr/
 *.local
 
 # Editor directories and files
@@ -52,14 +29,3 @@ dist-ssr
 
 # TypeScript build info
 tsconfig.tsbuildinfo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Environment variables
-.env
-
-# TypeScript build info
-tsconfig.tsbuildinfo
->>>>>>> 2ff89cb2617a46927b2ff5d9c861d640177e1436
