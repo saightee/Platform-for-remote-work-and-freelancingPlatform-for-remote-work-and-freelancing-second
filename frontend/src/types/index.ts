@@ -44,7 +44,19 @@ export interface JobSeekerProfile {
   skillCategories?: SkillCategory[];
 }
 
-export type Profile = EmployerProfile | JobSeekerProfile;
+export interface AdminProfile {
+  id: string;
+  role: 'admin';
+  email: string;
+  username: string;
+  timezone?: string;
+  currency?: string;
+  avatar?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type Profile = EmployerProfile | JobSeekerProfile | AdminProfile;
 
 export interface SkillCategory {
   id: string;
@@ -101,7 +113,7 @@ export interface JobApplication {
 }
 
 export interface Review {
-  id: string;
+id: string;
   reviewer_id: string;
   reviewed_id: string;
   job_application_id: string;
@@ -117,7 +129,7 @@ export interface Review {
     id: string;
     job_post_id: string;
     job_seeker_id: string;
-    status: 'Accepted';
+    status: string;
   };
   created_at: string;
   updated_at: string;
@@ -140,7 +152,7 @@ export interface Feedback {
 
 export interface BlockedCountry {
   id: string;
-  country_code: string;
+  countryCode: string;
   created_at: string;
   updated_at: string;
 }
@@ -148,6 +160,7 @@ export interface BlockedCountry {
 export interface LoginCredentials {
   email: string;
   password: string;
+  rememberMe?: boolean;
 }
 
 export interface RegisterCredentials extends LoginCredentials {

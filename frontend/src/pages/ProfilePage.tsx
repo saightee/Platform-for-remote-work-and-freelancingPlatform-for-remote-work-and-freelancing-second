@@ -1,20 +1,24 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { getProfile, updateProfile, uploadAvatar, uploadIdentityDocument } from '../services/api';
+import { getProfile, updateProfile, uploadAvatar, uploadIdentityDocument, deleteAccount } from '../services/api';
 import { Profile, SkillCategory } from '@types';
 import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
 import { FaUserCircle } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
 
 const ProfilePage: React.FC = () => {
-  const { profile: initialProfile, refreshProfile } = useRole();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [documentUrl, setDocumentUrl] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const { profile, refreshProfile } = useRole();
+  const [profileData, setProfileData] = useState<Profile | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -29,7 +33,7 @@ const ProfilePage: React.FC = () => {
         setIsLoading(true);
         setError(null);
         const profileData = await getProfile();
-        setProfile(profileData);
+        setProfileData(profileData);
       } catch (error) {
         console.error('Error fetching profile:', error);
         setError('Failed to load profile. Please try again later.');
@@ -38,110 +42,134 @@ const ProfilePage: React.FC = () => {
       }
     };
 
-    if (initialProfile) {
-      setProfile(initialProfile);
+    if (profile) {
+      setProfileData(profile);
       setIsLoading(false);
     } else {
       fetchProfile();
     }
-  }, [initialProfile]);
+  }, [profile]);
 
   const handleUpdateProfile = async (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!profile) return;
+    if (!profileData) return;
     try {
-      const updatedProfile = await updateProfile(profile);
-      setProfile(updatedProfile);
+      setFormError(null);
+      const updatedProfile = await updateProfile(profileData);
+      setProfileData(updatedProfile);
       setIsEditing(false);
       await refreshProfile();
-      alert('Profile updated successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating profile:', error);
-      alert('Failed to update profile.');
+      setFormError(error.response?.data?.message || 'Failed to update profile.');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      setFormError(null);
+      await deleteAccount();
+      localStorage.removeItem('token');
+      setProfileData(null);
+      navigate('/');
+    } catch (error: any) {
+      console.error('Error deleting account:', error);
+      setFormError(error.response?.data?.message || 'Failed to delete account.');
+    }
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (['image/jpeg', 'image/jpg', 'image/png'].includes(file.type) && file.size <= 5 * 1024 * 1024) {
+        setAvatarFile(file);
+      } else {
+        setFormError('Only JPEG, JPG, or PNG files up to 5MB are allowed.');
+      }
+    }
+  };
+
+  const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (
+        ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'].includes(file.type) &&
+        file.size <= 10 * 1024 * 1024
+      ) {
+        setDocumentFile(file);
+      } else {
+        setFormError('Only JPEG, JPG, PNG, or PDF files up to 10MB are allowed.');
+      }
     }
   };
 
   const handleUploadAvatar = async () => {
-    if (!avatarUrl) {
-      alert('Please provide a valid avatar URL.');
+    if (!avatarFile) {
+      setFormError('Please select a file to upload.');
       return;
     }
-    const urlPattern = /^(https?:\/\/[^\s/$.?#].[^\s]*)$/i;
-    if (!urlPattern.test(avatarUrl)) {
-      alert('Please enter a valid URL (e.g., https://example.com/avatar.jpg).');
-      return;
-    }
-
     try {
-      const updatedProfile = await uploadAvatar(avatarUrl);
-      setProfile(updatedProfile);
-      setAvatarUrl('');
+      setFormError(null);
+      const formData = new FormData();
+      formData.append('avatar', avatarFile);
+      const updatedProfile = await uploadAvatar(formData);
+      setProfileData(updatedProfile);
+      setAvatarFile(null);
       await refreshProfile();
-      alert('Avatar uploaded successfully!');
     } catch (error: any) {
       console.error('Error uploading avatar:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to upload avatar. Ensure the URL is valid.';
-      alert(errorMessage);
-    }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // API не поддерживает прямую загрузку файлов, поэтому показываем заглушку
-      alert('File upload is not supported yet. Please provide a URL for the avatar.');
+      setFormError(error.response?.data?.message || 'Failed to upload avatar.');
     }
   };
 
   const handleUploadDocument = async () => {
-    if (!documentUrl) {
-      alert('Please provide a valid document URL.');
+    if (!documentFile) {
+      setFormError('Please select a file to upload.');
       return;
     }
-    const urlPattern = /^(https?:\/\/[^\s/$.?#].[^\s]*)$/i;
-    if (!urlPattern.test(documentUrl)) {
-      alert('Please enter a valid URL (e.g., https://example.com/document.pdf).');
-      return;
-    }
-
     try {
-      const updatedProfile = await uploadIdentityDocument(documentUrl);
-      setProfile(updatedProfile);
-      setDocumentUrl('');
+      setFormError(null);
+      const formData = new FormData();
+      formData.append('document', documentFile);
+      const updatedProfile = await uploadIdentityDocument(formData);
+      setProfileData(updatedProfile);
+      setDocumentFile(null);
       await refreshProfile();
-      alert('Document uploaded successfully!');
     } catch (error: any) {
       console.error('Error uploading document:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to upload document. Ensure the URL is valid.';
-      alert(errorMessage);
+      setFormError(error.response?.data?.message || 'Failed to upload document.');
     }
   };
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>{error}</div>;
-  if (!profile) return <div>Profile data is unavailable.</div>;
+  if (!profileData) return <div>Profile data is unavailable.</div>;
 
   return (
     <div>
       <Header />
       <div className="container profile-container">
-        <h2>My Profile (Role: {profile.role})</h2>
+        <h2>My Profile (Role: {profileData.role})</h2>
         <div className="profile-avatar-section">
-          {profile.avatar ? (
-            <img src={profile.avatar} alt="Avatar" className="profile-avatar" />
+          {profileData.avatar ? (
+            <img src={profileData.avatar} alt="Avatar" className="profile-avatar" />
           ) : (
             <FaUserCircle className="profile-avatar-icon" />
           )}
         </div>
         <div>
+          {formError && <p className="error-message">{formError}</p>}
           {isEditing ? (
             <>
               <div className="form-group">
                 <label>Username:</label>
                 <input
                   type="text"
-                  value={profile.username}
-                  onChange={(e) => setProfile({ ...profile, username: e.target.value })}
+                  value={profileData.username}
+                  onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
                   placeholder="Enter your username"
                 />
               </div>
@@ -149,42 +177,51 @@ const ProfilePage: React.FC = () => {
                 <label>Email:</label>
                 <input
                   type="email"
-                  value={profile.email}
-                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                  value={profileData.email}
+                  onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
                   placeholder="Enter your email"
                 />
               </div>
-              {profile.role === 'employer' && (
+              {profileData.role === 'employer' && (
                 <>
                   <div className="form-group">
                     <label>Company Name:</label>
                     <input
                       type="text"
-                      value={profile.company_name || ''}
-                      onChange={(e) => setProfile({ ...profile, company_name: e.target.value })}
+                      value={profileData.company_name || ''}
+                      onChange={(e) => setProfileData({ ...profileData, company_name: e.target.value })}
                       placeholder="Enter company name"
                     />
                   </div>
                   <div className="form-group">
                     <label>Company Info:</label>
                     <textarea
-                      value={profile.company_info || ''}
-                      onChange={(e) => setProfile({ ...profile, company_info: e.target.value })}
+                      value={profileData.company_info || ''}
+                      onChange={(e) => setProfileData({ ...profileData, company_info: e.target.value })}
                       placeholder="Enter company information"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Referral Link:</label>
+                    <input
+                      type="text"
+                      value={profileData.referral_link || ''}
+                      onChange={(e) => setProfileData({ ...profileData, referral_link: e.target.value })}
+                      placeholder="Enter referral link"
                     />
                   </div>
                 </>
               )}
-              {profile.role === 'jobseeker' && (
+              {profileData.role === 'jobseeker' && (
                 <>
                   <div className="form-group">
                     <label>Skills (comma-separated):</label>
                     <input
                       type="text"
-                      value={profile.skills?.join(', ') || ''}
+                      value={profileData.skills?.join(', ') || ''}
                       onChange={(e) =>
-                        setProfile({
-                          ...profile,
+                        setProfileData({
+                          ...profileData,
                           skills: e.target.value.split(',').map((s) => s.trim()),
                         })
                       }
@@ -195,9 +232,27 @@ const ProfilePage: React.FC = () => {
                     <label>Experience:</label>
                     <input
                       type="text"
-                      value={profile.experience || ''}
-                      onChange={(e) => setProfile({ ...profile, experience: e.target.value })}
+                      value={profileData.experience || ''}
+                      onChange={(e) => setProfileData({ ...profileData, experience: e.target.value })}
                       placeholder="Enter your experience"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Portfolio:</label>
+                    <input
+                      type="text"
+                      value={profileData.portfolio || ''}
+                      onChange={(e) => setProfileData({ ...profileData, portfolio: e.target.value })}
+                      placeholder="Enter portfolio URL"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Video Introduction:</label>
+                    <input
+                      type="text"
+                      value={profileData.video_intro || ''}
+                      onChange={(e) => setProfileData({ ...profileData, video_intro: e.target.value })}
+                      placeholder="Enter video intro URL"
                     />
                   </div>
                 </>
@@ -206,8 +261,8 @@ const ProfilePage: React.FC = () => {
                 <label>Timezone:</label>
                 <input
                   type="text"
-                  value={profile.timezone || ''}
-                  onChange={(e) => setProfile({ ...profile, timezone: e.target.value })}
+                  value={profileData.timezone || ''}
+                  onChange={(e) => setProfileData({ ...profileData, timezone: e.target.value })}
                   placeholder="Enter your timezone"
                 />
               </div>
@@ -215,8 +270,8 @@ const ProfilePage: React.FC = () => {
                 <label>Currency:</label>
                 <input
                   type="text"
-                  value={profile.currency || ''}
-                  onChange={(e) => setProfile({ ...profile, currency: e.target.value })}
+                  value={profileData.currency || ''}
+                  onChange={(e) => setProfileData({ ...profileData, currency: e.target.value })}
                   placeholder="Enter your currency"
                 />
               </div>
@@ -227,27 +282,59 @@ const ProfilePage: React.FC = () => {
             </>
           ) : (
             <>
-              <p><strong>Username:</strong> {profile.username}</p>
-              <p><strong>Email:</strong> {profile.email}</p>
-              {profile.role === 'employer' && (
+              <p><strong>Username:</strong> {profileData.username}</p>
+              <p><strong>Email:</strong> {profileData.email}</p>
+              {profileData.role === 'employer' && (
                 <>
-                  <p><strong>Company Name:</strong> {profile.company_name || 'Not specified'}</p>
-                  <p><strong>Company Info:</strong> {profile.company_info || 'Not specified'}</p>
+                  <p><strong>Company Name:</strong> {profileData.company_name || 'Not specified'}</p>
+                  <p><strong>Company Info:</strong> {profileData.company_info || 'Not specified'}</p>
+                  <p><strong>Referral Link:</strong> {profileData.referral_link || 'Not specified'}</p>
                 </>
               )}
-              {profile.role === 'jobseeker' && (
+              {profileData.role === 'jobseeker' && (
                 <>
-                  <p><strong>Skills:</strong> {profile.skills?.join(', ') || 'Not specified'}</p>
+                  <p><strong>Skills:</strong> {profileData.skills?.join(', ') || 'Not specified'}</p>
                   <p>
                     <strong>Skill Categories:</strong>{' '}
-                    {profile.skillCategories?.map((category: SkillCategory) => category.name).join(', ') || 'Not specified'}
+                    {profileData.skillCategories?.map((category: SkillCategory) => category.name).join(', ') || 'Not specified'}
                   </p>
-                  <p><strong>Experience:</strong> {profile.experience || 'Not specified'}</p>
+                  <p><strong>Experience:</strong> {profileData.experience || 'Not specified'}</p>
+                  <p><strong>Portfolio:</strong> {profileData.portfolio || 'Not specified'}</p>
+                  <p><strong>Video Introduction:</strong> {profileData.video_intro || 'Not specified'}</p>
                 </>
               )}
-              <p><strong>Timezone:</strong> {profile.timezone || 'Not specified'}</p>
-              <p><strong>Currency:</strong> {profile.currency || 'Not specified'}</p>
-              <button onClick={() => setIsEditing(true)}>Edit Profile</button>
+              {(profileData.role === 'employer' || profileData.role === 'jobseeker') && (
+                <>
+                  <p><strong>Average Rating:</strong> {profileData.average_rating || 'Not rated'}</p>
+                  <p><strong>Identity Verified:</strong> {profileData.identity_verified ? 'Yes' : 'No'}</p>
+                  <h3>Reviews</h3>
+                  {profileData.reviews?.length ? (
+                    <ul>
+                      {profileData.reviews.map((review) => (
+                        <li key={review.id}>
+                          <p><strong>Rating:</strong> {review.rating}</p>
+                          <p><strong>Comment:</strong> {review.comment}</p>
+                          <p><strong>Reviewer:</strong> {review.reviewer?.username || 'Anonymous'}</p>
+                          <p><strong>Date:</strong> {review.created_at}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No reviews yet.</p>
+                  )}
+                </>
+              )}
+              <p><strong>Reviews:</strong> <Link to={`/reviews/${profileData.id}`}>View all reviews</Link></p>
+              <button onClick={() => setIsEditing(true)} className="action-button">
+                Edit Profile
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                className="action-button danger"
+                style={{ marginLeft: '10px' }}
+              >
+                Delete Account
+              </button>
             </>
           )}
         </div>
@@ -255,31 +342,27 @@ const ProfilePage: React.FC = () => {
         <h3>Upload Avatar</h3>
         <div className="form-group avatar-upload-group">
           <input
-            type="text"
-            value={avatarUrl}
-            onChange={(e) => setAvatarUrl(e.target.value)}
-            placeholder="Enter avatar URL"
-            className="avatar-url-input"
+            type="file"
+            accept="image/jpeg,image/jpg,image/png"
+            onChange={handleAvatarChange}
           />
-          <button onClick={handleUploadAvatar}>Upload via URL</button>
-        </div>
-        <div className="form-group avatar-upload-group">
-          <input type="file" accept="image/*" onChange={handleFileUpload} />
-          <button disabled>Upload from Computer</button>
+          <button onClick={handleUploadAvatar} disabled={!avatarFile}>
+            Upload Avatar
+          </button>
         </div>
 
-        {profile.role === 'jobseeker' && (
+        {(profileData.role === 'jobseeker' || profileData.role === 'employer') && (
           <>
             <h3>Upload Identity Document</h3>
             <div className="form-group">
               <input
-                type="text"
-                value={documentUrl}
-                onChange={(e) => setDocumentUrl(e.target.value)}
-                placeholder="Enter document URL"
-                className="avatar-url-input"
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,application/pdf"
+                onChange={handleDocumentChange}
               />
-              <button onClick={handleUploadDocument}>Upload Document</button>
+              <button onClick={handleUploadDocument} disabled={!documentFile}>
+                Upload Document
+              </button>
             </div>
           </>
         )}

@@ -22,6 +22,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchProfile = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
+      console.log('No token found, clearing profile.');
       setIsLoading(false);
       setProfile(null);
       setCurrentRole(null);
@@ -32,12 +33,14 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       setError(null);
       const profileData = await getProfile();
+      console.log('Profile fetched:', profileData);
       setProfile(profileData);
       setCurrentRole(profileData.role);
     } catch (error: any) {
       console.error('Error fetching profile in RoleContext:', error);
       setError('Failed to load profile.');
       if (error.response?.status === 401) {
+        console.log('Unauthorized, clearing token.');
         localStorage.removeItem('token');
         setProfile(null);
         setCurrentRole(null);
