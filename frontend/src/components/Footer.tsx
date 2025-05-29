@@ -5,7 +5,7 @@ const Footer: React.FC = () => {
     <footer>
       <div className="footer-content">
         <div className="footer-column">
-          <div className="footer-logo">HireValve</div>
+          <div className="footer-logo">Jobforge_</div>
           <p className="footer-description">
             The leading platform for connecting businesses with professional virtual assistants worldwide.
           </p>

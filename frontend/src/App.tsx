@@ -19,7 +19,7 @@ import HowItWorksEmployerFAQ from './pages/HowItWorksEmployerFAQ';
 import Pricing from './pages/Pricing';
 import RealResults from './pages/RealResults';
 import FindJob from './pages/FindJob';
-// import FindTalent from './pages/FindTalent';
+import FindTalent from './pages/FindTalent';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import UserReviews from './pages/UserReviews';
@@ -58,7 +58,7 @@ const App: React.FC = () => {
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/real-results" element={<RealResults />} />
           <Route path="/find-job" element={<FindJob />} />
-          {/* <Route path="/find-talent" element={<FindTalent />} /> */}
+          <Route path="/find-talent" element={<FindTalent />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/reviews/:id" element={<UserReviews />} />

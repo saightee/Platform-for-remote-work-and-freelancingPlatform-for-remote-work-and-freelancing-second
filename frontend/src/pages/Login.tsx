@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../services/api';
 import { useRole } from '../context/RoleContext';
+import { FaEye, FaEyeSlash } from 'react-icons/fa'; // Добавляем иконки
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -10,6 +10,7 @@ const Login: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // Состояние для видимости пароля
   const navigate = useNavigate();
   const { profile, refreshProfile } = useRole();
 
@@ -44,6 +45,10 @@ const Login: React.FC = () => {
     }
   }, [isAuthenticated, profile, navigate]);
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
     <div className="register-container">
       <div className="register-box">
@@ -59,14 +64,19 @@ const Login: React.FC = () => {
               placeholder="Enter your email"
             />
           </div>
-          <div className="form-group">
+          <div className="form-group password-container">
             <label>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-            />
+            <div className="password-input-wrapper">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+              />
+              <span className="password-toggle-icon" onClick={togglePasswordVisibility}>
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </span>
+            </div>
           </div>
           <div className="form-group checkbox-group">
             <input

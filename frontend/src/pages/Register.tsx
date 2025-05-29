@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { register } from '../services/api'; // Раскомментируем только register
-// import { FaGoogle } from 'react-icons/fa';
+import { register } from '../services/api';
 import { useRole } from '../context/RoleContext';
+import { FaEye, FaEyeSlash } from 'react-icons/fa'; // Добавляем иконки
 
 const Register: React.FC = () => {
   const { role } = useParams<{ role: 'employer' | 'jobseeker' }>();
@@ -11,6 +11,8 @@ const Register: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false); // Для пароля
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false); // Для подтверждения
   const navigate = useNavigate();
   const { refreshProfile } = useRole();
 
@@ -43,11 +45,13 @@ const Register: React.FC = () => {
     }
   };
 
-  // const handleGoogleRegister = () => {
-  //   if (role) {
-  //     googleAuthInitiate(role);
-  //   }
-  // };
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
+  const toggleConfirmPasswordVisibility = () => {
+    setShowConfirmPassword(!showConfirmPassword);
+  };
 
   if (!role) return null;
 
@@ -75,23 +79,33 @@ const Register: React.FC = () => {
               placeholder="Enter your email"
             />
           </div>
-          <div className="form-group">
+          <div className="form-group password-container">
             <label>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-            />
+            <div className="password-input-wrapper">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+              />
+              <span className="password-toggle-icon" onClick={togglePasswordVisibility}>
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </span>
+            </div>
           </div>
-          <div className="form-group">
+          <div className="form-group password-container">
             <label>Confirm Password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm your password"
-            />
+            <div className="password-input-wrapper">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm your password"
+              />
+              <span className="password-toggle-icon" onClick={toggleConfirmPasswordVisibility}>
+                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+              </span>
+            </div>
           </div>
           <button onClick={handleSubmit}>Sign Up as {role === 'employer' ? 'Employer' : 'Jobseeker'}</button>
           <div className="form-links">

@@ -1,5 +1,3 @@
-// src/@types/index.ts
-
 export interface User {
   id: string;
   email: string;
@@ -23,6 +21,7 @@ export interface EmployerProfile {
   average_rating?: number;
   avatar?: string;
   identity_verified: boolean;
+  identity_document?: string;
   reviews: Review[];
 }
 
@@ -32,17 +31,23 @@ export interface JobSeekerProfile {
   email: string;
   username: string;
   skills?: string[];
+  skillCategories?: Category[]; // Основное поле для категорий (было skillCategories)
+  categories?: Category[]; // Для совместимости с /api/talents
+  categoryIds?: string[]; // Для отправки в PUT /api/profile
   experience?: string;
   portfolio?: string;
   video_intro?: string;
   timezone?: string;
   currency?: string;
   average_rating?: number;
+  profile_views?: number;
   avatar?: string;
   identity_verified: boolean;
+  identity_document?: string;
   reviews: Review[];
-  skillCategories?: SkillCategory[];
 }
+
+
 
 export interface AdminProfile {
   id: string;
@@ -73,12 +78,7 @@ export interface JobPost {
   category?: Category;
   job_type?: 'Full-time' | 'Part-time' | 'Project-based';
   employer_id: string;
-  employer?: {
-    id: string;
-    email: string;
-    username: string;
-    role: 'employer';
-  };
+  employer?: EmployerProfile;
   pending_review?: boolean;
   applicationLimit?: number;
   created_at: string;
@@ -110,10 +110,11 @@ export interface JobApplication {
   };
   created_at: string;
   updated_at: string;
+  
 }
 
 export interface Review {
-id: string;
+  id: string;
   reviewer_id: string;
   reviewed_id: string;
   job_application_id: string;
@@ -168,7 +169,6 @@ export interface RegisterCredentials extends LoginCredentials {
   role: 'employer' | 'jobseeker';
 }
 
-// Добавляем тип для данных, возвращаемых в getApplicationsForJobPost
 export interface JobApplicationDetails {
   userId: string;
   username: string;

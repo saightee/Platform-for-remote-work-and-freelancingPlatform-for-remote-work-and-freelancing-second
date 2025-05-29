@@ -23,7 +23,7 @@ const Header: React.FC = () => {
   return (
     <header className="header-container">
       <div className="header-content">
-        <Link to="/" className="logo">HireValve</Link>
+        <Link to="/" className="logo">Jobforge_</Link>
         <nav>
           {isAuthenticated ? (
             <>

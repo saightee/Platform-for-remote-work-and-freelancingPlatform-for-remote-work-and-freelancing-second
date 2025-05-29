@@ -4,8 +4,8 @@ import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { useRole } from '../context/RoleContext';
 import {
-  getAllUsers, getUserById, updateUser, deleteUser, resetUserPassword,
-  getAllJobPosts, updateJobPostAdmin, deleteJobPostAdmin, approveJobPost, flagJobPost,
+  getAllUsers, deleteUser, resetUserPassword,
+  getAllJobPosts, deleteJobPostAdmin, approveJobPost, flagJobPost,
   setJobPostApplicationLimitAdmin, getAllReviews, deleteReview, getAnalytics,
   getRegistrationStats, getGeographicDistribution, getTopEmployers, getTopJobseekers,
   verifyIdentity, setGlobalApplicationLimit, getGlobalApplicationLimit,

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -10,7 +9,7 @@ import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
 
 const MyJobPosts: React.FC = () => {
-  const { profile } = useRole();
+  const { profile, isLoading: roleLoading } = useRole();
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [applications, setApplications] = useState<
     { jobPostId: string; apps: { id: string; userId: string; username: string; email: string; jobDescription: string; appliedAt: string; status: string }[] }
@@ -41,8 +40,10 @@ const MyJobPosts: React.FC = () => {
         setIsLoading(false);
       }
     };
-    fetchData();
-  }, [profile]);
+    if (!roleLoading) {
+      fetchData();
+    }
+  }, [profile, roleLoading]);
 
   const handleUpdate = async (id: string, updatedData: Partial<JobPost>) => {
     try {
@@ -63,6 +64,17 @@ const MyJobPosts: React.FC = () => {
     } catch (err) {
       console.error('Error closing job post:', err);
       alert('Failed to close job post.');
+    }
+  };
+
+  const handleReopen = async (id: string) => {
+    try {
+      const updatedPost = await updateJobPost(id, { status: 'Active' });
+      setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
+      alert('Job post reopened successfully!');
+    } catch (err) {
+      console.error('Error reopening job post:', err);
+      alert('Failed to reopen job post.');
     }
   };
 
@@ -128,7 +140,7 @@ const MyJobPosts: React.FC = () => {
     return description;
   };
 
-  if (isLoading) {
+  if (roleLoading || isLoading) {
     return (
       <div>
         <Header />
@@ -181,7 +193,8 @@ const MyJobPosts: React.FC = () => {
                       <textarea
                         value={editingJob.description || ''}
                         onChange={(e) => editingJob && setEditingJob({ ...editingJob, description: e.target.value })}
-                        rows={4}
+                        rows={6}
+                        placeholder="Enter job description"
                       />
                     </div>
                     <div className="form-group">
@@ -255,9 +268,15 @@ const MyJobPosts: React.FC = () => {
                       <button onClick={() => handleEditJob(post)} className="action-button">
                         Edit Job Post
                       </button>
-                      <button onClick={() => handleClose(post.id)} className="action-button warning">
-                        Close Job Post
-                      </button>
+                      {post.status === 'Active' ? (
+                        <button onClick={() => handleClose(post.id)} className="action-button warning">
+                          Close Job Post
+                        </button>
+                      ) : (
+                        <button onClick={() => handleReopen(post.id)} className="action-button success">
+                          Reopen Job Post
+                        </button>
+                      )}
                       <button
                         onClick={() => handleViewApplications(post.id)}
                         className="action-button success"

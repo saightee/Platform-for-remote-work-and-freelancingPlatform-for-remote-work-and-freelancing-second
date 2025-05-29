@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { getProfile, updateProfile, uploadAvatar, uploadIdentityDocument, deleteAccount } from '../services/api';
-import { Profile, SkillCategory } from '@types';
+import { getProfile, updateProfile, uploadAvatar, uploadIdentityDocument, deleteAccount, getCategories } from '../services/api';
+import { Profile, SkillCategory, Category, JobSeekerProfile, EmployerProfile } from '@types';
 import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
 import { FaUserCircle } from 'react-icons/fa';
@@ -14,6 +14,8 @@ const ProfilePage: React.FC = () => {
   const [profileData, setProfileData] = useState<Profile | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -28,15 +30,24 @@ const ProfilePage: React.FC = () => {
       return;
     }
 
-    const fetchProfile = async () => {
+    const fetchData = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        const profileData = await getProfile();
+        const [profileData, categoriesData] = await Promise.all([
+          getProfile(),
+          getCategories(),
+        ]);
         setProfileData(profileData);
+        setCategories(categoriesData);
+        if (profileData.role === 'jobseeker') {
+          setSelectedCategoryIds(
+            profileData.skillCategories?.map((cat: SkillCategory) => cat.id) || []
+          );
+        }
       } catch (error) {
-        console.error('Error fetching profile:', error);
-        setError('Failed to load profile. Please try again later.');
+        console.error('Error fetching data:', error);
+        setError('Failed to load profile or categories. Please try again later.');
       } finally {
         setIsLoading(false);
       }
@@ -44,9 +55,9 @@ const ProfilePage: React.FC = () => {
 
     if (profile) {
       setProfileData(profile);
-      setIsLoading(false);
+      fetchData();
     } else {
-      fetchProfile();
+      fetchData();
     }
   }, [profile]);
 
@@ -55,8 +66,43 @@ const ProfilePage: React.FC = () => {
     if (!profileData) return;
     try {
       setFormError(null);
-      const updatedProfile = await updateProfile(profileData);
-      setProfileData(updatedProfile);
+      if (profileData.role === 'jobseeker') {
+        const updatedData: Partial<JobSeekerProfile> = {
+          username: profileData.username,
+          email: profileData.email,
+          timezone: profileData.timezone,
+          currency: profileData.currency,
+          skills: profileData.skills,
+          experience: profileData.experience,
+          portfolio: profileData.portfolio,
+          video_intro: profileData.video_intro,
+          categoryIds: selectedCategoryIds,
+        };
+        const updatedProfile = await updateProfile(updatedData);
+        setProfileData(updatedProfile);
+      } else if (profileData.role === 'employer') {
+        const updatedData: Partial<EmployerProfile> = {
+          username: profileData.username,
+          email: profileData.email,
+          timezone: profileData.timezone,
+          currency: profileData.currency,
+          company_name: profileData.company_name,
+          company_info: profileData.company_info,
+          referral_link: profileData.referral_link,
+        };
+        const updatedProfile = await updateProfile(updatedData);
+        setProfileData(updatedProfile);
+      } else {
+        // Для admin
+        const updatedData: Partial<Profile> = {
+          username: profileData.username,
+          email: profileData.email,
+          timezone: profileData.timezone,
+          currency: profileData.currency,
+        };
+        const updatedProfile = await updateProfile(updatedData);
+        setProfileData(updatedProfile);
+      }
       setIsEditing(false);
       await refreshProfile();
     } catch (error: any) {
@@ -153,218 +199,262 @@ const ProfilePage: React.FC = () => {
       <Header />
       <div className="container profile-container">
         <h2>My Profile (Role: {profileData.role})</h2>
-        <div className="profile-avatar-section">
-          {profileData.avatar ? (
-            <img src={profileData.avatar} alt="Avatar" className="profile-avatar" />
-          ) : (
-            <FaUserCircle className="profile-avatar-icon" />
-          )}
-        </div>
-        <div>
-          {formError && <p className="error-message">{formError}</p>}
-          {isEditing ? (
-            <>
-              <div className="form-group">
-                <label>Username:</label>
-                <input
-                  type="text"
-                  value={profileData.username}
-                  onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
-                  placeholder="Enter your username"
-                />
-              </div>
-              <div className="form-group">
-                <label>Email:</label>
-                <input
-                  type="email"
-                  value={profileData.email}
-                  onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                  placeholder="Enter your email"
-                />
-              </div>
-              {profileData.role === 'employer' && (
-                <>
-                  <div className="form-group">
-                    <label>Company Name:</label>
-                    <input
-                      type="text"
-                      value={profileData.company_name || ''}
-                      onChange={(e) => setProfileData({ ...profileData, company_name: e.target.value })}
-                      placeholder="Enter company name"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Company Info:</label>
-                    <textarea
-                      value={profileData.company_info || ''}
-                      onChange={(e) => setProfileData({ ...profileData, company_info: e.target.value })}
-                      placeholder="Enter company information"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Referral Link:</label>
-                    <input
-                      type="text"
-                      value={profileData.referral_link || ''}
-                      onChange={(e) => setProfileData({ ...profileData, referral_link: e.target.value })}
-                      placeholder="Enter referral link"
-                    />
-                  </div>
-                </>
+        {formError && <p className="error-message">{formError}</p>}
+        <div className="profile-content">
+          <div className="profile-details">
+            <div className="profile-avatar-section">
+              {profileData.avatar ? (
+                <img src={`https://jobforge.net/backend${profileData.avatar}`} alt="Avatar" className="profile-avatar" />
+              ) : (
+                <FaUserCircle className="profile-avatar-icon" />
               )}
-              {profileData.role === 'jobseeker' && (
-                <>
-                  <div className="form-group">
-                    <label>Skills (comma-separated):</label>
-                    <input
-                      type="text"
-                      value={profileData.skills?.join(', ') || ''}
-                      onChange={(e) =>
-                        setProfileData({
-                          ...profileData,
-                          skills: e.target.value.split(',').map((s) => s.trim()),
-                        })
-                      }
-                      placeholder="e.g., JavaScript, Python"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Experience:</label>
-                    <input
-                      type="text"
-                      value={profileData.experience || ''}
-                      onChange={(e) => setProfileData({ ...profileData, experience: e.target.value })}
-                      placeholder="Enter your experience"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Portfolio:</label>
-                    <input
-                      type="text"
-                      value={profileData.portfolio || ''}
-                      onChange={(e) => setProfileData({ ...profileData, portfolio: e.target.value })}
-                      placeholder="Enter portfolio URL"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Video Introduction:</label>
-                    <input
-                      type="text"
-                      value={profileData.video_intro || ''}
-                      onChange={(e) => setProfileData({ ...profileData, video_intro: e.target.value })}
-                      placeholder="Enter video intro URL"
-                    />
-                  </div>
-                </>
-              )}
-              <div className="form-group">
-                <label>Timezone:</label>
-                <input
-                  type="text"
-                  value={profileData.timezone || ''}
-                  onChange={(e) => setProfileData({ ...profileData, timezone: e.target.value })}
-                  placeholder="Enter your timezone"
-                />
-              </div>
-              <div className="form-group">
-                <label>Currency:</label>
-                <input
-                  type="text"
-                  value={profileData.currency || ''}
-                  onChange={(e) => setProfileData({ ...profileData, currency: e.target.value })}
-                  placeholder="Enter your currency"
-                />
-              </div>
-              <button onClick={handleUpdateProfile}>Save Profile</button>
-              <button onClick={() => setIsEditing(false)} style={{ marginLeft: '10px' }}>
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <p><strong>Username:</strong> {profileData.username}</p>
-              <p><strong>Email:</strong> {profileData.email}</p>
-              {profileData.role === 'employer' && (
-                <>
-                  <p><strong>Company Name:</strong> {profileData.company_name || 'Not specified'}</p>
-                  <p><strong>Company Info:</strong> {profileData.company_info || 'Not specified'}</p>
-                  <p><strong>Referral Link:</strong> {profileData.referral_link || 'Not specified'}</p>
-                </>
-              )}
-              {profileData.role === 'jobseeker' && (
-                <>
-                  <p><strong>Skills:</strong> {profileData.skills?.join(', ') || 'Not specified'}</p>
-                  <p>
-                    <strong>Skill Categories:</strong>{' '}
-                    {profileData.skillCategories?.map((category: SkillCategory) => category.name).join(', ') || 'Not specified'}
-                  </p>
-                  <p><strong>Experience:</strong> {profileData.experience || 'Not specified'}</p>
-                  <p><strong>Portfolio:</strong> {profileData.portfolio || 'Not specified'}</p>
-                  <p><strong>Video Introduction:</strong> {profileData.video_intro || 'Not specified'}</p>
-                </>
-              )}
-              {(profileData.role === 'employer' || profileData.role === 'jobseeker') && (
-                <>
-                  <p><strong>Average Rating:</strong> {profileData.average_rating || 'Not rated'}</p>
-                  <p><strong>Identity Verified:</strong> {profileData.identity_verified ? 'Yes' : 'No'}</p>
-                  <h3>Reviews</h3>
-                  {profileData.reviews?.length ? (
-                    <ul>
-                      {profileData.reviews.map((review) => (
-                        <li key={review.id}>
-                          <p><strong>Rating:</strong> {review.rating}</p>
-                          <p><strong>Comment:</strong> {review.comment}</p>
-                          <p><strong>Reviewer:</strong> {review.reviewer?.username || 'Anonymous'}</p>
-                          <p><strong>Date:</strong> {review.created_at}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>No reviews yet.</p>
-                  )}
-                </>
-              )}
-              <p><strong>Reviews:</strong> <Link to={`/reviews/${profileData.id}`}>View all reviews</Link></p>
-              <button onClick={() => setIsEditing(true)} className="action-button">
-                Edit Profile
-              </button>
-              <button
-                onClick={handleDeleteAccount}
-                className="action-button danger"
-                style={{ marginLeft: '10px' }}
-              >
-                Delete Account
-              </button>
-            </>
-          )}
-        </div>
-
-        <h3>Upload Avatar</h3>
-        <div className="form-group avatar-upload-group">
-          <input
-            type="file"
-            accept="image/jpeg,image/jpg,image/png"
-            onChange={handleAvatarChange}
-          />
-          <button onClick={handleUploadAvatar} disabled={!avatarFile}>
-            Upload Avatar
-          </button>
-        </div>
-
-        {(profileData.role === 'jobseeker' || profileData.role === 'employer') && (
-          <>
-            <h3>Upload Identity Document</h3>
-            <div className="form-group">
-              <input
-                type="file"
-                accept="image/jpeg,image/jpg,image/png,application/pdf"
-                onChange={handleDocumentChange}
-              />
-              <button onClick={handleUploadDocument} disabled={!documentFile}>
-                Upload Document
-              </button>
             </div>
-          </>
+            {isEditing ? (
+              <>
+                <div className="form-group">
+                  <label>Username:</label>
+                  <input
+                    type="text"
+                    value={profileData.username}
+                    onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
+                    placeholder="Enter your username"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Email:</label>
+                  <input
+                    type="email"
+                    value={profileData.email}
+                    onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                    placeholder="Enter your email"
+                  />
+                </div>
+                {profileData.role === 'employer' && (
+                  <>
+                    <div className="form-group">
+                      <label>Company Name:</label>
+                      <input
+                        type="text"
+                        value={profileData.company_name || ''}
+                        onChange={(e) => setProfileData({ ...profileData, company_name: e.target.value })}
+                        placeholder="Enter company name"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Company Info:</label>
+                      <textarea
+                        value={profileData.company_info || ''}
+                        onChange={(e) => setProfileData({ ...profileData, company_info: e.target.value })}
+                        placeholder="Enter company information"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Referral Link:</label>
+                      <input
+                        type="text"
+                        value={profileData.referral_link || ''}
+                        onChange={(e) => setProfileData({ ...profileData, referral_link: e.target.value })}
+                        placeholder="Enter referral link"
+                      />
+                    </div>
+                  </>
+                )}
+                {profileData.role === 'jobseeker' && (
+                  <>
+                    <div className="form-group">
+                      <label>Skills (comma-separated):</label>
+                      <input
+                        type="text"
+                        value={profileData.skills?.join(', ') || ''}
+                        onChange={(e) =>
+                          setProfileData({
+                            ...profileData,
+                            skills: e.target.value.split(',').map((s) => s.trim()),
+                          })
+                        }
+                        placeholder="e.g., JavaScript, Python"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Skill Categories:</label>
+                      <select
+                        multiple
+                        value={selectedCategoryIds}
+                        onChange={(e) =>
+                          setSelectedCategoryIds(
+                            Array.from(e.target.selectedOptions, (option) => option.value)
+                          )
+                        }
+                      >
+                        {categories.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Experience:</label>
+                      <input
+                        type="text"
+                        value={profileData.experience || ''}
+                        onChange={(e) => setProfileData({ ...profileData, experience: e.target.value })}
+                        placeholder="Enter your experience"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Portfolio:</label>
+                      <input
+                        type="text"
+                        value={profileData.portfolio || ''}
+                        onChange={(e) => setProfileData({ ...profileData, portfolio: e.target.value })}
+                        placeholder="Enter portfolio URL"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Video Introduction:</label>
+                      <input
+                        type="text"
+                        value={profileData.video_intro || ''}
+                        onChange={(e) => setProfileData({ ...profileData, video_intro: e.target.value })}
+                        placeholder="Enter video intro URL"
+                      />
+                    </div>
+                  </>
+                )}
+                <div className="form-group">
+                  <label>Timezone:</label>
+                  <input
+                    type="text"
+                    value={profileData.timezone || ''}
+                    onChange={(e) => setProfileData({ ...profileData, timezone: e.target.value })}
+                    placeholder="Enter your timezone"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Currency:</label>
+                  <input
+                    type="text"
+                    value={profileData.currency || ''}
+                    onChange={(e) => setProfileData({ ...profileData, currency: e.target.value })}
+                    placeholder="Enter your currency"
+                  />
+                </div>
+                <div className="action-buttons">
+                  <button onClick={handleUpdateProfile} className="action-button success">
+                    Save Profile
+                  </button>
+                  <button onClick={() => setIsEditing(false)} className="action-button">
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p><strong>Username:</strong> {profileData.username}</p>
+                <p><strong>Email:</strong> {profileData.email}</p>
+                {profileData.role === 'employer' && (
+                  <>
+                    <p><strong>Company Name:</strong> {profileData.company_name || 'Not specified'}</p>
+                    <p><strong>Company Info:</strong> {profileData.company_info || 'Not specified'}</p>
+                    <p><strong>Referral Link:</strong> {profileData.referral_link || 'Not specified'}</p>
+                  </>
+                )}
+                {profileData.role === 'jobseeker' && (
+                  <>
+                    <p><strong>Skills:</strong> {profileData.skills?.join(', ') || 'Not specified'}</p>
+                    <p>
+                      <strong>Skill Categories:</strong>{' '}
+                      {profileData.skillCategories?.map((category: SkillCategory) => category.name).join(', ') || 'Not specified'}
+                    </p>
+                    <p><strong>Experience:</strong> {profileData.experience || 'Not specified'}</p>
+                    <p><strong>Portfolio:</strong> {profileData.portfolio || 'Not specified'}</p>
+                    <p><strong>Video Introduction:</strong> {profileData.video_intro || 'Not specified'}</p>
+                  </>
+                )}
+                <p><strong>Timezone:</strong> {profileData.timezone || 'Not specified'}</p>
+                <p><strong>Currency:</strong> {profileData.currency || 'Not specified'}</p>
+                {(profileData.role === 'employer' || profileData.role === 'jobseeker') && (
+                  <>
+                    <p><strong>Average Rating:</strong> {profileData.average_rating || 'Not rated'}</p>
+                    <p><strong>Identity Verified:</strong> {profileData.identity_verified ? 'Yes' : 'No'}</p>
+                    <p>
+                      <strong>Identity Document:</strong>{' '}
+                      {profileData.identity_document ? (
+                        profileData.identity_document.endsWith('.pdf') ? (
+                          <a href={`https://jobforge.net/backend${profileData.identity_document}`} target="_blank" rel="noopener noreferrer">
+                            Download PDF
+                          </a>
+                        ) : (
+                          <img
+                            src={`https://jobforge.net/backend${profileData.identity_document}`}
+                            alt="Identity Document"
+                            style={{ maxWidth: '100px', borderRadius: '5px' }}
+                          />
+                        )
+                      ) : (
+                        'Not uploaded'
+                      )}
+                    </p>
+                    <h3>Reviews</h3>
+                    {profileData.reviews?.length ? (
+                      <ul>
+                        {profileData.reviews.map((review) => (
+                          <li key={review.id}>
+                            <p><strong>Rating:</strong> {review.rating}</p>
+                            <p><strong>Comment:</strong> {review.comment}</p>
+                            <p><strong>Reviewer:</strong> {review.reviewer?.username || 'Anonymous'}</p>
+                            <p><strong>Date:</strong> {review.created_at}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>No reviews yet.</p>
+                    )}
+                    <p><strong>Reviews:</strong> <Link to={`/reviews/${profileData.id}`}>View all reviews</Link></p>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+          <div className="profile-actions">
+            {(profileData.role === 'jobseeker' || profileData.role === 'employer') && (
+              <>
+                <h3>Upload Avatar</h3>
+                <div className="form-group">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png"
+                    onChange={handleAvatarChange}
+                  />
+                  <button onClick={handleUploadAvatar} disabled={!avatarFile} className="action-button">
+                    Upload Avatar
+                  </button>
+                </div>
+                <h3>Upload Identity Document</h3>
+                <div className="form-group">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,application/pdf"
+                    onChange={handleDocumentChange}
+                  />
+                  <button onClick={handleUploadDocument} disabled={!documentFile} className="action-button">
+                    Upload Document
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        {!isEditing && (
+          <div className="profile-buttons">
+            <button onClick={() => setIsEditing(true)} className="action-button">
+              Edit Profile
+            </button>
+            <button onClick={handleDeleteAccount} className="action-button danger">
+              Delete Account
+            </button>
+          </div>
         )}
       </div>
       <Footer />

@@ -152,8 +152,13 @@ export const incrementJobView = async (id: string) => {
   return response.data;
 };
 
+export const incrementProfileView = async (id: string) => {
+  const response = await api.post<{ message: string; profile_views: number }>(`/profile/${id}/increment-view`);
+  return response.data;
+};
+
 export const applyToJob = async (id: string) => {
-  const response = await api.post(`/job-applications/${id}/apply`);
+  const response = await api.post(`/job-applications`, { job_post_id: id });
   return response.data;
 };
 
@@ -390,5 +395,20 @@ export const removeBlockedCountry = async (countryCode: string) => {
 
 export const getBlockedCountries = async () => {
   const response = await api.get<BlockedCountry[]>('/admin/blocked-countries');
+  return response.data;
+};
+
+export const searchTalents = async (params: {
+  skills?: string;
+  experience?: string;
+  rating?: number;
+  timezone?: string;
+  category_id?: string;
+  page?: number;
+  limit?: number;
+  sort_by?: string;
+  sort_order?: string;
+}) => {
+  const response = await api.get<Profile[]>('/talents', { params });
   return response.data;
 };

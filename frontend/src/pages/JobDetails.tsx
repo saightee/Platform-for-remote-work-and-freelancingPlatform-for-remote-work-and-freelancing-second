@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getJobPost, applyToJob, incrementJobView } from '../services/api';
+import { getJobPost, applyToJobPost, incrementJobView } from '../services/api';
 import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import { FaEye } from 'react-icons/fa';
@@ -55,7 +55,7 @@ const JobDetails: React.FC = () => {
     }
     try {
       if (id) {
-        await applyToJob(id);
+        await applyToJobPost(id);
         navigate('/my-applications');
       }
     } catch (err) {
