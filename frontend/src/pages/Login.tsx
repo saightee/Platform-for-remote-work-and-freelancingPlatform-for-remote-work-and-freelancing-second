@@ -1,9 +1,8 @@
-// src/pages/Login.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { login, googleAuthInitiateForLogin } from '../services/api';
-import { FaGoogle } from 'react-icons/fa';
+import { login } from '../services/api';
 import { useRole } from '../context/RoleContext';
+import { FaEye, FaEyeSlash } from 'react-icons/fa'; // Добавляем иконки
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -11,6 +10,7 @@ const Login: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // Состояние для видимости пароля
   const navigate = useNavigate();
   const { profile, refreshProfile } = useRole();
 
@@ -18,31 +18,36 @@ const Login: React.FC = () => {
     e.preventDefault();
     try {
       setErrorMessage(null);
-      const { accessToken } = await login({ email, password });
-      localStorage.setItem('token', accessToken);
+      console.log('Attempting login with:', { email, rememberMe });
+      const response = await login({ email, password, rememberMe });
+      console.log('Login response:', response);
+      localStorage.setItem('token', response.accessToken);
+      console.log('Token stored:', response.accessToken);
       await refreshProfile();
       setIsAuthenticated(true);
     } catch (error: any) {
       console.error('Login error:', error);
-      setErrorMessage(error.response?.data?.message || 'Login failed. Please try again.');
+      const errorMsg = error.response?.data?.message || 'Login failed. Please try again.';
+      console.log('Error details:', error.response?.data);
+      setErrorMessage(errorMsg);
     }
-  };
-
-  const handleGoogleLogin = () => {
-    googleAuthInitiateForLogin();
   };
 
   useEffect(() => {
+    console.log('Login useEffect, isAuthenticated:', isAuthenticated, 'profile:', profile);
     if (isAuthenticated && profile) {
-      // Временно отключаем проверку роли
-      // if (profile.role === 'admin') {
-      //   navigate('/admin');
-      // } else {
-      //   navigate('/');
-      // }
-      navigate('/'); // Перенаправляем всех на главную страницу
+      console.log('User authenticated, role:', profile.role);
+      if (profile.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     }
   }, [isAuthenticated, profile, navigate]);
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
 
   return (
     <div className="register-container">
@@ -59,14 +64,19 @@ const Login: React.FC = () => {
               placeholder="Enter your email"
             />
           </div>
-          <div className="form-group">
+          <div className="form-group password-container">
             <label>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-            />
+            <div className="password-input-wrapper">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+              />
+              <span className="password-toggle-icon" onClick={togglePasswordVisibility}>
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </span>
+            </div>
           </div>
           <div className="form-group checkbox-group">
             <input
@@ -78,19 +88,14 @@ const Login: React.FC = () => {
             <label htmlFor="remember-me">Remember Me</label>
           </div>
           <button onClick={handleSubmit}>Sign In</button>
-          {/* <div className="google-login">
-            <button onClick={handleGoogleLogin} className="google-button">
-              <FaGoogle style={{ marginRight: '8px' }} /> Sign In with Google
-            </button>
-          </div> */}
           <div className="form-links">
             <p>
-              Forgot password? <Link to="/reset-password">Reset</Link>
+              Forgotten your password? <Link to="/reset-password">Reset</Link>
             </p>
             <p>
               Don’t have an account? <Link to="/role-selection">Register</Link>
             </p>
-                <p>
+            <p>
               <Link to="/">Go to Home</Link>
             </p>
           </div>

@@ -2,104 +2,102 @@ import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { 
-  getAllUsers, getUserById, updateUser, deleteUser, resetUserPassword,
-  getAllJobPosts, updateJobPostAdmin, deleteJobPostAdmin, approveJobPost, flagJobPost,
+import { useRole } from '../context/RoleContext';
+import {
+  getAllUsers, deleteUser, resetUserPassword,
+  getAllJobPosts, deleteJobPostAdmin, approveJobPost, flagJobPost,
   setJobPostApplicationLimitAdmin, getAllReviews, deleteReview, getAnalytics,
   getRegistrationStats, getGeographicDistribution, getTopEmployers, getTopJobseekers,
   verifyIdentity, setGlobalApplicationLimit, getGlobalApplicationLimit,
-  addBlockedCountry, removeBlockedCountry, getBlockedCountries, getFeedback
+  addBlockedCountry, removeBlockedCountry, getBlockedCountries, getFeedback,
+  blockUser, unblockUser, getUserRiskScore, exportUsersToCSV, getUserOnlineStatus,
+  getCategories, createCategory
 } from '../services/api';
-import { User, JobPost, Review, Feedback, BlockedCountry } from '@types';
-import { useRole } from '../context/RoleContext';
-import { format, zonedTimeToUtc } from 'date-fns-tz';
-import { parseISO } from 'date-fns';
+import { User, JobPost, Review, Feedback, BlockedCountry, Category } from '@types';
+import { format } from 'date-fns';
 
 const AdminDashboard: React.FC = () => {
-  const { profile, isLoading: profileLoading } = useRole();
+  const { profile } = useRole();
   const [users, setUsers] = useState<User[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [blockedCountries, setBlockedCountries] = useState<BlockedCountry[]>([]);
-  const [analytics, setAnalytics] = useState<any>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [analytics, setAnalytics] = useState<{
+    totalUsers: number;
+    employers: number;
+    jobSeekers: number;
+    totalJobPosts: number;
+    activeJobPosts: number;
+    totalApplications: number;
+    totalReviews: number;
+  } | null>(null);
   const [registrationStats, setRegistrationStats] = useState<{ period: string; count: number }[]>([]);
-  const [geographicDistribution, setGeographicDistribution] = useState<
-    { country: string; count: number; percentage: string }[]
-  >([]);
-  const [topEmployers, setTopEmployers] = useState<
-    { employer_id: string; username: string; job_count: number }[]
-  >([]);
-  const [topJobseekers, setTopJobseekers] = useState<
-    { job_seeker_id: string; username: string; application_count: number }[]
-  >([]);
-  const [globalLimit, setGlobalLimit] = useState<number>(0);
-  const [newLimit, setNewLimit] = useState<number>(0);
-  const [countryCode, setCountryCode] = useState<string>('');
+  const [geographicDistribution, setGeographicDistribution] = useState<{ country: string; count: number; percentage: string }[]>([]);
+  const [topEmployers, setTopEmployers] = useState<{ employer_id: string; username: string; job_count: number }[]>([]);
+  const [topJobseekers, setTopJobseekers] = useState<{ job_seeker_id: string; username: string; application_count: number }[]>([]);
+  const [globalLimit, setGlobalLimit] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-  const [showPendingOnly, setShowPendingOnly] = useState<boolean>(true); // Новый стейт для фильтра
+  const [riskScoreData, setRiskScoreData] = useState<{ userId: string; riskScore: number; details: { duplicateIp: boolean; proxyDetected: boolean; duplicateFingerprint: boolean } } | null>(null);
+  const [showRiskModal, setShowRiskModal] = useState(false);
+  const [onlineStatuses, setOnlineStatuses] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
-    if (profileLoading) return;
-
-    const typedProfile = profile as { role: string } | null;
-    if (!typedProfile || typedProfile.role !== 'admin') {
-      setError('This page is only available for Admins.');
-      setIsAuthorized(false);
-    } else {
-      setIsAuthorized(true);
-    }
-  }, [profile, profileLoading]);
-
-  useEffect(() => {
-    if (!isAuthorized || !profile) return;
-
     const fetchData = async () => {
+      if (!profile || profile.role !== 'admin') {
+        setError('This page is only available for admins.');
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        const usersData = await getAllUsers({});
+        setIsLoading(true);
+        const [
+          usersData, jobPostsData, reviewsData, feedbackData, blockedCountriesData,
+          categoriesData, analyticsData, registrationStatsData, geographicData,
+          topEmployersData, topJobseekersData, globalLimitData
+        ] = await Promise.all([
+          getAllUsers({}),
+          getAllJobPosts({}),
+          getAllReviews(),
+          getFeedback(),
+          getBlockedCountries(),
+          getCategories(),
+          getAnalytics(),
+          getRegistrationStats({ startDate: '2023-01-01', endDate: '2025-12-31', interval: 'month' }),
+          getGeographicDistribution(),
+          getTopEmployers(5),
+          getTopJobseekers(5),
+          getGlobalApplicationLimit()
+        ]);
+
+        console.log('Blocked countries data:', blockedCountriesData);
+        console.log('Categories data:', categoriesData);
+
         setUsers(usersData);
-
-        const jobPostsData = await getAllJobPosts({ pendingReview: showPendingOnly ? 'true' : undefined });
         setJobPosts(jobPostsData);
-
-        const reviewsData = await getAllReviews();
         setReviews(reviewsData);
-
-        const feedbacksData = await getFeedback();
-        setFeedbacks(feedbacksData);
-
-        const blockedCountriesData = await getBlockedCountries();
+        setFeedback(feedbackData);
         setBlockedCountries(blockedCountriesData);
-
-        const analyticsData = await getAnalytics();
+        setCategories(categoriesData);
         setAnalytics(analyticsData);
-
-        const statsData = await getRegistrationStats({
-          startDate: '2025-05-01',
-          endDate: '2025-05-15',
-          interval: 'day',
-        });
-        setRegistrationStats(statsData);
-
-        const geoData = await getGeographicDistribution();
-        setGeographicDistribution(geoData);
-
-        const topEmployersData = await getTopEmployers();
+        setRegistrationStats(registrationStatsData);
+        setGeographicDistribution(geographicData);
         setTopEmployers(topEmployersData);
-
-        const topJobseekersData = await getTopJobseekers();
         setTopJobseekers(topJobseekersData);
-
-        const globalLimitData = await getGlobalApplicationLimit();
         setGlobalLimit(globalLimitData.globalApplicationLimit);
-      } catch (error) {
-        console.error('Error fetching admin data:', error);
+      } catch (err) {
+        console.error('Error fetching admin data:', err);
         setError('Failed to load admin data. Please try again.');
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchData();
-  }, [isAuthorized, profile, showPendingOnly]); // Добавляем showPendingOnly в зависимости
+  }, [profile]);
 
   const handleDeleteUser = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
@@ -107,8 +105,8 @@ const AdminDashboard: React.FC = () => {
         await deleteUser(id);
         setUsers(users.filter((user) => user.id !== id));
         alert('User deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting user:', error);
+      } catch (err) {
+        console.error('Error deleting user:', err);
         alert('Failed to delete user.');
       }
     }
@@ -120,10 +118,89 @@ const AdminDashboard: React.FC = () => {
       try {
         await resetUserPassword(id, newPassword);
         alert('Password reset successfully!');
-      } catch (error) {
-        console.error('Error resetting password:', error);
+      } catch (err) {
+        console.error('Error resetting password:', err);
         alert('Failed to reset password.');
       }
+    }
+  };
+
+  const handleVerifyIdentity = async (id: string, verify: boolean) => {
+    try {
+      await verifyIdentity(id, verify);
+      alert(`Identity ${verify ? 'verified' : 'rejected'} successfully!`);
+      const usersData = await getAllUsers({});
+      setUsers(usersData);
+    } catch (err) {
+      console.error('Error verifying identity:', err);
+      alert('Failed to verify identity.');
+    }
+  };
+
+  const handleBlockUser = async (id: string, username: string) => {
+    if (window.confirm(`Are you sure you want to block ${username}?`)) {
+      try {
+        await blockUser(id);
+        alert('User blocked successfully!');
+        const usersData = await getAllUsers({});
+        setUsers(usersData);
+      } catch (error) {
+        console.error('Error blocking user:', error);
+        alert('Failed to block user.');
+      }
+    }
+  };
+
+  const handleUnblockUser = async (id: string, username: string) => {
+    if (window.confirm(`Are you sure you want to unblock ${username}?`)) {
+      try {
+        await unblockUser(id);
+        alert('User unblocked successfully!');
+        const usersData = await getAllUsers({});
+        setUsers(usersData);
+      } catch (error) {
+        console.error('Error unblocking user:', error);
+        alert('Failed to unblock user.');
+      }
+    }
+  };
+
+  const handleViewRiskScore = async (id: string) => {
+    try {
+      const data = await getUserRiskScore(id);
+      setRiskScoreData(data);
+      setShowRiskModal(true);
+    } catch (error) {
+      console.error('Error fetching risk score:', error);
+      alert('Failed to fetch risk score.');
+    }
+  };
+
+  const handleCheckOnlineStatus = async (id: string) => {
+    try {
+      const { isOnline } = await getUserOnlineStatus(id);
+      setOnlineStatuses((prev) => ({ ...prev, [id]: isOnline }));
+    } catch (error) {
+      console.error('Error checking online status:', error);
+      alert('Failed to check online status.');
+    }
+  };
+
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) {
+      alert('Category name cannot be empty.');
+      return;
+    }
+    try {
+      await createCategory(newCategoryName);
+      const updatedCategories = await getCategories();
+      setCategories(updatedCategories);
+      setNewCategoryName('');
+      alert('Category created successfully!');
+    } catch (error) {
+      console.error('Error creating category:', error);
+      alert('Failed to create category.');
     }
   };
 
@@ -133,8 +210,8 @@ const AdminDashboard: React.FC = () => {
         await deleteJobPostAdmin(id);
         setJobPosts(jobPosts.filter((post) => post.id !== id));
         alert('Job post deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting job post:', error);
+      } catch (err) {
+        console.error('Error deleting job post:', err);
         alert('Failed to delete job post.');
       }
     }
@@ -145,8 +222,8 @@ const AdminDashboard: React.FC = () => {
       const updatedPost = await approveJobPost(id);
       setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
       alert('Job post approved successfully!');
-    } catch (error) {
-      console.error('Error approving job post:', error);
+    } catch (err) {
+      console.error('Error approving job post:', err);
       alert('Failed to approve job post.');
     }
   };
@@ -156,20 +233,24 @@ const AdminDashboard: React.FC = () => {
       const updatedPost = await flagJobPost(id);
       setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
       alert('Job post flagged successfully!');
-    } catch (error) {
-      console.error('Error flagging job post:', error);
+    } catch (err) {
+      console.error('Error flagging job post:', err);
       alert('Failed to flag job post.');
     }
   };
 
-  const handleSetJobPostLimit = async (id: string) => {
-    try {
-      await setJobPostApplicationLimitAdmin(id, newLimit);
-      alert('Application limit set successfully!');
-      setNewLimit(0);
-    } catch (error) {
-      console.error('Error setting application limit:', error);
-      alert('Failed to set application limit.');
+  const handleSetApplicationLimit = async (id: string) => {
+    const limit = prompt('Enter application limit:');
+    if (limit && !isNaN(Number(limit))) {
+      try {
+        await setJobPostApplicationLimitAdmin(id, Number(limit));
+        const updatedPosts = await getAllJobPosts({});
+        setJobPosts(updatedPosts);
+        alert('Application limit set successfully!');
+      } catch (err) {
+        console.error('Error setting application limit:', err);
+        alert('Failed to set application limit.');
+      }
     }
   };
 
@@ -179,43 +260,41 @@ const AdminDashboard: React.FC = () => {
         await deleteReview(id);
         setReviews(reviews.filter((review) => review.id !== id));
         alert('Review deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting review:', error);
+      } catch (err) {
+        console.error('Error deleting review:', err);
         alert('Failed to delete review.');
       }
     }
   };
 
-  const handleVerifyIdentity = async (id: string, verify: boolean) => {
-    try {
-      await verifyIdentity(id, verify);
-      alert(`Identity ${verify ? 'verified' : 'rejected'} successfully!`);
-    } catch (error) {
-      console.error('Error verifying identity:', error);
-      alert('Failed to verify identity.');
-    }
-  };
-
   const handleSetGlobalLimit = async () => {
-    try {
-      const response = await setGlobalApplicationLimit(newLimit);
-      setGlobalLimit(response.limit);
-      alert('Global application limit set successfully!');
-    } catch (error) {
-      console.error('Error setting global limit:', error);
-      alert('Failed to set global limit.');
+    const limit = prompt('Enter global application limit:');
+    if (limit && !isNaN(Number(limit))) {
+      try {
+        await setGlobalApplicationLimit(Number(limit));
+        const limitData = await getGlobalApplicationLimit();
+        setGlobalLimit(limitData.globalApplicationLimit);
+        alert('Global application limit set successfully!');
+      } catch (err) {
+        console.error('Error setting global limit:', err);
+        alert('Failed to set global limit.');
+      }
     }
   };
 
   const handleAddBlockedCountry = async () => {
-    try {
-      const newCountry = await addBlockedCountry(countryCode);
-      setBlockedCountries([...blockedCountries, newCountry]);
-      setCountryCode('');
-      alert('Country blocked successfully!');
-    } catch (error) {
-      console.error('Error blocking country:', error);
-      alert('Failed to block country.');
+    const countryCode = prompt('Enter country code (e.g., US, CA):');
+    if (countryCode) {
+      try {
+        await addBlockedCountry(countryCode);
+        const countries = await getBlockedCountries();
+        console.log('Updated blocked countries:', countries);
+        setBlockedCountries(countries);
+        alert('Country blocked successfully!');
+      } catch (err) {
+        console.error('Error adding blocked country:', err);
+        alert('Failed to block country.');
+      }
     }
   };
 
@@ -223,31 +302,18 @@ const AdminDashboard: React.FC = () => {
     if (window.confirm(`Are you sure you want to unblock ${countryCode}?`)) {
       try {
         await removeBlockedCountry(countryCode);
-        setBlockedCountries(blockedCountries.filter((country) => country.country_code !== countryCode));
+        const updatedCountries = await getBlockedCountries();
+        console.log('Updated blocked countries after removal:', updatedCountries);
+        setBlockedCountries(updatedCountries);
         alert('Country unblocked successfully!');
-      } catch (error) {
-        console.error('Error unblocking country:', error);
+      } catch (err) {
+        console.error('Error removing blocked country:', err);
         alert('Failed to unblock country.');
       }
     }
   };
 
-  const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
-    if (!dateString) return 'Not specified';
-    try {
-      const date = parseISO(dateString);
-      if (timezone) {
-        const zonedDate = zonedTimeToUtc(date, timezone);
-        return format(zonedDate, 'PPpp', { timeZone: timezone });
-      }
-      return format(date, 'PPpp');
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'Invalid date';
-    }
-  };
-
-  if (profileLoading) {
+  if (isLoading) {
     return (
       <div>
         <Header />
@@ -261,13 +327,13 @@ const AdminDashboard: React.FC = () => {
     );
   }
 
-  if (!isAuthorized) {
+  if (!profile || profile.role !== 'admin') {
     return (
       <div>
         <Header />
         <div className="container">
           <h2>Admin Dashboard</h2>
-          <p>{error}</p>
+          <p>This page is only available for admins.</p>
         </div>
         <Footer />
         <Copyright />
@@ -278,12 +344,27 @@ const AdminDashboard: React.FC = () => {
   return (
     <div>
       <Header />
-      <div className="container admin-dashboard-container">
+      <div className="container admin-container">
         <h2>Admin Dashboard</h2>
         {error && <p className="error-message">{error}</p>}
 
+        {/* Users */}
         <div className="admin-section">
           <h3>Users</h3>
+          <button
+            onClick={async () => {
+              try {
+                await exportUsersToCSV();
+                alert('Users exported successfully!');
+              } catch (error) {
+                console.error('Error exporting users:', error);
+                alert('Failed to export users.');
+              }
+            }}
+            className="action-button"
+          >
+            Export to CSV
+          </button>
           <table className="admin-table">
             <thead>
               <tr>
@@ -291,6 +372,7 @@ const AdminDashboard: React.FC = () => {
                 <th>Username</th>
                 <th>Email</th>
                 <th>Role</th>
+                <th>Online Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -301,6 +383,18 @@ const AdminDashboard: React.FC = () => {
                   <td>{user.username}</td>
                   <td>{user.email}</td>
                   <td>{user.role}</td>
+                  <td>
+                    {onlineStatuses[user.id] !== undefined ? (
+                      onlineStatuses[user.id] ? 'Online' : 'Offline'
+                    ) : (
+                      <button
+                        onClick={() => handleCheckOnlineStatus(user.id)}
+                        className="action-button"
+                      >
+                        Check Status
+                      </button>
+                    )}
+                  </td>
                   <td>
                     <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
                       Delete
@@ -314,6 +408,24 @@ const AdminDashboard: React.FC = () => {
                     <button onClick={() => handleVerifyIdentity(user.id, false)} className="action-button warning">
                       Reject Identity
                     </button>
+                    <button
+                      onClick={() => handleBlockUser(user.id, user.username)}
+                      className="action-button danger"
+                    >
+                      Block
+                    </button>
+                    <button
+                      onClick={() => handleUnblockUser(user.id, user.username)}
+                      className="action-button success"
+                    >
+                      Unblock
+                    </button>
+                    <button
+                      onClick={() => handleViewRiskScore(user.id)}
+                      className="action-button"
+                    >
+                      View Risk Score
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -321,25 +433,16 @@ const AdminDashboard: React.FC = () => {
           </table>
         </div>
 
+        {/* Job Posts */}
         <div className="admin-section">
           <h3>Job Posts</h3>
-          <div className="form-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={showPendingOnly}
-                onChange={() => setShowPendingOnly(!showPendingOnly)}
-              />
-              Show only pending review
-            </label>
-          </div>
           <table className="admin-table">
             <thead>
               <tr>
                 <th>ID</th>
                 <th>Title</th>
                 <th>Status</th>
-                <th>Pending Review</th>
+                <th>Created At</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -349,7 +452,7 @@ const AdminDashboard: React.FC = () => {
                   <td>{post.id}</td>
                   <td>{post.title}</td>
                   <td>{post.status}</td>
-                  <td>{post.pending_review ? 'Yes' : 'No'}</td>
+                  <td>{format(new Date(post.created_at), 'PP')}</td>
                   <td>
                     <button onClick={() => handleDeleteJobPost(post.id)} className="action-button danger">
                       Delete
@@ -358,20 +461,11 @@ const AdminDashboard: React.FC = () => {
                       Approve
                     </button>
                     <button onClick={() => handleFlagJobPost(post.id)} className="action-button warning">
-                      Flag for Review
+                      Flag
                     </button>
-                    <div className="form-group">
-                      <label>Application Limit:</label>
-                      <input
-                        type="number"
-                        value={newLimit}
-                        onChange={(e) => setNewLimit(Number(e.target.value))}
-                        min="0"
-                      />
-                      <button onClick={() => handleSetJobPostLimit(post.id)} className="action-button">
-                        Set Limit
-                      </button>
-                    </div>
+                    <button onClick={() => handleSetApplicationLimit(post.id)} className="action-button">
+                      Set Application Limit
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -379,16 +473,16 @@ const AdminDashboard: React.FC = () => {
           </table>
         </div>
 
+        {/* Reviews */}
         <div className="admin-section">
           <h3>Reviews</h3>
           <table className="admin-table">
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Reviewer</th>
-                <th>Reviewed</th>
                 <th>Rating</th>
                 <th>Comment</th>
+                <th>Reviewer</th>
                 <th>Created At</th>
                 <th>Actions</th>
               </tr>
@@ -397,11 +491,10 @@ const AdminDashboard: React.FC = () => {
               {reviews.map((review) => (
                 <tr key={review.id}>
                   <td>{review.id}</td>
-                  <td>{review.reviewer_id}</td>
-                  <td>{review.reviewed_id}</td>
                   <td>{review.rating}</td>
                   <td>{review.comment}</td>
-                  <td>{review.created_at || 'Not specified'}</td>
+                  <td>{review.reviewer?.username || 'Anonymous'}</td>
+                  <td>{format(new Date(review.created_at), 'PP')}</td>
                   <td>
                     <button onClick={() => handleDeleteReview(review.id)} className="action-button danger">
                       Delete
@@ -413,45 +506,67 @@ const AdminDashboard: React.FC = () => {
           </table>
         </div>
 
+        {/* Feedback */}
         <div className="admin-section">
           <h3>Feedback</h3>
           <table className="admin-table">
             <thead>
               <tr>
                 <th>ID</th>
-                <th>User</th>
                 <th>Message</th>
-                <th>Role</th>
                 <th>Created At</th>
               </tr>
             </thead>
             <tbody>
-              {feedbacks.map((feedback) => (
-                <tr key={feedback.id}>
-                  <td>{feedback.id}</td>
-                  <td>{feedback.user?.username || 'Anonymous'}</td>
-                  <td>{feedback.message}</td>
-                  <td>{feedback.role}</td>
-                  <td>{feedback.created_at || 'Not specified'}</td>
+              {feedback.map((fb) => (
+                <tr key={fb.id}>
+                  <td>{fb.id}</td>
+                  <td>{fb.message}</td>
+                  <td>{format(new Date(fb.created_at), 'PP')}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
+        {/* Categories */}
         <div className="admin-section">
-          <h3>Blocked Countries</h3>
-          <div className="form-group">
-            <label>Add Blocked Country (Country Code):</label>
+          <h3>Categories</h3>
+          <form onSubmit={handleCreateCategory} className="form-group">
             <input
               type="text"
-              value={countryCode}
-              onChange={(e) => setCountryCode(e.target.value)}
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="Enter category name"
             />
-            <button onClick={handleAddBlockedCountry} className="action-button success">
-              Add
+            <button type="submit" className="action-button">
+              Create Category
             </button>
-          </div>
+          </form>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+              </tr>
+            </thead>
+            <tbody>
+              {categories.map((category) => (
+                <tr key={category.id}>
+                  <td>{category.id}</td>
+                  <td>{category.name}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Blocked Countries */}
+        <div className="admin-section">
+          <h3>Blocked Countries</h3>
+          <button onClick={handleAddBlockedCountry} className="action-button">
+            Add Blocked Country
+          </button>
           <table className="admin-table">
             <thead>
               <tr>
@@ -461,10 +576,13 @@ const AdminDashboard: React.FC = () => {
             </thead>
             <tbody>
               {blockedCountries.map((country) => (
-                <tr key={country.id}>
-                  <td>{country.country_code}</td>
+                <tr key={country.countryCode}>
+                  <td>{country.countryCode}</td>
                   <td>
-                    <button onClick={() => handleRemoveBlockedCountry(country.country_code)} className="action-button danger">
+                    <button
+                      onClick={() => handleRemoveBlockedCountry(country.countryCode)}
+                      className="action-button danger"
+                    >
                       Remove
                     </button>
                   </td>
@@ -474,37 +592,21 @@ const AdminDashboard: React.FC = () => {
           </table>
         </div>
 
+        {/* Analytics */}
         <div className="admin-section">
           <h3>Analytics</h3>
           {analytics && (
-            <div className="analytics-grid">
-              <div className="analytics-card">
-                <p><strong>Total Users:</strong> {analytics.totalUsers}</p>
-              </div>
-              <div className="analytics-card">
-                <p><strong>Employers:</strong> {analytics.employers}</p>
-              </div>
-              <div className="analytics-card">
-                <p><strong>Job Seekers:</strong> {analytics.jobSeekers}</p>
-              </div>
-              <div className="analytics-card">
-                <p><strong>Total Job Posts:</strong> {analytics.totalJobPosts}</p>
-              </div>
-              <div className="analytics-card">
-                <p><strong>Active Job Posts:</strong> {analytics.activeJobPosts}</p>
-              </div>
-              <div className="analytics-card">
-                <p><strong>Total Applications:</strong> {analytics.totalApplications}</p>
-              </div>
-              <div className="analytics-card">
-                <p><strong>Total Reviews:</strong> {analytics.totalReviews}</p>
-              </div>
+            <div>
+              <p><strong>Total Users:</strong> {analytics.totalUsers}</p>
+              <p><strong>Employers:</strong> {analytics.employers}</p>
+              <p><strong>Job Seekers:</strong> {analytics.jobSeekers}</p>
+              <p><strong>Total Job Posts:</strong> {analytics.totalJobPosts}</p>
+              <p><strong>Active Job Posts:</strong> {analytics.activeJobPosts}</p>
+              <p><strong>Total Applications:</strong> {analytics.totalApplications}</p>
+              <p><strong>Total Reviews:</strong> {analytics.totalReviews}</p>
             </div>
           )}
-        </div>
-
-        <div className="admin-section">
-          <h3>Registration Stats</h3>
+          <h4>Registration Stats</h4>
           <table className="admin-table">
             <thead>
               <tr>
@@ -521,10 +623,7 @@ const AdminDashboard: React.FC = () => {
               ))}
             </tbody>
           </table>
-        </div>
-
-        <div className="admin-section">
-          <h3>Geographic Distribution</h3>
+          <h4>Geographic Distribution</h4>
           <table className="admin-table">
             <thead>
               <tr>
@@ -538,15 +637,12 @@ const AdminDashboard: React.FC = () => {
                 <tr key={index}>
                   <td>{dist.country}</td>
                   <td>{dist.count}</td>
-                  <td>{dist.percentage}%</td>
+                  <td>{dist.percentage}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-
-        <div className="admin-section">
-          <h3>Top Employers</h3>
+          <h4>Top Employers</h4>
           <table className="admin-table">
             <thead>
               <tr>
@@ -555,18 +651,15 @@ const AdminDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {topEmployers.map((employer, index) => (
-                <tr key={index}>
+              {topEmployers.map((employer) => (
+                <tr key={employer.employer_id}>
                   <td>{employer.username}</td>
                   <td>{employer.job_count}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-
-        <div className="admin-section">
-          <h3>Top Jobseekers</h3>
+          <h4>Top Jobseekers</h4>
           <table className="admin-table">
             <thead>
               <tr>
@@ -575,8 +668,8 @@ const AdminDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {topJobseekers.map((jobseeker, index) => (
-                <tr key={index}>
+              {topJobseekers.map((jobseeker) => (
+                <tr key={jobseeker.job_seeker_id}>
                   <td>{jobseeker.username}</td>
                   <td>{jobseeker.application_count}</td>
                 </tr>
@@ -585,23 +678,32 @@ const AdminDashboard: React.FC = () => {
           </table>
         </div>
 
+        {/* Global Application Limit */}
         <div className="admin-section">
           <h3>Global Application Limit</h3>
-          <p><strong>Current Limit:</strong> {globalLimit}</p>
-          <div className="form-group">
-            <label>New Global Limit:</label>
-            <input
-              type="number"
-              value={newLimit}
-              onChange={(e) => setNewLimit(Number(e.target.value))}
-              min="0"
-            />
-            <button onClick={handleSetGlobalLimit} className="action-button success">
-              Set Global Limit
+          <p>Current Limit: {globalLimit ?? 'Not set'}</p>
+          <button onClick={handleSetGlobalLimit} className="action-button">
+            Set Global Limit
+          </button>
+        </div>
+      </div>
+
+      {/* Risk Score Modal */}
+      {showRiskModal && riskScoreData && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Risk Score for User ID: {riskScoreData.userId}</h3>
+            <p><strong>Risk Score:</strong> {riskScoreData.riskScore}</p>
+            <p><strong>Duplicate IP:</strong> {riskScoreData.details.duplicateIp ? 'Yes' : 'No'}</p>
+            <p><strong>Proxy Detected:</strong> {riskScoreData.details.proxyDetected ? 'Yes' : 'No'}</p>
+            <p><strong>Duplicate Fingerprint:</strong> {riskScoreData.details.duplicateFingerprint ? 'Yes' : 'No'}</p>
+            <button onClick={() => setShowRiskModal(false)} className="action-button">
+              Close
             </button>
           </div>
         </div>
-      </div>
+      )}
+
       <Footer />
       <Copyright />
     </div>
