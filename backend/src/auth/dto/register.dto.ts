@@ -14,5 +14,5 @@ export class RegisterDto {
 
   @IsString()
   @IsNotEmpty()
-  role: 'employer' | 'jobseeker'; // Удаляем 'admin'
+  role: 'employer' | 'jobseeker'; 
 }

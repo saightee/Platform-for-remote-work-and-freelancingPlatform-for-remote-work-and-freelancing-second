@@ -36,3 +36,10 @@ jobs:
         with:
           name: test-report
           path: backend/test-report/report.html
+
+      - name: Deploy test report to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./backend/test-report
