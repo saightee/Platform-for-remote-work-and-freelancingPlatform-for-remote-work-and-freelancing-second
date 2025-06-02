@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { getProfile } from '../services/api';
 import { Profile } from '@types';
-import { jwtDecode } from 'jwt-decode'; // Используем именованный импорт
+import { jwtDecode } from 'jwt-decode';
 
 interface RoleContextType {
   currentRole: 'employer' | 'jobseeker' | 'admin' | null;
@@ -38,10 +38,16 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      // Проверяем, является ли токен строкой и содержит ли три части (header.payload.signature)
       if (typeof token === 'string' && token.split('.').length === 3) {
-        const decoded: DecodedToken = jwtDecode(token); // Используем именованную функцию
+        const decoded: DecodedToken = jwtDecode(token);
         console.log('Decoded token:', decoded);
+        setCurrentRole(decoded.role);
+        if (decoded.role === 'admin') {
+          // Для администратора профиль необязателен
+          setProfile(null);
+          setIsLoading(false);
+          return;
+        }
       } else {
         console.warn('Invalid token format:', token);
       }
@@ -53,13 +59,17 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentRole(profileData.role);
     } catch (error: any) {
       console.error('Error fetching profile in RoleContext:', error);
-      if (error.response?.status === 401) {
-        console.error('Unauthorized error. Token:', token);
-        setError('Unauthorized. Please check your credentials or contact support.');
+      if (error.response?.status === 401 || error.response?.status === 404) {
+        console.error('Unauthorized or profile not found. Token:', token);
+        setError('Unauthorized or profile not found. Please check your credentials.');
         setProfile(null);
-        setCurrentRole(null);
+        // Не очищаем роль, если токен валиден
+        const decoded: DecodedToken = jwtDecode(token);
+        setCurrentRole(decoded.role);
       } else {
         setError('Failed to load profile.');
+        setProfile(null);
+        setCurrentRole(null);
       }
     } finally {
       setIsLoading(false);

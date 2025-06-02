@@ -161,7 +161,7 @@ header nav .nav-divider {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   z-index: 1;
   border-radius: 5px;
-  top: calc(100% + 2px);
+  top: calc(100% + 0px);
   left: 0;
 }
 
@@ -1726,4 +1726,16 @@ header nav .greeting {
 
 .password-toggle-icon:hover {
   color: #3498db;
+}
+
+.already-applied {
+  color: #666;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.success-message {
+  color: #28a745;
+  font-weight: bold;
+  margin: 10px 0;
 }

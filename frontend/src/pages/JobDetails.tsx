@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getJobPost, applyToJobPost, incrementJobView } from '../services/api';
+import { getJobPost, applyToJobPost, incrementJobView, checkJobApplicationStatus } from '../services/api';
 import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import { FaEye } from 'react-icons/fa';
@@ -17,6 +17,7 @@ const JobDetails: React.FC = () => {
   const [job, setJob] = useState<JobPost | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasApplied, setHasApplied] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -31,7 +32,10 @@ const JobDetails: React.FC = () => {
             setJob((prev) => (prev ? { ...prev, views: response.views || (jobData.views || 0) + 1 } : prev));
           } catch (viewError) {
             console.error('Error incrementing job view:', viewError);
-            // Не устанавливаем ошибку для UI, чтобы не мешать отображению вакансии
+          }
+          if (profile?.role === 'jobseeker') {
+            const applicationStatus = await checkJobApplicationStatus(id);
+            setHasApplied(applicationStatus.hasApplied);
           }
         }
       } catch (err: any) {
@@ -42,7 +46,7 @@ const JobDetails: React.FC = () => {
       }
     };
     fetchJob();
-  }, [id]);
+  }, [id, profile]);
 
   const handleApply = async () => {
     if (!profile) {
@@ -56,11 +60,12 @@ const JobDetails: React.FC = () => {
     try {
       if (id) {
         await applyToJobPost(id);
+        setHasApplied(true);
         navigate('/my-applications');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error applying to job:', err);
-      setError('Failed to apply. Please try again.');
+      setError(err.response?.data?.message || 'Failed to apply. Please try again.');
     }
   };
 
@@ -109,10 +114,13 @@ const JobDetails: React.FC = () => {
             <p>{job.description}</p>
           </div>
           <div className="job-details-actions">
-            {profile?.role === 'jobseeker' && job.status === 'Active' && (
-              <button onClick={handleApply}>Apply Now</button>
-            )}
-            {(!profile || profile.role !== 'jobseeker') && (
+            {profile?.role === 'jobseeker' && job.status === 'Active' ? (
+              hasApplied ? (
+                <p className="already-applied">Already Applied</p>
+              ) : (
+                <button onClick={handleApply}>Apply Now</button>
+              )
+            ) : (
               <button onClick={() => navigate('/login')}>Login to Apply</button>
             )}
           </div>

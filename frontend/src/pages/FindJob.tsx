@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
@@ -9,9 +9,10 @@ import { formatDateInTimezone } from '../utils/dateUtils';
 import { FaEye, FaUserCircle } from 'react-icons/fa';
 
 const FindJob: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [searchParams, setSearchParams] = useState<{
+  const [searchState, setSearchState] = useState<{
     title: string;
     location: string;
     salary_min?: number;
@@ -22,7 +23,7 @@ const FindJob: React.FC = () => {
     page: number;
     limit: number;
   }>({
-    title: '',
+    title: searchParams.get('title') || '',
     location: '',
     salary_min: undefined,
     salary_max: undefined,
@@ -42,7 +43,7 @@ const FindJob: React.FC = () => {
         setIsLoading(true);
         setError(null);
         const [jobsData, categoriesData] = await Promise.all([
-          searchJobPosts(searchParams),
+          searchJobPosts(searchState),
           getCategories(),
         ]);
         setJobs(jobsData);
@@ -55,15 +56,16 @@ const FindJob: React.FC = () => {
       }
     };
     fetchData();
-  }, [searchParams]);
+  }, [searchState]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setSearchParams((prev) => ({ ...prev, page: 1 }));
+    setSearchState((prev) => ({ ...prev, page: 1 }));
+    setSearchParams({ title: searchState.title }); // Обновляем URL
   };
 
   const handlePageChange = (newPage: number) => {
-    setSearchParams((prev) => ({ ...prev, page: newPage }));
+    setSearchState((prev) => ({ ...prev, page: newPage }));
   };
 
   if (isLoading) return <div>Loading...</div>;
@@ -78,8 +80,8 @@ const FindJob: React.FC = () => {
           <input
             type="text"
             placeholder="Search by job title or company"
-            value={searchParams.title}
-            onChange={(e) => setSearchParams({ ...searchParams, title: e.target.value })}
+            value={searchState.title}
+            onChange={(e) => setSearchState({ ...searchState, title: e.target.value })}
           />
           <button onClick={handleSearch}>Search</button>
         </div>
@@ -91,8 +93,8 @@ const FindJob: React.FC = () => {
                 <label>Title:</label>
                 <input
                   type="text"
-                  value={searchParams.title}
-                  onChange={(e) => setSearchParams({ ...searchParams, title: e.target.value })}
+                  value={searchState.title}
+                  onChange={(e) => setSearchState({ ...searchState, title: e.target.value })}
                   placeholder="Enter job title"
                 />
               </div>
@@ -100,8 +102,8 @@ const FindJob: React.FC = () => {
                 <label>Location:</label>
                 <input
                   type="text"
-                  value={searchParams.location}
-                  onChange={(e) => setSearchParams({ ...searchParams, location: e.target.value })}
+                  value={searchState.location}
+                  onChange={(e) => setSearchState({ ...searchState, location: e.target.value })}
                   placeholder="Enter location"
                 />
               </div>
@@ -109,10 +111,10 @@ const FindJob: React.FC = () => {
                 <label>Minimum Salary:</label>
                 <input
                   type="number"
-                  value={searchParams.salary_min || ''}
+                  value={searchState.salary_min || ''}
                   onChange={(e) =>
-                    setSearchParams({
-                      ...searchParams,
+                    setSearchState({
+                      ...searchState,
                       salary_min: e.target.value ? Number(e.target.value) : undefined,
                     })
                   }
@@ -123,10 +125,10 @@ const FindJob: React.FC = () => {
                 <label>Maximum Salary:</label>
                 <input
                   type="number"
-                  value={searchParams.salary_max || ''}
+                  value={searchState.salary_max || ''}
                   onChange={(e) =>
-                    setSearchParams({
-                      ...searchParams,
+                    setSearchState({
+                      ...searchState,
                       salary_max: e.target.value ? Number(e.target.value) : undefined,
                     })
                   }
@@ -136,8 +138,8 @@ const FindJob: React.FC = () => {
               <div className="form-group">
                 <label>Job Type:</label>
                 <select
-                  value={searchParams.job_type}
-                  onChange={(e) => setSearchParams({ ...searchParams, job_type: e.target.value })}
+                  value={searchState.job_type}
+                  onChange={(e) => setSearchState({ ...searchState, job_type: e.target.value })}
                 >
                   <option value="">All Types</option>
                   <option value="Full-time">Full-time</option>
@@ -148,8 +150,8 @@ const FindJob: React.FC = () => {
               <div className="form-group">
                 <label>Category:</label>
                 <select
-                  value={searchParams.category_id}
-                  onChange={(e) => setSearchParams({ ...searchParams, category_id: e.target.value })}
+                  value={searchState.category_id}
+                  onChange={(e) => setSearchState({ ...searchState, category_id: e.target.value })}
                 >
                   <option value="">All Categories</option>
                   {categories.map((category) => (
@@ -163,8 +165,8 @@ const FindJob: React.FC = () => {
                 <label>Skills (comma-separated):</label>
                 <input
                   type="text"
-                  value={searchParams.required_skills}
-                  onChange={(e) => setSearchParams({ ...searchParams, required_skills: e.target.value })}
+                  value={searchState.required_skills}
+                  onChange={(e) => setSearchState({ ...searchState, required_skills: e.target.value })}
                   placeholder="e.g., JavaScript, Python"
                 />
               </div>
@@ -218,16 +220,16 @@ const FindJob: React.FC = () => {
             </div>
             <div className="pagination">
               <button
-                onClick={() => handlePageChange(searchParams.page - 1)}
-                disabled={searchParams.page === 1}
+                onClick={() => handlePageChange(searchState.page - 1)}
+                disabled={searchState.page === 1}
                 className="action-button"
               >
                 Previous
               </button>
-              <span>Page {searchParams.page}</span>
+              <span>Page {searchState.page}</span>
               <button
-                onClick={() => handlePageChange(searchParams.page + 1)}
-                disabled={jobs.length < searchParams.limit}
+                onClick={() => handlePageChange(searchState.page + 1)}
+                disabled={jobs.length < searchState.limit}
                 className="action-button"
               >
                 Next

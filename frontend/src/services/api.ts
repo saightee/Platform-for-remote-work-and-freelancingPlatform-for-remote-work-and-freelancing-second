@@ -412,3 +412,13 @@ export const searchTalents = async (params: {
   const response = await api.get<Profile[]>('/talents', { params });
   return response.data;
 };
+
+export const checkJobApplicationStatus = async (job_post_id: string) => {
+  const response = await api.get<{ hasApplied: boolean }>(`/job-applications/check/${job_post_id}`);
+  return response.data;
+};
+
+export const sendApplicationNotification = async (applicationId: string, status: 'Accepted' | 'Rejected') => {
+  const response = await api.post(`/job-applications/${applicationId}/notify`, { status });
+  return response.data;
+};

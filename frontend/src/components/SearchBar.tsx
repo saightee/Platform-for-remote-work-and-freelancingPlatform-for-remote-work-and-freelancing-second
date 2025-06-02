@@ -18,7 +18,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
   const handleSubmit = (e: React.MouseEvent) => {
     e.preventDefault();
     if (activeTab === 'find-work') {
-      onSearch({ title });
+      navigate(`/find-job?title=${encodeURIComponent(title)}`);
     } else {
       navigate(`/find-talent?skills=${encodeURIComponent(title)}`);
     }

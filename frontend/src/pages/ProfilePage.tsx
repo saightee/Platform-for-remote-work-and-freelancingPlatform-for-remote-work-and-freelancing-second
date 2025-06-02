@@ -171,24 +171,25 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleUploadDocument = async () => {
-    if (!documentFile) {
-      setFormError('Please select a file to upload.');
-      return;
-    }
-    try {
-      setFormError(null);
-      const formData = new FormData();
-      formData.append('document', documentFile);
-      const updatedProfile = await uploadIdentityDocument(formData);
-      setProfileData(updatedProfile);
-      setDocumentFile(null);
-      await refreshProfile();
-    } catch (error: any) {
-      console.error('Error uploading document:', error);
-      setFormError(error.response?.data?.message || 'Failed to upload document.');
-    }
-  };
+const handleUploadDocument = async () => {
+  if (!documentFile) {
+    setFormError('Please select a file to upload.');
+    return;
+  }
+  try {
+    setFormError(null);
+    const formData = new FormData();
+    formData.append('document', documentFile);
+    const updatedProfile = await uploadIdentityDocument(formData);
+    console.log('Updated profile after document upload:', updatedProfile); // Отладка
+    setProfileData(updatedProfile);
+    setDocumentFile(null);
+    await refreshProfile();
+  } catch (error: any) {
+    console.error('Error uploading document:', error);
+    setFormError(error.response?.data?.message || 'Failed to upload document.');
+  }
+};
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>{error}</div>;

@@ -81,6 +81,7 @@ const MyJobPosts: React.FC = () => {
   const handleViewApplications = async (jobPostId: string) => {
     try {
       const apps = await getApplicationsForJobPost(jobPostId);
+      console.log('Fetched applications:', apps); // Отладка
       setApplications({ jobPostId, apps });
     } catch (err) {
       console.error('Error fetching applications:', err);
@@ -116,6 +117,18 @@ const MyJobPosts: React.FC = () => {
 
   const handleCancelEdit = () => {
     setEditingJob(null);
+  };
+
+  const handleUpdateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected', jobPostId: string) => {
+    try {
+      await updateApplicationStatus(applicationId, status);
+      alert(`Application ${status.toLowerCase()} successfully!`);
+      const updatedApps = await getApplicationsForJobPost(jobPostId);
+      setApplications({ jobPostId, apps: updatedApps });
+    } catch (error: any) {
+      console.error(`Error ${status.toLowerCase()} application:`, error);
+      alert(`Failed to ${status.toLowerCase()} application: ${error.response?.data?.message || 'Unknown error'}`);
+    }
   };
 
   const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
@@ -308,34 +321,14 @@ const MyJobPosts: React.FC = () => {
                                 <td>{app.status || 'Pending'}</td>
                                 <td>
                                   <button
-                                    onClick={async () => {
-                                      try {
-                                        await updateApplicationStatus(app.id, 'Accepted');
-                                        alert('Application accepted!');
-                                        const updatedApps = await getApplicationsForJobPost(post.id);
-                                        setApplications({ jobPostId: post.id, apps: updatedApps });
-                                      } catch (error) {
-                                        console.error('Error accepting application:', error);
-                                        alert('Failed to accept application.');
-                                      }
-                                    }}
+                                    onClick={() => handleUpdateApplicationStatus(app.id, 'Accepted', post.id)}
                                     className="action-button success"
                                     disabled={app.status !== 'Pending'}
                                   >
                                     Accept
                                   </button>
                                   <button
-                                    onClick={async () => {
-                                      try {
-                                        await updateApplicationStatus(app.id, 'Rejected');
-                                        alert('Application rejected!');
-                                        const updatedApps = await getApplicationsForJobPost(post.id);
-                                        setApplications({ jobPostId: post.id, apps: updatedApps });
-                                      } catch (error) {
-                                        console.error('Error rejecting application:', error);
-                                        alert('Failed to reject application.');
-                                      }
-                                    }}
+                                    onClick={() => handleUpdateApplicationStatus(app.id, 'Rejected', post.id)}
                                     className="action-button danger"
                                     disabled={app.status !== 'Pending'}
                                   >
