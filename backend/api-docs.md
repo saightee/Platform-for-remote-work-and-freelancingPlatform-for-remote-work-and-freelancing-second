@@ -53,7 +53,7 @@
     "rememberMe": false // Optional, extends token expiry to 7 days if true
   }
 
-- **Response (Success - 200)**:
+- **Response (Success - 201)**:
   ```json
   {
     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -1529,7 +1529,7 @@
   {
     "countryCode": "IN"
   }
-- **Response (Success - 200)**:
+- **Response (Success - 201)**:
   ```json
   {
     "id": "<blockedCountryId>",
