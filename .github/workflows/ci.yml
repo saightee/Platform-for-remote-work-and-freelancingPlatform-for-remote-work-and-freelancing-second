@@ -4,7 +4,7 @@ on:
   push:
     branches: [develop]
   schedule:
-    - cron: '0 0 * * *' # Ежедневно в полночь (UTC)
+    - cron: '0 * * * *' # Каждый час
   workflow_dispatch: # Ручной запуск
 
 jobs:
@@ -43,4 +43,5 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./backend/test-report
-          publish_branch: gh-pages # Явно указываем ветку
+          publish_branch: gh-pages
+          destination_dir: .
