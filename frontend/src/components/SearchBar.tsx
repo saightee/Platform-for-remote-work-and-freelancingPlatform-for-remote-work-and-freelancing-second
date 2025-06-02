@@ -1,24 +1,29 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface SearchBarProps {
-  onSearch: (filters: { title?: string }) => void; // Убрали location из фильтров
+  onSearch: (filters: { title?: string }) => void;
 }
 
 const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
   const [title, setTitle] = useState('');
   const [activeTab, setActiveTab] = useState<'find-work' | 'hire-talent'>('find-work');
+  const navigate = useNavigate();
 
   const handleTabSwitch = (tab: 'find-work' | 'hire-talent') => {
     setActiveTab(tab);
-    setTitle(''); // Сбрасываем значение инпута при переключении вкладки
+    setTitle('');
   };
 
   const handleSubmit = (e: React.MouseEvent) => {
     e.preventDefault();
-    onSearch({ title });
+    if (activeTab === 'find-work') {
+      navigate(`/find-job?title=${encodeURIComponent(title)}`);
+    } else {
+      navigate(`/find-talent?skills=${encodeURIComponent(title)}`);
+    }
   };
 
-  // Плейсхолдеры в зависимости от активной вкладки
   const titlePlaceholder =
     activeTab === 'find-work' ? 'Job title or keyword' : 'Candidate skills or role';
 

@@ -1,210 +1,240 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { searchJobPosts, getCategories, incrementJobView } from '../services/api';
+import { searchJobPosts, getCategories } from '../services/api';
 import { JobPost, Category } from '@types';
-import { FaEye } from 'react-icons/fa';
-import { useRole } from '../context/RoleContext';
+import { formatDateInTimezone } from '../utils/dateUtils';
+import { FaEye, FaUserCircle } from 'react-icons/fa';
 
 const FindJob: React.FC = () => {
-  const { profile } = useRole();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [filters, setFilters] = useState<{
-    title?: string;
-    location?: string;
+  const [searchState, setSearchState] = useState<{
+    title: string;
+    location: string;
     salary_min?: number;
     salary_max?: number;
-    job_type?: string;
-    category_id?: string;
-    required_skills?: string;
-  }>({});
-  const [searchQuery, setSearchQuery] = useState('');
-  const [requiredSkills, setRequiredSkills] = useState('');
+    job_type: string;
+    category_id: string;
+    required_skills: string;
+    page: number;
+    limit: number;
+  }>({
+    title: searchParams.get('title') || '',
+    location: '',
+    salary_min: undefined,
+    salary_max: undefined,
+    job_type: '',
+    category_id: '',
+    required_skills: '',
+    page: 1,
+    limit: 10,
+  });
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchData = async () => {
       try {
-        const categoriesData = await getCategories();
-        setCategories(categoriesData);
-      } catch (err) {
-        console.error('Error fetching categories:', err);
-        setError('Failed to load categories. Please try again.');
-      }
-    };
-    fetchCategories();
-  }, []);
-
-  useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        const jobsData = await searchJobPosts(filters);
+        setIsLoading(true);
+        setError(null);
+        const [jobsData, categoriesData] = await Promise.all([
+          searchJobPosts(searchState),
+          getCategories(),
+        ]);
         setJobs(jobsData);
+        setCategories(categoriesData);
       } catch (err) {
         console.error('Error fetching jobs:', err);
         setError('Failed to load jobs. Please try again.');
+      } finally {
+        setIsLoading(false);
       }
     };
-    fetchJobs();
-  }, [filters]);
-
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFilters((prev) => ({
-      ...prev,
-      [name]: value || undefined,
-    }));
-  };
+    fetchData();
+  }, [searchState]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setFilters((prev) => ({
-      ...prev,
-      title: searchQuery || undefined,
-      required_skills: requiredSkills || undefined,
-    }));
+    setSearchState((prev) => ({ ...prev, page: 1 }));
+    setSearchParams({ title: searchState.title }); // Обновляем URL
   };
 
-  const handleViewDetails = async (jobId: string) => {
-    try {
-      const response = await incrementJobView(jobId);
-      setJobs((prevJobs) =>
-        prevJobs.map((job) =>
-          job.id === jobId ? { ...job, views: response.views || (job.views || 0) + 1 } : job
-        )
-      );
-    } catch (err) {
-      console.error('Error incrementing job view:', err);
-    }
+  const handlePageChange = (newPage: number) => {
+    setSearchState((prev) => ({ ...prev, page: newPage }));
   };
 
-  const truncateDescription = (description: string, maxLength: number) => {
-    if (description.length > maxLength) {
-      return description.substring(0, maxLength) + '...';
-    }
-    return description;
-  };
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div className="error-message">{error}</div>;
 
   return (
     <div>
       <Header />
       <div className="container find-job-container">
-        <h1>Find a Job</h1>
-        <form onSubmit={handleSearch} className="find-job-search-bar">
+        <h2>Find Jobs</h2>
+        <div className="search-bar">
           <input
             type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by keywords..."
+            placeholder="Search by job title or company"
+            value={searchState.title}
+            onChange={(e) => setSearchState({ ...searchState, title: e.target.value })}
           />
-          <button type="submit">Search</button>
-        </form>
-
+          <button onClick={handleSearch}>Search</button>
+        </div>
         <div className="find-job-content">
           <div className="find-job-filters">
             <h3>Filters</h3>
-            <div className="form-group">
-              <label>Location</label>
-              <input
-                type="text"
-                name="location"
-                value={filters.location || ''}
-                onChange={handleFilterChange}
-                placeholder="Enter location"
-              />
-            </div>
-            <div className="form-group">
-              <label>Minimum Salary</label>
-              <input
-                type="number"
-                name="salary_min"
-                value={filters.salary_min || ''}
-                onChange={handleFilterChange}
-                placeholder="Enter min salary"
-                min="0"
-              />
-            </div>
-            <div className="form-group">
-              <label>Maximum Salary</label>
-              <input
-                type="number"
-                name="salary_max"
-                value={filters.salary_max || ''}
-                onChange={handleFilterChange}
-                placeholder="Enter max salary"
-                min="0"
-              />
-            </div>
-            <div className="form-group">
-              <label>Job Type</label>
-              <select name="job_type" value={filters.job_type || ''} onChange={handleFilterChange}>
-                <option value="">Select job type</option>
-                <option value="Full-time">Full-time</option>
-                <option value="Part-time">Part-time</option>
-                <option value="Contract">Contract</option>
-                <option value="Temporary">Temporary</option>
-                <option value="Internship">Internship</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Category</label>
-              <select name="category_id" value={filters.category_id || ''} onChange={handleFilterChange}>
-                <option value="">Select category</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Required Skills (comma-separated)</label>
-              <input
-                type="text"
-                value={requiredSkills}
-                onChange={(e) => setRequiredSkills(e.target.value)}
-                placeholder="e.g., JavaScript, Python"
-              />
-            </div>
+            <form onSubmit={handleSearch} className="search-form">
+              <div className="form-group">
+                <label>Title:</label>
+                <input
+                  type="text"
+                  value={searchState.title}
+                  onChange={(e) => setSearchState({ ...searchState, title: e.target.value })}
+                  placeholder="Enter job title"
+                />
+              </div>
+              <div className="form-group">
+                <label>Location:</label>
+                <input
+                  type="text"
+                  value={searchState.location}
+                  onChange={(e) => setSearchState({ ...searchState, location: e.target.value })}
+                  placeholder="Enter location"
+                />
+              </div>
+              <div className="form-group">
+                <label>Minimum Salary:</label>
+                <input
+                  type="number"
+                  value={searchState.salary_min || ''}
+                  onChange={(e) =>
+                    setSearchState({
+                      ...searchState,
+                      salary_min: e.target.value ? Number(e.target.value) : undefined,
+                    })
+                  }
+                  placeholder="Enter minimum salary"
+                />
+              </div>
+              <div className="form-group">
+                <label>Maximum Salary:</label>
+                <input
+                  type="number"
+                  value={searchState.salary_max || ''}
+                  onChange={(e) =>
+                    setSearchState({
+                      ...searchState,
+                      salary_max: e.target.value ? Number(e.target.value) : undefined,
+                    })
+                  }
+                  placeholder="Enter maximum salary"
+                />
+              </div>
+              <div className="form-group">
+                <label>Job Type:</label>
+                <select
+                  value={searchState.job_type}
+                  onChange={(e) => setSearchState({ ...searchState, job_type: e.target.value })}
+                >
+                  <option value="">All Types</option>
+                  <option value="Full-time">Full-time</option>
+                  <option value="Part-time">Part-time</option>
+                  <option value="Project-based">Project-based</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Category:</label>
+                <select
+                  value={searchState.category_id}
+                  onChange={(e) => setSearchState({ ...searchState, category_id: e.target.value })}
+                >
+                  <option value="">All Categories</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Skills (comma-separated):</label>
+                <input
+                  type="text"
+                  value={searchState.required_skills}
+                  onChange={(e) => setSearchState({ ...searchState, required_skills: e.target.value })}
+                  placeholder="e.g., JavaScript, Python"
+                />
+              </div>
+              <button type="submit" className="action-button">
+                Apply Filters
+              </button>
+            </form>
           </div>
-
           <div className="find-job-results">
-            {error && <p className="error-message">{error}</p>}
-            {jobs.length === 0 ? (
-              <p>No jobs found.</p>
-            ) : (
-              <div className="job-grid">
-                {jobs.map((job) => (
+            <div className="job-grid">
+              {jobs.length > 0 ? (
+                jobs.map((job) => (
                   <div key={job.id} className="job-card">
-                    <h3>{job.title}</h3>
-                    <p><strong>Location:</strong> {job.location || 'Not specified'}</p>
-                    <p>
-                      <strong>Salary:</strong>{' '}
-                      {job.salary
-                        ? `${profile?.currency || '$'}${job.salary}`
-                        : 'Not specified'}
-                    </p>
-                    <p><strong>Job Type:</strong> {job.job_type || 'Not specified'}</p>
-                    <p>{truncateDescription(job.description, 100)}</p>
-                    <div className="job-card-footer">
-                      <Link
-                        to={`/jobs/${job.id}`}
-                        className="view-details-button"
-                        onClick={() => handleViewDetails(job.id)}
-                      >
-                        View Details
-                      </Link>
-                      <span className="view-counter">
-                        <FaEye /> {job.views || 0}
-                      </span>
+                    <div className="job-card-avatar">
+                      {job.employer?.avatar ? (
+                        <img src={`https://jobforge.net/backend${job.employer.avatar}`} alt="Employer Avatar" />
+                      ) : (
+                        <FaUserCircle className="profile-avatar-icon" />
+                      )}
+                    </div>
+                    <div className="job-card-content">
+                      <div className="job-title-row">
+                        <h3>{job.title}</h3>
+                        <span className="job-type">{job.job_type || 'Not specified'}</span>
+                        <span className="view-counter">
+                          <FaEye /> {job.views || 0}
+                        </span>
+                      </div>
+                      <p>
+                        <strong>Employer:</strong> {job.employer?.username || 'Unknown'} |{' '}
+                        <strong>Posted on:</strong> {formatDateInTimezone(job.created_at)}
+                      </p>
+                      <p><strong>Salary:</strong> {job.salary ? `$${job.salary}` : 'Not specified'}</p>
+                      <p><strong>Description:</strong> {truncateDescription(job.description, 150)}</p>
+                      <p><strong>Location:</strong> {job.location || 'Not specified'}</p>
+                      <p><strong>Category:</strong> {job.category?.name || 'Not specified'}</p>
+                      <div className="job-card-footer">
+                        <button
+                          onClick={() => navigate(`/jobs/${job.id}`)}
+                          className="view-details-button"
+                        >
+                          View Details
+                        </button>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              ) : (
+                <p>No jobs found.</p>
+              )}
+            </div>
+            <div className="pagination">
+              <button
+                onClick={() => handlePageChange(searchState.page - 1)}
+                disabled={searchState.page === 1}
+                className="action-button"
+              >
+                Previous
+              </button>
+              <span>Page {searchState.page}</span>
+              <button
+                onClick={() => handlePageChange(searchState.page + 1)}
+                disabled={jobs.length < searchState.limit}
+                className="action-button"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -212,6 +242,13 @@ const FindJob: React.FC = () => {
       <Copyright />
     </div>
   );
+};
+
+const truncateDescription = (description: string, maxLength: number) => {
+  if (description.length > maxLength) {
+    return description.substring(0, maxLength) + '...';
+  }
+  return description;
 };
 
 export default FindJob;

@@ -1,14 +1,22 @@
-// src/context/RoleContext.tsx
 import { createContext, useContext, useState, useEffect } from 'react';
 import { getProfile } from '../services/api';
 import { Profile } from '@types';
+import { jwtDecode } from 'jwt-decode';
 
 interface RoleContextType {
   currentRole: 'employer' | 'jobseeker' | 'admin' | null;
   profile: Profile | null;
   isLoading: boolean;
   error: string | null;
-  refreshProfile: () => Promise<void>; // Новая функция для обновления профиля
+  refreshProfile: () => Promise<void>;
+}
+
+interface DecodedToken {
+  email: string;
+  sub: string;
+  role: 'employer' | 'jobseeker' | 'admin';
+  iat: number;
+  exp: number;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
@@ -22,6 +30,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchProfile = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
+      console.log('No token found, clearing profile.');
       setIsLoading(false);
       setProfile(null);
       setCurrentRole(null);
@@ -29,16 +38,36 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      if (typeof token === 'string' && token.split('.').length === 3) {
+        const decoded: DecodedToken = jwtDecode(token);
+        console.log('Decoded token:', decoded);
+        setCurrentRole(decoded.role);
+        if (decoded.role === 'admin') {
+          // Для администратора профиль необязателен
+          setProfile(null);
+          setIsLoading(false);
+          return;
+        }
+      } else {
+        console.warn('Invalid token format:', token);
+      }
       setIsLoading(true);
       setError(null);
       const profileData = await getProfile();
+      console.log('Profile fetched:', profileData);
       setProfile(profileData);
       setCurrentRole(profileData.role);
     } catch (error: any) {
       console.error('Error fetching profile in RoleContext:', error);
-      setError('Failed to load profile.');
-      if (error.response?.status === 401) {
-        localStorage.removeItem('token');
+      if (error.response?.status === 401 || error.response?.status === 404) {
+        console.error('Unauthorized or profile not found. Token:', token);
+        setError('Unauthorized or profile not found. Please check your credentials.');
+        setProfile(null);
+        // Не очищаем роль, если токен валиден
+        const decoded: DecodedToken = jwtDecode(token);
+        setCurrentRole(decoded.role);
+      } else {
+        setError('Failed to load profile.');
         setProfile(null);
         setCurrentRole(null);
       }
@@ -47,7 +76,6 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Функция для обновления профиля
   const refreshProfile = async () => {
     await fetchProfile();
   };

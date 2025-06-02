@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import SearchBar from '../components/SearchBar';
 import JobCard from '../components/JobCard';
@@ -7,24 +8,34 @@ import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { searchJobPosts } from '../services/api';
 import { JobPost } from '@types';
-import { Link } from 'react-router-dom';
 
 const Home: React.FC = () => {
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [filters, setFilters] = useState<{ title?: string }>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const jobsData = await searchJobPosts({ ...filters, limit: 12 });
-        setJobs(jobsData);
-      } catch (error: any) {
-        console.error('Ошибка при загрузке вакансий:', error);
-        setJobs([]);
-      }
-    };
-    fetchData();
-  }, [filters]);
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const jobsData = await searchJobPosts({
+        ...filters,
+        limit: 12,
+        sort_by: 'created_at',
+        sort_order: 'DESC', // Изменено на верхний регистр
+      });
+      setJobs(jobsData);
+    } catch (error: any) {
+      console.error('Ошибка при загрузке вакансий:', error);
+      setError('Failed to load recent jobs. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  fetchData();
+}, [filters]);
 
   const handleSearch = (searchFilters: { title?: string }) => {
     setFilters(searchFilters);
@@ -46,7 +57,7 @@ const Home: React.FC = () => {
     "transcription specialist",
     "Travel Planner",
     "PERSONAL ASSISTANT",
-    "SEO Specialist"
+    "SEO Specialist",
   ];
 
   return (
@@ -59,10 +70,14 @@ const Home: React.FC = () => {
       </div>
       <div className="container">
         <h2>Recent Job Postings</h2>
+        {isLoading && <div>Loading recent jobs...</div>}
+        {error && <div className="error-message">{error}</div>}
         <div className="job-grid">
-          {jobs.map((job) => (
-            <JobCard key={job.id} job={job} />
-          ))}
+          {jobs.length > 0 ? (
+            jobs.map((job) => <JobCard key={job.id} job={job} />)
+          ) : (
+            !isLoading && <p>No recent jobs found.</p>
+          )}
         </div>
 
         <div className="features">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { getMyJobPosts, updateJobPost, closeJobPost, setJobPostApplicationLimit, getApplicationsForJobPost, getCategories } from '../services/api';
+import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus } from '../services/api';
 import { JobPost, Category } from '@types';
 import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
@@ -9,12 +9,11 @@ import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
 
 const MyJobPosts: React.FC = () => {
-  const { profile } = useRole();
+  const { profile, isLoading: roleLoading } = useRole();
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [applications, setApplications] = useState<
-    { jobPostId: string; apps: { userId: string; username: string; email: string; jobDescription: string; appliedAt: string }[] }
+    { jobPostId: string; apps: { id: string; userId: string; username: string; email: string; jobDescription: string; appliedAt: string; status: string }[] }
   >({ jobPostId: '', apps: [] });
-  const [limit, setLimit] = useState<number | ''>('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -41,8 +40,10 @@ const MyJobPosts: React.FC = () => {
         setIsLoading(false);
       }
     };
-    fetchData();
-  }, [profile]);
+    if (!roleLoading) {
+      fetchData();
+    }
+  }, [profile, roleLoading]);
 
   const handleUpdate = async (id: string, updatedData: Partial<JobPost>) => {
     try {
@@ -66,25 +67,21 @@ const MyJobPosts: React.FC = () => {
     }
   };
 
-  const handleSetLimit = async (id: string) => {
-    if (limit === '' || limit < 0) {
-      alert('Please enter a valid application limit.');
-      return;
-    }
+  const handleReopen = async (id: string) => {
     try {
-      await setJobPostApplicationLimit(id, Number(limit));
-      setJobPosts(jobPosts.map((post) => (post.id === id ? { ...post, applicationLimit: Number(limit) } : post)));
-      alert('Application limit set successfully!');
-      setLimit('');
+      const updatedPost = await updateJobPost(id, { status: 'Active' });
+      setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
+      alert('Job post reopened successfully!');
     } catch (err) {
-      console.error('Error setting application limit:', err);
-      alert('Failed to set application limit.');
+      console.error('Error reopening job post:', err);
+      alert('Failed to reopen job post.');
     }
   };
 
   const handleViewApplications = async (jobPostId: string) => {
     try {
       const apps = await getApplicationsForJobPost(jobPostId);
+      console.log('Fetched applications:', apps); // Отладка
       setApplications({ jobPostId, apps });
     } catch (err) {
       console.error('Error fetching applications:', err);
@@ -122,6 +119,18 @@ const MyJobPosts: React.FC = () => {
     setEditingJob(null);
   };
 
+  const handleUpdateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected', jobPostId: string) => {
+    try {
+      await updateApplicationStatus(applicationId, status);
+      alert(`Application ${status.toLowerCase()} successfully!`);
+      const updatedApps = await getApplicationsForJobPost(jobPostId);
+      setApplications({ jobPostId, apps: updatedApps });
+    } catch (error: any) {
+      console.error(`Error ${status.toLowerCase()} application:`, error);
+      alert(`Failed to ${status.toLowerCase()} application: ${error.response?.data?.message || 'Unknown error'}`);
+    }
+  };
+
   const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
     if (!dateString) return 'Not specified';
     try {
@@ -144,7 +153,7 @@ const MyJobPosts: React.FC = () => {
     return description;
   };
 
-  if (isLoading) {
+  if (roleLoading || isLoading) {
     return (
       <div>
         <Header />
@@ -197,7 +206,8 @@ const MyJobPosts: React.FC = () => {
                       <textarea
                         value={editingJob.description || ''}
                         onChange={(e) => editingJob && setEditingJob({ ...editingJob, description: e.target.value })}
-                        rows={4}
+                        rows={6}
+                        placeholder="Enter job description"
                       />
                     </div>
                     <div className="form-group">
@@ -271,9 +281,15 @@ const MyJobPosts: React.FC = () => {
                       <button onClick={() => handleEditJob(post)} className="action-button">
                         Edit Job Post
                       </button>
-                      <button onClick={() => handleClose(post.id)} className="action-button warning">
-                        Close Job Post
-                      </button>
+                      {post.status === 'Active' ? (
+                        <button onClick={() => handleClose(post.id)} className="action-button warning">
+                          Close Job Post
+                        </button>
+                      ) : (
+                        <button onClick={() => handleReopen(post.id)} className="action-button success">
+                          Reopen Job Post
+                        </button>
+                      )}
                       <button
                         onClick={() => handleViewApplications(post.id)}
                         className="action-button success"
@@ -281,31 +297,48 @@ const MyJobPosts: React.FC = () => {
                         View Applications
                       </button>
                     </div>
-                    <div className="form-group">
-                      <label>Set Application Limit:</label>
-                      <input
-                        type="number"
-                        value={limit}
-                        onChange={(e) => setLimit(e.target.value ? Number(e.target.value) : '')}
-                        min="0"
-                        placeholder="Enter limit"
-                      />
-                      <button onClick={() => handleSetLimit(post.id)} className="action-button">
-                        Set Limit
-                      </button>
-                    </div>
                     {applications.jobPostId === post.id && applications.apps.length > 0 && (
-                      <div className="applications-section">
+                      <div className="application-details-section">
                         <h4>Applications:</h4>
-                        <ul>
-                          {applications.apps.map((app, index) => (
-                            <li key={index}>
-                              <strong>{app.username}</strong> ({app.email}) - Applied:{' '}
-                              {formatDateInTimezone(app.appliedAt, profile.timezone)} <br />
-                              <strong>Description:</strong> {app.jobDescription || 'Not specified'}
-                            </li>
-                          ))}
-                        </ul>
+                        <table className="application-table">
+                          <thead>
+                            <tr>
+                              <th>Username</th>
+                              <th>Email</th>
+                              <th>Description</th>
+                              <th>Applied On</th>
+                              <th>Status</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {applications.apps.map((app, index) => (
+                              <tr key={index}>
+                                <td>{app.username}</td>
+                                <td>{app.email}</td>
+                                <td>{app.jobDescription || 'Not provided'}</td>
+                                <td>{formatDateInTimezone(app.appliedAt, profile.timezone)}</td>
+                                <td>{app.status || 'Pending'}</td>
+                                <td>
+                                  <button
+                                    onClick={() => handleUpdateApplicationStatus(app.id, 'Accepted', post.id)}
+                                    className="action-button success"
+                                    disabled={app.status !== 'Pending'}
+                                  >
+                                    Accept
+                                  </button>
+                                  <button
+                                    onClick={() => handleUpdateApplicationStatus(app.id, 'Rejected', post.id)}
+                                    className="action-button danger"
+                                    disabled={app.status !== 'Pending'}
+                                  >
+                                    Reject
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </>
