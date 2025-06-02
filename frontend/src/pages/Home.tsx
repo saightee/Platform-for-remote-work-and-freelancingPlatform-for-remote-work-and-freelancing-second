@@ -15,6 +15,7 @@ const Home: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+<<<<<<< HEAD
 useEffect(() => {
   const fetchData = async () => {
     try {
@@ -36,6 +37,29 @@ useEffect(() => {
   };
   fetchData();
 }, [filters]);
+=======
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const jobsData = await searchJobPosts({
+          ...filters,
+          limit: 12,
+          sort_by: 'created_at',
+          sort_order: 'desc',
+        });
+        setJobs(jobsData);
+      } catch (error: any) {
+        console.error('Ошибка при загрузке вакансий:', error);
+        setError('Failed to load recent jobs. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [filters]);
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
 
   const handleSearch = (searchFilters: { title?: string }) => {
     setFilters(searchFilters);

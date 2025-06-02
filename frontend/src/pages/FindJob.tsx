@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
+<<<<<<< HEAD
 import { useNavigate, useSearchParams } from 'react-router-dom';
+=======
+import { useNavigate } from 'react-router-dom';
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
@@ -9,10 +13,16 @@ import { formatDateInTimezone } from '../utils/dateUtils';
 import { FaEye, FaUserCircle } from 'react-icons/fa';
 
 const FindJob: React.FC = () => {
+<<<<<<< HEAD
   const [searchParams, setSearchParams] = useSearchParams();
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchState, setSearchState] = useState<{
+=======
+  const [jobs, setJobs] = useState<JobPost[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [searchParams, setSearchParams] = useState<{
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
     title: string;
     location: string;
     salary_min?: number;
@@ -23,7 +33,11 @@ const FindJob: React.FC = () => {
     page: number;
     limit: number;
   }>({
+<<<<<<< HEAD
     title: searchParams.get('title') || '',
+=======
+    title: '',
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
     location: '',
     salary_min: undefined,
     salary_max: undefined,
@@ -43,7 +57,11 @@ const FindJob: React.FC = () => {
         setIsLoading(true);
         setError(null);
         const [jobsData, categoriesData] = await Promise.all([
+<<<<<<< HEAD
           searchJobPosts(searchState),
+=======
+          searchJobPosts(searchParams),
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
           getCategories(),
         ]);
         setJobs(jobsData);
@@ -56,6 +74,7 @@ const FindJob: React.FC = () => {
       }
     };
     fetchData();
+<<<<<<< HEAD
   }, [searchState]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -66,6 +85,17 @@ const FindJob: React.FC = () => {
 
   const handlePageChange = (newPage: number) => {
     setSearchState((prev) => ({ ...prev, page: newPage }));
+=======
+  }, [searchParams]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearchParams((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setSearchParams((prev) => ({ ...prev, page: newPage }));
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
   };
 
   if (isLoading) return <div>Loading...</div>;
@@ -80,8 +110,13 @@ const FindJob: React.FC = () => {
           <input
             type="text"
             placeholder="Search by job title or company"
+<<<<<<< HEAD
             value={searchState.title}
             onChange={(e) => setSearchState({ ...searchState, title: e.target.value })}
+=======
+            value={searchParams.title}
+            onChange={(e) => setSearchParams({ ...searchParams, title: e.target.value })}
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
           />
           <button onClick={handleSearch}>Search</button>
         </div>
@@ -93,8 +128,13 @@ const FindJob: React.FC = () => {
                 <label>Title:</label>
                 <input
                   type="text"
+<<<<<<< HEAD
                   value={searchState.title}
                   onChange={(e) => setSearchState({ ...searchState, title: e.target.value })}
+=======
+                  value={searchParams.title}
+                  onChange={(e) => setSearchParams({ ...searchParams, title: e.target.value })}
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
                   placeholder="Enter job title"
                 />
               </div>
@@ -102,8 +142,13 @@ const FindJob: React.FC = () => {
                 <label>Location:</label>
                 <input
                   type="text"
+<<<<<<< HEAD
                   value={searchState.location}
                   onChange={(e) => setSearchState({ ...searchState, location: e.target.value })}
+=======
+                  value={searchParams.location}
+                  onChange={(e) => setSearchParams({ ...searchParams, location: e.target.value })}
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
                   placeholder="Enter location"
                 />
               </div>
@@ -111,10 +156,17 @@ const FindJob: React.FC = () => {
                 <label>Minimum Salary:</label>
                 <input
                   type="number"
+<<<<<<< HEAD
                   value={searchState.salary_min || ''}
                   onChange={(e) =>
                     setSearchState({
                       ...searchState,
+=======
+                  value={searchParams.salary_min || ''}
+                  onChange={(e) =>
+                    setSearchParams({
+                      ...searchParams,
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
                       salary_min: e.target.value ? Number(e.target.value) : undefined,
                     })
                   }
@@ -125,10 +177,17 @@ const FindJob: React.FC = () => {
                 <label>Maximum Salary:</label>
                 <input
                   type="number"
+<<<<<<< HEAD
                   value={searchState.salary_max || ''}
                   onChange={(e) =>
                     setSearchState({
                       ...searchState,
+=======
+                  value={searchParams.salary_max || ''}
+                  onChange={(e) =>
+                    setSearchParams({
+                      ...searchParams,
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
                       salary_max: e.target.value ? Number(e.target.value) : undefined,
                     })
                   }
@@ -138,8 +197,13 @@ const FindJob: React.FC = () => {
               <div className="form-group">
                 <label>Job Type:</label>
                 <select
+<<<<<<< HEAD
                   value={searchState.job_type}
                   onChange={(e) => setSearchState({ ...searchState, job_type: e.target.value })}
+=======
+                  value={searchParams.job_type}
+                  onChange={(e) => setSearchParams({ ...searchParams, job_type: e.target.value })}
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
                 >
                   <option value="">All Types</option>
                   <option value="Full-time">Full-time</option>
@@ -150,8 +214,13 @@ const FindJob: React.FC = () => {
               <div className="form-group">
                 <label>Category:</label>
                 <select
+<<<<<<< HEAD
                   value={searchState.category_id}
                   onChange={(e) => setSearchState({ ...searchState, category_id: e.target.value })}
+=======
+                  value={searchParams.category_id}
+                  onChange={(e) => setSearchParams({ ...searchParams, category_id: e.target.value })}
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
                 >
                   <option value="">All Categories</option>
                   {categories.map((category) => (
@@ -165,8 +234,13 @@ const FindJob: React.FC = () => {
                 <label>Skills (comma-separated):</label>
                 <input
                   type="text"
+<<<<<<< HEAD
                   value={searchState.required_skills}
                   onChange={(e) => setSearchState({ ...searchState, required_skills: e.target.value })}
+=======
+                  value={searchParams.required_skills}
+                  onChange={(e) => setSearchParams({ ...searchParams, required_skills: e.target.value })}
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
                   placeholder="e.g., JavaScript, Python"
                 />
               </div>
@@ -220,16 +294,28 @@ const FindJob: React.FC = () => {
             </div>
             <div className="pagination">
               <button
+<<<<<<< HEAD
                 onClick={() => handlePageChange(searchState.page - 1)}
                 disabled={searchState.page === 1}
+=======
+                onClick={() => handlePageChange(searchParams.page - 1)}
+                disabled={searchParams.page === 1}
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
                 className="action-button"
               >
                 Previous
               </button>
+<<<<<<< HEAD
               <span>Page {searchState.page}</span>
               <button
                 onClick={() => handlePageChange(searchState.page + 1)}
                 disabled={jobs.length < searchState.limit}
+=======
+              <span>Page {searchParams.page}</span>
+              <button
+                onClick={() => handlePageChange(searchParams.page + 1)}
+                disabled={jobs.length < searchParams.limit}
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
                 className="action-button"
               >
                 Next

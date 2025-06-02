@@ -1,7 +1,11 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { getProfile } from '../services/api';
 import { Profile } from '@types';
+<<<<<<< HEAD
 import { jwtDecode } from 'jwt-decode';
+=======
+import { jwtDecode } from 'jwt-decode'; // Используем именованный импорт
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
 
 interface RoleContextType {
   currentRole: 'employer' | 'jobseeker' | 'admin' | null;
@@ -38,6 +42,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+<<<<<<< HEAD
       if (typeof token === 'string' && token.split('.').length === 3) {
         const decoded: DecodedToken = jwtDecode(token);
         console.log('Decoded token:', decoded);
@@ -48,6 +53,12 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsLoading(false);
           return;
         }
+=======
+      // Проверяем, является ли токен строкой и содержит ли три части (header.payload.signature)
+      if (typeof token === 'string' && token.split('.').length === 3) {
+        const decoded: DecodedToken = jwtDecode(token); // Используем именованную функцию
+        console.log('Decoded token:', decoded);
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
       } else {
         console.warn('Invalid token format:', token);
       }
@@ -59,6 +70,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentRole(profileData.role);
     } catch (error: any) {
       console.error('Error fetching profile in RoleContext:', error);
+<<<<<<< HEAD
       if (error.response?.status === 401 || error.response?.status === 404) {
         console.error('Unauthorized or profile not found. Token:', token);
         setError('Unauthorized or profile not found. Please check your credentials.');
@@ -68,8 +80,15 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentRole(decoded.role);
       } else {
         setError('Failed to load profile.');
+=======
+      if (error.response?.status === 401) {
+        console.error('Unauthorized error. Token:', token);
+        setError('Unauthorized. Please check your credentials or contact support.');
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
         setProfile(null);
         setCurrentRole(null);
+      } else {
+        setError('Failed to load profile.');
       }
     } finally {
       setIsLoading(false);

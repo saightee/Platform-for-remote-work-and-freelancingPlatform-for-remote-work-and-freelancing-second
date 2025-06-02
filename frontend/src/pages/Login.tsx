@@ -2,8 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../services/api';
 import { useRole } from '../context/RoleContext';
+<<<<<<< HEAD
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { jwtDecode } from 'jwt-decode';
+=======
+import { FaEye, FaEyeSlash } from 'react-icons/fa'; // Добавляем иконки
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -11,7 +15,11 @@ const Login: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+<<<<<<< HEAD
   const [showPassword, setShowPassword] = useState(false);
+=======
+  const [showPassword, setShowPassword] = useState(false); // Состояние для видимости пароля
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
   const navigate = useNavigate();
   const { profile, refreshProfile } = useRole();
 
@@ -36,6 +44,7 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     console.log('Login useEffect, isAuthenticated:', isAuthenticated, 'profile:', profile);
+<<<<<<< HEAD
     if (isAuthenticated) {
       if (profile?.role === 'admin') {
         navigate('/admin');
@@ -55,6 +64,14 @@ const Login: React.FC = () => {
             setErrorMessage('Invalid token. Please log in again.');
           }
         }
+=======
+    if (isAuthenticated && profile) {
+      console.log('User authenticated, role:', profile.role);
+      if (profile.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
       }
     }
   }, [isAuthenticated, profile, navigate]);

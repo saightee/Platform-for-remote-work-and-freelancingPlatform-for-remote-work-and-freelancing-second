@@ -321,14 +321,42 @@ const MyJobPosts: React.FC = () => {
                                 <td>{app.status || 'Pending'}</td>
                                 <td>
                                   <button
+<<<<<<< HEAD
                                     onClick={() => handleUpdateApplicationStatus(app.id, 'Accepted', post.id)}
+=======
+                                    onClick={async () => {
+                                      try {
+                                        await updateApplicationStatus(app.id, 'Accepted');
+                                        alert('Application accepted!');
+                                        const updatedApps = await getApplicationsForJobPost(post.id);
+                                        setApplications({ jobPostId: post.id, apps: updatedApps });
+                                      } catch (error) {
+                                        console.error('Error accepting application:', error);
+                                        alert('Failed to accept application.');
+                                      }
+                                    }}
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
                                     className="action-button success"
                                     disabled={app.status !== 'Pending'}
                                   >
                                     Accept
                                   </button>
                                   <button
+<<<<<<< HEAD
                                     onClick={() => handleUpdateApplicationStatus(app.id, 'Rejected', post.id)}
+=======
+                                    onClick={async () => {
+                                      try {
+                                        await updateApplicationStatus(app.id, 'Rejected');
+                                        alert('Application rejected!');
+                                        const updatedApps = await getApplicationsForJobPost(post.id);
+                                        setApplications({ jobPostId: post.id, apps: updatedApps });
+                                      } catch (error) {
+                                        console.error('Error rejecting application:', error);
+                                        alert('Failed to reject application.');
+                                      }
+                                    }}
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
                                     className="action-button danger"
                                     disabled={app.status !== 'Pending'}
                                   >

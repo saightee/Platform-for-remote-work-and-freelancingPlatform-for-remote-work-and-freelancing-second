@@ -1726,6 +1726,7 @@ header nav .greeting {
 
 .password-toggle-icon:hover {
   color: #3498db;
+<<<<<<< HEAD
 }
 
 .already-applied {
@@ -1738,4 +1739,6 @@ header nav .greeting {
   color: #28a745;
   font-weight: bold;
   margin: 10px 0;
+=======
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
 }

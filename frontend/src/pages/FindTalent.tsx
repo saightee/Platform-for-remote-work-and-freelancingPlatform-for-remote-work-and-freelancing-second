@@ -42,6 +42,7 @@ const FindTalent: React.FC = () => {
           searchTalents(filters),
           getCategories(),
         ]);
+<<<<<<< HEAD
         console.log('Fetched talents:', JSON.stringify(talentsData, null, 2)); // Подробная отладка
         // Проверяем, является ли talentsData массивом
         if (!Array.isArray(talentsData)) {
@@ -55,6 +56,13 @@ const FindTalent: React.FC = () => {
       } catch (err: any) {
         console.error('Error fetching talents:', err);
         setError(err.response?.data?.message || 'Failed to load talents. Please try again.');
+=======
+        setTalents(talentsData);
+        setCategories(categoriesData);
+      } catch (err) {
+        console.error('Error fetching talents:', err);
+        setError('Failed to load talents. Please try again.');
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
       } finally {
         setIsLoading(false);
       }
@@ -65,7 +73,11 @@ const FindTalent: React.FC = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setFilters((prev) => ({ ...prev, page: 1 }));
+<<<<<<< HEAD
     setSearchParams({ skills: filters.skills });
+=======
+    setSearchParams({ skills: filters.skills }); // Обновляем URL
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
   };
 
   const handlePageChange = (newPage: number) => {
@@ -155,6 +167,7 @@ const FindTalent: React.FC = () => {
           </div>
           <div className="find-job-results">
             <div className="job-grid">
+<<<<<<< HEAD
               {talents.length > 0 ? (
                 talents.map((talent) => {
                   // Безопасное извлечение данных
@@ -205,6 +218,43 @@ const FindTalent: React.FC = () => {
               ) : (
                 <p>No talents found.</p>
               )}
+=======
+              {talents.map((talent) => {
+                if (talent.role !== 'jobseeker') return null;
+                return (
+                  <div key={talent.id} className="job-card">
+                    <div className="job-card-avatar">
+                      {talent.avatar ? (
+                        <img src={`https://jobforge.net/backend${talent.avatar}`} alt="Talent Avatar" />
+                      ) : (
+                        <FaUserCircle className="profile-avatar-icon" />
+                      )}
+                    </div>
+                    <div className="job-card-content">
+                      <div className="job-title-row">
+                        <h3>{talent.username}</h3>
+                        <span className="job-type">
+                          {talent.average_rating ? `${talent.average_rating} ★` : 'No rating'}
+                        </span>
+                      </div>
+                      <p><strong>Skills:</strong> {talent.skills?.join(', ') || 'Not specified'}</p>
+                      <p><strong>Experience:</strong> {talent.experience || 'Not specified'}</p>
+                      <p><strong>Timezone:</strong> {talent.timezone || 'Not specified'}</p>
+                      <p>
+                        <strong>Categories:</strong>{' '}
+                        {talent.categories?.map((cat) => cat.name).join(', ') || 'Not specified'}
+                      </p>
+                      <p><strong>Profile Views:</strong> {talent.profile_views || 0}</p>
+                      <div className="job-card-footer">
+                       <Link to={`/users/${talent.id}`} className="view-details-button">
+  View Profile
+</Link>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
             </div>
             <div className="pagination">
               <button

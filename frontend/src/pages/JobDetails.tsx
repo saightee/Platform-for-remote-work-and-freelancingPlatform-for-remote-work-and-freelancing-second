@@ -3,7 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
+<<<<<<< HEAD
 import { getJobPost, applyToJobPost, incrementJobView, checkJobApplicationStatus } from '../services/api';
+=======
+import { getJobPost, applyToJobPost, incrementJobView } from '../services/api';
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
 import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import { FaEye } from 'react-icons/fa';
@@ -32,10 +36,14 @@ const JobDetails: React.FC = () => {
             setJob((prev) => (prev ? { ...prev, views: response.views || (jobData.views || 0) + 1 } : prev));
           } catch (viewError) {
             console.error('Error incrementing job view:', viewError);
+<<<<<<< HEAD
           }
           if (profile?.role === 'jobseeker') {
             const applicationStatus = await checkJobApplicationStatus(id);
             setHasApplied(applicationStatus.hasApplied);
+=======
+            // Не устанавливаем ошибку для UI, чтобы не мешать отображению вакансии
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
           }
         }
       } catch (err: any) {
@@ -60,7 +68,10 @@ const JobDetails: React.FC = () => {
     try {
       if (id) {
         await applyToJobPost(id);
+<<<<<<< HEAD
         setHasApplied(true);
+=======
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
         navigate('/my-applications');
       }
     } catch (err: any) {
@@ -114,6 +125,7 @@ const JobDetails: React.FC = () => {
             <p>{job.description}</p>
           </div>
           <div className="job-details-actions">
+<<<<<<< HEAD
             {profile?.role === 'jobseeker' && job.status === 'Active' ? (
               hasApplied ? (
                 <p className="already-applied">Already Applied</p>
@@ -121,6 +133,12 @@ const JobDetails: React.FC = () => {
                 <button onClick={handleApply}>Apply Now</button>
               )
             ) : (
+=======
+            {profile?.role === 'jobseeker' && job.status === 'Active' && (
+              <button onClick={handleApply}>Apply Now</button>
+            )}
+            {(!profile || profile.role !== 'jobseeker') && (
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
               <button onClick={() => navigate('/login')}>Login to Apply</button>
             )}
           </div>

@@ -106,6 +106,7 @@ const MyApplications: React.FC = () => {
                 <p><strong>Status:</strong> {app.status}</p>
                 <p><strong>Applied On:</strong> {formatDateInTimezone(app.created_at, profile.timezone)}</p>
                 {app.status === 'Accepted' && (
+<<<<<<< HEAD
                   <>
                     <p className="success-message">Congratulations! Your application has been accepted.</p>
                     <button
@@ -118,6 +119,14 @@ const MyApplications: React.FC = () => {
                 )}
                 {app.status === 'Rejected' && (
                   <p className="error-message">Unfortunately, your application was rejected.</p>
+=======
+                  <button
+                    onClick={() => setReviewForm({ applicationId: app.id, rating: 5, comment: '' })}
+                    className="action-button"
+                  >
+                    Leave Review
+                  </button>
+>>>>>>> 106c1739ee3388611e17fd6a61611bb44491a598
                 )}
                 {reviewForm && reviewForm.applicationId === app.id && (
                   <form onSubmit={handleCreateReview} className="review-form">
