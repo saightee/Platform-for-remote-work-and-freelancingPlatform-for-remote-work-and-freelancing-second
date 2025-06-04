@@ -1,8 +1,7 @@
-// src/users/users.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersService } from './users.service';
-import { UsersController } from './users.controller'; // Добавляем
+import { UsersController } from './users.controller';
 import { User } from './entities/user.entity';
 import { JobSeeker } from './entities/jobseeker.entity';
 import { Employer } from './entities/employer.entity';
@@ -23,7 +22,7 @@ import { RedisModule } from '../redis/redis.module';
     }),
     RedisModule,
   ],
-  controllers: [UsersController], // Добавляем
+  controllers: [UsersController],
   providers: [UsersService],
   exports: [UsersService],
 })

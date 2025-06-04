@@ -16,7 +16,7 @@ import { LeaderboardsService } from '../leaderboards/leaderboards.service';
 import { RedisService } from '../redis/redis.service';
 import { createObjectCsvStringifier } from 'csv-writer';
 import * as bcrypt from 'bcrypt';
-import { AntiFraudService } from '../anti-fraud/anti-fraud.service'; // Добавляем
+import { AntiFraudService } from '../anti-fraud/anti-fraud.service'; 
 import { UserFingerprint } from '../anti-fraud/entities/user-fingerprint.entity';
 
 @Injectable()
@@ -131,7 +131,6 @@ export class AdminService {
       }
     
       try {
-          // Удаляем связанные записи
           if (user.role === 'employer') {
               const jobPosts = await this.jobPostsRepository.find({ where: { employer_id: userId } });
               for (const jobPost of jobPosts) {
@@ -155,14 +154,11 @@ export class AdminService {
               await this.jobSeekerRepository.delete({ user_id: userId });
           }
         
-          // Удаляем отзывы
           await this.reviewsRepository.delete({ reviewer_id: userId });
           await this.reviewsRepository.delete({ reviewed_id: userId });
         
-          // Явно удаляем записи из user_fingerprints
           await this.fingerprintRepository.delete({ user_id: userId });
         
-          // Удаляем пользователя
           await this.usersRepository.delete(userId);
           return { message: 'User deleted successfully' };
       } catch (error) {
@@ -235,10 +231,9 @@ export class AdminService {
     }
 
     try {
-      // Находим все заявки, связанные с вакансией
+
       const applications = await this.jobApplicationsRepository.find({ where: { job_post_id: jobPostId } });
 
-      // Удаляем все отзывы, связанные с этими заявками
       if (applications.length > 0) {
         const applicationIds = applications.map(app => app.id);
         await this.reviewsRepository.createQueryBuilder()
@@ -248,13 +243,8 @@ export class AdminService {
           .execute();
       }
 
-      // Удаляем связанные заявки
       await this.jobApplicationsRepository.delete({ job_post_id: jobPostId });
-
-      // Удаляем связанные лимиты заявок
       await this.applicationLimitsRepository.delete({ job_post_id: jobPostId });
-
-      // Удаляем саму вакансию
       await this.jobPostsRepository.delete(jobPostId);
       return { message: 'Job post deleted successfully' };
     } catch (error) {

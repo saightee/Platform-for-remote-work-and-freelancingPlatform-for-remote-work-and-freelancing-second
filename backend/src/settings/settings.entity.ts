@@ -6,8 +6,8 @@ export class Settings {
   id: string;
 
   @Column()
-  key: string; // Например, "global_application_limit"
+  key: string; 
 
   @Column()
-  value: string; // Значение в формате строки (например, "1000")
+  value: string; 
 }

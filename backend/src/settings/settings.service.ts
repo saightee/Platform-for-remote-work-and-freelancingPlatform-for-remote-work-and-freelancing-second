@@ -12,7 +12,7 @@ export class SettingsService {
 
   async getGlobalApplicationLimit(): Promise<number> {
     const setting = await this.settingsRepository.findOne({ where: { key: 'global_application_limit' } });
-    return setting ? parseInt(setting.value, 10) : Infinity; // Если лимит не установлен, считаем его бесконечным
+    return setting ? parseInt(setting.value, 10) : Infinity; 
   }
 
   async setGlobalApplicationLimit(value: number): Promise<void> {

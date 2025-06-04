@@ -24,6 +24,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
   ],
   controllers: [ReviewsController],
   providers: [ReviewsService],
-  exports: [ReviewsService], // Экспортируем для использования в ProfilesModule
+  exports: [ReviewsService], 
 })
 export class ReviewsModule {}

@@ -9,7 +9,7 @@ import { JobApplication } from '../job-applications/job-application.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { ApplicationLimit } from '../application-limits/application-limit.entity';
-import { UserFingerprint } from '../anti-fraud/entities/user-fingerprint.entity'; // Добавляем
+import { UserFingerprint } from '../anti-fraud/entities/user-fingerprint.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from '../users/users.module';
@@ -22,7 +22,7 @@ import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, JobPost, Review, JobApplication, JobSeeker, Employer, ApplicationLimit, UserFingerprint]), // Добавляем UserFingerprint
+    TypeOrmModule.forFeature([User, JobPost, Review, JobApplication, JobSeeker, Employer, ApplicationLimit, UserFingerprint]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

@@ -39,7 +39,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async setUserOnline(userId: string, role: 'jobseeker' | 'employer') {
-    await this.client.set(`online:${userId}`, role, 'EX', 300); // 5 минут
+    await this.client.set(`online:${userId}`, role, 'EX', 300); 
   }
 
   async getOnlineUsers() {

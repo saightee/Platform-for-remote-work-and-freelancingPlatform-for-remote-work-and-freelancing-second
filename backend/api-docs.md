@@ -544,7 +544,7 @@
 
 ### 14. Apply to Job Post
 - **Endpoint**: `POST /api/job-applications`
-- **Description**: Allows a jobseeker to apply to a job post. Applications are limited per job post (default: 100) and distributed over 4 days (60/20/10/10%). If the limit is reached for the current day, a "Job full" error is returned.
+- **Description**: Allows a jobseeker to apply to a job post. Applications are limited per job post (default: 100) and distributed cumulatively over 4 days (60%, 80%, 90%, 100%). If the daily limit is reached, a "Daily application limit reached" error is returned. After 4 days, applications are accepted until the total limit is reached. If the total limit is reached, a "Job full" error is returned.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
   ```json
@@ -561,6 +561,14 @@
     "status": "Pending",
     "created_at": "2025-05-13T18:00:00.000Z",
     "updated_at": "2025-05-13T18:00:00.000Z"
+  }
+
+- **Response (Error - 400, if daily limit reached)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Daily application limit reached",
+    "error": "Bad Request"
   }
 
 - **Response (Error - 401, if token is invalid or missing)**:
@@ -763,6 +771,7 @@
 - **Description**: Updates the status of a job application, accessible only to the employer who created the job post.
 - **Headers**: `Authorization: Bearer <token>`  
 - **Request Parameters**: `id`: The ID of the job application
+- **Note**: Only one application can be set to "Accepted" per job post. When an application is accepted, the job post is automatically closed (status set to "Closed").
 - **Request Body**:   
   ```json
   {
@@ -777,6 +786,14 @@
     "status": "Accepted",
     "created_at": "2025-05-13T18:00:00.000Z",
     "updated_at": "2025-05-13T18:30:00.000Z"
+  }
+
+- **Response (Success - 400)**: 
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Only one application can be accepted per job post",
+    "error": "Bad Request"
   }    
 
 - **Response (Error - 401, if token is invalid or missing)**:   

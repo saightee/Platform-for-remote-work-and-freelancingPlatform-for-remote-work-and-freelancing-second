@@ -14,7 +14,7 @@ import * as nodemailer from 'nodemailer';
 import { BlockedCountriesModule } from '../blocked-countries/blocked-countries.module';
 import { AdminGuard } from './guards/admin.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
-import { AntiFraudModule } from '../anti-fraud/anti-fraud.module'; // Добавляем
+import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
 
 @Module({
   imports: [
@@ -37,7 +37,7 @@ import { AntiFraudModule } from '../anti-fraud/anti-fraud.module'; // Добав
     }),
     RedisModule,
     BlockedCountriesModule,
-    AntiFraudModule, // Добавляем
+    AntiFraudModule,
   ],
   controllers: [AuthController],
   providers: [

@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
 import { BlockedCountriesService } from '../blocked-countries/blocked-countries.service';
-import { AntiFraudService } from '../anti-fraud/anti-fraud.service'; // Добавляем
+import { AntiFraudService } from '../anti-fraud/anti-fraud.service'; 
 import * as bcrypt from 'bcrypt';
 import * as geoip from 'geoip-lite';
 import { RegisterDto } from './dto/register.dto';
@@ -27,7 +27,6 @@ export class AuthService {
   async register(dto: RegisterDto | CreateAdminDto, ip: string, fingerprint?: string) {
     const { email, password, username } = dto;
 
-    // Определяем страну по IP
     let country: string | null = null;
     if (ip) {
       const isBlocked = await this.blockedCountriesService.isCountryBlocked(ip);
@@ -74,7 +73,6 @@ export class AuthService {
     const newUser = await this.usersService.create(userData, additionalData);
     console.log('New User Created:', newUser);
 
-    // Вычисляем риск-скоринг
     if (fingerprint && ip) {
       await this.antiFraudService.calculateRiskScore(newUser.id, fingerprint, ip);
     }
@@ -107,7 +105,7 @@ export class AuthService {
     const token = this.jwtService.sign(payload, { expiresIn });
     const expirySeconds = rememberMe ? 7 * 24 * 60 * 60 : 3600;
     await this.redisService.set(`token:${user.id}`, token, expirySeconds);
-    await this.redisService.setUserOnline(user.id, user.role as 'jobseeker' | 'employer'); // Отмечаем онлайн
+    await this.redisService.setUserOnline(user.id, user.role as 'jobseeker' | 'employer'); 
     return { accessToken: token };
   }
 

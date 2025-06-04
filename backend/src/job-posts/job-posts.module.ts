@@ -4,7 +4,7 @@ import { JobPostsController } from './job-posts.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JobPost } from './job-post.entity';
 import { User } from '../users/entities/user.entity';
-import { JobApplication } from '../job-applications/job-application.entity'; // Добавляем JobApplication
+import { JobApplication } from '../job-applications/job-application.entity'; 
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CategoriesModule } from '../categories/categories.module';
@@ -13,7 +13,7 @@ import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([JobPost, User, JobApplication]), // Добавляем JobApplication
+    TypeOrmModule.forFeature([JobPost, User, JobApplication]), 
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

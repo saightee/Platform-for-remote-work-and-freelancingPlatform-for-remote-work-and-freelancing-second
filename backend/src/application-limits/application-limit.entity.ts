@@ -14,14 +14,17 @@ export class ApplicationLimit {
   job_post: JobPost;
 
   @Column()
-  day: number; // 1, 2, 3 или 4 (день распределения)
+  day: number; 
 
   @Column()
-  allowed_applications: number; // Доступное количество заявок на этот день (например, 60% от лимита)
+  allowed_applications: number; 
 
   @Column({ default: 0 })
-  current_applications: number; // Текущее количество поданных заявок на этот день
+  current_applications: number; 
 
   @Column()
-  date: Date; // Дата начала дня (для проверки актуальности)
+  cumulative_limit: number;
+
+  @Column()
+  date: Date; 
 }

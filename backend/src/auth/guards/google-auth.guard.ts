@@ -5,7 +5,7 @@ import { AuthGuard } from '@nestjs/passport';
 export class GoogleAuthGuard extends AuthGuard('google') {
   constructor() {
     super({
-      state: true, // Включаем state
+      state: true, 
     });
   }
 
@@ -17,7 +17,6 @@ export class GoogleAuthGuard extends AuthGuard('google') {
       throw new BadRequestException('Invalid or missing role');
     }
 
-    // Передаём роль через state
     request.query.state = JSON.stringify({ role });
     console.log('GoogleAuthGuard - State:', request.query.state);
 

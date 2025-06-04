@@ -25,7 +25,7 @@ export class Employer {
   @Column({ nullable: true })
   currency?: string;
 
-  @Column({ type: 'float', default: 0 }) // Добавляем средний рейтинг
+  @Column({ type: 'float', default: 0 }) 
   average_rating: number;
 
   @CreateDateColumn()

@@ -5,7 +5,7 @@ import { JobApplication } from './job-application.entity';
 import { JobPost } from '../job-posts/job-post.entity';
 import { User } from '../users/entities/user.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
-import { ApplicationLimitsService } from '../application-limits/application-limits.service'; // Добавляем
+import { ApplicationLimitsService } from '../application-limits/application-limits.service'; 
 
 @Injectable()
 export class JobApplicationsService {
@@ -18,7 +18,7 @@ export class JobApplicationsService {
     private usersRepository: Repository<User>,
     @InjectRepository(JobSeeker)
     private jobSeekerRepository: Repository<JobSeeker>,
-    private applicationLimitsService: ApplicationLimitsService, // Добавляем
+    private applicationLimitsService: ApplicationLimitsService, 
   ) {}
 
   async applyToJob(userId: string, jobPostId: string) {
@@ -45,7 +45,6 @@ export class JobApplicationsService {
       throw new BadRequestException('You have already applied to this job post');
     }
 
-    // Проверяем, можно ли подать заявку
     const { canApply, message } = await this.applicationLimitsService.canApply(jobPostId);
     if (!canApply) {
       throw new BadRequestException(message || 'Cannot apply to this job post');
@@ -58,7 +57,6 @@ export class JobApplicationsService {
     });
     const savedApplication = await this.jobApplicationsRepository.save(application);
 
-    // Увеличиваем счётчик заявок
     await this.applicationLimitsService.incrementApplicationCount(jobPostId);
 
     return savedApplication;
@@ -148,6 +146,22 @@ export class JobApplicationsService {
     }
     if (application.job_post.employer_id !== userId) {
       throw new UnauthorizedException('You do not have permission to update this application');
+    }
+
+    
+    if (status === 'Accepted') {
+      const acceptedCount = await this.jobApplicationsRepository.count({
+        where: { job_post_id: application.job_post_id, status: 'Accepted' },
+      });
+      if (acceptedCount > 0) {
+        throw new BadRequestException('Only one application can be accepted per job post');
+      }
+
+      
+      await this.jobPostsRepository.update(
+        { id: application.job_post_id },
+        { status: 'Closed' },
+      );
     }
 
     application.status = status;

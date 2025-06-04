@@ -381,6 +381,18 @@ describe('Integration Tests (e2e)', () => {
     console.log(`Deleted user ${userId}:`, deleteResponse.body);
   }, 10000);
 
+  // Тест 8.1: Логаут фрилансера
+  it('should logout a jobseeker', async () => {
+    const response = await request(baseUrl)
+      .post('/api/auth/logout')
+      .set('Authorization', `Bearer ${jobseekerToken}`)
+      .set('Content-Type', 'application/json');
+
+    expect(response.status).toBe(201);
+    expect(response.body).toHaveProperty('message', 'Logout successful');
+    console.log('Jobseeker logged out:', response.body);
+  }, 15000);
+
   // Тест 9: Логин с Google OAuth (заглушка, пропускаем)
   it.skip('should login with Google OAuth', () => {});
 
@@ -613,6 +625,7 @@ describe('Integration Tests (e2e)', () => {
     console.log('Updated job post:', response.body);
   }, 10000);
 
+
   // Тест 27: Закрытие вакансии (работодатель)
   it('should close a job post (employer)', async () => {
     const response = await request(baseUrl)
@@ -807,6 +820,72 @@ describe('Integration Tests (e2e)', () => {
     expect(response.body.status).toBe('Accepted');
     console.log('Updated application status:', response.body);
   }, 10000);
+
+  // Тест 37.1: Ограничение на одну Accepted заявку
+  it('should allow only one accepted application and close job post', async () => {
+    // Создать вторую заявку
+    const newJobseekerTimestamp = new Date().toISOString().replace(/[^0-9]/g, '');
+    const newJobseekerResponse = await request(baseUrl)
+      .post('/api/auth/register')
+      .set('Content-Type', 'application/json')
+      .set('X-Forwarded-For', '99.79.0.3')
+      .set('X-Fingerprint', `test-fingerprint-${newJobseekerTimestamp}`)
+      .send({
+        email: `jobseeker${newJobseekerTimestamp}@example.com`,
+        password: 'jobseeker123',
+        username: `jobseeker${newJobseekerTimestamp}`,
+        role: 'jobseeker',
+      });
+    expect(newJobseekerResponse.body).toHaveProperty('accessToken');
+    const newJobseekerToken = newJobseekerResponse.body.accessToken;
+    console.log('New jobseeker registered:', newJobseekerResponse.body);
+
+    const newApplicationResponse = await request(baseUrl)
+      .post('/api/job-applications')
+      .set('Authorization', `Bearer ${newJobseekerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ job_post_id: newJobPostId });
+    expect(newApplicationResponse.body).toHaveProperty('id');
+    const newApplicationId = newApplicationResponse.body.id;
+    console.log('Created new application:', newApplicationResponse.body);
+
+    // Принять первую заявку
+    const acceptResponse = await request(baseUrl)
+      .put(`/api/job-applications/${applicationId}`)
+      .set('Authorization', `Bearer ${employerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ status: 'Accepted' });
+    expect(acceptResponse.body.status).toBe('Accepted');
+    console.log('Accepted first application:', acceptResponse.body);
+
+    // Проверить, что вакансия закрыта
+    const jobResponse = await request(baseUrl)
+      .get(`/api/job-posts/${newJobPostId}`)
+      .set('Content-Type', 'application/json');
+    expect(jobResponse.body.status).toBe('Closed');
+    console.log('Job post closed:', jobResponse.body);
+
+    // Попытка принять вторую заявку
+    const secondAcceptResponse = await request(baseUrl)
+      .put(`/api/job-applications/${newApplicationId}`)
+      .set('Authorization', `Bearer ${employerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ status: 'Accepted' });
+    expect(secondAcceptResponse.body.message).toContain('Only one application can be accepted per job post');
+    console.log('Failed to accept second application:', secondAcceptResponse.body.message);
+
+    // Очистка: удалить нового jobseeker'а
+    const newJobseekerProfile = await request(baseUrl)
+      .get('/api/profile')
+      .set('Authorization', `Bearer ${newJobseekerToken}`)
+      .set('Content-Type', 'application/json');
+    const newJobseekerId = newJobseekerProfile.body.id;
+    await request(baseUrl)
+      .delete(`/api/admin/users/${newJobseekerId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Content-Type', 'application/json');
+    console.log(`Deleted new jobseeker ${newJobseekerId}`);
+  }, 15000);
 
   // Тест 38: Подача заявки на закрытую вакансию
   it('should fail to apply to a closed job post', async () => {
@@ -1158,6 +1237,26 @@ describe('Integration Tests (e2e)', () => {
     expect(response.body).toHaveProperty('employers');
     console.log('Online users count:', response.body);
   }, 10000);
+
+  // Тест 55.1: Отправка и получение feedback
+  it('should submit and retrieve feedback', async () => {
+    const submitResponse = await request(baseUrl)
+      .post('/api/feedback')
+      .set('Authorization', `Bearer ${jobseekerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ message: 'Great platform!' });
+    expect(submitResponse.status).toBe(200);
+    expect(submitResponse.body.message).toBe('Great platform!');
+    console.log('Submitted feedback:', submitResponse.body);
+
+    const getResponse = await request(baseUrl)
+      .get('/api/feedback')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Content-Type', 'application/json');
+    expect(Array.isArray(getResponse.body)).toBe(true);
+    expect(getResponse.body.some(fb => fb.message === 'Great platform!')).toBe(true);
+    console.log('Retrieved feedback:', getResponse.body);
+  }, 15000);
 
   // Тест 56: Получение лидерборда фрилансеров (админ)
   it('should get top jobseekers leaderboard (admin)', async () => {

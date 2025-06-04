@@ -6,7 +6,7 @@ export class BlockedCountry {
   id: string;
 
   @Column({ unique: true })
-  country_code: string; // Код страны (например, "IN" для Индии)
+  country_code: string; 
 
   @CreateDateColumn()
   created_at: Date;
