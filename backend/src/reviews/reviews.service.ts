@@ -78,7 +78,6 @@ export class ReviewsService {
     });
     const savedReview = await this.reviewsRepository.save(review);
 
-    // Обновляем средний рейтинг для reviewed пользователя
     await this.updateAverageRating(reviewed.id);
 
     return savedReview;

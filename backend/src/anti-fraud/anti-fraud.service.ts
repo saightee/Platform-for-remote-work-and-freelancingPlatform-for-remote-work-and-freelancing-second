@@ -17,13 +17,11 @@ export class AntiFraudService {
   async calculateRiskScore(userId: string, fingerprint: string, ip: string): Promise<number> {
     let riskScore = 0;
 
-    // Проверка дублирующегося IP
     const ipCount = await this.fingerprintRepository.count({ where: { ip, user_id: Not(userId) } });
     if (ipCount > 0) {
       riskScore += 20;
     }
 
-    // Проверка прокси/VPN через ip-api.com
     try {
       const response = await axios.get(`http://ip-api.com/json/${ip}?fields=proxy,hosting`);
       const { proxy, hosting } = response.data;
@@ -34,7 +32,6 @@ export class AntiFraudService {
       console.error('Error checking proxy:', error.message);
     }
 
-    // Проверка дублирующегося отпечатка
     const fingerprintCount = await this.fingerprintRepository.count({
       where: { fingerprint, user_id: Not(userId) },
     });
@@ -42,7 +39,6 @@ export class AntiFraudService {
       riskScore += 25;
     }
 
-    // Сохраняем отпечаток
     const userFingerprint = this.fingerprintRepository.create({
       user_id: userId,
       fingerprint,
@@ -50,7 +46,6 @@ export class AntiFraudService {
     });
     await this.fingerprintRepository.save(userFingerprint);
 
-    // Обновляем risk_score в users
     await this.usersRepository.update({ id: userId }, { risk_score: riskScore });
 
     return riskScore;
@@ -75,7 +70,7 @@ export class AntiFraudService {
       riskScore: user.risk_score,
       details: {
         duplicateIp: ipCount > 0,
-        proxyDetected: false, // Упрощено
+        proxyDetected: false,
         duplicateFingerprint: fingerprintCount > 0,
       },
     };

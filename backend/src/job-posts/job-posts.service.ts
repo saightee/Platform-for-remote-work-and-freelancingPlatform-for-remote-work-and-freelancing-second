@@ -6,7 +6,7 @@ import { User } from '../users/entities/user.entity';
 import { CategoriesService } from '../categories/categories.service';
 import { JobApplication } from '../job-applications/job-application.entity';
 import { ApplicationLimitsService } from '../application-limits/application-limits.service';
-import { SettingsService } from '../settings/settings.service'; // Добавляем
+import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
 export class JobPostsService {
@@ -19,7 +19,7 @@ export class JobPostsService {
     private jobApplicationsRepository: Repository<JobApplication>,
     private categoriesService: CategoriesService,
     private applicationLimitsService: ApplicationLimitsService,
-    private settingsService: SettingsService, // Добавляем
+    private settingsService: SettingsService, 
   ) {}
 
   async createJobPost(userId: string, jobPostData: { title: string; description: string; location: string; salary: number; status: 'Active' | 'Draft' | 'Closed'; category_id?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based'; applicationLimit?: number }) {
@@ -49,7 +49,6 @@ export class JobPostsService {
     });
     const savedJobPost = await this.jobPostsRepository.save(jobPost);
 
-    // Инициализируем распределение по дням
     await this.applicationLimitsService.initializeLimits(savedJobPost.id, savedJobPost.applicationLimit);
 
     return savedJobPost;
@@ -130,7 +129,6 @@ export class JobPostsService {
       .where('jobPost.status = :status', { status: 'Active' })
       .andWhere('jobPost.pending_review = :pendingReview', { pendingReview: false });
   
-    // Фильтры
     if (filters.title) {
       query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.title}%` });
     }
@@ -153,13 +151,11 @@ export class JobPostsService {
       query.andWhere('jobPost.required_skills && :required_skills', { required_skills: filters.required_skills });
     }
   
-    // Пагинация
     const page = filters.page || 1;
     const limit = filters.limit || 10;
     const skip = (page - 1) * limit;
     query.skip(skip).take(limit);
   
-    // Сортировка
     const sortBy = filters.sort_by || 'created_at';
     const sortOrder = filters.sort_order || 'DESC';
     query.orderBy(`jobPost.${sortBy}`, sortOrder);

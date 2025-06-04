@@ -1,4 +1,3 @@
-// leaderboards.controller.ts
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { LeaderboardsService } from './leaderboards.service';
 import { AuthGuard } from '@nestjs/passport';

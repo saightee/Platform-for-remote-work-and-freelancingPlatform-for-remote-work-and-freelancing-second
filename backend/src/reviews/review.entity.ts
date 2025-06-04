@@ -8,28 +8,28 @@ export class Review {
   id: string;
 
   @Column()
-  reviewer_id: string; // Кто оставил отзыв (employer или jobseeker)
+  reviewer_id: string; 
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'reviewer_id' })
   reviewer: User;
 
   @Column()
-  reviewed_id: string; // Кого оценивают (employer или jobseeker)
+  reviewed_id: string; 
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'reviewed_id' })
   reviewed: User;
 
   @Column()
-  job_application_id: string; // Связь с заявкой
+  job_application_id: string; 
 
   @ManyToOne(() => JobApplication)
   @JoinColumn({ name: 'job_application_id' })
   job_application: JobApplication;
 
   @Column({ type: 'integer' })
-  rating: number; // 1-5 звезд
+  rating: number; 
 
   @Column('text', { nullable: true })
   comment?: string;

@@ -17,7 +17,7 @@ export class Feedback {
   message: string;
 
   @Column()
-  role: 'jobseeker' | 'employer'; // Добавляем поле для роли отправителя
+  role: 'jobseeker' | 'employer';
 
   @CreateDateColumn()
   created_at: Date;

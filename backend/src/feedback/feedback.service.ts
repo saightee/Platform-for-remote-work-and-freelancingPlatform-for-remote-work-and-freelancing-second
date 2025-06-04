@@ -25,7 +25,7 @@ export class FeedbackService {
     const feedback = this.feedbackRepository.create({
       user_id: userId,
       message,
-      role: user.role as 'jobseeker' | 'employer', // Сохраняем роль пользователя
+      role: user.role as 'jobseeker' | 'employer',
     });
     return this.feedbackRepository.save(feedback);
   }

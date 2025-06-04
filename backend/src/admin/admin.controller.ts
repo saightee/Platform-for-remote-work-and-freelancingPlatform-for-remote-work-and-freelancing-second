@@ -13,7 +13,7 @@ export class AdminController {
     private adminService: AdminService,
     private settingsService: SettingsService,
     private jwtService: JwtService,
-    private antiFraudService: AntiFraudService, // Инжектируем
+    private antiFraudService: AntiFraudService, 
   ) {}
 
   @Get('users/export-csv')

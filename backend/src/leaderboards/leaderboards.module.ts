@@ -4,14 +4,14 @@ import { LeaderboardsService } from './leaderboards.service';
 import { LeaderboardsController } from './leaderboards.controller';
 import { Employer } from '../users/entities/employer.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
-import { JwtModule } from '@nestjs/jwt'; // Добавляем
-import { ConfigModule, ConfigService } from '@nestjs/config'; // Добавляем
-import { AuthModule } from '../auth/auth.module'; // Добавляем
+import { JwtModule } from '@nestjs/jwt'; 
+import { ConfigModule, ConfigService } from '@nestjs/config'; 
+import { AuthModule } from '../auth/auth.module'; 
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Employer, JobSeeker]),
-    ConfigModule, // Добавляем
+    ConfigModule, 
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -20,7 +20,7 @@ import { AuthModule } from '../auth/auth.module'; // Добавляем
       }),
       inject: [ConfigService],
     }),
-    AuthModule, // Добавляем
+    AuthModule, 
   ],
   providers: [LeaderboardsService],
   controllers: [LeaderboardsController],

@@ -1,10 +1,9 @@
-// src/users/users.controller.ts
 import { Controller, Get, Param, Headers, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from './users.service';
 import { RedisService } from '../redis/redis.service';
-import { NotFoundException } from '@nestjs/common'; // Добавляем импорт
+import { NotFoundException } from '@nestjs/common';
 
 @Controller('users')
 export class UsersController {
@@ -24,7 +23,7 @@ export class UsersController {
       throw new UnauthorizedException('Invalid token');
     }
     const token = authHeader.replace('Bearer ', '');
-    this.jwtService.verify(token); // Проверяем токен
+    this.jwtService.verify(token); 
     const user = await this.usersService.getUserById(userId);
     if (!user) {
       throw new NotFoundException('User not found');

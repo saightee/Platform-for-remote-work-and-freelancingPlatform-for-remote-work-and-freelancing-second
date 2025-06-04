@@ -1,7 +1,7 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm'; // Добавляем CreateDateColumn, UpdateDateColumn
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { Category } from '../categories/category.entity';
-import { JobApplication } from '../job-applications/job-application.entity'; // Добавляем
+import { JobApplication } from '../job-applications/job-application.entity'; 
 
 @Entity('job_posts')
 export class JobPost {
@@ -52,7 +52,7 @@ export class JobPost {
   @Column('text', { array: true, nullable: true })
   required_skills?: string[];
 
-  @OneToMany(() => JobApplication, application => application.job_post) // Связь с заявками
+  @OneToMany(() => JobApplication, application => application.job_post) 
   applications: JobApplication[];
 
   @CreateDateColumn()

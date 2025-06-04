@@ -11,19 +11,24 @@ export class ApplicationLimitsService {
   ) {}
 
   async initializeLimits(jobPostId: string, totalLimit: number): Promise<void> {
-    const distribution = [0.6, 0.2, 0.1, 0.1]; // 60/20/10/10%
+    const distribution = [0.6, 0.8, 0.9, 1.0]; // Кумулятивные лимиты: 60%, 80%, 90%, 100%
     const now = new Date();
 
     for (let day = 1; day <= 4; day++) {
-      const allowedApplications = Math.floor(totalLimit * distribution[day - 1]);
+      const cumulativeLimit = Math.floor(totalLimit * distribution[day - 1]);
+      const allowedApplications = day === 1 
+        ? cumulativeLimit 
+        : Math.floor(totalLimit * (distribution[day - 1] - distribution[day - 2])); // Разница для дня
+
       const date = new Date(now);
-      date.setDate(now.getDate() + (day - 1)); // Устанавливаем дату для каждого дня
+      date.setDate(now.getDate() + (day - 1));
 
       const limit = this.applicationLimitsRepository.create({
         job_post_id: jobPostId,
         day,
         allowed_applications: allowedApplications,
         current_applications: 0,
+        cumulative_limit: cumulativeLimit,
         date,
       });
       await this.applicationLimitsRepository.save(limit);
@@ -34,8 +39,20 @@ export class ApplicationLimitsService {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    // Находим лимит для текущего дня
+
     const limits = await this.applicationLimitsRepository.find({ where: { job_post_id: jobPostId } });
+    if (!limits.length) {
+      return { canApply: false, message: 'No application limits defined' };
+    }
+
+    const totalApplications = limits.reduce((sum, limit) => sum + limit.current_applications, 0);
+    const totalLimit = limits[limits.length - 1].cumulative_limit; 
+
+    if (totalApplications >= totalLimit) {
+      return { canApply: false, message: 'Job full' };
+    }
+
+    
     const currentLimit = limits.find(limit => {
       const limitDate = new Date(limit.date);
       return limitDate.getFullYear() === today.getFullYear() &&
@@ -43,14 +60,15 @@ export class ApplicationLimitsService {
              limitDate.getDate() === today.getDate();
     });
 
-    if (!currentLimit) {
-      return { canApply: false, message: 'Application period has ended' };
+    
+    if (currentLimit) {
+      if (totalApplications >= currentLimit.cumulative_limit) {
+        return { canApply: false, message: 'Daily application limit reached' };
+      }
+      return { canApply: true };
     }
 
-    if (currentLimit.current_applications >= currentLimit.allowed_applications) {
-      return { canApply: false, message: 'Job full' };
-    }
-
+    
     return { canApply: true };
   }
 
@@ -69,5 +87,6 @@ export class ApplicationLimitsService {
       limit.current_applications += 1;
       await this.applicationLimitsRepository.save(limit);
     }
+    
   }
 }

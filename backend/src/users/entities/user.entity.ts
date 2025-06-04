@@ -23,19 +23,19 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   country: string | null;
 
-  @Column({ type: 'varchar', nullable: true }) // Добавляем поле для аватарки
+  @Column({ type: 'varchar', nullable: true }) 
   avatar: string | null;
 
-  @Column({ type: 'boolean', default: false }) // Добавляем поле для статуса верификации
+  @Column({ type: 'boolean', default: false })
   identity_verified: boolean;
 
-  @Column({ type: 'varchar', nullable: true }) // Добавляем поле для документа
+  @Column({ type: 'varchar', nullable: true }) 
   identity_document: string | null;
 
   @Column({ type: 'varchar', default: 'active' })
   status: 'active' | 'blocked';
 
-  @Column({ type: 'int', default: 0 }) // Добавляем risk_score
+  @Column({ type: 'int', default: 0 }) 
   risk_score: number;
 
   @CreateDateColumn()

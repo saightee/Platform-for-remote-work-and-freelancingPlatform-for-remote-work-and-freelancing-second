@@ -32,7 +32,7 @@ export class AdminGuard implements CanActivate {
         throw new UnauthorizedException('Only admins can access this resource');
       }
 
-      request.user = payload; // Добавляем данные пользователя в запрос
+      request.user = payload;
       return true;
     } catch (error) {
       throw new UnauthorizedException('Invalid or expired token');
