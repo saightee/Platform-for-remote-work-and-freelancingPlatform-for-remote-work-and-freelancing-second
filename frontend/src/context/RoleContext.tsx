@@ -43,7 +43,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('Decoded token:', decoded);
         setCurrentRole(decoded.role);
         if (decoded.role === 'admin') {
-          // Для администратора профиль необязателен
+          console.log('Admin role detected, skipping profile fetch.');
           setProfile(null);
           setIsLoading(false);
           return;
@@ -63,7 +63,6 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Unauthorized or profile not found. Token:', token);
         setError('Unauthorized or profile not found. Please check your credentials.');
         setProfile(null);
-        // Не очищаем роль, если токен валиден
         const decoded: DecodedToken = jwtDecode(token);
         setCurrentRole(decoded.role);
       } else {

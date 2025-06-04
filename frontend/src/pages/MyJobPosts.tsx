@@ -81,7 +81,7 @@ const MyJobPosts: React.FC = () => {
   const handleViewApplications = async (jobPostId: string) => {
     try {
       const apps = await getApplicationsForJobPost(jobPostId);
-      console.log('Fetched applications:', apps); // Отладка
+      console.log('Fetched applications:', apps);
       setApplications({ jobPostId, apps });
     } catch (err) {
       console.error('Error fetching applications:', err);
@@ -121,9 +121,11 @@ const MyJobPosts: React.FC = () => {
 
   const handleUpdateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected', jobPostId: string) => {
     try {
+      console.log('Updating application status:', { applicationId, status, jobPostId });
       await updateApplicationStatus(applicationId, status);
       alert(`Application ${status.toLowerCase()} successfully!`);
       const updatedApps = await getApplicationsForJobPost(jobPostId);
+      console.log('Updated applications:', updatedApps);
       setApplications({ jobPostId, apps: updatedApps });
     } catch (error: any) {
       console.error(`Error ${status.toLowerCase()} application:`, error);

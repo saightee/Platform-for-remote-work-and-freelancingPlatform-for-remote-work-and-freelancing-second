@@ -15,27 +15,27 @@ const Home: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const jobsData = await searchJobPosts({
-        ...filters,
-        limit: 12,
-        sort_by: 'created_at',
-        sort_order: 'DESC', // Изменено на верхний регистр
-      });
-      setJobs(jobsData);
-    } catch (error: any) {
-      console.error('Ошибка при загрузке вакансий:', error);
-      setError('Failed to load recent jobs. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  fetchData();
-}, [filters]);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const jobsData = await searchJobPosts({
+          ...filters,
+          limit: 12,
+          sort_by: 'created_at',
+          sort_order: 'DESC',
+        });
+        setJobs(jobsData);
+      } catch (error: any) {
+        console.error('Ошибка при загрузке вакансий:', error);
+        setError('Failed to load recent jobs. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [filters]);
 
   const handleSearch = (searchFilters: { title?: string }) => {
     setFilters(searchFilters);
@@ -72,9 +72,9 @@ useEffect(() => {
         <h2>Recent Job Postings</h2>
         {isLoading && <div>Loading recent jobs...</div>}
         {error && <div className="error-message">{error}</div>}
-        <div className="job-grid">
+        <div className="job-grid home-job-grid">
           {jobs.length > 0 ? (
-            jobs.map((job) => <JobCard key={job.id} job={job} />)
+            jobs.slice(0, 12).map((job) => <JobCard key={job.id} job={job} />)
           ) : (
             !isLoading && <p>No recent jobs found.</p>
           )}

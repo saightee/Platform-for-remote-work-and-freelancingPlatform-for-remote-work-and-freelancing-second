@@ -37,23 +37,18 @@ const Login: React.FC = () => {
   useEffect(() => {
     console.log('Login useEffect, isAuthenticated:', isAuthenticated, 'profile:', profile);
     if (isAuthenticated) {
-      if (profile?.role === 'admin') {
-        navigate('/admin');
-      } else if (profile) {
-        navigate('/');
-      } else {
-        // Для администратора без профиля перенаправляем в /admin
-        const token = localStorage.getItem('token');
-        if (token) {
-          try {
-            const decoded: any = jwtDecode(token);
-            if (decoded.role === 'admin') {
-              navigate('/admin');
-            }
-          } catch (err) {
-            console.error('Error decoding token:', err);
-            setErrorMessage('Invalid token. Please log in again.');
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const decoded: any = jwtDecode(token);
+          if (decoded.role === 'admin') {
+            navigate('/admin');
+          } else if (profile) {
+            navigate('/');
           }
+        } catch (err) {
+          console.error('Error decoding token:', err);
+          setErrorMessage('Invalid token. Please log in again.');
         }
       }
     }

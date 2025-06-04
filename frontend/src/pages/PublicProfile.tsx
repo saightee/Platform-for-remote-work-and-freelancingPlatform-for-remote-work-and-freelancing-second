@@ -29,14 +29,15 @@ const PublicProfile: React.FC = () => {
           getUserProfileById(id),
           getReviewsForUser(id),
         ]);
+        console.log('Fetched profile:', profileData);
         setProfile(profileData);
         setReviews(reviewsData);
         if (profileData.role === 'jobseeker') {
-          await incrementProfileView(id); // Увеличиваем счётчик просмотров для соискателей
+          await incrementProfileView(id);
         }
       } catch (error: any) {
         console.error('Error fetching public profile:', error);
-        setError(error.response?.data?.message || 'Failed to load profile.');
+        setError(error.response?.data?.message || 'Failed to load profile. Please try again.');
       } finally {
         setIsLoading(false);
       }

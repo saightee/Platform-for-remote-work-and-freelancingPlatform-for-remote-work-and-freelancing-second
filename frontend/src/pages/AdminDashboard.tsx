@@ -17,7 +17,7 @@ import { User, JobPost, Review, Feedback, BlockedCountry, Category } from '@type
 import { format } from 'date-fns';
 
 const AdminDashboard: React.FC = () => {
-  const { profile } = useRole();
+  const { currentRole } = useRole();
   const [users, setUsers] = useState<User[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -47,7 +47,7 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!profile || profile.role !== 'admin') {
+      if (!currentRole || currentRole !== 'admin') {
         setError('This page is only available for admins.');
         setIsLoading(false);
         return;
@@ -97,7 +97,7 @@ const AdminDashboard: React.FC = () => {
       }
     };
     fetchData();
-  }, [profile]);
+  }, [currentRole]);
 
   const handleDeleteUser = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
@@ -327,7 +327,7 @@ const AdminDashboard: React.FC = () => {
     );
   }
 
-  if (!profile || profile.role !== 'admin') {
+  if (!currentRole || currentRole !== 'admin') {
     return (
       <div>
         <Header />

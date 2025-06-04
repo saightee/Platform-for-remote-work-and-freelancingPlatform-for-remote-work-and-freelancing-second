@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getJobPost, applyToJobPost, incrementJobView, getMyApplications } from '../services/api';
-import { JobPost, JobApplication } from '@types';
+import { getJobPost, applyToJobPost, incrementJobView, checkJobApplicationStatus } from '../services/api';
+import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import { FaEye } from 'react-icons/fa';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
@@ -34,10 +34,8 @@ const JobDetails: React.FC = () => {
             console.error('Error incrementing job view:', viewError);
           }
           if (profile?.role === 'jobseeker') {
-            // Проверяем, есть ли отклик на эту вакансию через getMyApplications
-            const applications = await getMyApplications();
-            const hasApplied = applications.some((app: JobApplication) => app.job_post_id === id);
-            setHasApplied(hasApplied);
+            const applicationStatus = await checkJobApplicationStatus(id);
+            setHasApplied(applicationStatus.hasApplied);
           }
         }
       } catch (err: any) {
