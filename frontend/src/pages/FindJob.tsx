@@ -61,11 +61,18 @@ const FindJob: React.FC = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setSearchState((prev) => ({ ...prev, page: 1 }));
-    setSearchParams({ title: searchState.title }); // Обновляем URL
+    setSearchParams({ title: searchState.title });
   };
 
   const handlePageChange = (newPage: number) => {
     setSearchState((prev) => ({ ...prev, page: newPage }));
+  };
+
+  const truncateDescription = (description: string, maxLength: number) => {
+    if (description.length > maxLength) {
+      return description.substring(0, maxLength) + '...';
+    }
+    return description;
   };
 
   if (isLoading) return <div>Loading...</div>;
@@ -242,13 +249,6 @@ const FindJob: React.FC = () => {
       <Copyright />
     </div>
   );
-};
-
-const truncateDescription = (description: string, maxLength: number) => {
-  if (description.length > maxLength) {
-    return description.substring(0, maxLength) + '...';
-  }
-  return description;
 };
 
 export default FindJob;

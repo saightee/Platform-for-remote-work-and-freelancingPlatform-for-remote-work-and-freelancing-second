@@ -6,7 +6,7 @@ import { getProfile, updateProfile, uploadAvatar, uploadIdentityDocument, delete
 import { Profile, SkillCategory, Category, JobSeekerProfile, EmployerProfile } from '@types';
 import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
-import { FaUserCircle } from 'react-icons/fa';
+import { FaUserCircle, FaFilePdf } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
 const ProfilePage: React.FC = () => {
@@ -38,6 +38,7 @@ const ProfilePage: React.FC = () => {
           getProfile(),
           getCategories(),
         ]);
+        console.log('Fetched categories:', categoriesData); // Для отладки
         setProfileData(profileData);
         setCategories(categoriesData);
         if (profileData.role === 'jobseeker') {
@@ -93,7 +94,6 @@ const ProfilePage: React.FC = () => {
         const updatedProfile = await updateProfile(updatedData);
         setProfileData(updatedProfile);
       } else {
-        // Для admin
         const updatedData: Partial<Profile> = {
           username: profileData.username,
           email: profileData.email,
@@ -164,6 +164,7 @@ const ProfilePage: React.FC = () => {
       const updatedProfile = await uploadAvatar(formData);
       setProfileData(updatedProfile);
       setAvatarFile(null);
+      alert('Avatar uploaded successfully!');
       await refreshProfile();
     } catch (error: any) {
       console.error('Error uploading avatar:', error);
@@ -171,25 +172,26 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-const handleUploadDocument = async () => {
-  if (!documentFile) {
-    setFormError('Please select a file to upload.');
-    return;
-  }
-  try {
-    setFormError(null);
-    const formData = new FormData();
-    formData.append('document', documentFile);
-    const updatedProfile = await uploadIdentityDocument(formData);
-    console.log('Updated profile after document upload:', updatedProfile); // Отладка
-    setProfileData(updatedProfile);
-    setDocumentFile(null);
-    await refreshProfile();
-  } catch (error: any) {
-    console.error('Error uploading document:', error);
-    setFormError(error.response?.data?.message || 'Failed to upload document.');
-  }
-};
+  const handleUploadDocument = async () => {
+    if (!documentFile) {
+      setFormError('Please select a file to upload.');
+      return;
+    }
+    try {
+      setFormError(null);
+      const formData = new FormData();
+      formData.append('document', documentFile);
+      const updatedProfile = await uploadIdentityDocument(formData);
+      console.log('Updated profile after document upload:', updatedProfile);
+      setProfileData(updatedProfile);
+      setDocumentFile(null);
+      alert('Document uploaded successfully!');
+      await refreshProfile();
+    } catch (error: any) {
+      console.error('Error uploading document:', error);
+      setFormError(error.response?.data?.message || 'Failed to upload document.');
+    }
+  };
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>{error}</div>;
@@ -286,6 +288,7 @@ const handleUploadDocument = async () => {
                             Array.from(e.target.selectedOptions, (option) => option.value)
                           )
                         }
+                        className="multi-select"
                       >
                         {categories.map((category) => (
                           <option key={category.id} value={category.id}>
@@ -382,17 +385,22 @@ const handleUploadDocument = async () => {
                     <p>
                       <strong>Identity Document:</strong>{' '}
                       {profileData.identity_document ? (
-                        profileData.identity_document.endsWith('.pdf') ? (
-                          <a href={`https://jobforge.net/backend${profileData.identity_document}`} target="_blank" rel="noopener noreferrer">
-                            Download PDF
-                          </a>
-                        ) : (
-                          <img
-                            src={`https://jobforge.net/backend${profileData.identity_document}`}
-                            alt="Identity Document"
-                            style={{ maxWidth: '100px', borderRadius: '5px' }}
-                          />
-                        )
+                        <div className="document-preview">
+                          {profileData.identity_document.endsWith('.pdf') ? (
+                            <a href={`https://jobforge.net/backend${profileData.identity_document}`} target="_blank" rel="noopener noreferrer">
+                              <FaFilePdf size={50} />
+                              <span>View PDF</span>
+                            </a>
+                          ) : (
+                            <a href={`https://jobforge.net/backend${profileData.identity_document}`} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={`https://jobforge.net/backend${profileData.identity_document}`}
+                                alt="Identity Document"
+                                className="document-thumbnail"
+                              />
+                            </a>
+                          )}
+                        </div>
                       ) : (
                         'Not uploaded'
                       )}

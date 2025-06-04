@@ -42,8 +42,7 @@ const FindTalent: React.FC = () => {
           searchTalents(filters),
           getCategories(),
         ]);
-        console.log('Fetched talents:', JSON.stringify(talentsData, null, 2)); // Подробная отладка
-        // Проверяем, является ли talentsData массивом
+        console.log('Fetched talents:', JSON.stringify(talentsData, null, 2));
         if (!Array.isArray(talentsData)) {
           console.error('Talents data is not an array:', talentsData);
           setError('Invalid data format received. Please try again.');
@@ -157,7 +156,6 @@ const FindTalent: React.FC = () => {
             <div className="job-grid">
               {talents.length > 0 ? (
                 talents.map((talent) => {
-                  // Безопасное извлечение данных
                   const rating = (talent as any).average_rating ?? (talent as any).averageRating ?? null;
                   const skills = Array.isArray((talent as any).skills) ? (talent as any).skills : [];
                   const experience = (talent as any).experience ?? null;
