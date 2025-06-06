@@ -237,11 +237,98 @@
     "error": "Not Found"
   }
 
+### 6.1. Get Profile by ID
+- **Endpoint**: `GET /api/profile/:id`
+- **Description**: Retrieves the profile of a specific user (jobseeker or employer) by their ID. Accessible to both authenticated and unauthenticated users. For unauthenticated users, sensitive information like email is omitted. For jobseeker profiles, the view count is incremented.
+- **Headers**: `Authorization: Bearer <token>` (Optional)
+- **Request Parameters**: `id`: The ID of the user.
+- **Response (Success - 200)**: 
+  // For employer (unauthenticated)
+  ```json
+  {
+    "id": "<userId>",
+    "role": "employer",
+    "username": "test",
+    "company_name": "Test Company",
+    "company_info": "A great company",
+    "referral_link": "https://example.com/ref/test",
+    "timezone": "Europe/Moscow",
+    "currency": "USD",
+    "average_rating": 4.5,
+    "avatar": "https://example.com/avatar.jpg",
+    "identity_verified": true,
+    "reviews": [
+      {
+        "id": "<reviewId>",
+        "reviewer_id": "<userId>",
+        "reviewed_id": "<userId>",
+        "job_application_id": "<jobApplicationId>",
+        "rating": 4,
+        "comment": "Great work, very professional!",
+        "created_at": "2025-05-13T18:00:00.000Z",
+        "updated_at": "2025-05-13T18:00:00.000Z"
+      }
+    ]
+  }
+  // For jobseeker (authenticated)
+  ```json
+  {
+  "id": "<userId>",
+  "role": "jobseeker",
+  "email": "test@example.com",
+  "username": "test",
+  "skills": ["JavaScript", "TypeScript"],
+  "categories": [
+    {
+      "id": "<categoryId>",
+      "name": "Web Development",
+      "created_at": "2025-05-22T18:00:00.000Z",
+      "updated_at": "2025-05-22T18:00:00.000Z"
+    }
+  ],
+  "experience": "2 years",
+  "portfolio": "https://portfolio.com",
+  "video_intro": "https://video.com",
+  "timezone": "Europe/Moscow",
+  "currency": "USD",
+  "average_rating": 4.0,
+  "profile_views": 10,
+  "avatar": "https://example.com/avatar.jpg",
+  "identity_verified": false,
+  "reviews": [
+    {
+      "id": "<reviewId>",
+      "reviewer_id": "<userId>",
+      "reviewed_id": "<userId>",
+      "job_application_id": "<jobApplicationId>",
+      "rating": 4,
+      "comment": "Great work, very professional!",
+      "created_at": "2025-05-22T18:00:00.000Z",
+      "updated_at": "2025-05-22T18:00:00.000Z"
+    }
+  ]
+  }
+
+- **Response (Error - 404, if user or profile not found)**: 
+  ```json
+  {
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
+  }
+
+- **Response (Error - 401, if user role is not supported)**: 
+  ```json
+  {
+    "statusCode": 401,
+    "message": "User role not supported",
+    "error": "Unauthorized"
+  }
 
 ### 7. Update Profile
 - **Endpoint**: `PUT /api/profile`
 - **Description**: Updates the authenticated user's profile based on their role.
-- **Headers**: `Authorization: Bearer <token>`
+- **Headers**: `Authorization: Bearer <token>` 
 - **Request Body**:
   //For employer
   ```json
