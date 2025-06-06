@@ -1,4 +1,3 @@
-// app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -18,8 +17,9 @@ import { RedisModule } from './redis/redis.module';
 import { BlockedCountriesModule } from './blocked-countries/blocked-countries.module';
 import { LeaderboardsModule } from './leaderboards/leaderboards.module';
 import { ApplicationLimitsModule } from './application-limits/application-limits.module';
-import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { TalentsModule } from './talents/talents.module';
+import { ComplaintsModule } from './complaints/complaints.module';
+import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 @Module({
   imports: [
@@ -64,6 +64,7 @@ import { TalentsModule } from './talents/talents.module';
     LeaderboardsModule,
     ApplicationLimitsModule,
     TalentsModule,
+    ComplaintsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
