@@ -21,7 +21,7 @@ export class ProfilesService {
     private reviewsService: ReviewsService,
   ) {}
 
-  async getProfile(userId: string) {
+  async getProfile(userId: string, isAuthenticated: boolean = false) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -40,7 +40,7 @@ export class ProfilesService {
       return {
         id: user.id,
         role: user.role,
-        email: user.email,
+        email: isAuthenticated ? user.email : undefined, // Скрываем email для неавторизованных
         username: user.username,
         skills: jobSeeker.skills,
         categories: jobSeeker.categories,
@@ -50,6 +50,7 @@ export class ProfilesService {
         timezone: jobSeeker.timezone,
         currency: jobSeeker.currency,
         average_rating: jobSeeker.average_rating,
+        profile_views: jobSeeker.profile_views,
         reviews,
         avatar: user.avatar,
         identity_verified: user.identity_verified,
@@ -62,7 +63,7 @@ export class ProfilesService {
       return {
         id: user.id,
         role: user.role,
-        email: user.email,
+        email: isAuthenticated ? user.email : undefined, // Скрываем email для неавторизованных
         username: user.username,
         company_name: employer.company_name,
         company_info: employer.company_info,
@@ -124,7 +125,7 @@ export class ProfilesService {
       }
 
       await this.jobSeekerRepository.save(jobSeeker);
-      return this.getProfile(userId);
+      return this.getProfile(userId, true);
     } else if (user.role === 'employer') {
       const employer = await this.employerRepository.findOne({ where: { user_id: userId } });
       if (!employer) {
@@ -148,7 +149,7 @@ export class ProfilesService {
       }
 
       await this.employerRepository.save(employer);
-      return this.getProfile(userId);
+      return this.getProfile(userId, true);
     } else {
       throw new UnauthorizedException('User role not supported');
     }
@@ -165,7 +166,7 @@ export class ProfilesService {
 
     user.avatar = avatarUrl;
     await this.usersRepository.save(user);
-    return this.getProfile(userId);
+    return this.getProfile(userId, true);
   }
 
   async uploadIdentityDocument(userId: string, documentUrl: string) {
@@ -179,7 +180,7 @@ export class ProfilesService {
 
     user.identity_document = documentUrl;
     await this.usersRepository.save(user);
-    return this.getProfile(userId);
+    return this.getProfile(userId, true);
   }
 
   async incrementProfileView(userId: string) {
