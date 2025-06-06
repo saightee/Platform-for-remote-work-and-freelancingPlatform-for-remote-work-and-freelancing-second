@@ -2280,3 +2280,148 @@
     "message": "Rating must be between 0 and 5",
     "error": "Bad Request"
   }
+
+### 65. Submit Complaint
+- **Endpoint**: `POST /api/complaints`
+- **Description**: Allows authenticated jobseekers or employers to submit a complaint against a job post or another user's profile.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "job_post_id": "<jobPostId>", // Optional, if complaining about a job post
+    "profile_id": "<userId>", // Optional, if complaining about a profile
+    "reason": "Inappropriate content in the job description"
+  }
+
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "<complaintId>",
+    "complainant_id": "<userId>",
+    "job_post_id": "<jobPostId>",
+    "profile_id": null,
+    "reason": "Inappropriate content in the job description",
+    "status": "Pending",
+    "created_at": "2025-06-06T12:00:00.000Z",
+    "updated_at": "2025-06-06T12:00:00.000Z"
+  }
+
+- **Response (Error - 400, if both or neither IDs provided)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Either job_post_id or profile_id must be provided",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 400, if complaining about own profile)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Cannot submit a complaint against your own profile",
+    "error": "Bad Request"
+  }  
+
+- **Response (Error - 400, if complaint already exists)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "You have already submitted a pending complaint for this target",
+    "error": "Bad Request"
+  }    
+
+- **Response (Error - 401, if token invalid)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 404, if target not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
+  }
+
+### 66. Get All Complaints (Admin)
+- **Endpoint**: `GET /api/admin/complaints`
+- **Description**: Retrieves all complaints for admin review.
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "id": "<complaintId>",
+      "complainant_id": "<userId>",
+      "complainant": {
+        "id": "<userId>",
+        "username": "john_doe",
+        "email": "john@example.com",
+        "role": "jobseeker"
+      },
+      "job_post_id": "<jobPostId>",
+      "job_post": {
+        "id": "<jobPostId>",
+        "title": "Software Engineer",
+        "description": "Looking for a skilled engineer"
+      },
+      "profile_id": null,
+      "reason": "Inappropriate content in the job description",
+      "status": "Pending",
+      "created_at": "2025-06-06T12:00:00.000Z",
+      "updated_at": "2025-06-06T12:00:00.000Z"
+    }
+  ]
+
+- **Response (Error - 401, if not admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only admins can view complaints",
+    "error": "Unauthorized"
+  }
+
+### 67. Resolve Complaint (Admin)
+- **Endpoint**: `POST /api/admin/complaints/:id/resolve`
+- **Description**: Allows admins to resolve or reject a complaint with an optional comment.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the complaint.
+- **Request Body**:
+  ```json
+  {
+    "status": "Resolved",
+    "comment": "Issue addressed with the user"
+  }
+
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "<complaintId>",
+    "complainant_id": "<userId>",
+    "job_post_id": "<jobPostId>",
+    "profile_id": null,
+    "reason": "Inappropriate content in the job description",
+    "status": "Resolved",
+    "resolution_comment": "Issue addressed with the user",
+    "created_at": "2025-06-06T12:00:00.000Z",
+    "updated_at": "2025-06-06T12:30:00.000Z"
+  }
+
+- **Response (Error - 401, if not admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only admins can resolve complaints",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 404, if complaint not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Complaint not found",
+    "error": "Not Found"
+  }

@@ -6,6 +6,7 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 import { SettingsService } from '../settings/settings.service';
 import { Response } from 'express';
 import { AntiFraudService } from '../anti-fraud/anti-fraud.service';
+import { ComplaintsService } from '../complaints/complaints.service';
 
 @Controller('admin')
 export class AdminController {
@@ -14,6 +15,7 @@ export class AdminController {
     private settingsService: SettingsService,
     private jwtService: JwtService,
     private antiFraudService: AntiFraudService, 
+    private complaintsService: ComplaintsService,
   ) {}
 
   @Get('users/export-csv')
@@ -536,5 +538,37 @@ export class AdminController {
     const payload = this.jwtService.verify(token);
     const adminId = payload.sub;
     return this.adminService.getOnlineUsers(adminId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Get('complaints')
+    async getComplaints(@Headers('authorization') authHeader: string) {
+    console.log('Get Complaints Request:', { authHeader });
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+
+    return this.complaintsService.getComplaints(adminId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @Post('complaints/:id/resolve')
+  async resolveComplaint(
+    @Headers('authorization') authHeader: string,
+    @Param('id') complaintId: string,
+    @Body() body: { status: 'Resolved' | 'Rejected'; comment?: string },
+  ) {
+    console.log('Resolve Complaint Request:', { authHeader, complaintId, body });
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+
+    return this.complaintsService.resolveComplaint(adminId, complaintId, body.status, body.comment);
   }
 }
