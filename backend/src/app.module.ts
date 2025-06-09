@@ -19,6 +19,7 @@ import { LeaderboardsModule } from './leaderboards/leaderboards.module';
 import { ApplicationLimitsModule } from './application-limits/application-limits.module';
 import { TalentsModule } from './talents/talents.module';
 import { ComplaintsModule } from './complaints/complaints.module';
+import { StatsModule } from './stats/stats.module';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 @Module({
@@ -65,6 +66,7 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
     ApplicationLimitsModule,
     TalentsModule,
     ComplaintsModule,
+    StatsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
