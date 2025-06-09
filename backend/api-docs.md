@@ -2425,3 +2425,16 @@
     "message": "Complaint not found",
     "error": "Not Found"
   }
+
+### 68. Get Public Statistics
+- **Endpoint**: `GET /api/stats`
+- **Description**: Retrieves public statistics about the platform, including the total number of resumes (jobseeker profiles), job posts, and employers. Accessible to both authenticated and unauthenticated users.
+- **Headers**: None (optional `Authorization: Bearer <token>` for authenticated users, but not required)
+- **Request Parameters**: None
+- **Response (Success - 200)**:
+  ```json
+  {
+    "totalResumes": 150,
+    "totalJobPosts": 300,
+    "totalEmployers": 50
+  }
