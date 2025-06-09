@@ -2,6 +2,7 @@ import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards,
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
+import { CreateModeratorDto } from './dto/create-moderator.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
@@ -124,6 +125,20 @@ export class AuthController {
     const ip = ipHeader.split(',')[0].trim();
     console.log('Client IP:', ip);
     return this.authService.register(createAdminDto, ip, fingerprint);
+  }
+
+  @Post('create-moderator')
+  async createModerator(
+    @Body() createModeratorDto: CreateModeratorDto,
+    @Headers('x-forwarded-for') xForwardedFor?: string,
+    @Headers('x-real-ip') xRealIp?: string,
+    @Headers('x-fingerprint') fingerprint?: string,
+    @Req() req?: any,
+  ) {
+    const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
+    const ip = ipHeader.split(',')[0].trim();
+    console.log('Client IP:', ip);
+    return this.authService.register(createModeratorDto, ip, fingerprint);
   }
 
   @Post('test-register')

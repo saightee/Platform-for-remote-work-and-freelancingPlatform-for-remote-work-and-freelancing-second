@@ -3,15 +3,15 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
 import { BlockedCountriesService } from '../blocked-countries/blocked-countries.service';
-import { AntiFraudService } from '../anti-fraud/anti-fraud.service'; 
+import { AntiFraudService } from '../anti-fraud/anti-fraud.service';
 import * as bcrypt from 'bcrypt';
 import * as geoip from 'geoip-lite';
 import { RegisterDto } from './dto/register.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
+import { CreateModeratorDto } from './dto/create-moderator.dto';
 import { LoginDto } from './dto/login.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { Transporter } from 'nodemailer';
-
 
 @Injectable()
 export class AuthService {
@@ -24,7 +24,7 @@ export class AuthService {
     @Inject('MAILER_TRANSPORT') private mailerTransport: Transporter,
   ) {}
 
-  async register(dto: RegisterDto | CreateAdminDto, ip: string, fingerprint?: string) {
+  async register(dto: RegisterDto | CreateAdminDto | CreateModeratorDto, ip: string, fingerprint?: string) {
     const { email, password, username } = dto;
 
     let country: string | null = null;
@@ -45,15 +45,15 @@ export class AuthService {
       throw new BadRequestException('Email already exists');
     }
 
-    let role: 'employer' | 'jobseeker' | 'admin';
+    let role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
     if ('secretKey' in dto) {
       const validSecretKey = process.env.ADMIN_SECRET_KEY || 'mySuperSecretAdminKey123';
       if (dto.secretKey !== validSecretKey) {
         throw new UnauthorizedException('Invalid secret key');
       }
-      role = 'admin';
+      role = ('create-moderator' in dto) ? 'moderator' : 'admin';
     } else {
-      role = dto.role;
+      role = (dto as RegisterDto).role;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -105,7 +105,7 @@ export class AuthService {
     const token = this.jwtService.sign(payload, { expiresIn });
     const expirySeconds = rememberMe ? 7 * 24 * 60 * 60 : 3600;
     await this.redisService.set(`token:${user.id}`, token, expirySeconds);
-    await this.redisService.setUserOnline(user.id, user.role as 'jobseeker' | 'employer'); 
+    await this.redisService.setUserOnline(user.id, user.role as 'jobseeker' | 'employer');
     return { accessToken: token };
   }
 
