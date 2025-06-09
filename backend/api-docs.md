@@ -2438,3 +2438,232 @@
     "totalJobPosts": 300,
     "totalEmployers": 50
   }
+
+### 68. Approve Job Post (Moderator)
+- **Endpoint**: `POST api/moderator/job-posts/:id/approve`
+- **Description**: Approves a job post by setting pending_review to false (moderator or admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job post.
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "<jobPostId>",
+    "title": "Software Engineer",
+    "description": "We are looking for a skilled software engineer...",
+    "location": "Remote",
+    "salary": 50000,
+    "status": "Active",
+    "pending_review": false,
+    "category_id": "<categoryId>",
+    "job_type": "Full-time",
+    "employer_id": "<employerId>",
+    "applicationLimit": 100,
+    "created_at": "2025-06-15T06:00:00.000Z",
+    "updated_at": "2025-06-15T06:00:00.000Z"
+  }
+
+- **Response (Error - 404, if job post not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
+  }
+
+- **Response (Error - 401, if not authorized)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only moderators or admins can access this resource",
+    "error": "Unauthorized"
+  }
+
+### 69. Flag Job Post (Moderator)
+- **Endpoint**: `POST api/moderator/job-posts/:id/flag`
+- **Description**: Flags a job post for review by setting pending_review to true (moderator or admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job post.
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "<jobPostId>",
+    "title": "Software Engineer",
+    "description": "We are looking for a skilled software engineer...",
+    "location": "Remote",
+    "status": "Active",
+    "pending_review": true,
+    "category_id": "<categoryId>",
+    "job_type": "Full-time",
+    "employer_id": "<employerId>",
+    "applicationLimit": 100,
+    "created_at": "2025-06-15T06:00:00.000Z",
+    "updated_at": "2025-06-15T06:00:00.000Z"
+  }
+
+- **Response (Error - 404, if job post not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
+  }
+
+- **Response (Error - 404, if job post not found)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only moderators or admins can access this resource",
+    "error": "Unauthorized"
+  }
+
+### 70. Get All Reviews (Moderator)
+- **Endpoint**: `GET api/moderator/reviews`
+- **Description**: Retrieves all reviews (moderator or admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "id": "<reviewId>",
+      "reviewer_id": "<userId>",
+      "reviewed_id": "<userId>",
+      "job_application_id": "<jobApplicationId>",
+      "rating": 4,
+      "comment": "Great work, very professional!",
+      "reviewer": {
+        "id": "<userId>",
+        "email": "employer4@example.com",
+        "username": "employer4",
+        "role": "employer"
+      },
+      "reviewed": {
+        "id": "<userId>",
+        "email": "jobseeker1@example.com",
+        "username": "jobseeker1",
+        "role": "jobseeker"
+      },
+      "job_application": {
+        "id": "<jobApplicationId>",
+        "job_post_id": "<jobPostId>",
+        "job_seeker_id": "<userId>",
+        "status": "Accepted"
+      },
+      "created_at": "2025-06-13T18:00:00.000Z",
+      "updated_at": "2025-06-13T18:00:00.000Z"
+    }
+  ]
+
+- **Response (Error - 401, if not authorized)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only moderators or admins can access this resource",
+    "error": "Unauthorized"
+  }
+
+### 71. Delete Review (Moderator)
+- **Endpoint**: `DELETE api/moderator/reviews/:id`
+- **Description**: Deletes a specific review (moderator or admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the review.
+- **Response (Success - 200)**:
+  ```json
+  {
+    "message": "Review deleted successfully"
+  }
+
+- **Response (Error - 404, if review not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Review not found",
+    "error": "Not Found"
+  }
+
+- **Response (Error - 401, if not authorized)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only moderators or admins can access this resource",
+    "error": "Unauthorized"
+  }
+
+### 72. Get All Complaints (Moderator)
+- **Endpoint**: `GET api/moderator/complaints`
+- **Description**: Retrieves all complaints for moderator review.
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "id": "<complaintId>",
+      "complainant_id": "<userId>",
+      "complainant": {
+        "id": "<userId>",
+        "username": "john_doe",
+        "email": "john@example.com",
+        "role": "jobseeker"
+      },
+      "job_post_id": "<jobPostId>",
+      "job_post": {
+        "id": "<jobPostId>",
+        "title": "Software Engineer",
+        "description": "Looking for a skilled engineer"
+      },
+      "profile_id": null,
+      "reason": "Inappropriate content in the job description",
+      "status": "Pending",
+      "created_at": "2025-06-06T12:00:00.000Z",
+      "updated_at": "2025-06-06T12:00:00.000Z"
+    }
+  ]
+
+- **Response (Error - 401, if not authorized)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only moderators or admins can access this resource",
+    "error": "Unauthorized"
+  }
+
+### 73. Resolve Complaint (Moderator)
+- **Endpoint**: `POST api/moderator/complaints/:id/resolve`
+- **Description**: Allows moderators to resolve or reject a complaint with an optional comment.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the complaint.
+- **Request Body**:
+  ```json
+  {
+    "status": "Resolved",
+    "comment": "Issue addressed with the user"
+  }
+
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "<complaintId>",
+    "complainant_id": "<userId>",
+    "job_post_id": "<jobPostId>",
+    "profile_id": null,
+    "reason": "Inappropriate content in the job description",
+    "status": "Resolved",
+    "resolution_comment": "Issue addressed with the user",
+    "created_at": "2025-06-06T12:00:00.000Z",
+    "updated_at": "2025-06-06T12:30:00.000Z"
+  }
+
+- **Response (Error - 401, if not authorized)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only moderators or admins can access this resource",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 404, if complaint not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Complaint not found",
+    "error": "Not Found"
+  }

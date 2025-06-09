@@ -20,6 +20,7 @@ import { ApplicationLimitsModule } from './application-limits/application-limits
 import { TalentsModule } from './talents/talents.module';
 import { ComplaintsModule } from './complaints/complaints.module';
 import { StatsModule } from './stats/stats.module';
+import { ModeratorModule } from './moderator/moderator.module';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 @Module({
@@ -67,6 +68,7 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
     TalentsModule,
     ComplaintsModule,
     StatsModule,
+    ModeratorModule,
   ],
   controllers: [AppController],
   providers: [AppService],
