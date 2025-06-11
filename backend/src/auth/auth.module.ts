@@ -16,6 +16,7 @@ import { AdminGuard } from './guards/admin.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { ModeratorGuard } from './guards/moderator.guard';
 import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
     RedisModule,
     BlockedCountriesModule,
     AntiFraudModule,
+    EmailModule,
   ],
   controllers: [AuthController],
   providers: [
