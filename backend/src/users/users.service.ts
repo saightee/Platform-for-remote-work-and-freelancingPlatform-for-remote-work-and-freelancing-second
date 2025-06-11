@@ -17,7 +17,7 @@ export class UsersService {
   ) {}
 
   async create(
-    userData: Partial<User> & { email: string; username: string; role: 'employer' | 'jobseeker' | 'admin' },
+    userData: Partial<User> & { email: string; username: string; role: 'employer' | 'jobseeker' | 'admin' | 'moderator' },
     additionalData: any,
   ): Promise<User> {
     console.log('Creating user with data:', userData);
@@ -28,6 +28,7 @@ export class UsersService {
       role: userData.role,
       provider: userData.provider || null,
       country: userData.country || null,
+      is_email_verified: userData.is_email_verified || false,
     };
     const user = this.usersRepository.create(userEntity);
     const savedUser = await this.usersRepository.save(user);
@@ -58,21 +59,53 @@ export class UsersService {
       const employer = this.employerRepository.create(employerEntity);
       await this.employerRepository.save(employer);
       console.log('Employer profile created:', employer);
-    } else if (userData.role === 'admin') {
-      console.log('Admin user created:', savedUser);
+    } else if (userData.role === 'admin' || userData.role === 'moderator') {
+      console.log(`${userData.role} user created:`, savedUser);
     }
 
     return savedUser;
   }
 
-  async updateUser(userId: string, role: 'employer' | 'jobseeker', additionalData: any) {
+  async updateUser(userId: string, role: 'employer' | 'jobseeker' | 'admin' | 'moderator', additionalData: any) {
+    console.log(`[UsersService] Обновление пользователя: userId=${userId}, role=${role}, data=${JSON.stringify(additionalData)}`);
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
+      console.error(`[UsersService] Пользователь не найден: userId=${userId}`);
       throw new NotFoundException('User not found');
     }
 
-    user.role = role;
-    await this.usersRepository.save(user);
+    if (additionalData.is_email_verified !== undefined) {
+      user.is_email_verified = additionalData.is_email_verified;
+    }
+    if (role) {
+      user.role = role;
+    }
+    if (additionalData.username) {
+      user.username = additionalData.username;
+    }
+    if (additionalData.email) {
+      user.email = additionalData.email;
+    }
+    if (additionalData.country) {
+      user.country = additionalData.country;
+    }
+    if (additionalData.avatar) {
+      user.avatar = additionalData.avatar;
+    }
+    if (additionalData.status) {
+      user.status = additionalData.status;
+    }
+    if (additionalData.risk_score !== undefined) {
+      user.risk_score = additionalData.risk_score;
+    }
+
+    try {
+      const updatedUser = await this.usersRepository.save(user);
+      console.log(`[UsersService] User updated: ${JSON.stringify(updatedUser)}`);
+    } catch (error) {
+      console.error(`[UsersService] Error during user update: ${error.message}`);
+      throw error;
+    }
 
     if (role === 'jobseeker') {
       const jobSeekerEntity: DeepPartial<JobSeeker> = {
@@ -86,6 +119,7 @@ export class UsersService {
       };
       const jobSeeker = this.jobSeekerRepository.create(jobSeekerEntity);
       await this.jobSeekerRepository.save(jobSeeker);
+      console.log(`[UsersService] JobSeeker profile updated: ${JSON.stringify(jobSeeker)}`);
     } else if (role === 'employer') {
       const employerEntity: DeepPartial<Employer> = {
         user_id: userId,
@@ -97,7 +131,10 @@ export class UsersService {
       };
       const employer = this.employerRepository.create(employerEntity);
       await this.employerRepository.save(employer);
+      console.log(`[UsersService] Employer profile updated: ${JSON.stringify(employer)}`);
     }
+
+    return user;
   }
 
   async updatePassword(userId: string, newPassword: string): Promise<void> {
@@ -158,5 +195,6 @@ export class UsersService {
   }
 
   async getUserById(userId: string): Promise<User | null> {
-  return this.usersRepository.findOne({ where: { id: userId } });}
+    return this.usersRepository.findOne({ where: { id: userId } });
+  }
 }

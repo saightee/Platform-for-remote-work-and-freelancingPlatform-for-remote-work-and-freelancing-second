@@ -19,10 +19,15 @@ import { ApplicationLimitsModule } from '../application-limits/application-limit
 import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
 import { RedisModule } from '../redis/redis.module';
 import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
+import { ComplaintsModule } from '../complaints/complaints.module';
+import { ComplaintsService } from '../complaints/complaints.service';
+import { Complaint } from '../complaints/complaint.entity';
+import { Feedback } from '../feedback/feedback.entity';
+import { BlockedCountry } from '../blocked-countries/blocked-country.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, JobPost, Review, JobApplication, JobSeeker, Employer, ApplicationLimit, UserFingerprint]),
+    TypeOrmModule.forFeature([User, JobPost, Review, Feedback, BlockedCountry, JobApplication, JobSeeker, Employer, ApplicationLimit, UserFingerprint, Complaint]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -38,8 +43,9 @@ import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
     LeaderboardsModule,
     RedisModule,
     AntiFraudModule,
+    ComplaintsModule,
   ],
   controllers: [AdminController],
-  providers: [AdminService],
+  providers: [AdminService, ComplaintsService],
 })
 export class AdminModule {}

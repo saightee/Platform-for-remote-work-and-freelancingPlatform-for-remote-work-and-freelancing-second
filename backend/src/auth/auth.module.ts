@@ -14,7 +14,9 @@ import * as nodemailer from 'nodemailer';
 import { BlockedCountriesModule } from '../blocked-countries/blocked-countries.module';
 import { AdminGuard } from './guards/admin.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { ModeratorGuard } from './guards/moderator.guard';
 import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -38,6 +40,7 @@ import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
     RedisModule,
     BlockedCountriesModule,
     AntiFraudModule,
+    EmailModule,
   ],
   controllers: [AuthController],
   providers: [
@@ -48,6 +51,7 @@ import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
     GoogleAuthGuard,
     // LinkedInStrategy,
     AdminGuard,
+    ModeratorGuard,
     {
       provide: 'MAILER_TRANSPORT',
       useFactory: (configService: ConfigService) => {
@@ -63,6 +67,6 @@ import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
       inject: [ConfigService],
     },
   ],
-  exports: [JwtModule, AdminGuard],
+  exports: [JwtModule, AdminGuard, ModeratorGuard],
 })
 export class AuthModule {}

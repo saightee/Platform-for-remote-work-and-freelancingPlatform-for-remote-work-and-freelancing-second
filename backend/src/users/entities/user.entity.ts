@@ -15,7 +15,7 @@ export class User {
   username: string;
 
   @Column()
-  role: 'employer' | 'jobseeker' | 'admin';
+  role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
 
   @Column({ type: 'varchar', nullable: true })
   provider: string | null;
@@ -23,20 +23,23 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   country: string | null;
 
-  @Column({ type: 'varchar', nullable: true }) 
+  @Column({ type: 'varchar', nullable: true })
   avatar: string | null;
 
   @Column({ type: 'boolean', default: false })
   identity_verified: boolean;
 
-  @Column({ type: 'varchar', nullable: true }) 
+  @Column({ type: 'varchar', nullable: true })
   identity_document: string | null;
 
   @Column({ type: 'varchar', default: 'active' })
   status: 'active' | 'blocked';
 
-  @Column({ type: 'int', default: 0 }) 
+  @Column({ type: 'int', default: 0 })
   risk_score: number;
+
+  @Column({ type: 'boolean', default: false })
+  is_email_verified: boolean;
 
   @CreateDateColumn()
   created_at: Date;

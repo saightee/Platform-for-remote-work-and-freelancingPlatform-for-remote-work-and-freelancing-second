@@ -25,6 +25,36 @@ export class ProfilesController {
     return this.profilesService.getProfile(userId);
   }
 
+  @Get(':id')
+  async getProfileById(
+    @Param('id') userId: string,
+    @Headers('authorization') authHeader?: string,
+  ) {
+    let isAuthenticated = false;
+    let viewerId: string | null = null;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const payload = this.jwtService.verify(token);
+        isAuthenticated = true;
+        viewerId = payload.sub;
+      } catch (error) {
+        // Игнорируем ошибку токена, так как эндпоинт публичный
+      }
+    }
+
+    // Получаем профиль
+    const profile = await this.profilesService.getProfile(userId, isAuthenticated);
+
+    // Увеличиваем счётчик просмотров для фрилансера
+    if (profile.role === 'jobseeker') {
+      await this.profilesService.incrementProfileView(userId);
+    }
+
+    return profile;
+  }
+
   @Put()
   @UseGuards(AuthGuard('jwt'))
   async updateProfile(
