@@ -1,24 +1,54 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { getJobPost, applyToJobPost, incrementJobView, checkJobApplicationStatus } from '../services/api';
 import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
-import { FaEye } from 'react-icons/fa';
+import { FaEye, FaBriefcase, FaDollarSign, FaMapMarkerAlt, FaCalendarAlt, FaUserCircle } from 'react-icons/fa';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
+// import { mockJobDetails } from '../mocks/mockJobDetails'; // Закомментировано
+import sanitizeHtml from 'sanitize-html';
 
 const JobDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { profile } = useRole();
   const [job, setJob] = useState<JobPost | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasApplied, setHasApplied] = useState<boolean>(false);
 
+  // Для разработки: использование мок-данных (закомментировано)
+  // useEffect(() => {
+  //   const fetchMockJob = async () => {
+  //     try {
+  //       if (id) {
+  //         setLoading(true);
+  //         setError(null);
+  //         const jobData = mockJobDetails;
+  //         setJob(jobData);
+  //         setTimeout(() => {
+  //           setJob((prev) => (prev ? { ...prev, views: (prev.views || 0) + 1 } : prev));
+  //         }, 500);
+  //         if (profile?.role === 'jobseeker') {
+  //           setHasApplied(false);
+  //         }
+  //       }
+  //     } catch (err: any) {
+  //       console.error('Error fetching mock job:', err);
+  //       setError('Failed to load mock job details.');
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+  //   fetchMockJob();
+  // }, [id, profile]);
+
+  // Для продакшена: раскомментировать этот useEffect
   useEffect(() => {
     const fetchJob = async () => {
       try {
@@ -84,6 +114,11 @@ const JobDetails: React.FC = () => {
     }
   };
 
+  const goBackToSearch: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
+    e.preventDefault();
+    navigate('/find-job', { state: { scrollPosition: location.state?.scrollPosition || 0 } });
+  };
+
   if (loading) return <div>Loading...</div>;
   if (!job) return <div>Job not found.</div>;
 
@@ -91,27 +126,62 @@ const JobDetails: React.FC = () => {
     <div>
       <Header />
       <div className="container job-details-container">
-        <h1>{job.title}</h1>
-        {error && <p className="error-message">{error}</p>}
+        <div className="job-details-header">
+          <a
+            href="/find-job"
+            onClick={goBackToSearch}
+            className="back-link"
+            aria-label="Back to search results"
+          >
+            Back to search results
+          </a>
+          {job && <h1>{job.title}</h1>}
+          <div className="employer-info">
+            {job?.employer?.avatar ? (
+              <img
+                src={`https://jobforge.net/backend${job.employer.avatar}`}
+                alt="Employer Avatar"
+                className="employer-avatar"
+              />
+            ) : (
+              <FaUserCircle className="employer-avatar" />
+            )}
+            <span className="employer-name">{job?.employer?.username || 'Unknown'}</span>
+          </div>
+          {!profile && (
+            <p className="login-prompt">
+              Please{' '}
+              <Link to="/login" style={{ color: 'white', textDecoration: 'none' }}>
+                login
+              </Link>{' '}
+              or{' '}
+              <Link to="/register/jobseeker" style={{ color: 'white', textDecoration: 'none' }}>
+                register
+              </Link>{' '}
+              as jobseeker to apply for this job.
+            </p>
+          )}
+        </div>
+        <div className="job-details-panel">
+          <div className="job-detail-item">
+            <FaBriefcase /> <strong>Type of Work:</strong> {job.job_type || 'Not specified'}
+          </div>
+          <div className="job-detail-item">
+            <FaDollarSign /> <strong>Salary:</strong>{' '}
+            {job.salary ? `$${job.salary}` : 'Not specified'}
+          </div>
+          <div className="job-detail-item">
+            <FaMapMarkerAlt /> <strong>Location:</strong> {job.location || 'Not specified'}
+          </div>
+          <div className="job-detail-item">
+            <FaCalendarAlt /> <strong>Date Updated:</strong>{' '}
+            {formatDateInTimezone(job.updated_at, profile?.timezone) || 'Jun 9, 2025, 1:05 PM'}
+          </div>
+        </div>
         <div className="job-details-content">
           <div className="job-details-info">
-            <p><strong>Location:</strong> {job.location || 'Not specified'}</p>
-            <p>
-              <strong>Salary:</strong>{' '}
-              {job.salary
-                ? `${profile?.currency || '$'}${job.salary}`
-                : 'Not specified'}
-            </p>
-            <p><strong>Job Type:</strong> {job.job_type || 'Not specified'}</p>
-            <p><strong>Category:</strong> {job.category?.name || 'Not specified'}</p>
-            <p>
-              <strong>Posted On:</strong>{' '}
-              {formatDateInTimezone(job.created_at, profile?.timezone)}
-            </p>
-            <p><strong>Status:</strong> {job.status}</p>
-            <p><strong>Views:</strong> <FaEye /> {job.views || 0}</p>
-            <h2>Description</h2>
-            <p>{job.description}</p>
+            <h2>Job Overview</h2>
+            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(job.description) }} />
           </div>
           <div className="job-details-actions">
             {profile?.role === 'jobseeker' && job.status === 'Active' ? (

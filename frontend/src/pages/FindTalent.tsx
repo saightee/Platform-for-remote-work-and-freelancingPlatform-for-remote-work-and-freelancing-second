@@ -6,7 +6,8 @@ import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { searchTalents, getCategories } from '../services/api';
 import { Profile, Category } from '@types';
-import { FaUserCircle } from 'react-icons/fa';
+import { FaUserCircle, FaFilter } from 'react-icons/fa';
+// import { mockTalents } from '../mocks/mockTalents'; // Закомментировано
 
 const FindTalent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,8 +32,18 @@ const FindTalent: React.FC = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const navigate = useNavigate();
 
+  // Для разработки: использование мок-данных (закомментировано)
+  // useEffect(() => {
+  //   const mockProfile = { role: 'employer' }; // Эмуляция роли для доступа
+  //   setTalents(mockTalents); // Установка мок-данных
+  //   setCategories([]); // Пустой массив категорий, так как не загружаем их
+  //   setIsLoading(false); // Отключаем загрузку
+  // }, []);
+
+  // Для продакшена: раскомментировать этот useEffect
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -65,10 +76,59 @@ const FindTalent: React.FC = () => {
     e.preventDefault();
     setFilters((prev) => ({ ...prev, page: 1 }));
     setSearchParams({ skills: filters.skills });
+    setIsFilterPanelOpen(false);
   };
 
   const handlePageChange = (newPage: number) => {
     setFilters((prev) => ({ ...prev, page: newPage }));
+  };
+
+  const toggleFilterPanel = () => {
+    setIsFilterPanelOpen(prev => !prev);
+  };
+
+  const truncateDescription = (description: string, maxLength: number) => {
+    if (description.length > maxLength) {
+      return description.substring(0, maxLength) + '...';
+    }
+    return description;
+  };
+
+  // Вычисляем общее количество страниц на основе total из ответа API
+  // Примечание: total будет добавлено бэкэндером в ответ /talents, пока используем запасной вариант
+  const totalPages = talents.length > 0 && (talents[0] as any)?.total ? Math.ceil((talents[0] as any).total / filters.limit) : 1;
+
+  const getVisiblePages = () => {
+    const maxVisible = 5;
+    const pages = [];
+    const currentPage = filters.page;
+
+    if (currentPage <= 3) {
+      for (let i = 1; i <= Math.min(maxVisible, totalPages); i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+      if (currentPage > 4) {
+        pages.push('...');
+      }
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(currentPage + 1, totalPages); i++) {
+        if (i > 1 && i < totalPages) {
+          pages.push(i);
+        }
+      }
+    }
+
+    if (totalPages > maxVisible && currentPage < totalPages - 1) {
+      if (!pages.includes('...')) {
+        pages.push('...');
+      }
+      if (!pages.includes(totalPages)) {
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
   };
 
   if (isLoading) return <div>Loading...</div>;
@@ -77,9 +137,9 @@ const FindTalent: React.FC = () => {
   return (
     <div>
       <Header />
-      <div className="container find-job-container">
+      <div className="container ft-container">
         <h2>Find Talent</h2>
-        <div className="search-bar">
+        <div className="ft-search-bar">
           <input
             type="text"
             placeholder="Search by skills or keywords"
@@ -87,12 +147,15 @@ const FindTalent: React.FC = () => {
             onChange={(e) => setFilters({ ...filters, skills: e.target.value })}
           />
           <button onClick={handleSearch}>Search</button>
+          <button className="ft-filter-toggle" onClick={toggleFilterPanel}>
+            <FaFilter />
+          </button>
         </div>
-        <div className="find-job-content">
-          <div className="find-job-filters">
+        <div className="ft-content">
+          <div className={`ft-filters ${isFilterPanelOpen ? 'open' : ''}`}>
             <h3>Filters</h3>
-            <form onSubmit={handleSearch} className="search-form">
-              <div className="form-group">
+            <form onSubmit={handleSearch} className="ft-search-form">
+              <div className="ft-form-group">
                 <label>Skills:</label>
                 <input
                   type="text"
@@ -101,7 +164,7 @@ const FindTalent: React.FC = () => {
                   placeholder="Enter skills (e.g., JavaScript, Python)"
                 />
               </div>
-              <div className="form-group">
+              <div className="ft-form-group">
                 <label>Experience:</label>
                 <input
                   type="text"
@@ -110,7 +173,7 @@ const FindTalent: React.FC = () => {
                   placeholder="Enter experience (e.g., 3 years)"
                 />
               </div>
-              <div className="form-group">
+              <div className="ft-form-group">
                 <label>Minimum Rating:</label>
                 <input
                   type="number"
@@ -126,7 +189,7 @@ const FindTalent: React.FC = () => {
                   placeholder="Enter rating (0-5)"
                 />
               </div>
-              <div className="form-group">
+              <div className="ft-form-group">
                 <label>Timezone:</label>
                 <input
                   type="text"
@@ -135,7 +198,7 @@ const FindTalent: React.FC = () => {
                   placeholder="Enter timezone (e.g., America/New_York)"
                 />
               </div>
-              <div className="form-group">
+              <div className="ft-form-group">
                 <label>Category:</label>
                 <select
                   value={filters.category_id}
@@ -149,11 +212,11 @@ const FindTalent: React.FC = () => {
                   ))}
                 </select>
               </div>
-              <button type="submit" className="action-button">Apply Filters</button>
+              <button type="submit" className="ft-button ft-success">Apply Filters</button>
             </form>
           </div>
-          <div className="find-job-results">
-            <div className="job-grid">
+          <div className="ft-results">
+            <div className="ft-grid">
               {talents.length > 0 ? (
                 talents.map((talent) => {
                   const rating = (talent as any).average_rating ?? (talent as any).averageRating ?? null;
@@ -167,32 +230,43 @@ const FindTalent: React.FC = () => {
                   const profileViews = (talent as any).profile_views ?? (talent as any).profileViews ?? 0;
 
                   return (
-                    <div key={talent.id} className="job-card">
-                      <div className="job-card-avatar">
+                    <div key={talent.id} className="ft-card">
+                      <div className="ft-avatar-top">
                         {talent.avatar ? (
                           <img src={`https://jobforge.net/backend${talent.avatar}`} alt="Talent Avatar" />
                         ) : (
-                          <FaUserCircle className="profile-avatar-icon" />
+                          <FaUserCircle className="ft-avatar-icon" />
                         )}
                       </div>
-                      <div className="job-card-content">
-                        <div className="job-title-row">
+                      <div className="ft-content">
+                        <div className="ft-title-row">
                           <h3>{talent.username}</h3>
-                          <span className="job-type">
-                            {typeof rating === 'number' ? `${rating} ★` : 'No rating'}
-                          </span>
+                          {typeof rating === 'number' && (
+                            <span className="ft-rating-top-right">{Array.from({ length: 5 }, (_, i) => (
+                              <span key={i} className={i < Math.floor(rating) ? 'ft-star-filled' : 'ft-star'}>
+                                ★
+                              </span>
+                            ))}</span>
+                          )}
                         </div>
-                        <p><strong>Skills:</strong> {skills.length > 0 ? skills.join(', ') : 'Not specified'}</p>
-                        <p><strong>Experience:</strong> {experience || 'Not specified'}</p>
-                        <p>
-                          <strong>Categories:</strong>{' '}
-                          {categoryList.length > 0
-                            ? categoryList.map((cat: Category) => cat.name).join(', ')
-                            : 'Not specified'}
-                        </p>
-                        <p><strong>Profile Views:</strong> {typeof profileViews === 'number' ? profileViews : 0}</p>
-                        <div className="job-card-footer">
-                          <Link to={`/users/${talent.id}`} className="view-details-button">
+                        <div className="ft-details-columns">
+                          <div className="ft-details-column">
+                            <p><strong>Skills:</strong> {skills.length > 0 ? skills.join(', ') : 'Not specified'}</p>
+                            <p><strong>Experience:</strong> {experience || 'Not specified'}</p>
+                          </div>
+                          <div className="ft-details-column">
+                            <p><strong>Profile Views:</strong> {typeof profileViews === 'number' ? profileViews : 0}</p>
+                            <p>
+                              <strong>Categories:</strong>{' '}
+                              {categoryList.length > 0
+                                ? categoryList.map((cat: Category) => cat.name).join(', ')
+                                : 'Not specified'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="ft-footer">
+                          <div className="ft-spacer"></div>
+                          <Link to={`/users/${talent.id}`} className="ft-button ft-view">
                             View Profile
                           </Link>
                         </div>
@@ -204,19 +278,23 @@ const FindTalent: React.FC = () => {
                 <p>No talents found.</p>
               )}
             </div>
-            <div className="pagination">
+            <div className="ft-pagination">
+              {getVisiblePages().map((page, index) => (
+                <button
+                  key={index}
+                  className={`ft-button ${page === filters.page ? 'ft-current' : ''} ${page === '...' ? 'ft-ellipsis' : ''}`}
+                  onClick={() => typeof page === 'number' && handlePageChange(page)}
+                  disabled={page === '...' || page === filters.page}
+                >
+                  {page}
+                </button>
+              ))}
               <button
-                disabled={filters.page === 1}
-                onClick={() => handlePageChange(filters.page - 1)}
-              >
-                Previous
-              </button>
-              <span>Page {filters.page}</span>
-              <button
-                disabled={talents.length < filters.limit}
+                className="ft-arrow"
                 onClick={() => handlePageChange(filters.page + 1)}
+                disabled={filters.page === totalPages}
               >
-                Next
+                
               </button>
             </div>
           </div>

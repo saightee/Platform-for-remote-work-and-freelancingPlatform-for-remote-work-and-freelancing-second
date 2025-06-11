@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus } from '../services/api';
@@ -7,6 +8,7 @@ import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
+// import { mockJobPosts, mockCategories } from '../mocks/mockMyJobPosts'; // Закомментировано
 
 const MyJobPosts: React.FC = () => {
   const { profile, isLoading: roleLoading } = useRole();
@@ -19,6 +21,37 @@ const MyJobPosts: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [editingJob, setEditingJob] = useState<Partial<JobPost> | null>(null);
 
+  // Эмуляция profile для мока (закомментировано)
+  // const mockProfile = { role: 'employer' };
+  // if (!mockProfile || mockProfile.role !== 'employer') {
+  //   return (
+  //     <div>
+  //       <Header />
+  //       <div className="container">
+  //         <h2>My Job Posts</h2>
+  //         <p>This page is only available for employers.</p>
+  //       </div>
+  //       <Footer />
+  //       <Copyright />
+  //     </div>
+  //   );
+  // }
+
+  // Мок-useEffect закомментирован
+  // useEffect(() => {
+  //   const mockProfile = { role: 'employer' };
+  //   if (!mockProfile || mockProfile.role !== 'employer') {
+  //     setJobPosts([]);
+  //     setError('This page is only available for employers.');
+  //     setIsLoading(false);
+  //     return;
+  //   }
+  //   setJobPosts(mockJobPosts);
+  //   setCategories(mockCategories);
+  //   setIsLoading(false);
+  // }, []);
+
+  // Для продакшена: раскомментировать этот useEffect
   useEffect(() => {
     const fetchData = async () => {
       if (!profile || profile.role !== 'employer') {
@@ -27,7 +60,7 @@ const MyJobPosts: React.FC = () => {
         setIsLoading(false);
         return;
       }
-
+  
       try {
         setIsLoading(true);
         const [posts, categoriesData] = await Promise.all([getMyJobPosts(), getCategories()]);
@@ -155,7 +188,7 @@ const MyJobPosts: React.FC = () => {
     return description;
   };
 
-  if (roleLoading || isLoading) {
+  if (isLoading) {
     return (
       <div>
         <Header />
@@ -169,13 +202,13 @@ const MyJobPosts: React.FC = () => {
     );
   }
 
-  if (!profile || profile.role !== 'employer') {
+  if (roleLoading || !profile || profile.role !== 'employer') {
     return (
       <div>
         <Header />
         <div className="container">
           <h2>My Job Posts</h2>
-          <p>{error}</p>
+          <p>This page is only available for employers.</p>
         </div>
         <Footer />
         <Copyright />
@@ -190,12 +223,12 @@ const MyJobPosts: React.FC = () => {
         <h2>My Job Posts</h2>
         {error && <p className="error-message">{error}</p>}
         {jobPosts.length > 0 ? (
-          <div className="job-grid">
+          <div className="my-job-grid">
             {jobPosts.map((post) => (
-              <div key={post.id} className="job-card">
+              <div key={post.id} className="my-job-card">
                 {editingJob?.id === post.id ? (
-                  <div className="edit-form">
-                    <div className="form-group">
+                  <div className="my-job-edit-form">
+                    <div className="my-job-form-group">
                       <label>Job Title:</label>
                       <input
                         type="text"
@@ -203,7 +236,7 @@ const MyJobPosts: React.FC = () => {
                         onChange={(e) => editingJob && setEditingJob({ ...editingJob, title: e.target.value })}
                       />
                     </div>
-                    <div className="form-group">
+                    <div className="my-job-form-group">
                       <label>Description:</label>
                       <textarea
                         value={editingJob.description || ''}
@@ -212,7 +245,7 @@ const MyJobPosts: React.FC = () => {
                         placeholder="Enter job description"
                       />
                     </div>
-                    <div className="form-group">
+                    <div className="my-job-form-group">
                       <label>Location:</label>
                       <input
                         type="text"
@@ -220,7 +253,7 @@ const MyJobPosts: React.FC = () => {
                         onChange={(e) => editingJob && setEditingJob({ ...editingJob, location: e.target.value })}
                       />
                     </div>
-                    <div className="form-group">
+                    <div className="my-job-form-group">
                       <label>Salary:</label>
                       <input
                         type="number"
@@ -231,7 +264,7 @@ const MyJobPosts: React.FC = () => {
                         min="0"
                       />
                     </div>
-                    <div className="form-group">
+                    <div className="my-job-form-group">
                       <label>Job Type:</label>
                       <select
                         value={editingJob.job_type || ''}
@@ -249,7 +282,7 @@ const MyJobPosts: React.FC = () => {
                         <option value="Project-based">Project-based</option>
                       </select>
                     </div>
-                    <div className="form-group">
+                    <div className="my-job-form-group">
                       <label>Category:</label>
                       <select
                         value={editingJob.category_id || ''}
@@ -263,11 +296,11 @@ const MyJobPosts: React.FC = () => {
                         ))}
                       </select>
                     </div>
-                    <div className="action-buttons">
-                      <button onClick={() => handleSaveEdit(post.id)} className="action-button success">
+                    <div className="my-job-action-buttons">
+                      <button onClick={() => handleSaveEdit(post.id)} className="my-job-action-button my-job-success">
                         Save Changes
                       </button>
-                      <button onClick={handleCancelEdit} className="action-button">
+                      <button onClick={handleCancelEdit} className="my-job-action-button">
                         Cancel
                       </button>
                     </div>
@@ -278,31 +311,30 @@ const MyJobPosts: React.FC = () => {
                     <p><strong>Description:</strong> {truncateDescription(post.description, 100)}</p>
                     <p><strong>Status:</strong> {post.status}</p>
                     <p><strong>Application Limit:</strong> {post.applicationLimit || 'No limit'}</p>
-                    <p><strong>Posted On:</strong> {formatDateInTimezone(post.created_at, profile.timezone)}</p>
-                    <div className="action-buttons">
-                      <button onClick={() => handleEditJob(post)} className="action-button">
+                    <div className="my-job-action-buttons">
+                      <button onClick={() => handleEditJob(post)} className="my-job-action-button">
                         Edit Job Post
                       </button>
                       {post.status === 'Active' ? (
-                        <button onClick={() => handleClose(post.id)} className="action-button warning">
+                        <button onClick={() => handleClose(post.id)} className="my-job-action-button my-job-warning">
                           Close Job Post
                         </button>
                       ) : (
-                        <button onClick={() => handleReopen(post.id)} className="action-button success">
+                        <button onClick={() => handleReopen(post.id)} className="my-job-action-button my-job-success">
                           Reopen Job Post
                         </button>
                       )}
                       <button
                         onClick={() => handleViewApplications(post.id)}
-                        className="action-button success"
+                        className="my-job-action-button my-job-success"
                       >
                         View Applications
                       </button>
                     </div>
                     {applications.jobPostId === post.id && applications.apps.length > 0 && (
-                      <div className="application-details-section">
+                      <div className="my-job-application-details-section">
                         <h4>Applications:</h4>
-                        <table className="application-table">
+                        <table className="my-job-application-table">
                           <thead>
                             <tr>
                               <th>Username</th>
@@ -319,19 +351,19 @@ const MyJobPosts: React.FC = () => {
                                 <td>{app.username}</td>
                                 <td>{app.email}</td>
                                 <td>{app.jobDescription || 'Not provided'}</td>
-                                <td>{formatDateInTimezone(app.appliedAt, profile.timezone)}</td>
+                                <td>{formatDateInTimezone(app.appliedAt)}</td>
                                 <td>{app.status || 'Pending'}</td>
                                 <td>
                                   <button
                                     onClick={() => handleUpdateApplicationStatus(app.id, 'Accepted', post.id)}
-                                    className="action-button success"
+                                    className="my-job-action-button my-job-success"
                                     disabled={app.status !== 'Pending'}
                                   >
                                     Accept
                                   </button>
                                   <button
                                     onClick={() => handleUpdateApplicationStatus(app.id, 'Rejected', post.id)}
-                                    className="action-button danger"
+                                    className="my-job-action-button my-job-danger"
                                     disabled={app.status !== 'Pending'}
                                   >
                                     Reject

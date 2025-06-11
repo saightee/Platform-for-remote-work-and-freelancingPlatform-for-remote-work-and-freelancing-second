@@ -3,10 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { searchJobPosts, getCategories } from '../services/api';
+import JobCard from '../components/JobCard';
 import { JobPost, Category } from '@types';
-import { formatDateInTimezone } from '../utils/dateUtils';
-import { FaEye, FaUserCircle } from 'react-icons/fa';
+import { FaFilter } from 'react-icons/fa';
 
 const FindJob: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,22 +30,48 @@ const FindJob: React.FC = () => {
     category_id: '',
     required_skills: '',
     page: 1,
-    limit: 10,
+    limit: 30,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const navigate = useNavigate();
 
+  // Для продакшена: работа с эндпоинтами
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        const [jobsData, categoriesData] = await Promise.all([
-          searchJobPosts(searchState),
-          getCategories(),
+        const queryParams = new URLSearchParams();
+        if (searchState.title) queryParams.append('title', searchState.title);
+        if (searchState.location) queryParams.append('location', searchState.location);
+        if (searchState.salary_min) queryParams.append('salary_min', searchState.salary_min.toString());
+        if (searchState.salary_max) queryParams.append('salary_max', searchState.salary_max.toString());
+        if (searchState.job_type) queryParams.append('job_type', searchState.job_type);
+        if (searchState.category_id) queryParams.append('category_id', searchState.category_id);
+        if (searchState.required_skills) {
+          searchState.required_skills.split(',').forEach(skill => queryParams.append('required_skills[]', skill.trim()));
+        }
+        queryParams.append('page', searchState.page.toString());
+        queryParams.append('limit', searchState.limit.toString());
+        queryParams.append('sort_by', 'created_at');
+        queryParams.append('sort_order', 'DESC');
+
+        const [jobsResponse, categoriesResponse] = await Promise.all([
+          fetch(`http://localhost:3000/api/job-posts?${queryParams.toString()}`),
+          fetch('http://localhost:3000/api/categories'),
         ]);
-        setJobs(jobsData);
+
+        if (!jobsResponse.ok) throw new Error(`HTTP error! status: ${jobsResponse.status}`);
+        if (!categoriesResponse.ok) throw new Error(`HTTP error! status: ${categoriesResponse.status}`);
+
+        const jobsData: any = await jobsResponse.json(); // Временное использование any до обновления типов
+        const categoriesData = await categoriesResponse.json();
+
+        // Предполагаем, что бэкенд вернёт объект с полем total (по договорённости с бэкэндером)
+        const totalJobs = jobsData.total || (Array.isArray(jobsData) ? jobsData.length : jobsData.data?.length || 0);
+        setJobs(Array.isArray(jobsData) ? jobsData : jobsData.data || []);
         setCategories(categoriesData);
       } catch (err) {
         console.error('Error fetching jobs:', err);
@@ -62,17 +87,49 @@ const FindJob: React.FC = () => {
     e.preventDefault();
     setSearchState((prev) => ({ ...prev, page: 1 }));
     setSearchParams({ title: searchState.title });
+    setIsFilterPanelOpen(false);
   };
 
   const handlePageChange = (newPage: number) => {
     setSearchState((prev) => ({ ...prev, page: newPage }));
   };
 
-  const truncateDescription = (description: string, maxLength: number) => {
-    if (description.length > maxLength) {
-      return description.substring(0, maxLength) + '...';
+  // Вычисляем общее количество страниц на основе total из ответа API
+  // Примечание: total будет добавлено бэкэндером, пока используем запасной вариант
+  const totalPages = jobs.length > 0 && (jobs[0] as any)?.total ? Math.ceil((jobs[0] as any).total / searchState.limit) : 1;
+
+  // Определяем отображаемые страницы
+  const getVisiblePages = () => {
+    const maxVisible = 5;
+    const pages = [];
+    const currentPage = searchState.page;
+
+    if (currentPage <= 3) {
+      for (let i = 1; i <= Math.min(maxVisible, totalPages); i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+      if (currentPage > 4) {
+        pages.push('...');
+      }
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(currentPage + 1, totalPages); i++) {
+        if (i > 1 && i < totalPages) {
+          pages.push(i);
+        }
+      }
     }
-    return description;
+
+    if (totalPages > maxVisible && currentPage < totalPages - 1) {
+      if (!pages.includes('...')) {
+        pages.push('...');
+      }
+      if (!pages.includes(totalPages)) {
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
   };
 
   if (isLoading) return <div>Loading...</div>;
@@ -91,9 +148,12 @@ const FindJob: React.FC = () => {
             onChange={(e) => setSearchState({ ...searchState, title: e.target.value })}
           />
           <button onClick={handleSearch}>Search</button>
+          <button className="filter-toggle" onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}>
+            <FaFilter />
+          </button>
         </div>
         <div className="find-job-content">
-          <div className="find-job-filters">
+          <div className={`find-job-filters ${isFilterPanelOpen ? 'open' : ''}`}>
             <h3>Filters</h3>
             <form onSubmit={handleSearch} className="search-form">
               <div className="form-group">
@@ -186,60 +246,29 @@ const FindJob: React.FC = () => {
             <div className="job-grid">
               {jobs.length > 0 ? (
                 jobs.map((job) => (
-                  <div key={job.id} className="job-card">
-                    <div className="job-card-avatar">
-                      {job.employer?.avatar ? (
-                        <img src={`https://jobforge.net/backend${job.employer.avatar}`} alt="Employer Avatar" />
-                      ) : (
-                        <FaUserCircle className="profile-avatar-icon" />
-                      )}
-                    </div>
-                    <div className="job-card-content">
-                      <div className="job-title-row">
-                        <h3>{job.title}</h3>
-                        <span className="job-type">{job.job_type || 'Not specified'}</span>
-                        <span className="view-counter">
-                          <FaEye /> {job.views || 0}
-                        </span>
-                      </div>
-                      <p>
-                        <strong>Employer:</strong> {job.employer?.username || 'Unknown'} |{' '}
-                        <strong>Posted on:</strong> {formatDateInTimezone(job.created_at)}
-                      </p>
-                      <p><strong>Salary:</strong> {job.salary ? `$${job.salary}` : 'Not specified'}</p>
-                      <p><strong>Description:</strong> {truncateDescription(job.description, 150)}</p>
-                      <p><strong>Location:</strong> {job.location || 'Not specified'}</p>
-                      <p><strong>Category:</strong> {job.category?.name || 'Not specified'}</p>
-                      <div className="job-card-footer">
-                        <button
-                          onClick={() => navigate(`/jobs/${job.id}`)}
-                          className="view-details-button"
-                        >
-                          View Details
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  <JobCard key={job.id} job={job} variant="find-jobs" />
                 ))
               ) : (
                 <p>No jobs found.</p>
               )}
             </div>
-            <div className="pagination">
+            <div className="job-pagination">
+              {getVisiblePages().map((page, index) => (
+                <button
+                  key={index}
+                  className={`pagination-button ${page === searchState.page ? 'pagination-current' : ''} ${page === '...' ? 'pagination-ellipsis' : ''}`}
+                  onClick={() => typeof page === 'number' && handlePageChange(page)}
+                  disabled={page === '...' || page === searchState.page}
+                >
+                  {page}
+                </button>
+              ))}
               <button
-                onClick={() => handlePageChange(searchState.page - 1)}
-                disabled={searchState.page === 1}
-                className="action-button"
-              >
-                Previous
-              </button>
-              <span>Page {searchState.page}</span>
-              <button
+                className="pagination-arrow"
                 onClick={() => handlePageChange(searchState.page + 1)}
-                disabled={jobs.length < searchState.limit}
-                className="action-button"
+                disabled={searchState.page === totalPages}
               >
-                Next
+                
               </button>
             </div>
           </div>

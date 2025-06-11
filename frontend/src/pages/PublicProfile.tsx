@@ -7,6 +7,7 @@ import { getUserProfileById, getReviewsForUser, incrementProfileView } from '../
 import { Profile, Review, Category } from '@types';
 import { FaUserCircle } from 'react-icons/fa';
 import { formatDateInTimezone } from '../utils/dateUtils';
+// import { mockProfile, mockReviews } from '../mocks/mockPublicProfile'; // Закомментировано
 
 const PublicProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +16,34 @@ const PublicProfile: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Для разработки: использование мок-данных (закомментировано)
+  // useEffect(() => {
+  //   if (!id) {
+  //     setError('Invalid user ID.');
+  //     setIsLoading(false);
+  //     return;
+  //   }
+  //   try {
+  //     setIsLoading(true);
+  //     setError(null);
+  //     if (id === 'talent1') {
+  //       setProfile(mockProfile);
+  //       setReviews(mockReviews);
+  //     } else {
+  //       setError('Profile not found');
+  //       setProfile(null);
+  //       setReviews([]);
+  //     }
+  //     setIsLoading(false);
+  //   } catch (err) {
+  //     console.error('Error with mock data:', err);
+  //     setError('Failed to load profile. Please try again.');
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // }, [id]);
+
+  // Для продакшена: раскомментировать этот useEffect
   useEffect(() => {
     const fetchProfile = async () => {
       if (!id) {
@@ -51,19 +80,19 @@ const PublicProfile: React.FC = () => {
   return (
     <div>
       <Header />
-      <div className="container profile-container">
+      <div className="pp-container">
         <h2>{profile.username}'s Profile</h2>
-        <div className="profile-content">
-          <div className="profile-details">
-            <div className="profile-avatar-section">
+        <div className="pp-content">
+          <div className="pp-details">
+            <div className="pp-avatar-section">
               {profile.avatar ? (
                 <img
                   src={`https://jobforge.net/backend${profile.avatar}`}
                   alt="Avatar"
-                  className="profile-avatar"
+                  className="pp-avatar"
                 />
               ) : (
-                <FaUserCircle className="profile-avatar-icon" />
+                <FaUserCircle className="pp-avatar-icon" />
               )}
             </div>
             <h3>{profile.username}</h3>
@@ -128,13 +157,13 @@ const PublicProfile: React.FC = () => {
               </>
             )}
           </div>
-          <div className="profile-actions">
+          <div className="pp-actions">
             <h3>Reviews</h3>
             {reviews.length > 0 ? (
-              <div className="review-list">
+              <div className="pp-review-list">
                 {reviews.map((review) => (
-                  <div key={review.id} className="review-item">
-                    <div className="review-content">
+                  <div key={review.id} className="pp-review-item">
+                    <div className="pp-review-content">
                       <h4>{review.reviewer?.username || 'Anonymous'}</h4>
                       <p><strong>Rating:</strong> {review.rating} ★</p>
                       <p><strong>Comment:</strong> {review.comment}</p>

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { 
   User, Profile, JobPost, Category, JobApplication, Review, Feedback, 
@@ -377,10 +377,7 @@ export const submitFeedback = async (message: string) => {
   return response.data;
 };
 
-export const getFeedback = async () => {
-  const response = await api.get<Feedback[]>('/admin/feedback');
-  return response.data;
-};
+export const getFeedback = () => api.get('/api/feedback').then((res) => res.data);
 
 // Blocked Countries
 export const addBlockedCountry = async (countryCode: string) => {
@@ -422,3 +419,73 @@ export const sendApplicationNotification = async (applicationId: string, status:
   const response = await api.post(`/job-applications/${applicationId}/notify`, { status });
   return response.data;
 };
+
+interface OnlineUsers {
+  jobseekers: number;
+  employers: number;
+}
+
+interface RecentRegistrations {
+  jobseekers: { id: string; email: string; username: string; role: string; created_at: string }[];
+  employers: { id: string; email: string; username: string; role: string; created_at: string }[];
+}
+
+interface JobPostWithApplications {
+  id: string;
+  title: string;
+  status: string;
+  applicationCount: number;
+  created_at: string;
+}
+
+// Новые функции
+export const getOnlineUsers = async (): Promise<OnlineUsers | null> => {
+  try {
+    const response: AxiosResponse<OnlineUsers> = await api.get('/api/admin/analytics/online-users');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching online users:', error);
+    return null;
+  }
+};
+
+export const getRecentRegistrations = async (params: { limit?: number }): Promise<RecentRegistrations> => {
+  try {
+    const response: AxiosResponse<RecentRegistrations> = await api.get('/api/admin/analytics/recent-registrations', { params });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching recent registrations:', error);
+    return { jobseekers: [], employers: [] };
+  }
+};
+
+export const getJobPostsWithApplications = async (): Promise<JobPostWithApplications[]> => {
+  try {
+    const response: AxiosResponse<JobPostWithApplications[]> = await api.get('/api/admin/job-posts/applications');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching job posts with applications:', error);
+    return [];
+  }
+};
+
+export const getStats = async () => {
+  try {
+    const response: AxiosResponse<{
+      resumes: number;
+      vacancies: number;
+      employers: number;
+    }> = await api.get('/api/stats');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+    throw error; 
+  }
+};
+
+export interface EmployerProfile {
+  id: string;
+  username: string;
+  avatar?: string;
+  // Другие поля, если есть
+}

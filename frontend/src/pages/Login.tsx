@@ -59,12 +59,12 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="register-container">
-      <div className="register-box">
+    <div className="login-container">
+      <div className="login-box">
         <h2>Sign In</h2>
         {errorMessage && <p style={{ color: 'red', textAlign: 'center' }}>{errorMessage}</p>}
-        <div className="register-form">
-          <div className="form-group">
+        <div className="login-form">
+          <div className="login-form-group">
             <label>Email</label>
             <input
               type="email"
@@ -73,31 +73,31 @@ const Login: React.FC = () => {
               placeholder="Enter your email"
             />
           </div>
-          <div className="form-group password-container">
+          <div className="login-form-group login-password-container">
             <label>Password</label>
-            <div className="password-input-wrapper">
+            <div className="login-password-input-wrapper">
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
               />
-              <span className="password-toggle-icon" onClick={togglePasswordVisibility}>
+              <span className="login-password-toggle-icon" onClick={togglePasswordVisibility}>
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </span>
             </div>
           </div>
-          <div className="form-group checkbox-group">
+          <div className="login-form-group login-checkbox-group">
             <input
               type="checkbox"
-              id="remember-me"
+              id="login-remember-me"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
             />
-            <label htmlFor="remember-me">Remember Me</label>
+            <label htmlFor="login-remember-me">Remember Me</label>
           </div>
           <button onClick={handleSubmit}>Sign In</button>
-          <div className="form-links">
+          <div className="login-form-links">
             <p>
               Forgotten your password? <Link to="/reset-password">Reset</Link>
             </p>

@@ -8,27 +8,78 @@ import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { searchJobPosts } from '../services/api';
 import { JobPost } from '@types';
+import { mockJobPosts } from '../mocks/mockJobPosts';
+import { FaSearch, FaLock, FaGlobe, FaChartLine } from 'react-icons/fa';
+import CallToAction from '../components/CallToAction';
+import CountUp from 'react-countup';
+import { getStats } from '../services/api';
 
 const Home: React.FC = () => {
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [filters, setFilters] = useState<{ title?: string }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState({
+    resumes: 83328683,
+    vacancies: 1217625,
+    employers: 2234431,
+  });
+  const [showCookieBanner, setShowCookieBanner] = useState<boolean>(true);
 
+  const formatNumber = (num: number) => {
+    return new Intl.NumberFormat('en-US').format(num);
+  };
+
+// Для разработки: моки вакансий и заглушки статистики
+  // useEffect(() => {
+  //   const fetchMockData = async () => {
+  //     try {
+  //       setIsLoading(true);
+  //       setError(null);
+  //       console.log('Filtering mock jobs with filters:', filters); // Отладка
+  //       // Симулируем задержку API
+  //       await new Promise(resolve => setTimeout(resolve, 500));
+  //       // Фильтруем мок-данные на основе фильтров
+  //       const filteredJobs = mockJobPosts.filter(job => 
+  //         !filters.title || 
+  //         job.title.toLowerCase().includes(filters.title.toLowerCase())
+  //       );
+  //       console.log('Filtered jobs:', filteredJobs); // Отладка
+  //       setJobs(filteredJobs);
+  //     } catch (error: any) {
+  //       console.error('Ошибка при загрузке мок-данных:', error);
+  //       setError('Failed to load recent jobs. Please try again.');
+  //     } finally {
+  //       setIsLoading(false);
+  //     }
+  //   };
+  //   fetchMockData();
+  // }, [filters]);
+
+  // Для продакшена: раскомментировать этот useEffect, когда бэкэнд будет готов
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         setError(null);
+        console.log('Fetching stats and jobs with filters:', filters); // Отладка
+        // Загрузка статистики
+        const statsData = await getStats();
+        setStats({
+          resumes: statsData.resumes,
+          vacancies: statsData.vacancies,
+          employers: statsData.employers,
+        });
+        // Загрузка вакансий
         const jobsData = await searchJobPosts({
           ...filters,
-          limit: 12,
+          limit: 9,
           sort_by: 'created_at',
           sort_order: 'DESC',
         });
         setJobs(jobsData);
       } catch (error: any) {
-        console.error('Ошибка при загрузке вакансий:', error);
+        console.error('Ошибка при загрузке данных:', error);
         setError('Failed to load recent jobs. Please try again.');
       } finally {
         setIsLoading(false);
@@ -39,6 +90,11 @@ const Home: React.FC = () => {
 
   const handleSearch = (searchFilters: { title?: string }) => {
     setFilters(searchFilters);
+  };
+
+  const handleCookieConsent = () => {
+    localStorage.setItem('cookieConsent', 'accepted');
+    setShowCookieBanner(false);
   };
 
   const categories = [
@@ -64,44 +120,67 @@ const Home: React.FC = () => {
     <div>
       <Header />
       <div className="hero">
-        <h1>Professional Job Search Platform</h1>
+        <h1>Professional <span className="highlight">Job</span> Search Platform</h1>
         <p>Connect with top virtual assistants worldwide or find your perfect remote job opportunity</p>
         <SearchBar onSearch={handleSearch} />
+        <div className="counters">
+          <div className="counter-item">
+            <span className="counter-number">
+              <CountUp end={stats.resumes} duration={2} separator="," />
+            </span>
+            <span className="counter-label">resumes</span>
+          </div>
+          <div className="counter-item">
+            <span className="counter-number">
+              <CountUp end={stats.vacancies} duration={2} separator="," />
+            </span>
+            <span className="counter-label">vacancies</span>
+          </div>
+          <div className="counter-item">
+            <span className="counter-number">
+              <CountUp end={stats.employers} duration={2} separator="," />
+            </span>
+            <span className="counter-label">employer</span>
+          </div>
+        </div>
       </div>
       <div className="container">
-        <h2>Recent Job Postings</h2>
+        <div className="jobs-header">
+          <h2>Recent Job Postings</h2>
+          <Link to="/find-job" className="view-all-jobs">View all jobs</Link>
+        </div>
         {isLoading && <div>Loading recent jobs...</div>}
         {error && <div className="error-message">{error}</div>}
-        <div className="job-grid home-job-grid">
+        <div className="home-job-grid job-card-home">
           {jobs.length > 0 ? (
-            jobs.slice(0, 12).map((job) => <JobCard key={job.id} job={job} />)
+            jobs.slice(0, 6).map((job) => <JobCard key={job.id} job={job} variant="home" />)
           ) : (
             !isLoading && <p>No recent jobs found.</p>
           )}
         </div>
 
-        <div className="features">
+<div className="features">
           <h2>Why Choose HireValve</h2>
           <div className="feature-grid">
             <FeatureCard
+              icon={<FaSearch />}
               title="Smart Matching"
               description="Find the perfect job or candidate with our smart algorithms."
             />
             <FeatureCard
+              icon={<FaLock />}
               title="Secure Payments"
               description="Safe and reliable payment processing."
             />
             <FeatureCard
+              icon={<FaGlobe />}
               title="Global Network"
               description="Connect with talent from around the world."
             />
             <FeatureCard
+              icon={<FaChartLine />}
               title="Performance Tracking"
               description="Monitor progress and ensure quality."
-            />
-            <FeatureCard
-              title="Secure Payments"
-              description="Safe and reliable payment processing."
             />
           </div>
         </div>
@@ -117,18 +196,26 @@ const Home: React.FC = () => {
           </div>
         </div>
 
-        <div className="cta-section">
-          <div className="cta-content">
-            <h2>READY TO GET STARTED?</h2>
-            <div className="cta-buttons">
-              <Link to="/role-selection" className="cta-button cta-button-filled">Post a Job</Link>
-              <Link to="/role-selection" className="cta-button cta-button-outline">Create a Profile</Link>
-            </div>
-          </div>
-        </div>
+
       </div>
+      <CallToAction />
       <Footer />
       <Copyright />
+      {showCookieBanner && (
+        <div className="cookie-banner">
+          <div className="cookie-content">
+            <p>
+              We use cookies to ensure that our website works properly and to analyze network traffic.{' '} <br />
+              <Link to="/privacy-policy" className="cookie-link">
+                Consent to personal data processing and personal data policy
+              </Link>
+            </p>
+            <button className="cookie-button" onClick={handleCookieConsent}>
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

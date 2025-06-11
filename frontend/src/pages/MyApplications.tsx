@@ -6,6 +6,7 @@ import { JobApplication } from '@types';
 import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
 import { formatDateInTimezone } from '../utils/dateUtils';
+// import { mockApplications } from '../mocks/mockMyApplications'; // Закомментировано
 
 const MyApplications: React.FC = () => {
   const { profile } = useRole();
@@ -15,6 +16,35 @@ const MyApplications: React.FC = () => {
   const [reviewForm, setReviewForm] = useState<{ applicationId: string; rating: number; comment: string } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Эмуляция profile для мока (закомментировано)
+  // const mockProfile = { role: 'jobseeker' };
+  // if (!mockProfile || mockProfile.role !== 'jobseeker') {
+  //   return (
+  //     <div>
+  //       <Header />
+  //       <div className="container">
+  //         <h2>My Applications</h2>
+  //         <p>This page is only available for jobseekers.</p>
+  //       </div>
+  //       <Footer />
+  //       <Copyright />
+  //     </div>
+  //   );
+  // }
+
+  // Мок-useEffect закомментирован
+  // useEffect(() => {
+  //   const mockProfile = { role: 'jobseeker' };
+  //   if (!mockProfile || mockProfile.role !== 'jobseeker') {
+  //     setError('This page is only available for jobseekers.');
+  //     setIsLoading(false);
+  //     return;
+  //   }
+  //   setApplications(mockApplications);
+  //   setIsLoading(false);
+  // }, []);
+
+  // Для продакшена: раскомментировать этот useEffect
   useEffect(() => {
     const fetchApplications = async () => {
       if (!profile || profile.role !== 'jobseeker') {
@@ -42,7 +72,7 @@ const MyApplications: React.FC = () => {
     e.preventDefault();
     if (!reviewForm) return;
     if (reviewForm.rating < 1 || reviewForm.rating > 5) {
-      setFormError('Rating must be between 1 and 5.');
+      setFormError('Please select a rating between 1 and 5 stars.');
       return;
     }
     if (!reviewForm.comment.trim()) {
@@ -61,6 +91,12 @@ const MyApplications: React.FC = () => {
     } catch (error: any) {
       console.error('Error creating review:', error);
       setFormError(error.response?.data?.message || 'Failed to submit review.');
+    }
+  };
+
+  const handleStarClick = (rating: number) => {
+    if (reviewForm) {
+      setReviewForm({ ...reviewForm, rating });
     }
   };
 
@@ -95,44 +131,48 @@ const MyApplications: React.FC = () => {
   return (
     <div>
       <Header />
-      <div className="container my-applications-container">
+      <div className="container my-app-container">
         <h2>My Applications</h2>
-        {error && <p className="error-message">{error}</p>}
+        {error && <p className="my-app-error">{error}</p>}
         {applications.length > 0 ? (
-          <div className="application-grid">
+          <div className="my-app-grid">
             {applications.map((app) => (
-              <div key={app.id} className="application-card">
+              <div key={app.id} className="my-app-card">
                 <h3>{app.job_post?.title || 'Unknown Job'}</h3>
                 <p><strong>Status:</strong> {app.status}</p>
                 <p><strong>Applied On:</strong> {formatDateInTimezone(app.created_at, profile.timezone)}</p>
                 {app.status === 'Accepted' && (
                   <>
-                    <p className="success-message">Congratulations! Your application has been accepted.</p>
+                    <p className="my-app-success">Congratulations! Your application has been accepted.</p>
                     <button
                       onClick={() => setReviewForm({ applicationId: app.id, rating: 5, comment: '' })}
-                      className="action-button"
+                      className="my-app-button"
                     >
                       Leave Review
                     </button>
                   </>
                 )}
                 {app.status === 'Rejected' && (
-                  <p className="error-message">Unfortunately, your application was rejected.</p>
+                  <p className="my-app-error">Unfortunately, your application was rejected.</p>
                 )}
                 {reviewForm && reviewForm.applicationId === app.id && (
-                  <form onSubmit={handleCreateReview} className="review-form">
-                    {formError && <p className="error-message">{formError}</p>}
-                    <div className="form-group">
-                      <label>Rating (1-5):</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="5"
-                        value={reviewForm.rating}
-                        onChange={(e) => setReviewForm({ ...reviewForm, rating: Number(e.target.value) })}
-                      />
+                  <form onSubmit={handleCreateReview} className="my-app-review-form">
+                    {formError && <p className="my-app-error">{formError}</p>}
+                    <div className="my-app-form-group">
+                      <label>Rating (1-5 stars):</label>
+                      <div className="my-app-star-rating">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <span
+                            key={star}
+                            className={`my-app-star ${star <= (reviewForm.rating || 0) ? 'my-app-star-filled' : ''}`}
+                            onClick={() => handleStarClick(star)}
+                          >
+                            ★
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    <div className="form-group">
+                    <div className="my-app-form-group">
                       <label>Comment:</label>
                       <textarea
                         value={reviewForm.comment}
@@ -141,8 +181,8 @@ const MyApplications: React.FC = () => {
                         rows={4}
                       />
                     </div>
-                    <div className="action-buttons">
-                      <button type="submit" className="action-button success">
+                    <div className="my-app-action-buttons">
+                      <button type="submit" className="my-app-button my-app-success">
                         Submit Review
                       </button>
                       <button
@@ -151,7 +191,7 @@ const MyApplications: React.FC = () => {
                           setReviewForm(null);
                           setFormError(null);
                         }}
-                        className="action-button"
+                        className="my-app-button"
                         style={{ marginLeft: '10px' }}
                       >
                         Cancel
