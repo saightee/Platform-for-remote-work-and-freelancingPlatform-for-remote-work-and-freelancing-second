@@ -4,6 +4,7 @@ import { RegisterDto } from './dto/register.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { CreateModeratorDto } from './dto/create-moderator.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/forgot-password.dto';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
@@ -36,6 +37,12 @@ export class AuthController {
       throw new BadRequestException('Fingerprint is required');
     }
     return this.authService.register(registerDto, ip, fingerprint);
+  }
+
+  @Get('verify-email')
+  async verifyEmail(@Query('token') token: string) {
+    await this.authService.verifyEmail(token);
+    return { message: 'Email успешно подтверждён' };
   }
 
   @Post('login')
@@ -141,6 +148,16 @@ export class AuthController {
     return this.authService.register(createModeratorDto, ip, fingerprint);
   }
 
+  @Post('forgot-password')
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto.email);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
+  }
+
   @Post('test-register')
   async testRegister(
     @Body() body: { email: string; password: string; username: string; role: 'employer' | 'jobseeker' },
@@ -152,7 +169,7 @@ export class AuthController {
   ) {
     const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
     const ip = ipHeader.split(',')[0].trim();
-    console.log('Client IP:', ip);
+    console.log('Клиентский IP:', ip);
     const registerDto = { email: body.email, password: body.password, username: body.username, role: body.role };
     const user = await this.authService.register(registerDto, ip, fingerprint);
     return res.json(user);
