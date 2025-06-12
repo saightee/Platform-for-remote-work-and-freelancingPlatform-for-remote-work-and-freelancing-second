@@ -8,7 +8,6 @@ import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { searchJobPosts } from '../services/api';
 import { JobPost } from '@types';
-import { mockJobPosts } from '../mocks/mockJobPosts';
 import { FaSearch, FaLock, FaGlobe, FaChartLine } from 'react-icons/fa';
 import CallToAction from '../components/CallToAction';
 import CountUp from 'react-countup';
