@@ -58,9 +58,11 @@ const FindJob: React.FC = () => {
         queryParams.append('sort_by', 'created_at');
         queryParams.append('sort_order', 'DESC');
 
+        // Используем переменную окружения для URL API
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
         const [jobsResponse, categoriesResponse] = await Promise.all([
-          fetch(`http://localhost:3000/api/job-posts?${queryParams.toString()}`),
-          fetch('http://localhost:3000/api/categories'),
+          fetch(`${apiBaseUrl}/job-posts?${queryParams.toString()}`),
+          fetch(`${apiBaseUrl}/categories`),
         ]);
 
         if (!jobsResponse.ok) throw new Error(`HTTP error! status: ${jobsResponse.status}`);

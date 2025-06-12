@@ -377,7 +377,7 @@ export const submitFeedback = async (message: string) => {
   return response.data;
 };
 
-export const getFeedback = () => api.get('/api/feedback').then((res) => res.data);
+export const getFeedback = () => api.get('/feedback').then((res) => res.data);
 
 // Blocked Countries
 export const addBlockedCountry = async (countryCode: string) => {
@@ -441,7 +441,7 @@ interface JobPostWithApplications {
 // Новые функции
 export const getOnlineUsers = async (): Promise<OnlineUsers | null> => {
   try {
-    const response: AxiosResponse<OnlineUsers> = await api.get('/api/admin/analytics/online-users');
+    const response: AxiosResponse<OnlineUsers> = await api.get('/admin/analytics/online-users');
     return response.data;
   } catch (error) {
     console.error('Error fetching online users:', error);
@@ -451,7 +451,7 @@ export const getOnlineUsers = async (): Promise<OnlineUsers | null> => {
 
 export const getRecentRegistrations = async (params: { limit?: number }): Promise<RecentRegistrations> => {
   try {
-    const response: AxiosResponse<RecentRegistrations> = await api.get('/api/admin/analytics/recent-registrations', { params });
+    const response: AxiosResponse<RecentRegistrations> = await api.get('/admin/analytics/recent-registrations', { params });
     return response.data;
   } catch (error) {
     console.error('Error fetching recent registrations:', error);
@@ -461,7 +461,7 @@ export const getRecentRegistrations = async (params: { limit?: number }): Promis
 
 export const getJobPostsWithApplications = async (): Promise<JobPostWithApplications[]> => {
   try {
-    const response: AxiosResponse<JobPostWithApplications[]> = await api.get('/api/admin/job-posts/applications');
+    const response: AxiosResponse<JobPostWithApplications[]> = await api.get('/admin/job-posts/applications');
     return response.data;
   } catch (error) {
     console.error('Error fetching job posts with applications:', error);
@@ -475,7 +475,7 @@ export const getStats = async () => {
       resumes: number;
       vacancies: number;
       employers: number;
-    }> = await api.get('/api/stats');
+    }> = await api.get('/stats');
     return response.data;
   } catch (error) {
     console.error('Error fetching stats:', error);
