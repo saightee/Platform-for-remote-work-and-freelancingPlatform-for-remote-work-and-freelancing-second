@@ -1014,42 +1014,45 @@
 - **Example Request**: `/api/job-posts/search?title=Engineer&location=Remote&salaryMin=40000&salaryMax=60000&job_type=Full-time&category_id=<categoryId>`
 - **Response (Success - 200)**:
   ```json
-  [
-    {
-      "id": "<jobPostId>",
-      "title": "Software Engineer",
-      "description": "We are looking for a skilled engineer...",
-      "location": "Remote",
-      "salary": 50000,
-      "status": "Active",
-      "pending_review": false,
-      "category_id": "<categoryId>",
-      "category": {
-        "id": "<categoryId>",
-        "name": "Engineering",
+  {
+    "total": 50,
+    "data": [
+      {
+        "id": "<jobPostId>",
+        "title": "Software Engineer",
+        "description": "We are looking for a skilled engineer...",
+        "location": "Remote",
+        "salary": 50000,
+        "status": "Active",
+        "pending_review": false,
+        "category_id": "<categoryId>",
+        "category": {
+          "id": "<categoryId>",
+          "name": "Engineering",
+          "created_at": "2025-05-22T10:00:00.000Z",
+          "updated_at": "2025-05-22T10:00:00.000Z"
+        },
+        "job_type": "Full-time",
+        "employer_id": "<employerId>",
+        "employer": {
+          "user_id": "<employerId>",
+          "company_name": "Tech Corp",
+          "company_info": "A tech company",
+          "referral_link": null,
+          "timezone": "UTC",
+          "currency": "USD",
+          "average_rating": 0,
+          "created_at": "2025-05-22T10:00:00.000Z",
+          "updated_at": "2025-05-22T10:00:00.000Z"
+        },
+        "applicationLimit": 100,
+        "views": 0,
+        "required_skills": ["JavaScript", "TypeScript"],
         "created_at": "2025-05-22T10:00:00.000Z",
         "updated_at": "2025-05-22T10:00:00.000Z"
-      },
-      "job_type": "Full-time",
-      "employer_id": "<employerId>",
-      "employer": {
-        "user_id": "<employerId>",
-        "company_name": "Tech Corp",
-        "company_info": "A tech company",
-        "referral_link": null,
-        "timezone": "UTC",
-        "currency": "USD",
-        "average_rating": 0,
-        "created_at": "2025-05-22T10:00:00.000Z",
-        "updated_at": "2025-05-22T10:00:00.000Z"
-      },
-      "applicationLimit": 100,
-      "views": 0,
-      "required_skills": ["JavaScript", "TypeScript"],
-      "created_at": "2025-05-22T10:00:00.000Z",
-      "updated_at": "2025-05-22T10:00:00.000Z"
-    }
-  ]
+      }
+    ]
+  }
 
 ### 20. Create Review
 - **Endpoint**: `POST /api/reviews`
@@ -1316,43 +1319,57 @@
 
 ### 27. Get All Job Posts (Admin)
 - **Endpoint**: `GET /api/admin/job-posts`
-- **Description**: Retrieves all job posts (admin only) with optional filters.
+- **Description**: Retrieves all job posts (admin only) with optional filters, pagination, and sorting. Supports filtering by status, pending review status, and job title (partial match). Returns total count and paginated data for frontend pagination
 - **Headers**: `Authorization: Bearer <token>`
 - **Query Parameters**: 
   - `status` (string, optional): Filter by status ("Active", "Draft", "Closed").
   - `pendingReview` (string, optional): Filter by pending review status ("true" or "false").
-- **Example Request**: `/api/admin/job-posts?status=Active&pendingReview=true`
+  - `title` (string, optional): Filter by job title (partial match, case-insensitive).
+  - `page` (number, optional): Page number for pagination (default: 1).
+  - `limit` (number, optional): Number of items per page (default: 10).
+- **Example Request**: `/api/admin/job-posts?status=Active&pendingReview=false&title=Software&page=1&limit=10`
 - **Response (Success - 200)**: 
   ```json
-  [
-    {
-      "id": "<jobPostId>",
-      "title": "Software Engineer",
-      "description": "We are looking for a skilled software engineer...",
-      "location": "Remote",
-      "salary": 50000,
-      "status": "Active",
-      "pending_review": true,
-      "category_id": "<categoryId>",
-      "category": {
-        "id": "<categoryId>",
-        "name": "Software Development",
+  {
+    "total": 50,
+    "data": [
+      {
+        "id": "<jobPostId>",
+        "title": "Software Engineer",
+        "description": "We are looking for a skilled software engineer...",
+        "location": "Remote",
+        "salary": 50000,
+        "status": "Active",
+        "pending_review": false,
+        "category_id": "<categoryId>",
+        "category": {
+          "id": "<categoryId>",
+          "name": "Software Development",
+          "created_at": "2025-05-15T06:12:00.000Z",
+          "updated_at": "2025-05-15T06:12:00.000Z"
+        },
+        "job_type": "Full-time",
+        "employer_id": "<employerId>",
+        "employer": {
+          "id": "<employerId>",
+          "email": "employer100@example.com",
+          "username": "jane_smith100",
+          "role": "employer"
+        },
+        "applicationLimit": 100,
         "created_at": "2025-05-15T06:12:00.000Z",
         "updated_at": "2025-05-15T06:12:00.000Z"
-      },
-      "job_type": "Full-time",
-      "employer_id": "<employerId>",
-      "employer": {
-        "id": "<employerId>",
-        "email": "employer100@example.com",
-        "username": "jane_smith100",
-        "role": "employer"
-      },
-      "applicationLimit": 100,
-      "created_at": "2025-05-15T06:12:00.000Z",
-      "updated_at": "2025-05-15T06:12:00.000Z"
-    }
-  ]
+      }
+    ]
+  }
+
+- **Response (Error - 400, pagination parametrs incorrect)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Page must be a positive integer",
+    "error": "Bad Request"
+  }
 
 - **Response (Error - 401, if token is invalid or user is not an admin)**:
   ```json
@@ -2331,28 +2348,32 @@
 - **Example Request**: `/api/talents?skills=Python&experience=3 years&rating=4&timezone=America/New_York&page=1&limit=10&sort_by=average_rating&sort_order=DESC`
 - **Response (Success - 200)**:
   ```json
-  [
-    {
-      "id": "<userId>",
-      "username": "john_doe",
-      "email": "john@example.com",
-      "skills": ["Python", "JavaScript"],
-      "categories": [
-        {
-          "id": "<categoryId>",
-          "name": "Web Development"
-        }
-      ],
-      "experience": "3 years",
-      "portfolio": "https://portfolio.com",
-      "video_intro": "https://video.com",
-      "timezone": "America/New_York",
-      "currency": "USD",
-      "average_rating": 4.5,
-      "profile_views": 100,
-      "identity_verified": true
-    }
-  ]
+  {
+    "total": 50,
+    "data": [
+      {
+        "id": "<userId>",
+        "username": "john_doe",
+        "email": "john@example.com",
+        "skills": ["Python", "JavaScript"],
+        "categories": [
+          {
+            "id": "<categoryId>",
+            "name": "Web Development"
+          }
+        ],
+        "experience": "3 years",
+        "portfolio": "https://portfolio.com",
+        "video_intro": "https://video.com",
+        "timezone": "America/New_York",
+        "currency": "USD",
+        "average_rating": 4.5,
+        "profile_views": 100,
+        "identity_verified": true,
+        "avatar": "/uploads/avatars/<filename>"
+      }
+    ]
+  }
 
 - **Response (Error - 400, if invalid parameters)**:
   ```json

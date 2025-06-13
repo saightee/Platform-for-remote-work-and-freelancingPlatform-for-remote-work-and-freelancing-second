@@ -180,7 +180,13 @@ export class AdminService {
     return { message: 'Password reset successful' };
   }
 
-  async getJobPosts(adminId: string, filters: { status?: string; pendingReview?: boolean }) {
+  async getJobPosts(adminId: string, filters: { 
+    status?: 'Active' | 'Draft' | 'Closed'; 
+    pendingReview?: boolean; 
+    title?: string; 
+    page?: number; 
+    limit?: number; 
+  }) {
     await this.checkAdminRole(adminId);
 
     const query = this.jobPostsRepository.createQueryBuilder('jobPost')
@@ -193,8 +199,25 @@ export class AdminService {
     if (filters.pendingReview !== undefined) {
       query.andWhere('jobPost.pending_review = :pendingReview', { pendingReview: filters.pendingReview });
     }
+    if (filters.title) {
+      query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.title}%` });
+    }
 
-    return query.getMany();
+    const total = await query.getCount();
+
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+    const skip = (page - 1) * limit;
+    query.skip(skip).take(limit);
+
+    query.orderBy('jobPost.created_at', 'DESC');
+
+    const jobPosts = await query.getMany();
+
+    return {
+      total,
+      data: jobPosts,
+    };
   }
 
   async updateJobPost(adminId: string, jobPostId: string, updateData: { title?: string; description?: string; location?: string; salary?: number; status?: 'Active' | 'Draft' | 'Closed' }) {
