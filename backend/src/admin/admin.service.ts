@@ -18,6 +18,7 @@ import { createObjectCsvStringifier } from 'csv-writer';
 import * as bcrypt from 'bcrypt';
 import { AntiFraudService } from '../anti-fraud/anti-fraud.service'; 
 import { UserFingerprint } from '../anti-fraud/entities/user-fingerprint.entity';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AdminService {
@@ -45,6 +46,7 @@ export class AdminService {
     private leaderboardsService: LeaderboardsService,
     private redisService: RedisService,
     private antiFraudService: AntiFraudService,
+    private emailService: EmailService,
   ) {}
 
   async checkAdminRole(userId: string) {
@@ -571,4 +573,67 @@ export class AdminService {
     await this.checkAdminRole(adminId);
     return this.antiFraudService.getRiskScore(userId);
   }
+
+  async notifyJobSeekers(
+      adminId: string,
+      jobPostId: string,
+      limit: number,
+      orderBy: 'beginning' | 'end' | 'random',
+    ) {
+      await this.checkAdminRole(adminId);
+
+      const jobPost = await this.jobPostsRepository.findOne({ 
+        where: { id: jobPostId }, 
+        relations: ['employer', 'category'] 
+      });
+      if (!jobPost) {
+        throw new NotFoundException('Job post not found');
+      }
+      if (!jobPost.category_id) {
+        throw new BadRequestException('Job post has no category assigned');
+      }
+
+      const query = this.jobSeekerRepository
+        .createQueryBuilder('jobSeeker')
+        .leftJoinAndSelect('jobSeeker.user', 'user')
+        .leftJoinAndSelect('jobSeeker.categories', 'categories')
+        .where('user.role = :role', { role: 'jobseeker' })
+        .andWhere('user.status = :status', { status: 'active' })
+        .andWhere('user.is_email_verified = :isEmailVerified', { isEmailVerified: true })
+        .andWhere('categories.id = :categoryId', { categoryId: jobPost.category_id });
+
+      const total = await query.getCount();
+
+      // Ограничение количества и сортировка
+      query.take(limit);
+      if (orderBy === 'beginning') {
+        query.orderBy('user.created_at', 'ASC');
+      } else if (orderBy === 'end') {
+        query.orderBy('user.created_at', 'DESC');
+      } else if (orderBy === 'random') {
+        query.orderBy('RANDOM()');
+      }
+
+      const jobSeekers = await query.getMany();
+
+      for (const jobSeeker of jobSeekers) {
+        try {
+          await this.emailService.sendJobNotification(
+            jobSeeker.user.email,
+            jobSeeker.user.username,
+            jobPost.title,
+            jobPost.description,
+            `${process.env.BASE_URL}/job-posts/${jobPost.id}`
+          );
+        } catch (error) {
+          console.error(`Failed to send email to ${jobSeeker.user.email}:`, error.message);
+        }
+      }
+
+      return {
+        total,
+        sent: jobSeekers.length,
+        jobPostId,
+      };
+    }
 }

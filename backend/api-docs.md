@@ -2769,3 +2769,55 @@
     "message": "Complaint not found",
     "error": "Not Found"
   }
+
+### 74. Notify Job Seekers (Admin)
+- **Endpoint**: `POST /api/admin/job-posts/:id/notify-candidates`
+- **Description**: Sends email notifications to job seekers whose selected categories match the category of the specified job post. Allows selecting the number of recipients and the order of selection based on signup date.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job post
+- **Request Body**:
+  ```json
+  {
+    "limit": 50,
+    "orderBy": "end" // Options: "beginning", "end", "random"
+  }
+
+- **Response (Success - 200)**:
+  ```json
+  {
+    "total": 120,
+    "sent": 50,
+    "jobPostId": "<jobPostId>"
+  }
+
+- **Response (Error - 400, invalid input)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Limit must be a positive integer",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 400, no category)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Job post has no category assigned",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 401, unauthorized)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 404, job post not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
+  }
