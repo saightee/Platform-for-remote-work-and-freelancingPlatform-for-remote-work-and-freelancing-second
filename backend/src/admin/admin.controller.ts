@@ -8,6 +8,7 @@ import { Response } from 'express';
 import { AntiFraudService } from '../anti-fraud/anti-fraud.service';
 import { ComplaintsService } from '../complaints/complaints.service';
 
+
 @Controller('admin')
 export class AdminController {
   constructor(
@@ -596,5 +597,37 @@ export class AdminController {
     const adminId = payload.sub;
 
     return this.complaintsService.resolveComplaint(adminId, complaintId, body.status, body.comment);
+  }
+
+  @Post('job-posts/:id/notify-candidates')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async notifyJobSeekers(
+    @Param('id') jobPostId: string,
+    @Body() body: { 
+      limit: number; 
+      orderBy: 'beginning' | 'end' | 'random' 
+    },
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userIdAdmin = payload.sub;
+
+    if (!body.limit || !Number.isInteger(body.limit) || body.limit < 1) {
+      throw new BadRequestException('Limit must be a positive integer');
+    }
+    if (!['beginning', 'end', 'random'].includes(body.orderBy)) {
+      throw new BadRequestException('OrderBy must be one of: beginning, end, random');
+    }
+
+    return this.adminService.notifyJobSeekers(
+      userIdAdmin,
+      jobPostId,
+      body.limit,
+      body.orderBy,
+    );
   }
 }
