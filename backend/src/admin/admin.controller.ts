@@ -157,6 +157,9 @@ export class AdminController {
   async getJobPosts(
     @Query('status') status: 'Active' | 'Draft' | 'Closed',
     @Query('pendingReview') pendingReview: string,
+    @Query('title') title: string, 
+    @Query('page') page: string, 
+    @Query('limit') limit: string, 
     @Headers('authorization') authHeader: string,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -166,12 +169,35 @@ export class AdminController {
     const payload = this.jwtService.verify(token);
     const userIdAdmin = payload.sub;
 
-    const filters: { status?: 'Active' | 'Draft' | 'Closed'; pendingReview?: boolean } = {};
+    const filters: { 
+      status?: 'Active' | 'Draft' | 'Closed'; 
+      pendingReview?: boolean; 
+      title?: string;
+      page?: number;
+      limit?: number;
+    } = {};
     if (status) {
       filters.status = status;
     }
-    if (pendingReview) {
+    if (pendingReview !== undefined) {
       filters.pendingReview = pendingReview === 'true';
+    }
+    if (title) {
+      filters.title = title;
+    }
+    if (page) {
+      const parsedPage = parseInt(page, 10);
+      if (isNaN(parsedPage) || parsedPage < 1) {
+        throw new BadRequestException('Page must be a positive integer');
+      }
+      filters.page = parsedPage;
+    }
+    if (limit) {
+      const parsedLimit = parseInt(limit, 10);
+      if (isNaN(parsedLimit) || parsedLimit < 1) {
+        throw new BadRequestException('Limit must be a positive integer');
+      }
+      filters.limit = parsedLimit;
     }
 
     return this.adminService.getJobPosts(userIdAdmin, filters);

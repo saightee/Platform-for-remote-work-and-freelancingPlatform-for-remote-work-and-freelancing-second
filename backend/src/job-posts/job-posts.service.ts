@@ -128,7 +128,7 @@ export class JobPostsService {
       .leftJoinAndSelect('jobPost.category', 'category')
       .where('jobPost.status = :status', { status: 'Active' })
       .andWhere('jobPost.pending_review = :pendingReview', { pendingReview: false });
-  
+
     if (filters.title) {
       query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.title}%` });
     }
@@ -150,17 +150,24 @@ export class JobPostsService {
     if (filters.required_skills && filters.required_skills.length > 0) {
       query.andWhere('jobPost.required_skills && :required_skills', { required_skills: filters.required_skills });
     }
-  
+
+    const total = await query.getCount();
+
     const page = filters.page || 1;
     const limit = filters.limit || 10;
     const skip = (page - 1) * limit;
     query.skip(skip).take(limit);
-  
+
     const sortBy = filters.sort_by || 'created_at';
     const sortOrder = filters.sort_order || 'DESC';
     query.orderBy(`jobPost.${sortBy}`, sortOrder);
-  
-    return query.getMany();
+
+    const jobPosts = await query.getMany();
+
+    return {
+      total,
+      data: jobPosts,
+    };
   }
 
   async applyToJob(userId: string, jobPostId: string) {
