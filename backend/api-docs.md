@@ -712,7 +712,7 @@
 
 ### 14. Apply to Job Post
 - **Endpoint**: `POST /api/job-applications`
-- **Description**: Allows a jobseeker to apply to a job post. Applications are limited per job post (default: 100) and distributed cumulatively over 4 days (60%, 80%, 90%, 100%). If the daily limit is reached, a "Daily application limit reached" error is returned. After 4 days, applications are accepted until the total limit is reached. If the total limit is reached, a "Job full" error is returned.
+- **Description**: Allows a jobseeker to apply to a job post. Applications are limited per job post (default: 100) and distributed cumulatively over 4 days (60%, 80%, 90%, 100%). If the daily limit is reached, a "Daily application limit reached" error is returned. If the total limit is reached, a "Job full" error is returned.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
   ```json
@@ -1495,6 +1495,14 @@
     "error": "Not Found"
   }
 
+- **Response (Error - 401, if unauthorized)**: 
+  ```json  
+  {
+    "statusCode": 401,
+    "message": "Only admins can access this resource",
+    "error": "Unauthorized"
+  }
+
 ### 32. Get All Reviews (Admin)
 - **Endpoint**: `GET /api/admin/reviews`
 - **Description**: Retrieves all reviews (admin only).
@@ -1634,7 +1642,7 @@
 - **Description**: Sets the application limit for a specific job post (admin only). Employers cannot set limits.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Parameters**: `id`: The ID of the job post.
-- **Request Body**: `id`: The ID of the job post.
+- **Request Body**:
   ```json
   {
     "limit": 50
@@ -2274,7 +2282,7 @@
 
 ### 62. Get User Online Status
 - **Endpoint**: `GET /api/users/:id/online`
-- **Description**: Checks if a specific user is online.
+- **Description**: Checks if a specific user is online, based on their presence in the Redis store
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Parameters**: `id`: The ID of the user.
 - **Response (Success - 200)**:
