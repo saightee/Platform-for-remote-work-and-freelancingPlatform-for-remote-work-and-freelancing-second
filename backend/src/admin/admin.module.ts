@@ -24,6 +24,8 @@ import { ComplaintsService } from '../complaints/complaints.service';
 import { Complaint } from '../complaints/complaint.entity';
 import { Feedback } from '../feedback/feedback.entity';
 import { BlockedCountry } from '../blocked-countries/blocked-country.entity';
+import { EmailModule } from '../email/email.module';
+import { ChatModule } from '../chat/chat.module';
 
 @Module({
   imports: [
@@ -44,6 +46,8 @@ import { BlockedCountry } from '../blocked-countries/blocked-country.entity';
     RedisModule,
     AntiFraudModule,
     ComplaintsModule,
+    EmailModule,
+    ChatModule,
   ],
   controllers: [AdminController],
   providers: [AdminService, ComplaintsService],

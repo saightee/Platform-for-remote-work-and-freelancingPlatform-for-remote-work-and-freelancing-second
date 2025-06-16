@@ -1,18 +1,56 @@
 import * as request from 'supertest';
+import { io as Client, Socket } from 'socket.io-client';
+import * as fs from 'fs';
+import * as path from 'path';
 
-describe('Integration Tests (e2e)', () => {
-  const baseUrl = process.env.BASE_URL || 'https://jobforge.net';
+describe('OnlineJobs E2E Tests', () => {
+  const baseUrl = process.env.BASE_URL || 'https://jobforge.net/';
+  const socketUrl = process.env.SOCKET_URL || 'wss:https://jobforge.net/';
+  
+  // Глобальные переменные для пользователей
+  const JOBSEEKER_EMAIL = 'test_jobseeker@example.com';
+  const JOBSEEKER_PASSWORD = 'jobseeker123';
+  const JOBSEEKER_USERNAME = 'test_jobseeker';
+  const EMPLOYER_EMAIL = 'test_employer@example.com';
+  const EMPLOYER_PASSWORD = 'employer123';
+  const EMPLOYER_USERNAME = 'test_employer';
+  const ADMIN_EMAIL = 'newadmin1@example.com';
+  const ADMIN_PASSWORD = 'admin123';
+  const MODERATOR_EMAIL = 'newmoderator@example.com';
+  const MODERATOR_PASSWORD = 'moderator123';
+
   let adminToken = '';
+  let moderatorToken = '';
   let jobseekerToken = '';
   let employerToken = '';
   let jobseekerId = '';
   let employerId = '';
+  let moderatorId = '';
   let categoryId = '';
   let jobPostId = '';
-  let newJobPostId = '';
   let applicationId = '';
-  let newApplicationId = '';
   let reviewId = '';
+  let complaintId = '';
+  let feedbackId = '';
+  let socket: Socket;
+
+  const cleanupIds: {
+    users: string[];
+    jobs: string[];
+    categories: string[];
+    applications: string[];
+    reviews: string[];
+    complaints: string[];
+    feedback: string[];
+  } = {
+    users: [],
+    jobs: [],
+    categories: [],
+    applications: [],
+    reviews: [],
+    complaints: [],
+    feedback: [],
+  };
 
   beforeAll(async () => {
     // Логин админа
@@ -20,544 +58,350 @@ describe('Integration Tests (e2e)', () => {
       .post('/api/auth/login')
       .set('Content-Type', 'application/json')
       .set('X-Forwarded-For', '99.79.0.2')
-      .set('X-Fingerprint', `test-fingerprint-admin`)
-      .send({
-        email: 'newadmin@example.com',
-        password: 'admin123',
-      });
-
+      .set('X-Fingerprint', `test-fingerprint-admin-${Date.now()}`)
+      .send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
+    expect(adminResponse.status).toBe(201);
     expect(adminResponse.body).toHaveProperty('accessToken');
     adminToken = adminResponse.body.accessToken;
-    console.log('Admin logged in, token:', adminResponse.body.accessToken);
+    console.log('Admin logged in');
 
-    // Очистка категорий перед тестом
-    const categoriesResponse = await request(baseUrl)
-      .get('/api/categories')
-      .set('Content-Type', 'application/json');
-    const testCategories = categoriesResponse.body.filter(cat => cat.name.startsWith('Test Category'));
-    for (const category of testCategories) {
-      await request(baseUrl)
-        .delete(`/api/admin/categories/${category.id}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .set('Content-Type', 'application/json');
-      console.log(`Deleted existing category ${category.id}:`, category.name);
-    }
-
-    // Регистрация фрилансера
-    const jobseekerTimestamp = new Date().toISOString().replace(/[^0-9]/g, '');
-    const jobseekerResponse = await request(baseUrl)
-      .post('/api/auth/register')
+    // Логин модератора
+    const moderatorResponse = await request(baseUrl)
+      .post('/api/auth/login')
       .set('Content-Type', 'application/json')
       .set('X-Forwarded-For', '99.79.0.2')
-      .set('X-Fingerprint', `test-fingerprint-${jobseekerTimestamp}`)
-      .send({
-        email: `jobseeker${jobseekerTimestamp}@example.com`,
-        password: 'jobseeker123',
-        username: `jobseeker${jobseekerTimestamp}`,
-        role: 'jobseeker',
-      });
+      .set('X-Fingerprint', `test-fingerprint-moderator-${Date.now()}`)
+      .send({ email: MODERATOR_EMAIL, password: MODERATOR_PASSWORD });
+    expect(moderatorResponse.status).toBe(201);
+    expect(moderatorResponse.body).toHaveProperty('accessToken');
+    moderatorToken = moderatorResponse.body.accessToken;
+    const moderatorProfile = await request(baseUrl)
+      .get('/api/profile')
+      .set('Authorization', `Bearer ${moderatorToken}`);
+    moderatorId = moderatorProfile.body.id;
+    cleanupIds.users.push(moderatorId);
+    console.log('Moderator logged in');
 
+    // Логин фрилансера
+    const jobseekerResponse = await request(baseUrl)
+      .post('/api/auth/login')
+      .set('Content-Type', 'application/json')
+      .set('X-Forwarded-For', '99.79.0.2')
+      .set('X-Fingerprint', `test-fingerprint-jobseeker-${Date.now()}`)
+      .send({ email: JOBSEEKER_EMAIL, password: JOBSEEKER_PASSWORD });
+    expect(jobseekerResponse.status).toBe(201);
     expect(jobseekerResponse.body).toHaveProperty('accessToken');
     jobseekerToken = jobseekerResponse.body.accessToken;
-    console.log('Jobseeker registered, token:', jobseekerResponse.body.accessToken);
-
     const jobseekerProfile = await request(baseUrl)
       .get('/api/profile')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json');
+      .set('Authorization', `Bearer ${jobseekerToken}`);
     jobseekerId = jobseekerProfile.body.id;
-    console.log('Jobseeker profile:', jobseekerProfile.body);
+    cleanupIds.users.push(jobseekerId);
+    console.log('Jobseeker logged in');
 
-    // Регистрация работодателя
-    const employerTimestamp = new Date().toISOString().replace(/[^0-9]/g, '');
+    // Логин работодателя
     const employerResponse = await request(baseUrl)
-      .post('/api/auth/register')
+      .post('/api/auth/login')
       .set('Content-Type', 'application/json')
       .set('X-Forwarded-For', '99.79.0.2')
-      .set('X-Fingerprint', `test-fingerprint-${employerTimestamp}`)
-      .send({
-        email: `employer${employerTimestamp}@example.com`,
-        password: 'employer123',
-        username: `employer${employerTimestamp}`,
-        role: 'employer',
-      });
-
+      .set('X-Fingerprint', `test-fingerprint-employer-${Date.now()}`)
+      .send({ email: EMPLOYER_EMAIL, password: EMPLOYER_PASSWORD });
+    expect(employerResponse.status).toBe(201);
     expect(employerResponse.body).toHaveProperty('accessToken');
     employerToken = employerResponse.body.accessToken;
-    console.log('Employer registered, token:', employerResponse.body.accessToken);
-
     const employerProfile = await request(baseUrl)
       .get('/api/profile')
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json');
+      .set('Authorization', `Bearer ${employerToken}`);
     employerId = employerProfile.body.id;
-    console.log('Employer profile:', employerProfile.body);
+    cleanupIds.users.push(employerId);
+    console.log('Employer logged in');
+
+    // Очистка тестовых категорий
+    const categoriesResponse = await request(baseUrl)
+      .get('/api/categories')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const testCategories = categoriesResponse.body.filter((cat: any) => cat.name.startsWith('Test Category'));
+    for (const category of testCategories) {
+      try {
+        await request(baseUrl)
+          .delete(`/api/admin/categories/${category.id}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+        console.log(`Deleted category ${category.id}`);
+      } catch (error) {
+        console.warn(`Failed to delete category ${category.id}: ${error.message}`);
+      }
+    }
   }, 30000);
 
+  afterEach(async () => {
+    // Очистка созданных сущностей после каждого теста
+    for (const applicationId of cleanupIds.applications) {
+      try {
+        await request(baseUrl)
+          .delete(`/api/admin/job-applications/${applicationId}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+        console.log(`Deleted application ${applicationId}`);
+      } catch (error) {
+        console.warn(`Failed to delete application ${applicationId}: ${error.message}`);
+      }
+    }
+    cleanupIds.applications = [];
+
+    for (const reviewId of cleanupIds.reviews) {
+      try {
+        await request(baseUrl)
+          .delete(`/api/admin/reviews/${reviewId}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+        console.log(`Deleted review ${reviewId}`);
+      } catch (error) {
+        console.warn(`Failed to delete review ${reviewId}: ${error.message}`);
+      }
+    }
+    cleanupIds.reviews = [];
+
+    for (const complaintId of cleanupIds.complaints) {
+      try {
+        await request(baseUrl)
+          .delete(`/api/admin/complaints/${complaintId}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+        console.log(`Deleted complaint ${complaintId}`);
+      } catch (error) {
+        console.warn(`Failed to delete complaint ${complaintId}: ${error.message}`);
+      }
+    }
+    cleanupIds.complaints = [];
+
+    for (const feedbackId of cleanupIds.feedback) {
+      try {
+        await request(baseUrl)
+          .delete(`/api/admin/feedback/${feedbackId}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+        console.log(`Deleted feedback ${feedbackId}`);
+      } catch (error) {
+        console.warn(`Failed to delete feedback ${feedbackId}: ${error.message}`);
+      }
+    }
+    cleanupIds.feedback = [];
+  }, 10000);
+
   afterAll(async () => {
-    // Очистка базы
-    if (adminToken) {
-      // Удаление вакансий
-      if (jobPostId) {
-        const deleteJobResponse = await request(baseUrl)
-          .delete(`/api/job-posts/${jobPostId}`)
-          .set('Authorization', `Bearer ${adminToken}`)
-          .set('Content-Type', 'application/json');
-        console.log(`Deleted job post ${jobPostId}:`, deleteJobResponse.body);
+    // Полная очистка
+    for (const jobId of cleanupIds.jobs) {
+      try {
+        await request(baseUrl)
+          .delete(`/api/admin/job-posts/${jobId}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+        console.log(`Deleted job ${jobId}`);
+      } catch (error) {
+        console.warn(`Failed to delete job ${jobId}: ${error.message}`);
       }
-      if (newJobPostId) {
-        const deleteNewJobResponse = await request(baseUrl)
-          .delete(`/api/job-posts/${newJobPostId}`)
-          .set('Authorization', `Bearer ${adminToken}`)
-          .set('Content-Type', 'application/json');
-        console.log(`Deleted new job post ${newJobPostId}:`, deleteNewJobResponse.body);
-      }
+    }
 
-      // Удаление пользователей
-      if (jobseekerId) {
-        const deleteJobseekerResponse = await request(baseUrl)
-          .delete(`/api/admin/users/${jobseekerId}`)
-          .set('Authorization', `Bearer ${adminToken}`)
-          .set('Content-Type', 'application/json');
-        console.log(`Deleted jobseeker ${jobseekerId}:`, deleteJobseekerResponse.body);
+    for (const userId of cleanupIds.users) {
+      try {
+        await request(baseUrl)
+          .delete(`/api/admin/users/${userId}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+        console.log(`Deleted user ${userId}`);
+      } catch (error) {
+        console.warn(`Failed to delete user ${userId}: ${error.message}`);
       }
-      if (employerId) {
-        const deleteEmployerResponse = await request(baseUrl)
-          .delete(`/api/admin/users/${employerId}`)
-          .set('Authorization', `Bearer ${adminToken}`)
-          .set('Content-Type', 'application/json');
-        console.log(`Deleted employer ${employerId}:`, deleteEmployerResponse.body);
-      }
+    }
 
-      // Удаление категории
-      if (categoryId) {
-        const deleteCategoryResponse = await request(baseUrl)
+    for (const categoryId of cleanupIds.categories) {
+      try {
+        await request(baseUrl)
           .delete(`/api/admin/categories/${categoryId}`)
-          .set('Authorization', `Bearer ${adminToken}`)
-          .set('Content-Type', 'application/json');
-        console.log(`Deleted category ${categoryId}:`, deleteCategoryResponse.body);
+          .set('Authorization', `Bearer ${adminToken}`);
+        console.log(`Deleted category ${categoryId}`);
+      } catch (error) {
+        console.warn(`Failed to delete category ${categoryId}: ${error.message}`);
       }
+    }
+
+    if (socket) {
+      socket.disconnect();
+      console.log('WebSocket disconnected');
     }
   }, 20000);
 
-  // Тест 1: Регистрация админа (пропущен, так как отключена)
-
-  // Тест 2: Регистрация фрилансера (jobseeker) — уже в beforeAll
-
-  // Тест 3: Регистрация работодателя (employer) — уже в beforeAll
-
-  // Тест 4: Регистрация с дублирующимся email
-  it('should fail to register with duplicate email', async () => {
-    const timestamp = new Date().toISOString().replace(/[^0-9]/g, '');
-    const email = `jobseeker${timestamp}@example.com`;
-
-    // Первая регистрация
-    const firstRegisterResponse = await request(baseUrl)
-      .post('/api/auth/register')
-      .set('Content-Type', 'application/json')
-      .set('X-Forwarded-For', '99.79.0.2')
-      .set('X-Fingerprint', `test-fingerprint-${timestamp}`)
-      .send({
-        email,
-        password: 'jobseeker123',
-        username: `jobseeker${timestamp}`,
-        role: 'jobseeker',
-      });
-    expect(firstRegisterResponse.body).toHaveProperty('accessToken');
-    console.log('First registration successful, token:', firstRegisterResponse.body.accessToken);
-
-    // Вторая регистрация с тем же email
-    const response = await request(baseUrl)
-      .post('/api/auth/register')
-      .set('Content-Type', 'application/json')
-      .set('X-Forwarded-For', '99.79.0.2')
-      .set('X-Fingerprint', `test-fingerprint-${timestamp}`)
-      .send({
-        email,
-        password: 'jobseeker123',
-        username: `jobseeker${timestamp}2`,
-        role: 'jobseeker',
-      });
-
-    expect(response.body.message).toContain('Email already exists');
-    console.log('Failed to register with duplicate email:', response.body.message);
-
-    // Очистка
-    const duplicateUserProfile = await request(baseUrl)
-      .get('/api/profile')
-      .set('Authorization', `Bearer ${firstRegisterResponse.body.accessToken}`)
-      .set('Content-Type', 'application/json');
-    const duplicateUserId = duplicateUserProfile.body.id;
-
-    const deleteResponse = await request(baseUrl)
-      .delete(`/api/admin/users/${duplicateUserId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-    console.log(`Deleted duplicate user ${duplicateUserId}:`, deleteResponse.body);
-  }, 10000);
-
-  // Тест 5: Регистрация из заблокированной страны
-  it('should fail to register from a blocked country', async () => {
-    // Сначала добавляем страну IN в список заблокированных
-    const blockCountryResponse = await request(baseUrl)
-      .post('/api/admin/blocked-countries')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        countryCode: 'IN',
-      });
-    expect(blockCountryResponse.body).toHaveProperty('country_code', 'IN');
-    console.log('Blocked country IN:', blockCountryResponse.body);
-
-    // Пытаемся зарегистрироваться
-    const timestamp = new Date().toISOString().replace(/[^0-9]/g, '');
-    const response = await request(baseUrl)
-      .post('/api/auth/register')
-      .set('Content-Type', 'application/json')
-      .set('X-Forwarded-For', '103.194.0.1') // IP из Индии
-      .set('X-Fingerprint', `test-fingerprint-${timestamp}`)
-      .send({
-        email: `jobseeker${timestamp}@example.com`,
-        password: 'jobseeker123',
-        username: `jobseeker${timestamp}`,
-        role: 'jobseeker',
-      });
-
-    expect(response.body.message).toContain('Registration is not allowed from your country');
-    console.log('Failed to register from blocked country:', response.body.message);
-
-    // Очистка: удаляем страну из заблокированных
-    const unblockCountryResponse = await request(baseUrl)
-      .delete('/api/admin/blocked-countries/IN')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-    console.log('Unblocked country IN:', unblockCountryResponse.body);
-  }, 10000);
-
-  // Тест 6: Логин фрилансера
-  it('should login a jobseeker', async () => {
-    const timestamp = new Date().toISOString().replace(/[^0-9]/g, '');
-    const email = `jobseeker${timestamp}@example.com`;
-
-    // Регистрация
-    const registerResponse = await request(baseUrl)
-      .post('/api/auth/register')
-      .set('Content-Type', 'application/json')
-      .set('X-Forwarded-For', '99.79.0.2')
-      .set('X-Fingerprint', `test-fingerprint-${timestamp}`)
-      .send({
-        email,
-        password: 'jobseeker123',
-        username: `jobseeker${timestamp}`,
-        role: 'jobseeker',
-      });
-
-    expect(registerResponse.body).toHaveProperty('accessToken');
-    console.log('Jobseeker registered, token:', registerResponse.body.accessToken);
-
-    // Логин
+  // Группа 1: Логин
+  it('should fail login with invalid credentials for jobseeker', async () => {
     const response = await request(baseUrl)
       .post('/api/auth/login')
       .set('Content-Type', 'application/json')
       .set('X-Forwarded-For', '99.79.0.2')
-      .set('X-Fingerprint', `test-fingerprint-${timestamp}`)
-      .send({
-        email,
-        password: 'jobseeker123',
-      });
-
-    expect(response.body).toHaveProperty('accessToken');
-    console.log('Jobseeker logged in, token:', response.body.accessToken);
-
-    // Очистка
-    const userProfile = await request(baseUrl)
-      .get('/api/profile')
-      .set('Authorization', `Bearer ${registerResponse.body.accessToken}`)
-      .set('Content-Type', 'application/json');
-    const userId = userProfile.body.id;
-
-    const deleteResponse = await request(baseUrl)
-      .delete(`/api/admin/users/${userId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-    console.log(`Deleted user ${userId}:`, deleteResponse.body);
+      .set('X-Fingerprint', `test-fingerprint-${Date.now()}`)
+      .send({ email: JOBSEEKER_EMAIL, password: 'wrong123' })
+      .expect(401);
+    expect(response.body.message).toBe('Invalid credentials');
+    console.log('Invalid jobseeker login blocked');
   }, 10000);
 
-  // Тест 7: Логин работодателя
-  it('should login an employer', async () => {
-    const timestamp = new Date().toISOString().replace(/[^0-9]/g, '');
-    const email = `employer${timestamp}@example.com`;
-
-    // Регистрация
-    const registerResponse = await request(baseUrl)
-      .post('/api/auth/register')
-      .set('Content-Type', 'application/json')
-      .set('X-Forwarded-For', '99.79.0.2')
-      .set('X-Fingerprint', `test-fingerprint-${timestamp}`)
-      .send({
-        email,
-        password: 'employer123',
-        username: `employer${timestamp}`,
-        role: 'employer',
-      });
-
-    expect(registerResponse.body).toHaveProperty('accessToken');
-    console.log('Employer registered, token:', registerResponse.body.accessToken);
-
-    // Логин
+  it('should fail login with invalid credentials for employer', async () => {
     const response = await request(baseUrl)
       .post('/api/auth/login')
       .set('Content-Type', 'application/json')
       .set('X-Forwarded-For', '99.79.0.2')
-      .set('X-Fingerprint', `test-fingerprint-${timestamp}`)
-      .send({
-        email,
-        password: 'employer123',
-      });
-
-    expect(response.body).toHaveProperty('accessToken');
-    console.log('Employer logged in, token:', response.body.accessToken);
-
-    // Очистка
-    const userProfile = await request(baseUrl)
-      .get('/api/profile')
-      .set('Authorization', `Bearer ${registerResponse.body.accessToken}`)
-      .set('Content-Type', 'application/json');
-    const userId = userProfile.body.id;
-
-    const deleteResponse = await request(baseUrl)
-      .delete(`/api/admin/users/${userId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-    console.log(`Deleted user ${userId}:`, deleteResponse.body);
+      .set('X-Fingerprint', `test-fingerprint-${Date.now()}`)
+      .send({ email: EMPLOYER_EMAIL, password: 'wrong123' })
+      .expect(401);
+    expect(response.body.message).toBe('Invalid credentials');
+    console.log('Invalid employer login blocked');
   }, 10000);
 
-  // Тест 8: Логин с неправильным паролем
-  it('should fail to login with incorrect password', async () => {
-    const timestamp = new Date().toISOString().replace(/[^0-9]/g, '');
-    const email = `jobseeker${timestamp}@example.com`;
-
-    // Регистрация
-    const registerResponse = await request(baseUrl)
-      .post('/api/auth/register')
-      .set('Content-Type', 'application/json')
-      .set('X-Forwarded-For', '99.79.0.2')
-      .set('X-Fingerprint', `test-fingerprint-${timestamp}`)
-      .send({
-        email,
-        password: 'jobseeker123',
-        username: `jobseeker${timestamp}`,
-        role: 'jobseeker',
-      });
-
-    expect(registerResponse.body).toHaveProperty('accessToken');
-    console.log('Jobseeker registered, token:', registerResponse.body.accessToken);
-
-    // Логин с неправильным паролем
+  it('should fail login for blocked user', async () => {
+    await request(baseUrl)
+      .post(`/api/admin/users/${jobseekerId}/block`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
     const response = await request(baseUrl)
       .post('/api/auth/login')
       .set('Content-Type', 'application/json')
       .set('X-Forwarded-For', '99.79.0.2')
-      .set('X-Fingerprint', `test-fingerprint-${timestamp}`)
-      .send({
-        email,
-        password: 'wrongpassword',
-      });
-
-    expect(response.body.message).toContain('Invalid credentials');
-    console.log('Failed login with incorrect password:', response.body.message);
-
-    // Очистка
-    const userProfile = await request(baseUrl)
-      .get('/api/profile')
-      .set('Authorization', `Bearer ${registerResponse.body.accessToken}`)
-      .set('Content-Type', 'application/json');
-    const userId = userProfile.body.id;
-
-    const deleteResponse = await request(baseUrl)
-      .delete(`/api/admin/users/${userId}`)
+      .set('X-Fingerprint', `test-fingerprint-${Date.now()}`)
+      .send({ email: JOBSEEKER_EMAIL, password: JOBSEEKER_PASSWORD })
+      .expect(401);
+    expect(response.body.message).toBe('User is blocked');
+    await request(baseUrl)
+      .post(`/api/admin/users/${jobseekerId}/unblock`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-    console.log(`Deleted user ${userId}:`, deleteResponse.body);
+      .expect(200);
+    console.log('Blocked user login failed');
   }, 10000);
 
-  // Тест 8.1: Логаут фрилансера
-  it('should logout a jobseeker', async () => {
+  // Группа 2: Антифрод
+  it('should calculate risk score for jobseeker', async () => {
     const response = await request(baseUrl)
-      .post('/api/auth/logout')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json');
+      .get(`/api/admin/users/${jobseekerId}/risk-score`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(response.body).toHaveProperty('riskScore');
+    expect(response.body).toHaveProperty('details');
+    expect(response.body.details).toHaveProperty('duplicateIp');
+    expect(response.body.details).toHaveProperty('proxyDetected');
+    expect(response.body.details).toHaveProperty('duplicateFingerprint');
+    console.log('Risk score calculated');
+  }, 10000);
 
-    expect(response.status).toBe(201);
-    expect(response.body).toHaveProperty('message', 'Logout successful');
-    console.log('Jobseeker logged out:', response.body);
-  }, 15000);
-
-  // Тест 9: Логин с Google OAuth (заглушка, пропускаем)
-  it.skip('should login with Google OAuth', () => {});
-
-  // Тест 10: Получение профиля фрилансера
-  it('should get jobseeker profile', async () => {
+  // Группа 3: Профили
+  it('should retrieve jobseeker profile', async () => {
     const response = await request(baseUrl)
       .get('/api/profile')
       .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json');
-
+      .expect(200);
     expect(response.body).toHaveProperty('role', 'jobseeker');
-    console.log('Jobseeker profile:', response.body);
+    expect(response.body).toHaveProperty('id', jobseekerId);
+    expect(response.body).toHaveProperty('username', JOBSEEKER_USERNAME);
+    console.log('Jobseeker profile retrieved');
   }, 10000);
 
-  // Тест 11: Получение профиля работодателя
-  it('should get employer profile', async () => {
-    const response = await request(baseUrl)
-      .get('/api/profile')
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body).toHaveProperty('role', 'employer');
-    expect(response.body).toHaveProperty('company_name');
-    console.log('Employer profile:', response.body);
-  }, 10000);
-
-  // Тест 12: Обновление профиля фрилансера
   it('should update jobseeker profile', async () => {
     const response = await request(baseUrl)
       .put('/api/profile')
       .set('Authorization', `Bearer ${jobseekerToken}`)
       .set('Content-Type', 'application/json')
       .send({
-        skills: ['JavaScript', 'TypeScript'],
+        skills: ['JavaScript', 'Python'],
         experience: '3 years',
         timezone: 'America/New_York',
         currency: 'USD',
-      });
-
-    expect(response.body.skills).toEqual(['JavaScript', 'TypeScript']);
+      })
+      .expect(200);
+    expect(response.body.skills).toEqual(['JavaScript', 'Python']);
     expect(response.body.experience).toBe('3 years');
-    console.log('Updated jobseeker profile:', response.body);
+    console.log('Jobseeker profile updated');
   }, 10000);
 
-  // Тест 13: Обновление профиля работодателя
-  it('should update employer profile', async () => {
-    const response = await request(baseUrl)
-      .put('/api/profile')
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        company_name: 'Tech Corp',
-        company_info: 'We build tech solutions',
-      });
-
-    expect(response.body).toHaveProperty('company_name', 'Tech Corp');
-    expect(response.body).toHaveProperty('company_info', 'We build tech solutions');
-    console.log('Updated employer profile:', response.body);
-  }, 10000);
-
-  // Тест 14: Обновление профиля с некорректной ролью
-  it('should fail to update profile with incorrect role', async () => {
+  it('should fail profile update with invalid role', async () => {
     const response = await request(baseUrl)
       .put('/api/profile')
       .set('Authorization', `Bearer ${jobseekerToken}`)
       .set('Content-Type', 'application/json')
-      .send({
-        company_name: 'Tech Corp', // Поле для работодателя
-      });
-
-    expect(response.body.message).toContain('User role mismatch');
-    console.log('Failed to update profile:', response.body.message);
+      .send({ company_name: 'Tech Corp' })
+      .expect(401);
+    expect(response.body.message).toBe('User role mismatch');
+    console.log('Invalid role profile update blocked');
   }, 10000);
 
-  // Тест 15: Инкремент просмотров профиля фрилансера
   it('should increment jobseeker profile views', async () => {
-    const getProfileResponse = await request(baseUrl)
+    const initialProfile = await request(baseUrl)
       .get('/api/profile')
       .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json');
-
-    const initialViews = getProfileResponse.body.profileViews || 0;
-    console.log('Initial profile views:', initialViews);
-
-    const response = await request(baseUrl)
+      .expect(200);
+    const initialViews = initialProfile.body.profile_views || 0;
+    await request(baseUrl)
       .post(`/api/profile/${jobseekerId}/increment-view`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body).toHaveProperty('message', 'Profile view count incremented');
-    console.log('Incremented profile views:', response.body);
-
+      .expect(200);
     const updatedProfile = await request(baseUrl)
       .get('/api/profile')
       .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(updatedProfile.body.profileViews).toBe(initialViews + 1);
-    console.log('Updated profile views:', updatedProfile.body.profileViews);
+      .expect(200);
+    expect(updatedProfile.body.profile_views).toBe(initialViews + 1);
+    console.log('Profile views incremented');
   }, 10000);
 
-  // Тест 16: Загрузка аватара фрилансера (заглушка)
-  it.skip('should upload jobseeker avatar', () => {});
-
-  // Тест 17: Загрузка аватара работодателя (заглушка)
-  it.skip('should upload employer avatar', () => {});
-
-  // Тест 18: Загрузка документа для верификации (заглушка)
-  it.skip('should upload identity document', () => {});
-
-  // Тест 19: Проверка онлайн-статуса пользователя
-  it('should check online status', async () => {
+  it('should upload avatar for jobseeker', async () => {
+    const avatarPath = path.join(__dirname, 'test-assets', 'avatar.jpg');
+    fs.writeFileSync(avatarPath, Buffer.from('test image data')); // Создаём тестовый файл
     const response = await request(baseUrl)
-      .get(`/api/users/${jobseekerId}/online`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body).toHaveProperty('isOnline', true);
-    console.log('Online status:', response.body);
+      .post('/api/profile/upload-avatar')
+      .set('Authorization', `Bearer ${jobseekerToken}`)
+      .attach('avatar', avatarPath)
+      .expect(200);
+    expect(response.body).toHaveProperty('avatar');
+    expect(response.body.avatar).toMatch(/\/uploads\/avatars\/[a-f0-9]+\.jpg/);
+    fs.unlinkSync(avatarPath); // Удаляем тестовый файл
+    console.log('Avatar uploaded');
   }, 10000);
 
-  // Тест 20: Создание категории (админ)
-  it('should create a category (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
+  it('should fail upload invalid avatar', async () => {
+    const invalidFilePath = path.join(__dirname, 'test-assets', 'invalid.txt');
+    fs.writeFileSync(invalidFilePath, Buffer.from('invalid data'));
+    const response = await request(baseUrl)
+      .post('/api/profile/upload-avatar')
+      .set('Authorization', `Bearer ${jobseekerToken}`)
+      .attach('avatar', invalidFilePath)
+      .expect(400);
+    expect(response.body.message).toBe('Only JPEG, JPG, and PNG files are allowed');
+    fs.unlinkSync(invalidFilePath);
+    console.log('Invalid avatar upload blocked');
+  }, 10000);
 
+  // Группа 4: Категории
+  it('should create category as admin', async () => {
     const response = await request(baseUrl)
       .post('/api/categories')
       .set('Authorization', `Bearer ${adminToken}`)
       .set('Content-Type', 'application/json')
-      .send({
-        name: `Test Category ${new Date().toISOString()}`,
-      });
-
-    expect(response.body).toHaveProperty('name');
+      .send({ name: `Test Category ${Date.now()}` })
+      .expect(201);
+    expect(response.body).toHaveProperty('id');
     categoryId = response.body.id;
-    console.log('Created category:', response.body);
+    cleanupIds.categories.push(categoryId);
+    console.log('Category created');
   }, 10000);
 
-  // Тест 21: Получение списка категорий
-  it('should get list of categories', async () => {
-    const response = await request(baseUrl)
-      .get('/api/categories')
-      .set('Content-Type', 'application/json');
-
-    expect(Array.isArray(response.body)).toBe(true);
-    console.log('Categories:', response.body);
-  }, 10000);
-
-  // Тест 22: Обновление профиля фрилансера с категориями
-  it('should update jobseeker profile with categories', async () => {
-    const response = await request(baseUrl)
-      .put('/api/profile')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
+  it('should fail creating duplicate category', async () => {
+    const categoryName = `Duplicate Category ${Date.now()}`;
+    await request(baseUrl)
+      .post('/api/categories')
+      .set('Authorization', `Bearer ${adminToken}`)
       .set('Content-Type', 'application/json')
-      .send({
-        categoryIds: [categoryId],
-      });
-
-    expect(response.body.categoryIds).toContain(categoryId);
-    console.log('Updated jobseeker profile with categories:', response.body);
+      .send({ name: categoryName })
+      .expect(201);
+    const response = await request(baseUrl)
+      .post('/api/categories')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ name: categoryName })
+      .expect(400);
+    expect(response.body.message).toBe('Category with this name already exists');
+    console.log('Duplicate category creation blocked');
   }, 10000);
 
-  // Тест 23: Создание вакансии (работодатель)
-  it('should create a job post (employer)', async () => {
+  // Группа 5: Вакансии
+  it('should create job post as employer', async () => {
     const response = await request(baseUrl)
       .post('/api/job-posts')
       .set('Authorization', `Bearer ${employerToken}`)
@@ -569,831 +413,371 @@ describe('Integration Tests (e2e)', () => {
         salary: 50000,
         job_type: 'Full-time',
         category_id: categoryId,
-        required_skills: ['JavaScript', 'TypeScript'],
-      });
-
+        required_skills: ['JavaScript'],
+        applicationLimit: 10,
+      })
+      .expect(201);
     expect(response.body).toHaveProperty('id');
-    expect(response.body.title).toBe('Software Engineer');
-    expect(response.body.pending_review).toBe(true);
     jobPostId = response.body.id;
-    console.log('Created job post:', response.body);
+    cleanupIds.jobs.push(jobPostId);
+    console.log('Job post created');
   }, 10000);
 
-  // Тест 24: Получение списка вакансий
-  it('should get list of job posts', async () => {
+  it('should approve job post as admin', async () => {
     const response = await request(baseUrl)
-      .get('/api/job-posts')
-      .set('Content-Type', 'application/json')
-      .query({
-        page: 1,
-        limit: 10,
-      });
-
-    expect(Array.isArray(response.body)).toBe(true);
-    console.log('Job posts:', response.body);
+      .post(`/api/admin/job-posts/${jobPostId}/approve`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(response.body.pending_review).toBe(false);
+    console.log('Job post approved');
   }, 10000);
 
-  // Тест 25: Поиск вакансий с фильтрами
   it('should search job posts with filters', async () => {
     const response = await request(baseUrl)
       .get('/api/job-posts')
-      .set('Content-Type', 'application/json')
-      .query({
-        title: 'Software Engineer',
-        job_type: 'Full-time',
-        page: 1,
-        limit: 10,
-      });
-
-    expect(Array.isArray(response.body)).toBe(true);
-    console.log('Filtered job posts:', response.body);
+      .query({ title: 'Software', job_type: 'Full-time', page: 1, limit: 10 })
+      .expect(200);
+    expect(response.body).toHaveProperty('total');
+    expect(Array.isArray(response.body.data)).toBe(true);
+    console.log('Job posts filtered');
   }, 10000);
 
-  // Тест 26: Обновление вакансии (работодатель)
-  it('should update a job post (employer)', async () => {
+  it('should increment job post views', async () => {
+    const initialJob = await request(baseUrl)
+      .get(`/api/job-posts/${jobPostId}`)
+      .expect(200);
+    const initialViews = initialJob.body.views || 0;
+    await request(baseUrl)
+      .post(`/api/job-posts/${jobPostId}/increment-view`)
+      .expect(200);
+    const updatedJob = await request(baseUrl)
+      .get(`/api/job-posts/${jobPostId}`)
+      .expect(200);
+    expect(updatedJob.body.views).toBe(initialViews + 1);
+    console.log('Job post views incremented');
+  }, 10000);
+
+  // Группа 6: Заявки
+  it('should apply to job post as jobseeker', async () => {
     const response = await request(baseUrl)
-      .put(`/api/job-posts/${jobPostId}`)
-      .set('Authorization', `Bearer ${employerToken}`)
+      .post('/api/job-applications')
+      .set('Authorization', `Bearer ${jobseekerToken}`)
       .set('Content-Type', 'application/json')
-      .send({
-        title: 'Senior Software Engineer',
-        salary: 60000,
-      });
-
-    expect(response.body.title).toBe('Senior Software Engineer');
-    expect(response.body.salary).toBe(60000);
-    console.log('Updated job post:', response.body);
+      .send({ job_post_id: jobPostId })
+      .expect(201);
+    expect(response.body).toHaveProperty('id');
+    applicationId = response.body.id;
+    cleanupIds.applications.push(applicationId);
+    console.log('Job application submitted');
   }, 10000);
 
-
-  // Тест 27: Закрытие вакансии (работодатель)
-  it('should close a job post (employer)', async () => {
+  it('should fail duplicate job application', async () => {
     const response = await request(baseUrl)
-      .post(`/api/job-posts/${jobPostId}/close`)
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body.status).toBe('Closed');
-    console.log('Closed job post:', response.body);
+      .post('/api/job-applications')
+      .set('Authorization', `Bearer ${jobseekerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ job_post_id: jobPostId })
+      .expect(400);
+    expect(response.body.message).toBe('You have already applied to this job post');
+    console.log('Duplicate job application blocked');
   }, 10000);
 
-  // Тест 28: Одобрение вакансии (админ)
-  it('should approve a job post (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
+  it('should fail application when limit reached', async () => {
+    // Создаём вторую заявку, чтобы проверить лимит (10 заявок)
+    const secondJobseekerResponse = await request(baseUrl)
+      .post('/api/auth/login')
+      .set('Content-Type', 'application/json')
+      .set('X-Forwarded-For', '99.79.0.2')
+      .set('X-Fingerprint', `test-fingerprint-second-${Date.now()}`)
+      .send({ email: 'test_jobseeker2@example.com', password: 'jobseeker123' }); // Предполагается, что ты создал второго jobseeker
+    expect(secondJobseekerResponse.status).toBe(201);
+    const secondJobseekerToken = secondJobseekerResponse.body.accessToken;
+    const secondProfile = await request(baseUrl)
+      .get('/api/profile')
+      .set('Authorization', `Bearer ${secondJobseekerToken}`);
+    cleanupIds.users.push(secondProfile.body.id);
+
+    // Подаём заявки до превышения лимита
+    for (let i = 0; i < 9; i++) {
+      await request(baseUrl)
+        .post('/api/job-applications')
+        .set('Authorization', `Bearer ${secondJobseekerToken}`)
+        .set('Content-Type', 'application/json')
+        .send({ job_post_id: jobPostId })
+        .expect(201);
     }
 
-    // Создаём новую вакансию
-    const createResponse = await request(baseUrl)
+    const response = await request(baseUrl)
+      .post('/api/job-applications')
+      .set('Authorization', `Bearer ${secondJobseekerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ job_post_id: jobPostId })
+      .expect(400);
+    expect(response.body.message).toBe('Job full');
+    console.log('Application limit reached');
+  }, 15000);
+
+  // Группа 7: Отзывы
+  it('should create review from employer to jobseeker', async () => {
+    await request(baseUrl)
+      .put(`/api/job-applications/${applicationId}`)
+      .set('Authorization', `Bearer ${employerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ status: 'Accepted' })
+      .expect(200);
+    const response = await request(baseUrl)
+      .post('/api/reviews')
+      .set('Authorization', `Bearer ${employerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ job_application_id: applicationId, rating: 4, comment: 'Great work!' })
+      .expect(201);
+    expect(response.body.rating).toBe(4);
+    reviewId = response.body.id;
+    cleanupIds.reviews.push(reviewId);
+    console.log('Review created');
+  }, 10000);
+
+  it('should fail review with invalid rating', async () => {
+    const response = await request(baseUrl)
+      .post('/api/reviews')
+      .set('Authorization', `Bearer ${employerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ job_application_id: applicationId, rating: 6, comment: 'Invalid rating' })
+      .expect(400);
+    expect(response.body.message).toBe('Rating must be between 1 and 5');
+    console.log('Invalid rating review blocked');
+  }, 10000);
+
+  // Группа 8: Жалобы
+  it('should submit complaint on job post', async () => {
+    const response = await request(baseUrl)
+      .post('/api/complaints')
+      .set('Authorization', `Bearer ${jobseekerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ job_post_id: jobPostId, reason: 'Inappropriate description' })
+      .expect(201);
+    expect(response.body.status).toBe('Pending');
+    complaintId = response.body.id;
+    cleanupIds.complaints.push(complaintId);
+    console.log('Complaint submitted');
+  }, 10000);
+
+  it('should fail complaint on own profile', async () => {
+    const response = await request(baseUrl)
+      .post('/api/complaints')
+      .set('Authorization', `Bearer ${jobseekerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ profile_id: jobseekerId, reason: 'Testing own profile' })
+      .expect(400);
+    expect(response.body.message).toBe('Cannot submit a complaint against your own profile');
+    console.log('Own profile complaint blocked');
+  }, 10000);
+
+  // Группа 9: Обратная связь
+  it('should submit feedback as jobseeker', async () => {
+    const response = await request(baseUrl)
+      .post('/api/feedback')
+      .set('Authorization', `Bearer ${jobseekerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ message: 'Great platform!' })
+      .expect(201);
+    expect(response.body.message).toBe('Great platform!');
+    feedbackId = response.body.id;
+    cleanupIds.feedback.push(feedbackId);
+    console.log('Feedback submitted');
+  }, 10000);
+
+  it('should fail feedback with empty message', async () => {
+    const response = await request(baseUrl)
+      .post('/api/feedback')
+      .set('Authorization', `Bearer ${jobseekerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ message: '' })
+      .expect(400);
+    expect(response.body.message).toContain('message must be a non-empty string');
+    console.log('Empty feedback blocked');
+  }, 10000);
+
+  // Группа 10: Чат
+  it('should connect to chat and send message', async () => {
+    socket = Client(socketUrl, {
+      auth: { token: `Bearer ${jobseekerToken}` },
+      reconnection: false,
+    });
+    await new Promise<void>((resolve, reject) => {
+      socket.on('connect', () => {
+        console.log('WebSocket connected');
+        socket.emit('joinChat', { jobApplicationId: applicationId });
+        socket.on('chatHistory', (history: any[]) => {
+          expect(Array.isArray(history)).toBe(true);
+          socket.emit('sendMessage', { jobApplicationId: applicationId, content: 'Test message' });
+          socket.on('newMessage', (message: any) => {
+            expect(message.content).toBe('Test message');
+            console.log('Message sent and received');
+            resolve();
+          });
+        });
+        socket.on('error', (err: any) => reject(err));
+      });
+      socket.on('connect_error', (err: any) => reject(err));
+    });
+  }, 15000);
+
+  it('should fail chat access without permission', async () => {
+    const invalidSocket = Client(socketUrl, {
+      auth: { token: `Bearer ${moderatorToken}` },
+      reconnection: false,
+    });
+    await new Promise<void>((resolve, reject) => {
+      invalidSocket.on('connect', () => {
+        invalidSocket.emit('joinChat', { jobApplicationId: applicationId });
+        invalidSocket.on('error', (err: any) => {
+          expect(err.message).toBe('No access to this chat');
+          console.log('Unauthorized chat access blocked');
+          resolve();
+        });
+      });
+      invalidSocket.on('connect_error', (err: any) => reject(err));
+      setTimeout(() => reject(new Error('Timeout waiting for error')), 5000);
+    });
+    invalidSocket.disconnect();
+  }, 10000);
+
+  // Группа 11: Поиск талантов
+  it('should search talents with filters', async () => {
+    const response = await request(baseUrl)
+      .get('/api/talents')
+      .query({ skills: 'JavaScript', experience: '3 years', rating: 4, page: 1, limit: 10 })
+      .expect(200);
+    expect(response.body).toHaveProperty('total');
+    expect(Array.isArray(response.body.data)).toBe(true);
+    console.log('Talents filtered');
+  }, 10000);
+
+  it('should fail talent search with invalid rating', async () => {
+    const response = await request(baseUrl)
+      .get('/api/talents')
+      .query({ rating: 6 })
+      .expect(400);
+    expect(response.body.message).toBe('Rating must be between 0 and 5');
+    console.log('Invalid talent search blocked');
+  }, 10000);
+
+  // Группа 12: Публичная статистика
+  it('should retrieve public statistics', async () => {
+    const response = await request(baseUrl)
+      .get('/api/stats')
+      .expect(200);
+    expect(response.body).toHaveProperty('totalResumes');
+    expect(response.body).toHaveProperty('totalJobPosts');
+    expect(response.body).toHaveProperty('totalEmployers');
+    console.log('Public statistics retrieved');
+  }, 10000);
+
+  // Группа 13: Админские действия
+  it('should retrieve analytics as admin', async () => {
+    const response = await request(baseUrl)
+      .get('/api/admin/analytics')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(response.body).toHaveProperty('totalUsers');
+    expect(response.body).toHaveProperty('employers');
+    expect(response.body).toHaveProperty('jobSeekers');
+    console.log('Analytics retrieved');
+  }, 10000);
+
+  it('should block and unblock user as admin', async () => {
+    await request(baseUrl)
+      .post(`/api/admin/users/${jobseekerId}/block`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const loginResponse = await request(baseUrl)
+      .post('/api/auth/login')
+      .set('Content-Type', 'application/json')
+      .send({ email: JOBSEEKER_EMAIL, password: JOBSEEKER_PASSWORD })
+      .expect(401);
+    expect(loginResponse.body.message).toBe('User is blocked');
+    await request(baseUrl)
+      .post(`/api/admin/users/${jobseekerId}/unblock`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    console.log('User blocked and unblocked');
+  }, 10000);
+
+  it('should set global application limit as admin', async () => {
+    const response = await request(baseUrl)
+      .post('/api/admin/settings/application-limit')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ limit: 1000 })
+      .expect(200);
+    expect(response.body.message).toBe('Global application limit updated successfully');
+    const getResponse = await request(baseUrl)
+      .get('/api/admin/settings/application-limit')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(getResponse.body.globalApplicationLimit).toBe(1000);
+    console.log('Global application limit set');
+  }, 10000);
+
+  it('should export users to CSV as admin', async () => {
+    const response = await request(baseUrl)
+      .get('/api/admin/users/export-csv')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(response.headers['content-type']).toBe('text/csv');
+    expect(response.headers['content-disposition']).toMatch(/attachment; filename="users.csv"/);
+    expect(response.text).toContain('User ID,Email,Username,Role,Status,Created At,Updated At');
+    console.log('Users exported to CSV');
+  }, 10000);
+
+  it('should notify job seekers as admin', async () => {
+    const response = await request(baseUrl)
+      .post(`/api/admin/job-posts/${jobPostId}/notify-candidates`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ limit: 10, orderBy: 'random' })
+      .expect(200);
+    expect(response.body).toHaveProperty('total');
+    expect(response.body).toHaveProperty('sent');
+    expect(response.body.jobPostId).toBe(jobPostId);
+    console.log('Job seekers notified');
+  }, 10000);
+
+  // Группа 14: Модераторские действия
+  it('should approve job post as moderator', async () => {
+    const newJobResponse = await request(baseUrl)
       .post('/api/job-posts')
       .set('Authorization', `Bearer ${employerToken}`)
       .set('Content-Type', 'application/json')
       .send({
-        title: 'Software Engineer 2',
-        description: 'Another engineer needed',
+        title: 'Another Engineer',
+        description: 'Need another skilled engineer',
         location: 'Remote',
-        salary: 50000,
+        salary: 60000,
         job_type: 'Full-time',
         category_id: categoryId,
-        required_skills: ['JavaScript'],
-      });
-
-    expect(createResponse.body).toHaveProperty('id');
-    newJobPostId = createResponse.body.id;
-    console.log('Created new new job post:', createResponse.body);
-
+      })
+      .expect(201);
+    const newJobId = newJobResponse.body.id;
+    cleanupIds.jobs.push(newJobId);
     const response = await request(baseUrl)
-      .post(`/api/admin/job-posts/${newJobPostId}/approve`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
+      .post(`/api/moderator/job-posts/${newJobId}/approve`)
+      .set('Authorization', `Bearer ${moderatorToken}`)
+      .expect(200);
     expect(response.body.pending_review).toBe(false);
-    console.log('Approved job post:', response.body);
+    console.log('Job post approved by moderator');
   }, 10000);
 
-  // Тест 29: Флагирование вакансии (админ)
-  it('should flag a job post (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .post(`/api/admin/job-posts/${jobPostId}/flag`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body).toHaveProperty('pending_review', true);
-    console.log('Flagged job post:', response.body);
-  }, 10000);
-
-  // Тест 30: Установка лимита заявок (админ)
-  it('should set application limit (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .post(`/api/admin/job-posts/${jobPostId}/set-application-limit`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        limit: 50,
-      });
-
-    expect(response.body.limit).toBe(50);
-    console.log('Set application limit:', response.body);
-  }, 10000);
-
-  // Тест 31: Инкремент просмотров вакансии
-  it('should increment job post views', async () => {
-    const getJobResponse = await request(baseUrl)
-      .get(`/api/job-posts/${jobPostId}`)
-      .set('Content-Type', 'application/json');
-
-    const initialViews = getJobResponse.body.views || 0;
-    console.log('Initial job post views:', initialViews);
-
-    const response = await request(baseUrl)
-      .post(`/api/job-posts/${jobPostId}/increment-view`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body).toHaveProperty('message', 'View count incremented');
-    console.log('Incremented job post views:', response.body);
-
-    const updatedJob = await request(baseUrl)
-      .get(`/api/job-posts/${jobPostId}`)
-      .set('Content-Type', 'application/json');
-
-    expect(updatedJob.body.views).toBe(initialViews + 1);
-    console.log('Updated job post views:', updatedJob.body.views);
-  }, 10000);
-
-  // Тест 32: Удаление вакансии (админ)
-  it('should delete a job post (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .delete(`/api/job-posts/${jobPostId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body).toHaveProperty('message', 'Job post deleted successfully');
-    console.log('Deleted job post:', response.body);
-
-    const getResponse = await request(baseUrl)
-      .get(`/api/job-posts/${jobPostId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(getResponse.body.message).toContain('Job post not found');
-    console.log('Confirmed job post deletion:', getResponse.body.message);
-    jobPostId = ''; // Обнуляем, так как удалили
-  }, 10000);
-
-  // Тест 33: Подача заявки на вакансию (фрилансер)
-  it('should apply to a job post (jobseeker)', async () => {
-    const response = await request(baseUrl)
-      .post('/api/job-applications')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        job_post_id: newJobPostId,
-      });
-
-    expect(response.body).toHaveProperty('id');
-    expect(response.body.job_post_id).toBe(newJobPostId);
-    expect(response.body.status).toBe('Pending');
-    applicationId = response.body.id;
-    console.log('Created job application:', response.body);
-  }, 10000);
-
-  // Тест 34: Повторная подача заявки (должна быть ошибка)
-  it('should fail to apply to the same job post twice', async () => {
-    const response = await request(baseUrl)
-      .post('/api/job-applications')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        job_post_id: newJobPostId,
-      });
-
-    expect(response.body.message).toContain('You have already applied to this job post');
-    console.log('Failed to apply twice:', response.body.message);
-  }, 10000);
-
-  // Тест 35: Получение списка заявок фрилансера
-  it('should get jobseeker applications', async () => {
-    const response = await request(baseUrl)
-      .get('/api/job-applications/my-applications')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(Array.isArray(response.body)).toBe(true);
-    expect(response.body[0].job_post_id).toBe(newJobPostId);
-    console.log('Jobseeker applications:', response.body);
-  }, 10000);
-
-  // Тест 36: Получение списка заявок на вакансию (работодатель)
-  it('should get applications for a job post (employer)', async () => {
-    const response = await request(baseUrl)
-      .get(`/api/job-applications/job-post/${newJobPostId}`)
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(Array.isArray(response.body)).toBe(true);
-    expect(response.body[0].userId).toBe(jobseekerId);
-    console.log('Job post applications:', response.body);
-  }, 10000);
-
-  // Тест 37: Обновление статуса заявки (работодатель)
-  it('should update application status (employer)', async () => {
-    const response = await request(baseUrl)
-      .put(`/api/job-applications/${applicationId}`)
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        status: 'Accepted',
-      });
-
-    expect(response.body.status).toBe('Accepted');
-    console.log('Updated application status:', response.body);
-  }, 10000);
-
-  // Тест 37.1: Ограничение на одну Accepted заявку
-  it('should allow only one accepted application and close job post', async () => {
-    // Создать вторую заявку
-    const newJobseekerTimestamp = new Date().toISOString().replace(/[^0-9]/g, '');
-    const newJobseekerResponse = await request(baseUrl)
-      .post('/api/auth/register')
-      .set('Content-Type', 'application/json')
-      .set('X-Forwarded-For', '99.79.0.3')
-      .set('X-Fingerprint', `test-fingerprint-${newJobseekerTimestamp}`)
-      .send({
-        email: `jobseeker${newJobseekerTimestamp}@example.com`,
-        password: 'jobseeker123',
-        username: `jobseeker${newJobseekerTimestamp}`,
-        role: 'jobseeker',
-      });
-    expect(newJobseekerResponse.body).toHaveProperty('accessToken');
-    const newJobseekerToken = newJobseekerResponse.body.accessToken;
-    console.log('New jobseeker registered:', newJobseekerResponse.body);
-
-    const newApplicationResponse = await request(baseUrl)
-      .post('/api/job-applications')
-      .set('Authorization', `Bearer ${newJobseekerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({ job_post_id: newJobPostId });
-    expect(newApplicationResponse.body).toHaveProperty('id');
-    const newApplicationId = newApplicationResponse.body.id;
-    console.log('Created new application:', newApplicationResponse.body);
-
-    // Принять первую заявку
-    const acceptResponse = await request(baseUrl)
-      .put(`/api/job-applications/${applicationId}`)
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({ status: 'Accepted' });
-    expect(acceptResponse.body.status).toBe('Accepted');
-    console.log('Accepted first application:', acceptResponse.body);
-
-    // Проверить, что вакансия закрыта
-    const jobResponse = await request(baseUrl)
-      .get(`/api/job-posts/${newJobPostId}`)
-      .set('Content-Type', 'application/json');
-    expect(jobResponse.body.status).toBe('Closed');
-    console.log('Job post closed:', jobResponse.body);
-
-    // Попытка принять вторую заявку
-    const secondAcceptResponse = await request(baseUrl)
-      .put(`/api/job-applications/${newApplicationId}`)
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({ status: 'Accepted' });
-    expect(secondAcceptResponse.body.message).toContain('Only one application can be accepted per job post');
-    console.log('Failed to accept second application:', secondAcceptResponse.body.message);
-
-    // Очистка: удалить нового jobseeker'а
-    const newJobseekerProfile = await request(baseUrl)
-      .get('/api/profile')
-      .set('Authorization', `Bearer ${newJobseekerToken}`)
-      .set('Content-Type', 'application/json');
-    const newJobseekerId = newJobseekerProfile.body.id;
+  it('should delete review as moderator', async () => {
     await request(baseUrl)
-      .delete(`/api/admin/users/${newJobseekerId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-    console.log(`Deleted new jobseeker ${newJobseekerId}`);
-  }, 15000);
-
-  // Тест 38: Подача заявки на закрытую вакансию
-  it('should fail to apply to a closed job post', async () => {
-    // Закрываем вакансию
-    const closeResponse = await request(baseUrl)
-      .post(`/api/job-posts/${newJobPostId}/close`)
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json');
-    expect(closeResponse.body.status).toBe('Closed');
-    console.log('Closed job post:', closeResponse.body);
-
-    const response = await request(baseUrl)
-      .post('/api/job-applications')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        job_post_id: newJobPostId,
-      });
-
-    expect(response.body.message).toContain('Cannot apply to a job post that is not active');
-    console.log('Failed to apply to closed job:', response.body.message);
-  }, 10000);
-
-  // Тест 39: Подача заявки после превышения лимита
-  it('should fail to apply after application limit', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    // Устанавливаем лимит 1 заявка
-    const setLimitResponse = await request(baseUrl)
-      .post(`/api/admin/job-posts/${newJobPostId}/set-application-limit`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        limit: 1,
-      });
-    expect(setLimitResponse.body.limit).toBe(1);
-    console.log('Set application limit:', setLimitResponse.body);
-
-    // Вторая заявка (должна быть ошибка)
-    const response = await request(baseUrl)
-      .post('/api/job-applications')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        job_post_id: newJobPostId,
-      });
-
-    expect(response.body.message).toContain('Job full');
-    console.log('Failed to apply after limit:', response.body.message);
-  }, 10000);
-
-  // Тест 40: Получение списка вакансий с фильтром по статусу (админ)
-  it('should get job posts with status filter (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .get('/api/admin/job-posts')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json')
-      .query({
-        status: 'Closed',
-      });
-
-    expect(Array.isArray(response.body)).toBe(true);
-    expect(response.body.every(post => post.status === 'Closed')).toBe(true);
-    console.log('Filtered job posts:', response.body);
-  }, 10000);
-
-  // Тест 41: Создание отзыва работодателем о фрилансере
-  it('should create a review from employer to jobseeker', async () => {
-    const response = await request(baseUrl)
-      .post('/api/reviews')
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        job_application_id: applicationId,
-        rating: 5,
-        comment: 'Great job!',
-      });
-
-    expect(response.body.rating).toBe(5);
-    expect(response.body.comment).toBe('Great job!');
-    reviewId = response.body.id;
-    console.log('Created review:', response.body);
-  }, 10000);
-
-  // Тест 42: Создание отзыва фрилансером о работодателе
-  it('should create a review from jobseeker to employer', async () => {
-    const response = await request(baseUrl)
-      .post('/api/reviews')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        job_application_id: applicationId,
-        rating: 4,
-        comment: 'Good experience',
-      });
-
-    expect(response.body.rating).toBe(4);
-    expect(response.body.comment).toBe('Good experience');
-    console.log('Created review from jobseeker:', response.body);
-  }, 10000);
-
-  // Тест 43: Повторный отзыв на ту же заявку
-  it('should fail to create a duplicate review', async () => {
-    const response = await request(baseUrl)
-      .post('/api/reviews')
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        job_application_id: applicationId,
-        rating: 3,
-        comment: 'Duplicate review',
-      });
-
-    expect(response.body.message).toContain('You have already left a review for this job application');
-    console.log('Failed to create duplicate review:', response.body.message);
-  }, 10000);
-
-  // Тест 44: Создание отзыва на заявку без статуса Accepted
-  it('should fail to create a review for non-accepted application', async () => {
-    // Подаём заявку
-    const newApplicationResponse = await request(baseUrl)
-      .post('/api/job-applications')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        job_post_id: newJobPostId,
-      });
-
-    expect(newApplicationResponse.body).toHaveProperty('id');
-    newApplicationId = newApplicationResponse.body.id;
-    console.log('Created new application:', newApplicationResponse.body);
-
-    // Пробуем оставить отзыв
-    const response = await request(baseUrl)
-      .post('/api/reviews')
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        job_application_id: newApplicationId,
-        rating: 5,
-        comment: 'Not accepted yet',
-      });
-
-    expect(response.body.message).toContain('Reviews can only be left for accepted job applications');
-    console.log('Failed to create review for non-accepted application:', response.body.message);
-  }, 10000);
-
-  // Тест 45: Получение списка отзывов о пользователе
-  it('should get reviews for a user', async () => {
+      .delete(`/api/moderator/reviews/${reviewId}`)
+      .set('Authorization', `Bearer ${moderatorToken}`)
+      .expect(200);
     const response = await request(baseUrl)
       .get(`/api/reviews/user/${jobseekerId}`)
-      .set('Content-Type', 'application/json');
-
-    expect(Array.isArray(response.body)).toBe(true);
-    expect(response.body[0].rating).toBe(5);
-    console.log('User reviews:', response.body);
-  }, 10000);
-
-  // Тест 46: Получение списка всех отзывов (админ)
-  it('should get all reviews (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .get('/api/admin/reviews')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(Array.isArray(response.body)).toBe(true);
-    console.log('All reviews:', response.body);
-  }, 10000);
-
-  // Тест 47: Удаление отзыва (админ)
-  it('should delete a review (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .delete(`/api/admin/reviews/${reviewId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body).toHaveProperty('message', 'Review deleted successfully');
-    console.log('Deleted review:', response.body);
-  }, 10000);
-
-  // Тест 48: Обновление рейтинга пользователя после отзыва
-  it('should update user rating after review', async () => {
-    const getProfileResponse = await request(baseUrl)
-      .get('/api/profile')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json');
-
-    const initialRating = getProfileResponse.body.average_rating || 0;
-    console.log('Initial rating:', initialRating);
-
-    const updateAppResponse = await request(baseUrl)
-      .put(`/api/job-applications/${newApplicationId}`)
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        status: 'Accepted',
-      });
-    expect(updateAppResponse.body.status).toBe('Accepted');
-    console.log('Updated application status for review:', updateAppResponse.body);
-
-    const reviewResponse = await request(baseUrl)
-      .post('/api/reviews')
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        job_application_id: newApplicationId,
-        rating: 4,
-        comment: 'Another review',
-      });
-    expect(reviewResponse.body.rating).toBe(4);
-    console.log('Created review for rating update:', reviewResponse.body);
-
-    const updatedProfile = await request(baseUrl)
-      .get('/api/profile')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(updatedProfile.body.average_rating).toBeGreaterThan(initialRating);
-    console.log('Updated rating:', updatedProfile.body.average_rating);
-  }, 10000);
-
-  // Тест 49: Получение общей аналитики (админ)
-  it('should get overall analytics (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .get('/api/admin/analytics')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body).toHaveProperty('totalUsers');
-    expect(response.body).toHaveProperty('totalJobPosts');
-    console.log('Overall analytics:', response.body);
-  }, 10000);
-
-  // Тест 50: Получение аналитики регистраций (админ)
-  it('should get registration analytics (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .get('/api/admin/analytics/registrations')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json')
-      .query({
-        startDate: '2025-05-01',
-        endDate: '2025-06-02',
-        interval: 'day',
-      });
-
-    expect(Array.isArray(response.body)).toBe(true);
-    console.log('Registration analytics:', response.body);
-  }, 10000);
-
-  // Тест 51: Получение географической аналитики (админ)
-  it('should get geographic distribution (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .get('/api/admin/analytics/geographic-distribution')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(Array.isArray(response.body)).toBe(true);
-    console.log('Geographic distribution:', response.body);
-  }, 10000);
-
-  // Тест 52: Получение трендов роста (админ)
-  it('should get growth trends (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .get('/api/admin/analytics/growth-trends')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json')
-      .query({
-        period: '7d',
-      });
-
-    expect(response.body).toHaveProperty('registrations');
-    expect(response.body).toHaveProperty('jobPosts');
-    console.log('Growth trends:', response.body);
-  }, 10000);
-
-  // Тест 53: Получение последних регистраций (админ)
-  it('should get recent registrations (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .get('/api/admin/analytics/recent-registrations')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(Array.isArray(response.body.jobseekers)).toBe(true);
-    expect(Array.isArray(response.body.employers)).toBe(true);
-    console.log('Recent registrations:', response.body);
-  }, 10000);
-
-  // Тест 54: Получение списка вакансий с заявками (админ)
-  it('should get job posts with applications (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .get('/api/admin/job-posts/applications')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(Array.isArray(response.body)).toBe(true);
-    console.log('Job posts with applications:', response.body);
-  }, 10000);
-
-  // Тест 55: Получение количества онлайн-пользователей (админ)
-  it('should get online users count (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .get('/api/admin/analytics/online-users')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body).toHaveProperty('jobseekers');
-    expect(response.body).toHaveProperty('employers');
-    console.log('Online users count:', response.body);
-  }, 10000);
-
-  // Тест 55.1: Отправка и получение feedback
-  it('should submit and retrieve feedback', async () => {
-    const submitResponse = await request(baseUrl)
-      .post('/api/feedback')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({ message: 'Great platform!' });
-    expect(submitResponse.status).toBe(200);
-    expect(submitResponse.body.message).toBe('Great platform!');
-    console.log('Submitted feedback:', submitResponse.body);
-
-    const getResponse = await request(baseUrl)
-      .get('/api/feedback')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-    expect(Array.isArray(getResponse.body)).toBe(true);
-    expect(getResponse.body.some(fb => fb.message === 'Great platform!')).toBe(true);
-    console.log('Retrieved feedback:', getResponse.body);
-  }, 15000);
-
-  // Тест 56: Получение лидерборда фрилансеров (админ)
-  it('should get top jobseekers leaderboard (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .get('/api/admin/leaderboards/top-jobseekers')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(Array.isArray(response.body)).toBe(true);
-    console.log('Top jobseekers leaderboard:', response.body);
-  }, 10000);
-
-  // Тест 57: Получение лидерборда работодателей (админ)
-  it('should get top employers leaderboard (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .get('/api/admin/leaderboards/top-employers-by-posts')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(Array.isArray(response.body)).toBe(true);
-    console.log('Top employers leaderboard:', response.body);
-  }, 10000);
-
-  // Тест 58: Получение риск-скоринга пользователя (админ)
-  it('should get user risk score (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .get(`/api/admin/users/${jobseekerId}/risk-score`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body).toHaveProperty('riskScore');
-    expect(typeof response.body.riskScore).toBe('number');
-    console.log('User risk score:', response.body);
-  }, 10000);
-
-  // Тест 59: Блокировка пользователя (админ)
-  it('should block a user (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .post(`/api/admin/users/${jobseekerId}/block`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body).toHaveProperty('message', 'User blocked successfully');
-    console.log('Blocked user:', response.body);
-  }, 10000);
-
-  // Тест 60: Разблокировка пользователя (админ)
-  it('should unblock a user (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .post(`/api/admin/users/${jobseekerId}/unblock`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body).toHaveProperty('message', 'User unblocked successfully');
-    console.log('Unblocked user:', response.body);
-  }, 10000);
-
-  // Тест 61: Экспорт пользователей в CSV (админ)
-  it('should export users to CSV (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .get('/api/admin/users/export-csv')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.headers['content-type']).toContain('text/csv');
-    console.log('Exported users to CSV:', response.headers);
-  }, 10000);
-
-  // Тест 62: Удаление пользователя (админ)
-  it('should delete a user (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .delete(`/api/admin/users/${employerId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body).toHaveProperty('message', 'User deleted successfully');
-    console.log('Deleted employer:', response.body);
-
-    const getResponse = await request(baseUrl)
-      .get(`/api/users/${employerId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(getResponse.body.message).toContain('User not found');
-    console.log('Confirmed user deletion:', getResponse.body.message);
-    employerId = ''; // Обнуляем
-  }, 10000);
-
-  // Тест 63: Удаление вакансии (админ)
-  it('should delete a job post (admin)', async () => {
-    if (!adminToken) {
-      throw new Error('Admin login failed');
-    }
-
-    const response = await request(baseUrl)
-      .delete(`/api/job-posts/${newJobPostId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(response.body).toHaveProperty('message', 'Job post deleted successfully');
-    console.log('Deleted new job post:', response.body);
-
-    const getResponse = await request(baseUrl)
-      .get(`/api/job-posts/${newJobPostId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json');
-
-    expect(getResponse.body.message).toContain('Job post not found');
-    console.log('Confirmed new job post deletion:', getResponse.body.message);
-    newJobPostId = ''; // Обнуляем
+      .expect(200);
+    expect(response.body.find((r: any) => r.id === reviewId)).toBeUndefined();
+    console.log('Review deleted by moderator');
   }, 10000);
 });

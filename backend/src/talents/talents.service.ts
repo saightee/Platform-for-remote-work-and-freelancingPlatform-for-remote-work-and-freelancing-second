@@ -52,6 +52,8 @@ export class TalentsService {
       });
     }
 
+    const total = await query.getCount();
+
     const page = filters.page || 1;
     const limit = filters.limit || 10;
     const skip = (page - 1) * limit;
@@ -63,23 +65,27 @@ export class TalentsService {
 
     const jobSeekers = await query.getMany();
 
-    return jobSeekers.map((jobSeeker) => ({
-      id: jobSeeker.user_id,
-      username: jobSeeker.user.username,
-      email: jobSeeker.user.email,
-      skills: jobSeeker.skills,
-      categories: jobSeeker.categories.map((cat) => ({
-        id: cat.id,
-        name: cat.name,
+    return {
+      total,
+      data: jobSeekers.map((jobSeeker) => ({
+        id: jobSeeker.user_id,
+        username: jobSeeker.user.username,
+        email: jobSeeker.user.email,
+        skills: jobSeeker.skills,
+        categories: jobSeeker.categories.map((cat) => ({
+          id: cat.id,
+          name: cat.name,
+        })),
+        experience: jobSeeker.experience,
+        portfolio: jobSeeker.portfolio,
+        video_intro: jobSeeker.video_intro,
+        timezone: jobSeeker.timezone,
+        currency: jobSeeker.currency,
+        average_rating: jobSeeker.average_rating,
+        profile_views: jobSeeker.profile_views,
+        identity_verified: jobSeeker.user.identity_verified,
+        avatar: jobSeeker.user.avatar, 
       })),
-      experience: jobSeeker.experience,
-      portfolio: jobSeeker.portfolio,
-      video_intro: jobSeeker.video_intro,
-      timezone: jobSeeker.timezone,
-      currency: jobSeeker.currency,
-      average_rating: jobSeeker.average_rating,
-      profile_views: jobSeeker.profile_views,
-      identity_verified: jobSeeker.user.identity_verified,
-    }));
+    };
   }
 }

@@ -712,7 +712,7 @@
 
 ### 14. Apply to Job Post
 - **Endpoint**: `POST /api/job-applications`
-- **Description**: Allows a jobseeker to apply to a job post. Applications are limited per job post (default: 100) and distributed cumulatively over 4 days (60%, 80%, 90%, 100%). If the daily limit is reached, a "Daily application limit reached" error is returned. After 4 days, applications are accepted until the total limit is reached. If the total limit is reached, a "Job full" error is returned.
+- **Description**: Allows a jobseeker to apply to a job post. Applications are limited per job post (default: 100) and distributed cumulatively over 4 days (60%, 80%, 90%, 100%). If the daily limit is reached, a "Daily application limit reached" error is returned. If the total limit is reached, a "Job full" error is returned.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
   ```json
@@ -1014,42 +1014,45 @@
 - **Example Request**: `/api/job-posts/search?title=Engineer&location=Remote&salaryMin=40000&salaryMax=60000&job_type=Full-time&category_id=<categoryId>`
 - **Response (Success - 200)**:
   ```json
-  [
-    {
-      "id": "<jobPostId>",
-      "title": "Software Engineer",
-      "description": "We are looking for a skilled engineer...",
-      "location": "Remote",
-      "salary": 50000,
-      "status": "Active",
-      "pending_review": false,
-      "category_id": "<categoryId>",
-      "category": {
-        "id": "<categoryId>",
-        "name": "Engineering",
+  {
+    "total": 50,
+    "data": [
+      {
+        "id": "<jobPostId>",
+        "title": "Software Engineer",
+        "description": "We are looking for a skilled engineer...",
+        "location": "Remote",
+        "salary": 50000,
+        "status": "Active",
+        "pending_review": false,
+        "category_id": "<categoryId>",
+        "category": {
+          "id": "<categoryId>",
+          "name": "Engineering",
+          "created_at": "2025-05-22T10:00:00.000Z",
+          "updated_at": "2025-05-22T10:00:00.000Z"
+        },
+        "job_type": "Full-time",
+        "employer_id": "<employerId>",
+        "employer": {
+          "user_id": "<employerId>",
+          "company_name": "Tech Corp",
+          "company_info": "A tech company",
+          "referral_link": null,
+          "timezone": "UTC",
+          "currency": "USD",
+          "average_rating": 0,
+          "created_at": "2025-05-22T10:00:00.000Z",
+          "updated_at": "2025-05-22T10:00:00.000Z"
+        },
+        "applicationLimit": 100,
+        "views": 0,
+        "required_skills": ["JavaScript", "TypeScript"],
         "created_at": "2025-05-22T10:00:00.000Z",
         "updated_at": "2025-05-22T10:00:00.000Z"
-      },
-      "job_type": "Full-time",
-      "employer_id": "<employerId>",
-      "employer": {
-        "user_id": "<employerId>",
-        "company_name": "Tech Corp",
-        "company_info": "A tech company",
-        "referral_link": null,
-        "timezone": "UTC",
-        "currency": "USD",
-        "average_rating": 0,
-        "created_at": "2025-05-22T10:00:00.000Z",
-        "updated_at": "2025-05-22T10:00:00.000Z"
-      },
-      "applicationLimit": 100,
-      "views": 0,
-      "required_skills": ["JavaScript", "TypeScript"],
-      "created_at": "2025-05-22T10:00:00.000Z",
-      "updated_at": "2025-05-22T10:00:00.000Z"
-    }
-  ]
+      }
+    ]
+  }
 
 ### 20. Create Review
 - **Endpoint**: `POST /api/reviews`
@@ -1316,43 +1319,57 @@
 
 ### 27. Get All Job Posts (Admin)
 - **Endpoint**: `GET /api/admin/job-posts`
-- **Description**: Retrieves all job posts (admin only) with optional filters.
+- **Description**: Retrieves all job posts (admin only) with optional filters, pagination, and sorting. Supports filtering by status, pending review status, and job title (partial match). Returns total count and paginated data for frontend pagination
 - **Headers**: `Authorization: Bearer <token>`
 - **Query Parameters**: 
   - `status` (string, optional): Filter by status ("Active", "Draft", "Closed").
   - `pendingReview` (string, optional): Filter by pending review status ("true" or "false").
-- **Example Request**: `/api/admin/job-posts?status=Active&pendingReview=true`
+  - `title` (string, optional): Filter by job title (partial match, case-insensitive).
+  - `page` (number, optional): Page number for pagination (default: 1).
+  - `limit` (number, optional): Number of items per page (default: 10).
+- **Example Request**: `/api/admin/job-posts?status=Active&pendingReview=false&title=Software&page=1&limit=10`
 - **Response (Success - 200)**: 
   ```json
-  [
-    {
-      "id": "<jobPostId>",
-      "title": "Software Engineer",
-      "description": "We are looking for a skilled software engineer...",
-      "location": "Remote",
-      "salary": 50000,
-      "status": "Active",
-      "pending_review": true,
-      "category_id": "<categoryId>",
-      "category": {
-        "id": "<categoryId>",
-        "name": "Software Development",
+  {
+    "total": 50,
+    "data": [
+      {
+        "id": "<jobPostId>",
+        "title": "Software Engineer",
+        "description": "We are looking for a skilled software engineer...",
+        "location": "Remote",
+        "salary": 50000,
+        "status": "Active",
+        "pending_review": false,
+        "category_id": "<categoryId>",
+        "category": {
+          "id": "<categoryId>",
+          "name": "Software Development",
+          "created_at": "2025-05-15T06:12:00.000Z",
+          "updated_at": "2025-05-15T06:12:00.000Z"
+        },
+        "job_type": "Full-time",
+        "employer_id": "<employerId>",
+        "employer": {
+          "id": "<employerId>",
+          "email": "employer100@example.com",
+          "username": "jane_smith100",
+          "role": "employer"
+        },
+        "applicationLimit": 100,
         "created_at": "2025-05-15T06:12:00.000Z",
         "updated_at": "2025-05-15T06:12:00.000Z"
-      },
-      "job_type": "Full-time",
-      "employer_id": "<employerId>",
-      "employer": {
-        "id": "<employerId>",
-        "email": "employer100@example.com",
-        "username": "jane_smith100",
-        "role": "employer"
-      },
-      "applicationLimit": 100,
-      "created_at": "2025-05-15T06:12:00.000Z",
-      "updated_at": "2025-05-15T06:12:00.000Z"
-    }
-  ]
+      }
+    ]
+  }
+
+- **Response (Error - 400, pagination parametrs incorrect)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Page must be a positive integer",
+    "error": "Bad Request"
+  }
 
 - **Response (Error - 401, if token is invalid or user is not an admin)**:
   ```json
@@ -1476,6 +1493,14 @@
     "statusCode": 404,
     "message": "Job post not found",
     "error": "Not Found"
+  }
+
+- **Response (Error - 401, if unauthorized)**: 
+  ```json  
+  {
+    "statusCode": 401,
+    "message": "Only admins can access this resource",
+    "error": "Unauthorized"
   }
 
 ### 32. Get All Reviews (Admin)
@@ -1617,7 +1642,7 @@
 - **Description**: Sets the application limit for a specific job post (admin only). Employers cannot set limits.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Parameters**: `id`: The ID of the job post.
-- **Request Body**: `id`: The ID of the job post.
+- **Request Body**:
   ```json
   {
     "limit": 50
@@ -2257,7 +2282,7 @@
 
 ### 62. Get User Online Status
 - **Endpoint**: `GET /api/users/:id/online`
-- **Description**: Checks if a specific user is online.
+- **Description**: Checks if a specific user is online, based on their presence in the Redis store
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Parameters**: `id`: The ID of the user.
 - **Response (Success - 200)**:
@@ -2331,28 +2356,32 @@
 - **Example Request**: `/api/talents?skills=Python&experience=3 years&rating=4&timezone=America/New_York&page=1&limit=10&sort_by=average_rating&sort_order=DESC`
 - **Response (Success - 200)**:
   ```json
-  [
-    {
-      "id": "<userId>",
-      "username": "john_doe",
-      "email": "john@example.com",
-      "skills": ["Python", "JavaScript"],
-      "categories": [
-        {
-          "id": "<categoryId>",
-          "name": "Web Development"
-        }
-      ],
-      "experience": "3 years",
-      "portfolio": "https://portfolio.com",
-      "video_intro": "https://video.com",
-      "timezone": "America/New_York",
-      "currency": "USD",
-      "average_rating": 4.5,
-      "profile_views": 100,
-      "identity_verified": true
-    }
-  ]
+  {
+    "total": 50,
+    "data": [
+      {
+        "id": "<userId>",
+        "username": "john_doe",
+        "email": "john@example.com",
+        "skills": ["Python", "JavaScript"],
+        "categories": [
+          {
+            "id": "<categoryId>",
+            "name": "Web Development"
+          }
+        ],
+        "experience": "3 years",
+        "portfolio": "https://portfolio.com",
+        "video_intro": "https://video.com",
+        "timezone": "America/New_York",
+        "currency": "USD",
+        "average_rating": 4.5,
+        "profile_views": 100,
+        "identity_verified": true,
+        "avatar": "/uploads/avatars/<filename>"
+      }
+    ]
+  }
 
 - **Response (Error - 400, if invalid parameters)**:
   ```json
@@ -2746,5 +2775,219 @@
   {
     "statusCode": 404,
     "message": "Complaint not found",
+    "error": "Not Found"
+  }
+
+### 74. Notify Job Seekers (Admin)
+- **Endpoint**: `POST /api/admin/job-posts/:id/notify-candidates`
+- **Description**: Sends email notifications to job seekers whose selected categories match the category of the specified job post. Allows selecting the number of recipients and the order of selection based on signup date.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job post
+- **Request Body**:
+  ```json
+  {
+    "limit": 50,
+    "orderBy": "end" // Options: "beginning", "end", "random"
+  }
+
+- **Response (Success - 200)**:
+  ```json
+  {
+    "total": 120,
+    "sent": 50,
+    "jobPostId": "<jobPostId>"
+  }
+
+- **Response (Error - 400, invalid input)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Limit must be a positive integer",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 400, no category)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Job post has no category assigned",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 401, unauthorized)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 404, job post not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
+  }
+
+# WebSocket Chat API
+
+- **Description**: The WebSocket Chat API enables real-time messaging between an employer and a jobseeker after a job application is accepted (status: Accepted). Only the employer and jobseeker associated with the job application can join the chat. Administrators can view chat histories for dispute resolution via a REST endpoint.
+- **Base WebSocket URL (Development)**: `ws://localhost:3000`
+- **Base WebSocket URL (Production)**: `wss://jobforge.net`
+- **Base REST URL**: `${BASE_URL}/api` (e.g., `https://jobforge.net/api` in production)
+- **Authentication**: Requires a JWT token passed in the `Authorization` header for both WebSocket and REST requests.
+
+# WebSocket Connection
+  # Establishing a Connection
+  - **Protocol**: Use `ws://` for development and `wss://` for production.
+  - **Headers**: `Authorization: Bearer <token>` (Required, JWT token obtained from `/api/auth/login` or equivalent).
+  - **Library**: Recommended to use `socket.io-client` for frontend integration.
+  - **Reconnection**: The client should handle automatic reconnection with a delay (e.g., 3 seconds) if the connection is lost. Socket.IO client supports this by default with `reconnection: true`.
+
+# WebSocket Events:
+- **joinChat**: 
+- **Description**: Joins a chat room for a specific job application. Only available to the employer and jobseeker of an accepted job application.
+- **Payload**:
+  ```json
+  {
+    "jobApplicationId": "<jobApplicationId>"
+  }
+- **Response**: Emits `chatHistory` event with the chat history for the specified job application.
+- **Error**:
+  - If the user is not authorized or lacks access:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "No access to this chat",
+    "error": "Unauthorized"
+  }
+  - If the job application is not found or not accepted:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job application not found",
+    "error": "Not Found"
+  }
+
+- **chatHistory**: 
+- **Description**: Emitted automatically after a successful `joinChat`. Contains the history of messages for the specified job application, sorted by `created_at` in ascending order.
+  - **Payload**:
+    ```json
+  [
+    {
+      "id": "<messageId>",
+      "job_application_id": "<jobApplicationId>",
+      "sender_id": "<userId>",
+      "recipient_id": "<userId>",
+      "content": "Hello, let's discuss the project!",
+      "created_at": "2025-06-16T05:47:00.000Z",
+      "is_read": false
+    }
+  ]
+- **Notes**: 
+  - is_read: Indicates whether the message has been read by the recipient. Currently, marking messages as read is not implemented; display as unread by default.
+  - Store this history in the frontend state to render the chat UI.
+
+- **sendMessage**: 
+- **Description**: Sends a message to the chat room associated with the job application.
+  - **Payload**:
+    ```json
+  {
+    "jobApplicationId": "<jobApplicationId>",
+    "content": "Hello, let's discuss the project!"
+  }
+- **Response**: Broadcasts a `newMessage` event to all clients in the chat room (including the sender).
+- **Error**:
+  - If the user is not authorized or lacks access:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "No access to this chat",
+    "error": "Unauthorized"
+  }
+  - If the job application is not found:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job application not found",
+    "error": "Not Found"
+  }
+
+- **newMessage**: 
+- **Description**: Broadcasted to all clients in the chat room when a new message is sent. Used to update the chat UI in real-time.
+  - **Payload**:
+    ```json
+  {
+    "id": "<messageId>",
+    "job_application_id": "<jobApplicationId>",
+    "sender_id": "<userId>",
+    "recipient_id": "<userId>",
+    "content": "Hello, let's discuss the project!",
+    "created_at": "2025-06-16T05:47:00.000Z",
+    "is_read": false
+  }
+- **Notes**: 
+  - Append this message to the frontend state to update the chat UI.
+  - Optionally, trigger a notification (e.g., toast or sound) if the recipient is not currently viewing the chat.
+
+### 75. Get Chat History (Admin)
+- **Endpoint**: `GET /api/admin/chat/:jobApplicationId`
+- **Description**: Retrieves the chat history for a specific job application. Accessible only to users with the admin role.
+- **Headers**: `Authorization: Bearer <token>` (Required, JWT token).
+- **Path Parameters**: `jobApplicationId` (string, required): The ID of the job application.
+- **Query Parameters**:
+  - `page` (number, optional): Page number for pagination (default: 1).
+  - `limit` (number, optional): Number of messages per page (default: 10).
+- **Response (Success - 200)**:
+  ```json
+  {
+    "total": 50,
+    "data": [
+      {
+        "id": "<messageId>",
+        "job_application_id": "<jobApplicationId>",
+        "sender_id": "<userId>",
+        "sender": {
+          "id": "<userId>",
+          "username": "john_doe",
+          "email": "john@example.com",
+          "role": "jobseeker"
+        },
+        "recipient_id": "<userId>",
+        "recipient": {
+          "id": "<userId>",
+          "username": "jane_smith",
+          "email": "jane@example.com",
+          "role": "employer"
+        },
+        "content": "Hello, let's discuss the project!",
+        "created_at": "2025-06-16T05:47:00.000Z",
+        "is_read": false
+      }
+    ]
+  }
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:  
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 400, if pagination parameters are invalid)**:  
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Page must be a positive integer",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 404, if job application not found)**:  
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job application not found",
     "error": "Not Found"
   }

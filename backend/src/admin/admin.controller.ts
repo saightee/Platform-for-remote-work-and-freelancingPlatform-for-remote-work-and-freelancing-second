@@ -7,6 +7,8 @@ import { SettingsService } from '../settings/settings.service';
 import { Response } from 'express';
 import { AntiFraudService } from '../anti-fraud/anti-fraud.service';
 import { ComplaintsService } from '../complaints/complaints.service';
+import { ChatService } from '../chat/chat.service';
+
 
 @Controller('admin')
 export class AdminController {
@@ -16,6 +18,7 @@ export class AdminController {
     private jwtService: JwtService,
     private antiFraudService: AntiFraudService, 
     private complaintsService: ComplaintsService,
+    private chatService: ChatService,
   ) {}
 
   @Get('users/export-csv')
@@ -157,6 +160,9 @@ export class AdminController {
   async getJobPosts(
     @Query('status') status: 'Active' | 'Draft' | 'Closed',
     @Query('pendingReview') pendingReview: string,
+    @Query('title') title: string, 
+    @Query('page') page: string, 
+    @Query('limit') limit: string, 
     @Headers('authorization') authHeader: string,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -166,12 +172,35 @@ export class AdminController {
     const payload = this.jwtService.verify(token);
     const userIdAdmin = payload.sub;
 
-    const filters: { status?: 'Active' | 'Draft' | 'Closed'; pendingReview?: boolean } = {};
+    const filters: { 
+      status?: 'Active' | 'Draft' | 'Closed'; 
+      pendingReview?: boolean; 
+      title?: string;
+      page?: number;
+      limit?: number;
+    } = {};
     if (status) {
       filters.status = status;
     }
-    if (pendingReview) {
+    if (pendingReview !== undefined) {
       filters.pendingReview = pendingReview === 'true';
+    }
+    if (title) {
+      filters.title = title;
+    }
+    if (page) {
+      const parsedPage = parseInt(page, 10);
+      if (isNaN(parsedPage) || parsedPage < 1) {
+        throw new BadRequestException('Page must be a positive integer');
+      }
+      filters.page = parsedPage;
+    }
+    if (limit) {
+      const parsedLimit = parseInt(limit, 10);
+      if (isNaN(parsedLimit) || parsedLimit < 1) {
+        throw new BadRequestException('Limit must be a positive integer');
+      }
+      filters.limit = parsedLimit;
     }
 
     return this.adminService.getJobPosts(userIdAdmin, filters);
@@ -570,5 +599,67 @@ export class AdminController {
     const adminId = payload.sub;
 
     return this.complaintsService.resolveComplaint(adminId, complaintId, body.status, body.comment);
+  }
+
+  @Post('job-posts/:id/notify-candidates')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async notifyJobSeekers(
+    @Param('id') jobPostId: string,
+    @Body() body: { 
+      limit: number; 
+      orderBy: 'beginning' | 'end' | 'random' 
+    },
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userIdAdmin = payload.sub;
+
+    if (!body.limit || !Number.isInteger(body.limit) || body.limit < 1) {
+      throw new BadRequestException('Limit must be a positive integer');
+    }
+    if (!['beginning', 'end', 'random'].includes(body.orderBy)) {
+      throw new BadRequestException('OrderBy must be one of: beginning, end, random');
+    }
+
+    return this.adminService.notifyJobSeekers(
+      userIdAdmin,
+      jobPostId,
+      body.limit,
+      body.orderBy,
+    );
+  }
+
+  @Get('chat/:jobApplicationId')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async getChatHistory(
+    @Param('jobApplicationId') jobApplicationId: string,
+    @Query('page') page: string,
+    @Query('limit') limit: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+
+    await this.adminService.checkAdminRole(adminId);
+
+    const parsedPage = page ? parseInt(page, 10) : 1;
+    const parsedLimit = limit ? parseInt(limit, 10) : 10;
+
+    if (isNaN(parsedPage) || parsedPage < 1) {
+      throw new BadRequestException('Page must be a positive integer');
+    }
+    if (isNaN(parsedLimit) || parsedLimit < 1) {
+      throw new BadRequestException('Limit must be a positive integer');
+    }
+
+    return this.chatService.getChatHistoryForAdmin(jobApplicationId, parsedPage, parsedLimit);
   }
 }
