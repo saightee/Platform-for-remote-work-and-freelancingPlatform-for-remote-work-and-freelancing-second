@@ -23,6 +23,7 @@ import { StatsModule } from './stats/stats.module';
 import { ModeratorModule } from './moderator/moderator.module';
 import { EmailModule } from './email/email.module';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
     StatsModule,
     ModeratorModule,
     EmailModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
