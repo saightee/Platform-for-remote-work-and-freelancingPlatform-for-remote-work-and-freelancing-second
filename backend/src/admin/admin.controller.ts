@@ -7,6 +7,7 @@ import { SettingsService } from '../settings/settings.service';
 import { Response } from 'express';
 import { AntiFraudService } from '../anti-fraud/anti-fraud.service';
 import { ComplaintsService } from '../complaints/complaints.service';
+import { ChatService } from '../chat/chat.service';
 
 
 @Controller('admin')
@@ -17,6 +18,7 @@ export class AdminController {
     private jwtService: JwtService,
     private antiFraudService: AntiFraudService, 
     private complaintsService: ComplaintsService,
+    private chatService: ChatService,
   ) {}
 
   @Get('users/export-csv')
@@ -629,5 +631,35 @@ export class AdminController {
       body.limit,
       body.orderBy,
     );
+  }
+
+  @Get('chat/:jobApplicationId')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async getChatHistory(
+    @Param('jobApplicationId') jobApplicationId: string,
+    @Query('page') page: string,
+    @Query('limit') limit: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+
+    await this.adminService.checkAdminRole(adminId);
+
+    const parsedPage = page ? parseInt(page, 10) : 1;
+    const parsedLimit = limit ? parseInt(limit, 10) : 10;
+
+    if (isNaN(parsedPage) || parsedPage < 1) {
+      throw new BadRequestException('Page must be a positive integer');
+    }
+    if (isNaN(parsedLimit) || parsedLimit < 1) {
+      throw new BadRequestException('Limit must be a positive integer');
+    }
+
+    return this.chatService.getChatHistoryForAdmin(jobApplicationId, parsedPage, parsedLimit);
   }
 }
