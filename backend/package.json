@@ -60,6 +60,7 @@
     "rxjs": "^7.8.1",
     "sib-api-v3-sdk": "^8.5.0",
     "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "typeorm": "^0.3.22"
   },
   "devDependencies": {
