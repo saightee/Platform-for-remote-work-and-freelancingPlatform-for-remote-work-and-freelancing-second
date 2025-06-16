@@ -9,7 +9,6 @@ import { useRole } from '../context/RoleContext';
 import { FaEye, FaBriefcase, FaDollarSign, FaMapMarkerAlt, FaCalendarAlt, FaUserCircle } from 'react-icons/fa';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
-// import { mockJobDetails } from '../mocks/mockJobDetails'; // Закомментировано
 import sanitizeHtml from 'sanitize-html';
 
 const JobDetails: React.FC = () => {
@@ -22,33 +21,6 @@ const JobDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [hasApplied, setHasApplied] = useState<boolean>(false);
 
-  // Для разработки: использование мок-данных (закомментировано)
-  // useEffect(() => {
-  //   const fetchMockJob = async () => {
-  //     try {
-  //       if (id) {
-  //         setLoading(true);
-  //         setError(null);
-  //         const jobData = mockJobDetails;
-  //         setJob(jobData);
-  //         setTimeout(() => {
-  //           setJob((prev) => (prev ? { ...prev, views: (prev.views || 0) + 1 } : prev));
-  //         }, 500);
-  //         if (profile?.role === 'jobseeker') {
-  //           setHasApplied(false);
-  //         }
-  //       }
-  //     } catch (err: any) {
-  //       console.error('Error fetching mock job:', err);
-  //       setError('Failed to load mock job details.');
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-  //   fetchMockJob();
-  // }, [id, profile]);
-
-  // Для продакшена: раскомментировать этот useEffect
   useEffect(() => {
     const fetchJob = async () => {
       try {
@@ -135,7 +107,7 @@ const JobDetails: React.FC = () => {
           >
             Back to search results
           </a>
-          {job && <h1>{job.title}</h1>}
+          <h1>{job.title}</h1>
           <div className="employer-info">
             {job?.employer?.avatar ? (
               <img
@@ -177,6 +149,9 @@ const JobDetails: React.FC = () => {
             <FaCalendarAlt /> <strong>Date Updated:</strong>{' '}
             {formatDateInTimezone(job.updated_at, profile?.timezone) || 'Jun 9, 2025, 1:05 PM'}
           </div>
+          <div className="job-detail-item">
+            <FaEye /> <strong>Views:</strong> {job.views || 0}
+          </div>
         </div>
         <div className="job-details-content">
           <div className="job-details-info">
@@ -188,10 +163,22 @@ const JobDetails: React.FC = () => {
               hasApplied ? (
                 <p className="already-applied">Already Applied</p>
               ) : (
-                <button onClick={handleApply}>Apply Now</button>
+                <button onClick={handleApply} className="action-button">
+                  Apply Now
+                </button>
               )
             ) : (
-              <button onClick={() => navigate('/login')}>Login to Apply</button>
+              <button onClick={() => navigate('/login')} className="action-button">
+                Login to Apply
+              </button>
+            )}
+            {profile && (
+              <Link
+                to={`/complaint?type=job_post&id=${job.id}`}
+                className="report-link"
+              >
+                Report Job Post
+              </Link>
             )}
           </div>
         </div>

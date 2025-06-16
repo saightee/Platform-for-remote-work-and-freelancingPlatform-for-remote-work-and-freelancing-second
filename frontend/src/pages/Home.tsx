@@ -6,12 +6,11 @@ import JobCard from '../components/JobCard';
 import FeatureCard from '../components/FeatureCard';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { searchJobPosts } from '../services/api';
+import { searchJobPosts, getStats } from '../services/api';
 import { JobPost } from '@types';
 import { FaSearch, FaLock, FaGlobe, FaChartLine } from 'react-icons/fa';
 import CallToAction from '../components/CallToAction';
 import CountUp from 'react-countup';
-import { getStats } from '../services/api';
 
 const Home: React.FC = () => {
   const [jobs, setJobs] = useState<JobPost[]>([]);
@@ -19,9 +18,9 @@ const Home: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
-    resumes: 83328683,
-    vacancies: 1217625,
-    employers: 2234431,
+    resumes: 0,
+    vacancies: 0,
+    employers: 0,
   });
   const [showCookieBanner, setShowCookieBanner] = useState<boolean>(true);
 
@@ -29,47 +28,18 @@ const Home: React.FC = () => {
     return new Intl.NumberFormat('en-US').format(num);
   };
 
-// Для разработки: моки вакансий и заглушки статистики
-  // useEffect(() => {
-  //   const fetchMockData = async () => {
-  //     try {
-  //       setIsLoading(true);
-  //       setError(null);
-  //       console.log('Filtering mock jobs with filters:', filters); // Отладка
-  //       // Симулируем задержку API
-  //       await new Promise(resolve => setTimeout(resolve, 500));
-  //       // Фильтруем мок-данные на основе фильтров
-  //       const filteredJobs = mockJobPosts.filter(job => 
-  //         !filters.title || 
-  //         job.title.toLowerCase().includes(filters.title.toLowerCase())
-  //       );
-  //       console.log('Filtered jobs:', filteredJobs); // Отладка
-  //       setJobs(filteredJobs);
-  //     } catch (error: any) {
-  //       console.error('Ошибка при загрузке мок-данных:', error);
-  //       setError('Failed to load recent jobs. Please try again.');
-  //     } finally {
-  //       setIsLoading(false);
-  //     }
-  //   };
-  //   fetchMockData();
-  // }, [filters]);
-
-  // Для продакшена: раскомментировать этот useEffect, когда бэкэнд будет готов
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        console.log('Fetching stats and jobs with filters:', filters); // Отладка
-        // Загрузка статистики
+        console.log('Fetching stats and jobs with filters:', filters);
         const statsData = await getStats();
         setStats({
           resumes: statsData.resumes,
           vacancies: statsData.vacancies,
           employers: statsData.employers,
         });
-        // Загрузка вакансий
         const jobsData = await searchJobPosts({
           ...filters,
           limit: 9,
@@ -79,7 +49,7 @@ const Home: React.FC = () => {
         setJobs(jobsData);
       } catch (error: any) {
         console.error('Ошибка при загрузке данных:', error);
-        setError('Failed to load recent jobs. Please try again.');
+        setError('Failed to load recent jobs or statistics. Please try again.');
       } finally {
         setIsLoading(false);
       }
@@ -125,21 +95,21 @@ const Home: React.FC = () => {
         <div className="counters">
           <div className="counter-item">
             <span className="counter-number">
-              <CountUp end={stats.resumes} duration={2} separator="," />
+              {isLoading ? 'Loading...' : <CountUp end={stats.resumes} duration={2} separator="," />}
             </span>
             <span className="counter-label">resumes</span>
           </div>
           <div className="counter-item">
             <span className="counter-number">
-              <CountUp end={stats.vacancies} duration={2} separator="," />
+              {isLoading ? 'Loading...' : <CountUp end={stats.vacancies} duration={2} separator="," />}
             </span>
             <span className="counter-label">vacancies</span>
           </div>
           <div className="counter-item">
             <span className="counter-number">
-              <CountUp end={stats.employers} duration={2} separator="," />
+              {isLoading ? 'Loading...' : <CountUp end={stats.employers} duration={2} separator="," />}
             </span>
-            <span className="counter-label">employer</span>
+            <span className="counter-label">employers</span>
           </div>
         </div>
       </div>
@@ -157,8 +127,7 @@ const Home: React.FC = () => {
             !isLoading && <p>No recent jobs found.</p>
           )}
         </div>
-
-<div className="features">
+        <div className="features">
           <h2>Why Choose HireValve</h2>
           <div className="feature-grid">
             <FeatureCard
@@ -183,7 +152,6 @@ const Home: React.FC = () => {
             />
           </div>
         </div>
-
         <div className="categories">
           <h2>Popular Job Categories</h2>
           <div className="category-list">
@@ -194,8 +162,6 @@ const Home: React.FC = () => {
             ))}
           </div>
         </div>
-
-
       </div>
       <CallToAction />
       <Footer />

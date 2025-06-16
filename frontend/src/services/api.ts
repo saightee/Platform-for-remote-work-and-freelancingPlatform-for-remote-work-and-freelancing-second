@@ -1,9 +1,42 @@
 import axios, { AxiosResponse } from 'axios';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
+import { io, Socket } from 'socket.io-client';
 import { 
   User, Profile, JobPost, Category, JobApplication, Review, Feedback, 
   BlockedCountry, LoginCredentials, RegisterCredentials 
 } from '@types';
+
+interface WebSocketMessage {
+  id: string;
+  job_application_id: string;
+  sender_id: string;
+  recipient_id: string;
+  content: string;
+  created_at: string;
+  is_read: boolean;
+}
+
+interface WebSocketError {
+  statusCode: number;
+  message: string;
+}
+
+interface JobApplicationDetails {
+  id: string;
+  userId: string;
+  username: string;
+  email: string;
+  jobDescription: string;
+  appliedAt: string;
+  status: string;
+  job_post_id: string;
+}
+
+interface ComplaintData {
+  job_post_id?: string;
+  profile_id?: string;
+  reason: string;
+}
 
 const getFingerprint = async () => {
   const fp = await FingerprintJS.load();
@@ -25,6 +58,20 @@ api.interceptors.request.use(async (config) => {
   }
   return config;
 });
+
+export const initializeWebSocket = (onMessage: (message: WebSocketMessage) => void, onError: (error: WebSocketError) => void): Socket => {
+  const token = localStorage.getItem('token');
+  const socket = io(import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000', {
+    auth: { token: `Bearer ${token}` },
+    reconnection: true,
+    reconnectionDelay: 3000,
+  });
+
+  socket.on('newMessage', onMessage);
+  socket.on('error', onError);
+
+  return socket;
+};
 
 // Authentication
 export const register = async (credentials: RegisterCredentials) => {
@@ -57,6 +104,16 @@ export const confirmPasswordReset = async (token: string, newPassword: string) =
   return response.data;
 };
 
+export const forgotPassword = async (email: string) => {
+  const response = await api.post<{ message: string }>('/auth/forgot-password', { email });
+  return response.data;
+};
+
+export const verifyEmail = async (token: string) => {
+  const response = await api.get<{ message: string }>('/auth/verify-email', { params: { token } });
+  return response.data;
+};
+
 // Profile
 export const getProfile = async () => {
   const response = await api.get<Profile>('/profile');
@@ -64,8 +121,15 @@ export const getProfile = async () => {
 };
 
 export const getUserProfileById = async (id: string) => {
-  const response = await api.get<Profile>(`/users/${id}`);
-  return response.data;
+  console.log(`Fetching user profile for ID: ${id}`);
+  try {
+    const response = await api.get<Profile>(`/users/${id}`);
+    console.log(`Profile fetched successfully:`, response.data);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching profile for ID ${id}:`, error);
+    throw error;
+  }
 };
 
 export const updateProfile = async (data: Partial<Profile>) => {
@@ -193,9 +257,7 @@ export const getMyApplications = async () => {
 };
 
 export const getApplicationsForJobPost = async (jobPostId: string) => {
-  const response = await api.get<
-    { id: string; userId: string; username: string; email: string; jobDescription: string; appliedAt: string; status: string }[]
-  >(`/job-applications/job-post/${jobPostId}`);
+  const response = await api.get<JobApplicationDetails[]>(`/job-applications/job-post/${jobPostId}`);
   return response.data;
 };
 
@@ -212,6 +274,12 @@ export const createReview = async (data: { job_application_id: string; rating: n
 
 export const getReviewsForUser = async (userId: string) => {
   const response = await api.get<Review[]>(`/reviews/user/${userId}`);
+  return response.data;
+};
+
+// Complaints
+export const submitComplaint = async (data: ComplaintData) => {
+  const response = await api.post<{ message: string }>('/complaints', data);
   return response.data;
 };
 
@@ -356,6 +424,77 @@ export const getTopJobseekers = async (limit?: number) => {
   return response.data;
 };
 
+export const getTopJobseekersByViews = async (limit?: number) => {
+  const response = await api.get<{ userId: string; username: string; email: string; profileViews: number }[]>(
+    '/admin/leaderboards/top-jobseekers-by-views',
+    { params: { limit } }
+  );
+  return response.data;
+};
+
+export const getTopEmployersByPosts = async (limit?: number) => {
+  const response = await api.get<{ userId: string; username: string; email: string; jobCount: number }[]>(
+    '/admin/leaderboards/top-employers-by-posts',
+    { params: { limit } }
+  );
+  return response.data;
+};
+
+export const getGrowthTrends = async (params: { period: '7d' | '30d' }) => {
+  const response = await api.get<{
+    registrations: { period: string; count: number }[];
+    jobPosts: { period: string; count: number }[];
+  }>('/admin/analytics/growth-trends', { params });
+  return response.data;
+};
+
+export const getComplaints = async () => {
+  const response = await api.get<{
+    id: string;
+    complainant_id: string;
+    complainant: { id: string; username: string; email: string; role: string };
+    job_post_id?: string;
+    job_post?: { id: string; title: string; description: string };
+    profile_id?: string;
+    reason: string;
+    status: 'Pending' | 'Resolved' | 'Rejected';
+    created_at: string;
+    resolution_comment?: string;
+  }[]>('/admin/complaints');
+  return response.data;
+};
+
+export const resolveComplaint = async (id: string, data: { status: 'Resolved' | 'Rejected'; comment?: string }) => {
+  const response = await api.post(`/admin/complaints/${id}/resolve`, data);
+  return response.data;
+};
+
+export const getChatHistory = async (jobApplicationId: string, params: { page?: number; limit?: number }) => {
+  const response = await api.get<{
+    total: number;
+    data: {
+      id: string;
+      job_application_id: string;
+      sender_id: string;
+      sender: { id: string; username: string; email: string; role: string };
+      recipient_id: string;
+      recipient: { id: string; username: string; email: string; role: string };
+      content: string;
+      created_at: string;
+      is_read: boolean;
+    }[];
+  }>(`/admin/chat/${jobApplicationId}`, { params });
+  return response.data;
+};
+
+export const notifyCandidates = async (jobPostId: string, data: { limit: number; orderBy: 'beginning' | 'end' | 'random' }) => {
+  const response = await api.post<{ total: number; sent: number; jobPostId: string }>(
+    `/admin/job-posts/${jobPostId}/notify-candidates`,
+    data
+  );
+  return response.data;
+};
+
 export const verifyIdentity = async (id: string, verify: boolean) => {
   const response = await api.post<Profile>(`/admin/profile/${id}/verify-identity`, { verify });
   return response.data;
@@ -438,7 +577,6 @@ interface JobPostWithApplications {
   created_at: string;
 }
 
-// Новые функции
 export const getOnlineUsers = async (): Promise<OnlineUsers | null> => {
   try {
     const response: AxiosResponse<OnlineUsers> = await api.get('/admin/analytics/online-users');
@@ -482,10 +620,3 @@ export const getStats = async () => {
     throw error; 
   }
 };
-
-export interface EmployerProfile {
-  id: string;
-  username: string;
-  avatar?: string;
-  // Другие поля, если есть
-}

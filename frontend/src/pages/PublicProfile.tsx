@@ -1,49 +1,22 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { getUserProfileById, getReviewsForUser, incrementProfileView } from '../services/api';
 import { Profile, Review, Category } from '@types';
+import { useRole } from '../context/RoleContext';
 import { FaUserCircle } from 'react-icons/fa';
 import { formatDateInTimezone } from '../utils/dateUtils';
-// import { mockProfile, mockReviews } from '../mocks/mockPublicProfile'; // Закомментировано
 
 const PublicProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { profile: currentUser } = useRole();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Для разработки: использование мок-данных (закомментировано)
-  // useEffect(() => {
-  //   if (!id) {
-  //     setError('Invalid user ID.');
-  //     setIsLoading(false);
-  //     return;
-  //   }
-  //   try {
-  //     setIsLoading(true);
-  //     setError(null);
-  //     if (id === 'talent1') {
-  //       setProfile(mockProfile);
-  //       setReviews(mockReviews);
-  //     } else {
-  //       setError('Profile not found');
-  //       setProfile(null);
-  //       setReviews([]);
-  //     }
-  //     setIsLoading(false);
-  //   } catch (err) {
-  //     console.error('Error with mock data:', err);
-  //     setError('Failed to load profile. Please try again.');
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // }, [id]);
-
-  // Для продакшена: раскомментировать этот useEffect
   useEffect(() => {
     const fetchProfile = async () => {
       if (!id) {
@@ -54,6 +27,7 @@ const PublicProfile: React.FC = () => {
       try {
         setIsLoading(true);
         setError(null);
+        console.log(`Fetching profile for ID: ${id}`);
         const [profileData, reviewsData] = await Promise.all([
           getUserProfileById(id),
           getReviewsForUser(id),
@@ -66,7 +40,8 @@ const PublicProfile: React.FC = () => {
         }
       } catch (error: any) {
         console.error('Error fetching public profile:', error);
-        setError(error.response?.data?.message || 'Failed to load profile. Please try again.');
+        const errorMsg = error.response?.data?.message || 'Failed to load profile. User may not exist or the server is unavailable.';
+        setError(errorMsg);
       } finally {
         setIsLoading(false);
       }
@@ -175,6 +150,14 @@ const PublicProfile: React.FC = () => {
               </div>
             ) : (
               <p>No reviews yet.</p>
+            )}
+            {currentUser && (
+              <Link
+                to={`/complaint?type=profile&id=${id}`}
+                className="report-link"
+              >
+                Report Profile
+              </Link>
             )}
           </div>
         </div>

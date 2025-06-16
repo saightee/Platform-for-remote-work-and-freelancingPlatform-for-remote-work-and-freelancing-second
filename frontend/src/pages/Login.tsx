@@ -15,7 +15,7 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const { profile, refreshProfile } = useRole();
 
-  const handleSubmit = async (e: React.MouseEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setErrorMessage(null);
@@ -63,7 +63,7 @@ const Login: React.FC = () => {
       <div className="login-box">
         <h2>Sign In</h2>
         {errorMessage && <p style={{ color: 'red', textAlign: 'center' }}>{errorMessage}</p>}
-        <div className="login-form">
+        <form onSubmit={handleSubmit} className="login-form">
           <div className="login-form-group">
             <label>Email</label>
             <input
@@ -96,10 +96,10 @@ const Login: React.FC = () => {
             />
             <label htmlFor="login-remember-me">Remember Me</label>
           </div>
-          <button onClick={handleSubmit}>Sign In</button>
+          <button type="submit" className="login-button">Sign In</button>
           <div className="login-form-links">
             <p>
-              Forgotten your password? <Link to="/reset-password">Reset</Link>
+              Forgotten your password? <Link to="/forgot-password">Reset</Link>
             </p>
             <p>
               Don’t have an account? <Link to="/role-selection">Register</Link>
@@ -108,7 +108,7 @@ const Login: React.FC = () => {
               <Link to="/">Go to Home</Link>
             </p>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

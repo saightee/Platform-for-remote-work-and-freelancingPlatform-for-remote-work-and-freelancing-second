@@ -6,6 +6,7 @@ export interface User {
   provider?: string | null;
   created_at: string;
   updated_at: string;
+  is_blocked: boolean;
 }
 
 export interface EmployerProfile {

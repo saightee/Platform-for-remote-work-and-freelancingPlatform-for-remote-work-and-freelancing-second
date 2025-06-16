@@ -5,8 +5,8 @@ import JobDetails from './pages/JobDetails';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import RoleSelection from './pages/RoleSelection';
-// import GoogleCallback from './pages/GoogleCallback';
 import ProfilePage from './pages/ProfilePage';
+import PublicProfile from './pages/PublicProfile';
 import PostJob from './pages/PostJob';
 import MyJobPosts from './pages/MyJobPosts';
 import MyApplications from './pages/MyApplications';
@@ -23,7 +23,6 @@ import FindTalent from './pages/FindTalent';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import UserReviews from './pages/UserReviews';
-import PublicProfile from './pages/PublicProfile';
 import VACategories from './pages/VACategories';
 import ProfileTips from './pages/ProfileTips';
 import SkillTests from './pages/SkillTests';
@@ -32,6 +31,10 @@ import AboutUs from './pages/AboutUs';
 import Careers from './pages/Careers';
 import Blog from './pages/Blog';
 import Contact from './pages/Contact';
+import Messages from './pages/Messages';
+import VerifyEmail from './pages/VerifyEmail';
+import Complaint from './pages/Complaint';
+import ForgotPassword from './pages/ForgotPassword';
 
 const App: React.FC = () => {
   return (
@@ -43,7 +46,6 @@ const App: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/register/:role" element={<Register />} />
           <Route path="/role-selection" element={<RoleSelection />} />
-          {/* <Route path="/google-callback" element={<GoogleCallback />} /> */}
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/users/:id" element={<PublicProfile />} />
           <Route path="/post-job" element={<PostJob />} />
@@ -70,6 +72,10 @@ const App: React.FC = () => {
           <Route path="/careers" element={<Careers />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/complaint" element={<Complaint />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
         </Routes>
       </Router>
     </RoleProvider>

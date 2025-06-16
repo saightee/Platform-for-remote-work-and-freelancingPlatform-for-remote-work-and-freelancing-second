@@ -11,7 +11,9 @@ import {
   verifyIdentity, setGlobalApplicationLimit, getGlobalApplicationLimit,
   addBlockedCountry, removeBlockedCountry, getBlockedCountries, getFeedback,
   blockUser, unblockUser, getUserRiskScore, exportUsersToCSV, getUserOnlineStatus,
-  getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications
+  getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
+  getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
+  resolveComplaint, getChatHistory, notifyCandidates
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category } from '@types';
 import { format } from 'date-fns';
@@ -26,6 +28,7 @@ const AdminDashboard: React.FC = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [blockedCountries, setBlockedCountries] = useState<BlockedCountry[]>([]);
+  const [newCountryCode, setNewCountryCode] = useState(''); // Новое состояние для ввода countryCode
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [analytics, setAnalytics] = useState<{
@@ -43,6 +46,39 @@ const AdminDashboard: React.FC = () => {
   const [businessSignups, setBusinessSignups] = useState<{ country: string; count: number }[]>([]);
   const [topEmployers, setTopEmployers] = useState<{ employer_id: string; username: string; job_count: number }[]>([]);
   const [topJobseekers, setTopJobseekers] = useState<{ job_seeker_id: string; username: string; application_count: number }[]>([]);
+  const [topJobseekersByViews, setTopJobseekersByViews] = useState<{ userId: string; username: string; email: string; profileViews: number }[]>([]);
+  const [topEmployersByPosts, setTopEmployersByPosts] = useState<{ userId: string; username: string; email: string; jobCount: number }[]>([]);
+  const [growthTrends, setGrowthTrends] = useState<{
+    registrations: { period: string; count: number }[];
+    jobPosts: { period: string; count: number }[];
+  }>({ registrations: [], jobPosts: [] });
+  const [complaints, setComplaints] = useState<{
+    id: string;
+    complainant_id: string;
+    complainant: { id: string; username: string; email: string; role: string };
+    job_post_id?: string;
+    job_post?: { id: string; title: string; description: string };
+    profile_id?: string;
+    reason: string;
+    status: 'Pending' | 'Resolved' | 'Rejected';
+    created_at: string;
+    resolution_comment?: string;
+  }[]>([]);
+  const [chatHistory, setChatHistory] = useState<{
+    total: number;
+    data: {
+      id: string;
+      job_application_id: string;
+      sender_id: string;
+      sender: { id: string; username: string; email: string; role: string };
+      recipient_id: string;
+      recipient: { id: string; username: string; email: string; role: string };
+      content: string;
+      created_at: string;
+      is_read: boolean;
+    }[];
+  }>({ total: 0, data: [] });
+  const [selectedJobApplicationId, setSelectedJobApplicationId] = useState<string>('');
   const [onlineUsers, setOnlineUsers] = useState<{ jobseekers: number; employers: number } | null>(null);
   const [recentRegistrations, setRecentRegistrations] = useState<{
     jobseekers: { id: string; email: string; username: string; role: string; created_at: string }[];
@@ -80,6 +116,10 @@ const AdminDashboard: React.FC = () => {
           getGeographicDistribution(),
           getTopEmployers(5),
           getTopJobseekers(5),
+          getTopJobseekersByViews(5),
+          getTopEmployersByPosts(5),
+          getGrowthTrends({ period: '30d' }),
+          getComplaints(),
           getGlobalApplicationLimit(),
           getOnlineUsers(),
           getRecentRegistrations({ limit: 5 }),
@@ -93,7 +133,8 @@ const AdminDashboard: React.FC = () => {
           'getAllUsers', 'getAllJobPosts', 'getPendingJobPosts', 'getAllReviews', 'getFeedback',
           'getBlockedCountries', 'getCategories', 'getAnalytics',
           'getRegistrationStats', 'getGeographicDistribution',
-          'getTopEmployers', 'getTopJobseekers', 'getGlobalApplicationLimit',
+          'getTopEmployers', 'getTopJobseekers', 'getTopJobseekersByViews', 'getTopEmployersByPosts',
+          'getGrowthTrends', 'getComplaints', 'getGlobalApplicationLimit',
           'getOnlineUsers', 'getRecentRegistrations', 'getJobPostsWithApplications'
         ];
 
@@ -103,7 +144,7 @@ const AdminDashboard: React.FC = () => {
             switch (index) {
               case 0: setUsers(result.value || []); break;
               case 1: setJobPosts(result.value || []); break;
-              case 2: setJobPosts(result.value || []); break; // Для вкладки Job Posts
+              case 2: setJobPosts(result.value || []); break;
               case 3: setReviews(result.value || []); break;
               case 4: setFeedback(result.value || []); break;
               case 5: setBlockedCountries(result.value || []); break;
@@ -112,25 +153,28 @@ const AdminDashboard: React.FC = () => {
               case 8: setRegistrationStats(result.value || []); break;
               case 9:
                 setGeographicDistribution(result.value || []);
-                // Разделяем на фрилансеров и работодателей (заглушка, так как API возвращает общее распределение)
                 const total = (result.value as { count: number }[]).reduce((sum, item) => sum + item.count, 0);
                 const freelancers = (result.value as { country: string; count: number }[]).map(item => ({
                   country: item.country,
-                  count: Math.round(item.count * 0.6) // Примерное разделение 60% фрилансеры
+                  count: Math.round(item.count * 0.6)
                 }));
                 const businesses = (result.value as { country: string; count: number }[]).map(item => ({
                   country: item.country,
-                  count: Math.round(item.count * 0.4) // 40% работодатели
+                  count: Math.round(item.count * 0.4)
                 }));
                 setFreelancerSignups(freelancers);
                 setBusinessSignups(businesses);
                 break;
               case 10: setTopEmployers(result.value || []); break;
               case 11: setTopJobseekers(result.value || []); break;
-              case 12: setGlobalLimit(result.value?.globalApplicationLimit ?? null); break;
-              case 13: setOnlineUsers(result.value || null); break;
-              case 14: setRecentRegistrations(result.value || { jobseekers: [], employers: [] }); break;
-              case 15: setJobPostsWithApps(result.value || []); break;
+              case 12: setTopJobseekersByViews(result.value || []); break;
+              case 13: setTopEmployersByPosts(result.value || []); break;
+              case 14: setGrowthTrends(result.value || { registrations: [], jobPosts: [] }); break;
+              case 15: setComplaints(result.value || []); break;
+              case 16: setGlobalLimit(result.value?.globalApplicationLimit ?? null); break;
+              case 17: setOnlineUsers(result.value || null); break;
+              case 18: setRecentRegistrations(result.value || { jobseekers: [], employers: [] }); break;
+              case 19: setJobPostsWithApps(result.value || []); break;
             }
           } else {
             console.error(`${endpoints[index]} failed:`, result.reason);
@@ -228,7 +272,9 @@ const AdminDashboard: React.FC = () => {
 
   const handleViewRiskScore = async (id: string) => {
     try {
+      console.log(`Fetching risk score for user ID: ${id}`);
       const data = await getUserRiskScore(id);
+      console.log('Risk score data:', data);
       setRiskScoreData(data);
       setShowRiskModal(true);
     } catch (error) {
@@ -327,17 +373,23 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleSendEmails = async (jobId: string) => {
-    const count = prompt('Enter number of freelancers to email:');
-    if (count && !isNaN(Number(count))) {
-      try {
-        // Заглушка, так как API не предоставляет endpoint
-        alert(`Emails sent to ${count} freelancers for job ID ${jobId}! (This is a placeholder)`);
-      } catch (error) {
-        const axiosError = error as AxiosError<{ message?: string }>;
-        console.error('Error sending emails:', axiosError);
-        alert(axiosError.response?.data?.message || 'Failed to send emails.');
-      }
+  const handleNotifyCandidates = async (jobId: string) => {
+    const limitInput = prompt('Enter number of freelancers to notify:');
+    const orderBy = prompt('Enter order (beginning, end, random):', 'random');
+    if (!limitInput || isNaN(Number(limitInput)) || !['beginning', 'end', 'random'].includes(orderBy || '')) {
+      alert('Invalid input. Limit must be a number and order must be beginning, end, or random.');
+      return;
+    }
+    try {
+      const response = await notifyCandidates(jobId, {
+        limit: Number(limitInput),
+        orderBy: orderBy as 'beginning' | 'end' | 'random'
+      });
+      alert(`Notifications sent to ${response.sent} freelancers for job ID ${jobId}!`);
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      console.error('Error sending notifications:', axiosError);
+      alert(axiosError.response?.data?.message || 'Failed to send notifications.');
     }
   };
 
@@ -352,6 +404,37 @@ const AdminDashboard: React.FC = () => {
         console.error('Error deleting review:', axiosError);
         alert(axiosError.response?.data?.message || 'Failed to delete review.');
       }
+    }
+  };
+
+  const handleResolveComplaint = async (id: string) => {
+    const status = prompt('Enter status (Resolved or Rejected):');
+    const comment = prompt('Enter resolution comment (optional):');
+    if (!status || !['Resolved', 'Rejected'].includes(status)) {
+      alert('Invalid status. Must be Resolved or Rejected.');
+      return;
+    }
+    try {
+      await resolveComplaint(id, { status: status as 'Resolved' | 'Rejected', comment: comment || undefined });
+      const updatedComplaints = await getComplaints();
+      setComplaints(updatedComplaints || []);
+      alert('Complaint resolved successfully!');
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      console.error('Error resolving complaint:', axiosError);
+      alert(axiosError.response?.data?.message || 'Failed to resolve complaint.');
+    }
+  };
+
+  const handleViewChatHistory = async (jobApplicationId: string) => {
+    try {
+      const history = await getChatHistory(jobApplicationId, { page: 1, limit: 10 });
+      setChatHistory(history);
+      setSelectedJobApplicationId(jobApplicationId);
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      console.error('Error fetching chat history:', axiosError);
+      alert(axiosError.response?.data?.message || 'Failed to fetch chat history.');
     }
   };
 
@@ -372,18 +455,21 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleAddBlockedCountry = async () => {
-    const countryCode = prompt('Enter country code (e.g., US, CA):');
-    if (countryCode) {
-      try {
-        await addBlockedCountry(countryCode);
-        const countries = await getBlockedCountries();
-        setBlockedCountries(countries || []);
-        alert('Country blocked successfully!');
-      } catch (error) {
-        const axiosError = error as AxiosError<{ message?: string }>;
-        console.error('Error adding blocked country:', axiosError);
-        alert(axiosError.response?.data?.message || 'Failed to block country.');
-      }
+    if (!newCountryCode.trim()) {
+      alert('Please enter a country code.');
+      return;
+    }
+    try {
+      console.log(`Adding blocked country: ${newCountryCode}`);
+      const newCountry = await addBlockedCountry(newCountryCode.trim());
+      console.log('New blocked country:', newCountry);
+      setBlockedCountries([...blockedCountries, newCountry]);
+      setNewCountryCode('');
+      alert('Country blocked successfully!');
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      console.error('Error adding blocked country:', axiosError);
+      alert(axiosError.response?.data?.message || 'Failed to block country.');
     }
   };
 
@@ -477,6 +563,12 @@ const AdminDashboard: React.FC = () => {
           <li className={activeTab === 'Blocked Countries' ? 'active' : ''} onClick={() => setActiveTab('Blocked Countries')}>
             Blocked Countries
           </li>
+          <li className={activeTab === 'Complaints' ? 'active' : ''} onClick={() => setActiveTab('Complaints')}>
+            Complaints
+          </li>
+          <li className={activeTab === 'Chat History' ? 'active' : ''} onClick={() => setActiveTab('Chat History')}>
+            Chat History
+          </li>
           <li className={activeTab === 'Analytics' ? 'active' : ''} onClick={() => setActiveTab('Analytics')}>
             Analytics
           </li>
@@ -503,8 +595,6 @@ const AdminDashboard: React.FC = () => {
           {activeTab === 'Dashboard' && (
             <div>
               <h2>Dashboard</h2>
-
-              {/* Секция 2: Аналитика по странам */}
               <div className="dashboard-section">
                 <h3>Signups and Subscriptions</h3>
                 <div className="stats-row">
@@ -532,15 +622,11 @@ const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Секция 3: Онлайн-пользователи */}
               <div className="dashboard-section">
                 <h3>Online Users</h3>
                 <p><strong>Freelancers Online:</strong> {onlineUsers?.jobseekers ?? 'N/A'}</p>
                 <p><strong>Businesses Online:</strong> {onlineUsers?.employers ?? 'N/A'}</p>
               </div>
-
-              {/* Секция 4: Последние регистрации */}
               <div className="dashboard-section">
                 <h3>Recent Registrations</h3>
                 <details>
@@ -600,8 +686,6 @@ const AdminDashboard: React.FC = () => {
                   <button className="view-all-button">View All</button>
                 </details>
               </div>
-
-              {/* Секция 5: Вакансии с заявками */}
               <div className="dashboard-section">
                 <h3>Job Postings with Applications</h3>
                 <table className="dashboard-table">
@@ -622,8 +706,8 @@ const AdminDashboard: React.FC = () => {
                         <td>{post.applicationCount}</td>
                         <td>{format(new Date(post.created_at), 'PP')}</td>
                         <td>
-                          <button onClick={() => handleSendEmails(post.id)} className="action-button">
-                            Send Emails
+                          <button onClick={() => handleNotifyCandidates(post.id)} className="action-button">
+                            Notify Candidates
                           </button>
                         </td>
                       </tr>
@@ -652,6 +736,7 @@ const AdminDashboard: React.FC = () => {
                     <th>Username</th>
                     <th>Email</th>
                     <th>Role</th>
+                    <th>Blocked Status</th>
                     <th>Online Status</th>
                     <th>Actions</th>
                   </tr>
@@ -663,6 +748,7 @@ const AdminDashboard: React.FC = () => {
                       <td>{user.username}</td>
                       <td>{user.email}</td>
                       <td>{user.role}</td>
+                      <td>{user.is_blocked ? 'Blocked' : 'Active'}</td>
                       <td>
                         {onlineStatuses[user.id] !== undefined ? (
                           onlineStatuses[user.id] ? 'Online' : 'Offline'
@@ -688,18 +774,21 @@ const AdminDashboard: React.FC = () => {
                         <button onClick={() => handleVerifyIdentity(user.id, false)} className="action-button warning">
                           Reject Identity
                         </button>
-                        <button
-                          onClick={() => handleBlockUser(user.id, user.username)}
-                          className="action-button danger"
-                        >
-                          Block
-                        </button>
-                        <button
-                          onClick={() => handleUnblockUser(user.id, user.username)}
-                          className="action-button success"
-                        >
-                          Unblock
-                        </button>
+                        {user.is_blocked ? (
+                          <button
+                            onClick={() => handleUnblockUser(user.id, user.username)}
+                            className="action-button success"
+                          >
+                            Unblock
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleBlockUser(user.id, user.username)}
+                            className="action-button danger"
+                          >
+                            Block
+                          </button>
+                        )}
                         <button
                           onClick={() => handleViewRiskScore(user.id)}
                           className="action-button"
@@ -710,11 +799,25 @@ const AdminDashboard: React.FC = () => {
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={6}>No users found.</td>
+                      <td colSpan={7}>No users found.</td>
                     </tr>
                   )}
                 </tbody>
               </table>
+              {showRiskModal && riskScoreData && (
+                <div className="modal">
+                  <div className="modal-content">
+                    <h3>Risk Score for User ID: {riskScoreData.userId}</h3>
+                    <p><strong>Risk Score:</strong> {riskScoreData.riskScore}</p>
+                    <p><strong>Duplicate IP:</strong> {riskScoreData.details.duplicateIp ? 'Yes' : 'No'}</p>
+                    <p><strong>Proxy Detected:</strong> {riskScoreData.details.proxyDetected ? 'Yes' : 'No'}</p>
+                    <p><strong>Duplicate Fingerprint:</strong> {riskScoreData.details.duplicateFingerprint ? 'Yes' : 'No'}</p>
+                    <button onClick={() => setShowRiskModal(false)} className="action-button">
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -877,21 +980,31 @@ const AdminDashboard: React.FC = () => {
           {activeTab === 'Blocked Countries' && (
             <div>
               <h2>Blocked Countries</h2>
-              <button onClick={handleAddBlockedCountry} className="action-button">
-                Add Blocked Country
-              </button>
+              <div className="form-group">
+                <input
+                  type="text"
+                  value={newCountryCode}
+                  onChange={(e) => setNewCountryCode(e.target.value)}
+                  placeholder="Enter country code (e.g., US)"
+                />
+                <button onClick={handleAddBlockedCountry} className="action-button">
+                  Add Blocked Country
+                </button>
+              </div>
               {fetchErrors.getBlockedCountries && <p className="error-message">{fetchErrors.getBlockedCountries}</p>}
               <table className="dashboard-table">
                 <thead>
                   <tr>
                     <th>Country Code</th>
+                    <th>Created At</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {blockedCountries.length > 0 ? blockedCountries.map((country) => (
-                    <tr key={country.countryCode}>
-                      <td>{country.countryCode}</td>
+                    <tr key={country.id}>
+                      <td>{country.countryCode || 'N/A'}</td>
+                      <td>{format(new Date(country.created_at), 'PP')}</td>
                       <td>
                         <button
                           onClick={() => handleRemoveBlockedCountry(country.countryCode)}
@@ -903,11 +1016,111 @@ const AdminDashboard: React.FC = () => {
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={2}>No blocked countries found.</td>
+                      <td colSpan={3}>No blocked countries found.</td>
                     </tr>
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {activeTab === 'Complaints' && (
+            <div>
+              <h2>Complaints</h2>
+              {fetchErrors.getComplaints && <p className="error-message">{fetchErrors.getComplaints}</p>}
+              <table className="dashboard-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Complainant</th>
+                    <th>Target</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Resolution Comment</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {complaints.length > 0 ? complaints.map((complaint) => (
+                    <tr key={complaint.id}>
+                      <td>{complaint.id}</td>
+                      <td>{complaint.complainant.username}</td>
+                      <td>{complaint.job_post_id ? `Job Post: ${complaint.job_post?.title}` : complaint.profile_id ? `Profile ID: ${complaint.profile_id}` : 'N/A'}</td>
+                      <td>{complaint.reason}</td>
+                      <td>{complaint.status}</td>
+                      <td>{complaint.resolution_comment || 'N/A'}</td>
+                      <td>{format(new Date(complaint.created_at), 'PP')}</td>
+                      <td>
+                        {complaint.status === 'Pending' && (
+                          <button onClick={() => handleResolveComplaint(complaint.id)} className="action-button">
+                            Resolve
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={8}>No complaints found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {activeTab === 'Chat History' && (
+            <div>
+              <h2>Chat History</h2>
+              <div className="form-group">
+                <label>Select Job Application ID:</label>
+                <select
+                  value={selectedJobApplicationId}
+                  onChange={(e) => handleViewChatHistory(e.target.value)}
+                >
+                  <option value="">Select a job application</option>
+                  {jobPostsWithApps.map((post) => (
+                    post.applicationCount > 0 && (
+                      <option key={post.id} value={post.id}>
+                        {post.title} (ID: {post.id})
+                      </option>
+                    )
+                  ))}
+                </select>
+              </div>
+              {selectedJobApplicationId && (
+                <>
+                  <h3>Messages for Job Application ID: {selectedJobApplicationId}</h3>
+                  <table className="dashboard-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Sender</th>
+                        <th>Recipient</th>
+                        <th>Content</th>
+                        <th>Created At</th>
+                        <th>Read</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {chatHistory.data.length > 0 ? chatHistory.data.map((message) => (
+                        <tr key={message.id}>
+                          <td>{message.id}</td>
+                          <td>{message.sender.username}</td>
+                          <td>{message.recipient.username}</td>
+                          <td>{message.content}</td>
+                          <td>{format(new Date(message.created_at), 'PPpp')}</td>
+                          <td>{message.is_read ? 'Yes' : 'No'}</td>
+                        </tr>
+                      )) : (
+                        <tr>
+                          <td colSpan={6}>No messages found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </>
+              )}
             </div>
           )}
 
@@ -942,7 +1155,6 @@ const AdminDashboard: React.FC = () => {
               ) : (
                 <p>No analytics data available.</p>
               )}
-
               <h4>Registration Stats</h4>
               {fetchErrors.getRegistrationStats && <p className="error-message">{fetchErrors.getRegistrationStats}</p>}
               <table className="dashboard-table">
@@ -965,7 +1177,50 @@ const AdminDashboard: React.FC = () => {
                   )}
                 </tbody>
               </table>
-
+              <h4>Growth Trends</h4>
+              {fetchErrors.getGrowthTrends && <p className="error-message">{fetchErrors.getGrowthTrends}</p>}
+              <h5>Registrations</h5>
+              <table className="dashboard-table">
+                <thead>
+                  <tr>
+                    <th>Period</th>
+                    <th>Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {growthTrends.registrations.length > 0 ? growthTrends.registrations.map((stat, index) => (
+                    <tr key={index}>
+                      <td>{format(new Date(stat.period), 'PP')}</td>
+                      <td>{stat.count}</td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={2}>No registration trends found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+              <h5>Job Posts</h5>
+              <table className="dashboard-table">
+                <thead>
+                  <tr>
+                    <th>Period</th>
+                    <th>Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {growthTrends.jobPosts.length > 0 ? growthTrends.jobPosts.map((stat, index) => (
+                    <tr key={index}>
+                      <td>{format(new Date(stat.period), 'PP')}</td>
+                      <td>{stat.count}</td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={2}>No job post trends found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
               <h4>Top Employers</h4>
               {fetchErrors.getTopEmployers && <p className="error-message">{fetchErrors.getTopEmployers}</p>}
               <table className="dashboard-table">
@@ -988,7 +1243,30 @@ const AdminDashboard: React.FC = () => {
                   )}
                 </tbody>
               </table>
-
+              <h4>Top Employers by Job Posts</h4>
+              {fetchErrors.getTopEmployersByPosts && <p className="error-message">{fetchErrors.getTopEmployersByPosts}</p>}
+              <table className="dashboard-table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Job Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topEmployersByPosts.length > 0 ? topEmployersByPosts.map((employer) => (
+                    <tr key={employer.userId}>
+                      <td>{employer.username}</td>
+                      <td>{employer.email}</td>
+                      <td>{employer.jobCount}</td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={3}>No top employers by posts found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
               <h4>Top Jobseekers</h4>
               {fetchErrors.getTopJobseekers && <p className="error-message">{fetchErrors.getTopJobseekers}</p>}
               <table className="dashboard-table">
@@ -1007,6 +1285,30 @@ const AdminDashboard: React.FC = () => {
                   )) : (
                     <tr>
                       <td colSpan={2}>No top jobseekers found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+              <h4>Top Jobseekers by Profile Views</h4>
+              {fetchErrors.getTopJobseekersByViews && <p className="error-message">{fetchErrors.getTopJobseekersByViews}</p>}
+              <table className="dashboard-table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Profile Views</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topJobseekersByViews.length > 0 ? topJobseekersByViews.map((jobseeker) => (
+                    <tr key={jobseeker.userId}>
+                      <td>{jobseeker.username}</td>
+                      <td>{jobseeker.email}</td>
+                      <td>{jobseeker.profileViews}</td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={3}>No top jobseekers by views found.</td>
                     </tr>
                   )}
                 </tbody>

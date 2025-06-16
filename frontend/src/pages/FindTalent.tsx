@@ -1,20 +1,21 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { searchTalents, getCategories } from '../services/api';
+import { searchTalents, searchJobseekers, getCategories } from '../services/api';
 import { Profile, Category } from '@types';
 import { FaUserCircle, FaFilter } from 'react-icons/fa';
-// import { mockTalents } from '../mocks/mockTalents'; // Закомментировано
 
 const FindTalent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [talents, setTalents] = useState<Profile[]>([]);
+  const [total, setTotal] = useState<number>(0); // Для пагинации
   const [categories, setCategories] = useState<Category[]>([]);
+  const [searchType, setSearchType] = useState<'talents' | 'jobseekers'>('talents');
   const [filters, setFilters] = useState<{
     skills: string;
+    username: string;
     experience: string;
     rating?: number;
     timezone: string;
@@ -23,6 +24,7 @@ const FindTalent: React.FC = () => {
     limit: number;
   }>({
     skills: searchParams.get('skills') || '',
+    username: searchParams.get('username') || '',
     experience: '',
     rating: undefined,
     timezone: '',
@@ -35,32 +37,33 @@ const FindTalent: React.FC = () => {
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const navigate = useNavigate();
 
-  // Для разработки: использование мок-данных (закомментировано)
-  // useEffect(() => {
-  //   const mockProfile = { role: 'employer' }; // Эмуляция роли для доступа
-  //   setTalents(mockTalents); // Установка мок-данных
-  //   setCategories([]); // Пустой массив категорий, так как не загружаем их
-  //   setIsLoading(false); // Отключаем загрузку
-  // }, []);
-
-  // Для продакшена: раскомментировать этот useEffect
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        const [talentsData, categoriesData] = await Promise.all([
-          searchTalents(filters),
+        const [response, categoriesData] = await Promise.all([
+          searchType === 'talents'
+            ? searchTalents(filters)
+            : searchJobseekers({
+                username: filters.username,
+                skills: filters.skills,
+                page: filters.page,
+                limit: filters.limit,
+              }),
           getCategories(),
         ]);
-        console.log('Fetched talents:', JSON.stringify(talentsData, null, 2));
-        if (!Array.isArray(talentsData)) {
-          console.error('Talents data is not an array:', talentsData);
+        console.log('Fetched talents:', JSON.stringify(response, null, 2));
+        if (!Array.isArray(response)) {
+          console.error('Talents data is not an array:', response);
           setError('Invalid data format received. Please try again.');
           setTalents([]);
+          setTotal(0);
           return;
         }
-        setTalents(talentsData);
+        setTalents(response);
+        // Предполагаем, что бэкенд возвращает total (нужно уточнить у бэкенда)
+        setTotal((response as any).total || response.length);
         setCategories(categoriesData);
       } catch (err: any) {
         console.error('Error fetching talents:', err);
@@ -70,12 +73,15 @@ const FindTalent: React.FC = () => {
       }
     };
     fetchData();
-  }, [filters]);
+  }, [filters, searchType]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setFilters((prev) => ({ ...prev, page: 1 }));
-    setSearchParams({ skills: filters.skills });
+    setSearchParams({
+      skills: filters.skills,
+      username: searchType === 'jobseekers' ? filters.username : '',
+    });
     setIsFilterPanelOpen(false);
   };
 
@@ -94,9 +100,7 @@ const FindTalent: React.FC = () => {
     return description;
   };
 
-  // Вычисляем общее количество страниц на основе total из ответа API
-  // Примечание: total будет добавлено бэкэндером в ответ /talents, пока используем запасной вариант
-  const totalPages = talents.length > 0 && (talents[0] as any)?.total ? Math.ceil((talents[0] as any).total / filters.limit) : 1;
+  const totalPages = Math.ceil(total / filters.limit) || 1;
 
   const getVisiblePages = () => {
     const maxVisible = 5;
@@ -140,6 +144,21 @@ const FindTalent: React.FC = () => {
       <div className="container ft-container">
         <h2>Find Talent</h2>
         <div className="ft-search-bar">
+          <select
+            value={searchType}
+            onChange={(e) => setSearchType(e.target.value as 'talents' | 'jobseekers')}
+          >
+            <option value="talents">Search by Skills</option>
+            <option value="jobseekers">Search by Username/Skills</option>
+          </select>
+          {searchType === 'jobseekers' && (
+            <input
+              type="text"
+              placeholder="Search by username"
+              value={filters.username}
+              onChange={(e) => setFilters({ ...filters, username: e.target.value })}
+            />
+          )}
           <input
             type="text"
             placeholder="Search by skills or keywords"
@@ -164,6 +183,17 @@ const FindTalent: React.FC = () => {
                   placeholder="Enter skills (e.g., JavaScript, Python)"
                 />
               </div>
+              {searchType === 'jobseekers' && (
+                <div className="ft-form-group">
+                  <label>Username:</label>
+                  <input
+                    type="text"
+                    value={filters.username}
+                    onChange={(e) => setFilters({ ...filters, username: e.target.value })}
+                    placeholder="Enter username"
+                  />
+                </div>
+              )}
               <div className="ft-form-group">
                 <label>Experience:</label>
                 <input
@@ -294,7 +324,7 @@ const FindTalent: React.FC = () => {
                 onClick={() => handlePageChange(filters.page + 1)}
                 disabled={filters.page === totalPages}
               >
-                
+                Next
               </button>
             </div>
           </div>
