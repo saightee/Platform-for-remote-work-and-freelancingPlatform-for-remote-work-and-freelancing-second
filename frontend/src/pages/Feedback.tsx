@@ -6,24 +6,35 @@ import Copyright from '../components/Copyright';
 
 const Feedback: React.FC = () => {
   const [message, setMessage] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    try {
-      await submitFeedback(message);
-      alert('Feedback submitted successfully!');
-      setMessage('');
-    } catch (error) {
-      console.error('Error submitting feedback:', error);
-      alert('Failed to submit feedback.');
-    }
-  };
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!message.trim()) {
+    setError('Feedback cannot be empty.');
+    return;
+  }
+  if (message.length > 500) {
+    setError('Feedback cannot exceed 500 characters.');
+    return;
+  }
+  try {
+    setError(null);
+    await submitFeedback(message);
+    alert('Feedback submitted successfully!');
+    setMessage('');
+  } catch (error) {
+    console.error('Error submitting feedback:', error);
+    setError('Failed to submit feedback.');
+  }
+};
 
   return (
     <div>
       <Header />
       <div className="container">
         <h2>Submit Feedback</h2>
+        {error && <p className="error-message">{error}</p>}
         <div>
           <div className="form-group">
             <label>Your Feedback:</label>
@@ -37,7 +48,7 @@ const Feedback: React.FC = () => {
         </div>
       </div>
       <Footer />
-         <Copyright />
+      <Copyright />
     </div>
   );
 };

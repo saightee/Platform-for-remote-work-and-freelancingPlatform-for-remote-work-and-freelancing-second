@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { register } from '../services/api';
 import { useRole } from '../context/RoleContext';
-import { FaEye, FaEyeSlash } from 'react-icons/fa'; // Добавляем иконки
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 const Register: React.FC = () => {
   const { role } = useParams<{ role: 'employer' | 'jobseeker' }>();
@@ -11,8 +11,8 @@ const Register: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false); // Для пароля
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false); // Для подтверждения
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
   const { refreshProfile } = useRole();
 
@@ -34,7 +34,7 @@ const Register: React.FC = () => {
       const { accessToken } = await register({ username, email, password, role });
       localStorage.setItem('token', accessToken);
       await refreshProfile();
-      navigate('/');
+      navigate('/check-email');
     } catch (error: any) {
       console.error('Register error:', error);
       if (error.response?.status === 403 && error.response?.data?.message === 'Registration is not allowed from your country') {

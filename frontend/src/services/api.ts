@@ -1,6 +1,7 @@
 import axios, { AxiosResponse } from 'axios';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { io, Socket } from 'socket.io-client';
+import { jwtDecode } from 'jwt-decode';
 import { 
   User, Profile, JobPost, Category, JobApplication, Review, Feedback, 
   BlockedCountry, LoginCredentials, RegisterCredentials, PaginatedResponse,
@@ -26,6 +27,10 @@ interface ComplaintData {
   job_post_id?: string;
   profile_id?: string;
   reason: string;
+}
+
+interface DecodedToken {
+  role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
 }
 
 const getFingerprint = async () => {
@@ -274,8 +279,8 @@ export const submitComplaint = async (data: ComplaintData) => {
 };
 
 // Admin Endpoints
-export const getAllUsers = async (params: { username?: string; email?: string; createdAfter?: string }) => {
-  const response = await api.get<User[]>('/admin/users', { params });
+export const getAllUsers = async (params: { username?: string; email?: string; createdAfter?: string; page?: number; limit?: number }) => {
+  const response = await api.get<PaginatedResponse<User>>('/admin/users', { params });
   return response.data;
 };
 
@@ -330,8 +335,12 @@ export const getUserOnlineStatus = async (id: string) => {
   return response.data;
 };
 
-export const getAllJobPosts = async (params: { status?: string; pendingReview?: string }) => {
-  const response = await api.get<PaginatedResponse<JobPost>>('/admin/job-posts', { params });
+export const getAllJobPosts = async (params: { status?: string; pendingReview?: string; page?: number; limit?: number }) => {
+  const token = localStorage.getItem('token');
+  const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
+  const isModerator = decoded?.role === 'moderator';
+  const endpoint = isModerator ? '/moderator/job-posts' : '/admin/job-posts';
+  const response = await api.get<PaginatedResponse<JobPost>>(endpoint, { params });
   return response.data;
 };
 
@@ -346,12 +355,20 @@ export const deleteJobPostAdmin = async (id: string) => {
 };
 
 export const approveJobPost = async (id: string) => {
-  const response = await api.post<JobPost>(`/admin/job-posts/${id}/approve`);
+  const token = localStorage.getItem('token');
+  const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
+  const isModerator = decoded?.role === 'moderator';
+  const endpoint = isModerator ? `/moderator/job-posts/${id}/approve` : `/admin/job-posts/${id}/approve`;
+  const response = await api.post<JobPost>(endpoint);
   return response.data;
 };
 
 export const flagJobPost = async (id: string) => {
-  const response = await api.post<JobPost>(`/admin/job-posts/${id}/flag`);
+  const token = localStorage.getItem('token');
+  const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
+  const isModerator = decoded?.role === 'moderator';
+  const endpoint = isModerator ? `/moderator/job-posts/${id}/flag` : `/admin/job-posts/${id}/flag`;
+  const response = await api.post<JobPost>(endpoint);
   return response.data;
 };
 
@@ -377,7 +394,11 @@ export const getAllReviews = async () => {
 };
 
 export const deleteReview = async (id: string) => {
-  const response = await api.delete<{ message: string }>(`/admin/reviews/${id}`);
+  const token = localStorage.getItem('token');
+  const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
+  const isModerator = decoded?.role === 'moderator';
+  const endpoint = isModerator ? `/moderator/reviews/${id}` : `/admin/reviews/${id}`;
+  const response = await api.delete<{ message: string }>(endpoint);
   return response.data;
 };
 
@@ -463,11 +484,19 @@ export const getComplaints = async () => {
 };
 
 export const resolveComplaint = async (id: string, data: { status: 'Resolved' | 'Rejected'; comment?: string }) => {
-  const response = await api.post(`/admin/complaints/${id}/resolve`, data);
+  const token = localStorage.getItem('token');
+  const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
+  const isModerator = decoded?.role === 'moderator';
+  const endpoint = isModerator ? `/moderator/complaints/${id}/resolve` : `/admin/complaints/${id}/resolve`;
+  const response = await api.post(endpoint, data);
   return response.data;
 };
 
 export const getChatHistory = async (jobApplicationId: string, params: { page?: number; limit?: number }) => {
+  const token = localStorage.getItem('token');
+  const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
+  const isModerator = decoded?.role === 'moderator';
+  const endpoint = isModerator ? `/moderator/chat/${jobApplicationId}` : `/admin/chat/${jobApplicationId}`;
   const response = await api.get<{
     total: number;
     data: {
@@ -481,7 +510,7 @@ export const getChatHistory = async (jobApplicationId: string, params: { page?: 
       created_at: string;
       is_read: boolean;
     }[];
-  }>(`/admin/chat/${jobApplicationId}`, { params });
+  }>(endpoint, { params });
   return response.data;
 };
 
@@ -506,7 +535,15 @@ export const submitFeedback = async (message: string) => {
   return response.data;
 };
 
-export const getFeedback = () => api.get('/feedback').then((res) => res.data);
+export const getFeedback = async () => {
+  try {
+    const response = await api.get<Feedback[]>('/feedback');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching feedback:', error);
+    throw error;
+  }
+};
 
 // Blocked Countries
 export const addBlockedCountry = async (countryCode: string) => {
@@ -613,25 +650,16 @@ export const getStats = async () => {
 };
 
 // Moderator Endpoints
-export const approveJobPostModerator = async (id: string) => {
-  const response = await api.post<JobPost>(`/moderator/job-posts/${id}/approve`);
-  return response.data;
-};
 
-export const flagJobPostModerator = async (id: string) => {
-  const response = await api.post<JobPost>(`/moderator/job-posts/${id}/flag`);
-  return response.data;
-};
+
+
 
 export const getAllReviewsModerator = async () => {
   const response = await api.get<Review[]>('/moderator/reviews');
   return response.data;
 };
 
-export const deleteReviewModerator = async (id: string) => {
-  const response = await api.delete<{ message: string }>(`/moderator/reviews/${id}`);
-  return response.data;
-};
+
 
 export const getComplaintsModerator = async () => {
   const response = await api.get<{
@@ -649,7 +677,3 @@ export const getComplaintsModerator = async () => {
   return response.data;
 };
 
-export const resolveComplaintModerator = async (id: string, data: { status: 'Resolved' | 'Rejected'; comment?: string }) => {
-  const response = await api.post(`/moderator/complaints/${id}/resolve`, data);
-  return response.data;
-};

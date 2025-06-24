@@ -27,6 +27,16 @@ interface JobPostWithApplications {
   created_at: string;
 }
 
+interface OnlineUsers {
+  jobseekers: number;
+  employers: number;
+}
+
+interface RecentRegistrations {
+  jobseekers: { id: string; email: string; username: string; role: string; created_at: string }[];
+  employers: { id: string; email: string; username: string; role: string; created_at: string }[];
+}
+
 const AdminDashboard: React.FC = () => {
   const { currentRole } = useRole();
   const [activeTab, setActiveTab] = useState('Dashboard');
@@ -91,11 +101,8 @@ const AdminDashboard: React.FC = () => {
   const [selectedJobApplicationId, setSelectedJobApplicationId] = useState<string>('');
   const [chatPage, setChatPage] = useState(1);
   const [chatLimit] = useState(10);
-  const [onlineUsers, setOnlineUsers] = useState<{ jobseekers: number; employers: number } | null>(null);
-  const [recentRegistrations, setRecentRegistrations] = useState<{
-    jobseekers: { id: string; email: string; username: string; role: string; created_at: string }[];
-    employers: { id: string; email: string; username: string; role: string; created_at: string }[];
-  }>({ jobseekers: [], employers: [] });
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUsers | null>(null);
+  const [recentRegistrations, setRecentRegistrations] = useState<RecentRegistrations>({ jobseekers: [], employers: [] });
   const [globalLimit, setGlobalLimit] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,6 +110,10 @@ const AdminDashboard: React.FC = () => {
   const [showRiskModal, setShowRiskModal] = useState(false);
   const [onlineStatuses, setOnlineStatuses] = useState<{ [key: string]: boolean }>({});
   const [fetchErrors, setFetchErrors] = useState<{ [key: string]: string }>({});
+  const [userPage, setUserPage] = useState(1);
+  const [userLimit] = useState(10);
+  const [jobPostPage, setJobPostPage] = useState(1);
+  const [jobPostLimit] = useState(10);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -115,10 +126,11 @@ const AdminDashboard: React.FC = () => {
       try {
         setIsLoading(true);
         setFetchErrors({});
+
         const requests = [
-          getAllUsers({}),
-          getAllJobPosts({}),
-          getAllJobPosts({ status: 'Active', pendingReview: 'true' }),
+          getAllUsers({ page: userPage, limit: userLimit }),
+          getAllJobPosts({ page: jobPostPage, limit: jobPostLimit }),
+          getAllJobPosts({ status: 'Active', pendingReview: 'true', page: jobPostPage, limit: jobPostLimit }),
           getAllReviews(),
           getFeedback(),
           getBlockedCountries(),
@@ -138,6 +150,27 @@ const AdminDashboard: React.FC = () => {
           getJobPostsWithApplications()
         ];
 
+        type RequestResult =
+          | PaginatedResponse<User>
+          | PaginatedResponse<JobPost>
+          | Review[]
+          | Feedback[]
+          | BlockedCountry[]
+          | Category[]
+          | { totalUsers: number; employers: number; jobSeekers: number; totalJobPosts: number; activeJobPosts: number; totalApplications: number; totalReviews: number }
+          | { period: string; count: number }[]
+          | { country: string; count: number; percentage: string }[]
+          | { employer_id: string; username: string; job_count: number }[]
+          | { job_seeker_id: string; username: string; application_count: number }[]
+          | { userId: string; username: string; email: string; profileViews: number }[]
+          | { userId: string; username: string; email: string; jobCount: number }[]
+          | { registrations: { period: string; count: number }[]; jobPosts: { period: string; count: number }[] }
+          | { id: string; complainant_id: string; complainant: { id: string; username: string; email: string; role: string }; job_post_id?: string; job_post?: { id: string; title: string; description: string }; profile_id?: string; reason: string; status: 'Pending' | 'Resolved' | 'Rejected'; created_at: string; resolution_comment?: string }[]
+          | { globalApplicationLimit: number | null }
+          | OnlineUsers
+          | RecentRegistrations
+          | JobPostWithApplications[];
+
         const results = await Promise.allSettled(requests);
         const errors: { [key: string]: string } = {};
 
@@ -153,42 +186,41 @@ const AdminDashboard: React.FC = () => {
         results.forEach((result, index) => {
           if (result.status === 'fulfilled') {
             console.log(`${endpoints[index]} succeeded:`, result.value);
+            const value = result.value as RequestResult;
             switch (index) {
-              case 0: setUsers(result.value || []); break;
-              case 1: setJobPosts((result.value as PaginatedResponse<JobPost>).data || []); break;
-              case 2: setJobPosts((result.value as PaginatedResponse<JobPost>).data || []); break;
-              case 3: setReviews(result.value || []); break;
-              case 4: setFeedback(result.value || []); break;
-              case 5: setBlockedCountries(result.value || []); break;
-              case 6: setCategories(result.value || []); break;
-              case 7: setAnalytics(result.value || null); break;
-              case 8: setRegistrationStats(result.value || []); break;
+              case 0: setUsers((value as PaginatedResponse<User>).data || []); break;
+              case 1: setJobPosts((value as PaginatedResponse<JobPost>).data || []); break;
+              case 2: setJobPosts((value as PaginatedResponse<JobPost>).data || []); break;
+              case 3: setReviews(value as Review[] || []); break;
+              case 4: setFeedback(value as Feedback[] || []); break;
+              case 5: setBlockedCountries(value as BlockedCountry[] || []); break;
+              case 6: setCategories(value as Category[] || []); break;
+              case 7: setAnalytics(value as typeof analytics || null); break;
+              case 8: setRegistrationStats(value as { period: string; count: number }[] || []); break;
               case 9:
-                setGeographicDistribution(result.value || []);
-                const total = (result.value as { count: number }[]).reduce((sum, item) => sum + item.count, 0);
-                const freelancers = (result.value as { country: string; count: number }[]).map(item => ({
+                setGeographicDistribution(value as { country: string; count: number; percentage: string }[] || []);
+                const total = (value as { count: number }[]).reduce((sum, item) => sum + item.count, 0);
+                const freelancers = (value as { country: string; count: number }[]).map(item => ({
                   country: item.country,
                   count: Math.round(item.count * 0.6)
                 }));
-                const businesses = (result.value as { country: string; count: number }[]).map(item => ({
+                const businesses = (value as { country: string; count: number }[]).map(item => ({
                   country: item.country,
                   count: Math.round(item.count * 0.4)
                 }));
                 setFreelancerSignups(freelancers);
                 setBusinessSignups(businesses);
                 break;
-              case 10: setTopEmployers(result.value || []); break;
-              case 11: setTopJobseekers(result.value || []); break;
-              case 12: setTopJobseekersByViews(result.value || []); break;
-              case 13: setTopEmployersByPosts(result.value || []); break;
-              case 14: setGrowthTrends(result.value || { registrations: [], jobPosts: [] }); break;
-              case 15: setComplaints(result.value || []); break;
-              case 16: setGlobalLimit(result.value?.globalApplicationLimit ?? null); break;
-              case 17: setOnlineUsers(result.value || null); break;
-              case 18: setRecentRegistrations(result.value || { jobseekers: [], employers: [] }); break;
-              case 19:
-                setJobPostsWithApps((result.value as JobPostWithApplications[]) || []);
-                break;
+              case 10: setTopEmployers(value as { employer_id: string; username: string; job_count: number }[] || []); break;
+              case 11: setTopJobseekers(value as { job_seeker_id: string; username: string; application_count: number }[] || []); break;
+              case 12: setTopJobseekersByViews(value as { userId: string; username: string; email: string; profileViews: number }[] || []); break;
+              case 13: setTopEmployersByPosts(value as { userId: string; username: string; email: string; jobCount: number }[] || []); break;
+              case 14: setGrowthTrends(value as typeof growthTrends || { registrations: [], jobPosts: [] }); break;
+              case 15: setComplaints(value as typeof complaints || []); break;
+              case 16: setGlobalLimit((value as { globalApplicationLimit: number | null }).globalApplicationLimit ?? null); break;
+              case 17: setOnlineUsers(value as OnlineUsers || null); break;
+              case 18: setRecentRegistrations(value as RecentRegistrations || { jobseekers: [], employers: [] }); break;
+              case 19: setJobPostsWithApps(value as JobPostWithApplications[] || []); break;
             }
           } else {
             console.error(`${endpoints[index]} failed:`, result.reason);
@@ -211,7 +243,7 @@ const AdminDashboard: React.FC = () => {
       }
     };
     fetchData();
-  }, [currentRole]);
+  }, [currentRole, userPage, jobPostPage]);
 
   const handleDeleteUser = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
@@ -245,8 +277,8 @@ const AdminDashboard: React.FC = () => {
     try {
       await verifyIdentity(id, verify);
       alert(`Identity ${verify ? 'verified' : 'rejected'} successfully!`);
-      const usersData = await getAllUsers({});
-      setUsers(usersData || []);
+      const usersData = await getAllUsers({ page: userPage, limit: userLimit });
+      setUsers(usersData.data || []);
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       console.error('Error verifying identity:', axiosError);
@@ -259,8 +291,8 @@ const AdminDashboard: React.FC = () => {
       try {
         await blockUser(id);
         alert('User blocked successfully!');
-        const usersData = await getAllUsers({});
-        setUsers(usersData || []);
+        const usersData = await getAllUsers({ page: userPage, limit: userLimit });
+        setUsers(usersData.data || []);
       } catch (error) {
         const axiosError = error as AxiosError<{ message?: string }>;
         console.error('Error blocking user:', axiosError);
@@ -274,8 +306,8 @@ const AdminDashboard: React.FC = () => {
       try {
         await unblockUser(id);
         alert('User unblocked successfully!');
-        const usersData = await getAllUsers({});
-        setUsers(usersData || []);
+        const usersData = await getAllUsers({ page: userPage, limit: userLimit });
+        setUsers(usersData.data || []);
       } catch (error) {
         const axiosError = error as AxiosError<{ message?: string }>;
         console.error('Error unblocking user:', axiosError);
@@ -348,6 +380,8 @@ const AdminDashboard: React.FC = () => {
       const updatedPost = await approveJobPost(id);
       setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
       setJobPostsWithApps(jobPostsWithApps.map((post) => (post.id === id ? { ...post, ...updatedPost } : post)));
+      const updatedPosts = await getAllJobPosts({ status: 'Active', pendingReview: 'true', page: jobPostPage, limit: jobPostLimit });
+      setJobPosts(updatedPosts.data || []);
       alert('Job post approved successfully!');
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
@@ -361,6 +395,8 @@ const AdminDashboard: React.FC = () => {
       const updatedPost = await flagJobPost(id);
       setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
       setJobPostsWithApps(jobPostsWithApps.map((post) => (post.id === id ? { ...post, ...updatedPost } : post)));
+      const updatedPosts = await getAllJobPosts({ status: 'Active', pendingReview: 'true', page: jobPostPage, limit: jobPostLimit });
+      setJobPosts(updatedPosts.data || []);
       alert('Job post flagged successfully!');
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
@@ -374,8 +410,8 @@ const AdminDashboard: React.FC = () => {
     if (limit && !isNaN(Number(limit))) {
       try {
         await setJobPostApplicationLimitAdmin(id, Number(limit));
-        const updatedPosts = await getAllJobPosts({});
-        setJobPosts((updatedPosts as PaginatedResponse<JobPost>).data || []);
+        const updatedPosts = await getAllJobPosts({ page: jobPostPage, limit: jobPostLimit });
+        setJobPosts(updatedPosts.data || []);
         const updatedPostsWithApps = await getJobPostsWithApplications();
         setJobPostsWithApps(updatedPostsWithApps || []);
         alert('Application limit set successfully!');
@@ -466,7 +502,7 @@ const AdminDashboard: React.FC = () => {
       setChatHistory(history);
       setSelectedJobApplicationId(jobApplicationId);
       setChatPage(page);
-    }catch (error) {
+    } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       console.error('Error fetching chat history:', axiosError);
       setError(axiosError.response?.data?.message || 'Failed to fetch chat history.');
@@ -475,7 +511,7 @@ const AdminDashboard: React.FC = () => {
 
   const handleSetGlobalLimit = async () => {
     const limit = prompt('Enter global application limit:');
-    if (limit && !isNaN(Number(limit))) {
+    if (limit && !isNaN(Number(limit)) && Number(limit) >= 0) {
       try {
         await setGlobalApplicationLimit(Number(limit));
         const limitData = await getGlobalApplicationLimit();
@@ -486,6 +522,8 @@ const AdminDashboard: React.FC = () => {
         console.error('Error setting global limit:', axiosError);
         alert(axiosError.response?.data?.message || 'Failed to set global limit.');
       }
+    } else {
+      alert('Please enter a valid non-negative number.');
     }
   };
 
@@ -839,6 +877,23 @@ const AdminDashboard: React.FC = () => {
                   )}
                 </tbody>
               </table>
+              <div className="pagination">
+                <button
+                  onClick={() => setUserPage(prev => Math.max(prev - 1, 1))}
+                  disabled={userPage === 1}
+                  className="action-button"
+                >
+                  Previous
+                </button>
+                <span>Page {userPage}</span>
+                <button
+                  onClick={() => setUserPage(prev => prev + 1)}
+                  disabled={users.length < userLimit}
+                  className="action-button"
+                >
+                  Next
+                </button>
+              </div>
               {showRiskModal && riskScoreData && (
                 <div className="modal">
                   <div className="modal-content">
@@ -904,6 +959,23 @@ const AdminDashboard: React.FC = () => {
                   )}
                 </tbody>
               </table>
+              <div className="pagination">
+                <button
+                  onClick={() => setJobPostPage(prev => Math.max(prev - 1, 1))}
+                  disabled={jobPostPage === 1}
+                  className="action-button"
+                >
+                  Previous
+                </button>
+                <span>Page {jobPostPage}</span>
+                <button
+                  onClick={() => setJobPostPage(prev => prev + 1)}
+                  disabled={jobPosts.length < jobPostLimit}
+                  className="action-button"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
 
@@ -1041,11 +1113,11 @@ const AdminDashboard: React.FC = () => {
                 <tbody>
                   {blockedCountries.length > 0 ? blockedCountries.map((country) => (
                     <tr key={country.id}>
-                      <td>{country.countryCode || 'N/A'}</td>
+                      <td>{country.country_code || 'N/A'}</td>
                       <td>{format(new Date(country.created_at), 'PP')}</td>
                       <td>
                         <button
-                          onClick={() => handleRemoveBlockedCountry(country.countryCode)}
+                          onClick={() => handleRemoveBlockedCountry(country.country_code)}
                           className="action-button danger"
                         >
                           Remove
@@ -1392,7 +1464,7 @@ const AdminDashboard: React.FC = () => {
               <div className="dashboard-section">
                 <h3>Global Application Limit</h3>
                 {fetchErrors.getGlobalApplicationLimit && <p className="error-message">{fetchErrors.getGlobalApplicationLimit}</p>}
-                <p>Current Limit: {globalLimit ?? 'Not set'}</p>
+                <p>Current Limit: {globalLimit !== null ? globalLimit : 'Not set'}</p>
                 <button onClick={handleSetGlobalLimit} className="action-button">
                   Set Global Limit
                 </button>

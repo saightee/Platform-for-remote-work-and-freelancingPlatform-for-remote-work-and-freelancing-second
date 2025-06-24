@@ -76,12 +76,12 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Invalid token format:', token);
       }
       setIsLoading(true);
-      setError(null);
-      const profileData = await getProfile();
-      console.log('Profile fetched:', profileData);
-      setProfile(profileData);
-      setCurrentRole(profileData.role);
-    } catch (error: any) {
+setError(null); // Очистка ошибки при успехе
+  const profileData = await getProfile();
+  console.log('Profile fetched:', profileData);
+  setProfile(profileData);
+  setCurrentRole(profileData.role);
+} catch (error: any) {
       console.error('Error fetching profile in RoleContext:', error);
       if (error.response?.status === 401 || error.response?.status === 404) {
         console.error('Unauthorized or profile not found. Token:', token);
@@ -110,7 +110,17 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     fetchProfile();
 
-    if (profile && ['jobseeker', 'employer'].includes(profile.role)) {
+    return () => {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+        setSocketStatus('disconnected');
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (profile && ['jobseeker', 'employer'].includes(profile.role) && !socket) {
       const newSocket = initializeWebSocket(
         (message: Message) => {
           // Обработчик новых сообщений будет задаваться в компонентах
@@ -126,10 +136,11 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSocketStatus('connected');
       });
 
-      newSocket.on('connect_error', () => {
-        console.error('WebSocket connection error in RoleContext');
-        setSocketStatus('reconnecting');
-      });
+   newSocket.on('connect_error', () => {
+  console.error('WebSocket connection error in RoleContext');
+  setSocketStatus('reconnecting');
+  setError('Failed to connect to real-time updates. Please try again later.');
+});
 
       newSocket.on('disconnect', () => {
         console.log('WebSocket disconnected in RoleContext');
@@ -144,15 +155,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSocketStatus('disconnected');
       };
     }
-
-    return () => {
-      if (socket) {
-        socket.disconnect();
-        setSocket(null);
-        setSocketStatus('disconnected');
-      }
-    };
-  }, [profile]);
+  }, [profile, socket]);
 
   return (
     <RoleContext.Provider value={{ currentRole, profile, isLoading, error, refreshProfile, socket, socketStatus }}>

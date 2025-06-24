@@ -17,7 +17,7 @@ interface Message {
 const Header: React.FC = () => {
   const { profile, isLoading, currentRole, socket } = useRole();
   const token = localStorage.getItem('token');
-  const isAuthenticated = token && (profile || ['admin', 'moderator'].includes(currentRole || ''));
+  const isAuthenticated = !!token && (!!profile || ['admin', 'moderator'].includes(currentRole || ''));
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -27,52 +27,57 @@ const Header: React.FC = () => {
   const showBackToDashboard = ['admin', 'moderator'].includes(currentRole || '') &&
     !location.pathname.startsWith(currentRole === 'admin' ? '/admin' : '/moderator');
 
-  useEffect(() => {
-    if (!profile || !['jobseeker', 'employer'].includes(profile.role) || !socket) {
-      setUnreadCount(0);
-      return;
-    }
+useEffect(() => {
+  if (!profile || !['jobseeker', 'employer'].includes(profile.role) || !socket) {
+    setUnreadCount(0);
+    return;
+  }
 
-    const fetchUnreadMessages = async () => {
-      try {
-        let applications: { id: string }[] = [];
-        if (profile.role === 'jobseeker') {
-          const apps = await getMyApplications();
-          applications = apps.filter(app => app.status === 'Accepted');
-        } else if (profile.role === 'employer') {
-          const posts = await getMyJobPosts();
-          const appsPromises = posts.map(post => getApplicationsForJobPost(post.id));
-          const appsArrays = await Promise.all(appsPromises);
-          applications = appsArrays.flat().filter(app => app.status === 'Accepted');
-        }
-
-        applications.forEach(app => {
-          socket.emit('joinChat', { jobApplicationId: app.id });
-        });
-
-        socket.on('chatHistory', (history: Message[]) => {
-          const unread = history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length;
-          setUnreadCount(unread);
-        });
-
-        socket.on('newMessage', (message: Message) => {
-          if (message.recipient_id === profile.id && !message.is_read) {
-            setUnreadCount(prev => prev + 1);
-          }
-        });
-
-        return () => {
-          socket.off('chatHistory');
-          socket.off('newMessage');
-          setUnreadCount(0);
-        };
-      } catch (err) {
-        console.error('Error fetching unread messages in Header:', err);
+  const fetchUnreadMessages = async () => {
+    try {
+      let applications: { id: string }[] = [];
+      if (profile.role === 'jobseeker') {
+        const apps = await getMyApplications();
+        applications = apps.filter(app => app.status === 'Accepted');
+      } else if (profile.role === 'employer') {
+        const posts = await getMyJobPosts();
+        const appsPromises = posts.map(post => getApplicationsForJobPost(post.id));
+        const appsArrays = await Promise.all(appsPromises);
+        applications = appsArrays.flat().filter(app => app.status === 'Accepted');
       }
-    };
 
-    fetchUnreadMessages();
-  }, [profile, socket]);
+      applications.forEach(app => {
+        socket.emit('joinChat', { jobApplicationId: app.id });
+      });
+
+      socket.on('chatHistory', (history: Message[]) => {
+        const unread = history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length;
+        setUnreadCount(unread);
+      });
+
+      socket.on('newMessage', (message: Message) => {
+        if (message.recipient_id === profile.id && !message.is_read) {
+          setUnreadCount(prev => prev + 1);
+        }
+      });
+
+      socket.on('connect_error', (err) => {
+        console.error('WebSocket connection error in Header:', err);
+      });
+
+      return () => {
+        socket.off('chatHistory');
+        socket.off('newMessage');
+        socket.off('connect_error');
+        setUnreadCount(0);
+      };
+    } catch (err) {
+      console.error('Error fetching unread messages in Header:', err);
+    }
+  };
+
+  fetchUnreadMessages();
+}, [profile, socket]);
 
   const handleLogout = async () => {
     try {
@@ -101,7 +106,23 @@ const Header: React.FC = () => {
     setIsDropdownOpen(prev => !prev);
   };
 
-  if (isLoading) return null;
+  // Заглушка на время загрузки
+  if (isLoading) {
+    return (
+      <header className="header-container">
+        <div className="header-content">
+          <Link to="/" className="logo">Jobforge_</Link>
+          <button className="burger-menu" onClick={toggleMobileMenu}>
+            {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
+          </button>
+          <nav className={`nav ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>
+            <Link to="/role-selection" className="signup-link" onClick={closeMobileMenu}>SIGN UP</Link>
+            <Link to="/login" className="login-link" onClick={closeMobileMenu}>LOG IN</Link>
+          </nav>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="header-container">

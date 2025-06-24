@@ -14,10 +14,17 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { profile, refreshProfile } = useRole();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isRefreshing) return;
+    if (!email.trim() || !password.trim()) {
+      setErrorMessage('Email and password cannot be empty.');
+      return;
+    }
     try {
+      setIsRefreshing(true);
       setErrorMessage(null);
       console.log('Attempting login with:', { email, rememberMe });
       const response = await login({ email, password, rememberMe });
@@ -31,19 +38,23 @@ const Login: React.FC = () => {
       const errorMsg = error.response?.data?.message || 'Login failed. Please try again.';
       console.log('Error details:', error.response?.data);
       setErrorMessage(errorMsg);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
     console.log('Login useEffect, isAuthenticated:', isAuthenticated, 'profile:', profile);
-    if (isAuthenticated) {
+    if (isAuthenticated && profile) {
       const token = localStorage.getItem('token');
       if (token) {
         try {
           const decoded: any = jwtDecode(token);
           if (decoded.role === 'admin') {
             navigate('/admin');
-          } else if (profile) {
+          } else if (decoded.role === 'moderator') {
+            navigate('/moderator');
+          } else {
             navigate('/');
           }
         } catch (err) {

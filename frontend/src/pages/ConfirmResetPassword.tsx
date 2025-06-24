@@ -1,6 +1,5 @@
-
-import { useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react'; // Добавлен useEffect
+import { useSearchParams, Link, useNavigate } from 'react-router-dom'; // Добавлен useNavigate
 import { confirmPasswordReset } from '../services/api';
 
 const ConfirmResetPassword: React.FC = () => {
@@ -9,11 +8,25 @@ const ConfirmResetPassword: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.MouseEvent) => {
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        navigate('/login');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
       setError('Passwords do not match!');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters long.');
       return;
     }
     const token = searchParams.get('token');
@@ -38,7 +51,7 @@ const ConfirmResetPassword: React.FC = () => {
         <h2>Confirm Password Reset</h2>
         {message && <p style={{ color: 'green', textAlign: 'center' }}>{message}</p>}
         {error && <p style={{ color: 'red', textAlign: 'center' }}>{error}</p>}
-        <div className="register-form">
+        <form onSubmit={handleSubmit} className="register-form">
           <div className="form-group">
             <label>New Password</label>
             <input
@@ -57,7 +70,7 @@ const ConfirmResetPassword: React.FC = () => {
               placeholder="Confirm new password"
             />
           </div>
-          <button onClick={handleSubmit}>Reset Password</button>
+          <button type="submit">Reset Password</button>
           <div className="form-links">
             <p>
               <Link to="/login">Go to Login</Link>
@@ -66,7 +79,7 @@ const ConfirmResetPassword: React.FC = () => {
               <Link to="/">Go to Home</Link>
             </p>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

@@ -1,6 +1,11 @@
 export interface PaginatedResponse<T> {
-  total: number;
   data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages?: number;
+  hasNextPage?: boolean;
+  hasPrevPage?: boolean;
 }
 
 export interface User {
@@ -34,7 +39,7 @@ export interface EmployerProfile {
 export interface JobSeekerProfile {
   id: string;
   role: 'jobseeker';
-  email?: string; // Optional for unauthenticated users
+  email?: string;
   username: string;
   skills?: string[];
   categories?: Category[];
@@ -105,14 +110,6 @@ export interface Category {
   updated_at: string;
 }
 
-interface JobPostWithApplications {
-  id: string;
-  title: string;
-  status: string;
-  applicationCount: number;
-  created_at: string;
-}
-
 export interface JobApplication {
   id: string;
   job_post_id: string;
@@ -169,7 +166,7 @@ export interface Feedback {
 
 export interface BlockedCountry {
   id: string;
-  countryCode: string;
+  country_code: string;
   created_at: string;
   updated_at: string;
 }
@@ -194,4 +191,15 @@ export interface JobApplicationDetails {
   appliedAt: string;
   status: string;
   job_post_id: string;
+}
+
+export interface Analytics {
+  totalUsers: number;
+  employers: number;
+  jobSeekers: number;
+  totalJobPosts: number;
+  activeJobPosts: number;
+  totalApplications: number;
+  totalReviews: number;
+  [key: string]: any; // Для дополнительных полей
 }
