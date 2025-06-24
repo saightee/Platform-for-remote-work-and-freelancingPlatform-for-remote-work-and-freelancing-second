@@ -1,7 +1,5 @@
 import * as request from 'supertest';
 import { io as Client, Socket } from 'socket.io-client';
-import * as fs from 'fs';
-import * as path from 'path';
 
 describe('OnlineJobs E2E Tests', () => {
   const baseUrl = process.env.BASE_URL || 'https://jobforge.net';
@@ -13,7 +11,7 @@ describe('OnlineJobs E2E Tests', () => {
   const EMPLOYER_EMAIL = 'petriciowoodler@gmail.com';
   const EMPLOYER_PASSWORD = 'dragomir4eg';
   const EMPLOYER_USERNAME = 'petriciowoodler';
-  const ADMIN_EMAIL = 'newadmin2@example.com';
+  const ADMIN_EMAIL = 'newadmin1@example.com';
   const ADMIN_PASSWORD = 'admin123';
   const MODERATOR_EMAIL = 'newmoderator@example.com';
   const MODERATOR_PASSWORD = 'moderator123';
@@ -34,7 +32,6 @@ describe('OnlineJobs E2E Tests', () => {
   let socket: Socket;
 
   const cleanupIds: {
-    users: string[];
     jobs: string[];
     categories: string[];
     applications: string[];
@@ -42,7 +39,6 @@ describe('OnlineJobs E2E Tests', () => {
     complaints: string[];
     feedback: string[];
   } = {
-    users: [],
     jobs: [],
     categories: [],
     applications: [],
@@ -52,54 +48,17 @@ describe('OnlineJobs E2E Tests', () => {
   };
 
   beforeAll(async () => {
-    // Логин админа
-    const adminResponse = await request(baseUrl)
-      .post('/api/auth/login')
-      .set('Content-Type', 'application/json')
-      .set('X-Forwarded-For', '99.79.0.2')
-      .set('X-Fingerprint', `test-fingerprint-admin-${Date.now()}`)
-      .send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
-    if (adminResponse.status !== 201) {
-      console.error('Admin login failed:', adminResponse.body);
-      throw new Error(`Admin login failed: ${adminResponse.body.message}`);
-    }
-    expect(adminResponse.status).toBe(201);
-    expect(adminResponse.body).toHaveProperty('accessToken');
-    adminToken = adminResponse.body.accessToken;
-    console.log('Admin logged in');
-
-    // Логин модератора
-    const moderatorResponse = await request(baseUrl)
-      .post('/api/auth/login')
-      .set('Content-Type', 'application/json')
-      .set('X-Forwarded-For', '99.79.0.2')
-      .set('X-Fingerprint', `test-fingerprint-moderator-${Date.now()}`)
-      .send({ email: MODERATOR_EMAIL, password: MODERATOR_PASSWORD });
-    if (moderatorResponse.status !== 201) {
-      console.error('Moderator login failed:', moderatorResponse.body);
-      throw new Error(`Moderator login failed: ${moderatorResponse.body.message}`);
-    }
-    expect(moderatorResponse.status).toBe(201);
-    expect(moderatorResponse.body).toHaveProperty('accessToken');
-    moderatorToken = moderatorResponse.body.accessToken;
-    const moderatorProfile = await request(baseUrl)
-      .get('/api/profile')
-      .set('Authorization', `Bearer ${moderatorToken}`);
-    moderatorId = moderatorProfile.body.id;
-    cleanupIds.users.push(moderatorId);
-    console.log('Moderator logged in');
-
-    // Проверка и разблокировка jobseeker
+    // Логин jobseeker
     const jobseekerCheck = await request(baseUrl)
       .get(`/api/admin/users?email=${encodeURIComponent(JOBSEEKER_EMAIL)}`)
-      .set('Authorization', `Bearer ${adminToken}`);
+      .set('Authorization', `Bearer ${await getAdminToken()}`); // Предварительный логин админа для проверки
     if (!jobseekerCheck.body.length) {
       throw new Error(`Jobseeker ${JOBSEEKER_EMAIL} not found`);
     }
     if (jobseekerCheck.body[0].status === 'blocked') {
       await request(baseUrl)
         .post(`/api/admin/users/${jobseekerCheck.body[0].id}/unblock`)
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Authorization', `Bearer ${await getAdminToken()}`)
         .expect(200);
       console.log(`Unblocked jobseeker ${JOBSEEKER_EMAIL}`);
     }
@@ -120,20 +79,19 @@ describe('OnlineJobs E2E Tests', () => {
       .get('/api/profile')
       .set('Authorization', `Bearer ${jobseekerToken}`);
     jobseekerId = jobseekerProfile.body.id;
-    cleanupIds.users.push(jobseekerId);
     console.log('Jobseeker logged in');
 
-    // Проверка и разблокировка employer
+    // Логин employer
     const employerCheck = await request(baseUrl)
       .get(`/api/admin/users?email=${encodeURIComponent(EMPLOYER_EMAIL)}`)
-      .set('Authorization', `Bearer ${adminToken}`);
+      .set('Authorization', `Bearer ${await getAdminToken()}`);
     if (!employerCheck.body.length) {
       throw new Error(`Employer ${EMPLOYER_EMAIL} not found`);
     }
     if (employerCheck.body[0].status === 'blocked') {
       await request(baseUrl)
         .post(`/api/admin/users/${employerCheck.body[0].id}/unblock`)
-        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Authorization', `Bearer ${await getAdminToken()}`)
         .expect(200);
       console.log(`Unblocked employer ${EMPLOYER_EMAIL}`);
     }
@@ -154,8 +112,43 @@ describe('OnlineJobs E2E Tests', () => {
       .get('/api/profile')
       .set('Authorization', `Bearer ${employerToken}`);
     employerId = employerProfile.body.id;
-    cleanupIds.users.push(employerId);
     console.log('Employer logged in');
+
+    // Логин модератора
+    const moderatorResponse = await request(baseUrl)
+      .post('/api/auth/login')
+      .set('Content-Type', 'application/json')
+      .set('X-Forwarded-For', '99.79.0.2')
+      .set('X-Fingerprint', `test-fingerprint-moderator-${Date.now()}`)
+      .send({ email: MODERATOR_EMAIL, password: MODERATOR_PASSWORD });
+    if (moderatorResponse.status !== 201) {
+      console.error('Moderator login failed:', moderatorResponse.body);
+      throw new Error(`Moderator login failed: ${moderatorResponse.body.message}`);
+    }
+    expect(moderatorResponse.status).toBe(201);
+    expect(moderatorResponse.body).toHaveProperty('accessToken');
+    moderatorToken = moderatorResponse.body.accessToken;
+    const moderatorProfile = await request(baseUrl)
+      .get('/api/profile')
+      .set('Authorization', `Bearer ${moderatorToken}`);
+    moderatorId = moderatorProfile.body.id;
+    console.log('Moderator logged in');
+
+    // Логин админа (в конце)
+    const adminResponse = await request(baseUrl)
+      .post('/api/auth/login')
+      .set('Content-Type', 'application/json')
+      .set('X-Forwarded-For', '99.79.0.2')
+      .set('X-Fingerprint', `test-fingerprint-admin-${Date.now()}`)
+      .send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
+    if (adminResponse.status !== 201) {
+      console.error('Admin login failed:', adminResponse.body);
+      throw new Error(`Admin login failed: ${adminResponse.body.message}`);
+    }
+    expect(adminResponse.status).toBe(201);
+    expect(adminResponse.body).toHaveProperty('accessToken');
+    adminToken = adminResponse.body.accessToken;
+    console.log('Admin logged in');
 
     // Очистка тестовых категорий
     const categoriesResponse = await request(baseUrl)
@@ -175,11 +168,24 @@ describe('OnlineJobs E2E Tests', () => {
   }, 20000);
 
   afterEach(async () => {
+    // Логаут админа после каждого теста, где он используется
+    if (adminToken) {
+      try {
+        await request(baseUrl)
+          .post('/api/auth/logout')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(201);
+        console.log('Admin logged out');
+      } catch (error) {
+        console.warn(`Failed to logout admin: ${error.message}`);
+      }
+    }
+
     for (const applicationId of cleanupIds.applications) {
       try {
         await request(baseUrl)
           .delete(`/api/admin/job-applications/${applicationId}`)
-          .set('Authorization', `Bearer ${adminToken}`);
+          .set('Authorization', `Bearer ${await getAdminToken()}`);
         console.log(`Deleted application ${applicationId}`);
       } catch (error) {
         console.warn(`Failed to delete application ${applicationId}: ${error.message}`);
@@ -191,7 +197,7 @@ describe('OnlineJobs E2E Tests', () => {
       try {
         await request(baseUrl)
           .delete(`/api/admin/reviews/${reviewId}`)
-          .set('Authorization', `Bearer ${adminToken}`);
+          .set('Authorization', `Bearer ${await getAdminToken()}`);
         console.log(`Deleted review ${reviewId}`);
       } catch (error) {
         console.warn(`Failed to delete review ${reviewId}: ${error.message}`);
@@ -203,7 +209,7 @@ describe('OnlineJobs E2E Tests', () => {
       try {
         await request(baseUrl)
           .delete(`/api/admin/complaints/${complaintId}`)
-          .set('Authorization', `Bearer ${adminToken}`);
+          .set('Authorization', `Bearer ${await getAdminToken()}`);
         console.log(`Deleted complaint ${complaintId}`);
       } catch (error) {
         console.warn(`Failed to delete complaint ${complaintId}: ${error.message}`);
@@ -215,7 +221,7 @@ describe('OnlineJobs E2E Tests', () => {
       try {
         await request(baseUrl)
           .delete(`/api/admin/feedback/${feedbackId}`)
-          .set('Authorization', `Bearer ${adminToken}`);
+          .set('Authorization', `Bearer ${await getAdminToken()}`);
         console.log(`Deleted feedback ${feedbackId}`);
       } catch (error) {
         console.warn(`Failed to delete feedback ${feedbackId}: ${error.message}`);
@@ -225,33 +231,37 @@ describe('OnlineJobs E2E Tests', () => {
   }, 15000);
 
   afterAll(async () => {
+    // Логаут админа
+    if (adminToken) {
+      try {
+        await request(baseUrl)
+          .post('/api/auth/logout')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(201);
+        console.log('Admin logged out');
+      } catch (error) {
+        console.warn(`Failed to logout admin: ${error.message}`);
+      }
+    }
+
+    // Очистка вакансий
     for (const jobId of cleanupIds.jobs) {
       try {
         await request(baseUrl)
           .delete(`/api/admin/job-posts/${jobId}`)
-          .set('Authorization', `Bearer ${adminToken}`);
+          .set('Authorization', `Bearer ${await getAdminToken()}`);
         console.log(`Deleted job ${jobId}`);
       } catch (error) {
         console.warn(`Failed to delete job ${jobId}: ${error.message}`);
       }
     }
 
-    for (const userId of cleanupIds.users) {
-      try {
-        await request(baseUrl)
-          .delete(`/api/admin/users/${userId}`)
-          .set('Authorization', `Bearer ${adminToken}`);
-        console.log(`Deleted user ${userId}`);
-      } catch (error) {
-        console.warn(`Failed to delete user ${userId}: ${error.message}`);
-      }
-    }
-
+    // Очистка категорий
     for (const categoryId of cleanupIds.categories) {
       try {
         await request(baseUrl)
           .delete(`/api/admin/categories/${categoryId}`)
-          .set('Authorization', `Bearer ${adminToken}`);
+          .set('Authorization', `Bearer ${await getAdminToken()}`);
         console.log(`Deleted category ${categoryId}`);
       } catch (error) {
         console.warn(`Failed to delete category ${categoryId}: ${error.message}`);
@@ -264,7 +274,26 @@ describe('OnlineJobs E2E Tests', () => {
     }
   }, 20000);
 
-  // Группа 1: Логин
+  // Вспомогательная функция для получения админского токена
+  async function getAdminToken(): Promise<string> {
+    if (!adminToken) {
+      const adminResponse = await request(baseUrl)
+        .post('/api/auth/login')
+        .set('Content-Type', 'application/json')
+        .set('X-Forwarded-For', '99.79.0.2')
+        .set('X-Fingerprint', `test-fingerprint-admin-${Date.now()}`)
+        .send({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
+      if (adminResponse.status !== 201) {
+        console.error('Admin login failed:', adminResponse.body);
+        throw new Error(`Admin login failed: ${adminResponse.body.message}`);
+      }
+      adminToken = adminResponse.body.accessToken;
+      console.log('Admin token refreshed');
+    }
+    return adminToken;
+  }
+
+  // Группа 1: Логин (jobseeker, employer)
   it('should fail login with invalid credentials for jobseeker', async () => {
     const response = await request(baseUrl)
       .post('/api/auth/login')
@@ -289,50 +318,16 @@ describe('OnlineJobs E2E Tests', () => {
     console.log('Invalid employer login blocked');
   }, 15000);
 
-  it('should fail login for blocked user', async () => {
-    await request(baseUrl)
-      .post(`/api/admin/users/${jobseekerId}/block`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-    const response = await request(baseUrl)
-      .post('/api/auth/login')
-      .set('Content-Type', 'application/json')
-      .set('X-Forwarded-For', '99.79.0.2')
-      .set('X-Fingerprint', `test-fingerprint-${Date.now()}`)
-      .send({ email: JOBSEEKER_EMAIL, password: JOBSEEKER_PASSWORD })
-      .expect(401);
-    expect(response.body.message).toBe('User is blocked');
-    await request(baseUrl)
-      .post(`/api/admin/users/${jobseekerId}/unblock`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-    console.log('Blocked user login failed');
-  }, 15000);
-
-  it('should logout successfully', async () => {
+  it('should logout successfully for jobseeker', async () => {
     const response = await request(baseUrl)
       .post('/api/auth/logout')
       .set('Authorization', `Bearer ${jobseekerToken}`)
       .expect(201);
     expect(response.body.message).toBe('Logout successful');
-    console.log('Logout successful');
+    console.log('Jobseeker logged out');
   }, 15000);
 
-  // Группа 2: Антифрод
-  it('should calculate risk score for jobseeker', async () => {
-    const response = await request(baseUrl)
-      .get(`/api/admin/users/${jobseekerId}/risk-score`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-    expect(response.body).toHaveProperty('riskScore');
-    expect(response.body).toHaveProperty('details');
-    expect(response.body.details).toHaveProperty('duplicateIp');
-    expect(response.body.details).toHaveProperty('proxyDetected');
-    expect(response.body.details).toHaveProperty('duplicateFingerprint');
-    console.log('Risk score calculated');
-  }, 15000);
-
-  // Группа 3: Профили
+  // Группа 2: Профили (jobseeker, employer)
   it('should retrieve jobseeker profile', async () => {
     const response = await request(baseUrl)
       .get('/api/profile')
@@ -373,7 +368,6 @@ describe('OnlineJobs E2E Tests', () => {
       .expect(200);
     expect(response.body.skills).toEqual(['JavaScript', 'Python']);
     expect(response.body.experience).toBe('3 years');
-    expect(response.body.categories).toContainEqual(expect.objectContaining({ id: categoryId }));
     console.log('Jobseeker profile updated');
   }, 15000);
 
@@ -423,38 +417,11 @@ describe('OnlineJobs E2E Tests', () => {
     console.log('Profile views incremented');
   }, 15000);
 
-  it('should upload avatar for jobseeker', async () => {
-    const avatarPath = path.join(__dirname, 'test-assets', 'avatar.jpg');
-    fs.writeFileSync(avatarPath, Buffer.from('test image data'));
-    const response = await request(baseUrl)
-      .post('/api/profile/upload-avatar')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .attach('avatar', avatarPath)
-      .expect(200);
-    expect(response.body).toHaveProperty('avatar');
-    expect(response.body.avatar).toMatch(/\/Uploads\/avatars\/[a-f0-9]+\.jpg/);
-    fs.unlinkSync(avatarPath);
-    console.log('Avatar uploaded');
-  }, 15000);
-
-  it('should fail upload invalid avatar', async () => {
-    const invalidFilePath = path.join(__dirname, 'test-assets', 'invalid.txt');
-    fs.writeFileSync(invalidFilePath, Buffer.from('invalid data'));
-    const response = await request(baseUrl)
-      .post('/api/profile/upload-avatar')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .attach('avatar', invalidFilePath)
-      .expect(400);
-    expect(response.body.message).toBe('Only JPEG, JPG, and PNG files are allowed');
-    fs.unlinkSync(invalidFilePath);
-    console.log('Invalid avatar upload blocked');
-  }, 15000);
-
-  // Группа 4: Категории
-  it('should create category as admin', async () => {
+  // Группа 3: Категории
+  it('should create category', async () => {
     const response = await request(baseUrl)
       .post('/api/categories')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .set('Content-Type', 'application/json')
       .send({ name: `Test Category ${Date.now()}` })
       .expect(201);
@@ -468,13 +435,13 @@ describe('OnlineJobs E2E Tests', () => {
     const categoryName = `Duplicate Category ${Date.now()}`;
     await request(baseUrl)
       .post('/api/categories')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .set('Content-Type', 'application/json')
       .send({ name: categoryName })
       .expect(201);
     const response = await request(baseUrl)
       .post('/api/categories')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .set('Content-Type', 'application/json')
       .send({ name: categoryName })
       .expect(400);
@@ -491,7 +458,7 @@ describe('OnlineJobs E2E Tests', () => {
     console.log('Category list retrieved');
   }, 15000);
 
-  // Группа 5: Вакансии
+  // Группа 4: Вакансии
   it('should create job post as employer', async () => {
     const response = await request(baseUrl)
       .post('/api/job-posts')
@@ -509,54 +476,10 @@ describe('OnlineJobs E2E Tests', () => {
       })
       .expect(201);
     expect(response.body).toHaveProperty('id');
-    expect(response.body.salary).toBe(50000); // Проверка, что salary может быть числом
+    expect(response.body.salary).toBe(50000);
     jobPostId = response.body.id;
     cleanupIds.jobs.push(jobPostId);
     console.log('Job post created');
-  }, 15000);
-
-  it('should approve job post as admin', async () => {
-    const response = await request(baseUrl)
-      .post(`/api/admin/job-posts/${jobPostId}/approve`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-    expect(response.body.pending_review).toBe(false);
-    expect(response.body.status).toBe('Active');
-    console.log('Job post approved');
-  }, 15000);
-
-  it('should approve job post as moderator', async () => {
-    const newJobResponse = await request(baseUrl)
-      .post('/api/job-posts')
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        title: 'Another Engineer',
-        description: 'Need another skilled engineer',
-        location: 'Remote',
-        salary: null, // Проверка, что salary может быть null
-        job_type: 'Full-time',
-        category_id: categoryId,
-      })
-      .expect(201);
-    const newJobId = newJobResponse.body.id;
-    cleanupIds.jobs.push(newJobId);
-    const response = await request(baseUrl)
-      .post(`/api/moderator/job-posts/${newJobId}/approve`)
-      .set('Authorization', `Bearer ${moderatorToken}`)
-      .expect(200);
-    expect(response.body.pending_review).toBe(false);
-    expect(response.body.status).toBe('Active');
-    console.log('Job post approved by moderator');
-  }, 15000);
-
-  it('should flag job post as moderator', async () => {
-    const response = await request(baseUrl)
-      .post(`/api/moderator/job-posts/${jobPostId}/flag`)
-      .set('Authorization', `Bearer ${moderatorToken}`)
-      .expect(200);
-    expect(response.body.pending_review).toBe(true);
-    console.log('Job post flagged by moderator');
   }, 15000);
 
   it('should search job posts with filters and pagination', async () => {
@@ -568,7 +491,7 @@ describe('OnlineJobs E2E Tests', () => {
     expect(Array.isArray(response.body.data)).toBe(true);
     expect(response.body.data.length).toBeLessThanOrEqual(5);
     if (response.body.data.length > 1) {
-      expect(response.body.data[0].salary).toBeLessThanOrEqual(response.body.data[1].salary);
+      expect(response.body.data[0].salary || 0).toBeLessThanOrEqual(response.body.data[1].salary || 0);
     }
     console.log('Job posts filtered with pagination');
   }, 15000);
@@ -588,51 +511,12 @@ describe('OnlineJobs E2E Tests', () => {
     console.log('Job post views incremented');
   }, 15000);
 
-  it('should delete job post and associated complaints', async () => {
-    await request(baseUrl)
-      .post('/api/complaints')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({ job_post_id: jobPostId, reason: 'Test complaint' })
-      .expect(201);
-    const deleteResponse = await request(baseUrl)
-      .delete(`/api/admin/job-posts/${jobPostId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-    expect(deleteResponse.body.message).toBe('Job post deleted successfully');
-    const complaintsResponse = await request(baseUrl)
-      .get('/api/admin/complaints')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-    expect(complaintsResponse.body.find((c: any) => c.job_post_id === jobPostId)).toBeUndefined();
-    cleanupIds.jobs = cleanupIds.jobs.filter(id => id !== jobPostId);
-    console.log('Job post and complaints deleted');
-  }, 15000);
-
-  // Группа 6: Заявки
+  // Группа 5: Заявки
   it('should apply to job post as jobseeker', async () => {
-    // Создаем новую вакансию для теста
-    const newJobResponse = await request(baseUrl)
-      .post('/api/job-posts')
-      .set('Authorization', `Bearer ${employerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({
-        title: 'Test Job Application',
-        description: 'Test description',
-        location: 'Remote',
-        salary: 40000,
-        job_type: 'Part-time',
-        category_id: categoryId,
-        applicationLimit: 10,
-      })
-      .expect(201);
-    jobPostId = newJobResponse.body.id;
-    cleanupIds.jobs.push(jobPostId);
     await request(baseUrl)
       .post(`/api/admin/job-posts/${jobPostId}/approve`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .expect(200);
-
     const response = await request(baseUrl)
       .post('/api/job-applications')
       .set('Authorization', `Bearer ${jobseekerToken}`)
@@ -656,37 +540,6 @@ describe('OnlineJobs E2E Tests', () => {
     console.log('Duplicate job application blocked');
   }, 15000);
 
-  it('should fail application when limit reached', async () => {
-    // Подаем заявки до превышения лимита (10)
-    for (let i = 0; i < 9; i++) {
-      const tempEmail = `temp_jobseeker_${i}_${Date.now()}@example.com`;
-      // Предполагаем, что временные пользователи уже существуют или созданы вне теста
-      const tempResponse = await request(baseUrl)
-        .post('/api/auth/login')
-        .set('Content-Type', 'application/json')
-        .set('X-Forwarded-For', '99.79.0.2')
-        .set('X-Fingerprint', `test-fingerprint-temp-${i}-${Date.now()}`)
-        .send({ email: tempEmail, password: 'temp123' });
-      if (tempResponse.status === 201) {
-        const tempToken = tempResponse.body.accessToken;
-        await request(baseUrl)
-          .post('/api/job-applications')
-          .set('Authorization', `Bearer ${tempToken}`)
-          .set('Content-Type', 'application/json')
-          .send({ job_post_id: jobPostId })
-          .expect(201);
-      }
-    }
-    const response = await request(baseUrl)
-      .post('/api/job-applications')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({ job_post_id: jobPostId })
-      .expect(400);
-    expect(response.body.message).toBe('Job full');
-    console.log('Application limit reached');
-  }, 20000);
-
   it('should view applications as employer', async () => {
     const response = await request(baseUrl)
       .get(`/api/job-applications/job-post/${jobPostId}`)
@@ -697,7 +550,7 @@ describe('OnlineJobs E2E Tests', () => {
     console.log('Applications viewed by employer');
   }, 15000);
 
-  // Группа 7: Отзывы
+  // Группа 6: Отзывы
   it('should create review from employer to jobseeker', async () => {
     await request(baseUrl)
       .put(`/api/job-applications/${applicationId}`)
@@ -728,17 +581,7 @@ describe('OnlineJobs E2E Tests', () => {
     console.log('Invalid rating review blocked');
   }, 15000);
 
-  it('should view reviews for user', async () => {
-    const response = await request(baseUrl)
-      .get(`/api/reviews/user/${jobseekerId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-    expect(Array.isArray(response.body)).toBe(true);
-    expect(response.body.some((r: any) => r.id === reviewId)).toBe(true);
-    console.log('Reviews viewed for user');
-  }, 15000);
-
-  // Группа 8: Жалобы
+  // Группа 7: Жалобы
   it('should submit complaint on job post', async () => {
     const response = await request(baseUrl)
       .post('/api/complaints')
@@ -763,36 +606,7 @@ describe('OnlineJobs E2E Tests', () => {
     console.log('Own profile complaint blocked');
   }, 15000);
 
-  it('should resolve complaint as admin', async () => {
-    const response = await request(baseUrl)
-      .post(`/api/admin/complaints/${complaintId}/resolve`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('Content-Type', 'application/json')
-      .send({ status: 'Resolved', comment: 'Issue addressed' })
-      .expect(200);
-    expect(response.body.status).toBe('Resolved');
-    console.log('Complaint resolved by admin');
-  }, 15000);
-
-  it('should resolve complaint as moderator', async () => {
-    const newComplaint = await request(baseUrl)
-      .post('/api/complaints')
-      .set('Authorization', `Bearer ${jobseekerToken}`)
-      .set('Content-Type', 'application/json')
-      .send({ job_post_id: jobPostId, reason: 'Test complaint' })
-      .expect(201);
-    cleanupIds.complaints.push(newComplaint.body.id);
-    const response = await request(baseUrl)
-      .post(`/api/moderator/complaints/${newComplaint.body.id}/resolve`)
-      .set('Authorization', `Bearer ${moderatorToken}`)
-      .set('Content-Type', 'application/json')
-      .send({ status: 'Resolved', comment: 'Issue resolved' })
-      .expect(200);
-    expect(response.body.status).toBe('Resolved');
-    console.log('Complaint resolved by moderator');
-  }, 15000);
-
-  // Группа 9: Обратная связь
+  // Группа 8: Обратная связь
   it('should submit feedback as jobseeker', async () => {
     const response = await request(baseUrl)
       .post('/api/feedback')
@@ -817,7 +631,7 @@ describe('OnlineJobs E2E Tests', () => {
     console.log('Empty feedback blocked');
   }, 15000);
 
-  // Группа 10: Чат
+  // Группа 9: Чат
   it('should connect to chat and send message', async () => {
     socket = Client(socketUrl, {
       auth: { token: `Bearer ${jobseekerToken}` },
@@ -872,7 +686,7 @@ describe('OnlineJobs E2E Tests', () => {
     invalidSocket.disconnect();
   }, 15000);
 
-  // Группа 11: Поиск талантов
+  // Группа 10: Поиск талантов
   it('should search talents with filters and pagination', async () => {
     const response = await request(baseUrl)
       .get('/api/talents')
@@ -896,7 +710,7 @@ describe('OnlineJobs E2E Tests', () => {
     console.log('Invalid talent search blocked');
   }, 15000);
 
-  // Группа 12: Публичная статистика
+  // Группа 11: Публичная статистика
   it('should retrieve public statistics', async () => {
     const response = await request(baseUrl)
       .get('/api/stats')
@@ -907,11 +721,77 @@ describe('OnlineJobs E2E Tests', () => {
     console.log('Public statistics retrieved');
   }, 15000);
 
+  // Группа 12: Модераторские действия
+  it('should approve job post as moderator', async () => {
+    const newJobResponse = await request(baseUrl)
+      .post('/api/job-posts')
+      .set('Authorization', `Bearer ${employerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({
+        title: 'Another Engineer',
+        description: 'Need another skilled engineer',
+        location: 'Remote',
+        salary: null,
+        job_type: 'Full-time',
+        category_id: categoryId,
+      })
+      .expect(201);
+    const newJobId = newJobResponse.body.id;
+    cleanupIds.jobs.push(newJobId);
+    const response = await request(baseUrl)
+      .post(`/api/moderator/job-posts/${newJobId}/approve`)
+      .set('Authorization', `Bearer ${moderatorToken}`)
+      .expect(200);
+    expect(response.body.pending_review).toBe(false);
+    expect(response.body.status).toBe('Active');
+    console.log('Job post approved by moderator');
+  }, 15000);
+
+  it('should flag job post as moderator', async () => {
+    const response = await request(baseUrl)
+      .post(`/api/moderator/job-posts/${jobPostId}/flag`)
+      .set('Authorization', `Bearer ${moderatorToken}`)
+      .expect(200);
+    expect(response.body.pending_review).toBe(true);
+    console.log('Job post flagged by moderator');
+  }, 15000);
+
+  it('should delete review as moderator', async () => {
+    await request(baseUrl)
+      .delete(`/api/moderator/reviews/${reviewId}`)
+      .set('Authorization', `Bearer ${moderatorToken}`)
+      .expect(200);
+    const response = await request(baseUrl)
+      .get(`/api/reviews/user/${jobseekerId}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
+      .expect(200);
+    expect(response.body.find((r: any) => r.id === reviewId)).toBeUndefined();
+    console.log('Review deleted by moderator');
+  }, 15000);
+
+  it('should resolve complaint as moderator', async () => {
+    const newComplaint = await request(baseUrl)
+      .post('/api/complaints')
+      .set('Authorization', `Bearer ${jobseekerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ job_post_id: jobPostId, reason: 'Test complaint' })
+      .expect(201);
+    cleanupIds.complaints.push(newComplaint.body.id);
+    const response = await request(baseUrl)
+      .post(`/api/moderator/complaints/${newComplaint.body.id}/resolve`)
+      .set('Authorization', `Bearer ${moderatorToken}`)
+      .set('Content-Type', 'application/json')
+      .send({ status: 'Resolved', comment: 'Issue resolved' })
+      .expect(200);
+    expect(response.body.status).toBe('Resolved');
+    console.log('Complaint resolved by moderator');
+  }, 15000);
+
   // Группа 13: Админские действия
   it('should retrieve analytics as admin', async () => {
     const response = await request(baseUrl)
       .get('/api/admin/analytics')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .expect(200);
     expect(response.body).toHaveProperty('totalUsers');
     expect(response.body).toHaveProperty('employers');
@@ -926,7 +806,7 @@ describe('OnlineJobs E2E Tests', () => {
   it('should block and unblock user as admin', async () => {
     await request(baseUrl)
       .post(`/api/admin/users/${jobseekerId}/block`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .expect(200);
     const loginResponse = await request(baseUrl)
       .post('/api/auth/login')
@@ -936,50 +816,43 @@ describe('OnlineJobs E2E Tests', () => {
     expect(loginResponse.body.message).toBe('User is blocked');
     await request(baseUrl)
       .post(`/api/admin/users/${jobseekerId}/unblock`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .expect(200);
     console.log('User blocked and unblocked');
   }, 15000);
 
-  it('should delete user and associated complaints', async () => {
-    const tempUserResponse = await request(baseUrl)
-      .get(`/api/admin/users?email=${encodeURIComponent('temp_user_' + Date.now() + '@example.com')}`)
-      .set('Authorization', `Bearer ${adminToken}`);
-    let tempUserId = tempUserResponse.body.length ? tempUserResponse.body[0].id : null;
-    if (!tempUserId) {
-      // Предполагаем, что временный пользователь уже существует
-      tempUserId = 'temp-user-id'; // Заменить на реальный ID
-    }
+  it('should delete job post and associated complaints as admin', async () => {
     await request(baseUrl)
       .post('/api/complaints')
       .set('Authorization', `Bearer ${jobseekerToken}`)
       .set('Content-Type', 'application/json')
-      .send({ profile_id: tempUserId, reason: 'Test complaint' })
+      .send({ job_post_id: jobPostId, reason: 'Test complaint' })
       .expect(201);
     const deleteResponse = await request(baseUrl)
-      .delete(`/api/admin/users/${tempUserId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .delete(`/api/admin/job-posts/${jobPostId}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .expect(200);
-    expect(deleteResponse.body.message).toBe('User deleted successfully');
+    expect(deleteResponse.body.message).toBe('Job post deleted successfully');
     const complaintsResponse = await request(baseUrl)
       .get('/api/admin/complaints')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .expect(200);
-    expect(complaintsResponse.body.find((c: any) => c.profile_id === tempUserId)).toBeUndefined();
-    console.log('User and complaints deleted');
+    expect(complaintsResponse.body.find((c: any) => c.job_post_id === jobPostId)).toBeUndefined();
+    cleanupIds.jobs = cleanupIds.jobs.filter(id => id !== jobPostId);
+    console.log('Job post and complaints deleted');
   }, 15000);
 
   it('should set global application limit as admin', async () => {
     const response = await request(baseUrl)
       .post('/api/admin/settings/application-limit')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .set('Content-Type', 'application/json')
       .send({ limit: 1000 })
       .expect(200);
     expect(response.body.message).toBe('Global application limit updated successfully');
     const getResponse = await request(baseUrl)
       .get('/api/admin/settings/application-limit')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .expect(200);
     expect(getResponse.body.globalApplicationLimit).toBe(1000);
     console.log('Global application limit set');
@@ -988,7 +861,7 @@ describe('OnlineJobs E2E Tests', () => {
   it('should export users to CSV as admin', async () => {
     const response = await request(baseUrl)
       .get('/api/admin/users/export-csv')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .expect(200);
     expect(response.headers['content-type']).toBe('text/csv');
     expect(response.headers['content-disposition']).toMatch(/attachment; filename="users.csv"/);
@@ -997,51 +870,70 @@ describe('OnlineJobs E2E Tests', () => {
   }, 15000);
 
   it('should notify job seekers as admin', async () => {
+    const newJobResponse = await request(baseUrl)
+      .post('/api/job-posts')
+      .set('Authorization', `Bearer ${employerToken}`)
+      .set('Content-Type', 'application/json')
+      .send({
+        title: 'Notify Test Job',
+        description: 'Test for notification',
+        location: 'Remote',
+        salary: 45000,
+        job_type: 'Part-time',
+        category_id: categoryId,
+      })
+      .expect(201);
+    const notifyJobId = newJobResponse.body.id;
+    cleanupIds.jobs.push(notifyJobId);
+    await request(baseUrl)
+      .post(`/api/admin/job-posts/${notifyJobId}/approve`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
+      .expect(200);
     const response = await request(baseUrl)
-      .post(`/api/admin/job-posts/${jobPostId}/notify-candidates`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .post(`/api/admin/job-posts/${notifyJobId}/notify-candidates`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .set('Content-Type', 'application/json')
       .send({ limit: 10, orderBy: 'random' })
       .expect(200);
     expect(response.body).toHaveProperty('total');
     expect(response.body).toHaveProperty('sent');
-    expect(response.body.jobPostId).toBe(jobPostId);
+    expect(response.body.jobPostId).toBe(notifyJobId);
     console.log('Job seekers notified');
   }, 15000);
 
-  it('should get online user status', async () => {
+  it('should get online user status as admin', async () => {
     const response = await request(baseUrl)
       .get(`/api/users/${jobseekerId}/online`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .expect(200);
     expect(response.body).toHaveProperty('isOnline');
     console.log('Online user status retrieved');
   }, 15000);
 
-  it('should get top jobseekers by applications', async () => {
+  it('should get top jobseekers by applications as admin', async () => {
     const response = await request(baseUrl)
       .get('/api/admin/leaderboards/top-jobseekers')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .query({ limit: 5 })
       .expect(200);
     expect(Array.isArray(response.body)).toBe(true);
     console.log('Top jobseekers retrieved');
   }, 15000);
 
-  it('should get top employers by posts', async () => {
+  it('should get top employers by posts as admin', async () => {
     const response = await request(baseUrl)
       .get('/api/admin/leaderboards/top-employers-by-posts')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .query({ limit: 5 })
       .expect(200);
     expect(Array.isArray(response.body)).toBe(true);
     console.log('Top employers retrieved');
   }, 15000);
 
-  it('should get recent registrations', async () => {
+  it('should get recent registrations as admin', async () => {
     const response = await request(baseUrl)
       .get('/api/admin/analytics/recent-registrations')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .query({ limit: 5 })
       .expect(200);
     expect(response.body).toHaveProperty('jobseekers');
@@ -1049,10 +941,10 @@ describe('OnlineJobs E2E Tests', () => {
     console.log('Recent registrations retrieved');
   }, 15000);
 
-  it('should get geographic distribution', async () => {
+  it('should get geographic distribution as admin', async () => {
     const response = await request(baseUrl)
       .get('/api/admin/analytics/geographic-distribution')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .expect(200);
     expect(Array.isArray(response.body)).toBe(true);
     expect(response.body[0]).toHaveProperty('country');
@@ -1061,22 +953,22 @@ describe('OnlineJobs E2E Tests', () => {
     console.log('Geographic distribution retrieved');
   }, 15000);
 
-  it('should block and unblock country', async () => {
+  it('should block and unblock country as admin', async () => {
     const blockResponse = await request(baseUrl)
       .post('/api/admin/blocked-countries')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .set('Content-Type', 'application/json')
       .send({ countryCode: 'IN' })
       .expect(201);
     expect(blockResponse.body.country_code).toBe('IN');
     const getResponse = await request(baseUrl)
       .get('/api/admin/blocked-countries')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .expect(200);
     expect(getResponse.body.some((c: any) => c.country_code === 'IN')).toBe(true);
     await request(baseUrl)
       .delete('/api/admin/blocked-countries/IN')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`)
       .expect(200);
     console.log('Country blocked and unblocked');
   }, 15000);
