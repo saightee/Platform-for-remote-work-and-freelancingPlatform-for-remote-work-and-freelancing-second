@@ -7,13 +7,12 @@ describe('OnlineJobs E2E Tests', () => {
   const baseUrl = process.env.BASE_URL || 'https://jobforge.net/';
   const socketUrl = process.env.SOCKET_URL || 'wss:https://jobforge.net/';
   
-  // Глобальные переменные для пользователей
-  const JOBSEEKER_EMAIL = 'test_jobseeker@example.com';
-  const JOBSEEKER_PASSWORD = 'jobseeker123';
-  const JOBSEEKER_USERNAME = 'test_jobseeker';
-  const EMPLOYER_EMAIL = 'test_employer@example.com';
-  const EMPLOYER_PASSWORD = 'employer123';
-  const EMPLOYER_USERNAME = 'test_employer';
+  const JOBSEEKER_EMAIL = 'romanbukshak@mail.ru';
+  const JOBSEEKER_PASSWORD = 'dragomir4eg';
+  const JOBSEEKER_USERNAME = 'romanbukshak';
+  const EMPLOYER_EMAIL = 'petriciowoodler@gmail.com';
+  const EMPLOYER_PASSWORD = 'dragomir4eg';
+  const EMPLOYER_USERNAME = 'petriciowoodler';
   const ADMIN_EMAIL = 'newadmin1@example.com';
   const ADMIN_PASSWORD = 'admin123';
   const MODERATOR_EMAIL = 'newmoderator@example.com';
