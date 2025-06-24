@@ -1,8 +1,13 @@
+export interface PaginatedResponse<T> {
+  total: number;
+  data: T[];
+}
+
 export interface User {
   id: string;
   email: string;
   username: string;
-  role: 'employer' | 'jobseeker' | 'admin';
+  role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
   provider?: string | null;
   created_at: string;
   updated_at: string;
@@ -20,35 +25,32 @@ export interface EmployerProfile {
   timezone?: string;
   currency?: string;
   average_rating?: number;
-  avatar?: string;
+  avatar?: string | null;
   identity_verified: boolean;
-  identity_document?: string;
+  identity_document?: string | null;
   reviews: Review[];
 }
 
 export interface JobSeekerProfile {
   id: string;
   role: 'jobseeker';
-  email: string;
+  email?: string; // Optional for unauthenticated users
   username: string;
   skills?: string[];
-  skillCategories?: Category[]; // Основное поле для категорий (было skillCategories)
-  categories?: Category[]; // Для совместимости с /api/talents
-  categoryIds?: string[]; // Для отправки в PUT /api/profile
+  categories?: Category[];
+  categoryIds?: string[];
   experience?: string;
   portfolio?: string;
   video_intro?: string;
   timezone?: string;
   currency?: string;
-  average_rating?: number;
-  profile_views?: number;
-  avatar?: string;
+  average_rating: number;
+  profile_views: number;
+  avatar?: string | null;
   identity_verified: boolean;
-  identity_document?: string;
+  identity_document?: string | null;
   reviews: Review[];
 }
-
-
 
 export interface AdminProfile {
   id: string;
@@ -57,27 +59,34 @@ export interface AdminProfile {
   username: string;
   timezone?: string;
   currency?: string;
-  avatar?: string;
+  avatar?: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export type Profile = EmployerProfile | JobSeekerProfile | AdminProfile;
-
-export interface SkillCategory {
+export interface ModeratorProfile {
   id: string;
-  name: string;
+  role: 'moderator';
+  email: string;
+  username: string;
+  timezone?: string;
+  currency?: string;
+  avatar?: string | null;
+  created_at: string;
+  updated_at: string;
 }
+
+export type Profile = EmployerProfile | JobSeekerProfile | AdminProfile | ModeratorProfile;
 
 export interface JobPost {
   id: string;
   title: string;
   description: string;
   location: string;
-  salary: number;
+  salary: number | null;
   category_id?: string;
   category?: Category;
-  job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+  job_type?: 'Full-time' | 'Part-time' | 'Project-based' | null;
   employer_id: string;
   employer?: EmployerProfile;
   pending_review?: boolean;
@@ -85,9 +94,8 @@ export interface JobPost {
   created_at: string;
   updated_at: string;
   views?: number;
-  salaryMin?: number;
-  salaryMax?: number;
   status: string;
+  required_skills?: string[];
 }
 
 export interface Category {
@@ -95,6 +103,14 @@ export interface Category {
   name: string;
   created_at: string;
   updated_at: string;
+}
+
+interface JobPostWithApplications {
+  id: string;
+  title: string;
+  status: string;
+  applicationCount: number;
+  created_at: string;
 }
 
 export interface JobApplication {
@@ -111,7 +127,6 @@ export interface JobApplication {
   };
   created_at: string;
   updated_at: string;
-  
 }
 
 export interface Review {
@@ -171,9 +186,12 @@ export interface RegisterCredentials extends LoginCredentials {
 }
 
 export interface JobApplicationDetails {
+  id: string;
   userId: string;
   username: string;
   email: string;
   jobDescription: string;
   appliedAt: string;
+  status: string;
+  job_post_id: string;
 }

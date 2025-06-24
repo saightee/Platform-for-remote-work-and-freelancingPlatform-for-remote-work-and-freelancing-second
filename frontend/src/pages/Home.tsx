@@ -6,67 +6,27 @@ import JobCard from '../components/JobCard';
 import FeatureCard from '../components/FeatureCard';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { searchJobPosts, getStats } from '../services/api';
-import { JobPost } from '@types';
+import { searchJobPosts, getStats, getCategories } from '../services/api';
+import { JobPost, Category } from '@types';
 import { FaSearch, FaLock, FaGlobe, FaChartLine } from 'react-icons/fa';
 import CallToAction from '../components/CallToAction';
 import CountUp from 'react-countup';
 
 const Home: React.FC = () => {
   const [jobs, setJobs] = useState<JobPost[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [filters, setFilters] = useState<{ title?: string }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
-    resumes: 0,
-    vacancies: 0,
-    employers: 0,
+    totalResumes: 0,
+    totalJobPosts: 0,
+    totalEmployers: 0,
   });
   const [showCookieBanner, setShowCookieBanner] = useState<boolean>(true);
 
-  const formatNumber = (num: number) => {
-    return new Intl.NumberFormat('en-US').format(num);
-  };
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        console.log('Fetching stats and jobs with filters:', filters);
-        const statsData = await getStats();
-        setStats({
-          resumes: statsData.resumes,
-          vacancies: statsData.vacancies,
-          employers: statsData.employers,
-        });
-        const jobsData = await searchJobPosts({
-          ...filters,
-          limit: 9,
-          sort_by: 'created_at',
-          sort_order: 'DESC',
-        });
-        setJobs(jobsData);
-      } catch (error: any) {
-        console.error('Ошибка при загрузке данных:', error);
-        setError('Failed to load recent jobs or statistics. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [filters]);
-
-  const handleSearch = (searchFilters: { title?: string }) => {
-    setFilters(searchFilters);
-  };
-
-  const handleCookieConsent = () => {
-    localStorage.setItem('cookieConsent', 'accepted');
-    setShowCookieBanner(false);
-  };
-
-  const categories = [
+  // Список категорий для оформления (как в вашем исходном коде)
+  const staticCategories = [
     "VIRTUAL ASSISTANT",
     "Social Media Manager",
     "DATA ENTRY SPECIALIST",
@@ -85,6 +45,39 @@ const Home: React.FC = () => {
     "SEO Specialist",
   ];
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const [statsData, jobsData, categoriesData] = await Promise.all([
+          getStats(),
+          searchJobPosts({ limit: 9, sort_by: 'created_at', sort_order: 'DESC' }),
+          getCategories(),
+        ]);
+        setStats(statsData);
+        setJobs(jobsData.data || []);
+        setCategories(categoriesData || []);
+      } catch (err: any) {
+        console.error('Error fetching home data:', err);
+        setError(err.response?.data?.message || 'Failed to load data.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [filters]);
+
+  const handleSearch = (searchFilters: { title?: string }) => {
+    setFilters(searchFilters);
+  };
+
+  const handleCookieConsent = () => {
+    localStorage.setItem('cookieConsent', 'accepted');
+    setShowCookieBanner(false);
+  };
+
   return (
     <div>
       <Header />
@@ -95,19 +88,19 @@ const Home: React.FC = () => {
         <div className="counters">
           <div className="counter-item">
             <span className="counter-number">
-              {isLoading ? 'Loading...' : <CountUp end={stats.resumes} duration={2} separator="," />}
+              {isLoading ? 'Loading...' : <CountUp end={stats.totalResumes} duration={2} separator="," />}
             </span>
             <span className="counter-label">resumes</span>
           </div>
           <div className="counter-item">
             <span className="counter-number">
-              {isLoading ? 'Loading...' : <CountUp end={stats.vacancies} duration={2} separator="," />}
+              {isLoading ? 'Loading...' : <CountUp end={stats.totalJobPosts} duration={2} separator="," />}
             </span>
             <span className="counter-label">vacancies</span>
           </div>
           <div className="counter-item">
             <span className="counter-number">
-              {isLoading ? 'Loading...' : <CountUp end={stats.employers} duration={2} separator="," />}
+              {isLoading ? 'Loading...' : <CountUp end={stats.totalEmployers} duration={2} separator="," />}
             </span>
             <span className="counter-label">employers</span>
           </div>
@@ -155,11 +148,21 @@ const Home: React.FC = () => {
         <div className="categories">
           <h2>Popular Job Categories</h2>
           <div className="category-list">
-            {categories.map((category, index) => (
-              <span key={index} className={`category-item category-${index}`}>
-                {category}
-              </span>
-            ))}
+            {staticCategories.map((category, index) => {
+              // Ищем соответствующую категорию из API
+              const matchedCategory = categories.find(
+                (cat) => cat.name.toLowerCase() === category.toLowerCase()
+              );
+              return (
+                <Link
+                  key={index}
+                  to={`/find-job?category_id=${matchedCategory?.id || ''}`}
+                  className={`category-item category-${index}`}
+                >
+                  {category}
+                </Link>
+              );
+            })}
           </div>
         </div>
       </div>

@@ -4,13 +4,23 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import JobCard from '../components/JobCard';
-import { JobPost, Category } from '@types';
+import { JobPost, Category, PaginatedResponse } from '@types';
 import { FaFilter } from 'react-icons/fa';
+import { searchJobPosts, getCategories, checkJobApplicationStatus } from '../services/api';
+import { useRole } from '../context/RoleContext';
 
 const FindJob: React.FC = () => {
+  const { profile } = useRole();
   const [searchParams, setSearchParams] = useSearchParams();
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState<{ [key: string]: boolean }>({});
+  const navigate = useNavigate();
+
   const [searchState, setSearchState] = useState<{
     title: string;
     location: string;
@@ -32,58 +42,55 @@ const FindJob: React.FC = () => {
     page: 1,
     limit: 30,
   });
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
-  const navigate = useNavigate();
 
-  // Для продакшена: работа с эндпоинтами
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        const queryParams = new URLSearchParams();
-        if (searchState.title) queryParams.append('title', searchState.title);
-        if (searchState.location) queryParams.append('location', searchState.location);
-        if (searchState.salary_min) queryParams.append('salary_min', searchState.salary_min.toString());
-        if (searchState.salary_max) queryParams.append('salary_max', searchState.salary_max.toString());
-        if (searchState.job_type) queryParams.append('job_type', searchState.job_type);
-        if (searchState.category_id) queryParams.append('category_id', searchState.category_id);
-        if (searchState.required_skills) {
-          searchState.required_skills.split(',').forEach(skill => queryParams.append('required_skills[]', skill.trim()));
-        }
-        queryParams.append('page', searchState.page.toString());
-        queryParams.append('limit', searchState.limit.toString());
-        queryParams.append('sort_by', 'created_at');
-        queryParams.append('sort_order', 'DESC');
-
-        // Используем переменную окружения для URL API
-        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+        const params = {
+          title: searchState.title || undefined,
+          location: searchState.location || undefined,
+          salary_min: searchState.salary_min,
+          salary_max: searchState.salary_max,
+          job_type: searchState.job_type || undefined,
+          category_id: searchState.category_id || undefined,
+          required_skills: searchState.required_skills
+            ? searchState.required_skills.split(',').map(skill => skill.trim())
+            : undefined,
+          page: searchState.page,
+          limit: searchState.limit,
+          sort_by: 'created_at',
+          sort_order: 'DESC',
+        };
         const [jobsResponse, categoriesResponse] = await Promise.all([
-          fetch(`${apiBaseUrl}/job-posts?${queryParams.toString()}`),
-          fetch(`${apiBaseUrl}/categories`),
+          searchJobPosts(params),
+          getCategories(),
         ]);
+        setJobs(jobsResponse.data || []);
+        setTotalPages(Math.ceil(jobsResponse.total / searchState.limit) || 1);
+        setCategories(categoriesResponse || []);
 
-        if (!jobsResponse.ok) throw new Error(`HTTP error! status: ${jobsResponse.status}`);
-        if (!categoriesResponse.ok) throw new Error(`HTTP error! status: ${categoriesResponse.status}`);
-
-        const jobsData: any = await jobsResponse.json(); // Временное использование any до обновления типов
-        const categoriesData = await categoriesResponse.json();
-
-        // Предполагаем, что бэкенд вернёт объект с полем total (по договорённости с бэкэндером)
-        const totalJobs = jobsData.total || (Array.isArray(jobsData) ? jobsData.length : jobsData.data?.length || 0);
-        setJobs(Array.isArray(jobsData) ? jobsData : jobsData.data || []);
-        setCategories(categoriesData);
-      } catch (err) {
+        if (profile?.role === 'jobseeker') {
+          const statusPromises = jobsResponse.data.map((job) =>
+            checkJobApplicationStatus(job.id).catch(() => ({ hasApplied: false }))
+          );
+          const statuses = await Promise.all(statusPromises);
+          const statusMap = jobsResponse.data.reduce((acc, job, index) => {
+            acc[job.id] = statuses[index].hasApplied;
+            return acc;
+          }, {} as { [key: string]: boolean });
+          setApplicationStatus(statusMap);
+        }
+      } catch (err: any) {
         console.error('Error fetching jobs:', err);
-        setError('Failed to load jobs. Please try again.');
+        setError(err.response?.data?.message || 'Failed to load jobs. Please try again.');
       } finally {
         setIsLoading(false);
       }
     };
     fetchData();
-  }, [searchState]);
+  }, [searchState, profile]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,14 +103,9 @@ const FindJob: React.FC = () => {
     setSearchState((prev) => ({ ...prev, page: newPage }));
   };
 
-  // Вычисляем общее количество страниц на основе total из ответа API
-  // Примечание: total будет добавлено бэкэндером, пока используем запасной вариант
-  const totalPages = jobs.length > 0 && (jobs[0] as any)?.total ? Math.ceil((jobs[0] as any).total / searchState.limit) : 1;
-
-  // Определяем отображаемые страницы
   const getVisiblePages = () => {
     const maxVisible = 5;
-    const pages = [];
+    const pages: (number | string)[] = [];
     const currentPage = searchState.page;
 
     if (currentPage <= 3) {
@@ -270,7 +272,7 @@ const FindJob: React.FC = () => {
                 onClick={() => handlePageChange(searchState.page + 1)}
                 disabled={searchState.page === totalPages}
               >
-                
+                Next
               </button>
             </div>
           </div>

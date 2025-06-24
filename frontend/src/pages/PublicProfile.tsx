@@ -4,7 +4,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { getUserProfileById, getReviewsForUser, incrementProfileView } from '../services/api';
-import { Profile, Review, Category } from '@types';
+import { JobSeekerProfile, Review, Category } from '@types';
 import { useRole } from '../context/RoleContext';
 import { FaUserCircle } from 'react-icons/fa';
 import { formatDateInTimezone } from '../utils/dateUtils';
@@ -12,7 +12,7 @@ import { formatDateInTimezone } from '../utils/dateUtils';
 const PublicProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { profile: currentUser } = useRole();
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<JobSeekerProfile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,10 +34,8 @@ const PublicProfile: React.FC = () => {
         ]);
         console.log('Fetched profile:', profileData);
         setProfile(profileData);
-        setReviews(reviewsData);
-        if (profileData.role === 'jobseeker') {
-          await incrementProfileView(id);
-        }
+        setReviews(reviewsData || []);
+        await incrementProfileView(id);
       } catch (error: any) {
         console.error('Error fetching public profile:', error);
         const errorMsg = error.response?.data?.message || 'Failed to load profile. User may not exist or the server is unavailable.';
@@ -62,7 +60,7 @@ const PublicProfile: React.FC = () => {
             <div className="pp-avatar-section">
               {profile.avatar ? (
                 <img
-                  src={`https://jobforge.net/backend${profile.avatar}`}
+                  src={`https://jobforge.net${profile.avatar}`}
                   alt="Avatar"
                   className="pp-avatar"
                 />
@@ -71,66 +69,39 @@ const PublicProfile: React.FC = () => {
               )}
             </div>
             <h3>{profile.username}</h3>
-            <p><strong>Email:</strong> {profile.email}</p>
+            <p><strong>Email:</strong> {profile.email || 'Not visible'}</p>
             <p><strong>Role:</strong> {profile.role}</p>
             <p><strong>Timezone:</strong> {profile.timezone || 'Not specified'}</p>
             <p><strong>Currency:</strong> {profile.currency || 'Not specified'}</p>
-            {(profile.role === 'employer' || profile.role === 'jobseeker') && (
-              <>
-                <p>
-                  <strong>Average Rating:</strong>{' '}
-                  {profile.average_rating ? `${profile.average_rating} ★` : 'Not rated'}
-                </p>
-                <p><strong>Identity Verified:</strong> {profile.identity_verified ? 'Yes' : 'No'}</p>
-              </>
-            )}
-            {profile.role === 'employer' && (
-              <>
-                <p><strong>Company Name:</strong> {profile.company_name || 'Not specified'}</p>
-                <p><strong>Company Info:</strong> {profile.company_info || 'Not specified'}</p>
-                <p>
-                  <strong>Referral Link:</strong>{' '}
-                  {profile.referral_link ? (
-                    <a href={profile.referral_link} target="_blank" rel="noopener noreferrer">
-                      {profile.referral_link}
-                    </a>
-                  ) : (
-                    'Not specified'
-                  )}
-                </p>
-              </>
-            )}
-            {profile.role === 'jobseeker' && (
-              <>
-                <p><strong>Skills:</strong> {profile.skills?.join(', ') || 'Not specified'}</p>
-                <p>
-                  <strong>Categories:</strong>{' '}
-                  {(profile.categories || profile.skillCategories)?.map((category: Category) => category.name).join(', ') || 'Not specified'}
-                </p>
-                <p><strong>Experience:</strong> {profile.experience || 'Not specified'}</p>
-                <p>
-                  <strong>Portfolio:</strong>{' '}
-                  {profile.portfolio ? (
-                    <a href={profile.portfolio} target="_blank" rel="noopener noreferrer">
-                      {profile.portfolio}
-                    </a>
-                  ) : (
-                    'Not specified'
-                  )}
-                </p>
-                <p>
-                  <strong>Video Introduction:</strong>{' '}
-                  {profile.video_intro ? (
-                    <a href={profile.video_intro} target="_blank" rel="noopener noreferrer">
-                      {profile.video_intro}
-                    </a>
-                  ) : (
-                    'Not specified'
-                  )}
-                </p>
-                <p><strong>Profile Views:</strong> {profile.profile_views || 0}</p>
-              </>
-            )}
+            <p><strong>Average Rating:</strong> {profile.average_rating ? `${profile.average_rating} ★` : 'Not rated'}</p>
+            <p><strong>Identity Verified:</strong> {profile.identity_verified ? 'Yes' : 'No'}</p>
+            <p><strong>Skills:</strong> {profile.skills?.join(', ') || 'Not specified'}</p>
+            <p>
+              <strong>Categories:</strong>{' '}
+              {profile.categories?.map((category: Category) => category.name).join(', ') || 'Not specified'}
+            </p>
+            <p><strong>Experience:</strong> {profile.experience || 'Not specified'}</p>
+            <p>
+              <strong>Portfolio:</strong>{' '}
+              {profile.portfolio ? (
+                <a href={profile.portfolio} target="_blank" rel="noopener noreferrer">
+                  {profile.portfolio}
+                </a>
+              ) : (
+                'Not specified'
+              )}
+            </p>
+            <p>
+              <strong>Video Introduction:</strong>{' '}
+              {profile.video_intro ? (
+                <a href={profile.video_intro} target="_blank" rel="noopener noreferrer">
+                  {profile.video_intro}
+                </a>
+              ) : (
+                'Not specified'
+              )}
+            </p>
+            <p><strong>Profile Views:</strong> {profile.profile_views || 0}</p>
           </div>
           <div className="pp-actions">
             <h3>Reviews</h3>

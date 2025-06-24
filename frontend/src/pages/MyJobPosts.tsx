@@ -1,57 +1,26 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus } from '../services/api';
-import { JobPost, Category } from '@types';
-import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
+import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus, notifyCandidates } from '../services/api';
+import { JobPost, Category, JobApplicationDetails } from '@types';
+import { useRole } from '../context/RoleContext';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
-// import { mockJobPosts, mockCategories } from '../mocks/mockMyJobPosts'; // Закомментировано
 
 const MyJobPosts: React.FC = () => {
   const { profile, isLoading: roleLoading } = useRole();
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
-  const [applications, setApplications] = useState<
-    { jobPostId: string; apps: { id: string; userId: string; username: string; email: string; jobDescription: string; appliedAt: string; status: string }[] }
-  >({ jobPostId: '', apps: [] });
+  const [applications, setApplications] = useState<{
+    jobPostId: string;
+    apps: JobApplicationDetails[];
+  }>({ jobPostId: '', apps: [] });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [editingJob, setEditingJob] = useState<Partial<JobPost> | null>(null);
 
-  // Эмуляция profile для мока (закомментировано)
-  // const mockProfile = { role: 'employer' };
-  // if (!mockProfile || mockProfile.role !== 'employer') {
-  //   return (
-  //     <div>
-  //       <Header />
-  //       <div className="container">
-  //         <h2>My Job Posts</h2>
-  //         <p>This page is only available for employers.</p>
-  //       </div>
-  //       <Footer />
-  //       <Copyright />
-  //     </div>
-  //   );
-  // }
-
-  // Мок-useEffect закомментирован
-  // useEffect(() => {
-  //   const mockProfile = { role: 'employer' };
-  //   if (!mockProfile || mockProfile.role !== 'employer') {
-  //     setJobPosts([]);
-  //     setError('This page is only available for employers.');
-  //     setIsLoading(false);
-  //     return;
-  //   }
-  //   setJobPosts(mockJobPosts);
-  //   setCategories(mockCategories);
-  //   setIsLoading(false);
-  // }, []);
-
-  // Для продакшена: раскомментировать этот useEffect
   useEffect(() => {
     const fetchData = async () => {
       if (!profile || profile.role !== 'employer') {
@@ -60,15 +29,15 @@ const MyJobPosts: React.FC = () => {
         setIsLoading(false);
         return;
       }
-  
+
       try {
         setIsLoading(true);
         const [posts, categoriesData] = await Promise.all([getMyJobPosts(), getCategories()]);
-        setJobPosts(posts);
-        setCategories(categoriesData);
-      } catch (err) {
+        setJobPosts(posts || []);
+        setCategories(categoriesData || []);
+      } catch (err: any) {
         console.error('Error fetching data:', err);
-        setError('Failed to load job posts or categories. Please try again.');
+        setError(err.response?.data?.message || 'Failed to load job posts or categories.');
       } finally {
         setIsLoading(false);
       }
@@ -84,7 +53,7 @@ const MyJobPosts: React.FC = () => {
       setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
       alert('Job post updated successfully!');
     } catch (err: any) {
-      console.error('Error updating job post:', err.response?.data || err);
+      console.error('Error updating job post:', err);
       alert(err.response?.data?.message || 'Failed to update job post.');
     }
   };
@@ -94,9 +63,9 @@ const MyJobPosts: React.FC = () => {
       const updatedPost = await closeJobPost(id);
       setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
       alert('Job post closed successfully!');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error closing job post:', err);
-      alert('Failed to close job post.');
+      alert(err.response?.data?.message || 'Failed to close job post.');
     }
   };
 
@@ -105,20 +74,42 @@ const MyJobPosts: React.FC = () => {
       const updatedPost = await updateJobPost(id, { status: 'Active' });
       setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
       alert('Job post reopened successfully!');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error reopening job post:', err);
-      alert('Failed to reopen job post.');
+      alert(err.response?.data?.message || 'Failed to reopen job post.');
     }
   };
 
   const handleViewApplications = async (jobPostId: string) => {
     try {
       const apps = await getApplicationsForJobPost(jobPostId);
-      console.log('Fetched applications:', apps);
       setApplications({ jobPostId, apps });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching applications:', err);
-      alert('Failed to load applications.');
+      alert(err.response?.data?.message || 'Failed to load applications.');
+    }
+  };
+
+  const handleNotifyCandidates = async (jobPostId: string) => {
+    const limit = prompt('Enter number of candidates to notify (e.g., 10):');
+    const orderBy = prompt('Enter order (beginning, end, random):');
+    if (!limit || isNaN(parseInt(limit)) || parseInt(limit) < 1) {
+      alert('Please enter a valid number of candidates.');
+      return;
+    }
+    if (!orderBy || !['beginning', 'end', 'random'].includes(orderBy)) {
+      alert('Please enter a valid order: beginning, end, or random.');
+      return;
+    }
+    try {
+      const response = await notifyCandidates(jobPostId, {
+        limit: parseInt(limit),
+        orderBy: orderBy as 'beginning' | 'end' | 'random',
+      });
+      alert(`Notified ${response.sent} of ${response.total} candidates for job post ${response.jobPostId}`);
+    } catch (err: any) {
+      console.error('Error notifying candidates:', err);
+      alert(err.response?.data?.message || 'Failed to notify candidates.');
     }
   };
 
@@ -138,13 +129,13 @@ const MyJobPosts: React.FC = () => {
         description: editingJob.description,
         location: editingJob.location,
         salary: editingJob.salary,
-        job_type: editingJob.job_type || undefined,
+        job_type: editingJob.job_type || null,
         category_id: editingJob.category_id || undefined,
       });
       setEditingJob(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving job edit:', err);
-      alert('Failed to save changes.');
+      alert(err.response?.data?.message || 'Failed to save changes.');
     }
   };
 
@@ -154,15 +145,13 @@ const MyJobPosts: React.FC = () => {
 
   const handleUpdateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected', jobPostId: string) => {
     try {
-      console.log('Updating application status:', { applicationId, status, jobPostId });
       await updateApplicationStatus(applicationId, status);
-      alert(`Application ${status.toLowerCase()} successfully!`);
       const updatedApps = await getApplicationsForJobPost(jobPostId);
-      console.log('Updated applications:', updatedApps);
       setApplications({ jobPostId, apps: updatedApps });
-    } catch (error: any) {
-      console.error(`Error ${status.toLowerCase()} application:`, error);
-      alert(`Failed to ${status.toLowerCase()} application: ${error.response?.data?.message || 'Unknown error'}`);
+      alert(`Application ${status.toLowerCase()} successfully!`);
+    } catch (err: any) {
+      console.error(`Error ${status.toLowerCase()} application:`, err);
+      alert(err.response?.data?.message || `Failed to ${status.toLowerCase()} application.`);
     }
   };
 
@@ -257,9 +246,9 @@ const MyJobPosts: React.FC = () => {
                       <label>Salary:</label>
                       <input
                         type="number"
-                        value={editingJob.salary || ''}
+                        value={editingJob.salary !== null ? editingJob.salary : ''}
                         onChange={(e) =>
-                          editingJob && setEditingJob({ ...editingJob, salary: e.target.value ? Number(e.target.value) : undefined })
+                          editingJob && setEditingJob({ ...editingJob, salary: e.target.value ? Number(e.target.value) : null })
                         }
                         min="0"
                       />
@@ -268,13 +257,13 @@ const MyJobPosts: React.FC = () => {
                       <label>Job Type:</label>
                       <select
                         value={editingJob.job_type || ''}
-                        onChange={(e) =>
-                          editingJob &&
-                          setEditingJob({
+                        onChange={(e) => {
+                          const value = e.target.value as 'Full-time' | 'Part-time' | 'Project-based' | '';
+                          editingJob && setEditingJob({
                             ...editingJob,
-                            job_type: e.target.value === '' ? undefined : (e.target.value as 'Full-time' | 'Part-time' | 'Project-based'),
-                          })
-                        }
+                            job_type: value === '' ? null : value,
+                          });
+                        }}
                       >
                         <option value="">Select job type</option>
                         <option value="Full-time">Full-time</option>
@@ -330,6 +319,12 @@ const MyJobPosts: React.FC = () => {
                       >
                         View Applications
                       </button>
+                      <button
+                        onClick={() => handleNotifyCandidates(post.id)}
+                        className="my-job-action-button my-job-success"
+                      >
+                        Notify Candidates
+                      </button>
                     </div>
                     {applications.jobPostId === post.id && applications.apps.length > 0 && (
                       <div className="my-job-application-details-section">
@@ -346,8 +341,8 @@ const MyJobPosts: React.FC = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {applications.apps.map((app, index) => (
-                              <tr key={index}>
+                            {applications.apps.map((app) => (
+                              <tr key={app.id}>
                                 <td>{app.username}</td>
                                 <td>{app.email}</td>
                                 <td>{app.jobDescription || 'Not provided'}</td>

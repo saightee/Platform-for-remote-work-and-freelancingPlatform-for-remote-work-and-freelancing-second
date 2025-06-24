@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { getProfile, updateProfile, uploadAvatar, uploadIdentityDocument, deleteAccount, getCategories } from '../services/api';
-import { Profile, SkillCategory, Category, JobSeekerProfile, EmployerProfile } from '@types';
+import { Profile, Category, JobSeekerProfile, EmployerProfile } from '@types';
 import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
 import { FaUserCircle, FaFilePdf } from 'react-icons/fa';
@@ -38,17 +38,16 @@ const ProfilePage: React.FC = () => {
           getProfile(),
           getCategories(),
         ]);
-        console.log('Fetched categories:', categoriesData); // Для отладки
         setProfileData(profileData);
-        setCategories(categoriesData);
+        setCategories(categoriesData || []);
         if (profileData.role === 'jobseeker') {
           setSelectedCategoryIds(
-            profileData.skillCategories?.map((cat: SkillCategory) => cat.id) || []
+            (profileData as JobSeekerProfile).categories?.map((cat: Category) => cat.id) || []
           );
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching data:', error);
-        setError('Failed to load profile or categories. Please try again later.');
+        setError(error.response?.data?.message || 'Failed to load profile or categories.');
       } finally {
         setIsLoading(false);
       }
@@ -73,10 +72,10 @@ const ProfilePage: React.FC = () => {
           email: profileData.email,
           timezone: profileData.timezone,
           currency: profileData.currency,
-          skills: profileData.skills,
-          experience: profileData.experience,
-          portfolio: profileData.portfolio,
-          video_intro: profileData.video_intro,
+          skills: (profileData as JobSeekerProfile).skills,
+          experience: (profileData as JobSeekerProfile).experience,
+          portfolio: (profileData as JobSeekerProfile).portfolio,
+          video_intro: (profileData as JobSeekerProfile).video_intro,
           categoryIds: selectedCategoryIds,
         };
         const updatedProfile = await updateProfile(updatedData);
@@ -87,9 +86,9 @@ const ProfilePage: React.FC = () => {
           email: profileData.email,
           timezone: profileData.timezone,
           currency: profileData.currency,
-          company_name: profileData.company_name,
-          company_info: profileData.company_info,
-          referral_link: profileData.referral_link,
+          company_name: (profileData as EmployerProfile).company_name,
+          company_info: (profileData as EmployerProfile).company_info,
+          referral_link: (profileData as EmployerProfile).referral_link,
         };
         const updatedProfile = await updateProfile(updatedData);
         setProfileData(updatedProfile);
@@ -182,7 +181,6 @@ const ProfilePage: React.FC = () => {
       const formData = new FormData();
       formData.append('document', documentFile);
       const updatedProfile = await uploadIdentityDocument(formData);
-      console.log('Updated profile after document upload:', updatedProfile);
       setProfileData(updatedProfile);
       setDocumentFile(null);
       alert('Document uploaded successfully!');
@@ -207,7 +205,7 @@ const ProfilePage: React.FC = () => {
           <div className="profile-details">
             <div className="profile-avatar-section">
               {profileData.avatar ? (
-                <img src={`https://jobforge.net/backend${profileData.avatar}`} alt="Avatar" className="profile-avatar" />
+                <img src={`https://jobforge.net${profileData.avatar}`} alt="Avatar" className="profile-avatar" />
               ) : (
                 <FaUserCircle className="profile-avatar-icon" />
               )}
@@ -227,7 +225,7 @@ const ProfilePage: React.FC = () => {
                   <label>Email:</label>
                   <input
                     type="email"
-                    value={profileData.email}
+                    value={profileData.email || ''}
                     onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
                     placeholder="Enter your email"
                   />
@@ -238,7 +236,7 @@ const ProfilePage: React.FC = () => {
                       <label>Company Name:</label>
                       <input
                         type="text"
-                        value={profileData.company_name || ''}
+                        value={(profileData as EmployerProfile).company_name || ''}
                         onChange={(e) => setProfileData({ ...profileData, company_name: e.target.value })}
                         placeholder="Enter company name"
                       />
@@ -246,7 +244,7 @@ const ProfilePage: React.FC = () => {
                     <div className="form-group">
                       <label>Company Info:</label>
                       <textarea
-                        value={profileData.company_info || ''}
+                        value={(profileData as EmployerProfile).company_info || ''}
                         onChange={(e) => setProfileData({ ...profileData, company_info: e.target.value })}
                         placeholder="Enter company information"
                       />
@@ -255,7 +253,7 @@ const ProfilePage: React.FC = () => {
                       <label>Referral Link:</label>
                       <input
                         type="text"
-                        value={profileData.referral_link || ''}
+                        value={(profileData as EmployerProfile).referral_link || ''}
                         onChange={(e) => setProfileData({ ...profileData, referral_link: e.target.value })}
                         placeholder="Enter referral link"
                       />
@@ -268,7 +266,7 @@ const ProfilePage: React.FC = () => {
                       <label>Skills (comma-separated):</label>
                       <input
                         type="text"
-                        value={profileData.skills?.join(', ') || ''}
+                        value={(profileData as JobSeekerProfile).skills?.join(', ') || ''}
                         onChange={(e) =>
                           setProfileData({
                             ...profileData,
@@ -279,7 +277,7 @@ const ProfilePage: React.FC = () => {
                       />
                     </div>
                     <div className="form-group">
-                      <label>Skill Categories:</label>
+                      <label>Categories:</label>
                       <select
                         multiple
                         value={selectedCategoryIds}
@@ -301,7 +299,7 @@ const ProfilePage: React.FC = () => {
                       <label>Experience:</label>
                       <input
                         type="text"
-                        value={profileData.experience || ''}
+                        value={(profileData as JobSeekerProfile).experience || ''}
                         onChange={(e) => setProfileData({ ...profileData, experience: e.target.value })}
                         placeholder="Enter your experience"
                       />
@@ -310,7 +308,7 @@ const ProfilePage: React.FC = () => {
                       <label>Portfolio:</label>
                       <input
                         type="text"
-                        value={profileData.portfolio || ''}
+                        value={(profileData as JobSeekerProfile).portfolio || ''}
                         onChange={(e) => setProfileData({ ...profileData, portfolio: e.target.value })}
                         placeholder="Enter portfolio URL"
                       />
@@ -319,7 +317,7 @@ const ProfilePage: React.FC = () => {
                       <label>Video Introduction:</label>
                       <input
                         type="text"
-                        value={profileData.video_intro || ''}
+                        value={(profileData as JobSeekerProfile).video_intro || ''}
                         onChange={(e) => setProfileData({ ...profileData, video_intro: e.target.value })}
                         placeholder="Enter video intro URL"
                       />
@@ -356,24 +354,24 @@ const ProfilePage: React.FC = () => {
             ) : (
               <>
                 <p><strong>Username:</strong> {profileData.username}</p>
-                <p><strong>Email:</strong> {profileData.email}</p>
+                <p><strong>Email:</strong> {profileData.email || 'Not visible'}</p>
                 {profileData.role === 'employer' && (
                   <>
-                    <p><strong>Company Name:</strong> {profileData.company_name || 'Not specified'}</p>
-                    <p><strong>Company Info:</strong> {profileData.company_info || 'Not specified'}</p>
-                    <p><strong>Referral Link:</strong> {profileData.referral_link || 'Not specified'}</p>
+                    <p><strong>Company Name:</strong> {(profileData as EmployerProfile).company_name || 'Not specified'}</p>
+                    <p><strong>Company Info:</strong> {(profileData as EmployerProfile).company_info || 'Not specified'}</p>
+                    <p><strong>Referral Link:</strong> {(profileData as EmployerProfile).referral_link || 'Not specified'}</p>
                   </>
                 )}
                 {profileData.role === 'jobseeker' && (
                   <>
-                    <p><strong>Skills:</strong> {profileData.skills?.join(', ') || 'Not specified'}</p>
+                    <p><strong>Skills:</strong> {(profileData as JobSeekerProfile).skills?.join(', ') || 'Not specified'}</p>
                     <p>
-                      <strong>Skill Categories:</strong>{' '}
-                      {profileData.skillCategories?.map((category: SkillCategory) => category.name).join(', ') || 'Not specified'}
+                      <strong>Categories:</strong>{' '}
+                      {(profileData as JobSeekerProfile).categories?.map((category) => category.name).join(', ') || 'Not specified'}
                     </p>
-                    <p><strong>Experience:</strong> {profileData.experience || 'Not specified'}</p>
-                    <p><strong>Portfolio:</strong> {profileData.portfolio || 'Not specified'}</p>
-                    <p><strong>Video Introduction:</strong> {profileData.video_intro || 'Not specified'}</p>
+                    <p><strong>Experience:</strong> {(profileData as JobSeekerProfile).experience || 'Not specified'}</p>
+                    <p><strong>Portfolio:</strong> {(profileData as JobSeekerProfile).portfolio || 'Not specified'}</p>
+                    <p><strong>Video Introduction:</strong> {(profileData as JobSeekerProfile).video_intro || 'Not specified'}</p>
                   </>
                 )}
                 <p><strong>Timezone:</strong> {profileData.timezone || 'Not specified'}</p>
@@ -387,14 +385,14 @@ const ProfilePage: React.FC = () => {
                       {profileData.identity_document ? (
                         <div className="document-preview">
                           {profileData.identity_document.endsWith('.pdf') ? (
-                            <a href={`https://jobforge.net/backend${profileData.identity_document}`} target="_blank" rel="noopener noreferrer">
+                            <a href={`https://jobforge.net${profileData.identity_document}`} target="_blank" rel="noopener noreferrer">
                               <FaFilePdf size={50} />
                               <span>View PDF</span>
                             </a>
                           ) : (
-                            <a href={`https://jobforge.net/backend${profileData.identity_document}`} target="_blank" rel="noopener noreferrer">
+                            <a href={`https://jobforge.net${profileData.identity_document}`} target="_blank" rel="noopener noreferrer">
                               <img
-                                src={`https://jobforge.net/backend${profileData.identity_document}`}
+                                src={`https://jobforge.net${profileData.identity_document}`}
                                 alt="Identity Document"
                                 className="document-thumbnail"
                               />

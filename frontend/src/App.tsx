@@ -11,6 +11,7 @@ import PostJob from './pages/PostJob';
 import MyJobPosts from './pages/MyJobPosts';
 import MyApplications from './pages/MyApplications';
 import AdminDashboard from './pages/AdminDashboard';
+import ModeratorDashboard from './pages/ModeratorDashboard';
 import Feedback from './pages/Feedback';
 import ResetPassword from './pages/ResetPassword';
 import ConfirmResetPassword from './pages/ConfirmResetPassword';
@@ -52,6 +53,7 @@ const App: React.FC = () => {
           <Route path="/my-job-posts" element={<MyJobPosts />} />
           <Route path="/my-applications" element={<MyApplications />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/moderator" element={<ModeratorDashboard />} />
           <Route path="/feedback" element={<Feedback />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/reset-password/confirm" element={<ConfirmResetPassword />} />

@@ -13,22 +13,32 @@ import {
   blockUser, unblockUser, getUserRiskScore, exportUsersToCSV, getUserOnlineStatus,
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
-  resolveComplaint, getChatHistory, notifyCandidates
+  resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost
 } from '../services/api';
-import { User, JobPost, Review, Feedback, BlockedCountry, Category } from '@types';
+import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails } from '@types';
 import { format } from 'date-fns';
 import { AxiosError } from 'axios';
+
+interface JobPostWithApplications {
+  id: string;
+  title: string;
+  status: string;
+  applicationCount: number;
+  created_at: string;
+}
 
 const AdminDashboard: React.FC = () => {
   const { currentRole } = useRole();
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [users, setUsers] = useState<User[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
-  const [jobPostsWithApps, setJobPostsWithApps] = useState<{ id: string; title: string; status: string; applicationCount: number; created_at: string }[]>([]);
+  const [jobPostsWithApps, setJobPostsWithApps] = useState<JobPostWithApplications[]>([]);
+  const [jobApplications, setJobApplications] = useState<JobApplicationDetails[]>([]);
+  const [selectedJobPostId, setSelectedJobPostId] = useState<string>('');
   const [reviews, setReviews] = useState<Review[]>([]);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [blockedCountries, setBlockedCountries] = useState<BlockedCountry[]>([]);
-  const [newCountryCode, setNewCountryCode] = useState(''); // Новое состояние для ввода countryCode
+  const [newCountryCode, setNewCountryCode] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [analytics, setAnalytics] = useState<{
@@ -79,6 +89,8 @@ const AdminDashboard: React.FC = () => {
     }[];
   }>({ total: 0, data: [] });
   const [selectedJobApplicationId, setSelectedJobApplicationId] = useState<string>('');
+  const [chatPage, setChatPage] = useState(1);
+  const [chatLimit] = useState(10);
   const [onlineUsers, setOnlineUsers] = useState<{ jobseekers: number; employers: number } | null>(null);
   const [recentRegistrations, setRecentRegistrations] = useState<{
     jobseekers: { id: string; email: string; username: string; role: string; created_at: string }[];
@@ -132,7 +144,7 @@ const AdminDashboard: React.FC = () => {
         const endpoints = [
           'getAllUsers', 'getAllJobPosts', 'getPendingJobPosts', 'getAllReviews', 'getFeedback',
           'getBlockedCountries', 'getCategories', 'getAnalytics',
-          'getRegistrationStats', 'getGeographicDistribution',
+          'getRegistrationStats', 'geographicDistribution',
           'getTopEmployers', 'getTopJobseekers', 'getTopJobseekersByViews', 'getTopEmployersByPosts',
           'getGrowthTrends', 'getComplaints', 'getGlobalApplicationLimit',
           'getOnlineUsers', 'getRecentRegistrations', 'getJobPostsWithApplications'
@@ -143,8 +155,8 @@ const AdminDashboard: React.FC = () => {
             console.log(`${endpoints[index]} succeeded:`, result.value);
             switch (index) {
               case 0: setUsers(result.value || []); break;
-              case 1: setJobPosts(result.value || []); break;
-              case 2: setJobPosts(result.value || []); break;
+              case 1: setJobPosts((result.value as PaginatedResponse<JobPost>).data || []); break;
+              case 2: setJobPosts((result.value as PaginatedResponse<JobPost>).data || []); break;
               case 3: setReviews(result.value || []); break;
               case 4: setFeedback(result.value || []); break;
               case 5: setBlockedCountries(result.value || []); break;
@@ -174,7 +186,9 @@ const AdminDashboard: React.FC = () => {
               case 16: setGlobalLimit(result.value?.globalApplicationLimit ?? null); break;
               case 17: setOnlineUsers(result.value || null); break;
               case 18: setRecentRegistrations(result.value || { jobseekers: [], employers: [] }); break;
-              case 19: setJobPostsWithApps(result.value || []); break;
+              case 19:
+                setJobPostsWithApps((result.value as JobPostWithApplications[]) || []);
+                break;
             }
           } else {
             console.error(`${endpoints[index]} failed:`, result.reason);
@@ -361,7 +375,7 @@ const AdminDashboard: React.FC = () => {
       try {
         await setJobPostApplicationLimitAdmin(id, Number(limit));
         const updatedPosts = await getAllJobPosts({});
-        setJobPosts(updatedPosts || []);
+        setJobPosts((updatedPosts as PaginatedResponse<JobPost>).data || []);
         const updatedPostsWithApps = await getJobPostsWithApplications();
         setJobPostsWithApps(updatedPostsWithApps || []);
         alert('Application limit set successfully!');
@@ -373,23 +387,27 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleNotifyCandidates = async (jobId: string) => {
-    const limitInput = prompt('Enter number of freelancers to notify:');
+  const handleNotifyCandidates = async (id: string) => {
+    const limit = prompt('Enter number of candidates to notify (e.g., 10):');
     const orderBy = prompt('Enter order (beginning, end, random):', 'random');
-    if (!limitInput || isNaN(Number(limitInput)) || !['beginning', 'end', 'random'].includes(orderBy || '')) {
-      alert('Invalid input. Limit must be a number and order must be beginning, end, or random.');
+    if (!limit || isNaN(parseInt(limit)) || parseInt(limit) < 1) {
+      alert('Please enter a valid number of candidates.');
+      return;
+    }
+    if (!orderBy || !['beginning', 'end', 'random'].includes(orderBy)) {
+      alert('Please enter a valid order: beginning, end, or random.');
       return;
     }
     try {
-      const response = await notifyCandidates(jobId, {
-        limit: Number(limitInput),
-        orderBy: orderBy as 'beginning' | 'end' | 'random'
+      const response = await notifyCandidates(id, {
+        limit: parseInt(limit),
+        orderBy: orderBy as 'beginning' | 'end' | 'random',
       });
-      alert(`Notifications sent to ${response.sent} freelancers for job ID ${jobId}!`);
+      alert(`Notified ${response.sent} of ${response.total} candidates for job post ${response.jobPostId}`);
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error sending notifications:', axiosError);
-      alert(axiosError.response?.data?.message || 'Failed to send notifications.');
+      console.error('Error notifying candidates:', axiosError);
+      alert(axiosError.response?.data?.message || 'Failed to notify candidates.');
     }
   };
 
@@ -426,15 +444,32 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleViewChatHistory = async (jobApplicationId: string) => {
+  const handleViewJobApplications = async (jobPostId: string) => {
     try {
-      const history = await getChatHistory(jobApplicationId, { page: 1, limit: 10 });
-      setChatHistory(history);
-      setSelectedJobApplicationId(jobApplicationId);
+      setError(null);
+      setSelectedJobPostId(jobPostId);
+      setSelectedJobApplicationId('');
+      setChatHistory({ total: 0, data: [] });
+      const applications = await getApplicationsForJobPost(jobPostId);
+      setJobApplications(applications.filter(app => app.status === 'Accepted') || []);
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
+      console.error('Error fetching job applications:', axiosError);
+      setError(axiosError.response?.data?.message || 'Failed to fetch job applications.');
+    }
+  };
+
+  const handleViewChatHistory = async (jobApplicationId: string, page: number = 1) => {
+    try {
+      setError(null);
+      const history = await getChatHistory(jobApplicationId, { page, limit: chatLimit });
+      setChatHistory(history);
+      setSelectedJobApplicationId(jobApplicationId);
+      setChatPage(page);
+    }catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
       console.error('Error fetching chat history:', axiosError);
-      alert(axiosError.response?.data?.message || 'Failed to fetch chat history.');
+      setError(axiosError.response?.data?.message || 'Failed to fetch chat history.');
     }
   };
 
@@ -857,6 +892,9 @@ const AdminDashboard: React.FC = () => {
                         <button onClick={() => handleSetApplicationLimit(post.id)} className="action-button">
                           Set Application Limit
                         </button>
+                        <button onClick={() => handleNotifyCandidates(post.id)} className="action-button success">
+                          Notify Candidates
+                        </button>
                       </td>
                     </tr>
                   )) : (
@@ -1072,22 +1110,37 @@ const AdminDashboard: React.FC = () => {
           {activeTab === 'Chat History' && (
             <div>
               <h2>Chat History</h2>
+              {error && <p className="error-message">{error}</p>}
               <div className="form-group">
-                <label>Select Job Application ID:</label>
+                <label>Select Job Post:</label>
                 <select
-                  value={selectedJobApplicationId}
-                  onChange={(e) => handleViewChatHistory(e.target.value)}
+                  value={selectedJobPostId}
+                  onChange={(e) => handleViewJobApplications(e.target.value)}
                 >
-                  <option value="">Select a job application</option>
-                  {jobPostsWithApps.map((post) => (
-                    post.applicationCount > 0 && (
-                      <option key={post.id} value={post.id}>
-                        {post.title} (ID: {post.id})
-                      </option>
-                    )
+                  <option value="">Select a job post</option>
+                  {jobPostsWithApps.filter(post => post.applicationCount > 0).map(post => (
+                    <option key={post.id} value={post.id}>
+                      {post.title} (ID: {post.id})
+                    </option>
                   ))}
                 </select>
               </div>
+              {selectedJobPostId && (
+                <div className="form-group">
+                  <label>Select Job Application ID:</label>
+                  <select
+                    value={selectedJobApplicationId}
+                    onChange={(e) => handleViewChatHistory(e.target.value)}
+                  >
+                    <option value="">Select a job application</option>
+                    {jobApplications.map(app => (
+                      <option key={app.id} value={app.id}>
+                        {app.username} (ID: {app.id})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {selectedJobApplicationId && (
                 <>
                   <h3>Messages for Job Application ID: {selectedJobApplicationId}</h3>
@@ -1119,6 +1172,23 @@ const AdminDashboard: React.FC = () => {
                       )}
                     </tbody>
                   </table>
+                  <div className="pagination">
+                    <button
+                      onClick={() => handleViewChatHistory(selectedJobApplicationId, chatPage - 1)}
+                      disabled={chatPage === 1}
+                      className="action-button"
+                    >
+                      Previous
+                    </button>
+                    <span>Page {chatPage} of {Math.ceil(chatHistory.total / chatLimit)}</span>
+                    <button
+                      onClick={() => handleViewChatHistory(selectedJobApplicationId, chatPage + 1)}
+                      disabled={chatPage >= Math.ceil(chatHistory.total / chatLimit)}
+                      className="action-button"
+                    >
+                      Next
+                    </button>
+                  </div>
                 </>
               )}
             </div>

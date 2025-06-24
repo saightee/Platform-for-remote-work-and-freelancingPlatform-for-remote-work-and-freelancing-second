@@ -4,10 +4,9 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { useRole } from '../context/RoleContext';
-import { getMyApplications, getMyJobPosts, getApplicationsForJobPost, initializeWebSocket } from '../services/api';
+import { getMyApplications, getMyJobPosts, getApplicationsForJobPost } from '../services/api';
 import { JobApplication, JobPost } from '@types';
 import { format } from 'date-fns';
-
 
 interface Message {
   id: string;
@@ -20,8 +19,7 @@ interface Message {
 }
 
 const Messages: React.FC = () => {
-  const { profile, currentRole } = useRole();
-  const [socket, setSocket] = useState<any | null>(null);
+  const { profile, currentRole, socket, socketStatus } = useRole();
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [jobPostApplications, setJobPostApplications] = useState<{ [jobPostId: string]: { id: string; userId: string; username: string; email: string; jobDescription: string; appliedAt: string; status: string; job_post_id: string }[] }>({});
@@ -71,46 +69,25 @@ const Messages: React.FC = () => {
   }, [profile, currentRole]);
 
   useEffect(() => {
-    if (!profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) return;
+    if (!profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole) || !socket) {
+      setUnreadCounts({});
+      return;
+    }
 
-    const newSocket = initializeWebSocket(
-      (message: Message) => {
-        setMessages(prev => {
-          const updatedMessages = {
-            ...prev,
-            [message.job_application_id]: [...(prev[message.job_application_id] || []), message]
-          };
-          if (message.recipient_id === profile.id && !message.is_read && selectedChat !== message.job_application_id) {
-            setUnreadCounts(prevCounts => ({
-              ...prevCounts,
-              [message.job_application_id]: (prevCounts[message.job_application_id] || 0) + 1
-            }));
-          }
-          return updatedMessages;
-        });
-      },
-      (error: { statusCode: number; message: string }) => {
-        console.error('WebSocket error:', error);
-        setError(error.message);
-      }
-    );
-
-    setSocket(newSocket);
-
-    newSocket.on('connect', () => {
+    socket.on('connect', () => {
       console.log('Connected to WebSocket server');
       if (currentRole === 'jobseeker') {
         applications.forEach(app => {
-          newSocket.emit('joinChat', { jobApplicationId: app.id });
+          socket.emit('joinChat', { jobApplicationId: app.id });
         });
       } else if (currentRole === 'employer') {
         Object.values(jobPostApplications).flat().forEach(app => {
-          newSocket.emit('joinChat', { jobApplicationId: app.id });
+          socket.emit('joinChat', { jobApplicationId: app.id });
         });
       }
     });
 
-    newSocket.on('chatHistory', (history: Message[]) => {
+    socket.on('chatHistory', (history: Message[]) => {
       if (history.length > 0) {
         const jobApplicationId = history[0].job_application_id;
         setMessages(prev => ({
@@ -119,20 +96,37 @@ const Messages: React.FC = () => {
         }));
         setUnreadCounts(prevCounts => ({
           ...prevCounts,
-          [jobApplicationId]: history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length
+          [jobApplicationId]: selectedChat === jobApplicationId ? 0 : history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length
         }));
       }
     });
 
-    newSocket.on('connect_error', (err) => {
+    socket.on('newMessage', (message: Message) => {
+      setMessages(prev => ({
+        ...prev,
+        [message.job_application_id]: [...(prev[message.job_application_id] || []), message]
+      }));
+      if (message.recipient_id === profile.id && !message.is_read && selectedChat !== message.job_application_id) {
+        setUnreadCounts(prevCounts => ({
+          ...prevCounts,
+          [message.job_application_id]: (prevCounts[message.job_application_id] || 0) + 1
+        }));
+      }
+    });
+
+    socket.on('connect_error', (err) => {
       console.error('WebSocket connection error:', err);
       setError('Failed to connect to chat server. Retrying...');
     });
 
     return () => {
-      newSocket.disconnect();
+      socket.off('chatHistory');
+      socket.off('newMessage');
+      socket.off('connect');
+      socket.off('connect_error');
+      setUnreadCounts({});
     };
-  }, [profile, currentRole, applications, jobPostApplications]);
+  }, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -156,15 +150,6 @@ const Messages: React.FC = () => {
       ...prev,
       [jobApplicationId]: 0
     }));
-    if (profile) {
-      setMessages(prev => ({
-        ...prev,
-        [jobApplicationId]: (prev[jobApplicationId] || []).map(msg => ({
-          ...msg,
-          is_read: msg.recipient_id === profile.id ? true : msg.is_read
-        }))
-      }));
-    }
   };
 
   const getChatPartner = (jobApplicationId: string) => {
@@ -226,6 +211,7 @@ const Messages: React.FC = () => {
       <Header />
       <h2>Messages</h2>
       {error && <p className="error-message">{error}</p>}
+      {socketStatus === 'reconnecting' && <p className="error-message">Reconnecting to chat server...</p>}
       <div className="messages-content">
         <div className="chat-list">
           <h3>Chats</h3>

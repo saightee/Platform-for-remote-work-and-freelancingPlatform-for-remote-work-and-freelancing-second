@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useRole } from '../context/RoleContext';
-import { logout, initializeWebSocket, getMyApplications, getMyJobPosts, getApplicationsForJobPost } from '../services/api';
+import { logout, getMyApplications, getMyJobPosts, getApplicationsForJobPost } from '../services/api';
 import { FaChevronDown, FaBars, FaTimes } from 'react-icons/fa';
 
 interface Message {
@@ -15,15 +15,23 @@ interface Message {
 }
 
 const Header: React.FC = () => {
-  const { profile, isLoading } = useRole();
+  const { profile, isLoading, currentRole, socket } = useRole();
   const token = localStorage.getItem('token');
-  const isAuthenticated = token && profile;
+  const isAuthenticated = token && (profile || ['admin', 'moderator'].includes(currentRole || ''));
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const location = useLocation();
+
+  // Проверяем, показывать ли "Back to Dashboard"
+  const showBackToDashboard = ['admin', 'moderator'].includes(currentRole || '') &&
+    !location.pathname.startsWith(currentRole === 'admin' ? '/admin' : '/moderator');
 
   useEffect(() => {
-    if (!profile || !['jobseeker', 'employer'].includes(profile.role)) return;
+    if (!profile || !['jobseeker', 'employer'].includes(profile.role) || !socket) {
+      setUnreadCount(0);
+      return;
+    }
 
     const fetchUnreadMessages = async () => {
       try {
@@ -38,34 +46,33 @@ const Header: React.FC = () => {
           applications = appsArrays.flat().filter(app => app.status === 'Accepted');
         }
 
-        const socket = initializeWebSocket(
-          (message: Message) => {
-            if (message.recipient_id === profile.id && !message.is_read) {
-              setUnreadCount(prev => prev + 1);
-            }
-          },
-          (error) => {
-            console.error('WebSocket error in Header:', error);
-          }
-        );
-
         applications.forEach(app => {
           socket.emit('joinChat', { jobApplicationId: app.id });
         });
 
         socket.on('chatHistory', (history: Message[]) => {
           const unread = history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length;
-          setUnreadCount(prev => prev + unread);
+          setUnreadCount(unread);
         });
 
-        return () => socket.disconnect();
+        socket.on('newMessage', (message: Message) => {
+          if (message.recipient_id === profile.id && !message.is_read) {
+            setUnreadCount(prev => prev + 1);
+          }
+        });
+
+        return () => {
+          socket.off('chatHistory');
+          socket.off('newMessage');
+          setUnreadCount(0);
+        };
       } catch (err) {
-        console.error('Error fetching unread messages:', err);
+        console.error('Error fetching unread messages in Header:', err);
       }
     };
 
     fetchUnreadMessages();
-  }, [profile]);
+  }, [profile, socket]);
 
   const handleLogout = async () => {
     try {
@@ -74,6 +81,8 @@ const Header: React.FC = () => {
       window.location.href = '/login';
     } catch (error) {
       console.error('Logout error:', error);
+      localStorage.removeItem('token');
+      window.location.href = '/login';
     }
   };
 
@@ -97,35 +106,35 @@ const Header: React.FC = () => {
   return (
     <header className="header-container">
       <div className="header-content">
-        <Link to="/" className="logo">Jobforge_</Link>
+        <Link to="/" className="logo" onClick={closeMobileMenu}>Jobforge_</Link>
         <button className="burger-menu" onClick={toggleMobileMenu}>
           {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
         </button>
         <nav className={`nav ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>
           {isAuthenticated ? (
             <>
-              {profile?.role === 'admin' ? (
+              {['admin', 'moderator'].includes(currentRole || '') ? (
                 <>
-                  <Link to="/profile" onClick={closeMobileMenu}>Profile</Link>
-                  <Link to="/find-job" onClick={closeMobileMenu}>Find Job</Link>
-                  <Link to="/find-talent" onClick={closeMobileMenu}>Find Talent</Link>
-                  <Link to="/messages" onClick={closeMobileMenu}>
-                    Messages {unreadCount > 0 && <span className="unread-count">{unreadCount}</span>}
-                  </Link>
-                  <Link to="/feedback" onClick={closeMobileMenu}>Feedback</Link>
-                  <span className="greeting">Hello, {profile.username}</span>
-                  <button onClick={() => { handleLogout(); closeMobileMenu(); }}>Logout</button>
+                  {showBackToDashboard && (
+                    <Link
+                      to={currentRole === 'admin' ? '/admin' : '/moderator'}
+                      onClick={closeMobileMenu}
+                    >
+                      Back to Dashboard
+                    </Link>
+                  )}
+                  <button onClick={() => { handleLogout(); closeMobileMenu(); }} className="action-button">Logout</button>
                 </>
               ) : (
                 <>
                   <Link to="/profile" onClick={closeMobileMenu}>Profile</Link>
-                  {profile.role === 'jobseeker' && (
+                  {profile?.role === 'jobseeker' && (
                     <>
                       <Link to="/my-applications" onClick={closeMobileMenu}>My Applications</Link>
                       <Link to="/find-job" onClick={closeMobileMenu}>Find Job</Link>
                     </>
                   )}
-                  {profile.role === 'employer' && (
+                  {profile?.role === 'employer' && (
                     <>
                       <Link to="/my-job-posts" onClick={closeMobileMenu}>My Job Posts</Link>
                       <Link to="/post-job" onClick={closeMobileMenu}>Post Job</Link>
@@ -135,8 +144,8 @@ const Header: React.FC = () => {
                     Messages {unreadCount > 0 && <span className="unread-count">{unreadCount}</span>}
                   </Link>
                   <Link to="/feedback" onClick={closeMobileMenu}>Feedback</Link>
-                  <span className="greeting">Hello, {profile.username}</span>
-                  <button onClick={() => { handleLogout(); closeMobileMenu(); }}>Logout</button>
+                  <span className="greeting">Hello, {profile?.username}</span>
+                  <button onClick={() => { handleLogout(); closeMobileMenu(); }} className="action-button">Logout</button>
                 </>
               )}
             </>

@@ -3,7 +3,8 @@ import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { io, Socket } from 'socket.io-client';
 import { 
   User, Profile, JobPost, Category, JobApplication, Review, Feedback, 
-  BlockedCountry, LoginCredentials, RegisterCredentials 
+  BlockedCountry, LoginCredentials, RegisterCredentials, PaginatedResponse,
+  JobSeekerProfile, JobApplicationDetails
 } from '@types';
 
 interface WebSocketMessage {
@@ -19,17 +20,6 @@ interface WebSocketMessage {
 interface WebSocketError {
   statusCode: number;
   message: string;
-}
-
-interface JobApplicationDetails {
-  id: string;
-  userId: string;
-  username: string;
-  email: string;
-  jobDescription: string;
-  appliedAt: string;
-  status: string;
-  job_post_id: string;
 }
 
 interface ComplaintData {
@@ -123,7 +113,7 @@ export const getProfile = async () => {
 export const getUserProfileById = async (id: string) => {
   console.log(`Fetching user profile for ID: ${id}`);
   try {
-    const response = await api.get<Profile>(`/users/${id}`);
+    const response = await api.get<JobSeekerProfile>(`/users/${id}`);
     console.log(`Profile fetched successfully:`, response.data);
     return response.data;
   } catch (error) {
@@ -190,7 +180,7 @@ export const searchJobPosts = async (params: {
   sort_by?: string;
   sort_order?: string;
 }) => {
-  const response = await api.get<JobPost[]>('/job-posts', { params });
+  const response = await api.get<PaginatedResponse<JobPost>>('/job-posts', { params });
   return response.data;
 };
 
@@ -200,7 +190,7 @@ export const searchJobseekers = async (params: {
   page?: number;
   limit?: number;
 }) => {
-  const response = await api.get<Profile[]>('/users', {
+  const response = await api.get<PaginatedResponse<JobSeekerProfile>>('/users', {
     params: { ...params, role: 'jobseeker' },
   });
   return response.data;
@@ -341,7 +331,7 @@ export const getUserOnlineStatus = async (id: string) => {
 };
 
 export const getAllJobPosts = async (params: { status?: string; pendingReview?: string }) => {
-  const response = await api.get<JobPost[]>('/admin/job-posts', { params });
+  const response = await api.get<PaginatedResponse<JobPost>>('/admin/job-posts', { params });
   return response.data;
 };
 
@@ -369,6 +359,14 @@ export const setJobPostApplicationLimitAdmin = async (id: string, limit: number)
   const response = await api.post<{ message: string; limit: number }>(
     `/admin/job-posts/${id}/set-application-limit`,
     { limit }
+  );
+  return response.data;
+};
+
+export const notifyCandidates = async (jobPostId: string, data: { limit: number; orderBy: 'beginning' | 'end' | 'random' }) => {
+  const response = await api.post<{ total: number; sent: number; jobPostId: string }>(
+    `/admin/job-posts/${jobPostId}/notify-candidates`,
+    data
   );
   return response.data;
 };
@@ -487,14 +485,6 @@ export const getChatHistory = async (jobApplicationId: string, params: { page?: 
   return response.data;
 };
 
-export const notifyCandidates = async (jobPostId: string, data: { limit: number; orderBy: 'beginning' | 'end' | 'random' }) => {
-  const response = await api.post<{ total: number; sent: number; jobPostId: string }>(
-    `/admin/job-posts/${jobPostId}/notify-candidates`,
-    data
-  );
-  return response.data;
-};
-
 export const verifyIdentity = async (id: string, verify: boolean) => {
   const response = await api.post<Profile>(`/admin/profile/${id}/verify-identity`, { verify });
   return response.data;
@@ -545,7 +535,7 @@ export const searchTalents = async (params: {
   sort_by?: string;
   sort_order?: string;
 }) => {
-  const response = await api.get<Profile[]>('/talents', { params });
+  const response = await api.get<PaginatedResponse<JobSeekerProfile>>('/talents', { params });
   return response.data;
 };
 
@@ -610,13 +600,56 @@ export const getJobPostsWithApplications = async (): Promise<JobPostWithApplicat
 export const getStats = async () => {
   try {
     const response: AxiosResponse<{
-      resumes: number;
-      vacancies: number;
-      employers: number;
+      totalResumes: number;
+      totalJobPosts: number;
+      totalEmployers: number;
     }> = await api.get('/stats');
+    console.log('Stats response:', response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching stats:', error);
-    throw error; 
+    throw error;
   }
+};
+
+// Moderator Endpoints
+export const approveJobPostModerator = async (id: string) => {
+  const response = await api.post<JobPost>(`/moderator/job-posts/${id}/approve`);
+  return response.data;
+};
+
+export const flagJobPostModerator = async (id: string) => {
+  const response = await api.post<JobPost>(`/moderator/job-posts/${id}/flag`);
+  return response.data;
+};
+
+export const getAllReviewsModerator = async () => {
+  const response = await api.get<Review[]>('/moderator/reviews');
+  return response.data;
+};
+
+export const deleteReviewModerator = async (id: string) => {
+  const response = await api.delete<{ message: string }>(`/moderator/reviews/${id}`);
+  return response.data;
+};
+
+export const getComplaintsModerator = async () => {
+  const response = await api.get<{
+    id: string;
+    complainant_id: string;
+    complainant: { id: string; username: string; email: string; role: string };
+    job_post_id?: string;
+    job_post?: { id: string; title: string; description: string };
+    profile_id?: string;
+    reason: string;
+    status: 'Pending' | 'Resolved' | 'Rejected';
+    created_at: string;
+    resolution_comment?: string;
+  }[]>('/moderator/complaints');
+  return response.data;
+};
+
+export const resolveComplaintModerator = async (id: string, data: { status: 'Resolved' | 'Rejected'; comment?: string }) => {
+  const response = await api.post(`/moderator/complaints/${id}/resolve`, data);
+  return response.data;
 };

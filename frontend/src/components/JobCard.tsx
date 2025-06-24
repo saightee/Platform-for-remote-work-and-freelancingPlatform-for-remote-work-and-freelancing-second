@@ -34,7 +34,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
           <p><strong>Location:</strong> {job.location || 'Remote'}</p>
         </div>
         <div className="job-card-footer">
-          <span className="salary">{job.salary ? `$${job.salary} per hour` : 'Not specified'}</span>
+          <span className="salary">{job.salary !== null ? `$${job.salary} per hour` : 'Not specified'}</span>
           <Link to={`/jobs/${job.id}`}>
             <button className="view-details-button">View Details</button>
           </Link>
@@ -47,7 +47,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
     <div className="job-card job-card-find-jobs">
       <div className="job-card-avatar">
         {job.employer?.avatar ? (
-          <img src={`https://jobforge.net/backend${job.employer?.avatar || ''}`} alt="Employer Avatar" />
+          <img src={`https://jobforge.net${job.employer.avatar}`} alt="Employer Avatar" />
         ) : (
           <FaUserCircle className="profile-avatar-icon" />
         )}
@@ -68,7 +68,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
         <p><strong>Location:</strong> {job.location || 'Not specified'}</p>
         <p><strong>Category:</strong> {job.category?.name || 'Not specified'}</p>
         <div className="job-card-footer">
-          <span className="salary">{job.salary ? `$${job.salary}/hr` : 'Not specified'}</span>
+          <span className="salary">{job.salary !== null ? `$${job.salary}/hr` : 'Not specified'}</span>
           <Link to={`/jobs/${job.id}`}>
             <button className="view-details-button">View Details</button>
           </Link>

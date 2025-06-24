@@ -1,20 +1,38 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { getProfile } from '../services/api';
+import { getProfile, initializeWebSocket } from '../services/api';
 import { Profile } from '@types';
+import { Socket } from 'socket.io-client';
 import { jwtDecode } from 'jwt-decode';
 
+interface Message {
+  id: string;
+  job_application_id: string;
+  sender_id: string;
+  recipient_id: string;
+  content: string;
+  created_at: string;
+  is_read: boolean;
+}
+
+interface WebSocketError {
+  statusCode: number;
+  message: string;
+}
+
 interface RoleContextType {
-  currentRole: 'employer' | 'jobseeker' | 'admin' | null;
+  currentRole: 'employer' | 'jobseeker' | 'admin' | 'moderator' | null;
   profile: Profile | null;
   isLoading: boolean;
   error: string | null;
   refreshProfile: () => Promise<void>;
+  socket: Socket | null;
+  socketStatus: 'connected' | 'disconnected' | 'reconnecting';
 }
 
 interface DecodedToken {
   email: string;
   sub: string;
-  role: 'employer' | 'jobseeker' | 'admin';
+  role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
   iat: number;
   exp: number;
 }
@@ -22,10 +40,12 @@ interface DecodedToken {
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
 export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentRole, setCurrentRole] = useState<'employer' | 'jobseeker' | 'admin' | null>(null);
+  const [currentRole, setCurrentRole] = useState<'employer' | 'jobseeker' | 'admin' | 'moderator' | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [socketStatus, setSocketStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('disconnected');
 
   const fetchProfile = async () => {
     const token = localStorage.getItem('token');
@@ -34,6 +54,8 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
       setProfile(null);
       setCurrentRole(null);
+      setSocket(null);
+      setSocketStatus('disconnected');
       return;
     }
 
@@ -42,10 +64,12 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const decoded: DecodedToken = jwtDecode(token);
         console.log('Decoded token:', decoded);
         setCurrentRole(decoded.role);
-        if (decoded.role === 'admin') {
-          console.log('Admin role detected, skipping profile fetch.');
+        if (['admin', 'moderator'].includes(decoded.role)) {
+          console.log(`${decoded.role} role detected, skipping profile fetch.`);
           setProfile(null);
           setIsLoading(false);
+          setSocket(null);
+          setSocketStatus('disconnected');
           return;
         }
       } else {
@@ -63,8 +87,12 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Unauthorized or profile not found. Token:', token);
         setError('Unauthorized or profile not found. Please check your credentials.');
         setProfile(null);
-        const decoded: DecodedToken = jwtDecode(token);
-        setCurrentRole(decoded.role);
+        if (token) {
+          const decoded: DecodedToken = jwtDecode(token);
+          setCurrentRole(decoded.role);
+        } else {
+          setCurrentRole(null);
+        }
       } else {
         setError('Failed to load profile.');
         setProfile(null);
@@ -81,10 +109,53 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     fetchProfile();
-  }, []);
+
+    if (profile && ['jobseeker', 'employer'].includes(profile.role)) {
+      const newSocket = initializeWebSocket(
+        (message: Message) => {
+          // Обработчик новых сообщений будет задаваться в компонентах
+        },
+        (error: WebSocketError) => {
+          console.error('WebSocket error in RoleContext:', error);
+          setSocketStatus('disconnected');
+        }
+      );
+
+      newSocket.on('connect', () => {
+        console.log('WebSocket connected in RoleContext');
+        setSocketStatus('connected');
+      });
+
+      newSocket.on('connect_error', () => {
+        console.error('WebSocket connection error in RoleContext');
+        setSocketStatus('reconnecting');
+      });
+
+      newSocket.on('disconnect', () => {
+        console.log('WebSocket disconnected in RoleContext');
+        setSocketStatus('disconnected');
+      });
+
+      setSocket(newSocket);
+
+      return () => {
+        newSocket.disconnect();
+        setSocket(null);
+        setSocketStatus('disconnected');
+      };
+    }
+
+    return () => {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+        setSocketStatus('disconnected');
+      }
+    };
+  }, [profile]);
 
   return (
-    <RoleContext.Provider value={{ currentRole, profile, isLoading, error, refreshProfile }}>
+    <RoleContext.Provider value={{ currentRole, profile, isLoading, error, refreshProfile, socket, socketStatus }}>
       {children}
     </RoleContext.Provider>
   );

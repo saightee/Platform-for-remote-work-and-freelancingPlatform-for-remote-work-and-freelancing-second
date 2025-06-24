@@ -6,11 +6,17 @@ import Copyright from '../components/Copyright';
 import { searchTalents, searchJobseekers, getCategories } from '../services/api';
 import { Profile, Category } from '@types';
 import { FaUserCircle, FaFilter } from 'react-icons/fa';
+import { AxiosError } from 'axios';
+
+interface TalentResponse {
+  total: number;
+  data: Profile[];
+}
 
 const FindTalent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [talents, setTalents] = useState<Profile[]>([]);
-  const [total, setTotal] = useState<number>(0); // Для пагинации
+  const [total, setTotal] = useState<number>(0);
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchType, setSearchType] = useState<'talents' | 'jobseekers'>('talents');
   const [filters, setFilters] = useState<{
@@ -53,27 +59,45 @@ const FindTalent: React.FC = () => {
               }),
           getCategories(),
         ]);
-        console.log('Fetched talents:', JSON.stringify(response, null, 2));
-        if (!Array.isArray(response)) {
-          console.error('Talents data is not an array:', response);
-          setError('Invalid data format received. Please try again.');
+        console.log('Fetched data:', JSON.stringify(response, null, 2));
+        let talentData: Profile[] = [];
+        let totalCount = 0;
+
+        // Универсальная обработка ответа
+        if ('total' in response && 'data' in response && Array.isArray(response.data)) {
+          // Формат { total, data }
+          talentData = response.data;
+          totalCount = response.total;
+        } else if (Array.isArray(response)) {
+          // Формат Profile[]
+          talentData = response;
+          totalCount = response.length;
+        } else {
+          console.error('Invalid response format:', response);
+          setError('Invalid data format received from server. Please try again.');
           setTalents([]);
           setTotal(0);
           return;
         }
-        setTalents(response);
-        // Предполагаем, что бэкенд возвращает total (нужно уточнить у бэкенда)
-        setTotal((response as any).total || response.length);
+
+        setTalents(talentData);
+        setTotal(totalCount);
         setCategories(categoriesData);
-      } catch (err: any) {
-        console.error('Error fetching talents:', err);
-        setError(err.response?.data?.message || 'Failed to load talents. Please try again.');
+      } catch (err) {
+        const axiosError = err as AxiosError<{ message?: string }>;
+        console.error('Error fetching data:', axiosError);
+        if (axiosError.response?.status === 401) {
+          setError('Unauthorized access. Please log in again.');
+          navigate('/login');
+        } else {
+          setError(axiosError.response?.data?.message || 'Failed to load talents. Please try again.');
+        }
       } finally {
         setIsLoading(false);
       }
     };
     fetchData();
-  }, [filters, searchType]);
+  }, [filters, searchType, navigate]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,21 +114,21 @@ const FindTalent: React.FC = () => {
   };
 
   const toggleFilterPanel = () => {
-    setIsFilterPanelOpen(prev => !prev);
+    setIsFilterPanelOpen((prev) => !prev);
   };
 
-  const truncateDescription = (description: string, maxLength: number) => {
-    if (description.length > maxLength) {
+  const truncateDescription = (description: string | undefined, maxLength: number) => {
+    if (description && description.length > maxLength) {
       return description.substring(0, maxLength) + '...';
     }
-    return description;
+    return description || '';
   };
 
   const totalPages = Math.ceil(total / filters.limit) || 1;
 
   const getVisiblePages = () => {
     const maxVisible = 5;
-    const pages = [];
+    const pages: (number | string)[] = [];
     const currentPage = filters.page;
 
     if (currentPage <= 3) {
@@ -135,9 +159,6 @@ const FindTalent: React.FC = () => {
     return pages;
   };
 
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div className="error-message">{error}</div>;
-
   return (
     <div>
       <Header />
@@ -156,14 +177,14 @@ const FindTalent: React.FC = () => {
               type="text"
               placeholder="Search by username"
               value={filters.username}
-              onChange={(e) => setFilters({ ...filters, username: e.target.value })}
+              onChange={(e) => setFilters((prev) => ({ ...prev, username: e.target.value }))}
             />
           )}
           <input
             type="text"
             placeholder="Search by skills or keywords"
             value={filters.skills}
-            onChange={(e) => setFilters({ ...filters, skills: e.target.value })}
+            onChange={(e) => setFilters((prev) => ({ ...prev, skills: e.target.value }))}
           />
           <button onClick={handleSearch}>Search</button>
           <button className="ft-filter-toggle" onClick={toggleFilterPanel}>
@@ -179,7 +200,7 @@ const FindTalent: React.FC = () => {
                 <input
                   type="text"
                   value={filters.skills}
-                  onChange={(e) => setFilters({ ...filters, skills: e.target.value })}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, skills: e.target.value }))}
                   placeholder="Enter skills (e.g., JavaScript, Python)"
                 />
               </div>
@@ -189,7 +210,7 @@ const FindTalent: React.FC = () => {
                   <input
                     type="text"
                     value={filters.username}
-                    onChange={(e) => setFilters({ ...filters, username: e.target.value })}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, username: e.target.value }))}
                     placeholder="Enter username"
                   />
                 </div>
@@ -199,7 +220,7 @@ const FindTalent: React.FC = () => {
                 <input
                   type="text"
                   value={filters.experience}
-                  onChange={(e) => setFilters({ ...filters, experience: e.target.value })}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, experience: e.target.value }))}
                   placeholder="Enter experience (e.g., 3 years)"
                 />
               </div>
@@ -211,10 +232,10 @@ const FindTalent: React.FC = () => {
                   max="5"
                   value={filters.rating || ''}
                   onChange={(e) =>
-                    setFilters({
-                      ...filters,
+                    setFilters((prev) => ({
+                      ...prev,
                       rating: e.target.value ? Number(e.target.value) : undefined,
-                    })
+                    }))
                   }
                   placeholder="Enter rating (0-5)"
                 />
@@ -224,7 +245,7 @@ const FindTalent: React.FC = () => {
                 <input
                   type="text"
                   value={filters.timezone}
-                  onChange={(e) => setFilters({ ...filters, timezone: e.target.value })}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, timezone: e.target.value }))}
                   placeholder="Enter timezone (e.g., America/New_York)"
                 />
               </div>
@@ -232,7 +253,7 @@ const FindTalent: React.FC = () => {
                 <label>Category:</label>
                 <select
                   value={filters.category_id}
-                  onChange={(e) => setFilters({ ...filters, category_id: e.target.value })}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, category_id: e.target.value }))}
                 >
                   <option value="">All Categories</option>
                   {categories.map((category) => (
@@ -242,14 +263,21 @@ const FindTalent: React.FC = () => {
                   ))}
                 </select>
               </div>
-              <button type="submit" className="ft-button ft-success">Apply Filters</button>
+              <button type="submit" className="ft-button ft-success">
+                Apply Filters
+              </button>
             </form>
           </div>
           <div className="ft-results">
             <div className="ft-grid">
-              {talents.length > 0 ? (
+              {isLoading ? (
+                <p>Loading...</p>
+              ) : error ? (
+                <p className="error-message">{error}</p>
+              ) : talents.length > 0 ? (
                 talents.map((talent) => {
-                  const rating = (talent as any).average_rating ?? (talent as any).averageRating ?? null;
+                  const rating =
+                    (talent as any).average_rating ?? (talent as any).averageRating ?? null;
                   const skills = Array.isArray((talent as any).skills) ? (talent as any).skills : [];
                   const experience = (talent as any).experience ?? null;
                   const categoryList = Array.isArray((talent as any).categories)
@@ -257,13 +285,20 @@ const FindTalent: React.FC = () => {
                     : Array.isArray((talent as any).skillCategories)
                     ? (talent as any).skillCategories
                     : [];
-                  const profileViews = (talent as any).profile_views ?? (talent as any).profileViews ?? 0;
+                  const profileViews =
+                    (talent as any).profile_views ?? (talent as any).profileViews ?? 0;
 
                   return (
                     <div key={talent.id} className="ft-card">
                       <div className="ft-avatar-top">
                         {talent.avatar ? (
-                          <img src={`https://jobforge.net/backend${talent.avatar}`} alt="Talent Avatar" />
+                          <img
+                            src={`https://jobforge.net/backend${talent.avatar}`}
+                            alt="Talent Avatar"
+                            onError={(e) => {
+                              e.currentTarget.src = '/path/to/fallback-avatar.jpg'; // Укажите реальный путь
+                            }}
+                          />
                         ) : (
                           <FaUserCircle className="ft-avatar-icon" />
                         )}
@@ -272,20 +307,33 @@ const FindTalent: React.FC = () => {
                         <div className="ft-title-row">
                           <h3>{talent.username}</h3>
                           {typeof rating === 'number' && (
-                            <span className="ft-rating-top-right">{Array.from({ length: 5 }, (_, i) => (
-                              <span key={i} className={i < Math.floor(rating) ? 'ft-star-filled' : 'ft-star'}>
-                                ★
-                              </span>
-                            ))}</span>
+                            <span className="ft-rating-top-right">
+                              {Array.from({ length: 5 }, (_, i) => (
+                                <span
+                                  key={i}
+                                  className={i < Math.floor(rating) ? 'ft-star-filled' : 'ft-star'}
+                                >
+                                  ★
+                                </span>
+                              ))}
+                            </span>
                           )}
                         </div>
                         <div className="ft-details-columns">
                           <div className="ft-details-column">
-                            <p><strong>Skills:</strong> {skills.length > 0 ? skills.join(', ') : 'Not specified'}</p>
-                            <p><strong>Experience:</strong> {experience || 'Not specified'}</p>
+                            <p>
+                              <strong>Skills:</strong>{' '}
+                              {skills.length > 0 ? skills.join(', ') : 'Not specified'}
+                            </p>
+                            <p>
+                              <strong>Experience:</strong> {experience || 'Not specified'}
+                            </p>
                           </div>
                           <div className="ft-details-column">
-                            <p><strong>Profile Views:</strong> {typeof profileViews === 'number' ? profileViews : 0}</p>
+                            <p>
+                              <strong>Profile Views:</strong>{' '}
+                              {typeof profileViews === 'number' ? profileViews : 0}
+                            </p>
                             <p>
                               <strong>Categories:</strong>{' '}
                               {categoryList.length > 0
@@ -308,25 +356,29 @@ const FindTalent: React.FC = () => {
                 <p>No talents found.</p>
               )}
             </div>
-            <div className="ft-pagination">
-              {getVisiblePages().map((page, index) => (
+            {total > 0 && (
+              <div className="ft-pagination">
+                {getVisiblePages().map((page, index) => (
+                  <button
+                    key={index}
+                    className={`ft-button ${
+                      page === filters.page ? 'ft-current' : ''
+                    } ${page === '...' ? 'ft-ellipsis' : ''}`}
+                    onClick={() => typeof page === 'number' && handlePageChange(page)}
+                    disabled={page === '...' || page === filters.page}
+                  >
+                    {page}
+                  </button>
+                ))}
                 <button
-                  key={index}
-                  className={`ft-button ${page === filters.page ? 'ft-current' : ''} ${page === '...' ? 'ft-ellipsis' : ''}`}
-                  onClick={() => typeof page === 'number' && handlePageChange(page)}
-                  disabled={page === '...' || page === filters.page}
+                  className="ft-arrow"
+                  onClick={() => handlePageChange(filters.page + 1)}
+                  disabled={filters.page === totalPages}
                 >
-                  {page}
+                  Next
                 </button>
-              ))}
-              <button
-                className="ft-arrow"
-                onClick={() => handlePageChange(filters.page + 1)}
-                disabled={filters.page === totalPages}
-              >
-                Next
-              </button>
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

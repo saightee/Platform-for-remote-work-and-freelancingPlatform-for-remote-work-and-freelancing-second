@@ -109,16 +109,16 @@ const JobDetails: React.FC = () => {
           </a>
           <h1>{job.title}</h1>
           <div className="employer-info">
-            {job?.employer?.avatar ? (
+            {job.employer?.avatar ? (
               <img
-                src={`https://jobforge.net/backend${job.employer.avatar}`}
+                src={`https://jobforge.net${job.employer.avatar}`}
                 alt="Employer Avatar"
                 className="employer-avatar"
               />
             ) : (
               <FaUserCircle className="employer-avatar" />
             )}
-            <span className="employer-name">{job?.employer?.username || 'Unknown'}</span>
+            <span className="employer-name">{job.employer?.username || 'Unknown'}</span>
           </div>
           {!profile && (
             <p className="login-prompt">
@@ -140,14 +140,14 @@ const JobDetails: React.FC = () => {
           </div>
           <div className="job-detail-item">
             <FaDollarSign /> <strong>Salary:</strong>{' '}
-            {job.salary ? `$${job.salary}` : 'Not specified'}
+            {job.salary !== null ? `$${job.salary}` : 'Not specified'}
           </div>
           <div className="job-detail-item">
             <FaMapMarkerAlt /> <strong>Location:</strong> {job.location || 'Not specified'}
           </div>
           <div className="job-detail-item">
             <FaCalendarAlt /> <strong>Date Updated:</strong>{' '}
-            {formatDateInTimezone(job.updated_at, profile?.timezone) || 'Jun 9, 2025, 1:05 PM'}
+            {formatDateInTimezone(job.updated_at, profile?.timezone) || 'Not specified'}
           </div>
           <div className="job-detail-item">
             <FaEye /> <strong>Views:</strong> {job.views || 0}
