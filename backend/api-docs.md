@@ -1805,9 +1805,10 @@
   ```json
   [
     {
-      "employer_id": "<employerId>",
+      "userId": "<employerId>",
       "username": "jane_smith113",
-      "job_count": 5
+      "email": "jane@example.com",
+      "averageRating": 4.5
     }
   ]
 

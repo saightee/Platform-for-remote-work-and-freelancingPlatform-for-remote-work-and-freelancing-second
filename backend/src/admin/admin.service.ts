@@ -19,6 +19,7 @@ import * as bcrypt from 'bcrypt';
 import { AntiFraudService } from '../anti-fraud/anti-fraud.service'; 
 import { UserFingerprint } from '../anti-fraud/entities/user-fingerprint.entity';
 import { EmailService } from '../email/email.service';
+import { Complaint } from '../complaints/complaint.entity';
 
 @Injectable()
 export class AdminService {
@@ -47,6 +48,8 @@ export class AdminService {
     private redisService: RedisService,
     private antiFraudService: AntiFraudService,
     private emailService: EmailService,
+    @InjectRepository(Complaint)
+    private complaintsRepository: Repository<Complaint>,
   ) {}
 
   async checkAdminRole(userId: string) {
@@ -131,7 +134,7 @@ export class AdminService {
       if (!user) {
           throw new NotFoundException('User not found');
       }
-    
+
       try {
           if (user.role === 'employer') {
               const jobPosts = await this.jobPostsRepository.find({ where: { employer_id: userId } });
@@ -155,12 +158,15 @@ export class AdminService {
               await this.jobApplicationsRepository.delete({ job_seeker_id: userId });
               await this.jobSeekerRepository.delete({ user_id: userId });
           }
-        
+
           await this.reviewsRepository.delete({ reviewer_id: userId });
           await this.reviewsRepository.delete({ reviewed_id: userId });
-        
+
+          await this.complaintsRepository.delete({ complainant_id: userId });
+          await this.complaintsRepository.delete({ profile_id: userId });
+
           await this.fingerprintRepository.delete({ user_id: userId });
-        
+
           await this.usersRepository.delete(userId);
           return { message: 'User deleted successfully' };
       } catch (error) {
@@ -270,6 +276,7 @@ export class AdminService {
 
       await this.jobApplicationsRepository.delete({ job_post_id: jobPostId });
       await this.applicationLimitsRepository.delete({ job_post_id: jobPostId });
+      await this.complaintsRepository.delete({ job_post_id: jobPostId });
       await this.jobPostsRepository.delete(jobPostId);
       return { message: 'Job post deleted successfully' };
     } catch (error) {
