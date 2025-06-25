@@ -41,6 +41,7 @@ export class ChatGateway {
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth.token?.replace('Bearer ', '');
+      console.log(`Client connecting with token: ${token?.slice(0, 10)}...`);
       if (!token) {
         throw new UnauthorizedException('Token is required');
       }
@@ -105,7 +106,6 @@ export class ChatGateway {
       const room = `chat:${jobApplicationId}`;
       this.server.to(room).emit('newMessage', message);
 
-      await this.redisService.set(`message:${message.id}`, JSON.stringify(message), 3600);
       console.log(`Message sent to room ${room} by user ${senderId}`);
       return message;
     } catch (error) {

@@ -98,23 +98,16 @@ export class JobApplicationsService {
 
     console.log('Applications:', JSON.stringify(applications, null, 2));
 
-    const result = await Promise.all(
+  const result = await Promise.all(
       applications.map(async app => {
         const jobSeeker = await this.jobSeekerRepository.findOne({
           where: { user_id: app.job_seeker_id },
         });
-
         const userData = app.job_seeker;
         if (!userData) {
-          return {
-            userId: '',
-            username: '',
-            email: '',
-            jobDescription: '',
-            appliedAt: app.created_at,
-          };
+          console.warn(`No user data for job_seeker_id ${app.job_seeker_id}`);
+          return null; 
         }
-
         return {
           userId: userData.id,
           username: userData.username,
@@ -124,13 +117,13 @@ export class JobApplicationsService {
         };
       }),
     );
-
-    return result;
+    return result.filter(item => item !== null); 
   }
 
   async updateApplicationStatus(userId: string, applicationId: string, status: 'Pending' | 'Accepted' | 'Rejected') {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
+      console.error(`User ${userId} not found`);
       throw new NotFoundException('User not found');
     }
     if (user.role !== 'employer') {
