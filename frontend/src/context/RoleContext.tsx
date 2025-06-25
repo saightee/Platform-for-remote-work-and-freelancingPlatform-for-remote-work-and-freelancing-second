@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { getProfile, initializeWebSocket } from '../services/api';
+import { getProfile, initializeWebSocket, getMyApplications, getMyJobPosts, getApplicationsForJobPost } from '../services/api';
 import { Profile } from '@types';
 import { Socket } from 'socket.io-client';
 import { jwtDecode } from 'jwt-decode';
@@ -76,12 +76,12 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Invalid token format:', token);
       }
       setIsLoading(true);
-setError(null); // Очистка ошибки при успехе
-  const profileData = await getProfile();
-  console.log('Profile fetched:', profileData);
-  setProfile(profileData);
-  setCurrentRole(profileData.role);
-} catch (error: any) {
+      setError(null);
+      const profileData = await getProfile();
+      console.log('Profile fetched:', profileData);
+      setProfile(profileData);
+      setCurrentRole(profileData.role);
+    } catch (error: any) {
       console.error('Error fetching profile in RoleContext:', error);
       if (error.response?.status === 401 || error.response?.status === 404) {
         console.error('Unauthorized or profile not found. Token:', token);
@@ -120,42 +120,67 @@ setError(null); // Очистка ошибки при успехе
   }, []);
 
   useEffect(() => {
-    if (profile && ['jobseeker', 'employer'].includes(profile.role) && !socket) {
-      const newSocket = initializeWebSocket(
-        (message: Message) => {
-          // Обработчик новых сообщений будет задаваться в компонентах
-        },
-        (error: WebSocketError) => {
-          console.error('WebSocket error in RoleContext:', error);
-          setSocketStatus('disconnected');
-        }
-      );
-
-      newSocket.on('connect', () => {
-        console.log('WebSocket connected in RoleContext');
-        setSocketStatus('connected');
-      });
-
-   newSocket.on('connect_error', () => {
-  console.error('WebSocket connection error in RoleContext');
-  setSocketStatus('reconnecting');
-  setError('Failed to connect to real-time updates. Please try again later.');
-});
-
-      newSocket.on('disconnect', () => {
-        console.log('WebSocket disconnected in RoleContext');
-        setSocketStatus('disconnected');
-      });
-
-      setSocket(newSocket);
-
-      return () => {
-        newSocket.disconnect();
-        setSocket(null);
-        setSocketStatus('disconnected');
-      };
+    if (!profile || !['jobseeker', 'employer'].includes(profile.role) || socket) {
+      return;
     }
-  }, [profile, socket]);
+
+    const initializeSocket = async () => {
+      try {
+        let hasApplications = false;
+        if (profile.role === 'jobseeker') {
+          const apps = await getMyApplications();
+          hasApplications = apps.some(app => app.status === 'Accepted');
+        } else if (profile.role === 'employer') {
+          const posts = await getMyJobPosts();
+          const appsPromises = posts.map(post => getApplicationsForJobPost(post.id));
+          const appsArrays = await Promise.all(appsPromises);
+          hasApplications = appsArrays.flat().some(app => app.status === 'Accepted');
+        }
+
+        if (!hasApplications) {
+          console.log('No accepted applications, skipping WebSocket initialization.');
+          return;
+        }
+
+        const newSocket = initializeWebSocket(
+          () => {}, // Пустой обработчик, так как события обрабатываются в компонентах
+          (error: WebSocketError) => {
+            console.error('WebSocket error in RoleContext:', error);
+            setSocketStatus('disconnected');
+            setError(error.message || 'WebSocket error occurred.');
+          }
+        );
+
+        newSocket.on('connect', () => {
+          console.log('WebSocket connected in RoleContext, transport:', newSocket.io.engine.transport.name);
+          setSocketStatus('connected');
+        });
+
+        newSocket.on('connect_error', (err) => {
+          console.error('WebSocket connection error in RoleContext:', err.message);
+          setSocketStatus('reconnecting');
+          setError('Failed to connect to real-time updates. Retrying...');
+        });
+
+        newSocket.on('disconnect', () => {
+          console.log('WebSocket disconnected in RoleContext');
+          setSocketStatus('disconnected');
+        });
+
+        setSocket(newSocket);
+
+        return () => {
+          newSocket.disconnect();
+          setSocket(null);
+          setSocketStatus('disconnected');
+        };
+      } catch (err) {
+        console.error('Error checking applications for WebSocket:', err);
+      }
+    };
+
+    initializeSocket();
+  }, [profile]);
 
   return (
     <RoleContext.Provider value={{ currentRole, profile, isLoading, error, refreshProfile, socket, socketStatus }}>

@@ -54,11 +54,20 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    console.error('Axios error:', err.message, err.config?.url, err.code);
+    return Promise.reject(err);
+  }
+);
 export const initializeWebSocket = (onMessage: (message: WebSocketMessage) => void, onError: (error: WebSocketError) => void): Socket => {
   const token = localStorage.getItem('token');
   const socket = io(import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000', {
-    auth: { token: `Bearer ${token}` },
+  auth: { token: `Bearer ${token}` },
+    transports: ['websocket', 'polling'], // Prioritize WebSocket
     reconnection: true,
+    reconnectionAttempts: 3, // Limit reconnection attempts
     reconnectionDelay: 3000,
   });
 

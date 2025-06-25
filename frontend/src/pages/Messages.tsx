@@ -74,8 +74,7 @@ const Messages: React.FC = () => {
       return;
     }
 
-    socket.on('connect', () => {
-      console.log('Connected to WebSocket server');
+    const joinChats = () => {
       if (currentRole === 'jobseeker') {
         applications.forEach(app => {
           socket.emit('joinChat', { jobApplicationId: app.id });
@@ -85,7 +84,7 @@ const Messages: React.FC = () => {
           socket.emit('joinChat', { jobApplicationId: app.id });
         });
       }
-    });
+    };
 
     socket.on('chatHistory', (history: Message[]) => {
       if (history.length > 0) {
@@ -115,16 +114,16 @@ const Messages: React.FC = () => {
     });
 
     socket.on('connect_error', (err) => {
-      console.error('WebSocket connection error:', err);
+      console.error('WebSocket connection error in Messages:', err.message);
       setError('Failed to connect to chat server. Retrying...');
     });
+
+    joinChats();
 
     return () => {
       socket.off('chatHistory');
       socket.off('newMessage');
-      socket.off('connect');
       socket.off('connect_error');
-      setUnreadCounts({});
     };
   }, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
 

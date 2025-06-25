@@ -15,7 +15,7 @@ interface Message {
 }
 
 const Header: React.FC = () => {
-  const { profile, isLoading, currentRole, socket } = useRole();
+  const { profile, isLoading, currentRole, socket, socketStatus } = useRole();
   const token = localStorage.getItem('token');
   const isAuthenticated = !!token && (!!profile || ['admin', 'moderator'].includes(currentRole || ''));
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -23,61 +23,68 @@ const Header: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const location = useLocation();
 
-  // Проверяем, показывать ли "Back to Dashboard"
   const showBackToDashboard = ['admin', 'moderator'].includes(currentRole || '') &&
     !location.pathname.startsWith(currentRole === 'admin' ? '/admin' : '/moderator');
 
-useEffect(() => {
-  if (!profile || !['jobseeker', 'employer'].includes(profile.role) || !socket) {
-    setUnreadCount(0);
-    return;
-  }
-
-  const fetchUnreadMessages = async () => {
-    try {
-      let applications: { id: string }[] = [];
-      if (profile.role === 'jobseeker') {
-        const apps = await getMyApplications();
-        applications = apps.filter(app => app.status === 'Accepted');
-      } else if (profile.role === 'employer') {
-        const posts = await getMyJobPosts();
-        const appsPromises = posts.map(post => getApplicationsForJobPost(post.id));
-        const appsArrays = await Promise.all(appsPromises);
-        applications = appsArrays.flat().filter(app => app.status === 'Accepted');
-      }
-
-      applications.forEach(app => {
-        socket.emit('joinChat', { jobApplicationId: app.id });
-      });
-
-      socket.on('chatHistory', (history: Message[]) => {
-        const unread = history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length;
-        setUnreadCount(unread);
-      });
-
-      socket.on('newMessage', (message: Message) => {
-        if (message.recipient_id === profile.id && !message.is_read) {
-          setUnreadCount(prev => prev + 1);
-        }
-      });
-
-      socket.on('connect_error', (err) => {
-        console.error('WebSocket connection error in Header:', err);
-      });
-
-      return () => {
-        socket.off('chatHistory');
-        socket.off('newMessage');
-        socket.off('connect_error');
-        setUnreadCount(0);
-      };
-    } catch (err) {
-      console.error('Error fetching unread messages in Header:', err);
+  useEffect(() => {
+    if (!profile || !['jobseeker', 'employer'].includes(profile.role) || !socket || !token) {
+      setUnreadCount(0);
+      return;
     }
-  };
 
-  fetchUnreadMessages();
-}, [profile, socket]);
+    const fetchUnreadMessages = async () => {
+      try {
+        let applications: { id: string }[] = [];
+        if (profile.role === 'jobseeker') {
+          const apps = await getMyApplications();
+          applications = apps.filter(app => app.status === 'Accepted');
+        } else if (profile.role === 'employer') {
+          const posts = await getMyJobPosts();
+          const appsPromises = posts.map(post => getApplicationsForJobPost(post.id));
+          const appsArrays = await Promise.all(appsPromises);
+          applications = appsArrays.flat().filter(app => app.status === 'Accepted');
+        }
+
+        if (applications.length === 0) {
+          console.log('No accepted applications, skipping WebSocket join.');
+          setUnreadCount(0);
+          return;
+        }
+
+        applications.forEach(app => {
+          socket.emit('joinChat', { jobApplicationId: app.id });
+        });
+
+        socket.on('chatHistory', (history: Message[]) => {
+          if (history.length > 0) {
+            const unread = history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length;
+            setUnreadCount(unread);
+          }
+        });
+
+        socket.on('newMessage', (message: Message) => {
+          if (message.recipient_id === profile.id && !message.is_read) {
+            setUnreadCount(prev => prev + 1);
+          }
+        });
+
+        socket.on('connect_error', (err) => {
+          console.error('WebSocket connection error in Header:', err.message);
+        });
+
+      } catch (err) {
+        console.error('Error fetching unread messages in Header:', err);
+      }
+    };
+
+    fetchUnreadMessages();
+
+    return () => {
+      socket.off('chatHistory');
+      socket.off('newMessage');
+      socket.off('connect_error');
+    };
+  }, [profile, socket, token]);
 
   const handleLogout = async () => {
     try {
@@ -106,7 +113,6 @@ useEffect(() => {
     setIsDropdownOpen(prev => !prev);
   };
 
-  // Заглушка на время загрузки
   if (isLoading) {
     return (
       <header className="header-container">
@@ -163,6 +169,7 @@ useEffect(() => {
                   )}
                   <Link to="/messages" onClick={closeMobileMenu}>
                     Messages {unreadCount > 0 && <span className="unread-count">{unreadCount}</span>}
+                    {socketStatus === 'reconnecting' && <span className="reconnecting">...</span>}
                   </Link>
                   <Link to="/feedback" onClick={closeMobileMenu}>Feedback</Link>
                   <span className="greeting">Hello, {profile?.username}</span>
