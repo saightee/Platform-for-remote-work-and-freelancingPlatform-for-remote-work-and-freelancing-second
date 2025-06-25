@@ -44,6 +44,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Включение отправки и получения cookies
 });
 
 api.interceptors.request.use(async (config) => {
@@ -54,6 +55,7 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Интерцептор ответов для обработки ошибок
 api.interceptors.response.use(
   (res) => res,
   (err) => {
@@ -61,18 +63,41 @@ api.interceptors.response.use(
     return Promise.reject(err);
   }
 );
-export const initializeWebSocket = (onMessage: (message: WebSocketMessage) => void, onError: (error: WebSocketError) => void): Socket => {
+
+
+export const initializeWebSocket = (
+  onMessage: (message: WebSocketMessage) => void,
+  onError: (error: WebSocketError) => void
+): Socket => {
   const token = localStorage.getItem('token');
   const socket = io(import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000', {
-  auth: { token: `Bearer ${token}` },
-    transports: ['websocket', 'polling'], // Prioritize WebSocket
+    path: '/socket.io', // Убедитесь, что путь совпадает с серверной настройкой
+    auth: { token: token ? `Bearer ${token}` : '' }, // Передача токена через auth
+    transports: ['websocket', 'polling'], // Приоритет WebSocket
     reconnection: true,
-    reconnectionAttempts: 3, // Limit reconnection attempts
+    reconnectionAttempts: 3,
     reconnectionDelay: 3000,
+    withCredentials: true, // Включение cookies для WebSocket
+  });
+
+  socket.on('connect', () => {
+    console.log('WebSocket connected, transport:', socket.io.engine.transport.name);
   });
 
   socket.on('newMessage', onMessage);
-  socket.on('error', onError);
+  socket.on('error', (error) => {
+    console.error('WebSocket server error:', error);
+    onError(error);
+  });
+
+  socket.on('connect_error', (err) => {
+    console.error('WebSocket connection error:', err.message);
+    onError({ statusCode: 500, message: err.message });
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log('WebSocket disconnected:', reason);
+  });
 
   return socket;
 };

@@ -69,63 +69,64 @@ const Messages: React.FC = () => {
   }, [profile, currentRole]);
 
   useEffect(() => {
-    if (!profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole) || !socket) {
-      setUnreadCounts({});
-      return;
+  if (!profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole) || !socket) {
+    setUnreadCounts({});
+    return;
+  }
+
+  const joinChats = () => {
+    if (currentRole === 'jobseeker') {
+      applications.forEach(app => {
+        socket.emit('joinChat', { jobApplicationId: app.id });
+      });
+    } else if (currentRole === 'employer') {
+      Object.values(jobPostApplications).flat().forEach(app => {
+        socket.emit('joinChat', { jobApplicationId: app.id });
+      });
     }
+  };
 
-    const joinChats = () => {
-      if (currentRole === 'jobseeker') {
-        applications.forEach(app => {
-          socket.emit('joinChat', { jobApplicationId: app.id });
-        });
-      } else if (currentRole === 'employer') {
-        Object.values(jobPostApplications).flat().forEach(app => {
-          socket.emit('joinChat', { jobApplicationId: app.id });
-        });
-      }
-    };
-
-    socket.on('chatHistory', (history: Message[]) => {
-      if (history.length > 0) {
-        const jobApplicationId = history[0].job_application_id;
-        setMessages(prev => ({
-          ...prev,
-          [jobApplicationId]: history.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        }));
-        setUnreadCounts(prevCounts => ({
-          ...prevCounts,
-          [jobApplicationId]: selectedChat === jobApplicationId ? 0 : history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length
-        }));
-      }
-    });
-
-    socket.on('newMessage', (message: Message) => {
+  socket.on('chatHistory', (history: Message[]) => {
+    if (history.length > 0) {
+      const jobApplicationId = history[0].job_application_id;
       setMessages(prev => ({
         ...prev,
-        [message.job_application_id]: [...(prev[message.job_application_id] || []), message]
+        [jobApplicationId]: history.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
       }));
-      if (message.recipient_id === profile.id && !message.is_read && selectedChat !== message.job_application_id) {
-        setUnreadCounts(prevCounts => ({
-          ...prevCounts,
-          [message.job_application_id]: (prevCounts[message.job_application_id] || 0) + 1
-        }));
-      }
-    });
+      setUnreadCounts(prevCounts => ({
+        ...prevCounts,
+        [jobApplicationId]: selectedChat === jobApplicationId ? 0 : history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length
+      }));
+    }
+  });
 
-    socket.on('connect_error', (err) => {
-      console.error('WebSocket connection error in Messages:', err.message);
-      setError('Failed to connect to chat server. Retrying...');
-    });
+  socket.on('newMessage', (message: Message) => {
+    setMessages(prev => ({
+      ...prev,
+      [message.job_application_id]: [...(prev[message.job_application_id] || []), message]
+    }));
+    if (message.recipient_id === profile.id && !message.is_read && selectedChat !== message.job_application_id) {
+      setUnreadCounts(prevCounts => ({
+        ...prevCounts,
+        [message.job_application_id]: (prevCounts[message.job_application_id] || 0) + 1
+      }));
+    }
+  });
 
-    joinChats();
+  socket.on('connect_error', (err) => {
+    console.error('WebSocket connection error in Messages:', err.message);
+    setError('Failed to connect to chat server. Retrying...');
+  });
 
-    return () => {
-      socket.off('chatHistory');
-      socket.off('newMessage');
-      socket.off('connect_error');
-    };
-  }, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
+  joinChats();
+
+  return () => {
+    socket.off('chatHistory');
+    socket.off('newMessage');
+    socket.off('connect_error');
+    // socket.disconnect(); // Комментируем, так как WebSocket управляется в RoleContext
+  };
+}, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
