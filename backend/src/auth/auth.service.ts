@@ -135,7 +135,7 @@ export class AuthService {
       console.log(`[verifyEmail] Токен удалён из Redis: verify:${token}`);
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, req: any) {
     const { email, password, rememberMe } = dto;
     const user = await this.usersService.findByEmail(email);
     if (!user || !(await bcrypt.compare(password, user.password))) {
