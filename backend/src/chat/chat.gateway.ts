@@ -6,7 +6,16 @@ import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
 
-@WebSocketGateway({ cors: { origin: '*' } })
+@WebSocketGateway({
+  cors: {
+    origin: ['https://jobforge.net', 'http://localhost:3000'], 
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+  pingInterval: 25000,
+  pingTimeout: 30000, 
+  transports: ['websocket', 'polling'], 
+})
 export class ChatGateway {
   @WebSocketServer()
   server: Server;
@@ -17,6 +26,17 @@ export class ChatGateway {
     private configService: ConfigService,
     private redisService: RedisService,
   ) {}
+
+  afterInit() {
+    this.server.engine.on('connection_error', (err) => {
+      console.error('Socket.IO connection error:', {
+        code: err.code,
+        message: err.message,
+        context: err.context,
+      });
+    });
+    console.log('Socket.IO server initialized');
+  }
 
   async handleConnection(client: Socket) {
     try {
@@ -30,19 +50,19 @@ export class ChatGateway {
       client.data.userId = payload.sub;
       client.data.role = payload.role;
 
-      // Store socket ID in Redis
       await this.redisService.set(`socket:${client.data.userId}`, client.id, 3600);
-      console.log(`User ${client.data.userId} connected with socket ID ${client.id}`);
+      console.log(`User ${client.data.userId} connected with socket ID ${client.id}, transport: ${client.conn.transport.name}`);
     } catch (error) {
-      client.disconnect();
       console.error('Connection error:', error.message);
+      client.emit('error', { message: error.message });
+      client.disconnect();
     }
   }
 
   async handleDisconnect(client: Socket) {
     if (client.data.userId) {
       await this.redisService.del(`socket:${client.data.userId}`);
-      console.log(`User ${client.data.userId} disconnected`);
+      console.log(`User ${client.data.userId} disconnected, Redis key removed`);
     }
   }
 
@@ -54,18 +74,22 @@ export class ChatGateway {
     const { jobApplicationId } = data;
     const userId = client.data.userId;
 
-    const hasAccess = await this.chatService.hasChatAccess(userId, jobApplicationId);
-    if (!hasAccess) {
-      throw new UnauthorizedException('No access to this chat');
+    try {
+      const hasAccess = await this.chatService.hasChatAccess(userId, jobApplicationId);
+      if (!hasAccess) {
+        throw new UnauthorizedException('No access to this chat');
+      }
+
+      const room = `chat:${jobApplicationId}`;
+      client.join(room);
+      console.log(`User ${userId} joined chat room ${room}`);
+
+      const messages = await this.chatService.getChatHistory(jobApplicationId);
+      client.emit('chatHistory', messages);
+    } catch (error) {
+      client.emit('error', { message: error.message });
+      console.error(`Join chat error for user ${userId}:`, error.message);
     }
-
-    const room = `chat:${jobApplicationId}`;
-    client.join(room);
-    console.log(`User ${userId} joined chat room ${room}`);
-
-    // Send chat history to the client
-    const messages = await this.chatService.getChatHistory(jobApplicationId);
-    client.emit('chatHistory', messages);
   }
 
   @SubscribeMessage('sendMessage')
@@ -76,15 +100,17 @@ export class ChatGateway {
     const { jobApplicationId, content } = data;
     const senderId = client.data.userId;
 
-    const message = await this.chatService.createMessage(senderId, jobApplicationId, content);
-    const room = `chat:${jobApplicationId}`;
+    try {
+      const message = await this.chatService.createMessage(senderId, jobApplicationId, content);
+      const room = `chat:${jobApplicationId}`;
+      this.server.to(room).emit('newMessage', message);
 
-    // Broadcast message to the chat room
-    this.server.to(room).emit('newMessage', message);
-
-    // Cache message in Redis (optional, for quick access)
-    await this.redisService.set(`message:${message.id}`, JSON.stringify(message), 3600);
-
-    return message;
+      await this.redisService.set(`message:${message.id}`, JSON.stringify(message), 3600);
+      console.log(`Message sent to room ${room} by user ${senderId}`);
+      return message;
+    } catch (error) {
+      client.emit('error', { message: error.message });
+      console.error(`Send message error for user ${senderId}:`, error.message);
+    }
   }
 }
