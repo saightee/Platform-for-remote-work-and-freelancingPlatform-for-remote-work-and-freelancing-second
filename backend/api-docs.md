@@ -2290,7 +2290,8 @@
   ```json
   {
     "userId": "<userId>",
-    "isOnline": true
+    "isOnline": true,
+    "role": "jobseeker" // или "employer"
   }
 
 - **Response (Error - 401, if token is invalid)**:  
