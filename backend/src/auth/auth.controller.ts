@@ -47,7 +47,14 @@ export class AuthController {
 
   @Post('login')
   async login(@Body() loginDto: LoginDto, @Req() req: any) {
-    return this.authService.login(loginDto, req);
+    return this.authService.login(
+      loginDto.email,
+      loginDto.password,
+      loginDto.rememberMe ?? false, // Значение по умолчанию false
+      req.ip,
+      req.headers['x-fingerprint'],
+      req.session,
+    );
   }
 
   @Post('google-login')
