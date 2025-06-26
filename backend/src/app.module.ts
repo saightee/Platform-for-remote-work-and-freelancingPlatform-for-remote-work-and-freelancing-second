@@ -83,7 +83,7 @@ export class AppModule {
     consumer
       .apply(ActivityMiddleware)
       .forRoutes(
-        { path: 'profile*', method: RequestMethod.ALL },
+        { path: 'api/profile/:path*', method: RequestMethod.ALL }, 
         { path: 'job-posts*', method: RequestMethod.ALL },
         { path: 'job-applications*', method: RequestMethod.ALL },
         { path: 'reviews*', method: RequestMethod.ALL },
