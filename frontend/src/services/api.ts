@@ -70,12 +70,10 @@ export const initializeWebSocket = (
   onError: (error: WebSocketError) => void
 ): Socket => {
   const token = localStorage.getItem('token');
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-  // Удаляем протокол (http:// или https://) и заменяем на wss:// для продакшена
-  const wsBaseUrl = baseUrl.replace(/^https?:\/\//, import.meta.env.PROD ? 'wss://' : 'ws://');
+  const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:3000/socket.io/';
   
   const socket = io(wsBaseUrl, {
-    path: '/socket.io',
+    path: '/socket.io', 
     auth: { token: token ? `Bearer ${token}` : '' },
     transports: ['websocket', 'polling'],
     reconnection: true,
