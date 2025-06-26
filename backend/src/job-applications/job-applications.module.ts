@@ -5,10 +5,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JobApplication } from './job-application.entity';
 import { JobPost } from '../job-posts/job-post.entity';
 import { User } from '../users/entities/user.entity';
+import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { ApplicationLimitsModule } from '../application-limits/application-limits.module';
+import { ChatModule } from '../chat/chat.module';
+import { ChatGateway } from '../chat/chat.gateway';
 
 @Module({
   imports: [
@@ -22,8 +24,16 @@ import { ApplicationLimitsModule } from '../application-limits/application-limit
       inject: [ConfigService],
     }),
     ApplicationLimitsModule,
+    ChatModule, // Импортируем ChatModule
   ],
   controllers: [JobApplicationsController],
-  providers: [JobApplicationsService],
+  providers: [
+    JobApplicationsService,
+    {
+      provide: 'SOCKET_IO_SERVER',
+      useFactory: (chatGateway: ChatGateway) => chatGateway.server,
+      inject: [ChatGateway],
+    },
+  ],
 })
 export class JobApplicationsModule {}

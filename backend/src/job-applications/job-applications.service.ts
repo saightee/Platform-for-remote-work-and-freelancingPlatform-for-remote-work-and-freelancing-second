@@ -5,7 +5,10 @@ import { JobApplication } from './job-application.entity';
 import { JobPost } from '../job-posts/job-post.entity';
 import { User } from '../users/entities/user.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
-import { ApplicationLimitsService } from '../application-limits/application-limits.service'; 
+import { ApplicationLimitsService } from '../application-limits/application-limits.service';
+import { Server } from 'socket.io';
+import { Inject } from '@nestjs/common';
+import { ChatGateway } from '../chat/chat.gateway';
 
 @Injectable()
 export class JobApplicationsService {
@@ -18,7 +21,8 @@ export class JobApplicationsService {
     private usersRepository: Repository<User>,
     @InjectRepository(JobSeeker)
     private jobSeekerRepository: Repository<JobSeeker>,
-    private applicationLimitsService: ApplicationLimitsService, 
+    private applicationLimitsService: ApplicationLimitsService,
+    @Inject('SOCKET_IO_SERVER') private server: Server,
   ) {}
 
   async applyToJob(userId: string, jobPostId: string) {
@@ -121,43 +125,49 @@ export class JobApplicationsService {
   }
 
   async updateApplicationStatus(userId: string, applicationId: string, status: 'Pending' | 'Accepted' | 'Rejected') {
-    const user = await this.usersRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      console.error(`User ${userId} not found`);
-      throw new NotFoundException('User not found');
-    }
-    if (user.role !== 'employer') {
-      throw new UnauthorizedException('Only employers can update application status');
-    }
-
-    const application = await this.jobApplicationsRepository.findOne({
-      where: { id: applicationId },
-      relations: ['job_post'],
-    });
-    if (!application) {
-      throw new NotFoundException('Application not found');
-    }
-    if (application.job_post.employer_id !== userId) {
-      throw new UnauthorizedException('You do not have permission to update this application');
-    }
-
-    
-    if (status === 'Accepted') {
-      const acceptedCount = await this.jobApplicationsRepository.count({
-        where: { job_post_id: application.job_post_id, status: 'Accepted' },
-      });
-      if (acceptedCount > 0) {
-        throw new BadRequestException('Only one application can be accepted per job post');
+      const user = await this.usersRepository.findOne({ where: { id: userId } });
+      if (!user) {
+        console.error(`User ${userId} not found`);
+        throw new NotFoundException('User not found');
+      }
+      if (user.role !== 'employer') {
+        throw new UnauthorizedException('Only employers can update application status');
       }
 
-      
-      await this.jobPostsRepository.update(
-        { id: application.job_post_id },
-        { status: 'Closed' },
-      );
-    }
+      const application = await this.jobApplicationsRepository.findOne({
+        where: { id: applicationId },
+        relations: ['job_post', 'job_seeker'],
+      });
+      if (!application) {
+        throw new NotFoundException('Application not found');
+      }
+      if (application.job_post.employer_id !== userId) {
+        throw new UnauthorizedException('You do not have permission to update this application');
+      }
 
-    application.status = status;
-    return this.jobApplicationsRepository.save(application);
+      if (status === 'Accepted') {
+        const acceptedCount = await this.jobApplicationsRepository.count({
+          where: { job_post_id: application.job_post_id, status: 'Accepted' },
+        });
+        if (acceptedCount > 0) {
+          throw new BadRequestException('Only one application can be accepted per job post');
+        }
+
+        await this.jobPostsRepository.update(
+          { id: application.job_post_id },
+          { status: 'Closed' },
+        );
+
+        const room = `chat:${applicationId}`;
+        console.log(`Chat initialized for application ${applicationId}, room: ${room}`);
+        this.server.to(room).emit('chatInitialized', {
+          jobApplicationId: applicationId,
+          jobSeekerId: application.job_seeker_id,
+          employerId: application.job_post.employer_id,
+        });
+      }
+
+      application.status = status;
+      return this.jobApplicationsRepository.save(application);
+    }
   }
-}
