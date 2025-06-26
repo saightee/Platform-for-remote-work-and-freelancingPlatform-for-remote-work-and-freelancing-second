@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MulterModule } from '@nestjs/platform-express';
@@ -24,6 +24,7 @@ import { ModeratorModule } from './moderator/moderator.module';
 import { EmailModule } from './email/email.module';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ChatModule } from './chat/chat.module';
+import { ActivityMiddleware } from './middleware/activity.middleware';
 
 @Module({
   imports: [
@@ -77,4 +78,18 @@ import { ChatModule } from './chat/chat.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(ActivityMiddleware)
+      .forRoutes(
+        { path: 'profile*', method: RequestMethod.ALL },
+        { path: 'job-posts*', method: RequestMethod.ALL },
+        { path: 'job-applications*', method: RequestMethod.ALL },
+        { path: 'reviews*', method: RequestMethod.ALL },
+        { path: 'talents*', method: RequestMethod.ALL },
+        { path: 'complaints*', method: RequestMethod.ALL },
+        { path: 'feedback*', method: RequestMethod.ALL },
+      );
+  }
+}

@@ -1,3 +1,4 @@
+// chat.gateway.ts
 import { WebSocketGateway, SubscribeMessage, MessageBody, ConnectedSocket, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
@@ -5,16 +6,17 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
+import { createAdapter } from '@socket.io/redis-adapter';
 
 @WebSocketGateway({
   cors: {
-    origin: ['https://jobforge.net', 'http://localhost:3000'], 
+    origin: ['https://jobforge.net', 'http://localhost:3000'],
     methods: ['GET', 'POST'],
     credentials: true,
   },
   pingInterval: 25000,
-  pingTimeout: 30000, 
-  transports: ['websocket', 'polling'], 
+  pingTimeout: 30000,
+  transports: ['websocket', 'polling'],
 })
 export class ChatGateway {
   @WebSocketServer()
@@ -27,7 +29,13 @@ export class ChatGateway {
     private redisService: RedisService,
   ) {}
 
-  afterInit() {
+  async afterInit() {
+    const redisClient = this.redisService.getClient();
+    const pubClient = redisClient.duplicate();
+    const subClient = redisClient.duplicate();
+    this.server.adapter(createAdapter(pubClient, subClient));
+    console.log('Socket.IO server initialized with Redis adapter');
+
     this.server.engine.on('connection_error', (err) => {
       console.error('Socket.IO connection error:', {
         code: err.code,
@@ -35,24 +43,38 @@ export class ChatGateway {
         context: err.context,
       });
     });
-    console.log('Socket.IO server initialized');
   }
 
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth.token?.replace('Bearer ', '');
-      console.log(`Client connecting with token: ${token?.slice(0, 10)}...`);
       if (!token) {
         throw new UnauthorizedException('Token is required');
       }
-      const payload = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_SECRET', 'mySuperSecretKey123!@#ForLocalDev2025'),
-      });
-      client.data.userId = payload.sub;
-      client.data.role = payload.role;
+      try {
+        const payload = this.jwtService.verify(token, {
+          secret: this.configService.get<string>('JWT_SECRET', 'mySuperSecretKey123!@#ForLocalDev2025'),
+        });
+        const userId = payload.sub;
 
-      await this.redisService.set(`socket:${client.data.userId}`, client.id, 3600);
-      console.log(`User ${client.data.userId} connected with socket ID ${client.id}, transport: ${client.conn.transport.name}`);
+        // Удалить старые сокет-ключи
+        const oldSocketId = await this.redisService.get(`socket:${userId}`);
+        if (oldSocketId && oldSocketId !== client.id) {
+          await this.redisService.del(`socket:${userId}`);
+        }
+
+        client.data.userId = userId;
+        client.data.role = payload.role;
+        await this.redisService.set(`socket:${userId}`, client.id, 3600);
+        console.log(`User ${userId} connected with socket ID ${client.id}, transport: ${client.conn.transport.name}`);
+      } catch (error) {
+        if (error.name === 'TokenExpiredError') {
+          client.emit('error', { message: 'Token expired, please refresh token' });
+          client.disconnect();
+          return;
+        }
+        throw error;
+      }
     } catch (error) {
       console.error('Connection error:', error.message);
       client.emit('error', { message: error.message });

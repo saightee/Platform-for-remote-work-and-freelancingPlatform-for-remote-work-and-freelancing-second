@@ -53,6 +53,24 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       employers: users.filter(u => u.role === 'employer').length,
     };
   }
+  async cleanOldSessions() {
+  try {
+    const keys = await this.client.keys('sess:*');
+    const expiredKeys = await Promise.all(
+      keys.map(async (key) => {
+        const ttl = await this.client.ttl(key);
+        if (ttl < 0) {
+          await this.client.del(key);
+          return key;
+        }
+        return null;
+      }),
+    );
+    console.log('Cleaned expired sessions:', expiredKeys.filter((k) => k));
+  } catch (err) {
+    console.error('Failed to clean old sessions:', err.message);
+  }
+}
 
   getClient(): Redis {
     return this.client;

@@ -23,12 +23,15 @@ export class UsersController {
       throw new UnauthorizedException('Invalid token');
     }
     const token = authHeader.replace('Bearer ', '');
-    this.jwtService.verify(token); 
+    const payload = this.jwtService.verify(token);
+    if (!['jobseeker', 'employer'].includes(payload.role)) {
+      throw new UnauthorizedException('Only jobseekers and employers can check online status');
+    }
     const user = await this.usersService.getUserById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
     const role = await this.redisService.get(`online:${userId}`);
-    return { userId, isOnline: !!role };
+    return { userId, isOnline: !!role, role };
   }
 }
