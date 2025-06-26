@@ -5,14 +5,13 @@ import { ChatGateway } from './chat.gateway';
 import { ChatService } from './chat.service';
 import { JobApplication } from '../job-applications/job-application.entity';
 import { User } from '../users/entities/user.entity';
-import { RedisModule } from '../redis/redis.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Message, JobApplication, User]),
-    RedisModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -21,8 +20,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       }),
       inject: [ConfigService],
     }),
+    RedisModule,
   ],
   providers: [ChatGateway, ChatService],
-  exports: [ChatService],
+  exports: [ChatGateway, ChatService], // Экспортируем оба
 })
 export class ChatModule {}

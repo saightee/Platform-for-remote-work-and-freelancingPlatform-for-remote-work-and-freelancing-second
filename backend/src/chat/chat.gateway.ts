@@ -5,16 +5,17 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
+import { createAdapter } from '@socket.io/redis-adapter';
 
 @WebSocketGateway({
   cors: {
-    origin: ['https://jobforge.net', 'http://localhost:3000'], 
+    origin: ['https://jobforge.net', 'http://localhost:3000'],
     methods: ['GET', 'POST'],
     credentials: true,
   },
   pingInterval: 25000,
-  pingTimeout: 30000, 
-  transports: ['websocket', 'polling'], 
+  pingTimeout: 30000,
+  transports: ['websocket', 'polling'],
 })
 export class ChatGateway {
   @WebSocketServer()
@@ -27,7 +28,13 @@ export class ChatGateway {
     private redisService: RedisService,
   ) {}
 
-  afterInit() {
+  async afterInit() {
+    const redisClient = this.redisService.getClient();
+    const pubClient = redisClient.duplicate();
+    const subClient = redisClient.duplicate();
+    this.server.adapter(createAdapter(pubClient, subClient));
+    console.log('Socket.IO server initialized with Redis adapter');
+
     this.server.engine.on('connection_error', (err) => {
       console.error('Socket.IO connection error:', {
         code: err.code,
@@ -35,26 +42,32 @@ export class ChatGateway {
         context: err.context,
       });
     });
-    console.log('Socket.IO server initialized');
   }
 
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth.token?.replace('Bearer ', '');
-      console.log(`Client connecting with token: ${token?.slice(0, 10)}...`);
+      console.log(`WebSocket connection attempt, namespace: ${client.nsp.name}, token: ${token ? '[present]' : 'missing'}, transport: ${client.conn.transport.name}, clientIP: ${client.handshake.address}`);
       if (!token) {
         throw new UnauthorizedException('Token is required');
       }
       const payload = this.jwtService.verify(token, {
         secret: this.configService.get<string>('JWT_SECRET', 'mySuperSecretKey123!@#ForLocalDev2025'),
       });
+      console.log(`WebSocket connected: userId=${payload.sub}, role=${payload.role}, socketId=${client.id}`);
+      
+      // Удалить старые сокет-ключи
+      const oldSocketId = await this.redisService.get(`socket:${payload.sub}`);
+      if (oldSocketId && oldSocketId !== client.id) {
+        console.log(`Removing old socket for userId=${payload.sub}, oldSocketId=${oldSocketId}`);
+        await this.redisService.del(`socket:${payload.sub}`);
+      }
+
       client.data.userId = payload.sub;
       client.data.role = payload.role;
-
-      await this.redisService.set(`socket:${client.data.userId}`, client.id, 3600);
-      console.log(`User ${client.data.userId} connected with socket ID ${client.id}, transport: ${client.conn.transport.name}`);
+      await this.redisService.set(`socket:${payload.sub}`, client.id, 3600);
     } catch (error) {
-      console.error('Connection error:', error.message);
+      console.error(`WebSocket connection error: ${error.message}, namespace: ${client.nsp.name}, clientIP: ${client.handshake.address}`);
       client.emit('error', { message: error.message });
       client.disconnect();
     }
@@ -63,7 +76,7 @@ export class ChatGateway {
   async handleDisconnect(client: Socket) {
     if (client.data.userId) {
       await this.redisService.del(`socket:${client.data.userId}`);
-      console.log(`User ${client.data.userId} disconnected, Redis key removed`);
+      console.log(`User ${client.data.userId} disconnected, socketId=${client.id}, namespace: ${client.nsp.name}`);
     }
   }
 
@@ -74,6 +87,7 @@ export class ChatGateway {
   ) {
     const { jobApplicationId } = data;
     const userId = client.data.userId;
+    console.log(`JoinChat attempt: userId=${userId}, jobApplicationId=${jobApplicationId}, namespace: ${client.nsp.name}`);
 
     try {
       const hasAccess = await this.chatService.hasChatAccess(userId, jobApplicationId);
@@ -88,8 +102,8 @@ export class ChatGateway {
       const messages = await this.chatService.getChatHistory(jobApplicationId);
       client.emit('chatHistory', messages);
     } catch (error) {
+      console.error(`JoinChat error for user ${userId}: ${error.message}`);
       client.emit('error', { message: error.message });
-      console.error(`Join chat error for user ${userId}:`, error.message);
     }
   }
 
@@ -100,17 +114,17 @@ export class ChatGateway {
   ) {
     const { jobApplicationId, content } = data;
     const senderId = client.data.userId;
+    console.log(`SendMessage attempt: userId=${senderId}, jobApplicationId=${jobApplicationId}, content="${content}"`);
 
     try {
       const message = await this.chatService.createMessage(senderId, jobApplicationId, content);
       const room = `chat:${jobApplicationId}`;
       this.server.to(room).emit('newMessage', message);
-
       console.log(`Message sent to room ${room} by user ${senderId}`);
       return message;
     } catch (error) {
+      console.error(`SendMessage error for user ${senderId}: ${error.message}`);
       client.emit('error', { message: error.message });
-      console.error(`Send message error for user ${senderId}:`, error.message);
     }
   }
 }

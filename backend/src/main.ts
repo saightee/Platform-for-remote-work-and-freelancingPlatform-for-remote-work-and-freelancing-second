@@ -25,13 +25,13 @@ async function bootstrap() {
     session({
       store: new RedisStore({
         client: redisClient,
-        ttl: 600,
+        ttl: 300,
       }),
       secret: process.env.SESSION_SECRET || 'mySuperSecretSessionKey123!@#',
       resave: false,
       saveUninitialized: false,
       cookie: {
-        maxAge: 600000,
+        maxAge: 300000, 
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
@@ -47,6 +47,7 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix('api');
+  setInterval(() => redisService.cleanOldSessions(), 3600 * 1000);
   await app.listen(process.env.PORT ?? 3000);
 }
 
