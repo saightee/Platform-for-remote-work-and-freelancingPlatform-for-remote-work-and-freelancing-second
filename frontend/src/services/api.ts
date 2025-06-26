@@ -73,7 +73,7 @@ export const initializeWebSocket = (
   const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:3000/socket.io/';
   
   const socket = io(wsBaseUrl, {
-    path: '/socket.io', 
+    path: '/', 
     auth: { token: token ? `Bearer ${token}` : '' },
     transports: ['websocket', 'polling'],
     reconnection: true,
