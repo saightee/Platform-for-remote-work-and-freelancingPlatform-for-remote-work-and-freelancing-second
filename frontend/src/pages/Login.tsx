@@ -3,7 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../services/api';
 import { useRole } from '../context/RoleContext';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
-import { jwtDecode } from 'jwt-decode';
+
+
+
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -13,7 +15,7 @@ const Login: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  const { profile, refreshProfile } = useRole();
+  const { profile, currentRole, refreshProfile } = useRole();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,26 +46,17 @@ const Login: React.FC = () => {
   };
 
   useEffect(() => {
-    console.log('Login useEffect, isAuthenticated:', isAuthenticated, 'profile:', profile);
-    if (isAuthenticated && profile) {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const decoded: any = jwtDecode(token);
-          if (decoded.role === 'admin') {
-            navigate('/admin');
-          } else if (decoded.role === 'moderator') {
-            navigate('/moderator');
-          } else {
-            navigate('/');
-          }
-        } catch (err) {
-          console.error('Error decoding token:', err);
-          setErrorMessage('Invalid token. Please log in again.');
-        }
+    console.log('Login useEffect, isAuthenticated:', isAuthenticated, 'profile:', profile, 'currentRole:', currentRole);
+    if (isAuthenticated && currentRole) {
+      if (currentRole === 'admin') {
+        navigate('/admin');
+      } else if (currentRole === 'moderator') {
+        navigate('/moderator');
+      } else {
+        navigate('/');
       }
     }
-  }, [isAuthenticated, profile, navigate]);
+  }, [isAuthenticated, currentRole, navigate]);
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);

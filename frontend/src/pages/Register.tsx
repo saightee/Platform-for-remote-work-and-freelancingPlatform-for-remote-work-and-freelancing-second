@@ -23,27 +23,28 @@ const Register: React.FC = () => {
   }, [role, navigate]);
 
   const handleSubmit = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!role) return;
-    if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match!');
-      return;
-    }
-    try {
-      setErrorMessage(null);
-      const { accessToken } = await register({ username, email, password, role });
-      localStorage.setItem('token', accessToken);
-      await refreshProfile();
-      navigate('/check-email');
-    } catch (error: any) {
-      console.error('Register error:', error);
-      if (error.response?.status === 403 && error.response?.data?.message === 'Registration is not allowed from your country') {
-        setErrorMessage('Registration is not allowed from your country.');
-      } else {
-        setErrorMessage(error.response?.data?.message || 'Registration failed. Please try again.');
-      }
-    }
-  };
+  e.preventDefault();
+  if (!role) return;
+  if (password !== confirmPassword) {
+    setErrorMessage('Passwords do not match!');
+    return;
+  }
+  try {
+    setErrorMessage(null);
+    const response = await register({ username, email, password, role });
+    console.log('Registration response:', response);
+    localStorage.setItem('token', response.accessToken);
+    await refreshProfile();
+    navigate('/check-email');
+  } catch (error: any) {
+    console.error('Register error:', error);
+    const errorMsg =
+      error.response?.status === 403 && error.response?.data?.message === 'Registration is not allowed from your country'
+        ? 'Registration is not allowed from your country.'
+        : error.response?.data?.message || 'Registration failed. Please try again.';
+    setErrorMessage(errorMsg);
+  }
+};
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);

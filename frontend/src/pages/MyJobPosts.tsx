@@ -143,17 +143,24 @@ const MyJobPosts: React.FC = () => {
     setEditingJob(null);
   };
 
-  const handleUpdateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected', jobPostId: string) => {
-    try {
-      await updateApplicationStatus(applicationId, status);
-      const updatedApps = await getApplicationsForJobPost(jobPostId);
-      setApplications({ jobPostId, apps: updatedApps });
-      alert(`Application ${status.toLowerCase()} successfully!`);
-    } catch (err: any) {
-      console.error(`Error ${status.toLowerCase()} application:`, err);
-      alert(err.response?.data?.message || `Failed to ${status.toLowerCase()} application.`);
+const handleUpdateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected', jobPostId: string) => {
+  try {
+    console.log(`Updating application ${applicationId} to status ${status} for job post ${jobPostId}`);
+    const updatedApplication = await updateApplicationStatus(applicationId, status);
+    console.log('Application updated:', updatedApplication);
+    const updatedApps = await getApplicationsForJobPost(jobPostId);
+    setApplications({ jobPostId, apps: updatedApps });
+    if (status === 'Accepted') {
+      alert('Application accepted successfully! Chat initialized.');
+    } else {
+      alert('Application rejected successfully.');
     }
-  };
+  } catch (err: any) {
+    console.error(`Error updating application ${applicationId} to ${status}:`, err);
+    const errorMsg = err.response?.data?.message || `Failed to ${status.toLowerCase()} application.`;
+    alert(errorMsg);
+  }
+};
 
   const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
     if (!dateString) return 'Not specified';

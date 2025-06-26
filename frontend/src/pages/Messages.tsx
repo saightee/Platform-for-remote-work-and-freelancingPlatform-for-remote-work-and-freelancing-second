@@ -32,43 +32,6 @@ const Messages: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) {
-      setError('You must be a jobseeker or employer to view messages.');
-      setIsLoading(false);
-      return;
-    }
-
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        if (currentRole === 'jobseeker') {
-          const apps = await getMyApplications();
-          setApplications(apps.filter(app => app.status === 'Accepted'));
-        } else if (currentRole === 'employer') {
-          const posts = await getMyJobPosts();
-          setJobPosts(posts);
-          const appsPromises = posts.map(post => getApplicationsForJobPost(post.id));
-          const appsArrays = await Promise.all(appsPromises);
-          const appsMap: { [jobPostId: string]: typeof appsArrays[0] } = {};
-          posts.forEach((post, index) => {
-            appsMap[post.id] = appsArrays[index].filter(app => app.status === 'Accepted');
-          });
-          setJobPostApplications(appsMap);
-        }
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError('Failed to load chats. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [profile, currentRole]);
-
-  useEffect(() => {
   if (!profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole) || !socket) {
     setUnreadCounts({});
     return;
@@ -113,6 +76,29 @@ const Messages: React.FC = () => {
     }
   });
 
+  socket.on('chatInitialized', async (data: { jobApplicationId: string }) => {
+    console.log('Chat initialized for application:', data.jobApplicationId);
+    socket.emit('joinChat', { jobApplicationId: data.jobApplicationId });
+    // Обновляем список приложений, чтобы отобразить новый чат
+    try {
+      if (currentRole === 'jobseeker') {
+        const apps = await getMyApplications();
+        setApplications(apps.filter(app => app.status === 'Accepted'));
+      } else if (currentRole === 'employer') {
+        const posts = await getMyJobPosts();
+        const appsPromises = posts.map(post => getApplicationsForJobPost(post.id));
+        const appsArrays = await Promise.all(appsPromises);
+        const appsMap: { [jobPostId: string]: typeof appsArrays[0] } = {};
+        posts.forEach((post, index) => {
+          appsMap[post.id] = appsArrays[index].filter(app => app.status === 'Accepted');
+        });
+        setJobPostApplications(appsMap);
+      }
+    } catch (err) {
+      console.error('Error refreshing applications after chat initialization:', err);
+    }
+  });
+
   socket.on('connect_error', (err) => {
     console.error('WebSocket connection error in Messages:', err.message);
     setError('Failed to connect to chat server. Retrying...');
@@ -123,8 +109,8 @@ const Messages: React.FC = () => {
   return () => {
     socket.off('chatHistory');
     socket.off('newMessage');
+    socket.off('chatInitialized');
     socket.off('connect_error');
-    // socket.disconnect(); // Комментируем, так как WebSocket управляется в RoleContext
   };
 }, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
 

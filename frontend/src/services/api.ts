@@ -73,7 +73,7 @@ export const initializeWebSocket = (
   const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:3000/socket.io/';
   
   const socket = io(wsBaseUrl, {
-    path: '/socket.io', 
+    path: '/', 
     auth: { token: token ? `Bearer ${token}` : '' },
     transports: ['websocket', 'polling'],
     reconnection: true,
@@ -154,7 +154,7 @@ export const getProfile = async () => {
 export const getUserProfileById = async (id: string) => {
   console.log(`Fetching user profile for ID: ${id}`);
   try {
-    const response = await api.get<JobSeekerProfile>(`/users/${id}`);
+    const response = await api.get<JobSeekerProfile>(`/profile/${id}`);
     console.log(`Profile fetched successfully:`, response.data);
     return response.data;
   } catch (error) {
@@ -293,8 +293,15 @@ export const getApplicationsForJobPost = async (jobPostId: string) => {
 };
 
 export const updateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected') => {
-  const response = await api.put<JobApplication>(`/job-applications/${applicationId}`, { status });
-  return response.data;
+  try {
+    console.log(`Sending updateApplicationStatus request for applicationId: ${applicationId}, status: ${status}`);
+    const response = await api.put<JobApplication>(`/job-applications/${applicationId}`, { status });
+    console.log('updateApplicationStatus response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error in updateApplicationStatus:', error);
+    throw error;
+  }
 };
 
 // Reviews

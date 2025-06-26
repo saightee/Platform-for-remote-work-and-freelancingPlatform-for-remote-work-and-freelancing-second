@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { JobPost } from '@types';
 import { formatDateInTimezone } from '../utils/dateUtils';
 import { FaEye, FaUserCircle } from 'react-icons/fa';
+import sanitizeHtml from 'sanitize-html';
 
 interface JobCardProps {
   job: JobPost;
@@ -10,10 +11,14 @@ interface JobCardProps {
 
 const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
   const truncateDescription = (description: string, maxLength: number) => {
-    if (description.length > maxLength) {
-      return description.substring(0, maxLength) + '...';
+    const cleanDescription = sanitizeHtml(description, {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
+    if (cleanDescription.length > maxLength) {
+      return cleanDescription.substring(0, maxLength) + '...';
     }
-    return description;
+    return cleanDescription;
   };
 
   if (variant === 'home') {

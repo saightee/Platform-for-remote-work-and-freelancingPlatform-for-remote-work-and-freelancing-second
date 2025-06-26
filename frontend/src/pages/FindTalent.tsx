@@ -344,9 +344,9 @@ const FindTalent: React.FC = () => {
                         </div>
                         <div className="ft-footer">
                           <div className="ft-spacer"></div>
-                          <Link to={`/users/${talent.id}`} className="ft-button ft-view">
-                            View Profile
-                          </Link>
+                          <Link to={`/profile/${talent.id}`} className="ft-button ft-view">
+  View Profile
+</Link>
                         </div>
                       </div>
                     </div>

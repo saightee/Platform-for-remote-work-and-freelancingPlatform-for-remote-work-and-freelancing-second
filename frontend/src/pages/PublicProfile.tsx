@@ -35,7 +35,9 @@ const PublicProfile: React.FC = () => {
         console.log('Fetched profile:', profileData);
         setProfile(profileData);
         setReviews(reviewsData || []);
-        await incrementProfileView(id);
+        if (profileData.role === 'jobseeker') {
+          await incrementProfileView(id);
+        }
       } catch (error: any) {
         console.error('Error fetching public profile:', error);
         const errorMsg = error.response?.data?.message || 'Failed to load profile. User may not exist or the server is unavailable.';
