@@ -70,18 +70,22 @@ export const initializeWebSocket = (
   onError: (error: WebSocketError) => void
 ): Socket => {
   const token = localStorage.getItem('token');
-  const socket = io(import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000', {
-    path: '/socket.io', // Убедитесь, что путь совпадает с серверной настройкой
-    auth: { token: token ? `Bearer ${token}` : '' }, // Передача токена через auth
-    transports: ['websocket', 'polling'], // Приоритет WebSocket
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+  // Удаляем протокол (http:// или https://) и заменяем на wss:// для продакшена
+  const wsBaseUrl = baseUrl.replace(/^https?:\/\//, import.meta.env.PROD ? 'wss://' : 'ws://');
+  
+  const socket = io(wsBaseUrl, {
+    path: '/socket.io',
+    auth: { token: token ? `Bearer ${token}` : '' },
+    transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: 3,
     reconnectionDelay: 3000,
-    withCredentials: true, // Включение cookies для WebSocket
+    withCredentials: true,
   });
 
   socket.on('connect', () => {
-    console.log('WebSocket connected, transport:', socket.io.engine.transport.name);
+    console.log('WebSocket connected, ID:', socket.id, 'Transport:', socket.io.engine.transport.name, 'URL:', wsBaseUrl);
   });
 
   socket.on('newMessage', onMessage);
