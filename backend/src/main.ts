@@ -42,7 +42,7 @@ async function bootstrap() {
   app.use('/uploads', express.static('uploads'));
 
   app.use((req, res, next) => {
-    console.log('Session ID:', req.sessionID, 'User:', req.session.user);
+    console.log('Session:', req.sessionID, 'User:', req.session.user, 'Cookies:', req.headers.cookie);
     next();
   });
 
@@ -50,5 +50,7 @@ async function bootstrap() {
   setInterval(() => redisService.cleanOldSessions(), 3600 * 1000);
   await app.listen(process.env.PORT ?? 3000);
 }
+
+
 
 bootstrap();
