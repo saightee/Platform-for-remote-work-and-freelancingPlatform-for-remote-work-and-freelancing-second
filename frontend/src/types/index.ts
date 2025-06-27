@@ -190,6 +190,7 @@ export interface JobApplicationDetails {
   jobDescription: string;
   appliedAt: string;
   status: 'Pending' | 'Accepted' | 'Rejected';
+  job_post_id: string; // Добавлено
 }
 
 export interface Analytics {
