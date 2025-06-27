@@ -289,6 +289,7 @@ export const getMyApplications = async () => {
 
 export const getApplicationsForJobPost = async (jobPostId: string) => {
   const response = await api.get<JobApplicationDetails[]>(`/job-applications/job-post/${jobPostId}`);
+  console.log('Fetched applications:', response.data);
   return response.data;
 };
 
