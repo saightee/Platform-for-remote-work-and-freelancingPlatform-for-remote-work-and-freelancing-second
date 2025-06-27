@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus, notifyCandidates } from '../services/api';
+import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus, notifyCandidates, initializeWebSocket } from '../services/api';
 import { JobPost, Category, JobApplicationDetails } from '@types';
 import { useRole } from '../context/RoleContext';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
+import { Socket } from 'socket.io-client';
 
 const MyJobPosts: React.FC = () => {
   const { profile, isLoading: roleLoading } = useRole();
@@ -20,6 +21,7 @@ const MyJobPosts: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [editingJob, setEditingJob] = useState<Partial<JobPost> | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -46,6 +48,23 @@ const MyJobPosts: React.FC = () => {
       fetchData();
     }
   }, [profile, roleLoading]);
+
+  useEffect(() => {
+    const newSocket = initializeWebSocket(
+      (message) => console.log('New message:', message),
+      (error) => console.error('WebSocket error:', error)
+    );
+    setSocket(newSocket);
+
+    newSocket.on('chatInitialized', ({ jobApplicationId, jobSeekerId, employerId }) => {
+      console.log('Chat initialized:', { jobApplicationId, jobSeekerId, employerId });
+      newSocket.emit('joinChat', { jobApplicationId });
+    });
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, []);
 
   const handleUpdate = async (id: string, updatedData: Partial<JobPost>) => {
     try {
@@ -83,6 +102,7 @@ const MyJobPosts: React.FC = () => {
   const handleViewApplications = async (jobPostId: string) => {
     try {
       const apps = await getApplicationsForJobPost(jobPostId);
+      console.log('Loaded applications:', apps);
       setApplications({ jobPostId, apps });
     } catch (err: any) {
       console.error('Error fetching applications:', err);
@@ -143,24 +163,27 @@ const MyJobPosts: React.FC = () => {
     setEditingJob(null);
   };
 
-const handleUpdateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected', jobPostId: string) => {
-  try {
-    console.log(`Updating application ${applicationId} to status ${status} for job post ${jobPostId}`);
-    const updatedApplication = await updateApplicationStatus(applicationId, status);
-    console.log('Application updated:', updatedApplication);
-    const updatedApps = await getApplicationsForJobPost(jobPostId);
-    setApplications({ jobPostId, apps: updatedApps });
-    if (status === 'Accepted') {
-      alert('Application accepted successfully! Chat initialized.');
-    } else {
-      alert('Application rejected successfully.');
+  const handleUpdateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected', jobPostId: string) => {
+    try {
+      console.log(`Updating application ${applicationId} to status ${status} for job post ${jobPostId}`);
+      const updatedApplication = await updateApplicationStatus(applicationId, status);
+      console.log('Application updated:', updatedApplication);
+      const updatedApps = await getApplicationsForJobPost(jobPostId);
+      setApplications({ jobPostId, apps: updatedApps });
+      if (status === 'Accepted') {
+        alert('Application accepted successfully! Chat initialized.');
+        if (socket) {
+          socket.emit('joinChat', { jobApplicationId: applicationId });
+        }
+      } else {
+        alert('Application rejected successfully.');
+      }
+    } catch (err: any) {
+      console.error(`Error updating application ${applicationId} to ${status}:`, err);
+      const errorMsg = err.response?.data?.message || `Failed to ${status.toLowerCase()} application.`;
+      alert(errorMsg);
     }
-  } catch (err: any) {
-    console.error(`Error updating application ${applicationId} to ${status}:`, err);
-    const errorMsg = err.response?.data?.message || `Failed to ${status.toLowerCase()} application.`;
-    alert(errorMsg);
-  }
-};
+  };
 
   const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
     if (!dateString) return 'Not specified';
@@ -354,7 +377,7 @@ const handleUpdateApplicationStatus = async (applicationId: string, status: 'Acc
                                 <td>{app.email}</td>
                                 <td>{app.jobDescription || 'Not provided'}</td>
                                 <td>{formatDateInTimezone(app.appliedAt)}</td>
-                                <td>{app.status || 'Pending'}</td>
+                                <td>{app.status}</td>
                                 <td>
                                   <button
                                     onClick={() => handleUpdateApplicationStatus(app.applicationId, 'Accepted', post.id)}
