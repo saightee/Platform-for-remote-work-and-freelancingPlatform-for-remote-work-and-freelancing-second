@@ -183,14 +183,13 @@ export interface RegisterCredentials extends LoginCredentials {
 }
 
 export interface JobApplicationDetails {
-  id: string;
+  applicationId: string;
   userId: string;
   username: string;
   email: string;
   jobDescription: string;
   appliedAt: string;
-  status: string;
-  job_post_id: string;
+  status: 'Pending' | 'Accepted' | 'Rejected';
 }
 
 export interface Analytics {
