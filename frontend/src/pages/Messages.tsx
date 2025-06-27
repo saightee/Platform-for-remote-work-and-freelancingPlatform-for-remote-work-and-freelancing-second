@@ -5,9 +5,8 @@ import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { useRole } from '../context/RoleContext';
 import { getMyApplications, getMyJobPosts, getApplicationsForJobPost } from '../services/api';
-import { JobApplication, JobPost } from '@types';
+import { JobApplication, JobPost, JobApplicationDetails } from '@types';
 import { format } from 'date-fns';
-import { JobApplicationDetails } from '@types';
 
 interface Message {
   id: string;
@@ -23,7 +22,7 @@ const Messages: React.FC = () => {
   const { profile, currentRole, socket, socketStatus } = useRole();
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
-  const [jobPostApplications, setJobPostApplications] = useState<{ [jobPostId: string]: JobApplicationDetails[]; }>({});
+  const [jobPostApplications, setJobPostApplications] = useState<{ [jobPostId: string]: JobApplicationDetails[] }>({});
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [messages, setMessages] = useState<{ [jobApplicationId: string]: Message[] }>({});
   const [newMessage, setNewMessage] = useState('');
@@ -33,108 +32,119 @@ const Messages: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fetchApplications = async () => {
+    const fetchData = async () => {
       try {
-        // Предполагается, что у тебя есть список jobPostIds
-        const jobPostIds = ['some-job-post-id']; // Замени на свои jobPostIds
-        const appsArrays = await Promise.all(
-          jobPostIds.map(async (jobPostId) => ({
-            jobPostId,
-            apps: await getApplicationsForJobPost(jobPostId),
-          }))
-        );
-        const appsMap = appsArrays.reduce((acc, { jobPostId, apps }) => {
-          acc[jobPostId] = apps;
-          return acc;
-        }, {} as { [jobPostId: string]: JobApplicationDetails[] });
-        setJobPostApplications(appsMap);
+        setIsLoading(true);
+        if (currentRole === 'jobseeker') {
+          const apps = await getMyApplications();
+          setApplications(apps.filter(app => app.status === 'Accepted'));
+        } else if (currentRole === 'employer') {
+          const posts = await getMyJobPosts();
+          setJobPosts(posts);
+          const appsArrays = await Promise.all(
+            posts.map(post => getApplicationsForJobPost(post.id))
+          );
+          const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
+          posts.forEach((post, index) => {
+            appsMap[post.id] = appsArrays[index].filter(app => app.status === 'Accepted');
+          });
+          setJobPostApplications(appsMap);
+        }
       } catch (error) {
         console.error('Error fetching applications:', error);
+        setError('Failed to load applications.');
+      } finally {
+        setIsLoading(false);
       }
     };
-    fetchApplications();
-  }, []);
-  if (!profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole) || !socket) {
-    setUnreadCounts({});
-    return;
-  }
 
-  const joinChats = () => {
-    if (currentRole === 'jobseeker') {
-      applications.forEach(app => {
-        socket.emit('joinChat', { jobApplicationId: app.id });
-      });
-    } else if (currentRole === 'employer') {
-      Object.values(jobPostApplications).flat().forEach(app => {
-        socket.emit('joinChat', { jobApplicationId: app.id });
-      });
+    if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole) && socket) {
+      fetchData();
     }
-  };
+  }, [profile, currentRole, socket]);
 
-  socket.on('chatHistory', (history: Message[]) => {
-    if (history.length > 0) {
-      const jobApplicationId = history[0].job_application_id;
+  useEffect(() => {
+    if (!socket || !profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) {
+      setUnreadCounts({});
+      return;
+    }
+
+    const joinChats = () => {
+      if (currentRole === 'jobseeker') {
+        applications.forEach(app => {
+          socket.emit('joinChat', { jobApplicationId: app.id });
+        });
+      } else if (currentRole === 'employer') {
+        Object.values(jobPostApplications).flat().forEach(app => {
+          socket.emit('joinChat', { jobApplicationId: app.applicationId });
+        });
+      }
+    };
+
+    socket.on('chatHistory', (history: Message[]) => {
+      if (history.length > 0) {
+        const jobApplicationId = history[0].job_application_id;
+        setMessages(prev => ({
+          ...prev,
+          [jobApplicationId]: history.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        }));
+        setUnreadCounts(prevCounts => ({
+          ...prevCounts,
+          [jobApplicationId]: selectedChat === jobApplicationId ? 0 : history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length
+        }));
+      }
+    });
+
+    socket.on('newMessage', (message: Message) => {
       setMessages(prev => ({
         ...prev,
-        [jobApplicationId]: history.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        [message.job_application_id]: [...(prev[message.job_application_id] || []), message]
       }));
-      setUnreadCounts(prevCounts => ({
-        ...prevCounts,
-        [jobApplicationId]: selectedChat === jobApplicationId ? 0 : history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length
-      }));
-    }
-  });
-
-  socket.on('newMessage', (message: Message) => {
-    setMessages(prev => ({
-      ...prev,
-      [message.job_application_id]: [...(prev[message.job_application_id] || []), message]
-    }));
-    if (message.recipient_id === profile.id && !message.is_read && selectedChat !== message.job_application_id) {
-      setUnreadCounts(prevCounts => ({
-        ...prevCounts,
-        [message.job_application_id]: (prevCounts[message.job_application_id] || 0) + 1
-      }));
-    }
-  });
-
-  socket.on('chatInitialized', async (data: { jobApplicationId: string }) => {
-    console.log('Chat initialized for application:', data.jobApplicationId);
-    socket.emit('joinChat', { jobApplicationId: data.jobApplicationId });
-    // Обновляем список приложений, чтобы отобразить новый чат
-    try {
-      if (currentRole === 'jobseeker') {
-        const apps = await getMyApplications();
-        setApplications(apps.filter(app => app.status === 'Accepted'));
-      } else if (currentRole === 'employer') {
-        const posts = await getMyJobPosts();
-        const appsPromises = posts.map(post => getApplicationsForJobPost(post.id));
-        const appsArrays = await Promise.all(appsPromises);
-        const appsMap: { [jobPostId: string]: typeof appsArrays[0] } = {};
-        posts.forEach((post, index) => {
-          appsMap[post.id] = appsArrays[index].filter(app => app.status === 'Accepted');
-        });
-        setJobPostApplications(appsMap);
+      if (message.recipient_id === profile.id && !message.is_read && selectedChat !== message.job_application_id) {
+        setUnreadCounts(prevCounts => ({
+          ...prevCounts,
+          [message.job_application_id]: (prevCounts[message.job_application_id] || 0) + 1
+        }));
       }
-    } catch (err) {
-      console.error('Error refreshing applications after chat initialization:', err);
-    }
-  });
+    });
 
-  socket.on('connect_error', (err) => {
-    console.error('WebSocket connection error in Messages:', err.message);
-    setError('Failed to connect to chat server. Retrying...');
-  });
+    socket.on('chatInitialized', async (data: { jobApplicationId: string }) => {
+      console.log('Chat initialized for application:', data.jobApplicationId);
+      socket.emit('joinChat', { jobApplicationId: data.jobApplicationId });
+      try {
+        if (currentRole === 'jobseeker') {
+          const apps = await getMyApplications();
+          setApplications(apps.filter(app => app.status === 'Accepted'));
+        } else if (currentRole === 'employer') {
+          const posts = await getMyJobPosts();
+          const appsArrays = await Promise.all(
+            posts.map(post => getApplicationsForJobPost(post.id))
+          );
+          const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
+          posts.forEach((post, index) => {
+            appsMap[post.id] = appsArrays[index].filter(app => app.status === 'Accepted');
+          });
+          setJobPostApplications(appsMap);
+        }
+      } catch (err) {
+        console.error('Error refreshing applications after chat initialization:', err);
+      }
+    });
 
-  joinChats();
+    socket.on('connect_error', (err) => {
+      console.error('WebSocket connection error in Messages:', err.message);
+      setError('Failed to connect to chat server. Retrying...');
+    });
 
-  return () => {
-    socket.off('chatHistory');
-    socket.off('newMessage');
-    socket.off('chatInitialized');
-    socket.off('connect_error');
-  };
-}, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
+    joinChats();
+
+    return () => {
+      socket.off('chatHistory');
+      socket.off('newMessage');
+      socket.off('chatInitialized');
+      socket.off('connect_error');
+    };
+  }, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -165,7 +175,7 @@ const Messages: React.FC = () => {
       const app = applications.find(a => a.id === jobApplicationId);
       return app?.job_post?.employer?.username || 'Unknown';
     } else if (currentRole === 'employer') {
-      const app = Object.values(jobPostApplications).flat().find(a => a.id === jobApplicationId);
+      const app = Object.values(jobPostApplications).flat().find(a => a.applicationId === jobApplicationId);
       return app?.username || 'Unknown';
     }
     return 'Unknown';
@@ -181,10 +191,10 @@ const Messages: React.FC = () => {
       }));
     } else if (currentRole === 'employer') {
       return Object.values(jobPostApplications).flat().map(app => ({
-        id: app.id,
+        id: app.applicationId,
         title: jobPosts.find(post => post.id === app.job_post_id)?.title || 'Unknown Job',
         partner: app.username,
-        unreadCount: unreadCounts[app.id] || 0
+        unreadCount: unreadCounts[app.applicationId] || 0
       }));
     }
     return [];
