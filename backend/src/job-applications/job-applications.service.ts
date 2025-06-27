@@ -89,19 +89,19 @@ export class JobApplicationsService {
     if (user.role !== 'employer') {
       throw new UnauthorizedException('Only employers can view applications for their job posts');
     }
-  
+
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: userId } });
     if (!jobPost) {
       throw new NotFoundException('Job post not found or you do not have permission to view its applications');
     }
-  
+
     const applications = await this.jobApplicationsRepository.find({
       where: { job_post_id: jobPostId },
       relations: ['job_seeker'],
     });
-  
+
     console.log('Applications:', JSON.stringify(applications, null, 2));
-  
+
     const result = await Promise.all(
       applications.map(async (app) => {
         const jobSeeker = await this.jobSeekerRepository.findOne({
@@ -113,13 +113,14 @@ export class JobApplicationsService {
           return null;
         }
         return {
-          applicationId: app.id, // ID заявки
+          applicationId: app.id,
           userId: userData.id,
           username: userData.username,
           email: userData.email,
           jobDescription: jobSeeker?.experience || '',
           appliedAt: app.created_at.toISOString(),
-          status: app.status, // Статус заявки
+          status: app.status,
+          job_post_id: app.job_post_id, // Добавлено
         };
       }),
     );
@@ -127,49 +128,49 @@ export class JobApplicationsService {
   }
 
   async updateApplicationStatus(userId: string, applicationId: string, status: 'Pending' | 'Accepted' | 'Rejected') {
-      const user = await this.usersRepository.findOne({ where: { id: userId } });
-      if (!user) {
-        console.error(`User ${userId} not found`);
-        throw new NotFoundException('User not found');
-      }
-      if (user.role !== 'employer') {
-        throw new UnauthorizedException('Only employers can update application status');
-      }
-
-      const application = await this.jobApplicationsRepository.findOne({
-        where: { id: applicationId },
-        relations: ['job_post', 'job_seeker'],
-      });
-      if (!application) {
-        throw new NotFoundException('Application not found');
-      }
-      if (application.job_post.employer_id !== userId) {
-        throw new UnauthorizedException('You do not have permission to update this application');
-      }
-
-      if (status === 'Accepted') {
-        const acceptedCount = await this.jobApplicationsRepository.count({
-          where: { job_post_id: application.job_post_id, status: 'Accepted' },
-        });
-        if (acceptedCount > 0) {
-          throw new BadRequestException('Only one application can be accepted per job post');
-        }
-
-        await this.jobPostsRepository.update(
-          { id: application.job_post_id },
-          { status: 'Closed' },
-        );
-
-        const room = `chat:${applicationId}`;
-        console.log(`Chat initialized for application ${applicationId}, room: ${room}`);
-        this.server.to(room).emit('chatInitialized', {
-          jobApplicationId: applicationId,
-          jobSeekerId: application.job_seeker_id,
-          employerId: application.job_post.employer_id,
-        });
-      }
-
-      application.status = status;
-      return this.jobApplicationsRepository.save(application);
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      console.error(`User ${userId} not found`);
+      throw new NotFoundException('User not found');
     }
+    if (user.role !== 'employer') {
+      throw new UnauthorizedException('Only employers can update application status');
+    }
+
+    const application = await this.jobApplicationsRepository.findOne({
+      where: { id: applicationId },
+      relations: ['job_post', 'job_seeker'],
+    });
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+    if (application.job_post.employer_id !== userId) {
+      throw new UnauthorizedException('You do not have permission to update this application');
+    }
+
+    if (status === 'Accepted') {
+      const acceptedCount = await this.jobApplicationsRepository.count({
+        where: { job_post_id: application.job_post_id, status: 'Accepted' },
+      });
+      if (acceptedCount > 0) {
+        throw new BadRequestException('Only one application can be accepted per job post');
+      }
+
+      await this.jobPostsRepository.update(
+        { id: application.job_post_id },
+        { status: 'Closed' },
+      );
+
+      const room = `chat:${applicationId}`;
+      console.log(`Chat initialized for application ${applicationId}, room: ${room}`);
+      this.server.to(room).emit('chatInitialized', {
+        jobApplicationId: applicationId,
+        jobSeekerId: application.job_seeker_id,
+        employerId: application.job_post.employer_id,
+      });
+    }
+
+    application.status = status;
+    return this.jobApplicationsRepository.save(application);
   }
+}
