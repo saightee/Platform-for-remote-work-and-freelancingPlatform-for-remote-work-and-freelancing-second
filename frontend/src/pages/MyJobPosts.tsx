@@ -349,7 +349,7 @@ const handleUpdateApplicationStatus = async (applicationId: string, status: 'Acc
                           </thead>
                           <tbody>
                             {applications.apps.map((app) => (
-                              <tr key={app.id}>
+                              <tr key={app.applicationId}>
                                 <td>{app.username}</td>
                                 <td>{app.email}</td>
                                 <td>{app.jobDescription || 'Not provided'}</td>
@@ -357,14 +357,14 @@ const handleUpdateApplicationStatus = async (applicationId: string, status: 'Acc
                                 <td>{app.status || 'Pending'}</td>
                                 <td>
                                   <button
-                                    onClick={() => handleUpdateApplicationStatus(app.id, 'Accepted', post.id)}
+                                    onClick={() => handleUpdateApplicationStatus(app.applicationId, 'Accepted', post.id)}
                                     className="my-job-action-button my-job-success"
                                     disabled={app.status !== 'Pending'}
                                   >
                                     Accept
                                   </button>
                                   <button
-                                    onClick={() => handleUpdateApplicationStatus(app.id, 'Rejected', post.id)}
+                                    onClick={() => handleUpdateApplicationStatus(app.applicationId, 'Rejected', post.id)}
                                     className="my-job-action-button my-job-danger"
                                     disabled={app.status !== 'Pending'}
                                   >
