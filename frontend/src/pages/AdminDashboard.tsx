@@ -1205,7 +1205,7 @@ const AdminDashboard: React.FC = () => {
                     onChange={(e) => handleViewChatHistory(e.target.value)}
                   >
                     <option value="">Select a job application</option>
-                    {applications.map((app: JobApplicationDetails) => (
+                    {jobApplications.map((app: JobApplicationDetails) => (
                       <option key={app.applicationId} value={app.applicationId}>
                         {app.username} (ID: {app.applicationId})
                       </option>
