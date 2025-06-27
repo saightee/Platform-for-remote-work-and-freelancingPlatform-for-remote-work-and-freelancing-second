@@ -59,12 +59,27 @@ export class JobApplicationsController {
     @Param('id') applicationId: string,
     @Body('status') status: 'Pending' | 'Accepted' | 'Rejected',
   ) {
+    console.log('Received PUT /job-applications/:id', {
+      applicationId,
+      status,
+      authHeader: authHeader ? 'Present' : 'Missing',
+    });
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Invalid token error', { authHeader });
       throw new UnauthorizedException('Invalid token');
     }
     const token = authHeader.replace('Bearer ', '');
-    const payload = this.jwtService.verify(token);
+    let payload;
+    try {
+      payload = this.jwtService.verify(token);
+      console.log('Token verified', { userId: payload.sub, role: payload.role });
+    } catch (error) {
+      console.log('Token verification failed', { error: error.message });
+      throw new UnauthorizedException('Invalid token');
+    }
     const userId = payload.sub;
-    return this.jobApplicationsService.updateApplicationStatus(userId, applicationId, status);
+    const result = await this.jobApplicationsService.updateApplicationStatus(userId, applicationId, status);
+    console.log('Update application status result', { result });
+    return result;
   }
 }

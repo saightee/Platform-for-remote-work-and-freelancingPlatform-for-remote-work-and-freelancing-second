@@ -89,39 +89,41 @@ export class JobApplicationsService {
     if (user.role !== 'employer') {
       throw new UnauthorizedException('Only employers can view applications for their job posts');
     }
-
+  
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: userId } });
     if (!jobPost) {
       throw new NotFoundException('Job post not found or you do not have permission to view its applications');
     }
-
+  
     const applications = await this.jobApplicationsRepository.find({
       where: { job_post_id: jobPostId },
       relations: ['job_seeker'],
     });
-
+  
     console.log('Applications:', JSON.stringify(applications, null, 2));
-
-  const result = await Promise.all(
-      applications.map(async app => {
+  
+    const result = await Promise.all(
+      applications.map(async (app) => {
         const jobSeeker = await this.jobSeekerRepository.findOne({
           where: { user_id: app.job_seeker_id },
         });
         const userData = app.job_seeker;
         if (!userData) {
           console.warn(`No user data for job_seeker_id ${app.job_seeker_id}`);
-          return null; 
+          return null;
         }
         return {
+          applicationId: app.id, // ID заявки
           userId: userData.id,
           username: userData.username,
           email: userData.email,
           jobDescription: jobSeeker?.experience || '',
-          appliedAt: app.created_at,
+          appliedAt: app.created_at.toISOString(),
+          status: app.status, // Статус заявки
         };
       }),
     );
-    return result.filter(item => item !== null); 
+    return result.filter(item => item !== null);
   }
 
   async updateApplicationStatus(userId: string, applicationId: string, status: 'Pending' | 'Accepted' | 'Rejected') {
