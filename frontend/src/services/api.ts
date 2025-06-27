@@ -294,13 +294,13 @@ export const getApplicationsForJobPost = async (jobPostId: string) => {
 };
 
 export const updateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected') => {
+  console.log('Sending updateApplicationStatus', { applicationId, status, token: localStorage.getItem('token') });
   try {
-    console.log(`Sending updateApplicationStatus request for applicationId: ${applicationId}, status: ${status}`);
     const response = await api.put<JobApplication>(`/job-applications/${applicationId}`, { status });
     console.log('updateApplicationStatus response:', response.data);
     return response.data;
   } catch (error) {
-    console.error('Error in updateApplicationStatus:', error);
+    console.error('updateApplicationStatus error:', error.response?.data || error.message);
     throw error;
   }
 };
