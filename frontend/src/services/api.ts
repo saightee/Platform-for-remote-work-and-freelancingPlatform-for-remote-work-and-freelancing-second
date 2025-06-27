@@ -299,8 +299,9 @@ export const updateApplicationStatus = async (applicationId: string, status: 'Ac
     const response = await api.put<JobApplication>(`/job-applications/${applicationId}`, { status });
     console.log('updateApplicationStatus response:', response.data);
     return response.data;
-  } catch (error: AxiosError) {
-    console.error('updateApplicationStatus error:', error.response?.data || error.message);
+  } catch (error: unknown) {
+    const axiosError = error as AxiosError;
+    console.error('updateApplicationStatus error:', axiosError.response?.data || axiosError.message);
     throw error;
   }
 };
