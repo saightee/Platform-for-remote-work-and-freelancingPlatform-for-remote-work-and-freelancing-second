@@ -464,9 +464,9 @@ const ModeratorDashboard: React.FC = () => {
                     onChange={(e) => handleViewChatHistory(e.target.value)}
                   >
                     <option value="">Select a job application</option>
-                    {jobApplications.map(app => (
-                      <option key={app.id} value={app.id}>
-                        {app.username} (ID: {app.id})
+                    {applications.map((app: JobApplicationDetails) => (
+                      <option key={app.applicationId} value={app.applicationId}>
+                        {app.username} (ID: {app.applicationId})
                       </option>
                     ))}
                   </select>
