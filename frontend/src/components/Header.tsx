@@ -17,6 +17,19 @@ interface Message {
 
 const Header: React.FC = () => {
   const [applications, setApplications] = useState<JobApplicationDetails[]>([]);
+
+  useEffect(() => {
+    const fetchApplications = async () => {
+      try {
+        const appsArrays = await Promise.all([getMyApplications()]);
+        const applications = appsArrays.flat().filter(app => app.status === 'Accepted');
+        setApplications(applications);
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+      }
+    };
+    fetchApplications();
+  }, []);
   const { profile, isLoading, currentRole, socket, socketStatus } = useRole();
   const token = localStorage.getItem('token');
   const isAuthenticated = !!token && (!!profile || ['admin', 'moderator'].includes(currentRole || ''));
@@ -33,18 +46,6 @@ const Header: React.FC = () => {
       setUnreadCount(0);
       return;
     }
-    useEffect(() => {
-    const fetchApplications = async () => {
-      try {
-        const appsArrays = await Promise.all([getMyApplications()]);
-        const applications = appsArrays.flat().filter(app => app.status === 'Accepted');
-        setApplications(applications);
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-      }
-    };
-    fetchApplications();
-  }, []);
 
     const fetchUnreadMessages = async () => {
       try {
