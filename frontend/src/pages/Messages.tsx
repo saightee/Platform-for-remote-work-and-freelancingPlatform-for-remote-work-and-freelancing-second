@@ -7,6 +7,7 @@ import { useRole } from '../context/RoleContext';
 import { getMyApplications, getMyJobPosts, getApplicationsForJobPost } from '../services/api';
 import { JobApplication, JobPost } from '@types';
 import { format } from 'date-fns';
+import { JobApplicationDetails } from '@types';
 
 interface Message {
   id: string;
@@ -22,7 +23,7 @@ const Messages: React.FC = () => {
   const { profile, currentRole, socket, socketStatus } = useRole();
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
-  const [jobPostApplications, setJobPostApplications] = useState<{ [jobPostId: string]: { id: string; userId: string; username: string; email: string; jobDescription: string; appliedAt: string; status: string; job_post_id: string }[] }>({});
+  const [jobPostApplications, setJobPostApplications] = useState<{ [jobPostId: string]: JobApplicationDetails[]; }>({});
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [messages, setMessages] = useState<{ [jobApplicationId: string]: Message[] }>({});
   const [newMessage, setNewMessage] = useState('');
@@ -32,6 +33,27 @@ const Messages: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const fetchApplications = async () => {
+      try {
+        // Предполагается, что у тебя есть список jobPostIds
+        const jobPostIds = ['some-job-post-id']; // Замени на свои jobPostIds
+        const appsArrays = await Promise.all(
+          jobPostIds.map(async (jobPostId) => ({
+            jobPostId,
+            apps: await getApplicationsForJobPost(jobPostId),
+          }))
+        );
+        const appsMap = appsArrays.reduce((acc, { jobPostId, apps }) => {
+          acc[jobPostId] = apps;
+          return acc;
+        }, {} as { [jobPostId: string]: JobApplicationDetails[] });
+        setJobPostApplications(appsMap);
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+      }
+    };
+    fetchApplications();
+  }, []);
   if (!profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole) || !socket) {
     setUnreadCounts({});
     return;
