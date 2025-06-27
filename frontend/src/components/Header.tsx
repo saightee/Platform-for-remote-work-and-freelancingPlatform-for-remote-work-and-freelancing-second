@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useRole } from '../context/RoleContext';
 import { logout, getMyApplications, getMyJobPosts, getApplicationsForJobPost } from '../services/api';
 import { FaChevronDown, FaBars, FaTimes } from 'react-icons/fa';
-import { JobApplicationDetails } from '@types';
+import { JobApplicationDetails, JobApplication } from '@types';
 
 interface Message {
   id: string;
@@ -17,19 +17,6 @@ interface Message {
 
 const Header: React.FC = () => {
   const [applications, setApplications] = useState<JobApplicationDetails[]>([]);
-
-  useEffect(() => {
-    const fetchApplications = async () => {
-      try {
-        const appsArrays = await Promise.all([getMyApplications()]);
-        const applications = appsArrays.flat().filter(app => app.status === 'Accepted');
-        setApplications(applications);
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-      }
-    };
-    fetchApplications();
-  }, []);
   const { profile, isLoading, currentRole, socket, socketStatus } = useRole();
   const token = localStorage.getItem('token');
   const isAuthenticated = !!token && (!!profile || ['admin', 'moderator'].includes(currentRole || ''));
@@ -42,6 +29,28 @@ const Header: React.FC = () => {
     !location.pathname.startsWith(currentRole === 'admin' ? '/admin' : '/moderator');
 
   useEffect(() => {
+    const fetchApplications = async () => {
+      try {
+        const apps = await getMyApplications();
+        const transformedApps: JobApplicationDetails[] = apps.map(app => ({
+          applicationId: app.id,
+          userId: app.job_seeker_id,
+          username: app.job_seeker?.username || 'Unknown',
+          email: app.job_seeker?.email || 'Unknown',
+          jobDescription: '', // Заполни, если есть данные
+          appliedAt: app.created_at,
+          status: app.status,
+          job_post_id: app.job_post_id,
+        }));
+        setApplications(transformedApps.filter(app => app.status === 'Accepted'));
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+      }
+    };
+    fetchApplications();
+  }, []);
+
+  useEffect(() => {
     if (!profile || !['jobseeker', 'employer'].includes(profile.role) || !socket || !token) {
       setUnreadCount(0);
       return;
@@ -49,10 +58,19 @@ const Header: React.FC = () => {
 
     const fetchUnreadMessages = async () => {
       try {
-        let applications: { id: string }[] = [];
+        let applications: JobApplicationDetails[] = [];
         if (profile.role === 'jobseeker') {
           const apps = await getMyApplications();
-          applications = apps.filter(app => app.status === 'Accepted');
+          applications = apps.map(app => ({
+            applicationId: app.id,
+            userId: app.job_seeker_id,
+            username: app.job_seeker?.username || 'Unknown',
+            email: app.job_seeker?.email || 'Unknown',
+            jobDescription: '',
+            appliedAt: app.created_at,
+            status: app.status,
+            job_post_id: app.job_post_id,
+          })).filter(app => app.status === 'Accepted');
         } else if (profile.role === 'employer') {
           const posts = await getMyJobPosts();
           const appsPromises = posts.map(post => getApplicationsForJobPost(post.id));
@@ -67,7 +85,7 @@ const Header: React.FC = () => {
         }
 
         applications.forEach(app => {
-          socket.emit('joinChat', { jobApplicationId: app.id });
+          socket.emit('joinChat', { jobApplicationId: app.applicationId });
         });
 
         socket.on('chatHistory', (history: Message[]) => {
@@ -87,18 +105,17 @@ const Header: React.FC = () => {
           console.error('WebSocket connection error in Header:', err.message);
         });
 
+        return () => {
+          socket.off('chatHistory');
+          socket.off('newMessage');
+          socket.off('connect_error');
+        };
       } catch (err) {
         console.error('Error fetching unread messages in Header:', err);
       }
     };
 
     fetchUnreadMessages();
-
-    return () => {
-      socket.off('chatHistory');
-      socket.off('newMessage');
-      socket.off('connect_error');
-    };
   }, [profile, socket, token]);
 
   const handleLogout = async () => {
