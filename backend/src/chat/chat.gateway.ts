@@ -56,7 +56,6 @@ export class ChatGateway {
       });
       console.log(`WebSocket connected: userId=${payload.sub}, role=${payload.role}, socketId=${client.id}`);
       
-      // Удалить старые сокет-ключи
       const oldSocketId = await this.redisService.get(`socket:${payload.sub}`);
       if (oldSocketId && oldSocketId !== client.id) {
         console.log(`Removing old socket for userId=${payload.sub}, oldSocketId=${oldSocketId}`);
@@ -99,6 +98,9 @@ export class ChatGateway {
       client.join(room);
       console.log(`User ${userId} joined chat room ${room}`);
 
+      // Отмечаем сообщения как прочитанные для получателя
+      await this.chatService.markMessagesAsRead(jobApplicationId, userId);
+
       const messages = await this.chatService.getChatHistory(jobApplicationId);
       client.emit('chatHistory', messages);
     } catch (error) {
@@ -124,6 +126,51 @@ export class ChatGateway {
       return message;
     } catch (error) {
       console.error(`SendMessage error for user ${senderId}: ${error.message}`);
+      client.emit('error', { message: error.message });
+    }
+  }
+
+  @SubscribeMessage('markMessagesAsRead')
+  async handleMarkMessagesAsRead(
+    @MessageBody() data: { jobApplicationId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { jobApplicationId } = data;
+    const userId = client.data.userId;
+    console.log(`MarkMessagesAsRead attempt: userId=${userId}, jobApplicationId=${jobApplicationId}`);
+
+    try {
+      const updatedMessages = await this.chatService.markMessagesAsRead(jobApplicationId, userId);
+      const room = `chat:${jobApplicationId}`;
+      this.server.to(room).emit('messagesRead', updatedMessages);
+      console.log(`Messages marked as read for user ${userId} in room ${room}`);
+    } catch (error) {
+      console.error(`MarkMessagesAsRead error for user ${userId}: ${error.message}`);
+      client.emit('error', { message: error.message });
+    }
+  }
+
+  @SubscribeMessage('typing')
+  async handleTyping(
+    @MessageBody() data: { jobApplicationId: string; isTyping: boolean },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { jobApplicationId, isTyping } = data;
+    const userId = client.data.userId;
+    console.log(`Typing event: userId=${userId}, jobApplicationId=${jobApplicationId}, isTyping=${isTyping}`);
+
+    try {
+      const hasAccess = await this.chatService.hasChatAccess(userId, jobApplicationId);
+      if (!hasAccess) {
+        throw new UnauthorizedException('No access to this chat');
+      }
+
+      const room = `chat:${jobApplicationId}`;
+      // Транслируем другим клиентам в комнате (исключая отправителя)
+      client.to(room).emit('typing', { userId, isTyping });
+      console.log(`Broadcasted typing event to room ${room} for user ${userId}`);
+    } catch (error) {
+      console.error(`Typing event error for user ${userId}: ${error.message}`);
       client.emit('error', { message: error.message });
     }
   }

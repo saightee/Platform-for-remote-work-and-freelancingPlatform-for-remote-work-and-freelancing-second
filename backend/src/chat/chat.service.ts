@@ -56,6 +56,7 @@ export class ChatService {
       sender_id: senderId,
       recipient_id: recipientId,
       content,
+      is_read: false,
     });
 
     return this.messagesRepository.save(message);
@@ -83,5 +84,31 @@ export class ChatService {
     const messages = await query.getMany();
 
     return { total, data: messages };
+  }
+
+  async markMessagesAsRead(jobApplicationId: string, userId: string): Promise<Message[]> {
+    const application = await this.jobApplicationsRepository.findOne({
+      where: { id: jobApplicationId },
+      relations: ['job_post', 'job_seeker', 'job_post.employer'],
+    });
+
+    if (!application) {
+      throw new NotFoundException('Job application not found');
+    }
+
+    const messages = await this.messagesRepository.find({
+      where: {
+        job_application_id: jobApplicationId,
+        recipient_id: userId,
+        is_read: false,
+      },
+    });
+
+    for (const message of messages) {
+      message.is_read = true;
+      await this.messagesRepository.save(message);
+    }
+
+    return messages;
   }
 }

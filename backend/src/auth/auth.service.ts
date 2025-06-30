@@ -155,9 +155,19 @@ export class AuthService {
     const expirySeconds = rememberMe ? 7 * 24 * 60 * 60 : 3600;
     await this.redisService.set(`token:${user.id}`, token, expirySeconds);
     await this.redisService.setUserOnline(user.id, user.role as 'jobseeker' | 'employer');
-    session.user = { id: user.id, email: user.email, role: user.role }; // Сохранить в сессии
-    console.log(`Login success: userId=${user.id}, sessionID=${session.id}`);
-    return { accessToken: token };
+    
+    // Регенерация сессии для уникальности
+    return new Promise((resolve, reject) => {
+      session.regenerate((err) => {
+        if (err) {
+          console.error(`Login error: Failed to regenerate session for userId=${user.id}, error=${err.message}`);
+          reject(new BadRequestException('Failed to regenerate session'));
+        }
+        session.user = { id: user.id, email: user.email, role: user.role };
+        console.log(`Login success: userId=${user.id}, sessionID=${session.id}, token=${token}`);
+        resolve({ accessToken: token });
+      });
+    });
   }
 
   async logout(userId: number) {

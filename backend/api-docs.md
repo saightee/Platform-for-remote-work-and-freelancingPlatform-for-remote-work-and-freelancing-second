@@ -42,6 +42,14 @@
   "error": "Forbidden"
   }
 
+- **Response (Error - 400, if fingerprint is missing)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Fingerprint is required",
+    "error": "Bad Request"
+  }
+
 ### 1.1 Verify Email
 - **Endpoint**: `GET api/auth/verify-email`
 - **Description**: Verifies a user's email address using a token sent via email.
@@ -132,6 +140,14 @@
     "error": "Bad Request"
   }
 
+- **Response (Error - 401, if user is admin or moderator)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Password reset is not allowed for admin or moderator roles",
+    "error": "Unauthorized"
+  }
+
 ### 2.2 Reset Password
 - **Endpoint**: `POST api/auth/reset-password`
 - **Description**: Resets the user's password using a token from the reset email.
@@ -156,9 +172,17 @@
     "error": "Bad Request"
   }
 
+- **Response (Error - 401, if user is admin or moderator)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Password reset is not allowed for admin or moderator roles",
+    "error": "Unauthorized"
+  }
+
 ### 3. Logout a User
 - **Endpoint**: `POST api/auth/logout`
-- **Description**: Logs out a user by blacklisting the JWT token.
+- **Description**: Logs out a user by blacklisting the JWT token in Redis.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**: None
 
@@ -354,40 +378,40 @@
   // For jobseeker (authenticated)
   ```json
   {
-  "id": "<userId>",
-  "role": "jobseeker",
-  "email": "test@example.com",
-  "username": "test",
-  "skills": ["JavaScript", "TypeScript"],
-  "categories": [
-    {
-      "id": "<categoryId>",
-      "name": "Web Development",
-      "created_at": "2025-05-22T18:00:00.000Z",
-      "updated_at": "2025-05-22T18:00:00.000Z"
-    }
-  ],
-  "experience": "2 years",
-  "portfolio": "https://portfolio.com",
-  "video_intro": "https://video.com",
-  "timezone": "Europe/Moscow",
-  "currency": "USD",
-  "average_rating": 4.0,
-  "profile_views": 10,
-  "avatar": "https://example.com/avatar.jpg",
-  "identity_verified": false,
-  "reviews": [
-    {
-      "id": "<reviewId>",
-      "reviewer_id": "<userId>",
-      "reviewed_id": "<userId>",
-      "job_application_id": "<jobApplicationId>",
-      "rating": 4,
-      "comment": "Great work, very professional!",
-      "created_at": "2025-05-22T18:00:00.000Z",
-      "updated_at": "2025-05-22T18:00:00.000Z"
-    }
-  ]
+    "id": "<userId>",
+    "role": "jobseeker",
+    "email": "test@example.com",
+    "username": "test",
+    "skills": ["JavaScript", "TypeScript"],
+    "categories": [
+      {
+        "id": "<categoryId>",
+        "name": "Web Development",
+        "created_at": "2025-05-22T18:00:00.000Z",
+        "updated_at": "2025-05-22T18:00:00.000Z"
+      }
+    ],
+    "experience": "2 years",
+    "portfolio": "https://portfolio.com",
+    "video_intro": "https://video.com",
+    "timezone": "Europe/Moscow",
+    "currency": "USD",
+    "average_rating": 4.0,
+    "profile_views": 10,
+    "avatar": "https://example.com/avatar.jpg",
+    "identity_verified": false,
+    "reviews": [
+      {
+        "id": "<reviewId>",
+        "reviewer_id": "<userId>",
+        "reviewed_id": "<userId>",
+        "job_application_id": "<jobApplicationId>",
+        "rating": 4,
+        "comment": "Great work, very professional!",
+        "created_at": "2025-05-22T18:00:00.000Z",
+        "updated_at": "2025-05-22T18:00:00.000Z"
+      }
+    ]
   }
 
 - **Response (Error - 404, if user or profile not found)**: 
@@ -462,7 +486,7 @@
 
 ### 8. Create Job Post
 - **Endpoint**: `POST /api/job-posts`
-- **Description**: Creates a new job post for an authenticated employer.
+- **Description**: Creates a new job post for an authenticated employer. The `applicationLimit` defaults to 100 if not specified.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
   ```json
@@ -473,8 +497,10 @@
     "salary": 50000,
     "status": "Active",
     "category_id": "<categoryId>", // Optional
-    "job_type": "Full-time" // Optional: "Full-time", "Part-time", "Project-based"
+    "job_type": "Full-time", // Optional: "Full-time", "Part-time", "Project-based"
+    "applicationLimit": 100 // Optional, defaults to 100
   }
+
 - **Response (Success - 200)**:
   ```json
   {
@@ -487,6 +513,7 @@
     "category_id": "<categoryId>",
     "job_type": "Full-time",
     "employer_id": "<userId>",
+    "applicationLimit": 100,
     "created_at": "2025-05-13T18:00:00.000Z",
     "updated_at": "2025-05-13T18:00:00.000Z"
   }
@@ -513,6 +540,14 @@
     "statusCode": 404,
     "message": "User not found",
     "error": "Not Found"
+  }
+
+- **Response (Error - 400, if application limit exceeds global limit)**:
+  ```json
+  {
+    "statusCode": 40,
+    "message": "Application limit cannot exceed global limit of 1000",
+    "error": "Bad Request"
   }
 
 ### 9. Update Job Post
@@ -2849,12 +2884,13 @@
 
 # WebSocket Events:
 - **joinChat**: 
-- **Description**: Joins a chat room for a specific job application. Only available to the employer and jobseeker of an accepted job application.
+- **Description**: Joins a chat room for a specific job application. Only available to the employer and jobseeker of an accepted job application. Marks all unread messages for the user as read upon joining.
 - **Payload**:
   ```json
   {
     "jobApplicationId": "<jobApplicationId>"
   }
+  
 - **Response**: Emits `chatHistory` event with the chat history for the specified job application.
 - **Error**:
   - If the user is not authorized or lacks access:
@@ -2888,7 +2924,7 @@
     }
   ]
 - **Notes**: 
-  - is_read: Indicates whether the message has been read by the recipient. Currently, marking messages as read is not implemented; display as unread by default.
+  - `is_read`: Indicates whether the message has been read by the recipient. Display a "read" indicator (e.g., checkmark) if `is_read: true`.
   - Store this history in the frontend state to render the chat UI.
 
 - **sendMessage**: 
@@ -2932,6 +2968,70 @@
 - **Notes**: 
   - Append this message to the frontend state to update the chat UI.
   - Optionally, trigger a notification (e.g., toast or sound) if the recipient is not currently viewing the chat.
+
+- **markMessagesAsRead**: 
+- **Description**: Marks all unread messages for the user in the specified job application as read.
+  - **Payload**:
+    ```json
+  {
+    "jobApplicationId": "<jobApplicationId>"
+  }
+- **Response**: Emits `messagesRead` event with the updated messages.
+  - **Payload(messagesRead)**:
+    ```json
+  [
+    {
+      "id": "<messageId>",
+      "job_application_id": "<jobApplicationId>",
+      "sender_id": "<userId>",
+      "recipient_id": "<userId>",
+      "content": "Hello, let's discuss the project!",
+      "created_at": "2025-06-16T05:47:00.000Z",
+      "is_read": true
+    }
+  ]
+- **Error**:
+  - If the user is not authorized or lacks access:
+      ```json
+      {
+        "statusCode": 401,
+        "message": "No access to this chat",
+        "error": "Unauthorized"
+      }
+  - If the job application is not found:
+      ```json
+      {
+        "statusCode": 404,
+        "message": "Job application not found",
+        "error": "Not Found"
+      }
+
+- **typing**: 
+- **Description**: Notifies other users in the chat room when a user is typing or stops typing.
+  - **Payload**:
+    ```json
+  {
+    "jobApplicationId": "<jobApplicationId>",
+    "isTyping": true // or false
+  }
+- **Response**: Broadcasts a `typing` event to other clients in the chat room (excluding the sender).
+  - **Payload(typing)**:
+    ```json
+  {
+    "userId": "<userId>",
+    "isTyping": true // or false
+  }
+- **Notes**: 
+  - Display "Typing..." in the chat UI when `isTyping: true` is received
+  - Remove the "Typing..." indicator when `isTyping: false` is received.
+- **Error**:
+  - If the user is not authorized or lacks access:
+      ```json
+      {
+        "statusCode": 401,
+        "message": "No access to this chat",
+        "error": "Unauthorized"
+      }
 
 ### 75. Get Chat History (Admin)
 - **Endpoint**: `GET /api/admin/chat/:jobApplicationId`
