@@ -1,11 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import session from 'express-session';
-import connectRedis from 'connect-redis';
 import * as express from 'express';
 import { RedisService } from './redis/redis.service';
 
-type RedisStoreConstructor = new (options: { client: any; ttl?: number }) => session.Store;
+const session = require('express-session');
+const connectRedis = require('connect-redis');
+const RedisStore = connectRedis(session);
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -19,19 +19,18 @@ async function bootstrap() {
 
   const redisClient = redisService.getClient();
 
-  const RedisStore = (connectRedis as any)(session) as RedisStoreConstructor;
-
   app.use(
     session({
       store: new RedisStore({
         client: redisClient,
-        ttl: 300,
+        ttl: 24 * 60 * 60, // 24 часа TTL
       }),
       secret: process.env.SESSION_SECRET || 'mySuperSecretSessionKey123!@#',
       resave: false,
       saveUninitialized: false,
+      name: 'jobforge.sid', // Уникальное имя куки сессии
       cookie: {
-        maxAge: 300000, 
+        maxAge: 24 * 60 * 60 * 1000, // 24 часа в миллисекундах
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
@@ -39,10 +38,14 @@ async function bootstrap() {
     }),
   );
 
-  app.use('/uploads', express.static('uploads'));
+  app.use('/Uploads', express.static('Uploads'));
 
   app.use((req, res, next) => {
-    console.log('Session:', req.sessionID, 'User:', req.session.user, 'Cookies:', req.headers.cookie);
+    console.log('Session:', {
+      sessionID: req.sessionID,
+      user: req.session.user,
+      cookies: req.headers.cookie,
+    });
     next();
   });
 
@@ -50,7 +53,5 @@ async function bootstrap() {
   setInterval(() => redisService.cleanOldSessions(), 3600 * 1000);
   await app.listen(process.env.PORT ?? 3000);
 }
-
-
 
 bootstrap();

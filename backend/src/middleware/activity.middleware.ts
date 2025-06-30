@@ -21,11 +21,19 @@ export class ActivityMiddleware implements NestMiddleware {
         const userId = payload.sub;
         const role = payload.role;
         if (['jobseeker', 'employer'].includes(role)) {
+          console.log(`ActivityMiddleware: Установка статуса онлайн для userId=${userId}, role=${role}, sessionID=${req.sessionID}`);
           await this.redisService.setUserOnline(userId, role as 'jobseeker' | 'employer');
+          // Проверяем, чтобы не перезаписать session.user, если не нужно
+          if (!req.session.user || req.session.user.id !== userId) {
+            req.session.user = { id: userId, email: payload.email, role };
+            console.log(`ActivityMiddleware: Обновлен session.user для sessionID=${req.sessionID}, userId=${userId}`);
+          }
         }
       } catch (error) {
-        console.error('ActivityMiddleware error:', error.message);
+        console.error(`ActivityMiddleware ошибка: userId=${req.session.user?.id || 'unknown'}, sessionID=${req.sessionID}, error=${error.message}`);
       }
+    } else {
+      console.log(`ActivityMiddleware: Нет валидного заголовка авторизации, sessionID=${req.sessionID}`);
     }
     next();
   }
