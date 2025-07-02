@@ -21,76 +21,105 @@ const Header: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+const [unreadCounts, setUnreadCounts] = useState<{ [jobApplicationId: string]: number }>({});
   const location = useLocation();
 
   const showBackToDashboard =
     ['admin', 'moderator'].includes(currentRole || '') && !location.pathname.startsWith(currentRole === 'admin' ? '/admin' : '/moderator');
 
-  useEffect(() => {
-    if (!profile || !['jobseeker', 'employer'].includes(profile.role) || !socket) {
-      setUnreadCount(0);
-      return;
-    }
+useEffect(() => {
+  if (!profile || !profile.role || !['jobseeker', 'employer'].includes(profile.role) || !socket) {
+    setUnreadCount(0);
+    setUnreadCounts({});
+    return;
+  }
 
-    const fetchUnreadMessages = async () => {
-      try {
-        let applications: { id: string }[] = [];
-        if (profile.role === 'jobseeker') {
-          const apps = await getMyApplications();
-          applications = apps.filter((app) => app.status === 'Accepted');
-        } else if (profile.role === 'employer') {
-          const posts = await getMyJobPosts();
-          const appsPromises = posts.map((post) => getApplicationsForJobPost(post.id));
-          const appsArrays = await Promise.all(appsPromises);
-          applications = appsArrays.flat().filter((app) => app.status === 'Accepted');
-        }
-
-        if (applications.length === 0) {
-          setUnreadCount(0);
-          return;
-        }
-
-        applications.forEach((app) => {
-          socket.emit('joinChat', { jobApplicationId: app.id });
-        });
-
-        socket.on('chatHistory', (history: Message[]) => {
-          const unread = history.filter((msg) => msg.recipient_id === profile.id && !msg.is_read).length;
-          setUnreadCount((prev) => prev + unread);
-        });
-
-        socket.on('newMessage', (message: Message) => {
-          if (message.recipient_id === profile.id && !message.is_read) {
-            setUnreadCount((prev) => prev + 1);
-          }
-        });
-
-        socket.on('messagesRead', (updatedMessages: Message[]) => {
-          let totalUnread = 0;
-          applications.forEach((app) => {
-            const appMessages = updatedMessages.filter((msg) => msg.job_application_id === app.id);
-            totalUnread += appMessages.filter((msg) => msg.recipient_id === profile.id && !msg.is_read).length;
-          });
-          setUnreadCount(totalUnread);
-        });
-
-        socket.on('connect_error', (err) => {
-          console.error('WebSocket connection error in Header:', err);
-        });
-
-        return () => {
-          socket.off('chatHistory');
-          socket.off('newMessage');
-          socket.off('messagesRead');
-          socket.off('connect_error');
-        };
-      } catch (err) {
-        console.error('Error fetching unread messages:', err);
+  const fetchUnreadMessages = async () => {
+    try {
+      let applications: { id: string }[] = [];
+      if (profile.role === 'jobseeker') {
+        const apps = await getMyApplications();
+        applications = apps.filter((app) => app.status === 'Accepted');
+      } else if (profile.role === 'employer') {
+        const posts = await getMyJobPosts();
+        const appsPromises = posts.map((post) => getApplicationsForJobPost(post.id));
+        const appsArrays = await Promise.all(appsPromises);
+        applications = appsArrays.flat().filter((app) => app.status === 'Accepted');
       }
-    };
 
-    fetchUnreadMessages();
-  }, [profile, socket]);
+      if (applications.length === 0) {
+        setUnreadCount(0);
+        setUnreadCounts({});
+        return;
+      }
+
+      applications.forEach((app) => {
+        socket.emit('joinChat', { jobApplicationId: app.id });
+      });
+
+      socket.on('chatHistory', (history: Message[]) => {
+        if (history.length > 0) {
+          const jobApplicationId = history[0].job_application_id;
+          setUnreadCount(prev => {
+            let totalUnread = prev;
+            const unread = history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length;
+            totalUnread -= (unreadCounts[jobApplicationId] || 0);
+            totalUnread += unread;
+            return Math.max(totalUnread, 0);
+          });
+          setUnreadCounts(prev => ({
+            ...prev,
+            [jobApplicationId]: history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length
+          }));
+        }
+      });
+
+      socket.on('newMessage', (message: Message) => {
+        if (message.recipient_id === profile.id && !message.is_read) {
+          setUnreadCount(prev => prev + 1);
+          setUnreadCounts(prev => ({
+            ...prev,
+            [message.job_application_id]: (prev[message.job_application_id] || 0) + 1
+          }));
+        }
+      });
+
+      socket.on('messagesRead', (updatedMessages: Message[]) => {
+        if (updatedMessages.length > 0) {
+          const jobApplicationId = updatedMessages[0].job_application_id;
+          setUnreadCount(prev => {
+            let totalUnread = prev;
+            totalUnread -= (unreadCounts[jobApplicationId] || 0);
+            const appMessages = updatedMessages.filter(msg => msg.job_application_id === jobApplicationId);
+            const unread = appMessages.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length;
+            totalUnread += unread;
+            return Math.max(totalUnread, 0);
+          });
+          setUnreadCounts(prev => ({
+            ...prev,
+            [jobApplicationId]: updatedMessages.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length
+          }));
+        }
+      });
+
+      socket.on('connect_error', (err) => {
+        console.error('WebSocket connection error in Header:', err);
+      });
+
+      return () => {
+        socket.off('chatHistory');
+        socket.off('newMessage');
+        socket.off('messagesRead');
+        socket.off('connect_error');
+        setUnreadCounts({});
+      };
+    } catch (err) {
+      console.error('Error fetching unread messages:', err);
+    }
+  };
+
+  fetchUnreadMessages();
+}, [profile, socket]);
 
   const handleLogout = async () => {
     try {
