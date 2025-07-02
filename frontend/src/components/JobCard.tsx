@@ -46,11 +46,11 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
   return (
     <div className="job-card job-card-find-jobs">
       <div className="job-card-avatar">
-        {job.employer?.avatar ? (
-          <img src={`https://jobforge.net${job.employer.avatar}`} alt="Employer Avatar" />
-        ) : (
-          <FaUserCircle className="profile-avatar-icon" />
-        )}
+{job.employer?.avatar ? (
+  <img src={`https://jobforge.net/backend${job.employer.avatar}`} alt="Employer Avatar" />
+) : (
+  <FaUserCircle className="profile-avatar-icon" />
+)}
       </div>
       <div className="job-card-content">
         <div className="job-title-row">

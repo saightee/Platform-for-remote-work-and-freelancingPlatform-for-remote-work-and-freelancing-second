@@ -195,8 +195,8 @@ export const searchJobseekers = async (params: {
   page?: number;
   limit?: number;
 }) => {
-  const response = await api.get<PaginatedResponse<JobSeekerProfile>>('/users', {
-    params: { ...params, role: 'jobseeker' },
+  const response = await api.get<PaginatedResponse<JobSeekerProfile>>('/talents', {
+    params: { ...params },
   });
   return response.data;
 };
@@ -339,9 +339,20 @@ export const getAllJobPosts = async (params: { status?: string; pendingReview?: 
   const token = localStorage.getItem('token');
   const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
   const isModerator = decoded?.role === 'moderator';
-  const endpoint = isModerator ? '/moderator/job-posts' : '/admin/job-posts';
-  const response = await api.get<PaginatedResponse<JobPost>>(endpoint, { params });
-  return response.data;
+  let endpoint = isModerator ? '/moderator/job-posts' : '/admin/job-posts';
+
+  try {
+    const response = await api.get<PaginatedResponse<JobPost>>(endpoint, { params });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404 && isModerator) {
+      console.warn(`Endpoint ${endpoint} not found, falling back to /admin/job-posts`);
+      endpoint = '/admin/job-posts';
+      const fallbackResponse = await api.get<PaginatedResponse<JobPost>>(endpoint, { params });
+      return fallbackResponse.data;
+    }
+    throw error;
+  }
 };
 
 export const updateJobPostAdmin = async (id: string, data: Partial<JobPost>) => {

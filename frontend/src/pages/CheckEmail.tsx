@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
+
 
 const CheckEmail: React.FC = () => {
   const navigate = useNavigate();
@@ -25,9 +26,9 @@ const CheckEmail: React.FC = () => {
         <h2>Thank You for Registering!</h2>
         <p>Please check your email to verify your account. Follow the link in the email to complete your registration.</p>
         <p>If you don’t see the email, check your spam or junk folder.</p>
-        <button className="action-button" onClick={handleGoToLogin}>
-          Go to Login
-        </button>
+        <p>
+          Already verified? <Link to="/login" onClick={handleGoToLogin}>Go to Login</Link>
+        </p>
       </div>
       <Footer />
       <Copyright />

@@ -23,6 +23,11 @@ p {
   color: #666;
 }
 
+.typing-indicator {
+  font-style: italic; 
+  color: #888; 
+  margin: 10px;
+}
 button {
   background-color: #3498db;
   color: white;
@@ -564,6 +569,21 @@ header nav.mobile-menu-open .dropdown.active .dropdown-menu {
   flex-grow: 1;
   gap: 20px;
   padding: 20px 0;
+}
+
+.unread-status {
+  color: red;
+  font-weight: bold;
+}
+.read-status {
+  color: grey;
+}
+.unread-count {
+  background-color: red;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 12px;
 }
 
 .chat-list {

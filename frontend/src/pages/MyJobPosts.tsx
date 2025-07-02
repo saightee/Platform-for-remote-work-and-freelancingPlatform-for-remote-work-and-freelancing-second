@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus, notifyCandidates } from '../services/api';
+import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus, notifyCandidates, sendApplicationNotification } from '../services/api';
 import { JobPost, Category, JobApplicationDetails } from '@types';
 import { useRole } from '../context/RoleContext';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
+import sanitizeHtml from 'sanitize-html';
+import { AxiosError } from 'axios';
 
 const MyJobPosts: React.FC = () => {
   const { profile, isLoading: roleLoading } = useRole();
@@ -20,7 +22,7 @@ const MyJobPosts: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [editingJob, setEditingJob] = useState<Partial<JobPost> | null>(null);
-
+  const [selectedJobPostId, setSelectedJobPostId] = useState<string>('');
   useEffect(() => {
     const fetchData = async () => {
       if (!profile || profile.role !== 'employer') {
@@ -80,38 +82,32 @@ const MyJobPosts: React.FC = () => {
     }
   };
 
-  const handleViewApplications = async (jobPostId: string) => {
-    try {
-      const apps = await getApplicationsForJobPost(jobPostId);
-      setApplications({ jobPostId, apps });
-    } catch (err: any) {
-      console.error('Error fetching applications:', err);
-      alert(err.response?.data?.message || 'Failed to load applications.');
-    }
-  };
+  // const handleViewApplications = async (jobPostId: string) => {
+  //   try {
+  //     const apps = await getApplicationsForJobPost(jobPostId);
+  //     setApplications({ jobPostId, apps });
+  //   } catch (err: any) {
+  //     console.error('Error fetching applications:', err);
+  //     alert(err.response?.data?.message || 'Failed to load applications.');
+  //   }
+  // };
 
-  const handleNotifyCandidates = async (jobPostId: string) => {
-    const limit = prompt('Enter number of candidates to notify (e.g., 10):');
-    const orderBy = prompt('Enter order (beginning, end, random):');
-    if (!limit || isNaN(parseInt(limit)) || parseInt(limit) < 1) {
-      alert('Please enter a valid number of candidates.');
-      return;
+const handleViewApplications = async (jobPostId: string) => {
+  try {
+    if (selectedJobPostId === jobPostId) {
+      setSelectedJobPostId('');
+      setApplications({ jobPostId: '', apps: [] });
+    } else {
+      setSelectedJobPostId(jobPostId);
+      const apps = await getApplicationsForJobPost(jobPostId);
+      setApplications({ jobPostId, apps: apps || [] });
     }
-    if (!orderBy || !['beginning', 'end', 'random'].includes(orderBy)) {
-      alert('Please enter a valid order: beginning, end, or random.');
-      return;
-    }
-    try {
-      const response = await notifyCandidates(jobPostId, {
-        limit: parseInt(limit),
-        orderBy: orderBy as 'beginning' | 'end' | 'random',
-      });
-      alert(`Notified ${response.sent} of ${response.total} candidates for job post ${response.jobPostId}`);
-    } catch (err: any) {
-      console.error('Error notifying candidates:', err);
-      alert(err.response?.data?.message || 'Failed to notify candidates.');
-    }
-  };
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error fetching applications:', axiosError);
+    setError(axiosError.response?.data?.message || 'Failed to load applications.');
+  }
+};
 
   const handleEditJob = (job: JobPost) => {
     setEditingJob({ ...job });
@@ -143,17 +139,25 @@ const MyJobPosts: React.FC = () => {
     setEditingJob(null);
   };
 
-  const handleUpdateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected', jobPostId: string) => {
-    try {
-      await updateApplicationStatus(applicationId, status);
-      const updatedApps = await getApplicationsForJobPost(jobPostId);
-      setApplications({ jobPostId, apps: updatedApps });
-      alert(`Application ${status.toLowerCase()} successfully!`);
-    } catch (err: any) {
-      console.error(`Error ${status.toLowerCase()} application:`, err);
-      alert(err.response?.data?.message || `Failed to ${status.toLowerCase()} application.`);
+const handleUpdateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected', jobPostId: string) => {
+  try {
+    const updatedApp = await updateApplicationStatus(applicationId, status);
+    await sendApplicationNotification(applicationId, status);
+    const updatedApps = await getApplicationsForJobPost(jobPostId);
+    setApplications({ jobPostId, apps: updatedApps });
+    if (status === 'Accepted') {
+      setJobPosts(prev =>
+        prev.map(post =>
+          post.id === jobPostId ? { ...post, status: 'Closed' } : post
+        )
+      );
     }
-  };
+    alert(`Application ${status.toLowerCase()} successfully!`);
+  } catch (err: any) {
+    console.error(`Error ${status.toLowerCase()} application:`, err);
+    alert(err.response?.data?.message || `Failed to ${status.toLowerCase()} application.`);
+  }
+};
 
   const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
     if (!dateString) return 'Not specified';
@@ -297,9 +301,9 @@ const MyJobPosts: React.FC = () => {
                 ) : (
                   <>
                     <h3>{post.title}</h3>
-                    <p><strong>Description:</strong> {truncateDescription(post.description, 100)}</p>
+                    <p><strong>Description:</strong> <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.description) }} /></p>
                     <p><strong>Status:</strong> {post.status}</p>
-                    <p><strong>Application Limit:</strong> {post.applicationLimit || 'No limit'}</p>
+                   
                     <div className="my-job-action-buttons">
                       <button onClick={() => handleEditJob(post)} className="my-job-action-button">
                         Edit Job Post
@@ -319,12 +323,7 @@ const MyJobPosts: React.FC = () => {
                       >
                         View Applications
                       </button>
-                      <button
-                        onClick={() => handleNotifyCandidates(post.id)}
-                        className="my-job-action-button my-job-success"
-                      >
-                        Notify Candidates
-                      </button>
+              
                     </div>
                     {applications.jobPostId === post.id && applications.apps.length > 0 && (
                       <div className="my-job-application-details-section">

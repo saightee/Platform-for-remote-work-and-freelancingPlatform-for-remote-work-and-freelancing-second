@@ -62,40 +62,66 @@ const ModeratorDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [fetchErrors, setFetchErrors] = useState<{ [key: string]: string }>({});
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!currentRole || !['moderator', 'admin'].includes(currentRole)) {
-        setError('This page is only available for moderators and admins.');
-        setIsLoading(false);
-        return;
-      }
+useEffect(() => {
+  const fetchData = async () => {
+    if (!currentRole || !['moderator', 'admin'].includes(currentRole)) {
+      setError('This page is only available for moderators and admins.');
+      setIsLoading(false);
+      return;
+    }
 
-      try {
-        setIsLoading(true);
-        setFetchErrors({});
-        const [jobPostsResult, reviewsResult, complaintsResult] = await Promise.all([
-          getAllJobPosts({ status: 'Active', pendingReview: 'true', page: jobPostPage, limit: jobPostLimit }),
-          getAllReviewsModerator(),
-          getComplaintsModerator(),
-        ]);
+    try {
+      setIsLoading(true);
+      setFetchErrors({});
+      const requests = [
+        new Promise(async (resolve) => {
+          try {
+            const response = await getAllJobPosts({ status: 'Active', pendingReview: 'true', page: jobPostPage, limit: jobPostLimit });
+            resolve(response);
+          } catch (err) {
+            console.error('Error fetching job posts:', err);
+            resolve({ data: [], total: 0 }); // Возвращаем пустой результат
+          }
+        }),
+        new Promise(async (resolve) => {
+          try {
+            const response = await getAllReviewsModerator();
+            resolve(response);
+          } catch (err) {
+            console.error('Error fetching reviews:', err);
+            resolve([]);
+          }
+        }),
+        new Promise(async (resolve) => {
+          try {
+            const response = await getComplaintsModerator();
+            resolve(response);
+          } catch (err) {
+            console.error('Error fetching complaints:', err);
+            resolve([]);
+          }
+        }),
+      ];
 
-        setJobPosts((jobPostsResult as PaginatedResponse<JobPost>).data || []);
-        setReviews(reviewsResult || []);
-        setComplaints(complaintsResult || []);
-        setError(null);
-      } catch (error) {
-        console.error('Unexpected error fetching moderator data:', error);
-        const axiosError = error as AxiosError<{ message?: string }>;
-        setError(axiosError.response?.data?.message || 'Unexpected error occurred. Please try again.');
-        setFetchErrors({
-          general: axiosError.response?.data?.message || 'Failed to load data',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [currentRole, jobPostPage]);
+      const [jobPostsResult, reviewsResult, complaintsResult] = await Promise.all(requests);
+
+      setJobPosts((jobPostsResult as PaginatedResponse<JobPost>).data || []);
+      setReviews(reviewsResult as Review[] || []);
+      setComplaints(complaintsResult as any[] || []);
+      setError(null);
+    } catch (error) {
+      console.error('Unexpected error fetching moderator data:', error);
+      const axiosError = error as AxiosError<{ message?: string }>;
+      setError(axiosError.response?.data?.message || 'Unexpected error occurred. Please try again.');
+      setFetchErrors({
+        general: axiosError.response?.data?.message || 'Failed to load data',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  fetchData();
+}, [currentRole, jobPostPage]);
 
   const handleDeleteJobPost = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this job post?')) {

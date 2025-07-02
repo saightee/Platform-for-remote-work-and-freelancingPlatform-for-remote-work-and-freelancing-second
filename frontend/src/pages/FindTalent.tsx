@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -7,6 +7,7 @@ import { searchTalents, searchJobseekers, getCategories } from '../services/api'
 import { Profile, Category } from '@types';
 import { FaUserCircle, FaFilter } from 'react-icons/fa';
 import { AxiosError } from 'axios';
+import debounce from 'lodash.debounce';
 
 interface TalentResponse {
   total: number;
@@ -43,6 +44,17 @@ const FindTalent: React.FC = () => {
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const navigate = useNavigate();
 
+  const debouncedSetFilters = useCallback(
+    debounce((newFilters: Partial<typeof filters>) => {
+      setFilters((prev) => ({ ...prev, ...newFilters, page: 1 }));
+      setSearchParams({
+        skills: newFilters.skills || filters.skills,
+        username: searchType === 'jobseekers' ? (newFilters.username || filters.username) : '',
+      });
+    }, 500),
+    [setSearchParams, searchType, filters.skills, filters.username]
+  );
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -63,13 +75,10 @@ const FindTalent: React.FC = () => {
         let talentData: Profile[] = [];
         let totalCount = 0;
 
-        // Универсальная обработка ответа
         if ('total' in response && 'data' in response && Array.isArray(response.data)) {
-          // Формат { total, data }
           talentData = response.data;
           totalCount = response.total;
         } else if (Array.isArray(response)) {
-          // Формат Profile[]
           talentData = response;
           totalCount = response.length;
         } else {
@@ -101,11 +110,7 @@ const FindTalent: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setFilters((prev) => ({ ...prev, page: 1 }));
-    setSearchParams({
-      skills: filters.skills,
-      username: searchType === 'jobseekers' ? filters.username : '',
-    });
+    debouncedSetFilters.flush(); // Немедленно применить последние фильтры
     setIsFilterPanelOpen(false);
   };
 
@@ -177,14 +182,14 @@ const FindTalent: React.FC = () => {
               type="text"
               placeholder="Search by username"
               value={filters.username}
-              onChange={(e) => setFilters((prev) => ({ ...prev, username: e.target.value }))}
+              onChange={(e) => debouncedSetFilters({ username: e.target.value })}
             />
           )}
           <input
             type="text"
             placeholder="Search by skills or keywords"
             value={filters.skills}
-            onChange={(e) => setFilters((prev) => ({ ...prev, skills: e.target.value }))}
+            onChange={(e) => debouncedSetFilters({ skills: e.target.value })}
           />
           <button onClick={handleSearch}>Search</button>
           <button className="ft-filter-toggle" onClick={toggleFilterPanel}>
@@ -200,7 +205,7 @@ const FindTalent: React.FC = () => {
                 <input
                   type="text"
                   value={filters.skills}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, skills: e.target.value }))}
+                  onChange={(e) => debouncedSetFilters({ skills: e.target.value })}
                   placeholder="Enter skills (e.g., JavaScript, Python)"
                 />
               </div>
@@ -210,7 +215,7 @@ const FindTalent: React.FC = () => {
                   <input
                     type="text"
                     value={filters.username}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, username: e.target.value }))}
+                    onChange={(e) => debouncedSetFilters({ username: e.target.value })}
                     placeholder="Enter username"
                   />
                 </div>
@@ -220,7 +225,7 @@ const FindTalent: React.FC = () => {
                 <input
                   type="text"
                   value={filters.experience}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, experience: e.target.value }))}
+                  onChange={(e) => debouncedSetFilters({ experience: e.target.value })}
                   placeholder="Enter experience (e.g., 3 years)"
                 />
               </div>
@@ -232,10 +237,9 @@ const FindTalent: React.FC = () => {
                   max="5"
                   value={filters.rating || ''}
                   onChange={(e) =>
-                    setFilters((prev) => ({
-                      ...prev,
+                    debouncedSetFilters({
                       rating: e.target.value ? Number(e.target.value) : undefined,
-                    }))
+                    })
                   }
                   placeholder="Enter rating (0-5)"
                 />
@@ -245,7 +249,7 @@ const FindTalent: React.FC = () => {
                 <input
                   type="text"
                   value={filters.timezone}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, timezone: e.target.value }))}
+                  onChange={(e) => debouncedSetFilters({ timezone: e.target.value })}
                   placeholder="Enter timezone (e.g., America/New_York)"
                 />
               </div>
@@ -290,19 +294,25 @@ const FindTalent: React.FC = () => {
 
                   return (
                     <div key={talent.id} className="ft-card">
-                      <div className="ft-avatar-top">
-                        {talent.avatar ? (
-                          <img
-                            src={`https://jobforge.net/backend${talent.avatar}`}
-                            alt="Talent Avatar"
-                            onError={(e) => {
-                              e.currentTarget.src = '/path/to/fallback-avatar.jpg'; // Укажите реальный путь
-                            }}
-                          />
-                        ) : (
-                          <FaUserCircle className="ft-avatar-icon" />
-                        )}
-                      </div>
+<div className="ft-avatar-top">
+  {talent.avatar ? (
+    <img
+      src={`https://jobforge.net${talent.avatar}`}
+      alt="Talent Avatar"
+      onError={(e) => {
+        e.currentTarget.style.display = 'none'; // Hide broken image
+        const nextSibling = e.currentTarget.nextSibling;
+        if (nextSibling instanceof HTMLElement || nextSibling instanceof SVGElement) {
+          nextSibling.style.display = 'block'; // Show fallback icon
+        }
+      }}
+    />
+  ) : null}
+  <FaUserCircle
+    className="ft-avatar-icon"
+    style={{ display: talent.avatar ? 'none' : 'block' }}
+  />
+</div>
                       <div className="ft-content">
                         <div className="ft-title-row">
                           <h3>{talent.username}</h3>

@@ -58,15 +58,15 @@ const PublicProfile: React.FC = () => {
         <div className="pp-content">
           <div className="pp-details">
             <div className="pp-avatar-section">
-              {profile.avatar ? (
-                <img
-                  src={`https://jobforge.net${profile.avatar}`}
-                  alt="Avatar"
-                  className="pp-avatar"
-                />
-              ) : (
-                <FaUserCircle className="pp-avatar-icon" />
-              )}
+             {profile.avatar ? (
+  <img
+    src={`https://jobforge.net/backend${profile.avatar}`}
+    alt="Avatar"
+    className="pp-avatar"
+  />
+) : (
+  <FaUserCircle className="pp-avatar-icon" />
+)}
             </div>
             <h3>{profile.username}</h3>
             <p><strong>Email:</strong> {profile.email || 'Not visible'}</p>

@@ -22,14 +22,18 @@ const Messages: React.FC = () => {
   const { profile, currentRole, socket, socketStatus } = useRole();
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
-  const [jobPostApplications, setJobPostApplications] = useState<{ [jobPostId: string]: { id: string; userId: string; username: string; email: string; jobDescription: string; appliedAt: string; status: string; job_post_id: string }[] }>({});
+  const [jobPostApplications, setJobPostApplications] = useState<{
+    [jobPostId: string]: { id: string; userId: string; username: string; email: string; jobDescription: string; appliedAt: string; status: string; job_post_id: string }[];
+  }>({});
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [messages, setMessages] = useState<{ [jobApplicationId: string]: Message[] }>({});
   const [newMessage, setNewMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [unreadCounts, setUnreadCounts] = useState<{ [jobApplicationId: string]: number }>({});
+  const [isTyping, setIsTyping] = useState<{ [jobApplicationId: string]: boolean }>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<{ [jobApplicationId: string]: number }>({});
 
   useEffect(() => {
     if (!profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) {
@@ -45,15 +49,15 @@ const Messages: React.FC = () => {
 
         if (currentRole === 'jobseeker') {
           const apps = await getMyApplications();
-          setApplications(apps.filter(app => app.status === 'Accepted'));
+          setApplications(apps.filter((app) => app.status === 'Accepted'));
         } else if (currentRole === 'employer') {
           const posts = await getMyJobPosts();
           setJobPosts(posts);
-          const appsPromises = posts.map(post => getApplicationsForJobPost(post.id));
+          const appsPromises = posts.map((post) => getApplicationsForJobPost(post.id));
           const appsArrays = await Promise.all(appsPromises);
           const appsMap: { [jobPostId: string]: typeof appsArrays[0] } = {};
           posts.forEach((post, index) => {
-            appsMap[post.id] = appsArrays[index].filter(app => app.status === 'Accepted');
+            appsMap[post.id] = appsArrays[index].filter((app) => app.status === 'Accepted');
           });
           setJobPostApplications(appsMap);
         }
@@ -71,47 +75,71 @@ const Messages: React.FC = () => {
   useEffect(() => {
     if (!profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole) || !socket) {
       setUnreadCounts({});
+      setIsTyping({});
       return;
     }
 
     socket.on('connect', () => {
       console.log('Connected to WebSocket server');
       if (currentRole === 'jobseeker') {
-        applications.forEach(app => {
+        applications.forEach((app) => {
           socket.emit('joinChat', { jobApplicationId: app.id });
         });
       } else if (currentRole === 'employer') {
-        Object.values(jobPostApplications).flat().forEach(app => {
-          socket.emit('joinChat', { jobApplicationId: app.id });
-        });
+        Object.values(jobPostApplications)
+          .flat()
+          .forEach((app) => {
+            socket.emit('joinChat', { jobApplicationId: app.id });
+          });
       }
     });
 
     socket.on('chatHistory', (history: Message[]) => {
       if (history.length > 0) {
         const jobApplicationId = history[0].job_application_id;
-        setMessages(prev => ({
+        setMessages((prev) => ({
           ...prev,
-          [jobApplicationId]: history.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          [jobApplicationId]: history.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
         }));
-        setUnreadCounts(prevCounts => ({
+        setUnreadCounts((prevCounts) => ({
           ...prevCounts,
-          [jobApplicationId]: selectedChat === jobApplicationId ? 0 : history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length
+          [jobApplicationId]: selectedChat === jobApplicationId ? 0 : history.filter((msg) => msg.recipient_id === profile.id && !msg.is_read).length,
         }));
       }
     });
 
     socket.on('newMessage', (message: Message) => {
-      setMessages(prev => ({
+      setMessages((prev) => ({
         ...prev,
-        [message.job_application_id]: [...(prev[message.job_application_id] || []), message]
+        [message.job_application_id]: [...(prev[message.job_application_id] || []), message],
       }));
       if (message.recipient_id === profile.id && !message.is_read && selectedChat !== message.job_application_id) {
-        setUnreadCounts(prevCounts => ({
+        setUnreadCounts((prevCounts) => ({
           ...prevCounts,
-          [message.job_application_id]: (prevCounts[message.job_application_id] || 0) + 1
+          [message.job_application_id]: (prevCounts[message.job_application_id] || 0) + 1,
         }));
       }
+    });
+
+    socket.on('messagesRead', (updatedMessages: Message[]) => {
+      if (updatedMessages.length > 0) {
+        const jobApplicationId = updatedMessages[0].job_application_id;
+        setMessages((prev) => ({
+          ...prev,
+          [jobApplicationId]: updatedMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+        }));
+        setUnreadCounts((prevCounts) => ({
+          ...prevCounts,
+          [jobApplicationId]: 0,
+        }));
+      }
+    });
+
+    socket.on('typing', ({ jobApplicationId, isTyping: typingStatus }: { jobApplicationId: string; isTyping: boolean }) => {
+      setIsTyping((prev) => ({
+        ...prev,
+        [jobApplicationId]: typingStatus,
+      }));
     });
 
     socket.on('connect_error', (err) => {
@@ -122,9 +150,12 @@ const Messages: React.FC = () => {
     return () => {
       socket.off('chatHistory');
       socket.off('newMessage');
+      socket.off('messagesRead');
+      socket.off('typing');
       socket.off('connect');
       socket.off('connect_error');
       setUnreadCounts({});
+      setIsTyping({});
     };
   }, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
 
@@ -138,7 +169,7 @@ const Messages: React.FC = () => {
 
     socket.emit('sendMessage', {
       jobApplicationId: selectedChat,
-      content: newMessage.trim()
+      content: newMessage.trim(),
     });
 
     setNewMessage('');
@@ -146,18 +177,40 @@ const Messages: React.FC = () => {
 
   const handleSelectChat = (jobApplicationId: string) => {
     setSelectedChat(jobApplicationId);
-    setUnreadCounts(prev => ({
+    setUnreadCounts((prev) => ({
       ...prev,
-      [jobApplicationId]: 0
+      [jobApplicationId]: 0,
     }));
+    if (socket) {
+      socket.emit('markMessagesAsRead', { jobApplicationId });
+    }
+  };
+
+  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!socket || !selectedChat) return;
+
+    const content = e.target.value;
+    setNewMessage(content);
+
+    socket.emit('typing', { jobApplicationId: selectedChat, isTyping: true });
+
+    if (typingTimeoutRef.current[selectedChat]) {
+      clearTimeout(typingTimeoutRef.current[selectedChat]);
+    }
+
+    typingTimeoutRef.current[selectedChat] = setTimeout(() => {
+      socket.emit('typing', { jobApplicationId: selectedChat, isTyping: false });
+    }, 1000);
   };
 
   const getChatPartner = (jobApplicationId: string) => {
     if (currentRole === 'jobseeker') {
-      const app = applications.find(a => a.id === jobApplicationId);
+      const app = applications.find((a) => a.id === jobApplicationId);
       return app?.job_post?.employer?.username || 'Unknown';
     } else if (currentRole === 'employer') {
-      const app = Object.values(jobPostApplications).flat().find(a => a.id === jobApplicationId);
+      const app = Object.values(jobPostApplications)
+        .flat()
+        .find((a) => a.id === jobApplicationId);
       return app?.username || 'Unknown';
     }
     return 'Unknown';
@@ -165,19 +218,21 @@ const Messages: React.FC = () => {
 
   const getChatList = () => {
     if (currentRole === 'jobseeker') {
-      return applications.map(app => ({
+      return applications.map((app) => ({
         id: app.id,
         title: app.job_post?.title || 'Unknown Job',
         partner: getChatPartner(app.id),
-        unreadCount: unreadCounts[app.id] || 0
+        unreadCount: unreadCounts[app.id] || 0,
       }));
     } else if (currentRole === 'employer') {
-      return Object.values(jobPostApplications).flat().map(app => ({
-        id: app.id,
-        title: jobPosts.find(post => post.id === app.job_post_id)?.title || 'Unknown Job',
-        partner: app.username,
-        unreadCount: unreadCounts[app.id] || 0
-      }));
+      return Object.values(jobPostApplications)
+        .flat()
+        .map((app) => ({
+          id: app.id,
+          title: jobPosts.find((post) => post.id === app.job_post_id)?.title || 'Unknown Job',
+          partner: app.username,
+          unreadCount: unreadCounts[app.id] || 0,
+        }));
     }
     return [];
   };
@@ -217,17 +272,17 @@ const Messages: React.FC = () => {
           <h3>Chats</h3>
           {getChatList().length > 0 ? (
             <ul>
-              {getChatList().map(chat => (
+              {getChatList().map((chat) => (
                 <li
                   key={chat.id}
                   className={`chat-item ${selectedChat === chat.id ? 'active' : ''}`}
                   onClick={() => handleSelectChat(chat.id)}
                 >
-                  <p><strong>{chat.title}</strong></p>
+                  <p>
+                    <strong>{chat.title}</strong>
+                  </p>
                   <p>{chat.partner}</p>
-                  {chat.unreadCount > 0 && (
-                    <span className="unread-count">{chat.unreadCount}</span>
-                  )}
+                  {chat.unreadCount > 0 && <span className="unread-count">{chat.unreadCount}</span>}
                 </li>
               ))}
             </ul>
@@ -250,16 +305,23 @@ const Messages: React.FC = () => {
                     <span>{msg.is_read ? 'Read' : 'Unread'}</span>
                   </div>
                 ))}
+                {isTyping[selectedChat] && (
+                  <div className="typing-indicator">
+                    <p>Typing...</p>
+                  </div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
               <form onSubmit={handleSendMessage} className="message-form">
                 <input
                   type="text"
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
+                  onChange={handleTyping}
                   placeholder="Type a message..."
                 />
-                <button type="submit" className="action-button">Send</button>
+                <button type="submit" className="action-button">
+                  Send
+                </button>
               </form>
             </>
           ) : (

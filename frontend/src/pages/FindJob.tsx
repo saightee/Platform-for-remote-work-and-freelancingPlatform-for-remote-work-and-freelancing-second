@@ -71,17 +71,25 @@ const FindJob: React.FC = () => {
         setTotalPages(Math.ceil(jobsResponse.total / searchState.limit) || 1);
         setCategories(categoriesResponse || []);
 
-        if (profile?.role === 'jobseeker') {
-          const statusPromises = jobsResponse.data.map((job) =>
-            checkJobApplicationStatus(job.id).catch(() => ({ hasApplied: false }))
-          );
-          const statuses = await Promise.all(statusPromises);
-          const statusMap = jobsResponse.data.reduce((acc, job, index) => {
-            acc[job.id] = statuses[index].hasApplied;
-            return acc;
-          }, {} as { [key: string]: boolean });
-          setApplicationStatus(statusMap);
-        }
+if (profile?.role === 'jobseeker') {
+  try {
+    const statusPromises = jobsResponse.data.map((job) =>
+      checkJobApplicationStatus(job.id).catch((err) => {
+        console.error(`Error checking application status for job ${job.id}:`, err);
+        return { hasApplied: false };
+      })
+    );
+    const statuses = await Promise.all(statusPromises);
+    const statusMap = jobsResponse.data.reduce((acc, job, index) => {
+      acc[job.id] = statuses[index].hasApplied;
+      return acc;
+    }, {} as { [key: string]: boolean });
+    setApplicationStatus(statusMap);
+  } catch (err) {
+    console.error('Error fetching application statuses:', err);
+    setApplicationStatus({});
+  }
+}
       } catch (err: any) {
         console.error('Error fetching jobs:', err);
         setError(err.response?.data?.message || 'Failed to load jobs. Please try again.');

@@ -354,7 +354,7 @@ const ProfilePage: React.FC = () => {
             ) : (
               <>
                 <p><strong>Username:</strong> {profileData.username}</p>
-                <p><strong>Email:</strong> {profileData.email || 'Not visible'}</p>
+               
                 {profileData.role === 'employer' && (
                   <>
                     <p><strong>Company Name:</strong> {(profileData as EmployerProfile).company_name || 'Not specified'}</p>
@@ -381,28 +381,29 @@ const ProfilePage: React.FC = () => {
                     <p><strong>Average Rating:</strong> {profileData.average_rating || 'Not rated'}</p>
                     <p><strong>Identity Verified:</strong> {profileData.identity_verified ? 'Yes' : 'No'}</p>
                     <p>
-                      <strong>Identity Document:</strong>{' '}
-                      {profileData.identity_document ? (
-                        <div className="document-preview">
-                          {profileData.identity_document.endsWith('.pdf') ? (
-                            <a href={`https://jobforge.net${profileData.identity_document}`} target="_blank" rel="noopener noreferrer">
-                              <FaFilePdf size={50} />
-                              <span>View PDF</span>
-                            </a>
-                          ) : (
-                            <a href={`https://jobforge.net${profileData.identity_document}`} target="_blank" rel="noopener noreferrer">
-                              <img
-                                src={`https://jobforge.net${profileData.identity_document}`}
-                                alt="Identity Document"
-                                className="document-thumbnail"
-                              />
-                            </a>
-                          )}
-                        </div>
-                      ) : (
-                        'Not uploaded'
-                      )}
-                    </p>
+  <strong>Identity Document:</strong>{' '}
+  {profileData.identity_document ? (
+    <div className="document-preview">
+      {profileData.identity_document.endsWith('.pdf') ? (
+        <a href={`https://jobforge.net/backend${profileData.identity_document}`} target="_blank" rel="noopener noreferrer">
+          <FaFilePdf size={50} />
+          <span>View PDF (Uploaded)</span>
+        </a>
+      ) : (
+        <a href={`https://jobforge.net/backend${profileData.identity_document}`} target="_blank" rel="noopener noreferrer">
+          <img
+            src={`https://jobforge.net/backend${profileData.identity_document}`}
+            alt="Identity Document"
+            className="document-thumbnail"
+          />
+          <span>Image Uploaded</span>
+        </a>
+      )}
+    </div>
+  ) : (
+    'Not uploaded'
+  )}
+</p>
                     <h3>Reviews</h3>
                     {profileData.reviews?.length ? (
                       <ul>
