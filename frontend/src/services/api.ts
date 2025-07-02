@@ -54,16 +54,47 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// export const initializeWebSocket = (onMessage: (message: WebSocketMessage) => void, onError: (error: WebSocketError) => void): Socket => {
+//   const token = localStorage.getItem('token');
+//   const socket = io(import.meta.env.VITE_WS_BASE_URL || 'http://localhost:3000', {
+//     auth: { token: `Bearer ${token}` },
+//     reconnection: true,
+//     reconnectionDelay: 3000,
+//   });
+
+//   socket.on('newMessage', onMessage);
+//   socket.on('error', onError);
+
+//   return socket;
+// };
+
+
+
 export const initializeWebSocket = (onMessage: (message: WebSocketMessage) => void, onError: (error: WebSocketError) => void): Socket => {
   const token = localStorage.getItem('token');
-  const socket = io(import.meta.env.VITE_WS_BASE_URL || 'http://localhost:3000', {
+  console.log('WebSocket token:', token);
+
+  if (!token) {
+    console.error('No token found for WebSocket connection');
+    throw new Error('No token found for WebSocket connection');
+  }
+
+  const socket = io(import.meta.env.VITE_WS_BASE_URL || 'wss://jobforge.net', {
     auth: { token: `Bearer ${token}` },
-    reconnection: true,
+    transports: ['websocket', 'polling'], // Предпочитать WebSocket, с fallback на polling
+    reconnection: true, // Включить повторные подключения
+    reconnectionAttempts: 5, // Ограничить попытки
     reconnectionDelay: 3000,
   });
 
   socket.on('newMessage', onMessage);
-  socket.on('error', onError);
+  socket.on('error', (err) => {
+    console.error('WebSocket error:', err);
+    onError(err);
+  });
+  socket.on('connect_error', (err) => {
+    console.error('WebSocket connect_error:', err);
+  });
 
   return socket;
 };
