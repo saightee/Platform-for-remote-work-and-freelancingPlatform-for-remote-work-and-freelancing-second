@@ -56,7 +56,7 @@ api.interceptors.request.use(async (config) => {
 
 export const initializeWebSocket = (onMessage: (message: WebSocketMessage) => void, onError: (error: WebSocketError) => void): Socket => {
   const token = localStorage.getItem('token');
-  const socket = io(import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000', {
+  const socket = io(import.meta.env.VITE_WS_BASE_URL || 'http://localhost:3000', {
     auth: { token: `Bearer ${token}` },
     reconnection: true,
     reconnectionDelay: 3000,
