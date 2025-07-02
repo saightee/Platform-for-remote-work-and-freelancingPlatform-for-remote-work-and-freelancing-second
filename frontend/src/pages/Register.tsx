@@ -24,14 +24,7 @@ const Register: React.FC = () => {
 
   const handleSubmit = async (e: React.MouseEvent) => {
   e.preventDefault();
-<<<<<<< HEAD
-  if (!role) {
-    setErrorMessage('Please select a role.');
-    return;
-  }
-=======
   if (!role) return;
->>>>>>> a0b821046ebfc3c161f3d978c4927f515c8253fc
   if (password !== confirmPassword) {
     setErrorMessage('Passwords do not match!');
     return;
@@ -39,19 +32,6 @@ const Register: React.FC = () => {
   try {
     setErrorMessage(null);
     const response = await register({ username, email, password, role });
-<<<<<<< HEAD
-    if (response.accessToken) {
-      localStorage.setItem('token', response.accessToken);
-    }
-    navigate('/check-email');
-  } catch (error: any) {
-    console.error('Register error:', error);
-    if (error.response?.status === 403 && error.response?.data?.message === 'Registration is not allowed from your country') {
-      setErrorMessage('Registration is not allowed from your country.');
-    } else {
-      setErrorMessage('Registration successful, but an error occurred. Please check your email to verify your account.');
-    }
-=======
     console.log('Registration response:', response);
     localStorage.setItem('token', response.accessToken);
     await refreshProfile();
@@ -63,7 +43,6 @@ const Register: React.FC = () => {
         ? 'Registration is not allowed from your country.'
         : error.response?.data?.message || 'Registration failed. Please try again.';
     setErrorMessage(errorMsg);
->>>>>>> a0b821046ebfc3c161f3d978c4927f515c8253fc
   }
 };
 

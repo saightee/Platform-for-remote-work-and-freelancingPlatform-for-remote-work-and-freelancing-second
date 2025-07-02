@@ -22,13 +22,7 @@ const Messages: React.FC = () => {
   const { profile, currentRole, socket, socketStatus } = useRole();
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
-<<<<<<< HEAD
-  const [jobPostApplications, setJobPostApplications] = useState<{
-    [jobPostId: string]: { id: string; userId: string; username: string; email: string; jobDescription: string; appliedAt: string; status: string; job_post_id: string }[];
-  }>({});
-=======
   const [jobPostApplications, setJobPostApplications] = useState<{ [jobPostId: string]: JobApplicationDetails[] }>({});
->>>>>>> a0b821046ebfc3c161f3d978c4927f515c8253fc
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [messages, setMessages] = useState<{ [jobApplicationId: string]: Message[] }>({});
   const [newMessage, setNewMessage] = useState('');
@@ -49,16 +43,10 @@ const Messages: React.FC = () => {
         } else if (currentRole === 'employer') {
           const posts = await getMyJobPosts();
           setJobPosts(posts);
-<<<<<<< HEAD
-          const appsPromises = posts.map((post) => getApplicationsForJobPost(post.id));
-          const appsArrays = await Promise.all(appsPromises);
-          const appsMap: { [jobPostId: string]: typeof appsArrays[0] } = {};
-=======
           const appsArrays = await Promise.all(
             posts.map(post => getApplicationsForJobPost(post.id))
           );
           const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
->>>>>>> a0b821046ebfc3c161f3d978c4927f515c8253fc
           posts.forEach((post, index) => {
             appsMap[post.id] = appsArrays[index].filter((app) => app.status === 'Accepted');
           });
@@ -90,17 +78,9 @@ const Messages: React.FC = () => {
           socket.emit('joinChat', { jobApplicationId: app.id });
         });
       } else if (currentRole === 'employer') {
-<<<<<<< HEAD
-        Object.values(jobPostApplications)
-          .flat()
-          .forEach((app) => {
-            socket.emit('joinChat', { jobApplicationId: app.id });
-          });
-=======
         Object.values(jobPostApplications).flat().forEach(app => {
           socket.emit('joinChat', { jobApplicationId: app.applicationId });
         });
->>>>>>> a0b821046ebfc3c161f3d978c4927f515c8253fc
       }
     };
 
@@ -131,29 +111,6 @@ const Messages: React.FC = () => {
       }
     });
 
-<<<<<<< HEAD
-    socket.on('messagesRead', (updatedMessages: Message[]) => {
-      if (updatedMessages.length > 0) {
-        const jobApplicationId = updatedMessages[0].job_application_id;
-        setMessages((prev) => ({
-          ...prev,
-          [jobApplicationId]: updatedMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
-        }));
-        setUnreadCounts((prevCounts) => ({
-          ...prevCounts,
-          [jobApplicationId]: 0,
-        }));
-      }
-    });
-
-    socket.on('typing', ({ jobApplicationId, isTyping: typingStatus }: { jobApplicationId: string; isTyping: boolean }) => {
-      setIsTyping((prev) => ({
-        ...prev,
-        [jobApplicationId]: typingStatus,
-      }));
-    });
-
-=======
     socket.on('chatInitialized', async (data: { jobApplicationId: string }) => {
       console.log('Chat initialized for application:', data.jobApplicationId);
       socket.emit('joinChat', { jobApplicationId: data.jobApplicationId });
@@ -177,7 +134,6 @@ const Messages: React.FC = () => {
       }
     });
 
->>>>>>> a0b821046ebfc3c161f3d978c4927f515c8253fc
     socket.on('connect_error', (err) => {
       console.error('WebSocket connection error in Messages:', err.message);
       setError('Failed to connect to chat server. Retrying...');
@@ -188,17 +144,8 @@ const Messages: React.FC = () => {
     return () => {
       socket.off('chatHistory');
       socket.off('newMessage');
-<<<<<<< HEAD
-      socket.off('messagesRead');
-      socket.off('typing');
-      socket.off('connect');
-      socket.off('connect_error');
-      setUnreadCounts({});
-      setIsTyping({});
-=======
       socket.off('chatInitialized');
       socket.off('connect_error');
->>>>>>> a0b821046ebfc3c161f3d978c4927f515c8253fc
     };
   }, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
 
@@ -251,13 +198,7 @@ const Messages: React.FC = () => {
       const app = applications.find((a) => a.id === jobApplicationId);
       return app?.job_post?.employer?.username || 'Unknown';
     } else if (currentRole === 'employer') {
-<<<<<<< HEAD
-      const app = Object.values(jobPostApplications)
-        .flat()
-        .find((a) => a.id === jobApplicationId);
-=======
       const app = Object.values(jobPostApplications).flat().find(a => a.applicationId === jobApplicationId);
->>>>>>> a0b821046ebfc3c161f3d978c4927f515c8253fc
       return app?.username || 'Unknown';
     }
     return 'Unknown';
@@ -272,23 +213,12 @@ const Messages: React.FC = () => {
         unreadCount: unreadCounts[app.id] || 0,
       }));
     } else if (currentRole === 'employer') {
-<<<<<<< HEAD
-      return Object.values(jobPostApplications)
-        .flat()
-        .map((app) => ({
-          id: app.id,
-          title: jobPosts.find((post) => post.id === app.job_post_id)?.title || 'Unknown Job',
-          partner: app.username,
-          unreadCount: unreadCounts[app.id] || 0,
-        }));
-=======
       return Object.values(jobPostApplications).flat().map(app => ({
         id: app.applicationId,
         title: jobPosts.find(post => post.id === app.job_post_id)?.title || 'Unknown Job',
         partner: app.username,
         unreadCount: unreadCounts[app.applicationId] || 0
       }));
->>>>>>> a0b821046ebfc3c161f3d978c4927f515c8253fc
     }
     return [];
   };
