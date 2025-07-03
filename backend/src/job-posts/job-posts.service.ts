@@ -22,37 +22,35 @@ export class JobPostsService {
     private settingsService: SettingsService, 
   ) {}
 
-  async createJobPost(userId: string, jobPostData: { title: string; description: string; location: string; salary: number; status: 'Active' | 'Draft' | 'Closed'; category_id?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based'; applicationLimit?: number }) {
-    const user = await this.usersRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    if (user.role !== 'employer') {
-      throw new UnauthorizedException('Only employers can create job posts');
-    }
-
-    if (jobPostData.category_id) {
-      await this.categoriesService.getCategoryById(jobPostData.category_id);
-    }
-
-    const globalLimit = await this.settingsService.getGlobalApplicationLimit();
-    const applicationLimit = jobPostData.applicationLimit || 100;
-    if (applicationLimit > globalLimit) {
-      throw new BadRequestException(`Application limit cannot exceed global limit of ${globalLimit}`);
-    }
-
-    const jobPost = this.jobPostsRepository.create({
-      ...jobPostData,
-      employer_id: userId,
-      pending_review: true,
-      applicationLimit,
-    });
-    const savedJobPost = await this.jobPostsRepository.save(jobPost);
-
-    await this.applicationLimitsService.initializeLimits(savedJobPost.id, savedJobPost.applicationLimit);
-
-    return savedJobPost;
+async createJobPost(userId: string, jobPostData: { title: string; description: string; location: string; salary: number; status: 'Active' | 'Draft' | 'Closed'; category_id?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based' }) {
+  const user = await this.usersRepository.findOne({ where: { id: userId } });
+  if (!user) {
+    throw new NotFoundException('User not found');
   }
+  if (user.role !== 'employer') {
+    throw new UnauthorizedException('Only employers can create job posts');
+  }
+
+  if (jobPostData.category_id) {
+    await this.categoriesService.getCategoryById(jobPostData.category_id);
+  }
+
+  let globalLimit = await this.settingsService.getGlobalApplicationLimit();
+  if (!Number.isFinite(globalLimit) || globalLimit < 0) {
+    globalLimit = 100; // Значение по умолчанию, если глобальный лимит не установлен или некорректен
+  }
+
+  const jobPost = this.jobPostsRepository.create({
+    ...jobPostData,
+    employer_id: userId,
+    pending_review: true,
+  });
+  const savedJobPost = await this.jobPostsRepository.save(jobPost);
+
+  await this.applicationLimitsService.initializeLimits(savedJobPost.id, globalLimit);
+
+  return savedJobPost;
+}
 
   async updateJobPost(userId: string, jobPostId: string, updates: { title?: string; description?: string; location?: string; salary?: number; status?: 'Active' | 'Draft' | 'Closed'; category_id?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based'; applicationLimit?: number }) {
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: userId } });
@@ -73,13 +71,6 @@ export class JobPostsService {
     if (updates.status) jobPost.status = updates.status;
     if (updates.category_id) jobPost.category_id = updates.category_id;
     if (updates.job_type) jobPost.job_type = updates.job_type;
-    if (updates.applicationLimit !== undefined) {
-      if (updates.applicationLimit > globalLimit) {
-        throw new BadRequestException(`Application limit cannot exceed global limit of ${globalLimit}`);
-      }
-      jobPost.applicationLimit = updates.applicationLimit;
-      await this.applicationLimitsService.initializeLimits(jobPostId, updates.applicationLimit);
-    }
 
     return this.jobPostsRepository.save(jobPost);
   }

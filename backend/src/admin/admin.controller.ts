@@ -348,10 +348,9 @@ export class AdminController {
     return this.settingsService.getGlobalApplicationLimit();
   }
 
-  @Post('job-posts/:id/set-application-limit')
+  @Post('settings/job-posts-application-limit')
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   async setApplicationLimit(
-    @Param('id') jobPostId: string,
     @Body('limit') limit: number,
     @Headers('authorization') authHeader: string,
   ) {
@@ -361,8 +360,7 @@ export class AdminController {
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const userIdAdmin = payload.sub;
-
-    return this.adminService.setApplicationLimit(userIdAdmin, jobPostId, limit);
+    return this.adminService.setApplicationLimit(userIdAdmin, limit);
   }
 
   @Post('blocked-countries')

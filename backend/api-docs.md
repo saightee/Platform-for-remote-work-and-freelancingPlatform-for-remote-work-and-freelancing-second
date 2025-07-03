@@ -256,7 +256,7 @@
   }
 
 ### 6. Get Profile
-- **Endpoint**: `GET /api/profile`
+- **Endpoint**: `GET /api/myprofile`
 - **Description**: Retrieves the authenticated user's profile based on their role.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**: None
@@ -498,7 +498,6 @@
     "status": "Active",
     "category_id": "<categoryId>", // Optional
     "job_type": "Full-time", // Optional: "Full-time", "Part-time", "Project-based"
-    "applicationLimit": 100 // Optional, defaults to 100
   }
 
 - **Response (Success - 200)**:
@@ -540,14 +539,6 @@
     "statusCode": 404,
     "message": "User not found",
     "error": "Not Found"
-  }
-
-- **Response (Error - 400, if application limit exceeds global limit)**:
-  ```json
-  {
-    "statusCode": 40,
-    "message": "Application limit cannot exceed global limit of 1000",
-    "error": "Bad Request"
   }
 
 ### 9. Update Job Post
@@ -1672,11 +1663,10 @@
     "error": "Bad Request"
   }
 
-### 35. Set Application Limit for Job Post (Admin)
-- **Endpoint**: `POST /api/admin/job-posts/:id/set-application-limit`
-- **Description**: Sets the application limit for a specific job post (admin only). Employers cannot set limits.
+### 35. Set Global Application Limit for All Job Posts (Admin)
+- **Endpoint**: `POST /api/admin/settings/job-posts-application-limit`
+- **Description**: Sets the global application limit for all job posts (admin only).
 - **Headers**: `Authorization: Bearer <token>`
-- **Request Parameters**: `id`: The ID of the job post.
 - **Request Body**:
   ```json
   {
@@ -3092,4 +3082,65 @@
     "statusCode": 404,
     "message": "Job application not found",
     "error": "Not Found"
+  }
+
+### 74. Get All Job Posts (Moderator)
+- **Endpoint**: `GET /api/moderator/job-posts`
+- **Description**: Retrieves all job posts (moderator or admin only) with optional filters, pagination, and sorting. Supports filtering by status, pending review status, and job title (partial match). Returns total count and paginated data for frontend pagination.
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**:
+  - `status` (string, optional): Filter by status ("Active", "Draft", "Closed").
+  - `pendingReview` (string, optional): Filter by pending review status ("true" or "false").
+  - `title` (string, optional): Filter by job title (partial match, case-insensitive).
+  - `page` (number, optional): Page number for pagination (default: 1).
+  - `limit` (number, optional): Number of items per page (default: 10).
+- **Example Request**: `/api/moderator/job-posts?status=Active&pendingReview=false&title=Software&page=1&limit=10`
+- **Response (Success - 200)**:
+  ```json
+  {
+    "total": 50,
+    "data": [
+      {
+        "id": "<jobPostId>",
+        "title": "Software Engineer",
+        "description": "We are looking for a skilled software engineer...",
+        "location": "Remote",
+        "salary": 50000,
+        "status": "Active",
+        "pending_review": false,
+        "category_id": "<categoryId>",
+        "category": {
+          "id": "<categoryId>",
+          "name": "Software Development",
+          "created_at": "2025-05-15T06:12:00.000Z",
+          "updated_at": "2025-05-15T06:12:00.000Z"
+        },
+        "job_type": "Full-time",
+        "employer_id": "<employerId>",
+        "employer": {
+          "id": "<employerId>",
+          "email": "employer100@example.com",
+          "username": "jane_smith100",
+          "role": "employer"
+        },
+        "views": 0,
+        "required_skills": ["JavaScript", "TypeScript"],
+        "created_at": "2025-05-15T06:12:00.000Z",
+        "updated_at": "2025-05-15T06:12:00.000Z"
+      }
+    ]
+  }
+- **Response (Error - 400, if pagination parameters incorrect)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Page must be a positive integer",
+    "error": "Bad Request"
+  }
+- **Response (Error - 401, if not authorized)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only moderators or admins can access this resource",
+    "error": "Unauthorized"
   }
