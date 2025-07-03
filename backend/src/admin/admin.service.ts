@@ -371,25 +371,17 @@ export class AdminService {
     };
   }
 
-  async setApplicationLimit(adminId: string, jobPostId: string, limit: number) {
+  async setApplicationLimit(adminId: string, limit: number) {
     await this.checkAdminRole(adminId);
-
-    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
-    if (!jobPost) {
-      throw new NotFoundException('Job post not found');
+    if (limit < 0) {
+      throw new BadRequestException('Application limit must be a non-negative number');
     }
-
-    const globalLimit = await this.settingsService.getGlobalApplicationLimit();
-    if (limit > globalLimit) {
-      throw new BadRequestException(`Application limit cannot exceed global limit of ${globalLimit}`);
+    await this.settingsService.setGlobalApplicationLimit(limit);
+    const jobPosts = await this.jobPostsRepository.find();
+    for (const jobPost of jobPosts) {
+      await this.applicationLimitsService.initializeLimits(jobPost.id, limit);
     }
-
-    jobPost.applicationLimit = limit;
-    await this.jobPostsRepository.save(jobPost);
-
-    await this.applicationLimitsService.initializeLimits(jobPostId, limit);
-
-    return { message: 'Application limit updated successfully', limit };
+    return { message: 'Global application limit updated successfully for all job posts', limit };
   }
 
   async verifyIdentity(userId: string, verify: boolean, authHeader: string) {

@@ -13,7 +13,7 @@ export class ProfilesController {
     private jwtService: JwtService,
   ) {}
 
-  @Get()
+  @Get('myprofile')
   @UseGuards(AuthGuard('jwt'))
   async getProfile(@Headers('authorization') authHeader: string) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

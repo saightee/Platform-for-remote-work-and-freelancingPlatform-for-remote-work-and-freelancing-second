@@ -114,4 +114,44 @@ export class ModeratorService {
     complaint.resolution_comment = comment;
     return this.complaintsRepository.save(complaint);
   }
+
+  async getJobPosts(moderatorId: string, filters: {
+    status?: 'Active' | 'Draft' | 'Closed';
+    pendingReview?: boolean;
+    title?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    await this.checkModeratorRole(moderatorId);
+  
+    const query = this.jobPostsRepository.createQueryBuilder('jobPost')
+      .leftJoinAndSelect('jobPost.category', 'category')
+      .leftJoinAndSelect('jobPost.employer', 'employer');
+  
+    if (filters.status) {
+      query.andWhere('jobPost.status = :status', { status: filters.status });
+    }
+    if (filters.pendingReview !== undefined) {
+      query.andWhere('jobPost.pending_review = :pendingReview', { pendingReview: filters.pendingReview });
+    }
+    if (filters.title) {
+      query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.title}%` });
+    }
+  
+    const total = await query.getCount();
+  
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+    const skip = (page - 1) * limit;
+    query.skip(skip).take(limit);
+  
+    query.orderBy('jobPost.created_at', 'DESC');
+  
+    const jobPosts = await query.getMany();
+  
+    return {
+      total,
+      data: jobPosts,
+    };
+  }
 }

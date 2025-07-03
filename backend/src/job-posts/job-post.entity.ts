@@ -43,9 +43,6 @@ export class JobPost {
   @JoinColumn({ name: 'employer_id' })
   employer: User;
 
-  @Column({ default: 100 })
-  applicationLimit: number;
-
   @Column({ default: 0 })
   views: number;
 
