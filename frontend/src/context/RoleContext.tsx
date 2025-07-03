@@ -76,14 +76,16 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const profileData = await getProfile();
     console.log('Profile fetched:', profileData);
     setProfile(profileData);
-    setCurrentRole(profileData.role);
+    setCurrentRole(profileData.role || decoded.role); // Используем роль из профиля или токена
   } catch (error: any) {
     console.error('Error fetching profile in RoleContext:', error);
     if (error.response?.status === 401 || error.response?.status === 404) {
       console.error('Unauthorized or profile not found. Token:', token);
-      setError('Unauthorized or profile not found. Please check your credentials.');
+      const decoded: DecodedToken = jwtDecode(token);
+      setCurrentRole(decoded.role); // Сохраняем роль из токена
+      setError('Profile not found. Please complete your registration.');
       setProfile(null);
-      setCurrentRole(null);
+      // Не сбрасываем currentRole, чтобы навигация работала
     } else {
       console.error('Token decode or profile fetch error:', error.message);
       setError('Invalid token or failed to load profile. Please log in again.');

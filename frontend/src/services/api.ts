@@ -147,8 +147,15 @@ export const verifyEmail = async (token: string) => {
 
 // Profile
 export const getProfile = async () => {
-  const response = await api.get<Profile>('/profile');
-  return response.data;
+  console.log('Fetching profile from /api/profile/myprofile');
+  try {
+    const response = await api.get<Profile>('/api/profile/myprofile');
+    console.log('Profile response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('GetProfile error:', error);
+    throw error;
+  }
 };
 
 export const getUserProfileById = async (id: string) => {
