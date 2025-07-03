@@ -120,7 +120,7 @@ export class JobApplicationsService {
           jobDescription: jobSeeker?.experience || '',
           appliedAt: app.created_at.toISOString(),
           status: app.status,
-          job_post_id: app.job_post_id, // Добавлено
+          job_post_id: app.job_post_id,
         };
       }),
     );
@@ -160,14 +160,6 @@ export class JobApplicationsService {
         { id: application.job_post_id },
         { status: 'Closed' },
       );
-
-      const room = `chat:${applicationId}`;
-      console.log(`Chat initialized for application ${applicationId}, room: ${room}`);
-      this.server.to(room).emit('chatInitialized', {
-        jobApplicationId: applicationId,
-        jobSeekerId: application.job_seeker_id,
-        employerId: application.job_post.employer_id,
-      });
     }
 
     application.status = status;

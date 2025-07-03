@@ -16,7 +16,7 @@ export class ChatService {
     private usersRepository: Repository<User>,
   ) {}
 
-  async hasChatAccess(userId: string, jobApplicationId: string): Promise<boolean> {
+  async hasChatAccess(userId: string, jobApplicationId: string): Promise<JobApplication> {
     const application = await this.jobApplicationsRepository.findOne({
       where: { id: jobApplicationId },
       relations: ['job_post', 'job_seeker', 'job_post.employer'],
@@ -30,10 +30,14 @@ export class ChatService {
       throw new UnauthorizedException('Chat is only available for accepted applications');
     }
 
-    return (
-      application.job_seeker_id === userId ||
-      application.job_post.employer_id === userId
-    );
+    if (
+      application.job_seeker_id !== userId &&
+      application.job_post.employer_id !== userId
+    ) {
+      throw new UnauthorizedException('No access to this chat');
+    }
+
+    return application;
   }
 
   async createMessage(senderId: string, jobApplicationId: string, content: string): Promise<Message> {
