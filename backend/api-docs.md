@@ -256,7 +256,7 @@
   }
 
 ### 6. Get Profile
-- **Endpoint**: `GET /api/myprofile`
+- **Endpoint**: `GET /api/profile/myprofile`
 - **Description**: Retrieves the authenticated user's profile based on their role.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**: None

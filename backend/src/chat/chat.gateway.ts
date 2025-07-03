@@ -3,7 +3,7 @@ import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
 import { createAdapter } from '@socket.io/redis-adapter';
 
@@ -26,14 +26,22 @@ export class ChatGateway {
     private jwtService: JwtService,
     private configService: ConfigService,
     private redisService: RedisService,
-  ) {}
+  ) {
+    console.log('ChatGateway constructed');
+  }
 
   async afterInit() {
-    const redisClient = this.redisService.getClient();
-    const pubClient = redisClient.duplicate();
-    const subClient = redisClient.duplicate();
-    this.server.adapter(createAdapter(pubClient, subClient));
-    console.log('Socket.IO server initialized with Redis adapter');
+    console.log('ChatGateway afterInit, server:', this.server ? 'Initialized' : 'Not initialized');
+    try {
+      const redisClient = this.redisService.getClient();
+      console.log('Redis client:', redisClient ? 'Available' : 'Not available');
+      const pubClient = redisClient.duplicate();
+      const subClient = redisClient.duplicate();
+      this.server.adapter(createAdapter(pubClient, subClient));
+      console.log('Socket.IO server initialized with Redis adapter');
+    } catch (error) {
+      console.error('Error initializing Socket.IO adapter:', error);
+    }
 
     this.server.engine.on('connection_error', (err) => {
       console.error('Socket.IO connection error:', {
@@ -89,14 +97,26 @@ export class ChatGateway {
     console.log(`JoinChat attempt: userId=${userId}, jobApplicationId=${jobApplicationId}, namespace: ${client.nsp.name}`);
 
     try {
-      const hasAccess = await this.chatService.hasChatAccess(userId, jobApplicationId);
-      if (!hasAccess) {
-        throw new UnauthorizedException('No access to this chat');
+      const application = await this.chatService.hasChatAccess(userId, jobApplicationId);
+      if (!application) {
+        throw new NotFoundException('Job application not found');
       }
 
       const room = `chat:${jobApplicationId}`;
       client.join(room);
       console.log(`User ${userId} joined chat room ${room}`);
+
+      // Отправляем chatInitialized для всех в комнате
+      if (!this.server) {
+        console.error('Socket.IO server is null in ChatGateway');
+      } else {
+        this.server.to(room).emit('chatInitialized', {
+          jobApplicationId,
+          jobSeekerId: application.job_seeker_id,
+          employerId: application.job_post.employer_id,
+        });
+        console.log(`Emitted chatInitialized for room ${room}`);
+      }
 
       // Отмечаем сообщения как прочитанные для получателя
       await this.chatService.markMessagesAsRead(jobApplicationId, userId);
@@ -166,7 +186,6 @@ export class ChatGateway {
       }
 
       const room = `chat:${jobApplicationId}`;
-      // Транслируем другим клиентам в комнате (исключая отправителя)
       client.to(room).emit('typing', { userId, isTyping });
       console.log(`Broadcasted typing event to room ${room} for user ${userId}`);
     } catch (error) {
