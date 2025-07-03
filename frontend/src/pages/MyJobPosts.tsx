@@ -202,8 +202,6 @@ const MyJobPosts: React.FC = () => {
           <h2>My Job Posts</h2>
           <p>Loading...</p>
         </div>
-        <Footer />
-        <Copyright />
       </div>
     );
   }
@@ -216,8 +214,6 @@ const MyJobPosts: React.FC = () => {
           <h2>My Job Posts</h2>
           <p>This page is only available for employers.</p>
         </div>
-        <Footer />
-        <Copyright />
       </div>
     );
   }
@@ -390,8 +386,6 @@ const MyJobPosts: React.FC = () => {
           <p>No job posts found.</p>
         )}
       </div>
-      <Footer />
-      <Copyright />
     </div>
   );
 };

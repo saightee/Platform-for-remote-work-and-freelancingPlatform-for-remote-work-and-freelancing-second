@@ -229,7 +229,7 @@ const Header: React.FC = () => {
                   <Link to="/feedback" onClick={closeMobileMenu}>
                     Feedback
                   </Link>
-                  <span className="greeting">Hello, {profile?.username}</span>
+                  <span className="greeting">Hello, <span className="username-bold">{profile?.username}</span></span>
                   <button
                     onClick={() => {
                       handleLogout();
@@ -268,9 +268,6 @@ const Header: React.FC = () => {
               </Link>
               <Link to="/find-job" className="find-job" onClick={closeMobileMenu}>
                 FIND JOB
-              </Link>
-              <Link to="/messages" onClick={closeMobileMenu}>
-                Messages
               </Link>
               <span className="nav-divider"></span>
               <Link to="/login" className="login-link" onClick={closeMobileMenu}>

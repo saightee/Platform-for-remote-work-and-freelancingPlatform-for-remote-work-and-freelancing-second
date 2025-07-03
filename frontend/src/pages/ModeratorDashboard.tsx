@@ -257,12 +257,14 @@ useEffect(() => {
 
   if (isLoading) {
     return (
+      <div>
+      <Header />
       <div className="dashboard-wrapper">
         <div className="sidebar">
           <h2>Moderator Panel</h2>
         </div>
         <div className="main-content">
-          <Header />
+ 
           <div className="content">
             <h2>Moderator Dashboard</h2>
             <p>Loading...</p>
@@ -271,17 +273,19 @@ useEffect(() => {
           <Copyright />
         </div>
       </div>
+      </div>
     );
   }
 
   if (!currentRole || !['moderator', 'admin'].includes(currentRole)) {
     return (
+      <div>
+      <Header />
       <div className="dashboard-wrapper">
         <div className="sidebar">
           <h2>Moderator Panel</h2>
         </div>
         <div className="main-content">
-          <Header />
           <div className="content">
             <h2>Moderator Dashboard</h2>
             <p>This page is only available for moderators and admins.</p>
@@ -290,10 +294,13 @@ useEffect(() => {
           <Copyright />
         </div>
       </div>
+      </div>
     );
   }
 
   return (
+    <div>
+      <Header />
     <div className="dashboard-wrapper">
       <div className="sidebar">
         <h2>Moderator Panel</h2>
@@ -313,7 +320,6 @@ useEffect(() => {
         </ul>
       </div>
       <div className="main-content">
-        <Header />
         <div className="content">
           {error && <p className="error-message">{error}</p>}
           {Object.keys(fetchErrors).length > 0 && (
@@ -329,7 +335,7 @@ useEffect(() => {
 
           {activeTab === 'Job Posts' && (
             <div>
-              <h2>Job Posts</h2>
+              <h4>Job Posts</h4>
               {fetchErrors.general && <p className="error-message">{fetchErrors.general}</p>}
               <table className="dashboard-table">
                 <thead>
@@ -361,7 +367,7 @@ useEffect(() => {
                           Flag
                         </button>
                         <button onClick={() => handleSetApplicationLimit(post.id)} className="action-button">
-                          Set Application Limit
+                          Set App Limit
                         </button>
                       </td>
                     </tr>
@@ -380,7 +386,7 @@ useEffect(() => {
                 >
                   Previous
                 </button>
-                <span>Page {jobPostPage}</span>
+                <span className="page-number">Page {jobPostPage}</span>
                 <button
                   onClick={() => setJobPostPage(prev => prev + 1)}
                   disabled={jobPosts.length < jobPostLimit}
@@ -394,7 +400,7 @@ useEffect(() => {
 
           {activeTab === 'Reviews' && (
             <div>
-              <h2>Reviews</h2>
+              <h4>Reviews</h4>
               {fetchErrors.general && <p className="error-message">{fetchErrors.general}</p>}
               <table className="dashboard-table">
                 <thead>
@@ -433,7 +439,7 @@ useEffect(() => {
 
           {activeTab === 'Complaints' && (
             <div>
-              <h2>Complaints</h2>
+              <h4>Complaints</h4>
               {fetchErrors.general && <p className="error-message">{fetchErrors.general}</p>}
               <table className="dashboard-table">
                 <thead>
@@ -478,7 +484,7 @@ useEffect(() => {
 
           {activeTab === 'Chat History' && (
             <div>
-              <h2>Chat History</h2>
+              <h4>Chat History</h4>
               {error && <p className="error-message">{error}</p>}
               <div className="form-group">
                 <label>Select Job Post:</label>
@@ -549,7 +555,7 @@ useEffect(() => {
                     >
                       Previous
                     </button>
-                    <span>Page {chatPage} of {Math.ceil(chatHistory.total / chatLimit)}</span>
+                    <span className="page-number">Page {chatPage} of {Math.ceil(chatHistory.total / chatLimit)}</span>
                     <button
                       onClick={() => handleViewChatHistory(selectedJobApplicationId, chatPage + 1)}
                       disabled={chatPage >= Math.ceil(chatHistory.total / chatLimit)}
@@ -563,9 +569,8 @@ useEffect(() => {
             </div>
           )}
         </div>
-        <Footer />
-        <Copyright />
       </div>
+    </div>
     </div>
   );
 };

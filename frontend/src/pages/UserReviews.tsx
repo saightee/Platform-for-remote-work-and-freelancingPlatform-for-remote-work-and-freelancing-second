@@ -54,8 +54,6 @@ const UserReviews: React.FC = () => {
           <p>No reviews found for this user.</p>
         )}
       </div>
-      <Footer />
-      <Copyright />
     </div>
   );
 };

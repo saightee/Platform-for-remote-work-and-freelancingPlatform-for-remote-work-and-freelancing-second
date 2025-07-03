@@ -465,8 +465,6 @@ const ProfilePage: React.FC = () => {
           </div>
         )}
       </div>
-      <Footer />
-      <Copyright />
     </div>
   );
 };

@@ -108,8 +108,6 @@ const MyApplications: React.FC = () => {
           <h2>My Applications</h2>
           <p>Loading...</p>
         </div>
-        <Footer />
-        <Copyright />
       </div>
     );
   }
@@ -122,8 +120,6 @@ const MyApplications: React.FC = () => {
           <h2>My Applications</h2>
           <p>{error}</p>
         </div>
-        <Footer />
-        <Copyright />
       </div>
     );
   }
@@ -206,8 +202,6 @@ const MyApplications: React.FC = () => {
           <p>No applications found.</p>
         )}
       </div>
-      <Footer />
-      <Copyright />
     </div>
   );
 };

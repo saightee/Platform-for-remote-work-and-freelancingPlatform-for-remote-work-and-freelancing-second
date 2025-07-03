@@ -66,19 +66,20 @@ const Complaint: React.FC = () => {
 
   if (!profile || !['jobseeker', 'employer'].includes(currentRole || '')) {
     return (
-      <div className="container complaint-container">
+      <div>
         <Header />
+      <div className="container complaint-container">
         <h2>Submit Complaint</h2>
         <p>This page is only available for jobseekers and employers.</p>
-        <Footer />
-        <Copyright />
+      </div>
       </div>
     );
   }
 
   return (
-    <div className="container complaint-container">
+    <div>
       <Header />
+    <div className="container complaint-container">
       <h2>Submit Complaint</h2>
       {message && <p className="success-message">{message}</p>}
       {error && <p className="error-message">{error}</p>}
@@ -118,8 +119,7 @@ const Complaint: React.FC = () => {
           {isLoading ? 'Submitting...' : 'Submit Complaint'}
         </button>
       </form>
-      <Footer />
-      <Copyright />
+    </div>
     </div>
   );
 };

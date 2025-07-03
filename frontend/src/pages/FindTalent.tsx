@@ -170,21 +170,6 @@ const FindTalent: React.FC = () => {
       <div className="container ft-container">
         <h2>Find Talent</h2>
         <div className="ft-search-bar">
-          <select
-            value={searchType}
-            onChange={(e) => setSearchType(e.target.value as 'talents' | 'jobseekers')}
-          >
-            <option value="talents">Search by Skills</option>
-            <option value="jobseekers">Search by Username/Skills</option>
-          </select>
-          {searchType === 'jobseekers' && (
-            <input
-              type="text"
-              placeholder="Search by username"
-              value={filters.username}
-              onChange={(e) => debouncedSetFilters({ username: e.target.value })}
-            />
-          )}
           <input
             type="text"
             placeholder="Search by skills or keywords"

@@ -133,7 +133,7 @@ const PostJob: React.FC = () => {
                       type="number"
                       value={salary !== null ? salary : ''}
                       onChange={(e) => setSalary(e.target.value ? Number(e.target.value) : null)}
-                      placeholder="Enter salary"
+                      placeholder="Enter salary ($/hour)"
                       min="0"
                     />
                   </div>
@@ -186,7 +186,7 @@ const PostJob: React.FC = () => {
                         ]
                       }}
                       formats={['header', 'bold', 'italic', 'list', 'bullet', 'indent']}
-                      style={{ height: '380px', marginBottom: '10px' }}
+                      style={{ height: '380px', marginBottom: '40px' }}
                     />
                     {!isDescriptionValid && (
                       <p className="error-message-symbols">A vacancy description must consist of 150 or more characters</p>

@@ -574,31 +574,33 @@ const AdminDashboard: React.FC = () => {
 
   if (isLoading) {
     return (
+      <div>
+      <Header />
       <div className="dashboard-wrapper">
         <div className="sidebar">
           <h2>Admin Panel</h2>
         </div>
         <div className="main-content">
-          <Header />
+
           <div className="content">
             <h2>Admin Dashboard</h2>
             <p>Loading...</p>
           </div>
-          <Footer />
-          <Copyright />
         </div>
+      </div>
       </div>
     );
   }
 
   if (!currentRole || currentRole !== 'admin') {
     return (
+       <div>
+      <Header />
       <div className="dashboard-wrapper">
         <div className="sidebar">
           <h2>Admin Panel</h2>
         </div>
         <div className="main-content">
-          <Header />
           <div className="content">
             <h2>Admin Dashboard</h2>
             <p>This page is only available for admins.</p>
@@ -607,10 +609,13 @@ const AdminDashboard: React.FC = () => {
           <Copyright />
         </div>
       </div>
+      </div>
     );
   }
 
   return (
+     <div>
+      <Header />
     <div className="dashboard-wrapper">
       <div className="sidebar">
         <h2>Admin Panel</h2>
@@ -651,7 +656,6 @@ const AdminDashboard: React.FC = () => {
         </ul>
       </div>
       <div className="main-content">
-        <Header />
         <div className="content">
           {error && <p className="error-message">{error}</p>}
           {Object.keys(fetchErrors).length > 0 && (
@@ -667,7 +671,7 @@ const AdminDashboard: React.FC = () => {
 
           {activeTab === 'Dashboard' && (
             <div>
-              <h2>Dashboard</h2>
+              <h4>Dashboard</h4>
               <div className="dashboard-section">
                 <h3>Signups and Subscriptions</h3>
                 <div className="stats-row">
@@ -780,7 +784,7 @@ const AdminDashboard: React.FC = () => {
                         <td>{format(new Date(post.created_at), 'PP')}</td>
                         <td>
                           <button onClick={() => handleNotifyCandidates(post.id)} className="action-button">
-                            Notify Candidates
+                            Notify Seekers
                           </button>
                         </td>
                       </tr>
@@ -797,7 +801,7 @@ const AdminDashboard: React.FC = () => {
 
           {activeTab === 'Users' && (
             <div>
-              <h2>Users</h2>
+              <h4>Users</h4>
               <button onClick={handleExportUsers} className="action-button">
                 Export to CSV
               </button>
@@ -885,7 +889,7 @@ const AdminDashboard: React.FC = () => {
                 >
                   Previous
                 </button>
-                <span>Page {userPage}</span>
+                <span className="page-number">Page {userPage}</span>
                 <button
                   onClick={() => setUserPage(prev => prev + 1)}
                   disabled={users.length < userLimit}
@@ -913,7 +917,7 @@ const AdminDashboard: React.FC = () => {
 
           {activeTab === 'Job Posts' && (
             <div>
-              <h2>Job Posts</h2>
+              <h4>Job Posts</h4>
               {fetchErrors.getPendingJobPosts && <p className="error-message">{fetchErrors.getPendingJobPosts}</p>}
               <table className="dashboard-table">
                 <thead>
@@ -945,10 +949,10 @@ const AdminDashboard: React.FC = () => {
                           Flag
                         </button>
                         <button onClick={() => handleSetApplicationLimit(post.id)} className="action-button">
-                          Set Application Limit
+                          Set App Limit
                         </button>
                         <button onClick={() => handleNotifyCandidates(post.id)} className="action-button success">
-                          Notify Candidates
+                          Notify Seekers
                         </button>
                       </td>
                     </tr>
@@ -967,7 +971,7 @@ const AdminDashboard: React.FC = () => {
                 >
                   Previous
                 </button>
-                <span>Page {jobPostPage}</span>
+                <span className="page-number">Page {jobPostPage}</span>
                 <button
                   onClick={() => setJobPostPage(prev => prev + 1)}
                   disabled={jobPosts.length < jobPostLimit}
@@ -981,7 +985,7 @@ const AdminDashboard: React.FC = () => {
 
           {activeTab === 'Reviews' && (
             <div>
-              <h2>Reviews</h2>
+              <h4>Reviews</h4>
               {fetchErrors.getAllReviews && <p className="error-message">{fetchErrors.getAllReviews}</p>}
               <table className="dashboard-table">
                 <thead>
@@ -1020,7 +1024,7 @@ const AdminDashboard: React.FC = () => {
 
           {activeTab === 'Feedback' && (
             <div>
-              <h2>Feedback</h2>
+              <h4>Feedback</h4>
               {fetchErrors.getFeedback && <p className="error-message">{fetchErrors.getFeedback}</p>}
               <table className="dashboard-table">
                 <thead>
@@ -1051,7 +1055,7 @@ const AdminDashboard: React.FC = () => {
 
           {activeTab === 'Categories' && (
             <div>
-              <h2>Categories</h2>
+              <h4>Categories</h4>
               <form onSubmit={handleCreateCategory} className="form-group">
                 <input
                   type="text"
@@ -1089,7 +1093,7 @@ const AdminDashboard: React.FC = () => {
 
           {activeTab === 'Blocked Countries' && (
             <div>
-              <h2>Blocked Countries</h2>
+              <h4>Blocked Countries</h4>
               <div className="form-group">
                 <input
                   type="text"
@@ -1136,7 +1140,7 @@ const AdminDashboard: React.FC = () => {
 
           {activeTab === 'Complaints' && (
             <div>
-              <h2>Complaints</h2>
+              <h4>Complaints</h4>
               {fetchErrors.getComplaints && <p className="error-message">{fetchErrors.getComplaints}</p>}
               <table className="dashboard-table">
                 <thead>
@@ -1181,7 +1185,7 @@ const AdminDashboard: React.FC = () => {
 
           {activeTab === 'Chat History' && (
             <div>
-              <h2>Chat History</h2>
+              <h4>Chat History</h4>
               {error && <p className="error-message">{error}</p>}
               <div className="form-group">
                 <label>Select Job Post:</label>
@@ -1252,7 +1256,7 @@ const AdminDashboard: React.FC = () => {
                     >
                       Previous
                     </button>
-                    <span>Page {chatPage} of {Math.ceil(chatHistory.total / chatLimit)}</span>
+                    <span className="page-number">Page {chatPage} of {Math.ceil(chatHistory.total / chatLimit)}</span>
                     <button
                       onClick={() => handleViewChatHistory(selectedJobApplicationId, chatPage + 1)}
                       disabled={chatPage >= Math.ceil(chatHistory.total / chatLimit)}
@@ -1268,7 +1272,7 @@ const AdminDashboard: React.FC = () => {
 
           {activeTab === 'Analytics' && (
             <div>
-              <h2>Analytics</h2>
+              <h4>Analytics</h4>
               {fetchErrors.getAnalytics && <p className="error-message">{fetchErrors.getAnalytics}</p>}
               {analytics ? (
                 <div className="analytics-grid">
@@ -1460,7 +1464,7 @@ const AdminDashboard: React.FC = () => {
 
           {activeTab === 'Settings' && (
             <div>
-              <h2>Settings</h2>
+              <h4>Settings</h4>
               <div className="dashboard-section">
                 <h3>Global Application Limit</h3>
                 {fetchErrors.getGlobalApplicationLimit && <p className="error-message">{fetchErrors.getGlobalApplicationLimit}</p>}
@@ -1472,9 +1476,8 @@ const AdminDashboard: React.FC = () => {
             </div>
           )}
         </div>
-        <Footer />
-        <Copyright />
       </div>
+    </div>
     </div>
   );
 };

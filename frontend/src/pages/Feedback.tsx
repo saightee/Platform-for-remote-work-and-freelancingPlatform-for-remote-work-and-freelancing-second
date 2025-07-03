@@ -47,8 +47,6 @@ const handleSubmit = async (e: React.FormEvent) => {
           <button onClick={handleSubmit}>Submit Feedback</button>
         </div>
       </div>
-      <Footer />
-      <Copyright />
     </div>
   );
 };

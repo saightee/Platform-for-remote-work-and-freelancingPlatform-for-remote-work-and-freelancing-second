@@ -225,31 +225,33 @@ const Messages: React.FC = () => {
 
   if (isLoading) {
     return (
+    <div>
+      <Header />
       <div className="container">
-        <Header />
         <h2>Messages</h2>
         <p>Loading...</p>
-        <Footer />
-        <Copyright />
+      </div>
       </div>
     );
   }
 
   if (!profile || !['jobseeker', 'employer'].includes(currentRole || '')) {
     return (
+      <div>
+      <Header />
       <div className="container">
         <Header />
         <h2>Messages</h2>
         <p>This page is only available for jobseekers and employers.</p>
-        <Footer />
-        <Copyright />
+      </div>
       </div>
     );
   }
 
   return (
-    <div className="container messages-container">
+    <div>
       <Header />
+    <div className="container messages-container">
       <h2>Messages</h2>
       {error && <p className="error-message">{error}</p>}
       {socketStatus === 'reconnecting' && <p className="error-message">Reconnecting to chat server...</p>}
@@ -315,8 +317,7 @@ const Messages: React.FC = () => {
           )}
         </div>
       </div>
-      <Footer />
-      <Copyright />
+    </div>
     </div>
   );
 };
