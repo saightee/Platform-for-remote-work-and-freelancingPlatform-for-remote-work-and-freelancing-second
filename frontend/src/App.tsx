@@ -36,7 +36,7 @@ import Messages from './pages/Messages';
 import VerifyEmail from './pages/VerifyEmail';
 import Complaint from './pages/Complaint';
 import ForgotPassword from './pages/ForgotPassword';
-import CheckEmail from 'pages/CheckEmail';
+import CheckEmail from './pages/CheckEmail';
 
 const App: React.FC = () => {
   return (
