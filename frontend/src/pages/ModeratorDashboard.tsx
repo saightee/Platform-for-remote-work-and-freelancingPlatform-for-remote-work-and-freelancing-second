@@ -74,13 +74,18 @@ useEffect(() => {
       setIsLoading(true);
       setFetchErrors({});
       const requests = [
-        new Promise(async (resolve) => {
+        new Promise(async (resolve, reject) => {
           try {
-            const response = await getAllJobPosts({ status: 'Active', pendingReview: 'true', page: jobPostPage, limit: jobPostLimit });
+            const response = await getAllJobPosts({ page: jobPostPage, limit: jobPostLimit });
             resolve(response);
           } catch (err) {
-            console.error('Error fetching job posts:', err);
-            resolve({ data: [], total: 0 }); // Возвращаем пустой результат
+            const axiosError = err as AxiosError<{ message?: string }>;
+            console.error('Error fetching job posts:', axiosError);
+            setFetchErrors((prev) => ({
+              ...prev,
+              jobPosts: axiosError.response?.data?.message || 'Failed to load job posts.',
+            }));
+            resolve({ data: [], total: 0 });
           }
         }),
         new Promise(async (resolve) => {
@@ -88,7 +93,12 @@ useEffect(() => {
             const response = await getAllReviewsModerator();
             resolve(response);
           } catch (err) {
-            console.error('Error fetching reviews:', err);
+            const axiosError = err as AxiosError<{ message?: string }>;
+            console.error('Error fetching reviews:', axiosError);
+            setFetchErrors((prev) => ({
+              ...prev,
+              reviews: axiosError.response?.data?.message || 'Failed to load reviews.',
+            }));
             resolve([]);
           }
         }),
@@ -97,7 +107,12 @@ useEffect(() => {
             const response = await getComplaintsModerator();
             resolve(response);
           } catch (err) {
-            console.error('Error fetching complaints:', err);
+            const axiosError = err as AxiosError<{ message?: string }>;
+            console.error('Error fetching complaints:', axiosError);
+            setFetchErrors((prev) => ({
+              ...prev,
+              complaints: axiosError.response?.data?.message || 'Failed to load complaints.',
+            }));
             resolve([]);
           }
         }),
@@ -110,12 +125,9 @@ useEffect(() => {
       setComplaints(complaintsResult as any[] || []);
       setError(null);
     } catch (error) {
-      console.error('Unexpected error fetching moderator data:', error);
       const axiosError = error as AxiosError<{ message?: string }>;
+      console.error('Unexpected error fetching moderator data:', axiosError);
       setError(axiosError.response?.data?.message || 'Unexpected error occurred. Please try again.');
-      setFetchErrors({
-        general: axiosError.response?.data?.message || 'Failed to load data',
-      });
     } finally {
       setIsLoading(false);
     }

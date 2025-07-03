@@ -380,23 +380,17 @@ export const getUserOnlineStatus = async (id: string) => {
   return response.data;
 };
 
-export const getAllJobPosts = async (params: { status?: string; pendingReview?: string; page?: number; limit?: number }) => {
+export const getAllJobPosts = async (params: { status?: string; pendingReview?: string; title?: string; page?: number; limit?: number }) => {
   const token = localStorage.getItem('token');
   const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
-  const isModerator = decoded?.role === 'moderator';
-  let endpoint = isModerator ? '/moderator/job-posts' : '/admin/job-posts';
+  const endpoint = decoded?.role === 'moderator' ? '/moderator/job-posts' : '/admin/job-posts';
 
   try {
     const response = await api.get<PaginatedResponse<JobPost>>(endpoint, { params });
     return response.data;
   } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 404 && isModerator) {
-      console.warn(`Endpoint ${endpoint} not found, falling back to /admin/job-posts`);
-      endpoint = '/admin/job-posts';
-      const fallbackResponse = await api.get<PaginatedResponse<JobPost>>(endpoint, { params });
-      return fallbackResponse.data;
-    }
-    throw error;
+    console.error(`Error fetching job posts from ${endpoint}:`, error);
+    throw error; // Пробрасываем ошибку для обработки в компоненте
   }
 };
 
