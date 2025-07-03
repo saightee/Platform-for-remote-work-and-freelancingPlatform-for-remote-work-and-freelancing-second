@@ -48,60 +48,53 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [socketStatus, setSocketStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('disconnected');
 
   const fetchProfile = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.log('No token found, clearing profile.');
-      setIsLoading(false);
+  const token = localStorage.getItem('token');
+  if (!token) {
+    console.log('No token found, clearing profile.');
+    setIsLoading(false);
+    setProfile(null);
+    setCurrentRole(null);
+    setSocket(null);
+    setSocketStatus('disconnected');
+    return;
+  }
+
+  try {
+    const decoded: DecodedToken = jwtDecode(token);
+    console.log('Decoded token:', decoded);
+    setCurrentRole(decoded.role);
+    if (['admin', 'moderator'].includes(decoded.role)) {
+      console.log(`${decoded.role} role detected, skipping profile fetch.`);
       setProfile(null);
-      setCurrentRole(null);
+      setIsLoading(false);
       setSocket(null);
       setSocketStatus('disconnected');
       return;
     }
-
-    try {
-      if (typeof token === 'string' && token.split('.').length === 3) {
-        const decoded: DecodedToken = jwtDecode(token);
-        console.log('Decoded token:', decoded);
-        setCurrentRole(decoded.role);
-        if (['admin', 'moderator'].includes(decoded.role)) {
-          console.log(`${decoded.role} role detected, skipping profile fetch.`);
-          setProfile(null);
-          setIsLoading(false);
-          setSocket(null);
-          setSocketStatus('disconnected');
-          return;
-        }
-      } else {
-        console.warn('Invalid token format:', token);
-      }
-      setIsLoading(true);
-      setError(null);
-      const profileData = await getProfile();
-      console.log('Profile fetched:', profileData);
-      setProfile(profileData);
-      setCurrentRole(profileData.role);
-    } catch (error: any) {
-      console.error('Error fetching profile in RoleContext:', error);
-      if (error.response?.status === 401 || error.response?.status === 404) {
-        console.error('Unauthorized or profile not found. Token:', token);
-        setError('Unauthorized or profile not found. Please check your credentials.');
-        setProfile(null);
-        if (token) {
-          const decoded: DecodedToken = jwtDecode(token);
-          setCurrentRole(decoded.role);
-        } else {
-          setCurrentRole(null);
-        }
-      } else {
-        setError('Failed to load profile.');
-        setProfile(null);
-        setCurrentRole(null);
-      }
-    } finally {
-      setIsLoading(false);
+    setIsLoading(true);
+    setError(null);
+    const profileData = await getProfile();
+    console.log('Profile fetched:', profileData);
+    setProfile(profileData);
+    setCurrentRole(profileData.role);
+  } catch (error: any) {
+    console.error('Error fetching profile in RoleContext:', error);
+    if (error.response?.status === 401 || error.response?.status === 404) {
+      console.error('Unauthorized or profile not found. Token:', token);
+      setError('Unauthorized or profile not found. Please check your credentials.');
+      setProfile(null);
+      setCurrentRole(null);
+    } else {
+      console.error('Token decode or profile fetch error:', error.message);
+      setError('Invalid token or failed to load profile. Please log in again.');
+      setProfile(null);
+      setCurrentRole(null);
+      localStorage.removeItem('token');
     }
-  };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const refreshProfile = async () => {
     await fetchProfile();

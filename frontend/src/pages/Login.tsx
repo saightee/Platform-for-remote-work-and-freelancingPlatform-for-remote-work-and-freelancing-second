@@ -67,52 +67,56 @@ const Login: React.FC = () => {
       <div className="login-box">
         <h2>Sign In</h2>
         {errorMessage && <p style={{ color: 'red', textAlign: 'center' }}>{errorMessage}</p>}
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="login-form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-            />
-          </div>
-          <div className="login-form-group login-password-container">
-            <label>Password</label>
-            <div className="login-password-input-wrapper">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-              />
-              <span className="login-password-toggle-icon" onClick={togglePasswordVisibility}>
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
-              </span>
-            </div>
-          </div>
-          <div className="login-form-group login-checkbox-group">
-            <input
-              type="checkbox"
-              id="login-remember-me"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-            />
-            <label htmlFor="login-remember-me">Remember Me</label>
-          </div>
-          <button type="submit" className="login-button">Sign In</button>
-          <div className="login-form-links">
-            <p>
-              Forgotten your password? <Link to="/forgot-password">Reset</Link>
-            </p>
-            <p>
-              Don’t have an account? <Link to="/role-selection">Register</Link>
-            </p>
-            <p>
-              <Link to="/">Go to Home</Link>
-            </p>
-          </div>
-        </form>
+<form onSubmit={handleSubmit} className="login-form">
+  <div className="login-form-group">
+    <label>Email</label>
+    <input
+      type="email"
+      value={email}
+      onChange={(e) => setEmail(e.target.value)}
+      placeholder="Enter your email"
+      autoComplete="email"
+      required
+    />
+  </div>
+  <div className="login-form-group login-password-container">
+    <label>Password</label>
+    <div className="login-password-input-wrapper">
+      <input
+        type={showPassword ? 'text' : 'password'}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Enter your password"
+        autoComplete="current-password"
+        required
+      />
+      <span className="login-password-toggle-icon" onClick={togglePasswordVisibility}>
+        {showPassword ? <FaEyeSlash /> : <FaEye />}
+      </span>
+    </div>
+  </div>
+  <div className="login-form-group login-checkbox-group">
+    <input
+      type="checkbox"
+      id="login-remember-me"
+      checked={rememberMe}
+      onChange={(e) => setRememberMe(e.target.checked)}
+    />
+    <label htmlFor="login-remember-me">Remember Me</label>
+  </div>
+  <button type="submit" className="login-button">Sign In</button>
+  <div className="login-form-links">
+    <p>
+      Forgotten your password? <Link to="/forgot-password">Reset</Link>
+    </p>
+    <p>
+      Don’t have an account? <Link to="/role-selection">Register</Link>
+    </p>
+    <p>
+      <Link to="/">Go to Home</Link>
+    </p>
+  </div>
+</form>
       </div>
     </div>
   );

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { register } from '../services/api';
-import { useRole } from '../context/RoleContext';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 const Register: React.FC = () => {
@@ -14,7 +13,6 @@ const Register: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
-  const { refreshProfile } = useRole();
 
   useEffect(() => {
     if (!role || !['employer', 'jobseeker'].includes(role)) {
@@ -22,29 +20,26 @@ const Register: React.FC = () => {
     }
   }, [role, navigate]);
 
-  const handleSubmit = async (e: React.MouseEvent) => {
-  e.preventDefault();
-  if (!role) return;
-  if (password !== confirmPassword) {
-    setErrorMessage('Passwords do not match!');
-    return;
-  }
-  try {
-    setErrorMessage(null);
-    const response = await register({ username, email, password, role });
-    console.log('Registration response:', response);
-    localStorage.setItem('token', response.accessToken);
-    await refreshProfile();
-    navigate('/check-email');
-  } catch (error: any) {
-    console.error('Register error:', error);
-    const errorMsg =
-      error.response?.status === 403 && error.response?.data?.message === 'Registration is not allowed from your country'
-        ? 'Registration is not allowed from your country.'
-        : error.response?.data?.message || 'Registration failed. Please try again.';
-    setErrorMessage(errorMsg);
-  }
-};
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!role) return;
+    if (password !== confirmPassword) {
+      setErrorMessage('Passwords do not match!');
+      return;
+    }
+    try {
+      setErrorMessage(null);
+      await register({ username, email, password, role });
+      navigate('/check-email');
+    } catch (error: any) {
+      console.error('Register error:', error);
+      const errorMsg =
+        error.response?.status === 403 && error.response?.data?.message === 'Registration is not allowed from your country'
+          ? 'Registration is not allowed from your country.'
+          : error.response?.data?.message || 'Registration failed. Please try again.';
+      setErrorMessage(errorMsg);
+    }
+  };
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -61,7 +56,7 @@ const Register: React.FC = () => {
       <div className="register-box">
         <h2>Sign Up</h2>
         {errorMessage && <p style={{ color: 'red', textAlign: 'center' }}>{errorMessage}</p>}
-        <div className="register-form">
+        <form onSubmit={handleSubmit} className="register-form">
           <div className="form-group">
             <label>Username</label>
             <input
@@ -69,6 +64,8 @@ const Register: React.FC = () => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Enter your username"
+              autoComplete="username"
+              required
             />
           </div>
           <div className="form-group">
@@ -78,6 +75,8 @@ const Register: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
+              autoComplete="email"
+              required
             />
           </div>
           <div className="form-group password-container">
@@ -88,6 +87,8 @@ const Register: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
+                autoComplete="new-password"
+                required
               />
               <span className="password-toggle-icon" onClick={togglePasswordVisibility}>
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -102,13 +103,15 @@ const Register: React.FC = () => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm your password"
+                autoComplete="new-password"
+                required
               />
               <span className="password-toggle-icon" onClick={toggleConfirmPasswordVisibility}>
                 {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
               </span>
             </div>
           </div>
-          <button onClick={handleSubmit}>Sign Up as {role === 'employer' ? 'Employer' : 'Jobseeker'}</button>
+          <button type="submit">Sign Up as {role === 'employer' ? 'Employer' : 'Jobseeker'}</button>
           <div className="form-links">
             <p>
               Already have an account? <Link to="/login">Login</Link>
@@ -117,7 +120,7 @@ const Register: React.FC = () => {
               <Link to="/">Go to Home</Link>
             </p>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
