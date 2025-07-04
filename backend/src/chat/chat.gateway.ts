@@ -72,6 +72,7 @@ export class ChatGateway {
 
       client.data.userId = payload.sub;
       client.data.role = payload.role;
+      client.data.joinedRooms = new Set<string>(); // Храним список комнат, к которым подключен клиент
       await this.redisService.set(`socket:${payload.sub}`, client.id, 3600);
     } catch (error) {
       console.error(`WebSocket connection error: ${error.message}, namespace: ${client.nsp.name}, clientIP: ${client.handshake.address}`);
@@ -103,7 +104,14 @@ export class ChatGateway {
       }
 
       const room = `chat:${jobApplicationId}`;
+      // Проверяем, не подключен ли уже клиент к комнате
+      if (client.data.joinedRooms.has(room)) {
+        console.log(`User ${userId} already in chat room ${room}, skipping join`);
+        return;
+      }
+
       client.join(room);
+      client.data.joinedRooms.add(room); // Отмечаем комнату как подключенную
       console.log(`User ${userId} joined chat room ${room}`);
 
       // Отправляем chatInitialized для всех в комнате
