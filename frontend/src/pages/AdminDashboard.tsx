@@ -153,19 +153,7 @@ useEffect(() => {
   fetchUsers();
 }, [currentRole, userPage]);
 
-// Рендеринг ошибок
-{Object.entries(fetchErrors).some(([_, msg]) => msg && !msg.includes('No users found')) && (
-  <div className="error-details">
-    <h4>Fetch Errors:</h4>
-    <ul>
-      {Object.entries(fetchErrors)
-        .filter(([_, msg]) => msg && !msg.includes('No users found'))
-        .map(([key, msg]) => (
-          <li key={key}>{key}: {msg}</li>
-        ))}
-    </ul>
-  </div>
-)}
+
 
 // Для остальных данных
 useEffect(() => {
@@ -814,17 +802,7 @@ useEffect(() => {
       </div>
       <div className="main-content">
         <div className="content">
-          {error && <p className="error-message">{error}</p>}
-          {Object.keys(fetchErrors).length > 0 && (
-            <div className="error-details">
-              <h4>Fetch Errors:</h4>
-              <ul>
-                {Object.entries(fetchErrors).map(([key, msg]) => (
-                  <li key={key}>{key}: {msg}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+          
 
           {activeTab === 'Dashboard' && (
             <div>
