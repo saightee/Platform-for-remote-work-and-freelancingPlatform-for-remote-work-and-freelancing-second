@@ -205,7 +205,7 @@ const ProfilePage: React.FC = () => {
           <div className="profile-details">
             <div className="profile-avatar-section">
               {profileData.avatar ? (
-                <img src={`https://jobforge.net${profileData.avatar}`} alt="Avatar" className="profile-avatar" />
+                <img src={`https://jobforge.net/backend${profileData.avatar}`} alt="Avatar" className="profile-avatar" />
               ) : (
                 <FaUserCircle className="profile-avatar-icon" />
               )}
@@ -277,24 +277,48 @@ const ProfilePage: React.FC = () => {
                       />
                     </div>
                     <div className="form-group">
-                      <label>Categories:</label>
-                      <select
-                        multiple
-                        value={selectedCategoryIds}
-                        onChange={(e) =>
-                          setSelectedCategoryIds(
-                            Array.from(e.target.selectedOptions, (option) => option.value)
-                          )
-                        }
-                        className="multi-select"
-                      >
-                        {categories.map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+  <label>Categories:</label>
+  <select
+    value=""
+    onChange={(e) => {
+      const selectedId = e.target.value;
+      if (selectedId && !selectedCategoryIds.includes(selectedId)) {
+        setSelectedCategoryIds([...selectedCategoryIds, selectedId]);
+        console.log('Selected category IDs:', [...selectedCategoryIds, selectedId]);
+      }
+    }}
+    className="category-select"
+  >
+    <option value="">Select a category</option>
+    {categories
+      .filter((category) => !selectedCategoryIds.includes(category.id))
+      .map((category) => (
+        <option key={category.id} value={category.id}>
+          {category.name}
+        </option>
+      ))}
+  </select>
+  <div className="category-tags">
+    {selectedCategoryIds.map((id) => {
+      const category = categories.find((cat) => cat.id === id);
+      return (
+        <span key={id} className="category-tag">
+          {category?.name || 'Unknown'}
+          <span
+  className="remove-tag"
+  onClick={() => {
+    const updatedCategories = selectedCategoryIds.filter((catId) => catId !== id);
+    setSelectedCategoryIds(updatedCategories);
+    console.log('Selected category IDs after removal:', updatedCategories);
+  }}
+>
+  ×
+</span>
+        </span>
+      );
+    })}
+  </div>
+</div>
                     <div className="form-group">
                       <label>Experience:</label>
                       <input

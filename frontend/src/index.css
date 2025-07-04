@@ -639,7 +639,7 @@ header nav.mobile-menu-open .dropdown.active .dropdown-menu {
 }
 
 .message.sent {
-  background-color: #007bff;
+  background-color: #3498db;
   color: white;
   margin-left: auto;
 }
@@ -651,6 +651,7 @@ header nav.mobile-menu-open .dropdown.active .dropdown-menu {
 
 .message p {
   margin: 0;
+  color: white;
 }
 
 .message span {
@@ -2323,6 +2324,14 @@ table tr:nth-child(even) {
 }
 /* complaint  */
 
+.status-filter {
+  width: 200px;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
 .complaint-container {
   display: flex;
   flex-direction: column;
@@ -3662,6 +3671,42 @@ header nav .greeting {
   font-size: 16px;
   font-weight: 400;
   margin-right: 10px;
+}
+
+.category-select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.category-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.category-tag {
+  display: inline-flex;
+  align-items: center;
+  background-color: #e0f7fa;
+  color: #00796b;
+  padding: 5px 10px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.remove-tag {
+  margin-left: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  color: #d32f2f;
+}
+
+.remove-tag:hover {
+  color: #b71c1c;
 }
 
 /* Admin Modal */

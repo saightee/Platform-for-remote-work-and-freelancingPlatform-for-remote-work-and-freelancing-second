@@ -13,11 +13,13 @@ import {
   blockUser, unblockUser, getUserRiskScore, exportUsersToCSV, getUserOnlineStatus,
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
-  resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost
+  resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById
 } from '../services/api';
-import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails } from '@types';
+import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile } from '@types';
 import { format } from 'date-fns';
 import { AxiosError } from 'axios';
+import axios from 'axios';
+
 
 interface JobPostWithApplications {
   id: string;
@@ -41,6 +43,7 @@ const AdminDashboard: React.FC = () => {
   const { currentRole } = useRole();
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [users, setUsers] = useState<User[]>([]);
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Resolved' | 'Rejected'>('All');
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [jobPostsWithApps, setJobPostsWithApps] = useState<JobPostWithApplications[]>([]);
   const [jobApplications, setJobApplications] = useState<JobApplicationDetails[]>([]);
@@ -115,135 +118,264 @@ const AdminDashboard: React.FC = () => {
   const [jobPostPage, setJobPostPage] = useState(1);
   const [jobPostLimit] = useState(10);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!currentRole || currentRole !== 'admin') {
-        setError('This page is only available for admins.');
-        setIsLoading(false);
-        return;
+// Для пользователей
+useEffect(() => {
+  const fetchUsers = async () => {
+    if (!currentRole || currentRole !== 'admin') {
+      setError('This page is only available for admins.');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setFetchErrors((prev) => ({ ...prev, getAllUsers: '' }));
+      const userResponse = await getAllUsers({ page: userPage, limit: userLimit });
+      console.log('Raw getAllUsers response:', userResponse);
+      const userData = userResponse.data || [];
+      setUsers(userData);
+      console.log('Users set in state:', userData);
+      if (userData.length === 0) {
+        setFetchErrors((prev) => ({ ...prev, getAllUsers: 'No users found in response' }));
       }
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      console.error('Error fetching users:', axiosError);
+      setFetchErrors((prev) => ({
+        ...prev,
+        getAllUsers: axiosError.response?.data?.message || 'Failed to load users data',
+      }));
+      setError('Some data failed to load. Check errors below.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  fetchUsers();
+}, [currentRole, userPage]);
 
-      try {
-        setIsLoading(true);
-        setFetchErrors({});
+// Для остальных данных
+useEffect(() => {
+  const fetchOtherData = async () => {
+    if (!currentRole || currentRole !== 'admin') return;
 
-        const requests = [
-          getAllUsers({ page: userPage, limit: userLimit }),
-          getAllJobPosts({ page: jobPostPage, limit: jobPostLimit }),
-          getAllJobPosts({ status: 'Active', pendingReview: 'true', page: jobPostPage, limit: jobPostLimit }),
-          getAllReviews(),
-          getFeedback(),
-          getBlockedCountries(),
-          getCategories(),
-          getAnalytics(),
-          getRegistrationStats({ startDate: '2023-01-01', endDate: new Date().toISOString().split('T')[0], interval: 'month' }),
-          getGeographicDistribution(),
-          getTopEmployers(5),
-          getTopJobseekers(5),
-          getTopJobseekersByViews(5),
-          getTopEmployersByPosts(5),
-          getGrowthTrends({ period: '30d' }),
-          getComplaints(),
-          getGlobalApplicationLimit(),
-          getOnlineUsers(),
-          getRecentRegistrations({ limit: 5 }),
-          getJobPostsWithApplications()
-        ];
+    try {
+      setIsLoading(true);
+      setFetchErrors((prev) => ({
+        ...prev,
+        getAllJobPosts: '',
+        getPendingJobPosts: '',
+        getAllReviews: '',
+        getFeedback: '',
+        getBlockedCountries: '',
+        getCategories: '',
+        getAnalytics: '',
+        getRegistrationStats: '',
+        geographicDistribution: '',
+        getTopEmployers: '',
+        getTopJobseekers: '',
+        getTopJobseekersByViews: '',
+        getTopEmployersByPosts: '',
+        getGrowthTrends: '',
+        getComplaints: '',
+        getGlobalApplicationLimit: '',
+        getOnlineUsers: '',
+        getRecentRegistrations: '',
+        getJobPostsWithApplications: '',
+      }));
 
-        type RequestResult =
-          | PaginatedResponse<User>
-          | PaginatedResponse<JobPost>
-          | Review[]
-          | Feedback[]
-          | BlockedCountry[]
-          | Category[]
-          | { totalUsers: number; employers: number; jobSeekers: number; totalJobPosts: number; activeJobPosts: number; totalApplications: number; totalReviews: number }
-          | { period: string; count: number }[]
-          | { country: string; count: number; percentage: string }[]
-          | { employer_id: string; username: string; job_count: number }[]
-          | { job_seeker_id: string; username: string; application_count: number }[]
-          | { userId: string; username: string; email: string; profileViews: number }[]
-          | { userId: string; username: string; email: string; jobCount: number }[]
-          | { registrations: { period: string; count: number }[]; jobPosts: { period: string; count: number }[] }
-          | { id: string; complainant_id: string; complainant: { id: string; username: string; email: string; role: string }; job_post_id?: string; job_post?: { id: string; title: string; description: string }; profile_id?: string; reason: string; status: 'Pending' | 'Resolved' | 'Rejected'; created_at: string; resolution_comment?: string }[]
-          | { globalApplicationLimit: number | null }
-          | OnlineUsers
-          | RecentRegistrations
-          | JobPostWithApplications[];
+      const requests = [
+        getAllJobPosts({ page: jobPostPage, limit: jobPostLimit }),
+        getAllJobPosts({ status: 'Active', pendingReview: 'true', page: jobPostPage, limit: jobPostLimit }),
+        getAllReviews(),
+        getFeedback(),
+        getBlockedCountries(),
+        getCategories(),
+        getAnalytics(),
+        getRegistrationStats({ startDate: '2023-01-01', endDate: new Date().toISOString().split('T')[0], interval: 'month' }),
+        getGeographicDistribution(),
+        getTopEmployers(5),
+        getTopJobseekers(5),
+        getTopJobseekersByViews(5),
+        getTopEmployersByPosts(5),
+        getGrowthTrends({ period: '30d' }),
+        getComplaints(),
+        getGlobalApplicationLimit(),
+        getOnlineUsers(),
+        getRecentRegistrations({ limit: 5 }),
+        getJobPostsWithApplications(),
+      ];
 
-        const results = await Promise.allSettled(requests);
-        const errors: { [key: string]: string } = {};
+      type RequestResult =
+        | PaginatedResponse<JobPost>
+        | Review[]
+        | Feedback[]
+        | BlockedCountry[]
+        | Category[]
+        | { totalUsers: number; employers: number; jobSeekers: number; totalJobPosts: number; activeJobPosts: number; totalApplications: number; totalReviews: number }
+        | { period: string; count: number }[]
+        | { country: string; count: number; percentage: string }[]
+        | { employer_id: string; username: string; job_count: number }[]
+        | { job_seeker_id: string; username: string; application_count: number }[]
+        | { userId: string; username: string; email: string; profileViews: number }[]
+        | { userId: string; username: string; email: string; jobCount: number }[]
+        | { registrations: { period: string; count: number }[]; jobPosts: { period: string; count: number }[] }
+        | { id: string; complainant_id: string; complainant: { id: string; username: string; email: string; role: string }; job_post_id?: string; job_post?: { id: string; title: string; description: string }; profile_id?: string; reason: string; status: 'Pending' | 'Rejected' | 'Resolved'; created_at: string; resolution_comment?: string }[]
+        | { globalApplicationLimit: number | null }
+        | OnlineUsers
+        | RecentRegistrations
+        | JobPostWithApplications[];
 
-        const endpoints = [
-          'getAllUsers', 'getAllJobPosts', 'getPendingJobPosts', 'getAllReviews', 'getFeedback',
-          'getBlockedCountries', 'getCategories', 'getAnalytics',
-          'getRegistrationStats', 'geographicDistribution',
-          'getTopEmployers', 'getTopJobseekers', 'getTopJobseekersByViews', 'getTopEmployersByPosts',
-          'getGrowthTrends', 'getComplaints', 'getGlobalApplicationLimit',
-          'getOnlineUsers', 'getRecentRegistrations', 'getJobPostsWithApplications'
-        ];
+      const results = await Promise.allSettled(requests);
+      const errors: { [key: string]: string } = {};
 
-        results.forEach((result, index) => {
-          if (result.status === 'fulfilled') {
-            console.log(`${endpoints[index]} succeeded:`, result.value);
-            const value = result.value as RequestResult;
-            switch (index) {
-              case 0: setUsers((value as PaginatedResponse<User>).data || []); break;
-              case 1: setJobPosts((value as PaginatedResponse<JobPost>).data || []); break;
-              case 2: setJobPosts((value as PaginatedResponse<JobPost>).data || []); break;
-              case 3: setReviews(value as Review[] || []); break;
-              case 4: setFeedback(value as Feedback[] || []); break;
-              case 5: setBlockedCountries(value as BlockedCountry[] || []); break;
-              case 6: setCategories(value as Category[] || []); break;
-              case 7: setAnalytics(value as typeof analytics || null); break;
-              case 8: setRegistrationStats(value as { period: string; count: number }[] || []); break;
-              case 9:
-                setGeographicDistribution(value as { country: string; count: number; percentage: string }[] || []);
-                const total = (value as { count: number }[]).reduce((sum, item) => sum + item.count, 0);
-                const freelancers = (value as { country: string; count: number }[]).map(item => ({
-                  country: item.country,
-                  count: Math.round(item.count * 0.6)
-                }));
-                const businesses = (value as { country: string; count: number }[]).map(item => ({
-                  country: item.country,
-                  count: Math.round(item.count * 0.4)
-                }));
-                setFreelancerSignups(freelancers);
-                setBusinessSignups(businesses);
-                break;
-              case 10: setTopEmployers(value as { employer_id: string; username: string; job_count: number }[] || []); break;
-              case 11: setTopJobseekers(value as { job_seeker_id: string; username: string; application_count: number }[] || []); break;
-              case 12: setTopJobseekersByViews(value as { userId: string; username: string; email: string; profileViews: number }[] || []); break;
-              case 13: setTopEmployersByPosts(value as { userId: string; username: string; email: string; jobCount: number }[] || []); break;
-              case 14: setGrowthTrends(value as typeof growthTrends || { registrations: [], jobPosts: [] }); break;
-              case 15: setComplaints(value as typeof complaints || []); break;
-              case 16: setGlobalLimit((value as { globalApplicationLimit: number | null }).globalApplicationLimit ?? null); break;
-              case 17: setOnlineUsers(value as OnlineUsers || null); break;
-              case 18: setRecentRegistrations(value as RecentRegistrations || { jobseekers: [], employers: [] }); break;
-              case 19: setJobPostsWithApps(value as JobPostWithApplications[] || []); break;
-            }
-          } else {
-            console.error(`${endpoints[index]} failed:`, result.reason);
-            const errorMsg = (result.reason as AxiosError<{ message?: string }>)?.response?.data?.message || `Failed to load ${endpoints[index]} data`;
-            errors[endpoints[index]] = errorMsg;
+      const endpoints = [
+        'getAllJobPosts', 'getPendingJobPosts', 'getAllReviews', 'getFeedback',
+        'getBlockedCountries', 'getCategories', 'getAnalytics',
+        'getRegistrationStats', 'geographicDistribution',
+        'getTopEmployers', 'getTopJobseekers', 'getTopJobseekersByViews', 'getTopEmployersByPosts',
+        'getGrowthTrends', 'getComplaints', 'getGlobalApplicationLimit',
+        'getOnlineUsers', 'getRecentRegistrations', 'getJobPostsWithApplications',
+      ];
+
+      for (const [index, result] of results.entries()) {
+        if (result.status === 'fulfilled') {
+          console.log(`${endpoints[index]} succeeded:`, result.value);
+          const value = result.value as RequestResult;
+          switch (index) {
+            case 0:
+              setJobPosts((value as PaginatedResponse<JobPost>).data || []);
+              break;
+            case 1:
+              setJobPosts((value as PaginatedResponse<JobPost>).data || []);
+              break;
+            case 2:
+              const reviewsData = value as Review[] || [];
+              const enrichedReviews = await Promise.all(
+                reviewsData.map(async (review) => {
+                  try {
+                    const applicationResponse = await getJobApplicationById(review.job_application_id);
+                    const application = applicationResponse;
+                    if (!application.job_post_id) {
+                      console.warn(`No job_post_id found for job application ${review.job_application_id}`);
+                      return {
+                        ...review,
+                        job_post: null,
+                        job_seeker: null,
+                      };
+                    }
+                    const jobPostResponse = await getJobPost(application.job_post_id);
+                    const jobPost = jobPostResponse;
+                    const jobSeekerResponse = await getUserProfileById(application.job_seeker_id);
+                    const jobSeeker = jobSeekerResponse;
+                    return {
+                      ...review,
+                      job_post: {
+                        id: jobPost.id,
+                        title: jobPost.title,
+                      },
+                      job_seeker: {
+                        id: jobSeeker.id,
+                        username: jobSeeker.username,
+                      },
+                    };
+                  } catch (error) {
+                    const axiosError = error as AxiosError<{ message?: string }>;
+                    console.error(`Error enriching review ${review.id}:`, axiosError.response?.data?.message || axiosError.message);
+                    return {
+                      ...review,
+                      job_post: null,
+                      job_seeker: null,
+                    };
+                  }
+                })
+              );
+              setReviews(enrichedReviews);
+              console.log('Enriched reviews set in state:', enrichedReviews);
+              break;
+            case 3:
+              setFeedback(value as Feedback[] || []);
+              break;
+            case 4:
+              setBlockedCountries(value as BlockedCountry[] || []);
+              break;
+            case 5:
+              setCategories(value as Category[] || []);
+              break;
+            case 6:
+              setAnalytics(value as typeof analytics || null);
+              break;
+            case 7:
+              setRegistrationStats(value as { period: string; count: number }[] || []);
+              break;
+            case 8:
+              setGeographicDistribution(value as { country: string; count: number; percentage: string }[] || []);
+              const total = (value as { count: number }[]).reduce((sum, item) => sum + item.count, 0);
+              const freelancers = (value as { country: string; count: number }[]).map(item => ({
+                country: item.country,
+                count: Math.round(item.count * 0.6),
+              }));
+              const businesses = (value as { country: string; count: number }[]).map(item => ({
+                country: item.country,
+                count: Math.round(item.count * 0.4),
+              }));
+              setFreelancerSignups(freelancers);
+              setBusinessSignups(businesses);
+              break;
+            case 9:
+              setTopEmployers(value as { employer_id: string; username: string; job_count: number }[] || []);
+              break;
+            case 10:
+              setTopJobseekers(value as { job_seeker_id: string; username: string; application_count: number }[] || []);
+              break;
+            case 11:
+              setTopJobseekersByViews(value as { userId: string; username: string; email: string; profileViews: number }[] || []);
+              break;
+            case 12:
+              setTopEmployersByPosts(value as { userId: string; username: string; email: string; jobCount: number }[] || []);
+              break;
+            case 13:
+              setGrowthTrends(value as typeof growthTrends || { registrations: [], jobPosts: [] });
+              break;
+            case 14:
+              setComplaints(value as typeof complaints || []);
+              break;
+            case 15:
+              setGlobalLimit((value as { globalApplicationLimit: number | null }).globalApplicationLimit ?? null);
+              break;
+            case 16:
+              setOnlineUsers(value as OnlineUsers || null);
+              break;
+            case 17:
+              setRecentRegistrations(value as RecentRegistrations || { jobseekers: [], employers: [] });
+              break;
+            case 18:
+              setJobPostsWithApps(value as JobPostWithApplications[] || []);
+              break;
           }
-        });
-
-        if (Object.keys(errors).length > 0) {
-          setFetchErrors(errors);
-          setError('Some data failed to load. Check errors below.');
         } else {
-          setError(null);
+          console.error(`${endpoints[index]} failed:`, result.reason);
+          const errorMsg = (result.reason as AxiosError<{ message?: string }>)?.response?.data?.message || `Failed to load ${endpoints[index]} data`;
+          errors[endpoints[index]] = errorMsg;
         }
-      } catch (error) {
-        console.error('Unexpected error fetching admin data:', error);
-        setError('Unexpected error occurred. Please try again.');
-      } finally {
-        setIsLoading(false);
       }
-    };
-    fetchData();
-  }, [currentRole, userPage, jobPostPage]);
+
+      if (Object.keys(errors).length > 0) {
+        setFetchErrors((prev) => ({ ...prev, ...errors }));
+        setError('Some data failed to load. Check errors below.');
+      } else {
+        setError(null);
+      }
+    } catch (error) {
+      console.error('Unexpected error fetching other data:', error);
+      setError('Unexpected error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  if (currentRole === 'admin') {
+    fetchOtherData();
+  }
+}, [currentRole, jobPostPage]);
 
   const handleDeleteUser = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
@@ -799,14 +931,18 @@ const AdminDashboard: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'Users' && (
-            <div>
-              <h4>Users</h4>
-              <button onClick={handleExportUsers} className="action-button">
-                Export to CSV
-              </button>
-              {fetchErrors.getAllUsers && <p className="error-message">{fetchErrors.getAllUsers}</p>}
-              <table className="dashboard-table">
+{activeTab === 'Users' && (
+  <div>
+    <h4>Users</h4>
+    <button onClick={handleExportUsers} className="action-button">
+      Export to CSV
+    </button>
+    {fetchErrors.getAllUsers && <p className="error-message">{fetchErrors.getAllUsers}</p>}
+    {(() => {
+      console.log('Rendering users:', users);
+      return null;
+    })()}
+    <table className="dashboard-table">
                 <thead>
                   <tr>
                     <th>ID</th>
@@ -984,43 +1120,51 @@ const AdminDashboard: React.FC = () => {
           )}
 
           {activeTab === 'Reviews' && (
-            <div>
-              <h4>Reviews</h4>
-              {fetchErrors.getAllReviews && <p className="error-message">{fetchErrors.getAllReviews}</p>}
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Rating</th>
-                    <th>Comment</th>
-                    <th>Reviewer</th>
-                    <th>Created At</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reviews.length > 0 ? reviews.map((review) => (
-                    <tr key={review.id}>
-                      <td>{review.id}</td>
-                      <td>{review.rating}</td>
-                      <td>{review.comment}</td>
-                      <td>{review.reviewer?.username || 'Anonymous'}</td>
-                      <td>{format(new Date(review.created_at), 'PP')}</td>
-                      <td>
-                        <button onClick={() => handleDeleteReview(review.id)} className="action-button danger">
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={6}>No reviews found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+  <div>
+    <h4>Reviews</h4>
+    {fetchErrors.getAllReviews && <p className="error-message">{fetchErrors.getAllReviews}</p>}
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Rating</th>
+          <th>Comment</th>
+          <th>Reviewer</th>
+          <th>Target</th>
+          <th>Created At</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {reviews.length > 0 ? reviews.map((review) => (
+          <tr key={review.id}>
+            <td>{review.id}</td>
+            <td>{review.rating}</td>
+            <td>{review.comment}</td>
+            <td>{review.reviewer?.username || 'Anonymous'}</td>
+            <td>
+              {review.job_post
+                ? `Job Post: ${review.job_post.title}`
+                : review.job_seeker
+                ? `Profile: ${review.job_seeker.username}`
+                : 'N/A'}
+            </td>
+            <td>{format(new Date(review.created_at), 'PP')}</td>
+            <td>
+              <button onClick={() => handleDeleteReview(review.id)} className="action-button danger">
+                Delete
+              </button>
+            </td>
+          </tr>
+        )) : (
+          <tr>
+            <td colSpan={7}>No reviews found.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+)}
 
           {activeTab === 'Feedback' && (
             <div>
@@ -1138,50 +1282,78 @@ const AdminDashboard: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'Complaints' && (
-            <div>
-              <h4>Complaints</h4>
-              {fetchErrors.getComplaints && <p className="error-message">{fetchErrors.getComplaints}</p>}
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Complainant</th>
-                    <th>Target</th>
-                    <th>Reason</th>
-                    <th>Status</th>
-                    <th>Resolution Comment</th>
-                    <th>Created At</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {complaints.length > 0 ? complaints.map((complaint) => (
-                    <tr key={complaint.id}>
-                      <td>{complaint.id}</td>
-                      <td>{complaint.complainant.username}</td>
-                      <td>{complaint.job_post_id ? `Job Post: ${complaint.job_post?.title}` : complaint.profile_id ? `Profile ID: ${complaint.profile_id}` : 'N/A'}</td>
-                      <td>{complaint.reason}</td>
-                      <td>{complaint.status}</td>
-                      <td>{complaint.resolution_comment || 'N/A'}</td>
-                      <td>{format(new Date(complaint.created_at), 'PP')}</td>
-                      <td>
-                        {complaint.status === 'Pending' && (
-                          <button onClick={() => handleResolveComplaint(complaint.id)} className="action-button">
-                            Resolve
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={8}>No complaints found.</td>
-                    </tr>
+{activeTab === 'Complaints' && (
+  <div>
+    <h4>Complaints</h4>
+    <div className="form-group">
+      <label>Filter by Status:</label>
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value as 'All' | 'Pending' | 'Resolved' | 'Rejected')}
+        className="status-filter"
+      >
+        <option value="All">All</option>
+        <option value="Pending">Pending</option>
+        <option value="Resolved">Resolved</option>
+        <option value="Rejected">Rejected</option>
+      </select>
+    </div>
+    {fetchErrors.getComplaints && <p className="error-message">{fetchErrors.getComplaints}</p>}
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Complainant</th>
+          <th>Target</th>
+          <th>Reason</th>
+          <th>Status</th>
+          <th>Resolution Comment</th>
+          <th>Created At</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {complaints
+          .filter((complaint) => statusFilter === 'All' || complaint.status === statusFilter)
+          .length > 0 ? (
+          complaints
+            .filter((complaint) => statusFilter === 'All' || complaint.status === statusFilter)
+            .map((complaint) => (
+              <tr key={complaint.id}>
+                <td>{complaint.id}</td>
+                <td>{complaint.complainant.username}</td>
+                <td>
+                  {complaint.job_post_id
+                    ? `Job Post: ${complaint.job_post?.title}`
+                    : complaint.profile_id
+                    ? `Profile ID: ${complaint.profile_id}`
+                    : 'N/A'}
+                </td>
+                <td>{complaint.reason}</td>
+                <td>{complaint.status}</td>
+                <td>{complaint.resolution_comment || 'N/A'}</td>
+                <td>{format(new Date(complaint.created_at), 'PP')}</td>
+                <td>
+                  {complaint.status === 'Pending' && (
+                    <button
+                      onClick={() => handleResolveComplaint(complaint.id)}
+                      className="action-button"
+                    >
+                      Resolve
+                    </button>
                   )}
-                </tbody>
-              </table>
-            </div>
-          )}
+                </td>
+              </tr>
+            ))
+        ) : (
+          <tr>
+            <td colSpan={8}>No complaints found for selected status.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+)}
 
           {activeTab === 'Chat History' && (
             <div>
@@ -1271,36 +1443,36 @@ const AdminDashboard: React.FC = () => {
           )}
 
           {activeTab === 'Analytics' && (
-            <div>
-              <h4>Analytics</h4>
-              {fetchErrors.getAnalytics && <p className="error-message">{fetchErrors.getAnalytics}</p>}
-              {analytics ? (
-                <div className="analytics-grid">
-                  <div className="analytics-card">
-                    <p><strong>Total Users:</strong> {analytics.totalUsers}</p>
-                  </div>
-                  <div className="analytics-card">
-                    <p><strong>Employers:</strong> {analytics.employers}</p>
-                  </div>
-                  <div className="analytics-card">
-                    <p><strong>Job Seekers:</strong> {analytics.jobSeekers}</p>
-                  </div>
-                  <div className="analytics-card">
-                    <p><strong>Total Job Posts:</strong> {analytics.totalJobPosts}</p>
-                  </div>
-                  <div className="analytics-card">
-                    <p><strong>Active Job Posts:</strong> {analytics.activeJobPosts}</p>
-                  </div>
-                  <div className="analytics-card">
-                    <p><strong>Total Applications:</strong> {analytics.totalApplications}</p>
-                  </div>
-                  <div className="analytics-card">
-                    <p><strong>Total Reviews:</strong> {analytics.totalReviews}</p>
-                  </div>
-                </div>
-              ) : (
-                <p>No analytics data available.</p>
-              )}
+  <div>
+    <h4>Analytics</h4>
+    {fetchErrors.getAnalytics && <p className="error-message">{fetchErrors.getAnalytics}</p>}
+    {analytics ? (
+      <div className="analytics-grid">
+        <div className="analytics-card">
+          <p><strong>Total Users (Employers + Job Seekers):</strong> {(analytics.employers && analytics.jobSeekers) ? analytics.employers + analytics.jobSeekers : 'N/A'}</p>
+        </div>
+        <div className="analytics-card">
+          <p><strong>Employers:</strong> {analytics.employers}</p>
+        </div>
+        <div className="analytics-card">
+          <p><strong>Job Seekers:</strong> {analytics.jobSeekers}</p>
+        </div>
+        <div className="analytics-card">
+          <p><strong>Total Job Posts:</strong> {analytics.totalJobPosts}</p>
+        </div>
+        <div className="analytics-card">
+          <p><strong>Active Job Posts:</strong> {analytics.activeJobPosts}</p>
+        </div>
+        <div className="analytics-card">
+          <p><strong>Total Applications:</strong> {analytics.totalApplications}</p>
+        </div>
+        <div className="analytics-card">
+          <p><strong>Total Reviews:</strong> {analytics.totalReviews}</p>
+        </div>
+      </div>
+    ) : (
+      <p>No analytics data available.</p>
+    )}
               <h4>Registration Stats</h4>
               {fetchErrors.getRegistrationStats && <p className="error-message">{fetchErrors.getRegistrationStats}</p>}
               <table className="dashboard-table">

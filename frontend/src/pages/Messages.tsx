@@ -34,36 +34,39 @@ const Messages: React.FC = () => {
   const typingTimeoutRef = useRef<{ [jobApplicationId: string]: number }>({});
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        if (currentRole === 'jobseeker') {
-          const apps = await getMyApplications();
-          setApplications(apps.filter((app) => app.status === 'Accepted'));
-        } else if (currentRole === 'employer') {
-          const posts = await getMyJobPosts();
-          setJobPosts(posts);
-          const appsArrays = await Promise.all(
-            posts.map(post => getApplicationsForJobPost(post.id))
-          );
-          const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
-          posts.forEach((post, index) => {
-            appsMap[post.id] = appsArrays[index].filter((app) => app.status === 'Accepted');
-          });
-          setJobPostApplications(appsMap);
-        }
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-        setError('Failed to load applications.');
-      } finally {
-        setIsLoading(false);
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      if (currentRole === 'jobseeker') {
+        const apps = await getMyApplications();
+        console.log('Fetched applications for jobseeker:', apps); // Отладочный лог
+        setApplications(apps.filter((app) => app.status === 'Accepted'));
+      } else if (currentRole === 'employer') {
+        const posts = await getMyJobPosts();
+        console.log('Fetched job posts for employer:', posts); // Отладочный лог
+        setJobPosts(posts);
+        const appsArrays = await Promise.all(
+          posts.map(post => getApplicationsForJobPost(post.id))
+        );
+        const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
+        posts.forEach((post, index) => {
+          appsMap[post.id] = appsArrays[index].filter((app) => app.status === 'Accepted');
+          console.log(`Applications for job post ${post.id}:`, appsMap[post.id]); // Отладочный лог
+        });
+        setJobPostApplications(appsMap);
       }
-    };
-
-    if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole) && socket) {
-      fetchData();
+    } catch (error) {
+      console.error('Error fetching applications:', error);
+      setError('Failed to load applications.');
+    } finally {
+      setIsLoading(false);
     }
-  }, [profile, currentRole, socket]);
+  };
+
+  if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole) && socket) {
+    fetchData();
+  }
+}, [profile, currentRole, socket]);
 
   useEffect(() => {
     if (!socket || !profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) {
@@ -165,16 +168,20 @@ const Messages: React.FC = () => {
     setNewMessage('');
   };
 
-  const handleSelectChat = (jobApplicationId: string) => {
-    setSelectedChat(jobApplicationId);
-    setUnreadCounts((prev) => ({
-      ...prev,
-      [jobApplicationId]: 0,
-    }));
-    if (socket) {
-      socket.emit('markMessagesAsRead', { jobApplicationId });
-    }
-  };
+const handleSelectChat = (jobApplicationId: string) => {
+  setSelectedChat(jobApplicationId);
+  setUnreadCounts((prev) => ({
+    ...prev,
+    [jobApplicationId]: 0,
+  }));
+  if (socket && socketStatus === 'connected') {
+    socket.emit('joinChat', { jobApplicationId });
+    socket.emit('markMessagesAsRead', { jobApplicationId });
+  } else {
+    console.warn('WebSocket not connected, cannot join chat or mark messages as read');
+    setError('Chat server not connected. Please try again later.');
+  }
+};
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!socket || !selectedChat) return;
@@ -193,16 +200,17 @@ const Messages: React.FC = () => {
     }, 1000);
   };
 
-  const getChatPartner = (jobApplicationId: string) => {
-    if (currentRole === 'jobseeker') {
-      const app = applications.find((a) => a.id === jobApplicationId);
-      return app?.job_post?.employer?.username || 'Unknown';
-    } else if (currentRole === 'employer') {
-      const app = Object.values(jobPostApplications).flat().find(a => a.applicationId === jobApplicationId);
-      return app?.username || 'Unknown';
-    }
-    return 'Unknown';
-  };
+const getChatPartner = (jobApplicationId: string) => {
+  if (currentRole === 'jobseeker') {
+    const app = applications.find((a) => a.id === jobApplicationId);
+    console.log('Application for jobseeker:', app); // Отладочный лог
+    return app?.job_post?.employer?.username || app?.job_post?.employer?.email || 'Unknown';
+  } else if (currentRole === 'employer') {
+    const app = Object.values(jobPostApplications).flat().find(a => a.applicationId === jobApplicationId);
+    return app?.username || 'Unknown';
+  }
+  return 'Unknown';
+};
 
   const getChatList = () => {
     if (currentRole === 'jobseeker') {

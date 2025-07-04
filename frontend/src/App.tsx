@@ -49,7 +49,7 @@ const App: React.FC = () => {
           <Route path="/register/:role" element={<Register />} />
           <Route path="/role-selection" element={<RoleSelection />} />
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/users/:id" element={<PublicProfile />} />
+          <Route path="/public-profile/:id" element={<PublicProfile />} />
           <Route path="/check-email" element={<CheckEmail />} />
           <Route path="/post-job" element={<PostJob />} />
           <Route path="/my-job-posts" element={<MyJobPosts />} />

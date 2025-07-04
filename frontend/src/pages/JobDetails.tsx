@@ -111,7 +111,7 @@ const JobDetails: React.FC = () => {
           <div className="employer-info">
             {job.employer?.avatar ? (
               <img
-                src={`https://jobforge.net${job.employer.avatar}`}
+                src={`https://jobforge.net/backend${job.employer.avatar}`}
                 alt="Employer Avatar"
                 className="employer-avatar"
               />

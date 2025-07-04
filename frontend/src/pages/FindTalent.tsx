@@ -7,7 +7,6 @@ import { searchTalents, searchJobseekers, getCategories } from '../services/api'
 import { Profile, Category } from '@types';
 import { FaUserCircle, FaFilter } from 'react-icons/fa';
 import { AxiosError } from 'axios';
-import debounce from 'lodash.debounce';
 
 interface TalentResponse {
   total: number;
@@ -15,45 +14,51 @@ interface TalentResponse {
 }
 
 const FindTalent: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [talents, setTalents] = useState<Profile[]>([]);
-  const [total, setTotal] = useState<number>(0);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [searchType, setSearchType] = useState<'talents' | 'jobseekers'>('talents');
-  const [filters, setFilters] = useState<{
-    skills: string;
-    username: string;
-    experience: string;
-    rating?: number;
-    timezone: string;
-    category_id: string;
-    page: number;
-    limit: number;
-  }>({
-    skills: searchParams.get('skills') || '',
-    username: searchParams.get('username') || '',
-    experience: '',
-    rating: undefined,
-    timezone: '',
-    category_id: '',
-    page: 1,
-    limit: 10,
-  });
+ const [searchParams, setSearchParams] = useSearchParams();
+const [searchInput, setSearchInput] = useState(searchParams.get('skills') || '');
+const [filters, setFilters] = useState<{
+  skills: string;
+  username: string;
+  experience: string;
+  rating?: number;
+  timezone: string;
+  category_id: string;
+  page: number;
+  limit: number;
+}>({
+  skills: searchParams.get('skills') || '',
+  username: searchParams.get('username') || '',
+  experience: '',
+  rating: undefined,
+  timezone: '',
+  category_id: '',
+  page: 1,
+  limit: 10,
+});
+const [tempFilters, setTempFilters] = useState<{
+  skills: string;
+  username: string;
+  experience: string;
+  rating?: number; // Явно указываем number | undefined
+  timezone: string;
+  category_id: string;
+}>({
+  skills: searchParams.get('skills') || '',
+  username: searchParams.get('username') || '',
+  experience: '',
+  rating: undefined,
+  timezone: '',
+  category_id: '',
+});
+const [talents, setTalents] = useState<Profile[]>([]);
+const [total, setTotal] = useState<number>(0);
+const [categories, setCategories] = useState<Category[]>([]);
+const [searchType, setSearchType] = useState<'talents' | 'jobseekers'>('talents');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const navigate = useNavigate();
 
-  const debouncedSetFilters = useCallback(
-    debounce((newFilters: Partial<typeof filters>) => {
-      setFilters((prev) => ({ ...prev, ...newFilters, page: 1 }));
-      setSearchParams({
-        skills: newFilters.skills || filters.skills,
-        username: searchType === 'jobseekers' ? (newFilters.username || filters.username) : '',
-      });
-    }, 500),
-    [setSearchParams, searchType, filters.skills, filters.username]
-  );
 
   useEffect(() => {
     const fetchData = async () => {
@@ -108,11 +113,20 @@ const FindTalent: React.FC = () => {
     fetchData();
   }, [filters, searchType, navigate]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    debouncedSetFilters.flush(); // Немедленно применить последние фильтры
-    setIsFilterPanelOpen(false);
-  };
+const handleSearch = (e: React.FormEvent) => {
+  e.preventDefault();
+  setFilters((prev) => ({
+    ...prev,
+    ...tempFilters,
+    skills: searchInput, // Применяем значение из поискового бара
+    page: 1,
+  }));
+  setSearchParams({
+    skills: searchInput,
+    username: searchType === 'jobseekers' ? tempFilters.username : '',
+  });
+  setIsFilterPanelOpen(false);
+};
 
   const handlePageChange = (newPage: number) => {
     setFilters((prev) => ({ ...prev, page: newPage }));
@@ -170,93 +184,94 @@ const FindTalent: React.FC = () => {
       <div className="container ft-container">
         <h2>Find Talent</h2>
         <div className="ft-search-bar">
-          <input
-            type="text"
-            placeholder="Search by skills or keywords"
-            value={filters.skills}
-            onChange={(e) => debouncedSetFilters({ skills: e.target.value })}
-          />
-          <button onClick={handleSearch}>Search</button>
-          <button className="ft-filter-toggle" onClick={toggleFilterPanel}>
-            <FaFilter />
-          </button>
-        </div>
+  <input
+    type="text"
+    placeholder="Search by skills or keywords"
+    value={searchInput}
+    onChange={(e) => setSearchInput(e.target.value)}
+  />
+  <button onClick={handleSearch}>Search</button>
+  <button className="ft-filter-toggle" onClick={toggleFilterPanel}>
+    <FaFilter />
+  </button>
+</div>
         <div className="ft-content">
           <div className={`ft-filters ${isFilterPanelOpen ? 'open' : ''}`}>
-            <h3>Filters</h3>
-            <form onSubmit={handleSearch} className="ft-search-form">
-              <div className="ft-form-group">
-                <label>Skills:</label>
-                <input
-                  type="text"
-                  value={filters.skills}
-                  onChange={(e) => debouncedSetFilters({ skills: e.target.value })}
-                  placeholder="Enter skills (e.g., JavaScript, Python)"
-                />
-              </div>
-              {searchType === 'jobseekers' && (
-                <div className="ft-form-group">
-                  <label>Username:</label>
-                  <input
-                    type="text"
-                    value={filters.username}
-                    onChange={(e) => debouncedSetFilters({ username: e.target.value })}
-                    placeholder="Enter username"
-                  />
-                </div>
-              )}
-              <div className="ft-form-group">
-                <label>Experience:</label>
-                <input
-                  type="text"
-                  value={filters.experience}
-                  onChange={(e) => debouncedSetFilters({ experience: e.target.value })}
-                  placeholder="Enter experience (e.g., 3 years)"
-                />
-              </div>
-              <div className="ft-form-group">
-                <label>Minimum Rating:</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="5"
-                  value={filters.rating || ''}
-                  onChange={(e) =>
-                    debouncedSetFilters({
-                      rating: e.target.value ? Number(e.target.value) : undefined,
-                    })
-                  }
-                  placeholder="Enter rating (0-5)"
-                />
-              </div>
-              <div className="ft-form-group">
-                <label>Timezone:</label>
-                <input
-                  type="text"
-                  value={filters.timezone}
-                  onChange={(e) => debouncedSetFilters({ timezone: e.target.value })}
-                  placeholder="Enter timezone (e.g., America/New_York)"
-                />
-              </div>
-              <div className="ft-form-group">
-                <label>Category:</label>
-                <select
-                  value={filters.category_id}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, category_id: e.target.value }))}
-                >
-                  <option value="">All Categories</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button type="submit" className="ft-button ft-success">
-                Apply Filters
-              </button>
-            </form>
-          </div>
+  <h3>Filters</h3>
+  <form onSubmit={handleSearch} className="ft-search-form">
+    <div className="ft-form-group">
+      <label>Skills:</label>
+      <input
+        type="text"
+        value={tempFilters.skills}
+        onChange={(e) => setTempFilters({ ...tempFilters, skills: e.target.value })}
+        placeholder="Enter skills (e.g., JavaScript, Python)"
+      />
+    </div>
+    {searchType === 'jobseekers' && (
+      <div className="ft-form-group">
+        <label>Username:</label>
+        <input
+          type="text"
+          value={tempFilters.username}
+          onChange={(e) => setTempFilters({ ...tempFilters, username: e.target.value })}
+          placeholder="Enter username"
+        />
+      </div>
+    )}
+    <div className="ft-form-group">
+      <label>Experience:</label>
+      <input
+        type="text"
+        value={tempFilters.experience}
+        onChange={(e) => setTempFilters({ ...tempFilters, experience: e.target.value })}
+        placeholder="Enter experience (e.g., 3 years)"
+      />
+    </div>
+    <div className="ft-form-group">
+      <label>Minimum Rating:</label>
+      <input
+        type="number"
+        min="0"
+        max="5"
+        value={tempFilters.rating || ''}
+        onChange={(e) =>
+          setTempFilters({
+            ...tempFilters,
+            rating: e.target.value ? Number(e.target.value) : undefined,
+          })
+        }
+        placeholder="Enter rating (0-5)"
+      />
+    </div>
+    <div className="ft-form-group">
+      <label>Timezone:</label>
+      <input
+        type="text"
+        value={tempFilters.timezone}
+        onChange={(e) => setTempFilters({ ...tempFilters, timezone: e.target.value })}
+        placeholder="Enter timezone (e.g., America/New_York)"
+      />
+    </div>
+    <div className="ft-form-group">
+      <label>Category:</label>
+      <select
+        value={tempFilters.category_id}
+        onChange={(e) => setTempFilters({ ...tempFilters, category_id: e.target.value })}
+      >
+        <option value="">All Categories</option>
+        {categories.map((category) => (
+          <option key={category.id} value={category.id}>
+            {category.name}
+          </option>
+        ))}
+      </select>
+    </div>
+    <button type="submit" className="ft-button ft-success">
+      Apply Filters
+    </button>
+  </form>
+</div>
           <div className="ft-results">
             <div className="ft-grid">
               {isLoading ? (
@@ -282,7 +297,7 @@ const FindTalent: React.FC = () => {
 <div className="ft-avatar-top">
   {talent.avatar ? (
     <img
-      src={`https://jobforge.net${talent.avatar}`}
+      src={`https://jobforge.net/backend${talent.avatar}`}
       alt="Talent Avatar"
       onError={(e) => {
         e.currentTarget.style.display = 'none'; // Hide broken image
@@ -339,7 +354,7 @@ const FindTalent: React.FC = () => {
                         </div>
                         <div className="ft-footer">
                           <div className="ft-spacer"></div>
-                          <Link to={`/profile/${talent.id}`} className="ft-button ft-view">
+                          <Link to={`/public-profile/${talent.id}`} className="ft-button ft-view">
   View Profile
 </Link>
                         </div>

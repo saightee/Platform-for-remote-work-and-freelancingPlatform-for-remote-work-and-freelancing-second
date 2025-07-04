@@ -145,6 +145,14 @@ export interface Review {
     job_seeker_id: string;
     status: string;
   };
+  job_post?: {
+    id: string;
+    title: string;
+  } | null; // Добавляем возможность null
+  job_seeker?: {
+    id: string;
+    username: string;
+  } | null; // Добавляем возможность null
   created_at: string;
   updated_at: string;
 }

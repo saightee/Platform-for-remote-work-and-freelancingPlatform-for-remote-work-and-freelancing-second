@@ -290,7 +290,12 @@ export const applyToJobPost = async (job_post_id: string) => {
 };
 
 export const getMyApplications = async () => {
-  const response = await api.get<JobApplication[]>('/job-applications/my-applications');
+  const response = await api.get<JobApplication[]>('/job-applications/my-applications', {
+    headers: {
+      'Cache-Control': 'no-cache',
+    },
+  });
+  console.log('getMyApplications response:', response.data); // Отладочный лог
   return response.data;
 };
 
@@ -332,7 +337,23 @@ export const submitComplaint = async (data: ComplaintData) => {
 
 // Admin Endpoints
 export const getAllUsers = async (params: { username?: string; email?: string; createdAfter?: string; page?: number; limit?: number }) => {
-  const response = await api.get<PaginatedResponse<User>>('/admin/users', { params });
+  const response = await api.get<PaginatedResponse<User>>('/admin/users', {
+    params,
+    headers: {
+      'Cache-Control': 'no-cache',
+    },
+  });
+  console.log('getAllUsers response:', response.data); // Лог ответа
+  return response.data;
+};
+
+export const getJobApplicationById = async (applicationId: string) => {
+  const response = await api.get<JobApplication>(`/job-applications/${applicationId}`, {
+    headers: {
+      'Cache-Control': 'no-cache',
+    },
+  });
+  console.log('getJobApplicationById response:', response.data);
   return response.data;
 };
 
@@ -459,6 +480,7 @@ export const deleteReview = async (id: string) => {
   return response.data;
 };
 
+
 export const getAnalytics = async () => {
   const response = await api.get<{
     totalUsers: number;
@@ -468,7 +490,11 @@ export const getAnalytics = async () => {
     activeJobPosts: number;
     totalApplications: number;
     totalReviews: number;
-  }>('/admin/analytics');
+  }>('/admin/analytics', {
+    headers: {
+      'Cache-Control': 'no-cache',
+    },
+  });
   return response.data;
 };
 
