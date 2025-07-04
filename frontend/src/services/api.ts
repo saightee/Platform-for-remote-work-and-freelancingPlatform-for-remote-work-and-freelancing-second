@@ -159,14 +159,15 @@ export const getProfile = async () => {
 };
 
 export const getUserProfileById = async (id: string) => {
-  console.log(`Fetching user profile for ID: ${id}`);
+  console.log(`Fetching user profile with ID: ${id}`);
   try {
     const response = await api.get<JobSeekerProfile>(`/profile/${id}`);
-    console.log(`Profile fetched successfully:`, response.data);
+    console.log(`Profile ${id} fetched:`, response.data);
     return response.data;
   } catch (error) {
-    console.error(`Error fetching profile for ID ${id}:`, error);
-    throw error;
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error(`Error fetching profile for ID ${id}:`, axiosError.response?.data?.message || axiosError.message);
+    throw axiosError;
   }
 };
 
@@ -206,8 +207,16 @@ export const updateJobPost = async (id: string, data: Partial<JobPost>) => {
 };
 
 export const getJobPost = async (id: string) => {
-  const response = await api.get<JobPost>(`/job-posts/${id}`);
-  return response.data;
+  console.log(`Fetching job post with ID: ${id}`);
+  try {
+    const response = await api.get<JobPost>(`/job-posts/${id}`);
+    console.log(`Job post ${id} fetched:`, response.data);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error(`Error fetching job post ${id}:`, axiosError.response?.data?.message || axiosError.message);
+    throw axiosError;
+  }
 };
 
 export const getMyJobPosts = async () => {
@@ -290,13 +299,25 @@ export const applyToJobPost = async (job_post_id: string) => {
 };
 
 export const getMyApplications = async () => {
-  const response = await api.get<JobApplication[]>('/job-applications/my-applications', {
-    headers: {
-      'Cache-Control': 'no-cache',
-    },
-  });
-  console.log('getMyApplications response:', response.data); // Отладочный лог
-  return response.data;
+  const token = localStorage.getItem('token');
+  const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
+  if (decoded?.role === 'admin' || decoded?.role === 'moderator') {
+    console.log('Skipping getMyApplications for admin or moderator role');
+    return [];
+  }
+  try {
+    const response = await api.get<JobApplication[]>('/job-applications/my-applications', {
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+    });
+    console.log('getMyApplications response:', response.data);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error fetching applications:', axiosError.response?.data?.message || axiosError.message);
+    throw axiosError;
+  }
 };
 
 export const getApplicationsForJobPost = async (jobPostId: string) => {
@@ -348,13 +369,20 @@ export const getAllUsers = async (params: { username?: string; email?: string; c
 };
 
 export const getJobApplicationById = async (applicationId: string) => {
-  const response = await api.get<JobApplication>(`/job-applications/${applicationId}`, {
-    headers: {
-      'Cache-Control': 'no-cache',
-    },
-  });
-  console.log('getJobApplicationById response:', response.data);
-  return response.data;
+  console.log(`Fetching job application with ID: ${applicationId}`);
+  try {
+    const response = await api.get<JobApplication>(`/job-applications/${applicationId}`, {
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+    });
+    console.log(`Job application ${applicationId} fetched:`, response.data);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error(`Error fetching job application ${applicationId}:`, axiosError.response?.data?.message || axiosError.message);
+    throw axiosError;
+  }
 };
 
 export const getUserById = async (id: string) => {

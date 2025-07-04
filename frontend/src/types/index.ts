@@ -130,7 +130,7 @@ export interface Review {
   id: string;
   reviewer_id: string;
   reviewed_id: string;
-  job_application_id: string;
+  job_application_id?: string;
   rating: number;
   comment: string;
   reviewer?: {
