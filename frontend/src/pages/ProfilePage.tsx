@@ -15,100 +15,102 @@ const ProfilePage: React.FC = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('You must be logged in to view this page.');
-      setIsLoading(false);
-      return;
-    }
 
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const [profileData, categoriesData] = await Promise.all([
-          getProfile(),
-          getCategories(),
-        ]);
-        setProfileData(profileData);
-        setCategories(categoriesData || []);
-        if (profileData.role === 'jobseeker') {
-          setSelectedCategoryIds(
-            (profileData as JobSeekerProfile).categories?.map((cat: Category) => cat.id) || []
-          );
-        }
-      } catch (error: any) {
-        console.error('Error fetching data:', error);
-        setError(error.response?.data?.message || 'Failed to load profile or categories.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+useEffect(() => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    setError('You must be logged in to view this page.');
+    setIsLoading(false);
+    return;
+  }
 
-    if (profile) {
-      setProfileData(profile);
-      fetchData();
-    } else {
-      fetchData();
-    }
-  }, [profile]);
-
-  const handleUpdateProfile = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!profileData) return;
+  const fetchData = async () => {
     try {
-      setFormError(null);
+      setIsLoading(true);
+      setError(null);
+      const [profileData, categoriesData] = await Promise.all([
+        getProfile(),
+        getCategories(),
+      ]);
+      setProfileData(profileData);
+      setCategories(categoriesData || []);
       if (profileData.role === 'jobseeker') {
-        const updatedData: Partial<JobSeekerProfile> = {
-          username: profileData.username,
-          email: profileData.email,
-          timezone: profileData.timezone,
-          currency: profileData.currency,
-          skills: (profileData as JobSeekerProfile).skills,
-          experience: (profileData as JobSeekerProfile).experience,
-          portfolio: (profileData as JobSeekerProfile).portfolio,
-          video_intro: (profileData as JobSeekerProfile).video_intro,
-          categoryIds: selectedCategoryIds,
-        };
-        const updatedProfile = await updateProfile(updatedData);
-        setProfileData(updatedProfile);
-      } else if (profileData.role === 'employer') {
-        const updatedData: Partial<EmployerProfile> = {
-          username: profileData.username,
-          email: profileData.email,
-          timezone: profileData.timezone,
-          currency: profileData.currency,
-          company_name: (profileData as EmployerProfile).company_name,
-          company_info: (profileData as EmployerProfile).company_info,
-          referral_link: (profileData as EmployerProfile).referral_link,
-        };
-        const updatedProfile = await updateProfile(updatedData);
-        setProfileData(updatedProfile);
-      } else {
-        const updatedData: Partial<Profile> = {
-          username: profileData.username,
-          email: profileData.email,
-          timezone: profileData.timezone,
-          currency: profileData.currency,
-        };
-        const updatedProfile = await updateProfile(updatedData);
-        setProfileData(updatedProfile);
+        setSelectedSkillIds(
+          (profileData as JobSeekerProfile).skills?.map((skill: Category) => skill.id) || []
+        );
       }
-      setIsEditing(false);
-      await refreshProfile();
     } catch (error: any) {
-      console.error('Error updating profile:', error);
-      setFormError(error.response?.data?.message || 'Failed to update profile.');
+      console.error('Error fetching data:', error);
+      setError(error.response?.data?.message || 'Failed to load profile or categories.');
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  if (profile) {
+    setProfileData(profile);
+    fetchData();
+  } else {
+    fetchData();
+  }
+}, [profile]);
+
+ 
+const handleUpdateProfile = async (e: React.MouseEvent) => {
+  e.preventDefault();
+  if (!profileData) return;
+  try {
+    setFormError(null);
+if (profileData.role === 'jobseeker') {
+  const updatedData = {
+    username: profileData.username,
+    email: profileData.email,
+    timezone: profileData.timezone,
+    currency: profileData.currency,
+    skillIds: selectedSkillIds,
+    experience: (profileData as JobSeekerProfile).experience,
+    description: (profileData as JobSeekerProfile).description,
+    portfolio: (profileData as JobSeekerProfile).portfolio,
+    video_intro: (profileData as JobSeekerProfile).video_intro,
+  };
+  const updatedProfile = await updateProfile(updatedData);
+  setProfileData(updatedProfile);
+    } else if (profileData.role === 'employer') {
+      const updatedData: Partial<EmployerProfile> = {
+        username: profileData.username,
+        email: profileData.email,
+        timezone: profileData.timezone,
+        currency: profileData.currency,
+        company_name: (profileData as EmployerProfile).company_name,
+        company_info: (profileData as EmployerProfile).company_info,
+        referral_link: (profileData as EmployerProfile).referral_link,
+      };
+      const updatedProfile = await updateProfile(updatedData);
+      setProfileData(updatedProfile);
+    } else {
+      const updatedData: Partial<Profile> = {
+        username: profileData.username,
+        email: profileData.email,
+        timezone: profileData.timezone,
+        currency: profileData.currency,
+      };
+      const updatedProfile = await updateProfile(updatedData);
+      setProfileData(updatedProfile);
+    }
+    setIsEditing(false);
+    await refreshProfile();
+  } catch (error: any) {
+    console.error('Error updating profile:', error);
+    setFormError(error.response?.data?.message || 'Failed to update profile.');
+  }
+};
 
   const handleDeleteAccount = async () => {
     if (!window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
@@ -260,94 +262,89 @@ const ProfilePage: React.FC = () => {
                     </div>
                   </>
                 )}
-                {profileData.role === 'jobseeker' && (
-                  <>
-                    <div className="form-group">
-                      <label>Skills (comma-separated):</label>
-                      <input
-                        type="text"
-                        value={(profileData as JobSeekerProfile).skills?.join(', ') || ''}
-                        onChange={(e) =>
-                          setProfileData({
-                            ...profileData,
-                            skills: e.target.value.split(',').map((s) => s.trim()),
-                          })
-                        }
-                        placeholder="e.g., JavaScript, Python"
-                      />
-                    </div>
-                    <div className="form-group">
-  <label>Categories:</label>
-  <select
-    value=""
-    onChange={(e) => {
-      const selectedId = e.target.value;
-      if (selectedId && !selectedCategoryIds.includes(selectedId)) {
-        setSelectedCategoryIds([...selectedCategoryIds, selectedId]);
-        console.log('Selected category IDs:', [...selectedCategoryIds, selectedId]);
-      }
-    }}
-    className="category-select"
-  >
-    <option value="">Select a category</option>
-    {categories
-      .filter((category) => !selectedCategoryIds.includes(category.id))
-      .map((category) => (
-        <option key={category.id} value={category.id}>
-          {category.name}
-        </option>
-      ))}
-  </select>
-  <div className="category-tags">
-    {selectedCategoryIds.map((id) => {
-      const category = categories.find((cat) => cat.id === id);
-      return (
-        <span key={id} className="category-tag">
-          {category?.name || 'Unknown'}
-          <span
-  className="remove-tag"
-  onClick={() => {
-    const updatedCategories = selectedCategoryIds.filter((catId) => catId !== id);
-    setSelectedCategoryIds(updatedCategories);
-    console.log('Selected category IDs after removal:', updatedCategories);
-  }}
->
-  ×
-</span>
-        </span>
-      );
-    })}
-  </div>
-</div>
-                    <div className="form-group">
-                      <label>Experience:</label>
-                      <input
-                        type="text"
-                        value={(profileData as JobSeekerProfile).experience || ''}
-                        onChange={(e) => setProfileData({ ...profileData, experience: e.target.value })}
-                        placeholder="Enter your experience"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Portfolio:</label>
-                      <input
-                        type="text"
-                        value={(profileData as JobSeekerProfile).portfolio || ''}
-                        onChange={(e) => setProfileData({ ...profileData, portfolio: e.target.value })}
-                        placeholder="Enter portfolio URL"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Video Introduction:</label>
-                      <input
-                        type="text"
-                        value={(profileData as JobSeekerProfile).video_intro || ''}
-                        onChange={(e) => setProfileData({ ...profileData, video_intro: e.target.value })}
-                        placeholder="Enter video intro URL"
-                      />
-                    </div>
-                  </>
-                )}
+
+{profileData.role === 'jobseeker' && (
+  <>
+    <div className="form-group">
+      <label>Skills:</label>
+      <select
+        value=""
+        onChange={(e) => {
+          const selectedId = e.target.value;
+          if (selectedId && !selectedSkillIds.includes(selectedId)) {
+            setSelectedSkillIds([...selectedSkillIds, selectedId]);
+            console.log('Selected skill IDs:', [...selectedSkillIds, selectedId]);
+          }
+        }}
+        className="category-select"
+      >
+        <option value="">Select a skill</option>
+        {categories
+          .filter((category) => !selectedSkillIds.includes(category.id))
+          .map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+      </select>
+      <div className="category-tags">
+        {selectedSkillIds.map((id) => {
+          const skill = categories.find((cat) => cat.id === id);
+          return (
+            <span key={id} className="category-tag">
+              {skill?.name || 'Unknown'}
+              <span
+                className="remove-tag"
+                onClick={() => {
+                  const updatedSkills = selectedSkillIds.filter((skillId) => skillId !== id);
+                  setSelectedSkillIds(updatedSkills);
+                  console.log('Selected skill IDs after removal:', updatedSkills);
+                }}
+              >
+                ×
+              </span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
+    <div className="form-group">
+      <label>Experience:</label>
+      <input
+        type="text"
+        value={(profileData as JobSeekerProfile).experience || ''}
+        onChange={(e) => setProfileData({ ...profileData, experience: e.target.value })}
+        placeholder="Enter your experience"
+      />
+    </div>
+    <div className="form-group">
+      <label>Description:</label>
+      <textarea
+        value={(profileData as JobSeekerProfile).description || ''}
+        onChange={(e) => setProfileData({ ...profileData, description: e.target.value })}
+        placeholder="Enter your description"
+      />
+    </div>
+    <div className="form-group">
+      <label>Portfolio:</label>
+      <input
+        type="text"
+        value={(profileData as JobSeekerProfile).portfolio || ''}
+        onChange={(e) => setProfileData({ ...profileData, portfolio: e.target.value })}
+        placeholder="Enter portfolio URL"
+      />
+    </div>
+    <div className="form-group">
+      <label>Video Introduction:</label>
+      <input
+        type="text"
+        value={(profileData as JobSeekerProfile).video_intro || ''}
+        onChange={(e) => setProfileData({ ...profileData, video_intro: e.target.value })}
+        placeholder="Enter video intro URL"
+      />
+    </div>
+  </>
+)}
                 <div className="form-group">
                   <label>Timezone:</label>
                   <input
@@ -386,18 +383,18 @@ const ProfilePage: React.FC = () => {
                     <p><strong>Referral Link:</strong> {(profileData as EmployerProfile).referral_link || 'Not specified'}</p>
                   </>
                 )}
-                {profileData.role === 'jobseeker' && (
-                  <>
-                    <p><strong>Skills:</strong> {(profileData as JobSeekerProfile).skills?.join(', ') || 'Not specified'}</p>
-                    <p>
-                      <strong>Categories:</strong>{' '}
-                      {(profileData as JobSeekerProfile).categories?.map((category) => category.name).join(', ') || 'Not specified'}
-                    </p>
-                    <p><strong>Experience:</strong> {(profileData as JobSeekerProfile).experience || 'Not specified'}</p>
-                    <p><strong>Portfolio:</strong> {(profileData as JobSeekerProfile).portfolio || 'Not specified'}</p>
-                    <p><strong>Video Introduction:</strong> {(profileData as JobSeekerProfile).video_intro || 'Not specified'}</p>
-                  </>
-                )}
+{profileData.role === 'jobseeker' && (
+  <>
+    <p>
+      <strong>Skills:</strong>{' '}
+      {(profileData as JobSeekerProfile).skills?.map((skill) => skill.name).join(', ') || 'Not specified'}
+    </p>
+    <p><strong>Experience:</strong> {(profileData as JobSeekerProfile).experience || 'Not specified'}</p>
+    <p><strong>Description:</strong> {(profileData as JobSeekerProfile).description || 'Not specified'}</p>
+    <p><strong>Portfolio:</strong> {(profileData as JobSeekerProfile).portfolio || 'Not specified'}</p>
+    <p><strong>Video Introduction:</strong> {(profileData as JobSeekerProfile).video_intro || 'Not specified'}</p>
+  </>
+)}
                 <p><strong>Timezone:</strong> {profileData.timezone || 'Not specified'}</p>
                 <p><strong>Currency:</strong> {profileData.currency || 'Not specified'}</p>
                 {(profileData.role === 'employer' || profileData.role === 'jobseeker') && (
@@ -489,6 +486,8 @@ const ProfilePage: React.FC = () => {
           </div>
         )}
       </div>
+      <Footer />
+      <Copyright />
     </div>
   );
 };

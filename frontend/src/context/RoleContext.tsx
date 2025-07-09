@@ -194,3 +194,10 @@ export const useRole = () => {
   }
   return context;
 };
+
+// В src/context/RoleContext.tsx
+// export const useRole = () => ({
+//   currentRole: 'admin', // Мок для локальной разработки
+//   profile: null,
+//   refreshProfile: () => Promise.resolve(),
+// });

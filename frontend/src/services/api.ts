@@ -282,13 +282,13 @@ export const setJobPostApplicationLimit = async (id: string, limit: number) => {
 };
 
 // Categories
-export const createCategory = async (name: string) => {
-  const response = await api.post<Category>('/categories', { name });
+export const createCategory = async (data: { name: string; parentId?: string }) => {
+  const response = await api.post<Category>('/admin/categories', data);
   return response.data;
 };
 
 export const getCategories = async () => {
-  const response = await api.get<Category[]>('/categories');
+  const response = await api.get<Category[]>('/admin/categories');
   return response.data;
 };
 
@@ -531,13 +531,19 @@ export const getRegistrationStats = async (params: { startDate: string; endDate:
   return response.data;
 };
 
-export const getGeographicDistribution = async () => {
-  const response = await api.get<{ country: string; count: number; percentage: string }[]>(
-    '/admin/analytics/geographic-distribution'
-  );
-  return response.data;
+export const getGeographicDistribution = async (params: { startDate?: string; endDate?: string; role?: 'jobseeker' | 'employer' | 'all' } = {}) => {
+  try {
+    const response = await api.get<{ country: string; count: number }[]>(
+      '/admin/analytics/geographic-distribution',
+      { params }
+    );
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error fetching geographic distribution:', axiosError.response?.data?.message || axiosError.message);
+    throw axiosError;
+  }
 };
-
 export const getTopEmployers = async (limit?: number) => {
   const response = await api.get<{ employer_id: string; username: string; job_count: number }[]>(
     '/admin/leaderboards/top-employers',
@@ -675,9 +681,10 @@ export const getBlockedCountries = async () => {
 export const searchTalents = async (params: {
   skills?: string;
   experience?: string;
+  description?: string;
   rating?: number;
   timezone?: string;
-  category_id?: string;
+  skill_id?: string;
   page?: number;
   limit?: number;
   sort_by?: string;
@@ -707,8 +714,9 @@ interface RecentRegistrations {
   employers: { id: string; email: string; username: string; role: string; created_at: string }[];
 }
 
-interface JobPostWithApplications {
+export interface JobPostWithApplications {
   id: string;
+  username: string;
   title: string;
   status: string;
   applicationCount: number;
@@ -737,8 +745,17 @@ export const getRecentRegistrations = async (params: { limit?: number }): Promis
 
 export const getJobPostsWithApplications = async (): Promise<JobPostWithApplications[]> => {
   try {
-    const response: AxiosResponse<JobPostWithApplications[]> = await api.get('/admin/job-posts/applications');
-    return response.data;
+    const response: AxiosResponse<{ id: string; title: string; status: string; applicationCount: number; created_at: string; employer_id: string }[]> = await api.get('/admin/job-posts/applications');
+    const enrichedData = await Promise.all(response.data.map(async (post) => {
+      try {
+        const employer = await getUserById(post.employer_id);
+        return { ...post, username: employer.username || 'N/A' } as JobPostWithApplications;
+      } catch (error) {
+        console.error('Error fetching employer for job post:', error);
+        return { ...post, username: 'N/A' } as JobPostWithApplications;
+      }
+    }));
+    return enrichedData;
   } catch (error) {
     console.error('Error fetching job posts with applications:', error);
     return [];

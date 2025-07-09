@@ -4,7 +4,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { verifyEmail } from '../services/api';
-
+import { AxiosError } from 'axios';
 
 const VerifyEmail: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -15,6 +15,7 @@ const VerifyEmail: React.FC = () => {
 
   useEffect(() => {
     const token = searchParams.get('token');
+    console.log('Verification token:', token); // Логирование токена для диагностики
     if (!token) {
       setError('Invalid or missing verification token.');
       setIsLoading(false);
@@ -24,12 +25,18 @@ const VerifyEmail: React.FC = () => {
     const verify = async () => {
       try {
         setIsLoading(true);
+        setError(null);
         const response = await verifyEmail(token);
-        setMessage(response.message || 'Email verified successfully!');
-        setTimeout(() => navigate('/login'), 3000); // Редирект на логин через 3 секунды
-      } catch (err: any) {
-        console.error('Error verifying email:', err);
-        setError(err.response?.data?.message || 'Failed to verify email. Please try again.');
+        console.log('Email verification response:', response); // Логирование ответа
+        setMessage(response.message || 'Email successfully confirmed');
+        setTimeout(() => navigate('/login'), 5000); // Увеличиваем время редиректа до 5 секунд
+      } catch (err: unknown) {
+        const axiosError = err as AxiosError<{ message?: string }>;
+        console.error('Error verifying email:', axiosError.response?.data || axiosError.message);
+        setError(
+          axiosError.response?.data?.message ||
+            'Failed to verify email. The token may be invalid or expired. Please try again.'
+        );
       } finally {
         setIsLoading(false);
       }
@@ -42,9 +49,22 @@ const VerifyEmail: React.FC = () => {
     <div className="container verify-email-container">
       <Header />
       <h2>Email Verification</h2>
-      {isLoading && <p>Loading...</p>}
-      {message && <p className="success-message">{message}</p>}
-      {error && <p className="error-message">{error}</p>}
+      {isLoading && <p>Verifying your email...</p>}
+      {message && (
+        <div className="success-message">
+          <p>{message}</p>
+          <p>You will be redirected to the login page shortly.</p>
+        </div>
+      )}
+      {error && (
+        <div className="error-message">
+          <p>{error}</p>
+          <p>
+            <a href="/forgot-password">Request a new verification link</a> or{' '}
+            <a href="/contact">contact support</a>.
+          </p>
+        </div>
+      )}
       <Footer />
       <Copyright />
     </div>

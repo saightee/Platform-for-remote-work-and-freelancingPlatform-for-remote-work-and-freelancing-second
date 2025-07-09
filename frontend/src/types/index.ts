@@ -41,10 +41,10 @@ export interface JobSeekerProfile {
   role: 'jobseeker';
   email?: string;
   username: string;
-  skills?: string[];
+  skills?: Category[];
   categories?: Category[];
-  categoryIds?: string[];
   experience?: string;
+  description?: string;
   portfolio?: string;
   video_intro?: string;
   timezone?: string;
@@ -106,8 +106,10 @@ export interface JobPost {
 export interface Category {
   id: string;
   name: string;
+  parent_id?: string | null;
   created_at: string;
   updated_at: string;
+  subcategories?: Category[];
 }
 
 export interface JobApplication {

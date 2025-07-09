@@ -1,4 +1,10 @@
 import { useState, useEffect } from 'react';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, format } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz'; // Для времени по Маниле
+import { FaHome, FaSignOutAlt, FaUser, FaSearch, FaArrowUp, FaArrowDown } from 'react-icons/fa'; // Иконки
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'; // Диаграммы
+import { Link, useNavigate } from 'react-router-dom'; // Для навигации и Link
+import { jwtDecode } from 'jwt-decode'; // Для декодирования токена
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
@@ -13,22 +19,29 @@ import {
   blockUser, unblockUser, getUserRiskScore, exportUsersToCSV, getUserOnlineStatus,
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
-  resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById
+  resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
+  logout // Добавляем logout из api
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile } from '@types';
-import { format } from 'date-fns';
 import { AxiosError } from 'axios';
-import axios from 'axios';
+// import {
+//   mockUsers, mockJobPosts, mockJobPostsWithApps, mockReviews, mockFeedback,
+//   mockBlockedCountries, mockCategories, mockAnalytics, mockRegistrationStats,
+//   mockGeographicDistribution, mockFreelancerSignups, mockBusinessSignups,
+//   mockTopEmployers, mockTopJobseekers, mockTopJobseekersByViews,
+//   mockTopEmployersByPosts, mockGrowthTrends, mockComplaints, mockChatHistory,
+//   mockOnlineUsers, mockRecentRegistrations, mockJobApplications
+// } from '../mocks';
 
 
 interface JobPostWithApplications {
   id: string;
+  username?: string; 
   title: string;
   status: string;
   applicationCount: number;
   created_at: string;
 }
-
 interface OnlineUsers {
   jobseekers: number;
   employers: number;
@@ -37,6 +50,15 @@ interface OnlineUsers {
 interface RecentRegistrations {
   jobseekers: { id: string; email: string; username: string; role: string; created_at: string }[];
   employers: { id: string; email: string; username: string; role: string; created_at: string }[];
+}
+
+interface DecodedToken {
+  email: string;
+  sub: string;
+  role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
+  username?: string;
+  iat: number;
+  exp: number;
 }
 
 const AdminDashboard: React.FC = () => {
@@ -54,6 +76,7 @@ const AdminDashboard: React.FC = () => {
   const [newCountryCode, setNewCountryCode] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newParentCategoryId, setNewParentCategoryId] = useState<string>('');
   const [analytics, setAnalytics] = useState<{
     totalUsers: number;
     employers: number;
@@ -113,13 +136,162 @@ const AdminDashboard: React.FC = () => {
   const [showRiskModal, setShowRiskModal] = useState(false);
   const [onlineStatuses, setOnlineStatuses] = useState<{ [key: string]: boolean }>({});
   const [fetchErrors, setFetchErrors] = useState<{ [key: string]: string }>({});
-  const [userPage, setUserPage] = useState(1);
-  const [userLimit] = useState(10);
-  const [jobPostPage, setJobPostPage] = useState(1);
-  const [jobPostLimit] = useState(10);
+const [userPage, setUserPage] = useState(1);
+const [userLimit] = useState(10);
+const [jobPostPage, setJobPostPage] = useState(1);
+const [jobPostLimit] = useState(10);
+const [jobPostsWithAppsPage, setJobPostsWithAppsPage] = useState(1);
+const [jobPostsWithAppsLimit] = useState(10);
+const [sortColumn, setSortColumn] = useState<'id' | 'applicationCount' | 'created_at' | null>(null);
+const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+const [userSortColumn, setUserSortColumn] = useState<'id' | 'role' | 'is_blocked' | null>(null);
+const [userSortDirection, setUserSortDirection] = useState<'asc' | 'desc'>('asc');
+const [complaintSortColumn, setComplaintSortColumn] = useState<'created_at' | 'status' | null>(null);
+const [complaintSortDirection, setComplaintSortDirection] = useState<'asc' | 'desc'>('asc');
+const [freelancerSignupsToday, setFreelancerSignupsToday] = useState<{ country: string; count: number }[]>([]);
+  const [freelancerSignupsYesterday, setFreelancerSignupsYesterday] = useState<{ country: string; count: number }[]>([]);
+  const [freelancerSignupsWeek, setFreelancerSignupsWeek] = useState<{ country: string; count: number }[]>([]);
+  const [freelancerSignupsMonth, setFreelancerSignupsMonth] = useState<{ country: string; count: number }[]>([]);
+  const [businessSignupsToday, setBusinessSignupsToday] = useState<{ country: string; count: number }[]>([]);
+  const [businessSignupsYesterday, setBusinessSignupsYesterday] = useState<{ country: string; count: number }[]>([]);
+  const [businessSignupsWeek, setBusinessSignupsWeek] = useState<{ country: string; count: number }[]>([]);
+const [businessSignupsMonth, setBusinessSignupsMonth] = useState<{ country: string; count: number }[]>([]);
+const [showNotifyModal, setShowNotifyModal] = useState(false);
+const [notifyJobPostId, setNotifyJobPostId] = useState<string>('');
+const [notifyLimit, setNotifyLimit] = useState<string>('10');
+const [notifyOrderBy, setNotifyOrderBy] = useState<'beginning' | 'end' | 'random'>('beginning');
+const [username, setUsername] = useState<string>('Admin');
+  const [onlineEmployers, setOnlineEmployers] = useState<number | null>(null);
+  const [onlineFreelancers, setOnlineFreelancers] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+
+  const navigate = useNavigate();
+
+const handleSort = (column: 'id' | 'applicationCount' | 'created_at') => {
+  if (sortColumn === column) {
+    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+  } else {
+    setSortColumn(column);
+    setSortDirection('asc');
+  }
+};
+
+const sortedJobPostsWithApps = [...jobPostsWithApps].sort((a, b) => {
+  if (!sortColumn) return 0;
+  const direction = sortDirection === 'asc' ? 1 : -1;
+  if (sortColumn === 'id') {
+    return a.id.localeCompare(b.id) * direction;
+  } else if (sortColumn === 'applicationCount') {
+    return (a.applicationCount - b.applicationCount) * direction;
+  } else if (sortColumn === 'created_at') {
+    return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * direction;
+  }
+  return 0;
+});
+
+const handleUserSort = (column: 'id' | 'role' | 'is_blocked') => {
+  if (userSortColumn === column) {
+    setUserSortDirection(userSortDirection === 'asc' ? 'desc' : 'asc');
+  } else {
+    setUserSortColumn(column);
+    setUserSortDirection('asc');
+  }
+};
+
+const sortedUsers = [...users].sort((a, b) => {
+  if (!userSortColumn) return 0;
+  const direction = userSortDirection === 'asc' ? 1 : -1;
+  if (userSortColumn === 'id') {
+    return a.id.localeCompare(b.id) * direction;
+  } else if (userSortColumn === 'role') {
+    return (a.role || '').localeCompare(b.role || '') * direction;
+  } else if (userSortColumn === 'is_blocked') {
+    return (a.is_blocked === b.is_blocked ? 0 : a.is_blocked ? 1 : -1) * direction;
+  }
+  return 0;
+});
+
+const paginatedJobPostsWithApps = sortedJobPostsWithApps.slice(
+  (jobPostsWithAppsPage - 1) * jobPostsWithAppsLimit,
+  jobPostsWithAppsPage * jobPostsWithAppsLimit
+);
+
+const handleComplaintSort = (column: 'created_at' | 'status') => {
+  if (complaintSortColumn === column) {
+    setComplaintSortDirection(complaintSortDirection === 'asc' ? 'desc' : 'asc');
+  } else {
+    setComplaintSortColumn(column);
+    setComplaintSortDirection('asc');
+  }
+};
+
+const sortedComplaints = [...complaints]
+  .filter((complaint) => statusFilter === 'All' || complaint.status === statusFilter)
+  .sort((a, b) => {
+    if (!complaintSortColumn) return 0;
+    const direction = complaintSortDirection === 'asc' ? 1 : -1;
+    if (complaintSortColumn === 'created_at') {
+      return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * direction;
+    } else if (complaintSortColumn === 'status') {
+      return (a.status || '').localeCompare(b.status || '') * direction;
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const decoded: DecodedToken = jwtDecode(token);
+          setUsername(decoded.username || 'Admin');
+        } catch (error) {
+          console.error('Error decoding token:', error);
+          setUsername('Admin');
+        }
+      }
+
+      try {
+        const onlineData = await getOnlineUsers();
+        setOnlineEmployers(onlineData?.employers ?? null);
+        setOnlineFreelancers(onlineData?.jobseekers ?? null);
+      } catch (error) {
+        console.error('Error fetching online users:', error);
+        setOnlineEmployers(null);
+        setOnlineFreelancers(null);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Обновление каждую минуту
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      localStorage.removeItem('token');
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      localStorage.removeItem('token');
+      navigate('/login');
+    }
+  };
+
+  const handleBackofficeClick = () => {
+    window.location.reload();
+  };
 
 // Для пользователей
-// useEffect для пользователей
+
 useEffect(() => {
   const fetchUsers = async () => {
     if (!currentRole || currentRole !== 'admin') {
@@ -155,240 +327,336 @@ useEffect(() => {
 
 
 
+
+
+// useEffect(() => {
+
+
+//   setIsLoading(true);
+//   setUsers(mockUsers);
+//   setIsLoading(false);
+// }, [currentRole, userPage]);
+
+
+
+
+
+
 // Для остальных данных
-useEffect(() => {
-  const fetchOtherData = async () => {
-    if (!currentRole || currentRole !== 'admin') return;
+ const fetchOtherData = async () => {
+  if (!currentRole || currentRole !== 'admin') return;
 
-    try {
-      setIsLoading(true);
-      setFetchErrors((prev) => ({
-        ...prev,
-        getAllJobPosts: '',
-        getPendingJobPosts: '',
-        getAllReviews: '',
-        getFeedback: '',
-        getBlockedCountries: '',
-        getCategories: '',
-        getAnalytics: '',
-        getRegistrationStats: '',
-        geographicDistribution: '',
-        getTopEmployers: '',
-        getTopJobseekers: '',
-        getTopJobseekersByViews: '',
-        getTopEmployersByPosts: '',
-        getGrowthTrends: '',
-        getComplaints: '',
-        getGlobalApplicationLimit: '',
-        getOnlineUsers: '',
-        getRecentRegistrations: '',
-        getJobPostsWithApplications: '',
-      }));
+  try {
+    setIsLoading(true);
+    setFetchErrors((prev) => ({
+      ...prev,
+      getAllJobPosts: '',
+      getPendingJobPosts: '',
+      getAllReviews: '',
+      getFeedback: '',
+      getBlockedCountries: '',
+      getCategories: '',
+      getAnalytics: '',
+      getRegistrationStats: '',
+      freelancerSignupsToday: '',
+      freelancerSignupsYesterday: '',
+      freelancerSignupsWeek: '',
+      freelancerSignupsMonth: '',
+      businessSignupsToday: '',
+      businessSignupsYesterday: '',
+      businessSignupsWeek: '',
+      businessSignupsMonth: '',
+      getTopEmployers: '',
+      getTopJobseekers: '',
+      getTopJobseekersByViews: '',
+      getTopEmployersByPosts: '',
+      getGrowthTrends: '',
+      getComplaints: '',
+      getGlobalApplicationLimit: '',
+      getOnlineUsers: '',
+      getRecentRegistrations: '',
+      getJobPostsWithApplications: '',
+    }));
 
-      const requests = [
-        getAllJobPosts({ page: jobPostPage, limit: jobPostLimit }),
-        getAllJobPosts({ status: 'Active', pendingReview: 'true', page: jobPostPage, limit: jobPostLimit }),
-        getAllReviews(),
-        getFeedback(),
-        getBlockedCountries(),
-        getCategories(),
-        getAnalytics(),
-        getRegistrationStats({ startDate: '2023-01-01', endDate: new Date().toISOString().split('T')[0], interval: 'month' }),
-        getGeographicDistribution(),
-        getTopEmployers(5),
-        getTopJobseekers(5),
-        getTopJobseekersByViews(5),
-        getTopEmployersByPosts(5),
-        getGrowthTrends({ period: '30d' }),
-        getComplaints(),
-        getGlobalApplicationLimit(),
-        getOnlineUsers(),
-        getRecentRegistrations({ limit: 5 }),
-        getJobPostsWithApplications(),
-      ];
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = subDays(new Date(), 1).toISOString().split('T')[0];
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0];
+    const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0];
+    const monthStart = startOfMonth(new Date()).toISOString().split('T')[0];
+    const monthEnd = endOfMonth(new Date()).toISOString().split('T')[0];
 
-      type RequestResult =
-        | PaginatedResponse<JobPost>
-        | Review[]
-        | Feedback[]
-        | BlockedCountry[]
-        | Category[]
-        | { totalUsers: number; employers: number; jobSeekers: number; totalJobPosts: number; activeJobPosts: number; totalApplications: number; totalReviews: number }
-        | { period: string; count: number }[]
-        | { country: string; count: number; percentage: string }[]
-        | { employer_id: string; username: string; job_count: number }[]
-        | { job_seeker_id: string; username: string; application_count: number }[]
-        | { userId: string; username: string; email: string; profileViews: number }[]
-        | { userId: string; username: string; email: string; jobCount: number }[]
-        | { registrations: { period: string; count: number }[]; jobPosts: { period: string; count: number }[] }
-        | { id: string; complainant_id: string; complainant: { id: string; username: string; email: string; role: string }; job_post_id?: string; job_post?: { id: string; title: string; description: string }; profile_id?: string; reason: string; status: 'Pending' | 'Rejected' | 'Resolved'; created_at: string; resolution_comment?: string }[]
-        | { globalApplicationLimit: number | null }
-        | OnlineUsers
-        | RecentRegistrations
-        | JobPostWithApplications[];
+    const requests = [
+      getAllJobPosts({ page: jobPostPage, limit: jobPostLimit }),
+      getAllJobPosts({ status: 'Active', pendingReview: 'true', page: jobPostPage, limit: jobPostLimit }),
+      getAllReviews(),
+      getFeedback(),
+      getBlockedCountries(),
+      getCategories(),
+      getAnalytics(),
+      getRegistrationStats({ startDate: '2023-01-01', endDate: new Date().toISOString().split('T')[0], interval: 'month' }),
+      getGeographicDistribution({ role: 'jobseeker', startDate: today, endDate: today }),
+      getGeographicDistribution({ role: 'jobseeker', startDate: yesterday, endDate: yesterday }),
+      getGeographicDistribution({ role: 'jobseeker', startDate: weekStart, endDate: weekEnd }),
+      getGeographicDistribution({ role: 'jobseeker', startDate: monthStart, endDate: monthEnd }),
+      getGeographicDistribution({ role: 'employer', startDate: today, endDate: today }),
+      getGeographicDistribution({ role: 'employer', startDate: yesterday, endDate: yesterday }),
+      getGeographicDistribution({ role: 'employer', startDate: weekStart, endDate: weekEnd }),
+      getGeographicDistribution({ role: 'employer', startDate: monthStart, endDate: monthEnd }),
+      getTopEmployers(5),
+      getTopJobseekers(5),
+      getTopJobseekersByViews(5),
+      getTopEmployersByPosts(5),
+      getGrowthTrends({ period: '30d' }),
+      getComplaints(),
+      getGlobalApplicationLimit(),
+      getOnlineUsers(),
+      getRecentRegistrations({ limit: 5 }),
+      getJobPostsWithApplications(),
+    ];
 
-      const results = await Promise.allSettled(requests);
-      const errors: { [key: string]: string } = {};
+    type RequestResult =
+      | PaginatedResponse<JobPost>
+      | Review[]
+      | Feedback[]
+      | BlockedCountry[]
+      | Category[]
+      | { totalUsers: number; employers: number; jobSeekers: number; totalJobPosts: number; activeJobPosts: number; totalApplications: number; totalReviews: number }
+      | { period: string; count: number }[]
+      | { country: string; count: number }[]
+      | { employer_id: string; username: string; job_count: number }[]
+      | { job_seeker_id: string; username: string; application_count: number }[]
+      | { userId: string; username: string; email: string; profileViews: number }[]
+      | { userId: string; username: string; email: string; jobCount: number }[]
+      | { registrations: { period: string; count: number }[]; jobPosts: { period: string; count: number }[] }
+      | { id: string; complainant_id: string; complainant: { id: string; username: string; email: string; role: string }; job_post_id?: string; job_post?: { id: string; title: string; description: string }; profile_id?: string; reason: string; status: 'Pending' | 'Rejected' | 'Resolved'; created_at: string; resolution_comment?: string }[]
+      | { globalApplicationLimit: number | null }
+      | OnlineUsers
+      | RecentRegistrations
+      | JobPostWithApplications[];
 
-      const endpoints = [
-        'getAllJobPosts', 'getPendingJobPosts', 'getAllReviews', 'getFeedback',
-        'getBlockedCountries', 'getCategories', 'getAnalytics',
-        'getRegistrationStats', 'geographicDistribution',
-        'getTopEmployers', 'getTopJobseekers', 'getTopJobseekersByViews', 'getTopEmployersByPosts',
-        'getGrowthTrends', 'getComplaints', 'getGlobalApplicationLimit',
-        'getOnlineUsers', 'getRecentRegistrations', 'getJobPostsWithApplications',
-      ];
+    const results = await Promise.allSettled(requests);
+    const errors: { [key: string]: string } = {};
 
-      for (const [index, result] of results.entries()) {
-        if (result.status === 'fulfilled') {
-          console.log(`${endpoints[index]} succeeded:`, result.value);
-          const value = result.value as RequestResult;
-          switch (index) {
-            case 0:
-              setJobPosts((value as PaginatedResponse<JobPost>).data || []);
-              break;
-            case 1:
-              setJobPosts((value as PaginatedResponse<JobPost>).data || []);
-              break;
-            case 2:
-  const reviewsData = value as Review[] || [];
-  const enrichedReviews = await Promise.all(
-    reviewsData.map(async (review) => {
-      try {
-        if (!review.job_application_id) {
-          console.warn(`No job_application_id provided for review ${review.id}`);
-          return {
-            ...review,
-            job_post: null,
-            job_seeker: null,
-          };
+    const endpoints = [
+      'getAllJobPosts', 'getPendingJobPosts', 'getAllReviews', 'getFeedback',
+      'getBlockedCountries', 'getCategories', 'getAnalytics', 'getRegistrationStats',
+      'freelancerSignupsToday', 'freelancerSignupsYesterday', 'freelancerSignupsWeek', 'freelancerSignupsMonth',
+      'businessSignupsToday', 'businessSignupsYesterday', 'businessSignupsWeek', 'businessSignupsMonth',
+      'getTopEmployers', 'getTopJobseekers', 'getTopJobseekersByViews', 'getTopEmployersByPosts',
+      'getGrowthTrends', 'getComplaints', 'getGlobalApplicationLimit', 'getOnlineUsers',
+      'getRecentRegistrations', 'getJobPostsWithApplications',
+    ];
+
+    for (const [index, result] of results.entries()) {
+      if (result.status === 'fulfilled') {
+        console.log(`${endpoints[index]} succeeded:`, result.value);
+        const value = result.value as RequestResult;
+        switch (index) {
+          case 0:
+            setJobPosts((value as PaginatedResponse<JobPost>).data || []);
+            break;
+          case 1:
+            setJobPosts((value as PaginatedResponse<JobPost>).data || []);
+            break;
+          case 2:
+            const reviewsData = value as Review[] || [];
+            const enrichedReviews = await Promise.all(
+              reviewsData.map(async (review) => {
+                try {
+                  if (!review.job_application_id) {
+                    console.warn(`No job_application_id provided for review ${review.id}`);
+                    return {
+                      ...review,
+                      job_post: null,
+                      job_seeker: null,
+                    };
+                  }
+                  console.log(`Fetching job application for review ${review.id} with ID ${review.job_application_id}`);
+                  const applicationResponse = await getJobApplicationById(review.job_application_id);
+                  const application = applicationResponse;
+                  if (!application.job_post_id || !application.job_seeker_id) {
+                    console.warn(`Invalid job_post_id or job_seeker_id for job application ${review.job_application_id}`);
+                    return {
+                      ...review,
+                      job_post: null,
+                      job_seeker: null,
+                    };
+                  }
+                  console.log(`Fetching job post for application ${review.job_application_id} with job_post_id ${application.job_post_id}`);
+                  const jobPostResponse = await getJobPost(application.job_post_id);
+                  const jobPost = jobPostResponse;
+                  console.log(`Fetching job seeker profile for application ${review.job_application_id} with job_seeker_id ${application.job_seeker_id}`);
+                  const jobSeekerResponse = await getUserProfileById(application.job_seeker_id);
+                  const jobSeeker = jobSeekerResponse;
+                  return {
+                    ...review,
+                    job_post: {
+                      id: jobPost.id,
+                      title: jobPost.title,
+                    },
+                    job_seeker: {
+                      id: jobSeeker.id,
+                      username: jobSeeker.username,
+                    },
+                  };
+                } catch (error) {
+                  const axiosError = error as AxiosError<{ message?: string }>;
+                  console.error(`Error enriching review ${review.id}:`, axiosError.response?.data?.message || axiosError.message);
+                  return {
+                    ...review,
+                    job_post: null,
+                    job_seeker: null,
+                  };
+                }
+              })
+            );
+            setReviews(enrichedReviews);
+            console.log('Enriched reviews set in state:', enrichedReviews);
+            break;
+          case 3:
+            setFeedback(value as Feedback[] || []);
+            break;
+          case 4:
+            setBlockedCountries(value as BlockedCountry[] || []);
+            break;
+          case 5:
+            setCategories(value as Category[] || []);
+            break;
+          case 6:
+            setAnalytics(value as typeof analytics || null);
+            break;
+          case 7:
+            setRegistrationStats(value as { period: string; count: number }[] || []);
+            break;
+          case 8:
+            setFreelancerSignupsToday(value as { country: string; count: number }[] || []);
+            break;
+          case 9:
+            setFreelancerSignupsYesterday(value as { country: string; count: number }[] || []);
+            break;
+          case 10:
+            setFreelancerSignupsWeek(value as { country: string; count: number }[] || []);
+            break;
+          case 11:
+            setFreelancerSignupsMonth(value as { country: string; count: number }[] || []);
+            break;
+          case 12:
+            setBusinessSignupsToday(value as { country: string; count: number }[] || []);
+            break;
+          case 13:
+            setBusinessSignupsYesterday(value as { country: string; count: number }[] || []);
+            break;
+          case 14:
+            setBusinessSignupsWeek(value as { country: string; count: number }[] || []);
+            break;
+          case 15:
+            setBusinessSignupsMonth(value as { country: string; count: number }[] || []);
+            break;
+          case 16:
+            setTopEmployers(value as { employer_id: string; username: string; job_count: number }[] || []);
+            break;
+          case 17:
+            setTopJobseekers(value as { job_seeker_id: string; username: string; application_count: number }[] || []);
+            break;
+          case 18:
+            setTopJobseekersByViews(value as { userId: string; username: string; email: string; profileViews: number }[] || []);
+            break;
+          case 19:
+            setTopEmployersByPosts(value as { userId: string; username: string; email: string; jobCount: number }[] || []);
+            break;
+          case 20:
+            setGrowthTrends(value as typeof growthTrends || { registrations: [], jobPosts: [] });
+            break;
+          case 21:
+            setComplaints(value as typeof complaints || []);
+            break;
+          case 22:
+            setGlobalLimit((value as { globalApplicationLimit: number | null }).globalApplicationLimit ?? null);
+            break;
+          case 23:
+            setOnlineUsers(value as OnlineUsers || null);
+            break;
+          case 24:
+            setRecentRegistrations(value as RecentRegistrations || { jobseekers: [], employers: [] });
+            break;
+          case 25:
+            setJobPostsWithApps((value as JobPostWithApplications[]) || []);
+            break;
         }
-        console.log(`Fetching job application for review ${review.id} with ID ${review.job_application_id}`);
-        const applicationResponse = await getJobApplicationById(review.job_application_id);
-        const application = applicationResponse;
-        if (!application.job_post_id || !application.job_seeker_id) {
-          console.warn(`Invalid job_post_id or job_seeker_id for job application ${review.job_application_id}`);
-          return {
-            ...review,
-            job_post: null,
-            job_seeker: null,
-          };
-        }
-        console.log(`Fetching job post for application ${review.job_application_id} with job_post_id ${application.job_post_id}`);
-        const jobPostResponse = await getJobPost(application.job_post_id);
-        const jobPost = jobPostResponse;
-        console.log(`Fetching job seeker profile for application ${review.job_application_id} with job_seeker_id ${application.job_seeker_id}`);
-        const jobSeekerResponse = await getUserProfileById(application.job_seeker_id);
-        const jobSeeker = jobSeekerResponse;
-        return {
-          ...review,
-          job_post: {
-            id: jobPost.id,
-            title: jobPost.title,
-          },
-          job_seeker: {
-            id: jobSeeker.id,
-            username: jobSeeker.username,
-          },
-        };
-      } catch (error) {
-        const axiosError = error as AxiosError<{ message?: string }>;
-        console.error(`Error enriching review ${review.id}:`, axiosError.response?.data?.message || axiosError.message);
-        return {
-          ...review,
-          job_post: null,
-          job_seeker: null,
-        };
-      }
-    })
-  );
-  setReviews(enrichedReviews);
-  console.log('Enriched reviews set in state:', enrichedReviews);
-  break;
-            case 3:
-              setFeedback(value as Feedback[] || []);
-              break;
-            case 4:
-              setBlockedCountries(value as BlockedCountry[] || []);
-              break;
-            case 5:
-              setCategories(value as Category[] || []);
-              break;
-            case 6:
-              setAnalytics(value as typeof analytics || null);
-              break;
-            case 7:
-              setRegistrationStats(value as { period: string; count: number }[] || []);
-              break;
-            case 8:
-              setGeographicDistribution(value as { country: string; count: number; percentage: string }[] || []);
-              const total = (value as { count: number }[]).reduce((sum, item) => sum + item.count, 0);
-              const freelancers = (value as { country: string; count: number }[]).map(item => ({
-                country: item.country,
-                count: Math.round(item.count * 0.6),
-              }));
-              const businesses = (value as { country: string; count: number }[]).map(item => ({
-                country: item.country,
-                count: Math.round(item.count * 0.4),
-              }));
-              setFreelancerSignups(freelancers);
-              setBusinessSignups(businesses);
-              break;
-            case 9:
-              setTopEmployers(value as { employer_id: string; username: string; job_count: number }[] || []);
-              break;
-            case 10:
-              setTopJobseekers(value as { job_seeker_id: string; username: string; application_count: number }[] || []);
-              break;
-            case 11:
-              setTopJobseekersByViews(value as { userId: string; username: string; email: string; profileViews: number }[] || []);
-              break;
-            case 12:
-              setTopEmployersByPosts(value as { userId: string; username: string; email: string; jobCount: number }[] || []);
-              break;
-            case 13:
-              setGrowthTrends(value as typeof growthTrends || { registrations: [], jobPosts: [] });
-              break;
-            case 14:
-              setComplaints(value as typeof complaints || []);
-              break;
-            case 15:
-              setGlobalLimit((value as { globalApplicationLimit: number | null }).globalApplicationLimit ?? null);
-              break;
-            case 16:
-              setOnlineUsers(value as OnlineUsers || null);
-              break;
-            case 17:
-              setRecentRegistrations(value as RecentRegistrations || { jobseekers: [], employers: [] });
-              break;
-            case 18:
-              setJobPostsWithApps(value as JobPostWithApplications[] || []);
-              break;
-          }
-        } else {
-          console.error(`${endpoints[index]} failed:`, result.reason);
-          const errorMsg = (result.reason as AxiosError<{ message?: string }>)?.response?.data?.message || `Failed to load ${endpoints[index]} data`;
-          errors[endpoints[index]] = errorMsg;
-        }
-      }
-
-      if (Object.keys(errors).length > 0) {
-        setFetchErrors((prev) => ({ ...prev, ...errors }));
-        setError('Some data failed to load. Check errors below.');
       } else {
-        setError(null);
+        console.error(`${endpoints[index]} failed:`, result.reason);
+        const errorMsg = (result.reason as AxiosError<{ message?: string }>)?.response?.data?.message || `Failed to load ${endpoints[index]} data`;
+        errors[endpoints[index]] = errorMsg;
       }
-    } catch (error) {
-      console.error('Unexpected error fetching other data:', error);
-      setError('Unexpected error occurred. Please try again.');
-    } finally {
-      setIsLoading(false);
     }
-  };
+
+    if (Object.keys(errors).length > 0) {
+      setFetchErrors((prev) => ({ ...prev, ...errors }));
+      setError('Some data failed to load. Check errors below.');
+    } else {
+      setError(null);
+    }
+  } catch (error) {
+    console.error('Unexpected error fetching other data:', error);
+    setError('Unexpected error occurred. Please try again.');
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// Первый useEffect
+useEffect(() => {
   if (currentRole === 'admin') {
     fetchOtherData();
   }
 }, [currentRole, jobPostPage]);
+
+// Функция handleRefresh
+const handleRefresh = async () => {
+  setIsLoading(true);
+  await fetchOtherData();
+  setIsLoading(false);
+};
+
+
+
+// useEffect(() => {
+
+
+//   setIsLoading(true);
+//   setJobPosts(mockJobPosts);
+//   const enrichedJobPostsWithApps = mockJobPostsWithApps.map(post => ({
+//     ...post,
+//     username: post.username || 'N/A',
+//   }));
+//   setJobPostsWithApps(enrichedJobPostsWithApps);
+//   setReviews(mockReviews);
+//   setFeedback(mockFeedback);
+//   setBlockedCountries(mockBlockedCountries);
+//   setCategories(mockCategories);
+//   setAnalytics(mockAnalytics);
+//   setRegistrationStats(mockRegistrationStats);
+//   setGeographicDistribution(mockGeographicDistribution);
+//   setFreelancerSignups(mockFreelancerSignups);
+//   setBusinessSignups(mockBusinessSignups);
+//   setTopEmployers(mockTopEmployers);
+//   setTopJobseekers(mockTopJobseekers);
+//   setTopJobseekersByViews(mockTopJobseekersByViews);
+//   setTopEmployersByPosts(mockTopEmployersByPosts);
+//   setGrowthTrends(mockGrowthTrends);
+//   setComplaints(mockComplaints);
+//   setGlobalLimit(100);
+//   setOnlineUsers(mockOnlineUsers);
+//   setRecentRegistrations(mockRecentRegistrations);
+//   setJobApplications(mockJobApplications);
+//   setFetchErrors({});
+//   setError(null);
+//   setIsLoading(false);
+// }, [currentRole, jobPostPage]);
+
+
+
+
 
   const handleDeleteUser = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
@@ -404,6 +672,15 @@ useEffect(() => {
     }
   };
 
+
+
+//   const handleDeleteUser = async (id: string) => {
+//   if (window.confirm('Are you sure you want to delete this user?')) {
+//     setUsers(users.filter((user) => user.id !== id));
+//     alert('User deleted successfully!');
+//   }
+// };
+
   const handleResetPassword = async (id: string) => {
     const newPassword = prompt('Enter new password:');
     if (newPassword) {
@@ -417,6 +694,8 @@ useEffect(() => {
       }
     }
   };
+
+
 
   const handleVerifyIdentity = async (id: string, verify: boolean) => {
     try {
@@ -487,23 +766,46 @@ useEffect(() => {
   };
 
   const handleCreateCategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCategoryName.trim()) {
-      alert('Category name cannot be empty.');
-      return;
-    }
-    try {
-      await createCategory(newCategoryName);
-      const updatedCategories = await getCategories();
-      setCategories(updatedCategories || []);
-      setNewCategoryName('');
-      alert('Category created successfully!');
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error creating category:', axiosError);
-      alert(axiosError.response?.data?.message || 'Failed to create category.');
-    }
-  };
+  e.preventDefault();
+  if (!newCategoryName.trim()) {
+    alert('Category name cannot be empty.');
+    return;
+  }
+  try {
+    await createCategory({ name: newCategoryName, parentId: newParentCategoryId || undefined });
+    const updatedCategories = await getCategories();
+    setCategories(updatedCategories || []);
+    setNewCategoryName('');
+    setNewParentCategoryId('');
+    alert('Category created successfully!');
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error creating category:', axiosError);
+    alert(axiosError.response?.data?.message || 'Failed to create category.');
+  }
+};
+
+
+
+// const handleCreateCategory = async (e: React.FormEvent) => {
+//   e.preventDefault();
+//   if (!newCategoryName.trim()) {
+//     alert('Category name cannot be empty.');
+//     return;
+//   }
+//   const newCategory: Category = {
+//     id: `cat${Date.now()}`,
+//     name: newCategoryName,
+//     parent_id: newParentCategoryId || null,
+//     created_at: new Date().toISOString(),
+//     updated_at: new Date().toISOString(),
+//     subcategories: [],
+//   };
+//   setCategories([...categories, newCategory]);
+//   setNewCategoryName('');
+//   setNewParentCategoryId('');
+//   alert('Category created successfully!');
+// };
 
   const handleDeleteJobPost = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this job post?')) {
@@ -569,28 +871,30 @@ useEffect(() => {
   };
 
   const handleNotifyCandidates = async (id: string) => {
-    const limit = prompt('Enter number of candidates to notify (e.g., 10):');
-    const orderBy = prompt('Enter order (beginning, end, random):', 'random');
-    if (!limit || isNaN(parseInt(limit)) || parseInt(limit) < 1) {
-      alert('Please enter a valid number of candidates.');
-      return;
-    }
-    if (!orderBy || !['beginning', 'end', 'random'].includes(orderBy)) {
-      alert('Please enter a valid order: beginning, end, or random.');
-      return;
-    }
-    try {
-      const response = await notifyCandidates(id, {
-        limit: parseInt(limit),
-        orderBy: orderBy as 'beginning' | 'end' | 'random',
-      });
-      alert(`Notified ${response.sent} of ${response.total} candidates for job post ${response.jobPostId}`);
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error notifying candidates:', axiosError);
-      alert(axiosError.response?.data?.message || 'Failed to notify candidates.');
-    }
-  };
+  setNotifyJobPostId(id);
+  setShowNotifyModal(true);
+};
+
+const handleNotifySubmit = async () => {
+  if (!notifyLimit || isNaN(parseInt(notifyLimit)) || parseInt(notifyLimit) < 1) {
+    alert('Please enter a valid number of candidates.');
+    return;
+  }
+  try {
+    const response = await notifyCandidates(notifyJobPostId, {
+      limit: parseInt(notifyLimit),
+      orderBy: notifyOrderBy,
+    });
+    alert(`Notified ${response.sent} of ${response.total} candidates for job post ${response.jobPostId}`);
+    setShowNotifyModal(false);
+    setNotifyLimit('10');
+    setNotifyOrderBy('beginning');
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error notifying candidates:', axiosError);
+    alert(axiosError.response?.data?.message || 'Failed to notify candidates.');
+  }
+};
 
   const handleDeleteReview = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this review?')) {
@@ -640,6 +944,7 @@ useEffect(() => {
     }
   };
 
+
   const handleViewChatHistory = async (jobApplicationId: string, page: number = 1) => {
     try {
       setError(null);
@@ -653,6 +958,7 @@ useEffect(() => {
       setError(axiosError.response?.data?.message || 'Failed to fetch chat history.');
     }
   };
+
 
   const handleSetGlobalLimit = async () => {
     const limit = prompt('Enter global application limit:');
@@ -717,33 +1023,56 @@ useEffect(() => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div>
-      <Header />
+if (isLoading) {
+  return (
+    <div>
+      <div className="backoffice-header">
+        <div className="backoffice-title" onClick={handleBackofficeClick}>BACK<span className='backoffice_span'>OFFICE</span></div>
+        <div className="header-right">
+          <span className="greeting">Welcome, <span className="username-bold">{username}</span></span> 
+          <Link to="/" className="nav-link"><FaHome /> Home</Link>
+          <button className="action-button" onClick={handleLogout}><FaSignOutAlt /> Logout</button>
+          <div className="user-count employers"><FaUser /> {onlineEmployers ?? 'N/A'}</div>
+          <div className="user-count freelancers"><FaUser /> {onlineFreelancers ?? 'N/A'}</div>
+          <div className="date-time">
+           <span>{formatInTimeZone(currentTime, 'Asia/Manila', 'MMM dd')}</span>  {formatInTimeZone(currentTime, 'Asia/Manila', 'HH:mm')}
+          </div>
+        </div>
+      </div>
       <div className="dashboard-wrapper">
         <div className="sidebar">
-          <h2>Admin Panel</h2>
+          
         </div>
         <div className="main-content">
-
           <div className="content">
             <h2>Admin Dashboard</h2>
             <p>Loading...</p>
           </div>
         </div>
       </div>
-      </div>
-    );
-  }
+    </div>
+  );
+}
 
   if (!currentRole || currentRole !== 'admin') {
-    return (
-       <div>
-      <Header />
+  return (
+    <div>
+      <div className="backoffice-header">
+        <div className="backoffice-title" onClick={handleBackofficeClick}>BACK <span>OFFICE</span> </div>
+        <div className="header-right">
+          <span className="greeting">Welcome, <span className="username-bold">{username}</span></span>
+          <Link to="/" className="nav-link"><FaHome /> Home</Link>
+          <button className="action-button-admin" onClick={handleLogout}><FaSignOutAlt /> Logout</button>
+          <div className="user-count employers"><FaUser /> {onlineEmployers ?? 'N/A'}</div>
+          <div className="user-count freelancers"><FaUser /> {onlineFreelancers ?? 'N/A'}</div>
+          <div className="date-time">
+           <span>{formatInTimeZone(currentTime, 'Asia/Manila', 'MMM dd')}</span>  {formatInTimeZone(currentTime, 'Asia/Manila', 'HH:mm')}
+          </div>
+        </div>
+      </div>
       <div className="dashboard-wrapper">
         <div className="sidebar">
-          <h2>Admin Panel</h2>
+          
         </div>
         <div className="main-content">
           <div className="content">
@@ -754,16 +1083,28 @@ useEffect(() => {
           <Copyright />
         </div>
       </div>
-      </div>
-    );
-  }
+    </div>
+  );
+}
 
   return (
-     <div>
-      <Header />
+  <div>
+    <div className="backoffice-header">
+      <div className="backoffice-title" onClick={handleBackofficeClick}>BACK<span>OFFICE</span></div>
+      <div className="header-right">
+        <span className="greeting">Welcome, <span className="username-bold">{username}</span></span>
+        <Link to="/" className="nav-link"><FaHome /> Home</Link>
+        <div className="action-button-admin" onClick={handleLogout}><FaSignOutAlt /> Logout</div>
+        <div className="user-count employers"><FaUser /> {onlineEmployers ?? 'N/A'}</div>
+        <div className="user-count freelancers"><FaUser /> {onlineFreelancers ?? 'N/A'}</div>
+        <div className="date-time">
+          <span>{formatInTimeZone(currentTime, 'Asia/Manila', 'MMM dd')}</span> {formatInTimeZone(currentTime, 'Asia/Manila', 'HH:mm')}
+        </div>
+      </div>
+    </div>
     <div className="dashboard-wrapper">
       <div className="sidebar">
-        <h2>Admin Panel</h2>
+        
         <ul>
           <li className={activeTab === 'Dashboard' ? 'active' : ''} onClick={() => setActiveTab('Dashboard')}>
             Dashboard
@@ -808,32 +1149,66 @@ useEffect(() => {
             <div>
               <h4>Dashboard</h4>
               <div className="dashboard-section">
-                <h3>Signups and Subscriptions</h3>
-                <div className="stats-row">
-                  <div className="stats-item">
-                    <p><strong>Freelancer Signups by Country:</strong> {freelancerSignups.length > 0 ? freelancerSignups.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</p>
-                  </div>
-                  <div className="stats-item">
-                    <p><strong>Business Signups by Country:</strong> {businessSignups.length > 0 ? businessSignups.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</p>
-                  </div>
-                </div>
-                <div className="stats-row">
-                  <div className="stats-item">
-                    <p><strong>New Business Subscriptions:</strong> {businessSignups.length > 0 ? businessSignups.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</p>
-                  </div>
-                  <div className="stats-item">
-                    <p><strong>New Business Subscription by Country:</strong> {businessSignups.length > 0 ? businessSignups.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</p>
-                  </div>
-                </div>
-                <div className="stats-row">
-                  <div className="stats-item">
-                    <p><strong>Business Resubscriptions:</strong> {businessSignups.length > 0 ? businessSignups.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</p>
-                  </div>
-                  <div className="stats-item">
-                    <p><strong>Business Resubscription by Country:</strong> {businessSignups.length > 0 ? businessSignups.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</p>
-                  </div>
-                </div>
-              </div>
+  <div className="table-header">
+    <h3>Business Overview</h3>
+       <button className="action-button refresh-button" onClick={handleRefresh}>refresh</button>
+  </div>
+  <table className="dashboard-table">
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>Today</th>
+        <th>Yesterday</th>
+        <th>Week (Mon-Sun)</th>
+        <th>Month </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Freelancer Signups by Country</td>
+        <td>{freelancerSignupsToday.length > 0 ? freelancerSignupsToday.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
+        <td>{freelancerSignupsYesterday.length > 0 ? freelancerSignupsYesterday.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
+        <td>{freelancerSignupsWeek.length > 0 ? freelancerSignupsWeek.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
+        <td>{freelancerSignupsMonth.length > 0 ? freelancerSignupsMonth.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
+      </tr>
+      <tr>
+        <td>Business Signups by Country</td>
+        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
+      </tr>
+      <tr>
+        <td>New Business Subscriptions</td>
+        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
+      </tr>
+      <tr>
+        <td>New Business Subscription by Country</td>
+        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
+      </tr>
+      <tr>
+        <td>Business Resubscriptions</td>
+        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
+      </tr>
+      <tr>
+        <td>Business Resubscription by Country</td>
+        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
               <div className="dashboard-section">
                 <h3>Online Users</h3>
                 <p><strong>Freelancers Online:</strong> {onlineUsers?.jobseekers ?? 'N/A'}</p>
@@ -898,40 +1273,109 @@ useEffect(() => {
                   <button className="view-all-button">View All</button>
                 </details>
               </div>
-              <div className="dashboard-section">
-                <h3>Job Postings with Applications</h3>
-                <table className="dashboard-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Title</th>
-                      <th>Applications</th>
-                      <th>Created At</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {jobPostsWithApps.length > 0 ? jobPostsWithApps.map((post) => (
-                      <tr key={post.id}>
-                        <td>{post.id}</td>
-                        <td>{post.title}</td>
-                        <td>{post.applicationCount}</td>
-                        <td>{format(new Date(post.created_at), 'PP')}</td>
-                        <td>
-                          <button onClick={() => handleNotifyCandidates(post.id)} className="action-button">
-                            Notify Seekers
-                          </button>
-                        </td>
-                      </tr>
-                    )) : (
-                      <tr>
-                        <td colSpan={5}>No job postings with applications found.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+<div className="dashboard-section">
+  <h3>Job Postings with Applications</h3>
+  <table className="dashboard-table">
+    <thead>
+      <tr>
+        <th onClick={() => handleSort('id')} style={{ cursor: 'pointer' }}>
+          ID {sortColumn === 'id' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+        </th>
+        <th>Firstname Lastname</th>
+        <th>Title</th>
+        <th onClick={() => handleSort('applicationCount')} style={{ cursor: 'pointer' }}>
+          Applications {sortColumn === 'applicationCount' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+        </th>
+        <th onClick={() => handleSort('created_at')} style={{ cursor: 'pointer' }}>
+          Created At {sortColumn === 'created_at' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+        </th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {paginatedJobPostsWithApps.length > 0 ? paginatedJobPostsWithApps.map((post) => (
+        <tr key={post.id}>
+          <td>{post.id}</td>
+          <td>{post.username || 'N/A'}</td>
+          <td>{post.title}</td>
+          <td>{post.applicationCount}</td>
+          <td>{format(new Date(post.created_at), 'PP')}</td>
+          <td>
+            <button onClick={() => handleNotifyCandidates(post.id)} className="action-button">
+              Notify Seekers
+            </button>
+          </td>
+        </tr>
+      )) : (
+        <tr>
+          <td colSpan={6}>No job postings with applications found.</td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+  <div className="pagination">
+    <button
+      onClick={() => setJobPostsWithAppsPage(prev => Math.max(prev - 1, 1))}
+      disabled={jobPostsWithAppsPage === 1}
+      className="action-button"
+    >
+      Previous
+    </button>
+    <span className="page-number">Page {jobPostsWithAppsPage}</span>
+    <button
+      onClick={() => setJobPostsWithAppsPage(prev => prev + 1)}
+      disabled={paginatedJobPostsWithApps.length < jobPostsWithAppsLimit}
+      className="action-button"
+    >
+      Next
+    </button>
+  </div>
+  {showNotifyModal && (
+    <div className="modal">
+      <div className="modal-content">
+        <h3>Notify Candidates for Job Post ID: {notifyJobPostId}</h3>
+        <div className="form-group">
+          <label>Number of candidates to notify:</label>
+          <input
+            type="number"
+            value={notifyLimit}
+            onChange={(e) => setNotifyLimit(e.target.value)}
+            placeholder="e.g., 10"
+            min="1"
+          />
+        </div>
+        <div className="form-group">
+          <label>Order:</label>
+          <select
+            value={notifyOrderBy}
+            onChange={(e) => setNotifyOrderBy(e.target.value as 'beginning' | 'end' | 'random')}
+          >
+            <option value="beginning">First Applied</option>
+            <option value="end">Last Applied</option>
+            <option value="random">Random</option>
+          </select>
+        </div>
+        <div className="modal-actions">
+          <button onClick={handleNotifySubmit} className="action-button success">
+            Send Notifications
+          </button>
+          <button
+            onClick={() => {
+              setShowNotifyModal(false);
+              setNotifyLimit('10');
+              setNotifyOrderBy('beginning');
+            }}
+            className="action-button"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
+</div>
+</div>
+          
           )}
 
 {activeTab === 'Users' && (
@@ -942,117 +1386,123 @@ useEffect(() => {
     </button>
     {fetchErrors.getAllUsers && <p className="error-message">{fetchErrors.getAllUsers}</p>}
     {(() => {
-      console.log('Rendering users:', users);
+      console.log('Rendering users:', sortedUsers);
       return null;
     })()}
     <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Blocked Status</th>
-                    <th>Online Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.length > 0 ? users.map((user) => (
-                    <tr key={user.id}>
-                      <td>{user.id}</td>
-                      <td>{user.username}</td>
-                      <td>{user.email}</td>
-                      <td>{user.role}</td>
-                      <td>{user.is_blocked ? 'Blocked' : 'Active'}</td>
-                      <td>
-                        {onlineStatuses[user.id] !== undefined ? (
-                          onlineStatuses[user.id] ? 'Online' : 'Offline'
-                        ) : (
-                          <button
-                            onClick={() => handleCheckOnlineStatus(user.id)}
-                            className="action-button"
-                          >
-                            Check Status
-                          </button>
-                        )}
-                      </td>
-                      <td>
-                        <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
-                          Delete
-                        </button>
-                        <button onClick={() => handleResetPassword(user.id)} className="action-button">
-                          Reset Password
-                        </button>
-                        <button onClick={() => handleVerifyIdentity(user.id, true)} className="action-button success">
-                          Verify Identity
-                        </button>
-                        <button onClick={() => handleVerifyIdentity(user.id, false)} className="action-button warning">
-                          Reject Identity
-                        </button>
-                        {user.is_blocked ? (
-                          <button
-                            onClick={() => handleUnblockUser(user.id, user.username)}
-                            className="action-button success"
-                          >
-                            Unblock
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleBlockUser(user.id, user.username)}
-                            className="action-button danger"
-                          >
-                            Block
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleViewRiskScore(user.id)}
-                          className="action-button"
-                        >
-                          View Risk Score
-                        </button>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={7}>No users found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              <div className="pagination">
+      <thead>
+        <tr>
+          <th onClick={() => handleUserSort('id')} style={{ cursor: 'pointer' }}>
+            ID {userSortColumn === 'id' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+          </th>
+          <th>Username</th>
+          <th>Email</th>
+          <th onClick={() => handleUserSort('role')} style={{ cursor: 'pointer' }}>
+            Role {userSortColumn === 'role' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+          </th>
+          <th onClick={() => handleUserSort('is_blocked')} style={{ cursor: 'pointer' }}>
+            Blocked Status {userSortColumn === 'is_blocked' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+          </th>
+          <th>Online Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {sortedUsers.length > 0 ? sortedUsers.map((user) => (
+          <tr key={user.id}>
+            <td>{user.id}</td>
+            <td>{user.username}</td>
+            <td>{user.email}</td>
+            <td>{user.role}</td>
+            <td>{user.is_blocked ? 'Blocked' : 'Active'}</td>
+            <td>
+              {onlineStatuses[user.id] !== undefined ? (
+                onlineStatuses[user.id] ? 'Online' : 'Offline'
+              ) : (
                 <button
-                  onClick={() => setUserPage(prev => Math.max(prev - 1, 1))}
-                  disabled={userPage === 1}
+                  onClick={() => handleCheckOnlineStatus(user.id)}
                   className="action-button"
                 >
-                  Previous
+                  Check Status
                 </button>
-                <span className="page-number">Page {userPage}</span>
-                <button
-                  onClick={() => setUserPage(prev => prev + 1)}
-                  disabled={users.length < userLimit}
-                  className="action-button"
-                >
-                  Next
-                </button>
-              </div>
-              {showRiskModal && riskScoreData && (
-                <div className="modal">
-                  <div className="modal-content">
-                    <h3>Risk Score for User ID: {riskScoreData.userId}</h3>
-                    <p><strong>Risk Score:</strong> {riskScoreData.riskScore}</p>
-                    <p><strong>Duplicate IP:</strong> {riskScoreData.details.duplicateIp ? 'Yes' : 'No'}</p>
-                    <p><strong>Proxy Detected:</strong> {riskScoreData.details.proxyDetected ? 'Yes' : 'No'}</p>
-                    <p><strong>Duplicate Fingerprint:</strong> {riskScoreData.details.duplicateFingerprint ? 'Yes' : 'No'}</p>
-                    <button onClick={() => setShowRiskModal(false)} className="action-button">
-                      Close
-                    </button>
-                  </div>
-                </div>
               )}
-            </div>
-          )}
+            </td>
+            <td>
+              <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
+                Delete
+              </button>
+              <button onClick={() => handleResetPassword(user.id)} className="action-button">
+                Reset Password
+              </button>
+              <button onClick={() => handleVerifyIdentity(user.id, true)} className="action-button success">
+                Verify Identity
+              </button>
+              <button onClick={() => handleVerifyIdentity(user.id, false)} className="action-button warning">
+                Reject Identity
+              </button>
+              {user.is_blocked ? (
+                <button
+                  onClick={() => handleUnblockUser(user.id, user.username)}
+                  className="action-button success"
+                >
+                  Unblock
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleBlockUser(user.id, user.username)}
+                  className="action-button danger"
+                >
+                  Block
+                </button>
+              )}
+              <button
+                onClick={() => handleViewRiskScore(user.id)}
+                className="action-button"
+              >
+                View Risk Score
+              </button>
+            </td>
+          </tr>
+        )) : (
+          <tr>
+            <td colSpan={7}>No users found.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+    <div className="pagination">
+      <button
+        onClick={() => setUserPage(prev => Math.max(prev - 1, 1))}
+        disabled={userPage === 1}
+        className="action-button"
+      >
+        Previous
+      </button>
+      <span className="page-number">Page {userPage}</span>
+      <button
+        onClick={() => setUserPage(prev => prev + 1)}
+        disabled={sortedUsers.length < userLimit}
+        className="action-button"
+      >
+        Next
+      </button>
+    </div>
+    {showRiskModal && riskScoreData && (
+      <div className="modal">
+        <div className="modal-content">
+          <h3>Risk Score for User ID: {riskScoreData.userId}</h3>
+          <p><strong>Risk Score:</strong> {riskScoreData.riskScore}</p>
+          <p><strong>Duplicate IP:</strong> {riskScoreData.details.duplicateIp ? 'Yes' : 'No'}</p>
+          <p><strong>Proxy Detected:</strong> {riskScoreData.details.proxyDetected ? 'Yes' : 'No'}</p>
+          <p><strong>Duplicate Fingerprint:</strong> {riskScoreData.details.duplicateFingerprint ? 'Yes' : 'No'}</p>
+          <button onClick={() => setShowRiskModal(false)} className="action-button">
+            Close
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+)}
 
           {activeTab === 'Job Posts' && (
             <div>
@@ -1201,42 +1651,68 @@ useEffect(() => {
           )}
 
           {activeTab === 'Categories' && (
-            <div>
-              <h4>Categories</h4>
-              <form onSubmit={handleCreateCategory} className="form-group">
-                <input
-                  type="text"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="Enter category name"
-                />
-                <button type="submit" className="action-button">
-                  Create Category
-                </button>
-              </form>
-              {fetchErrors.getCategories && <p className="error-message">{fetchErrors.getCategories}</p>}
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {categories.length > 0 ? categories.map((category) => (
-                    <tr key={category.id}>
-                      <td>{category.id}</td>
-                      <td>{category.name}</td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={2}>No categories found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+  <div>
+    <h4>Categories</h4>
+    <form onSubmit={handleCreateCategory} className="form-group">
+      <input
+        type="text"
+        value={newCategoryName}
+        onChange={(e) => setNewCategoryName(e.target.value)}
+        placeholder="Enter category name"
+      />
+      <select
+        value={newParentCategoryId}
+        onChange={(e) => setNewParentCategoryId(e.target.value)}
+        className="category-select"
+      >
+        <option value="">No Parent (Main Category)</option>
+        {categories
+          .filter((category) => !category.parent_id)
+          .map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+      </select>
+      <button type="submit" className="action-button">
+        Create Category
+      </button>
+    </form>
+    {fetchErrors.getCategories && <p className="error-message">{fetchErrors.getCategories}</p>}
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Parent Category</th>
+          <th>Subcategories</th>
+        </tr>
+      </thead>
+      <tbody>
+        {categories.length > 0 ? categories.map((category) => (
+          <tr key={category.id}>
+            <td>{category.id}</td>
+            <td>{category.name}</td>
+            <td>
+              {category.parent_id
+                ? categories.find((cat) => cat.id === category.parent_id)?.name || 'Unknown'
+                : 'None'}
+            </td>
+            <td>
+              {category.subcategories && category.subcategories.length > 0
+                ? category.subcategories.map((sub) => sub.name).join(', ')
+                : 'None'}
+            </td>
+          </tr>
+        )) : (
+          <tr>
+            <td colSpan={4}>No categories found.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+)}
 
           {activeTab === 'Blocked Countries' && (
             <div>
@@ -1309,46 +1785,44 @@ useEffect(() => {
           <th>Complainant</th>
           <th>Target</th>
           <th>Reason</th>
-          <th>Status</th>
+          <th onClick={() => handleComplaintSort('status')} style={{ cursor: 'pointer' }}>
+            Status {complaintSortColumn === 'status' ? (complaintSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+          </th>
           <th>Resolution Comment</th>
-          <th>Created At</th>
+          <th onClick={() => handleComplaintSort('created_at')} style={{ cursor: 'pointer' }}>
+            Created At {complaintSortColumn === 'created_at' ? (complaintSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+          </th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        {complaints
-          .filter((complaint) => statusFilter === 'All' || complaint.status === statusFilter)
-          .length > 0 ? (
-          complaints
-            .filter((complaint) => statusFilter === 'All' || complaint.status === statusFilter)
-            .map((complaint) => (
-              <tr key={complaint.id}>
-                <td>{complaint.id}</td>
-                <td>{complaint.complainant.username}</td>
-                <td>
-                  {complaint.job_post_id
-                    ? `Job Post: ${complaint.job_post?.title}`
-                    : complaint.profile_id
-                    ? `Profile ID: ${complaint.profile_id}`
-                    : 'N/A'}
-                </td>
-                <td>{complaint.reason}</td>
-                <td>{complaint.status}</td>
-                <td>{complaint.resolution_comment || 'N/A'}</td>
-                <td>{format(new Date(complaint.created_at), 'PP')}</td>
-                <td>
-                  {complaint.status === 'Pending' && (
-                    <button
-                      onClick={() => handleResolveComplaint(complaint.id)}
-                      className="action-button"
-                    >
-                      Resolve
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))
-        ) : (
+        {sortedComplaints.length > 0 ? sortedComplaints.map((complaint) => (
+          <tr key={complaint.id}>
+            <td>{complaint.id}</td>
+            <td>{complaint.complainant.username}</td>
+            <td>
+              {complaint.job_post_id
+                ? `Job Post: ${complaint.job_post?.title}`
+                : complaint.profile_id
+                ? `Profile ID: ${complaint.profile_id}`
+                : 'N/A'}
+            </td>
+            <td>{complaint.reason}</td>
+            <td>{complaint.status}</td>
+            <td>{complaint.resolution_comment || 'N/A'}</td>
+            <td>{format(new Date(complaint.created_at), 'PP')}</td>
+            <td>
+              {complaint.status === 'Pending' && (
+                <button
+                  onClick={() => handleResolveComplaint(complaint.id)}
+                  className="action-button"
+                >
+                  Resolve
+                </button>
+              )}
+            </td>
+          </tr>
+        )) : (
           <tr>
             <td colSpan={8}>No complaints found for selected status.</td>
           </tr>
@@ -1445,197 +1919,282 @@ useEffect(() => {
             </div>
           )}
 
-          {activeTab === 'Analytics' && (
+         {activeTab === 'Analytics' && (
   <div>
     <h4>Analytics</h4>
     {fetchErrors.getAnalytics && <p className="error-message">{fetchErrors.getAnalytics}</p>}
     {analytics ? (
-      <div className="analytics-grid">
-        <div className="analytics-card">
-          <p><strong>Total Users:</strong> {(analytics.employers && analytics.jobSeekers) ? analytics.employers + analytics.jobSeekers : 'N/A'}</p>
+      <>
+        <h5>User Distribution</h5>
+        <ResponsiveContainer width="100%" height={300}>
+          <PieChart>
+            <Pie
+              data={[
+                { name: 'Employers', value: analytics.employers },
+                { name: 'Job Seekers', value: analytics.jobSeekers },
+              ]}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              outerRadius={100}
+              fill="#8884d8"
+              label
+            >
+              <Cell fill="#82ca9d" />
+              <Cell fill="#ffc658" />
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="analytics-grid">
+          <div className="analytics-card">
+            <p><strong>Total Users:</strong> {(analytics.employers && analytics.jobSeekers) ? analytics.employers + analytics.jobSeekers : 'N/A'}</p>
+          </div>
+          <div className="analytics-card">
+            <p><strong>Employers:</strong> {analytics.employers}</p>
+          </div>
+          <div className="analytics-card">
+            <p><strong>Job Seekers:</strong> {analytics.jobSeekers}</p>
+          </div>
+          <div className="analytics-card">
+            <p><strong>Total Job Posts:</strong> {analytics.totalJobPosts}</p>
+          </div>
+          <div className="analytics-card">
+            <p><strong>Active Job Posts:</strong> {analytics.activeJobPosts}</p>
+          </div>
+          <div className="analytics-card">
+            <p><strong>Total Applications:</strong> {analytics.totalApplications}</p>
+          </div>
+          <div className="analytics-card">
+            <p><strong>Total Reviews:</strong> {analytics.totalReviews}</p>
+          </div>
         </div>
-        <div className="analytics-card">
-          <p><strong>Employers:</strong> {analytics.employers}</p>
-        </div>
-        <div className="analytics-card">
-          <p><strong>Job Seekers:</strong> {analytics.jobSeekers}</p>
-        </div>
-        <div className="analytics-card">
-          <p><strong>Total Job Posts:</strong> {analytics.totalJobPosts}</p>
-        </div>
-        <div className="analytics-card">
-          <p><strong>Active Job Posts:</strong> {analytics.activeJobPosts}</p>
-        </div>
-        <div className="analytics-card">
-          <p><strong>Total Applications:</strong> {analytics.totalApplications}</p>
-        </div>
-        <div className="analytics-card">
-          <p><strong>Total Reviews:</strong> {analytics.totalReviews}</p>
-        </div>
-      </div>
+      </>
     ) : (
       <p>No analytics data available.</p>
     )}
-              <h4>Registration Stats</h4>
-              {fetchErrors.getRegistrationStats && <p className="error-message">{fetchErrors.getRegistrationStats}</p>}
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>Period</th>
-                    <th>Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {registrationStats.length > 0 ? registrationStats.map((stat, index) => (
-                    <tr key={index}>
-                      <td>{stat.period}</td>
-                      <td>{stat.count}</td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={2}>No registration stats found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              <h4>Growth Trends</h4>
-              {fetchErrors.getGrowthTrends && <p className="error-message">{fetchErrors.getGrowthTrends}</p>}
-              <h5>Registrations</h5>
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>Period</th>
-                    <th>Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {growthTrends.registrations.length > 0 ? growthTrends.registrations.map((stat, index) => (
-                    <tr key={index}>
-                      <td>{format(new Date(stat.period), 'PP')}</td>
-                      <td>{stat.count}</td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={2}>No registration trends found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              <h5>Job Posts</h5>
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>Period</th>
-                    <th>Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {growthTrends.jobPosts.length > 0 ? growthTrends.jobPosts.map((stat, index) => (
-                    <tr key={index}>
-                      <td>{format(new Date(stat.period), 'PP')}</td>
-                      <td>{stat.count}</td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={2}>No job post trends found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              <h4>Top Employers</h4>
-              {fetchErrors.getTopEmployers && <p className="error-message">{fetchErrors.getTopEmployers}</p>}
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>Username</th>
-                    <th>Job Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topEmployers.length > 0 ? topEmployers.map((employer) => (
-                    <tr key={employer.employer_id}>
-                      <td>{employer.username}</td>
-                      <td>{employer.job_count}</td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={2}>No top employers found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              <h4>Top Employers by Job Posts</h4>
-              {fetchErrors.getTopEmployersByPosts && <p className="error-message">{fetchErrors.getTopEmployersByPosts}</p>}
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Job Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topEmployersByPosts.length > 0 ? topEmployersByPosts.map((employer) => (
-                    <tr key={employer.userId}>
-                      <td>{employer.username}</td>
-                      <td>{employer.email}</td>
-                      <td>{employer.jobCount}</td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={3}>No top employers by posts found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              <h4>Top Jobseekers</h4>
-              {fetchErrors.getTopJobseekers && <p className="error-message">{fetchErrors.getTopJobseekers}</p>}
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>Username</th>
-                    <th>Application Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topJobseekers.length > 0 ? topJobseekers.map((jobseeker) => (
-                    <tr key={jobseeker.job_seeker_id}>
-                      <td>{jobseeker.username}</td>
-                      <td>{jobseeker.application_count}</td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={2}>No top jobseekers found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              <h4>Top Jobseekers by Profile Views</h4>
-              {fetchErrors.getTopJobseekersByViews && <p className="error-message">{fetchErrors.getTopJobseekersByViews}</p>}
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Profile Views</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topJobseekersByViews.length > 0 ? topJobseekersByViews.map((jobseeker) => (
-                    <tr key={jobseeker.userId}>
-                      <td>{jobseeker.username}</td>
-                      <td>{jobseeker.email}</td>
-                      <td>{jobseeker.profileViews}</td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={3}>No top jobseekers by views found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+    <h4>Registration Stats</h4>
+    {fetchErrors.getRegistrationStats && <p className="error-message">{fetchErrors.getRegistrationStats}</p>}
+    {registrationStats.length > 0 && (
+  <ResponsiveContainer width="100%" height={300}>
+    <LineChart data={registrationStats}>
+      <CartesianGrid strokeDasharray="3 3" />
+      <XAxis dataKey="period" />
+      <YAxis />
+      <Tooltip formatter={(value: number) => [value, 'Registrations']} />
+      <Legend />
+      <Line type="monotone" dataKey="count" stroke="#8884d8" />
+    </LineChart>
+  </ResponsiveContainer>
+)}
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>Period</th>
+          <th>Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        {registrationStats.length > 0 ? registrationStats.map((stat, index) => (
+          <tr key={index}>
+            <td>{stat.period}</td>
+            <td>{stat.count}</td>
+          </tr>
+        )) : (
+          <tr>
+            <td colSpan={2}>No registration stats found.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+   <h4>Growth Trends</h4>
+{fetchErrors.getGrowthTrends && <p className="error-message">{fetchErrors.getGrowthTrends}</p>}
+<h5>Registrations</h5>
+{growthTrends.registrations.length > 0 && (
+  <ResponsiveContainer width="100%" height={300}>
+    <LineChart data={growthTrends.registrations}>
+      <CartesianGrid strokeDasharray="3 3" />
+      <XAxis dataKey="period" tickFormatter={(value) => format(new Date(value), 'PP')} />
+      <YAxis />
+      <Tooltip formatter={(value: number) => [value, 'Registrations']} />
+      <Legend />
+      <Line type="monotone" dataKey="count" stroke="#82ca9d" />
+    </LineChart>
+  </ResponsiveContainer>
+)}
+<table className="dashboard-table">
+  <thead>
+    <tr>
+      <th>Period</th>
+      <th>Count</th>
+    </tr>
+  </thead>
+  <tbody>
+    {growthTrends.registrations.length > 0 ? growthTrends.registrations.map((stat, index) => (
+      <tr key={index}>
+        <td>{format(new Date(stat.period), 'PP')}</td>
+        <td>{stat.count}</td>
+      </tr>
+    )) : (
+      <tr>
+        <td colSpan={2}>No registration trends found.</td>
+      </tr>
+    )}
+  </tbody>
+</table>
+<h5>Job Posts</h5>
+{growthTrends.jobPosts.length > 0 && (
+  <ResponsiveContainer width="100%" height={300}>
+    <LineChart data={growthTrends.jobPosts}>
+      <CartesianGrid strokeDasharray="3 3" />
+      <XAxis dataKey="period" tickFormatter={(value) => format(new Date(value), 'PP')} />
+      <YAxis />
+      <Tooltip formatter={(value: number) => [value, 'Job Posts']} />
+      <Legend />
+      <Line type="monotone" dataKey="count" stroke="#ffc658" />
+    </LineChart>
+  </ResponsiveContainer>
+)}
+<table className="dashboard-table">
+  <thead>
+    <tr>
+      <th>Period</th>
+      <th>Count</th>
+    </tr>
+  </thead>
+  <tbody>
+    {growthTrends.jobPosts.length > 0 ? growthTrends.jobPosts.map((stat, index) => (
+      <tr key={index}>
+        <td>{format(new Date(stat.period), 'PP')}</td>
+        <td>{stat.count}</td>
+      </tr>
+    )) : (
+      <tr>
+        <td colSpan={2}>No job post trends found.</td>
+      </tr>
+    )}
+  </tbody>
+</table>
+    <h4>Top Employers</h4>
+    {fetchErrors.getTopEmployers && <p className="error-message">{fetchErrors.getTopEmployers}</p>}
+    {topEmployers.length > 0 && (
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={topEmployers}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="username" />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Bar dataKey="job_count" fill="#8884d8" />
+        </BarChart>
+      </ResponsiveContainer>
+    )}
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Job Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        {topEmployers.length > 0 ? topEmployers.map((employer) => (
+          <tr key={employer.employer_id}>
+            <td>{employer.username}</td>
+            <td>{employer.job_count}</td>
+          </tr>
+        )) : (
+          <tr>
+            <td colSpan={2}>No top employers found.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+    <h4>Top Employers by Job Posts</h4>
+    {fetchErrors.getTopEmployersByPosts && <p className="error-message">{fetchErrors.getTopEmployersByPosts}</p>}
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Job Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        {topEmployersByPosts.length > 0 ? topEmployersByPosts.map((employer) => (
+          <tr key={employer.userId}>
+            <td>{employer.username}</td>
+            <td>{employer.email}</td>
+            <td>{employer.jobCount}</td>
+          </tr>
+        )) : (
+          <tr>
+            <td colSpan={3}>No top employers by posts found.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+    <h4>Top Jobseekers</h4>
+    {fetchErrors.getTopJobseekers && <p className="error-message">{fetchErrors.getTopJobseekers}</p>}
+    {topJobseekers.length > 0 && (
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={topJobseekers}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="username" />
+          <YAxis />
+          <Tooltip />
+          <Legend />
+          <Bar dataKey="application_count" fill="#82ca9d" />
+        </BarChart>
+      </ResponsiveContainer>
+    )}
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Application Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        {topJobseekers.length > 0 ? topJobseekers.map((jobseeker) => (
+          <tr key={jobseeker.job_seeker_id}>
+            <td>{jobseeker.username}</td>
+            <td>{jobseeker.application_count}</td>
+          </tr>
+        )) : (
+          <tr>
+            <td colSpan={2}>No top jobseekers found.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+    <h4>Top Jobseekers by Profile Views</h4>
+    {fetchErrors.getTopJobseekersByViews && <p className="error-message">{fetchErrors.getTopJobseekersByViews}</p>}
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Profile Views</th>
+        </tr>
+      </thead>
+      <tbody>
+        {topJobseekersByViews.length > 0 ? topJobseekersByViews.map((jobseeker) => (
+          <tr key={jobseeker.userId}>
+            <td>{jobseeker.username}</td>
+            <td>{jobseeker.email}</td>
+            <td>{jobseeker.profileViews}</td>
+          </tr>
+        )) : (
+          <tr>
+            <td colSpan={3}>No top jobseekers by views found.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+)}
 
           {activeTab === 'Settings' && (
             <div>
