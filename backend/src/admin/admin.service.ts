@@ -437,9 +437,38 @@ export class AdminService {
     return this.usersService.getRegistrationStats(startDate, endDate, interval);
   }
 
-  async getGeographicDistribution(adminId: string) {
+  async getGeographicDistribution(
+    adminId: string,
+    role: 'jobseeker' | 'employer' | 'all' = 'all',
+    startDate?: Date,
+    endDate?: Date,
+  ) {
     await this.checkAdminRole(adminId);
-    return this.usersService.getGeographicDistribution();
+  
+    const query = this.usersRepository
+      .createQueryBuilder('user')
+      .select('user.country', 'country')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('user.country');
+  
+    if (role !== 'all') {
+      query.andWhere('user.role = :role', { role });
+    }
+  
+    if (startDate) {
+      query.andWhere('user.created_at >= :startDate', { startDate });
+    }
+  
+    if (endDate) {
+      query.andWhere('user.created_at <= :endDate', { endDate });
+    }
+  
+    const result = await query.getRawMany();
+  
+    return result.map(item => ({
+      country: item.country || 'Unknown',
+      count: parseInt(item.count, 10),
+    }));
   }
   
   async blockUser(adminId: string, userId: string) {
