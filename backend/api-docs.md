@@ -1718,29 +1718,33 @@
 
 ### 36. Get Geographic Distribution (Admin)
 - **Endpoint**: `GET /api/admin/analytics/geographic-distribution`
-- **Description**: Retrieves the geographic distribution of users (admin only).
+- **Description**: Retrieves the geographic distribution of users, optionally filtered by role and registration date range (admin only).
 - **Headers**: `Authorization: Bearer <token>`
-- **Response (Success - 200)**: 
+- **Query Parameters**: 
+  - `startDate` (string, optional): Filter users registered on or after this date (format: `YYYY-MM-DD`). If not provided, no lower bound is applied.
+  - `endDate` (string, optional): Filter users registered on or before this date (format: `YYYY-MM-DD`). If not provided, no upper bound is applied.
+  - `role` (string, optional): Filter by user role (`jobseeker`, `employer`, or `all`). Defaults to `all`.
+- **Example Request**: `/api/admin/analytics/geographic-distribution?startDate=2025-07-01&endDate=2025-07-31&role=jobseeker`
+- **Response (Success - 200)**:
   ```json
   [
     {
       "country": "US",
-      "count": 50,
-      "percentage": "50.00"
+      "count": 50
     },
     {
       "country": "CA",
-      "count": 30,
-      "percentage": "30.00"
-    },
-    {
-      "country": "UK",
-      "count": 20,
-      "percentage": "20.00"
+      "count": 20
     }
   ]
-
-- **Response (Error - 400, if invalid dates)**:  
+- **Response (Error - 401, if token is invalid or user is not an admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+- **Response (Error - 400, if date format is invalid)**:
   ```json
   {
     "statusCode": 400,
