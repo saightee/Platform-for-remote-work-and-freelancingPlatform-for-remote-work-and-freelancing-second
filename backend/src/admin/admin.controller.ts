@@ -437,6 +437,9 @@ export class AdminController {
   @Get('analytics/geographic-distribution')
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   async getGeographicDistribution(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Query('role') role: 'jobseeker' | 'employer' | 'all' = 'all',
     @Headers('authorization') authHeader: string,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -445,8 +448,17 @@ export class AdminController {
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const adminId = payload.sub;
-
-    return this.adminService.getGeographicDistribution(adminId);
+  
+    if (startDate || endDate) {
+      const start = startDate ? new Date(startDate) : undefined;
+      const end = endDate ? new Date(endDate) : undefined;
+      if ((start && isNaN(start.getTime())) || (end && isNaN(end.getTime()))) {
+        throw new BadRequestException('Invalid date format');
+      }
+      return this.adminService.getGeographicDistribution(adminId, role, start, end);
+    }
+  
+    return this.adminService.getGeographicDistribution(adminId, role);
   }
 
   @Post('profile/:id/verify-identity')
