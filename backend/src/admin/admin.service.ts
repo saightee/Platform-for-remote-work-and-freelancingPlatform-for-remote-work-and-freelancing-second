@@ -20,6 +20,10 @@ import { AntiFraudService } from '../anti-fraud/anti-fraud.service';
 import { UserFingerprint } from '../anti-fraud/entities/user-fingerprint.entity';
 import { EmailService } from '../email/email.service';
 import { Complaint } from '../complaints/complaint.entity';
+import { CategoriesService } from '../categories/categories.service';
+import { Category } from '../categories/category.entity';
+import { Feedback } from '../feedback/feedback.entity';
+import { PlatformFeedback } from '../platform-feedback/platform-feedback.entity';
 
 @Injectable()
 export class AdminService {
@@ -50,6 +54,13 @@ export class AdminService {
     private emailService: EmailService,
     @InjectRepository(Complaint)
     private complaintsRepository: Repository<Complaint>,
+    @InjectRepository(Category)
+    private categoriesRepository: Repository<Category>,
+    private categoriesService: CategoriesService,
+    @InjectRepository(Feedback)
+    private feedbackRepository: Repository<Feedback>,
+    @InjectRepository(PlatformFeedback)
+    private platformFeedbackRepository: Repository<PlatformFeedback>,
   ) {}
 
   async checkAdminRole(userId: string) {
@@ -165,7 +176,9 @@ export class AdminService {
           await this.complaintsRepository.delete({ complainant_id: userId });
           await this.complaintsRepository.delete({ profile_id: userId });
 
+          await this.feedbackRepository.delete({ user_id: userId });
           await this.fingerprintRepository.delete({ user_id: userId });
+          await this.platformFeedbackRepository.delete({ user_id: userId });
 
           await this.usersRepository.delete(userId);
           return { message: 'User deleted successfully' };
@@ -635,4 +648,40 @@ export class AdminService {
         jobPostId,
       };
     }
+
+  async createCategory(adminId: string, name: string, parentId?: string) {
+    await this.checkAdminRole(adminId);
+    return this.categoriesService.createCategory(name, parentId);
+  }
+
+  async getCategories(adminId: string) {
+    await this.checkAdminRole(adminId);
+    return this.categoriesService.getCategories();
+  }
+
+  async searchCategories(adminId: string, searchTerm: string) {
+    await this.checkAdminRole(adminId);
+    return this.categoriesService.searchCategories(searchTerm);
+  }
+
+  async getPlatformFeedback(adminId: string, page: number = 1, limit: number = 10) {
+    await this.checkAdminRole(adminId);
+    const [feedback, total] = await this.platformFeedbackRepository.findAndCount({
+      relations: ['user'],
+      skip: (page - 1) * limit,
+      take: limit,
+      order: { created_at: 'DESC' },
+    });
+    return { total, data: feedback };
+  }
+  
+  async deletePlatformFeedback(adminId: string, feedbackId: string) {
+    await this.checkAdminRole(adminId);
+    const feedback = await this.platformFeedbackRepository.findOne({ where: { id: feedbackId } });
+    if (!feedback) {
+      throw new NotFoundException('Platform feedback not found');
+    }
+    await this.platformFeedbackRepository.delete(feedbackId);
+    return { message: 'Platform feedback deleted successfully' };
+  }
 }

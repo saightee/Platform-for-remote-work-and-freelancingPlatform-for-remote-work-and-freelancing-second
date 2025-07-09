@@ -9,6 +9,7 @@ export class TalentsController {
   async searchTalents(
     @Query('skills') skills: string | string[],
     @Query('experience') experience: string,
+    @Query('description') description: string,
     @Query('rating') rating: string,
     @Query('timezone') timezone: string,
     @Query('page') page: string,
@@ -19,6 +20,7 @@ export class TalentsController {
     const filters: {
       skills?: string[];
       experience?: string;
+      description?: string;
       rating?: number;
       timezone?: string;
       page?: number;
@@ -32,6 +34,9 @@ export class TalentsController {
     }
     if (experience) {
       filters.experience = experience;
+    }
+    if (description) {
+      filters.description = description;
     }
     if (rating) {
       const parsedRating = parseFloat(rating);

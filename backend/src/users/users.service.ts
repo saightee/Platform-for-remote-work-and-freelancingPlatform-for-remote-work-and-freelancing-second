@@ -38,7 +38,8 @@ export class UsersService {
       const jobSeekerEntity: DeepPartial<JobSeeker> = {
         user_id: savedUser.id,
         skills: additionalData.skills || [],
-        experience: additionalData.experience || '',
+        experience: additionalData.experience,
+        description: additionalData.description,
         portfolio: additionalData.portfolio || '',
         video_intro: additionalData.video_intro || '',
         timezone: additionalData.timezone || 'UTC',
@@ -108,16 +109,31 @@ export class UsersService {
     }
 
     if (role === 'jobseeker') {
-      const jobSeekerEntity: DeepPartial<JobSeeker> = {
-        user_id: userId,
-        skills: additionalData.skills || [],
-        experience: additionalData.experience || '',
-        portfolio: additionalData.portfolio || '',
-        video_intro: additionalData.video_intro || '',
-        timezone: additionalData.timezone || 'UTC',
-        currency: additionalData.currency || 'USD',
-      };
-      const jobSeeker = this.jobSeekerRepository.create(jobSeekerEntity);
+      let jobSeeker = await this.jobSeekerRepository.findOne({ where: { user_id: userId }, relations: ['skills'] });
+      if (!jobSeeker) {
+        jobSeeker = this.jobSeekerRepository.create({ user_id: userId });
+      }
+      if (additionalData.skills) {
+        jobSeeker.skills = additionalData.skills;
+      }
+      if (additionalData.experience) {
+        jobSeeker.experience = additionalData.experience;
+      }
+      if (additionalData.description) {
+        jobSeeker.description = additionalData.description;
+      }
+      if (additionalData.portfolio) {
+        jobSeeker.portfolio = additionalData.portfolio;
+      }
+      if (additionalData.video_intro) {
+        jobSeeker.video_intro = additionalData.video_intro;
+      }
+      if (additionalData.timezone) {
+        jobSeeker.timezone = additionalData.timezone;
+      }
+      if (additionalData.currency) {
+        jobSeeker.currency = additionalData.currency;
+      }
       await this.jobSeekerRepository.save(jobSeeker);
       console.log(`[UsersService] JobSeeker profile updated: ${JSON.stringify(jobSeeker)}`);
     } else if (role === 'employer') {

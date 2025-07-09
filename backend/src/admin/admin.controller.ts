@@ -660,4 +660,93 @@ export class AdminController {
 
     return this.chatService.getChatHistoryForAdmin(jobApplicationId, parsedPage, parsedLimit);
   }
+
+  @Post('categories')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async createCategory(
+    @Body() body: { name: string; parentId?: string },
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    if (!body.name) {
+      throw new BadRequestException('Category name is required');
+    }
+    return this.adminService.createCategory(adminId, body.name, body.parentId);
+  }
+  
+  @Get('categories')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async getCategories(
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.getCategories(adminId);
+  }
+  
+  @Get('categories/search')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async searchCategories(
+    @Query('term') searchTerm: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    if (!searchTerm) {
+      throw new BadRequestException('Search term is required');
+    }
+    return this.adminService.searchCategories(adminId, searchTerm);
+  }
+
+  @Get('platform-feedback')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async getPlatformFeedback(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    if (isNaN(parsedPage) || parsedPage < 1) {
+      throw new BadRequestException('Page must be a positive integer');
+    }
+    if (isNaN(parsedLimit) || parsedLimit < 1) {
+      throw new BadRequestException('Limit must be a positive integer');
+    }
+    return this.adminService.getPlatformFeedback(adminId, parsedPage, parsedLimit);
+  }
+  
+  @Delete('platform-feedback/:id')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async deletePlatformFeedback(
+    @Param('id') feedbackId: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.deletePlatformFeedback(adminId, feedbackId);
+  }
 }

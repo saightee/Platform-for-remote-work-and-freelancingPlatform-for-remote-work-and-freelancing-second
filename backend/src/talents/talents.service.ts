@@ -16,6 +16,7 @@ export class TalentsService {
   async searchTalents(filters: {
     skills?: string[];
     experience?: string;
+    description?: string;
     rating?: number;
     timezone?: string;
     page?: number;
@@ -26,17 +27,25 @@ export class TalentsService {
     const query = this.jobSeekerRepository
       .createQueryBuilder('jobSeeker')
       .leftJoinAndSelect('jobSeeker.user', 'user')
-      .leftJoinAndSelect('jobSeeker.categories', 'categories')
+      .leftJoinAndSelect('jobSeeker.skills', 'skills')
       .where('user.role = :role', { role: 'jobseeker' })
       .andWhere('user.status = :status', { status: 'active' });
 
     if (filters.skills && filters.skills.length > 0) {
-      query.andWhere('jobSeeker.skills && :skills', { skills: filters.skills });
+      query
+        .leftJoin('jobSeeker.skills', 'skill')
+        .andWhere('skill.id IN (:...skills)', { skills: filters.skills });
     }
 
     if (filters.experience) {
       query.andWhere('jobSeeker.experience ILIKE :experience', {
         experience: `%${filters.experience}%`,
+      });
+    }
+
+    if (filters.description) {
+      query.andWhere('jobSeeker.description ILIKE :description', {
+        description: `%${filters.description}%`,
       });
     }
 
@@ -71,12 +80,13 @@ export class TalentsService {
         id: jobSeeker.user_id,
         username: jobSeeker.user.username,
         email: jobSeeker.user.email,
-        skills: jobSeeker.skills,
-        categories: jobSeeker.categories.map((cat) => ({
+        skills: jobSeeker.skills.map((cat) => ({
           id: cat.id,
           name: cat.name,
+          parent_id: cat.parent_id,
         })),
         experience: jobSeeker.experience,
+        description: jobSeeker.description,
         portfolio: jobSeeker.portfolio,
         video_intro: jobSeeker.video_intro,
         timezone: jobSeeker.timezone,
@@ -84,7 +94,7 @@ export class TalentsService {
         average_rating: jobSeeker.average_rating,
         profile_views: jobSeeker.profile_views,
         identity_verified: jobSeeker.user.identity_verified,
-        avatar: jobSeeker.user.avatar, 
+        avatar: jobSeeker.user.avatar,
       })),
     };
   }
