@@ -32,7 +32,7 @@ export class ProfilesService {
     if (user.role === 'jobseeker') {
       const jobSeeker = await this.jobSeekerRepository.findOne({
         where: { user_id: userId },
-        relations: ['categories'],
+        relations: ['skills'],
       });
       if (!jobSeeker) {
         throw new NotFoundException('JobSeeker profile not found');
@@ -40,11 +40,11 @@ export class ProfilesService {
       return {
         id: user.id,
         role: user.role,
-        email: isAuthenticated ? user.email : undefined, // Скрываем email для неавторизованных
+        email: isAuthenticated ? user.email : undefined,
         username: user.username,
         skills: jobSeeker.skills,
-        categories: jobSeeker.categories,
         experience: jobSeeker.experience,
+        description: jobSeeker.description,
         portfolio: jobSeeker.portfolio,
         video_intro: jobSeeker.video_intro,
         timezone: jobSeeker.timezone,
@@ -63,7 +63,7 @@ export class ProfilesService {
       return {
         id: user.id,
         role: user.role,
-        email: isAuthenticated ? user.email : undefined, // Скрываем email для неавторизованных
+        email: isAuthenticated ? user.email : undefined,
         username: user.username,
         company_name: employer.company_name,
         company_info: employer.company_info,
@@ -93,23 +93,23 @@ export class ProfilesService {
     if (user.role === 'jobseeker') {
       const jobSeeker = await this.jobSeekerRepository.findOne({
         where: { user_id: userId },
-        relations: ['categories'],
+        relations: ['skills'],
       });
       if (!jobSeeker) {
         throw new NotFoundException('JobSeeker profile not found');
       }
 
-      if (updateData.skills && Array.isArray(updateData.skills)) {
-        jobSeeker.skills = updateData.skills;
-      }
-      if (updateData.categoryIds && Array.isArray(updateData.categoryIds)) {
-        const categories = await this.categoriesRepository.find({
-          where: { id: In(updateData.categoryIds) },
+      if (updateData.skillIds && Array.isArray(updateData.skillIds)) {
+        const skills = await this.categoriesRepository.find({
+          where: { id: In(updateData.skillIds) },
         });
-        jobSeeker.categories = categories;
+        jobSeeker.skills = skills;
       }
       if (updateData.experience) {
         jobSeeker.experience = updateData.experience;
+      }
+      if (updateData.description) {
+        jobSeeker.description = updateData.description;
       }
       if (updateData.portfolio) {
         jobSeeker.portfolio = updateData.portfolio;

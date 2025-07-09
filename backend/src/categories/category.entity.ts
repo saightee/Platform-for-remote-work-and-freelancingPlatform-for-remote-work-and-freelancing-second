@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 
 @Entity('categories')
 export class Category {
@@ -7,6 +7,13 @@ export class Category {
 
   @Column({ length: 100 })
   name: string;
+
+  @Column({ nullable: true })
+  parent_id: string;
+
+  @ManyToOne(() => Category, { nullable: true })
+  @JoinColumn({ name: 'parent_id' })
+  parent: Category;
 
   @CreateDateColumn()
   created_at: Date;

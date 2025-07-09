@@ -296,21 +296,23 @@
     "role": "jobseeker",
     "email": "test@example.com",
     "username": "test",
-    "skills": ["JavaScript", "TypeScript"],
-    "skillCategories": [
+    "skills": [
       {
-        "id": "<skillCategoryId>",
+        "id": "<skillId>",
         "name": "Web Development",
+        "parent_id": "<parentSkillId>",
         "created_at": "2025-05-22T18:00:00.000Z",
         "updated_at": "2025-05-22T18:00:00.000Z"
       }
     ],
     "experience": "2 years",
+    "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
     "video_intro": "https://video.com",
     "timezone": "Europe/Moscow",
     "currency": "USD",
     "average_rating": 4.0,
+    "profile_views": 10,
     "avatar": "https://example.com/avatar.jpg",
     "identity_verified": false,
     "reviews": [
@@ -382,16 +384,17 @@
     "role": "jobseeker",
     "email": "test@example.com",
     "username": "test",
-    "skills": ["JavaScript", "TypeScript"],
-    "categories": [
+    "skills": [
       {
-        "id": "<categoryId>",
+        "id": "<skillId>",
         "name": "Web Development",
+        "parent_id": "<parentSkillId>",
         "created_at": "2025-05-22T18:00:00.000Z",
         "updated_at": "2025-05-22T18:00:00.000Z"
       }
     ],
     "experience": "2 years",
+    "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
     "video_intro": "https://video.com",
     "timezone": "Europe/Moscow",
@@ -449,9 +452,9 @@
   ```json
   {
     "role": "jobseeker",
-    "skills": ["JavaScript", "Python"],
-    "categoryIds": ["<categoryId1>", "<categoryId2>"],
+    "skillIds": ["<skillId1>", "<skillId2>"],
     "experience": "3 years",
+    "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://newportfolio.com",
     "video_intro": "https://newvideo.com",
     "timezone": "America/New_York",
@@ -688,24 +691,25 @@
     "error": "Not Found"
   }
 
-### 12. Create Category
-- **Endpoint**: `POST /api/categories`
-- **Description**: Creates a new category for job posts.
-- **Request Body:**:
+### 12. Create Category (Admin)
+- **Endpoint**: `POST /api/admin/categories`
+- **Description**: Creates a new category or subcategory for job posts and jobseeker skills (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body**:
   ```json
   {
-    "name": "Software Development"
+    "name": "Software Development",
+    "parentId": "<parentCategoryId>" // Optional, for subcategories
   }
-
 - **Response (Success - 200)**:
   ```json
   {
     "id": "<categoryId>",
     "name": "Software Development",
+    "parent_id": "<parentCategoryId>",
     "created_at": "2025-05-13T18:00:00.000Z",
     "updated_at": "2025-05-13T18:00:00.000Z"
   }
-
 - **Response (Error - 400, if category already exists)**:
   ```json
   {
@@ -713,7 +717,13 @@
     "message": "Category with this name already exists",
     "error": "Bad Request"
   }
-
+- **Response (Error - 400, if parent category not found)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Parent category not found",
+    "error": "Bad Request"
+  }
 - **Response (Error - 400, if name is missing)**:
   ```json
   {
@@ -721,20 +731,95 @@
     "message": "Category name is required",
     "error": "Bad Request"
   }
+- **Response (Error - 401, if token is invalid or user is not an admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  } 
 
-### 13. Get Categories
-- **Endpoint**: `GET /api/categories`
-- **Description**: Retrieves all categories.
+### 13. Get Categories (Admin)
+- **Endpoint**: `GET /api/admin/categories`
+- **Description**: Retrieves all categories in a hierarchical tree structure (admin only).
+- **Headers**: `Authorization: Bearer <token>`
 - **Response (Success - 200)**:
   ```json
   [
-  {
-    "id": "<categoryId>",
-    "name": "Software Development",
-    "created_at": "2025-05-13T18:00:00.000Z",
-    "updated_at": "2025-05-13T18:00:00.000Z"
-  }
+    {
+      "id": "<categoryId>",
+      "name": "Office and Admin",
+      "parent_id": null,
+      "created_at": "2025-05-13T18:00:00.000Z",
+      "updated_at": "2025-05-13T18:00:00.000Z",
+      "subcategories": [
+        {
+          "id": "<subcategoryId>",
+          "name": "Virtual Assistant",
+          "parent_id": "<categoryId>",
+          "created_at": "2025-05-13T18:00:00.000Z",
+          "updated_at": "2025-05-13T18:00:00.000Z",
+          "subcategories": []
+        }
+      ]
+    },
+    {
+      "id": "<categoryId>",
+      "name": "Writing",
+      "parent_id": null,
+      "created_at": "2025-05-13T18:00:00.000Z",
+      "updated_at": "2025-05-13T18:00:00.000Z",
+      "subcategories": [
+        {
+          "id": "<subcategoryId>",
+          "name": "Content Writers",
+          "parent_id": "<categoryId>",
+          "created_at": "2025-05-13T18:00:00.000Z",
+          "updated_at": "2025-05-13T18:00:00.000Z",
+          "subcategories": []
+        }
+      ]
+    }
   ]
+- **Response (Error - 401, if token is invalid or user is not an admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+### 13.1. Search Categories (Admin)
+- **Endpoint**: `GET /api/admin/categories/search`
+- **Description**: Searches categories by name (partial match, case-insensitive, admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**: `term` (string, required): Search term for category names.
+- **Example Request**: `/api/admin/categories/search?term=Web`
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "id": "<categoryId>",
+      "name": "Web Development",
+      "parent_id": "<parentCategoryId>",
+      "created_at": "2025-05-13T18:00:00.000Z",
+      "updated_at": "2025-05-13T18:00:00.000Z"
+    }
+  ]
+- **Response (Error - 400, if search term is missing)**:
+    ```json
+  {
+    "statusCode": 400,
+    "message": "Search term is required",
+    "error": "Bad Request"
+  }
+- **Response (Error - 401, if token is invalid or user is not an admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
 
 ### 14. Apply to Job Post
 - **Endpoint**: `POST /api/job-applications`
@@ -2370,17 +2455,18 @@
 
 ### 64. Search Talents
 - **Endpoint**: `GET /api/talents`
-- **Description**: Retrieves a list of freelancers based on specified filters such as skills, experience, rating, and timezone, with pagination and sorting options.
+- **Description**: Retrieves a list of freelancers based on specified filters such as skills, experience, description, rating, and timezone, with pagination and sorting options.
 - **Request Parameters**:
   - `skills` (string or string[], optional): Filter by skills (e.g., "skills=Python" or "skills[]=Python&skills[]=JavaScript").
   - `experience` (string, optional): Filter by experience (partial match, e.g., "3 years").
+  - `description` (string, optional): Filter by description (partial match, e.g., "React developer").
   - `rating` (number, optional): Filter by minimum average rating (0 to 5, e.g., "4").
   - `timezone` (string, optional): Filter by timezone (e.g., "America/New_York").
   - `page` (number, optional): Page number for pagination (default: 1).
   - `limit` (number, optional): Number of items per page (default: 10).
   - `sort_by` (string, optional): Field to sort by ("average_rating" or "profile_views", default: "average_rating").
   - `sort_order` (string, optional): Sort order ("ASC" or "DESC", default: "DESC").
-- **Example Request**: `/api/talents?skills=Python&experience=3 years&rating=4&timezone=America/New_York&page=1&limit=10&sort_by=average_rating&sort_order=DESC`
+- **Example Request**: `/api/talents?skills=<skillId>&experience=3 years&description=React&rating=4&timezone=America/New_York&page=1&limit=10&sort_by=average_rating&sort_order=DESC`
 - **Response (Success - 200)**:
   ```json
   {
@@ -2390,14 +2476,15 @@
         "id": "<userId>",
         "username": "john_doe",
         "email": "john@example.com",
-        "skills": ["Python", "JavaScript"],
-        "categories": [
+        "skills": [
           {
-            "id": "<categoryId>",
-            "name": "Web Development"
+            "id": "<skillId>",
+            "name": "Web Development",
+            "parent_id": "<parentSkillId>"
           }
         ],
         "experience": "3 years",
+        "description": "Experienced web developer specializing in React and Node.js",
         "portfolio": "https://portfolio.com",
         "video_intro": "https://video.com",
         "timezone": "America/New_York",
@@ -2857,172 +2944,6 @@
     "error": "Not Found"
   }
 
-# WebSocket Chat API
-
-- **Description**: The WebSocket Chat API enables real-time messaging between an employer and a jobseeker after a job application is accepted (status: Accepted). Only the employer and jobseeker associated with the job application can join the chat. Administrators can view chat histories for dispute resolution via a REST endpoint.
-- **Base WebSocket URL (Development)**: `ws://localhost:3000`
-- **Base WebSocket URL (Production)**: `wss://jobforge.net`
-- **Base REST URL**: `${BASE_URL}/api` (e.g., `https://jobforge.net/api` in production)
-- **Authentication**: Requires a JWT token passed in the `Authorization` header for both WebSocket and REST requests.
-
-# WebSocket Connection
-  # Establishing a Connection
-  - **Protocol**: Use `ws://` for development and `wss://` for production.
-  - **Headers**: `Authorization: Bearer <token>` (Required, JWT token obtained from `/api/auth/login` or equivalent).
-  - **Library**: Recommended to use `socket.io-client` for frontend integration.
-  - **Reconnection**: The client should handle automatic reconnection with a delay (e.g., 3 seconds) if the connection is lost. Socket.IO client supports this by default with `reconnection: true`.
-
-# WebSocket Events:
-- **joinChat**: 
-- **Description**: Joins a chat room for a specific job application. Only available to the employer and jobseeker of an accepted job application. Marks all unread messages for the user as read upon joining.
-- **Payload**:
-  ```json
-  {
-    "jobApplicationId": "<jobApplicationId>"
-  }
-  
-- **Response**: Emits `chatHistory` event with the chat history for the specified job application.
-- **Error**:
-  - If the user is not authorized or lacks access:
-  ```json
-  {
-    "statusCode": 401,
-    "message": "No access to this chat",
-    "error": "Unauthorized"
-  }
-  - If the job application is not found or not accepted:
-  ```json
-  {
-    "statusCode": 404,
-    "message": "Job application not found",
-    "error": "Not Found"
-  }
-
-- **chatHistory**: 
-- **Description**: Emitted automatically after a successful `joinChat`. Contains the history of messages for the specified job application, sorted by `created_at` in ascending order.
-  - **Payload**:
-    ```json
-  [
-    {
-      "id": "<messageId>",
-      "job_application_id": "<jobApplicationId>",
-      "sender_id": "<userId>",
-      "recipient_id": "<userId>",
-      "content": "Hello, let's discuss the project!",
-      "created_at": "2025-06-16T05:47:00.000Z",
-      "is_read": false
-    }
-  ]
-- **Notes**: 
-  - `is_read`: Indicates whether the message has been read by the recipient. Display a "read" indicator (e.g., checkmark) if `is_read: true`.
-  - Store this history in the frontend state to render the chat UI.
-
-- **sendMessage**: 
-- **Description**: Sends a message to the chat room associated with the job application.
-  - **Payload**:
-    ```json
-  {
-    "jobApplicationId": "<jobApplicationId>",
-    "content": "Hello, let's discuss the project!"
-  }
-- **Response**: Broadcasts a `newMessage` event to all clients in the chat room (including the sender).
-- **Error**:
-  - If the user is not authorized or lacks access:
-  ```json
-  {
-    "statusCode": 401,
-    "message": "No access to this chat",
-    "error": "Unauthorized"
-  }
-  - If the job application is not found:
-  ```json
-  {
-    "statusCode": 404,
-    "message": "Job application not found",
-    "error": "Not Found"
-  }
-
-- **newMessage**: 
-- **Description**: Broadcasted to all clients in the chat room when a new message is sent. Used to update the chat UI in real-time.
-  - **Payload**:
-    ```json
-  {
-    "id": "<messageId>",
-    "job_application_id": "<jobApplicationId>",
-    "sender_id": "<userId>",
-    "recipient_id": "<userId>",
-    "content": "Hello, let's discuss the project!",
-    "created_at": "2025-06-16T05:47:00.000Z",
-    "is_read": false
-  }
-- **Notes**: 
-  - Append this message to the frontend state to update the chat UI.
-  - Optionally, trigger a notification (e.g., toast or sound) if the recipient is not currently viewing the chat.
-
-- **markMessagesAsRead**: 
-- **Description**: Marks all unread messages for the user in the specified job application as read.
-  - **Payload**:
-    ```json
-  {
-    "jobApplicationId": "<jobApplicationId>"
-  }
-- **Response**: Emits `messagesRead` event with the updated messages.
-  - **Payload(messagesRead)**:
-    ```json
-  [
-    {
-      "id": "<messageId>",
-      "job_application_id": "<jobApplicationId>",
-      "sender_id": "<userId>",
-      "recipient_id": "<userId>",
-      "content": "Hello, let's discuss the project!",
-      "created_at": "2025-06-16T05:47:00.000Z",
-      "is_read": true
-    }
-  ]
-- **Error**:
-  - If the user is not authorized or lacks access:
-      ```json
-      {
-        "statusCode": 401,
-        "message": "No access to this chat",
-        "error": "Unauthorized"
-      }
-  - If the job application is not found:
-      ```json
-      {
-        "statusCode": 404,
-        "message": "Job application not found",
-        "error": "Not Found"
-      }
-
-- **typing**: 
-- **Description**: Notifies other users in the chat room when a user is typing or stops typing.
-  - **Payload**:
-    ```json
-  {
-    "jobApplicationId": "<jobApplicationId>",
-    "isTyping": true // or false
-  }
-- **Response**: Broadcasts a `typing` event to other clients in the chat room (excluding the sender).
-  - **Payload(typing)**:
-    ```json
-  {
-    "userId": "<userId>",
-    "isTyping": true // or false
-  }
-- **Notes**: 
-  - Display "Typing..." in the chat UI when `isTyping: true` is received
-  - Remove the "Typing..." indicator when `isTyping: false` is received.
-- **Error**:
-  - If the user is not authorized or lacks access:
-      ```json
-      {
-        "statusCode": 401,
-        "message": "No access to this chat",
-        "error": "Unauthorized"
-      }
-
 ### 75. Get Chat History (Admin)
 - **Endpoint**: `GET /api/admin/chat/:jobApplicationId`
 - **Description**: Retrieves the chat history for a specific job application. Accessible only to users with the admin role.
@@ -3084,7 +3005,7 @@
     "error": "Not Found"
   }
 
-### 74. Get All Job Posts (Moderator)
+### 76. Get All Job Posts (Moderator)
 - **Endpoint**: `GET /api/moderator/job-posts`
 - **Description**: Retrieves all job posts (moderator or admin only) with optional filters, pagination, and sorting. Supports filtering by status, pending review status, and job title (partial match). Returns total count and paginated data for frontend pagination.
 - **Headers**: `Authorization: Bearer <token>`
@@ -3142,5 +3063,167 @@
   {
     "statusCode": 401,
     "message": "Only moderators or admins can access this resource",
+    "error": "Unauthorized"
+  }
+
+### 77. Submit Platform Feedback
+- **Endpoint**: `POST /api/platform-feedback`
+- **Description**: Allows authenticated jobseekers or employers to submit feedback or success stories about the platform.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "rating": 4,
+    "description": "Found an amazing employer through the platform!"
+  }
+
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "<feedbackId>",
+    "user_id": "<userId>",
+    "rating": 4,
+    "description": "Found an amazing employer through the platform!",
+    "created_at": "2025-07-08T07:00:00.000Z",
+    "updated_at": "2025-07-08T07:00:00.000Z"
+  }
+
+- **Response (Error - 400, if rating is invalid)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Rating must be between 1 and 5",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 400, if description is missing)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Description is required",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 401, if token is invalid or user is not jobseeker/employer)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only jobseekers and employers can submit platform feedback",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 404, if user not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "User not found",
+    "error": "Not Found"
+  }
+
+### 78. Get Platform Feedback (Public)
+- **Endpoint**: `GET /api/platform-feedback`
+- **Description**: Retrieves a paginated list of platform feedback and success stories, accessible to all users (including unauthenticated).
+- **Query Parameters**:
+    - `page` (number, optional): Page number for pagination (default: 1).
+    - `limit` (number, optional): Number of items per page (default: 10).
+- **Example Request**: `/api/platform-feedback?page=1&limit=10`
+- **Response (Success - 200)**:
+  ```json
+  {
+    "total": 50,
+    "data": [
+      {
+        "id": "<feedbackId>",
+        "rating": 4,
+        "description": "Found an amazing employer through the platform!",
+        "created_at": "2025-07-08T07:00:00.000Z",
+        "updated_at": "2025-07-08T07:00:00.000Z",
+        "user": {
+          "id": "<userId>",
+          "username": "john_doe",
+          "role": "jobseeker"
+        }
+      }
+    ]
+  }
+
+- **Response (Error - 400, if pagination parameters are invalid)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Page must be a positive integer",
+    "error": "Bad Request"
+  }
+
+### 79. Get Platform Feedback (Admin/Moderator)
+- **Endpoint**: `GET /api/admin/platform-feedback`
+- **Description**: Retrieves a paginated list of platform feedback for admin or moderator review.
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**:
+    - `page` (number, optional): Page number for pagination (default: 1).
+    - `limit` (number, optional): Number of items per page (default: 10).
+- **Example Request**: `/api/admin/platform-feedback?page=1&limit=10`
+- **Response (Success - 200)**:
+  ```json
+  {
+    "total": 50,
+    "data": [
+      {
+        "id": "<feedbackId>",
+        "user_id": "<userId>",
+        "rating": 4,
+        "description": "Found an amazing employer through the platform!",
+        "created_at": "2025-07-08T07:00:00.000Z",
+        "updated_at": "2025-07-08T07:00:00.000Z",
+        "user": {
+          "id": "<userId>",
+          "username": "john_doe",
+          "role": "jobseeker"
+        }
+      }
+    ]
+  }
+
+- **Response (Error - 400, if pagination parameters are invalid)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Page must be a positive integer",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 401, if token is invalid or user is not an admin/moderator)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only admins or moderators can access this resource",
+    "error": "Unauthorized"
+  }
+
+### 80. Delete Platform Feedback (Admin/Moderator)
+- **Endpoint**: `DELETE /api/admin/platform-feedback/:id`
+- **Description**: Deletes a specific platform feedback entry (admin or moderator only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the feedback.
+- **Example Request**: `/api/admin/platform-feedback?page=1&limit=10`
+- **Response (Success - 200)**:
+  ```json
+  {
+    "message": "Platform feedback deleted successfully"
+  }
+
+- **Response (Error - 404, if feedback not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Platform feedback not found",
+    "error": "Not Found"
+  }
+
+- **Response (Error - 401, if token is invalid or user is not an admin/moderator)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only admins or moderators can access this resource",
     "error": "Unauthorized"
   }

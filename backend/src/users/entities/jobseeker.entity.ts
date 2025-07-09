@@ -11,15 +11,15 @@ export class JobSeeker {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column('text', { array: true, nullable: true })
-  skills?: string[];
-
   @ManyToMany(() => Category)
   @JoinTable()
-  categories: Category[];
+  skills: Category[];
 
   @Column({ nullable: true })
   experience?: string;
+  
+  @Column('text', { nullable: true })
+  description?: string;
 
   @Column({ nullable: true })
   portfolio?: string;

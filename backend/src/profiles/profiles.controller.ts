@@ -40,14 +40,11 @@ export class ProfilesController {
         isAuthenticated = true;
         viewerId = payload.sub;
       } catch (error) {
-        // Игнорируем ошибку токена, так как эндпоинт публичный
       }
     }
 
-    // Получаем профиль
     const profile = await this.profilesService.getProfile(userId, isAuthenticated);
 
-    // Увеличиваем счётчик просмотров для фрилансера
     if (profile.role === 'jobseeker') {
       await this.profilesService.incrementProfileView(userId);
     }
@@ -61,9 +58,9 @@ export class ProfilesController {
     @Headers('authorization') authHeader: string,
     @Body() body: { 
       role?: string; 
-      skills?: string[]; 
-      categoryIds?: string[]; 
+      skillIds?: string[]; 
       experience?: string; 
+      description?: string;
       portfolio?: string; 
       video_intro?: string; 
       timezone?: string; 
