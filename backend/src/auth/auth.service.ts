@@ -4,7 +4,7 @@ import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
 import { BlockedCountriesService } from '../blocked-countries/blocked-countries.service';
 import { AntiFraudService } from '../anti-fraud/anti-fraud.service';
-import { EmailService } from '../email/email.service';
+import { EmailService } from '../email/email.service local';
 import * as bcrypt from 'bcrypt';
 import * as geoip from 'geoip-lite';
 import { RegisterDto } from './dto/register.dto';
