@@ -13,7 +13,7 @@ async function bootstrap() {
 
   console.log('Redis Config:', {
     host: process.env.REDIS_HOST ?? '127.0.0.1',
-    port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+    port: parseInt(process.env.REDIS_PORT ?? '6380', 10),
     password: process.env.REDIS_PASSWORD ? '[hidden]' : 'undefined',
   });
 
