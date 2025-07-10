@@ -739,9 +739,9 @@
     "error": "Unauthorized"
   } 
 
-### 13. Get Categories (Admin)
+### 13. Get Categories (Admin/Moderator)
 - **Endpoint**: `GET /api/admin/categories`
-- **Description**: Retrieves all categories in a hierarchical tree structure (admin only).
+- **Description**: Retrieves all categories in a hierarchical tree structure (admin or moderator only).
 - **Headers**: `Authorization: Bearer <token>`
 - **Response (Success - 200)**:
   ```json
@@ -789,9 +789,9 @@
     "error": "Unauthorized"
   }
 
-### 13.1. Search Categories (Admin)
+### 13.1. Search Categories (Admin/Moderator)
 - **Endpoint**: `GET /api/admin/categories/search`
-- **Description**: Searches categories by name (partial match, case-insensitive, admin only).
+- **Description**: Searches categories by name (partial match, case-insensitive, admin or moderator only).
 - **Headers**: `Authorization: Bearer <token>`
 - **Query Parameters**: `term` (string, required): Search term for category names.
 - **Example Request**: `/api/admin/categories/search?term=Web`
@@ -819,6 +819,74 @@
     "statusCode": 401,
     "message": "Invalid token",
     "error": "Unauthorized"
+  }
+
+### 13.2. Get Categories (Public)
+- **Endpoint**: `GET /api/categories`
+- **Description**: Retrieves all categories in a hierarchical tree structure, accessible to all users (including unauthenticated).
+- **Headers**: None
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "id": "<categoryId>",
+      "name": "Office and Admin",
+      "parent_id": null,
+      "created_at": "2025-05-13T18:00:00.000Z",
+      "updated_at": "2025-05-13T18:00:00.000Z",
+      "subcategories": [
+        {
+          "id": "<subcategoryId>",
+          "name": "Virtual Assistant",
+          "parent_id": "<categoryId>",
+          "created_at": "2025-05-13T18:00:00.000Z",
+          "updated_at": "2025-05-13T18:00:00.000Z",
+          "subcategories": []
+        }
+      ]
+    },
+    {
+      "id": "<categoryId>",
+      "name": "Writing",
+      "parent_id": null,
+      "created_at": "2025-05-13T18:00:00.000Z",
+      "updated_at": "2025-05-13T18:00:00.000Z",
+      "subcategories": [
+        {
+          "id": "<subcategoryId>",
+          "name": "Content Writers",
+          "parent_id": "<categoryId>",
+          "created_at": "2025-05-13T18:00:00.000Z",
+          "updated_at": "2025-05-13T18:00:00.000Z",
+          "subcategories": []
+        }
+      ]
+    }
+  ]
+
+### 13.3. Search Categories (Public)
+- **Endpoint**: `GET /api/categories/search`
+- **Description**: Searches categories by name (partial match, case-insensitive), accessible to all users (including unauthenticated).
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**: `term` (string, required): Search term for category names.
+- **Example Request**: `/api/categories/search?term=Web`
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "id": "<categoryId>",
+      "name": "Web Development",
+      "parent_id": "<parentCategoryId>",
+      "created_at": "2025-05-13T18:00:00.000Z",
+      "updated_at": "2025-05-13T18:00:00.000Z"
+    }
+  ]
+- **Response (Error - 400, if search term is missing)**:
+    ```json
+  {
+    "statusCode": 400,
+    "message": "Search term is required",
+    "error": "Bad Request"
   }
 
 ### 14. Apply to Job Post

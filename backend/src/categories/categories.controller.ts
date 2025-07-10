@@ -10,14 +10,6 @@ interface CreateCategoryDto {
 export class CategoriesController {
   constructor(private categoriesService: CategoriesService) {}
 
-  @Post()
-  async createCategory(@Body() body: CreateCategoryDto) {
-    if (!body.name) {
-      throw new BadRequestException('Category name is required');
-    }
-    return this.categoriesService.createCategory(body.name, body.parentId);
-  }
-
   @Get()
   async getCategories() {
     return this.categoriesService.getCategories();
