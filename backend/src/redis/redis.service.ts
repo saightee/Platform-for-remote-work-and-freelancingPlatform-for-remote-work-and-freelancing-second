@@ -90,7 +90,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   async setUserOnline(userId: string, role: 'jobseeker' | 'employer') {
     await this.set(`online:${userId}`, role, 300);
-    console.debug(`User ${userId} set online with role ${role}`);
+    const ttl = await this.client.ttl(`online:${userId}`);
+    console.debug(`User ${userId} set online with role ${role}, TTL: ${ttl} seconds`);
   }
 
   async getOnlineUsers() {
