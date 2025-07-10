@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as express from 'express';
 import { RedisService } from './redis/redis.service';
+import { ActivityMiddleware } from './middleware/activity.middleware';
 
 const session = require('express-session');
 const connectRedis = require('connect-redis');
@@ -28,15 +29,18 @@ async function bootstrap() {
       secret: process.env.SESSION_SECRET || 'mySuperSecretSessionKey123!@#',
       resave: false,
       saveUninitialized: false,
-      name: 'jobforge.sid', // Уникальное имя куки сессии
+      name: 'jobforge.sid',
       cookie: {
-        maxAge: 24 * 60 * 60 * 1000, // 24 часа в миллисекундах
+        maxAge: 24 * 60 * 60 * 1000, // 24 часа
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
       },
     }),
   );
+
+  // Применяем ActivityMiddleware ко всем маршрутам
+  app.use((req, res, next) => app.get(ActivityMiddleware).use(req, res, next));
 
   app.use('/Uploads', express.static('Uploads'));
 

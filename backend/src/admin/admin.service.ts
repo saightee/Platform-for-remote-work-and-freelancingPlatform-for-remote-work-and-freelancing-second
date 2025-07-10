@@ -73,7 +73,7 @@ export class AdminService {
     }
   }
 
-  async getUsers(adminId: string, filters: { username?: string; email?: string; createdAfter?: string }) {
+  async getUsers(adminId: string, filters: { username?: string; email?: string; createdAfter?: string; role?: 'employer' | 'jobseeker' | 'admin' | 'moderator'; status?: 'active' | 'blocked' }) {
     await this.checkAdminRole(adminId);
 
     const query = this.usersRepository.createQueryBuilder('user');
@@ -83,6 +83,12 @@ export class AdminService {
     }
     if (filters.email) {
       query.andWhere('user.email ILIKE :email', { email: `%${filters.email}%` });
+    }
+    if (filters.role) {
+      query.andWhere('user.role = :role', { role: filters.role });
+    }
+    if (filters.status) {
+      query.andWhere('user.status = :status', { status: filters.status });
     }
     if (filters.createdAfter) {
       const createdAfterDate = new Date(filters.createdAfter);
@@ -201,12 +207,14 @@ export class AdminService {
     return { message: 'Password reset successful' };
   }
 
-  async getJobPosts(adminId: string, filters: { 
-    status?: 'Active' | 'Draft' | 'Closed'; 
-    pendingReview?: boolean; 
-    title?: string; 
-    page?: number; 
-    limit?: number; 
+  async getJobPosts(adminId: string, filters: {
+    status?: 'Active' | 'Draft' | 'Closed';
+    pendingReview?: boolean;
+    title?: string;
+    employer_id?: string;
+    category_id?: string;
+    page?: number;
+    limit?: number;
   }) {
     await this.checkAdminRole(adminId);
 
@@ -219,6 +227,12 @@ export class AdminService {
     }
     if (filters.pendingReview !== undefined) {
       query.andWhere('jobPost.pending_review = :pendingReview', { pendingReview: filters.pendingReview });
+    }
+    if (filters.employer_id) {
+      query.andWhere('jobPost.employer_id = :employer_id', { employer_id: filters.employer_id });
+    }
+    if (filters.category_id) {
+      query.andWhere('jobPost.category_id = :category_id', { category_id: filters.category_id });
     }
     if (filters.title) {
       query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.title}%` });
@@ -588,21 +602,27 @@ export class AdminService {
   }
 
   async getJobPostsWithApplications(adminId: string) {
-      await this.checkAdminRole(adminId);
-      const jobPosts = await this.jobPostsRepository
-          .createQueryBuilder('jobPost')
-          .leftJoin('jobPost.applications', 'application')
-          .addSelect('COUNT(application.id) as applicationCount')
-          .groupBy('jobPost.id')
-          .getRawAndEntities();
-  
-      return jobPosts.entities.map((post, index) => ({
-          id: post.id,
-          title: post.title,
-          status: post.status,
-          applicationCount: parseInt(jobPosts.raw[index].applicationCount) || 0,
-          created_at: post.created_at,
-      }));
+    await this.checkAdminRole(adminId);
+    const jobPosts = await this.jobPostsRepository
+      .createQueryBuilder('jobPost')
+      .leftJoin('jobPost.applications', 'application')
+      .select([
+        'jobPost.id',
+        'jobPost.title',
+        'jobPost.status',
+        'jobPost.created_at',
+        'COUNT(application.id) as applicationCount',
+      ])
+      .groupBy('jobPost.id')
+      .getRawAndEntities();
+
+    return jobPosts.entities.map((post, index) => ({
+      id: post.id,
+      title: post.title,
+      status: post.status,
+      applicationCount: parseInt(jobPosts.raw[index].applicationCount) || 0,
+      created_at: post.created_at,
+    }));
   }
 
   async getOnlineUsers(adminId: string) {
@@ -713,4 +733,41 @@ export class AdminService {
     await this.platformFeedbackRepository.delete(feedbackId);
     return { message: 'Platform feedback deleted successfully' };
   }
-}
+
+  async rejectJobPost(adminId: string, jobPostId: string, reason: string) {
+    await this.checkAdminRole(adminId);
+    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId }, relations: ['employer'] });
+    if (!jobPost) {
+      throw new NotFoundException('Job post not found');
+    }
+
+    // Удаление связанных данных (аналогично deleteJobPost)
+    const applications = await this.jobApplicationsRepository.find({ where: { job_post_id: jobPostId } });
+    if (applications.length > 0) {
+      const applicationIds = applications.map(app => app.id);
+      await this.reviewsRepository.createQueryBuilder()
+        .delete()
+        .from(Review)
+        .where('job_application_id IN (:...applicationIds)', { applicationIds })
+        .execute();
+    }
+    await this.jobApplicationsRepository.delete({ job_post_id: jobPostId });
+    await this.applicationLimitsRepository.delete({ job_post_id: jobPostId });
+    await this.complaintsRepository.delete({ job_post_id: jobPostId });
+    await this.jobPostsRepository.delete(jobPostId);
+
+    // Отправка уведомления работодателю
+    try {
+      await this.emailService.sendJobPostRejectionNotification(
+        jobPost.employer.email,
+        jobPost.employer.username,
+        jobPost.title,
+        reason
+      );
+    } catch (error) {
+      console.error(`Failed to send rejection email to ${jobPost.employer.email}:`, error.message);
+    }
+
+    return { message: 'Job post rejected successfully', reason };
+  }
+  }

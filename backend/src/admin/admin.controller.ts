@@ -50,6 +50,8 @@ export class AdminController {
     @Query('username') username: string,
     @Query('email') email: string,
     @Query('createdAfter') createdAfter: string,
+    @Query('role') role: 'employer' | 'jobseeker' | 'admin' | 'moderator',
+    @Query('status') status: 'active' | 'blocked',
     @Headers('authorization') authHeader: string,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -59,16 +61,22 @@ export class AdminController {
     const payload = this.jwtService.verify(token);
     const userIdAdmin = payload.sub;
 
-    const filters: { username?: string; email?: string; createdAfter?: string } = {};
-    if (username) {
-      filters.username = username;
-    }
-    if (email) {
-      filters.email = email;
-    }
-    if (createdAfter) {
-      filters.createdAfter = createdAfter;
-    }
+  const filters: { username?: string; email?: string; createdAfter?: string; role?: 'employer' | 'jobseeker' | 'admin' | 'moderator'; status?: 'active' | 'blocked' } = {};
+  if (username) {
+    filters.username = username;
+  }
+  if (email) {
+    filters.email = email;
+  }
+  if (createdAfter) {
+    filters.createdAfter = createdAfter;
+  }
+  if (role) {
+    filters.role = role;
+  }
+  if (status) {
+    filters.status = status;
+  }
 
     return this.adminService.getUsers(userIdAdmin, filters);
   }
@@ -161,7 +169,9 @@ export class AdminController {
     @Query('status') status: 'Active' | 'Draft' | 'Closed',
     @Query('pendingReview') pendingReview: string,
     @Query('title') title: string, 
-    @Query('page') page: string, 
+    @Query('page') page: string,
+    @Query('employer_id') employer_id: string,
+    @Query('category_id') category_id: string, 
     @Query('limit') limit: string, 
     @Headers('authorization') authHeader: string,
   ) {
@@ -176,6 +186,8 @@ export class AdminController {
       status?: 'Active' | 'Draft' | 'Closed'; 
       pendingReview?: boolean; 
       title?: string;
+      employer_id?: string;
+      category_id?: string;
       page?: number;
       limit?: number;
     } = {};
@@ -187,6 +199,12 @@ export class AdminController {
     }
     if (title) {
       filters.title = title;
+    }
+    if (employer_id) {
+      filters.employer_id = employer_id;
+    }
+    if (category_id) {
+      filters.category_id = category_id;
     }
     if (page) {
       const parsedPage = parseInt(page, 10);
@@ -253,6 +271,27 @@ export class AdminController {
     const userIdAdmin = payload.sub;
 
     return this.adminService.approveJobPost(userIdAdmin, jobPostId);
+  }
+
+  @Post('job-posts/:id/reject')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async rejectJobPost(
+    @Param('id') jobPostId: string,
+    @Body('reason') reason: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userIdAdmin = payload.sub;
+
+    if (!reason) {
+      throw new BadRequestException('Reason for rejection is required');
+    }
+
+    return this.adminService.rejectJobPost(userIdAdmin, jobPostId, reason);
   }
 
   @Post('job-posts/:id/flag')

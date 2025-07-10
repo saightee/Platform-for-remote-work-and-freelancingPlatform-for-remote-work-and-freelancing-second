@@ -24,8 +24,8 @@ export class UsersController {
     }
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
-    if (!['jobseeker', 'employer'].includes(payload.role)) {
-      throw new UnauthorizedException('Only jobseekers and employers can check online status');
+    if (!['jobseeker', 'employer', 'admin', 'moderator'].includes(payload.role)) {
+      throw new UnauthorizedException('Only jobseekers, employers, admins, or moderators can check online status');
     }
     const user = await this.usersService.getUserById(userId);
     if (!user) {
