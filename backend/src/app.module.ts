@@ -42,7 +42,7 @@ import { PlatformFeedbackModule } from './platform-feedback/platform-feedback.mo
           port: +configService.get('POSTGRES_PORT', 5432),
           username: configService.get('POSTGRES_USER', 'onlinejobs_user'),
           password: configService.get('POSTGRES_PASSWORD', 'onlinejobs123'),
-          database: configService.get('POSTGRES_DB', 'onlinejobs_db'),
+          database: configService.get('POSTGRES_DB', 'onlinejobs_db_new'),
           autoLoadEntities: true,
           synchronize: false,
           migrations: ['dist/migration/*.js'],
