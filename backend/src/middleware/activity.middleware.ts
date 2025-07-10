@@ -11,6 +11,7 @@ export class ActivityMiddleware implements NestMiddleware {
   ) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
+    console.log(`ActivityMiddleware: Обработка запроса, path=${req.path}, sessionID=${req.sessionID}`);
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
@@ -23,17 +24,20 @@ export class ActivityMiddleware implements NestMiddleware {
         if (['jobseeker', 'employer'].includes(role)) {
           console.log(`ActivityMiddleware: Установка статуса онлайн для userId=${userId}, role=${role}, sessionID=${req.sessionID}`);
           await this.redisService.setUserOnline(userId, role as 'jobseeker' | 'employer');
-          // Проверяем, чтобы не перезаписать session.user, если не нужно
+          const ttl = await this.redisService.getClient().ttl(`online:${userId}`);
+          console.log(`ActivityMiddleware: TTL для online:${userId} = ${ttl} секунд`);
           if (!req.session.user || req.session.user.id !== userId) {
             req.session.user = { id: userId, email: payload.email, role };
             console.log(`ActivityMiddleware: Обновлен session.user для sessionID=${req.sessionID}, userId=${userId}`);
           }
+        } else {
+          console.warn(`ActivityMiddleware: Неверная роль role=${role}, userId=${userId}`);
         }
       } catch (error) {
         console.error(`ActivityMiddleware ошибка: userId=${req.session.user?.id || 'unknown'}, sessionID=${req.sessionID}, error=${error.message}`);
       }
     } else {
-      console.log(`ActivityMiddleware: Нет валидного заголовка авторизации, sessionID=${req.sessionID}`);
+      console.log(`ActivityMiddleware: Нет валидного заголовка авторизации, sessionID=${req.sessionID}, headers=${JSON.stringify(req.headers)}`);
     }
     next();
   }
