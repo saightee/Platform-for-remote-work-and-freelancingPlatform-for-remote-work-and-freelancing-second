@@ -21,14 +21,21 @@ export class ActivityMiddleware implements NestMiddleware {
         });
         const userId = payload.sub;
         const role = payload.role;
-        if (['jobseeker', 'employer'].includes(role)) {
+        if (['jobseeker', 'employer', 'admin', 'moderator'].includes(role)) {
           console.log(`ActivityMiddleware: Установка статуса онлайн для userId=${userId}, role=${role}, sessionID=${req.sessionID}`);
-          await this.redisService.setUserOnline(userId, role as 'jobseeker' | 'employer');
+          await this.redisService.extendOnlineStatus(userId, role as 'jobseeker' | 'employer' | 'admin' | 'moderator');
           const ttl = await this.redisService.getClient().ttl(`online:${userId}`);
           console.log(`ActivityMiddleware: TTL для online:${userId} = ${ttl} секунд`);
+          // Обновляем сессию только если пользователь отсутствует или отличается
           if (!req.session.user || req.session.user.id !== userId) {
             req.session.user = { id: userId, email: payload.email, role };
-            console.log(`ActivityMiddleware: Обновлен session.user для sessionID=${req.sessionID}, userId=${userId}`);
+            req.session.save((err) => {
+              if (err) {
+                console.error(`ActivityMiddleware: Ошибка сохранения сессии для userId=${userId}, sessionID=${req.sessionID}, error=${err.message}`);
+              } else {
+                console.log(`ActivityMiddleware: Сессия обновлена для userId=${userId}, sessionID=${req.sessionID}`);
+              }
+            });
           }
         } else {
           console.warn(`ActivityMiddleware: Неверная роль role=${role}, userId=${userId}`);

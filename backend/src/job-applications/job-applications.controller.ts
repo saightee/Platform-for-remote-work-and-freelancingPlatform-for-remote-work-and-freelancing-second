@@ -82,4 +82,19 @@ export class JobApplicationsController {
     console.log('Update application status result', { result });
     return result;
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':id')
+  async getApplicationById(
+    @Headers('authorization') authHeader: string,
+    @Param('id') applicationId: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+    return this.jobApplicationsService.getApplicationById(userId, applicationId);
+  }
 }

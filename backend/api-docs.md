@@ -1113,6 +1113,57 @@
     "error": "Not Found"
   }
 
+### 17.1 Get Application by ID (Employer/Admin/Moderator)
+- **Endpoint**: `GET /api/job-applications/:id`
+- **Description**: Retrieves details of a specific job application by ID. Accessible to employers (who own the job post), admins, or moderators.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job application.
+- **Response (Success - 200)**:
+  ```json
+  {
+    "applicationId": "<applicationId>",
+    "userId": "<jobseekerId>",
+    "username": "john_doe",
+    "email": "john@example.com",
+    "jobDescription": "Experienced web developer with 5 years in React",
+    "appliedAt": "2025-05-15T06:12:00.000Z",
+    "status": "Pending",
+    "job_post_id": "<jobPostId>",
+    "job_post": {
+      "id": "<jobPostId>",
+      "title": "Software Engineer",
+      "status": "Active"
+    }
+  }
+- **Response (Error - 401, if token is invalid or missing)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+- **Response (Error - 401, if user does not have permission)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only employers, admins, or moderators can view application details",
+    "error": "Unauthorized"
+  }
+- **Response (Error - 401, if employer does not own the job post)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "You do not have permission to view this application",
+    "error": "Unauthorized"
+  }
+- **Response (Error - 404, if application not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Application not found",
+    "error": "Not Found"
+  }
+
 ### 18. Update Application Status (Employer)
 - **Endpoint**: `PUT /api/job-applications/:id`
 - **Description**: Updates the status of a job application, accessible only to the employer who created the job post.
@@ -1354,9 +1405,10 @@
   - `username` (string, optional): Filter by username (partial match, case-insensitive).
   - `email` (string, optional): Filter by email (partial match, case-insensitive).
   - `createdAfter` (string, optional): Filter users created after this date (format: `YYYY-MM-DD`).
-- **Example Request**: `/api/admin/users?username=john&email=example.com&createdAfter=2025-05-01`
-
-- **Response (Success - 200)**: 
+  - `role` (string, optional): Filter by role ("employer", "jobseeker", "admin", "moderator").
+  - `status` (string, optional): Filter by status ("active", "blocked").
+- **Example Request**: `/api/admin/users?username=john&email=example.com&createdAfter=2025-05-01&role=jobseeker&status=active`
+- **Response (Success - 200)**:
   ```json
   [
     {
@@ -1364,6 +1416,7 @@
       "email": "john@example.com",
       "username": "john_doe",
       "role": "jobseeker",
+      "status": "active",
       "provider": null,
       "created_at": "2025-05-15T05:13:00.000Z",
       "updated_at": "2025-05-15T05:13:00.000Z"
@@ -1498,15 +1551,17 @@
 
 ### 27. Get All Job Posts (Admin)
 - **Endpoint**: `GET /api/admin/job-posts`
-- **Description**: Retrieves all job posts (admin only) with optional filters, pagination, and sorting. Supports filtering by status, pending review status, and job title (partial match). Returns total count and paginated data for frontend pagination
+- **Description**: Retrieves all job posts (admin only) with optional filters, pagination, and sorting. Supports filtering by status, pending review status, job title, employer ID, and category ID. Returns total count and paginated data for frontend pagination.
 - **Headers**: `Authorization: Bearer <token>`
-- **Query Parameters**: 
+- **Query Parameters**:
   - `status` (string, optional): Filter by status ("Active", "Draft", "Closed").
   - `pendingReview` (string, optional): Filter by pending review status ("true" or "false").
   - `title` (string, optional): Filter by job title (partial match, case-insensitive).
+  - `employer_id` (string, optional): Filter by employer ID.
+  - `category_id` (string, optional): Filter by category ID.
   - `page` (number, optional): Page number for pagination (default: 1).
   - `limit` (number, optional): Number of items per page (default: 10).
-- **Example Request**: `/api/admin/job-posts?status=Active&pendingReview=false&title=Software&page=1&limit=10`
+- **Example Request**: `/api/admin/job-posts?status=Active&pendingReview=false&title=Software&employer_id=<employerId>&category_id=<categoryId>&page=1&limit=10`
 - **Response (Success - 200)**: 
   ```json
   {
@@ -1535,7 +1590,8 @@
           "username": "jane_smith100",
           "role": "employer"
         },
-        "applicationLimit": 100,
+        "views": 0,
+        "required_skills": ["JavaScript", "TypeScript"],
         "created_at": "2025-05-15T06:12:00.000Z",
         "updated_at": "2025-05-15T06:12:00.000Z"
       }
@@ -2465,7 +2521,7 @@
 
 ### 62. Get User Online Status
 - **Endpoint**: `GET /api/users/:id/online`
-- **Description**: Checks if a specific user is online, based on their presence in the Redis store
+- **Description**: Checks if a specific user is online, based on their presence in the Redis store. Accessible to jobseekers, employers, admins, and moderators.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Parameters**: `id`: The ID of the user.
 - **Response (Success - 200)**:
@@ -2473,19 +2529,24 @@
   {
     "userId": "<userId>",
     "isOnline": true,
-    "role": "jobseeker" // или "employer"
+    "role": "jobseeker" // or "employer", "admin", "moderator"
   }
-
-- **Response (Error - 401, if token is invalid)**:  
-    ```json
+- **Response (Error - 401, if token is invalid)**:
+  ```json
   {
     "statusCode": 401,
     "message": "Invalid token",
     "error": "Unauthorized"
   }
-
-- **Response (Error - 404, if user not found)**:  
-    ```json
+- **Response (Error - 401, if user role is not supported)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only jobseekers, employers, admins, or moderators can check online status",
+    "error": "Unauthorized"
+  }
+- **Response (Error - 404, if user not found)**:
+  ```json
   {
     "statusCode": 404,
     "message": "User not found",
@@ -3298,4 +3359,45 @@
     "statusCode": 401,
     "message": "Only admins or moderators can access this resource",
     "error": "Unauthorized"
+  }
+
+### 81. Reject Job Post (Admin)
+- **Endpoint**: `POST /api/admin/job-posts/:id/reject`
+- **Description**: Rejects a job post by deleting it and sending a notification to the employer with the reason for rejection (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job post.
+- **Request Body**:
+  ```json
+  {
+    "reason": "Inappropriate content in job description"
+  }
+- **Response (Success - 200)**:
+  ```json
+  {
+    "message": "Job post rejected successfully",
+    "reason": "Inappropriate content in job description"
+  }
+
+- **Response (Error - 400, if reason is missing)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Reason for rejection is required",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 401, if token is invalid or user is not an admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 404, if job post not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
   }

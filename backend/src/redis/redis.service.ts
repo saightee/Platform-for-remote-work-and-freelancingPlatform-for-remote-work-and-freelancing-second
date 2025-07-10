@@ -88,11 +88,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async setUserOnline(userId: string, role: 'jobseeker' | 'employer') {
-    await this.set(`online:${userId}`, role, 300);
-    const ttl = await this.client.ttl(`online:${userId}`);
-    console.debug(`User ${userId} set online with role ${role}, TTL: ${ttl} seconds`);
-  }
+async setUserOnline(userId: string, role: 'jobseeker' | 'employer' | 'admin' | 'moderator') {
+  await this.set(`online:${userId}`, role, 300);
+  console.debug(`User ${userId} set online with role ${role}, TTL: 300 seconds`);
+}
 
   async getOnlineUsers() {
     try {
@@ -142,6 +141,17 @@ async cleanOldSessions() {
     console.log('Cleaned expired sessions:', expiredKeys.filter((k) => k));
   } catch (err) {
     console.error('Failed to clean old sessions:', err.message);
+  }
+}
+
+async extendOnlineStatus(userId: string, role: 'jobseeker' | 'employer' | 'admin' | 'moderator') {
+  const key = `online:${userId}`;
+  const exists = await this.client.get(key);
+  if (exists) {
+    await this.client.expire(key, 300); // Продлеваем TTL до 5 минут
+    console.debug(`Redis extended TTL for ${key} to 300 seconds`);
+  } else {
+    await this.setUserOnline(userId, role);
   }
 }
 }

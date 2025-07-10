@@ -165,4 +165,46 @@ export class JobApplicationsService {
     application.status = status;
     return this.jobApplicationsRepository.save(application);
   }
+
+  async getApplicationById(userId: string, applicationId: string) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (!['employer', 'admin', 'moderator'].includes(user.role)) {
+      throw new UnauthorizedException('Only employers, admins, or moderators can view application details');
+    }
+  
+    const application = await this.jobApplicationsRepository.findOne({
+      where: { id: applicationId },
+      relations: ['job_post', 'job_seeker'],
+    });
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+  
+    if (user.role === 'employer' && application.job_post.employer_id !== userId) {
+      throw new UnauthorizedException('You do not have permission to view this application');
+    }
+  
+    const jobSeeker = await this.jobSeekerRepository.findOne({
+      where: { user_id: application.job_seeker_id },
+    });
+  
+    return {
+      applicationId: application.id,
+      userId: application.job_seeker_id,
+      username: application.job_seeker.username,
+      email: application.job_seeker.email,
+      jobDescription: jobSeeker?.experience || '',
+      appliedAt: application.created_at.toISOString(),
+      status: application.status,
+      job_post_id: application.job_post_id,
+      job_post: {
+        id: application.job_post.id,
+        title: application.job_post.title,
+        status: application.job_post.status,
+      },
+    };
+  }
 }
