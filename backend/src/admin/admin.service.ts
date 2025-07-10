@@ -18,7 +18,7 @@ import { createObjectCsvStringifier } from 'csv-writer';
 import * as bcrypt from 'bcrypt';
 import { AntiFraudService } from '../anti-fraud/anti-fraud.service'; 
 import { UserFingerprint } from '../anti-fraud/entities/user-fingerprint.entity';
-import { EmailService } from '../email/email.service local';
+import { EmailService } from '../email/email.service';
 import { Complaint } from '../complaints/complaint.entity';
 import { CategoriesService } from '../categories/categories.service';
 import { Category } from '../categories/category.entity';
