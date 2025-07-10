@@ -20,7 +20,7 @@ import {
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
-  logout // Добавляем logout из api
+  logout, getAdminCategories // Добавляем logout из api
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile } from '@types';
 import { AxiosError } from 'axios';
@@ -391,7 +391,7 @@ useEffect(() => {
       getAllReviews(),
       getFeedback(),
       getBlockedCountries(),
-      getCategories(),
+      getAdminCategories(),
       getAnalytics(),
       getRegistrationStats({ startDate: '2023-01-01', endDate: new Date().toISOString().split('T')[0], interval: 'month' }),
       getGeographicDistribution({ role: 'jobseeker', startDate: today, endDate: today }),
@@ -459,69 +459,72 @@ useEffect(() => {
             setJobPosts((value as PaginatedResponse<JobPost>).data || []);
             break;
           case 2:
-            const reviewsData = value as Review[] || [];
-            const enrichedReviews = await Promise.all(
-              reviewsData.map(async (review) => {
-                try {
-                  if (!review.job_application_id) {
-                    console.warn(`No job_application_id provided for review ${review.id}`);
-                    return {
-                      ...review,
-                      job_post: null,
-                      job_seeker: null,
-                    };
-                  }
-                  console.log(`Fetching job application for review ${review.id} with ID ${review.job_application_id}`);
-                  const applicationResponse = await getJobApplicationById(review.job_application_id);
-                  const application = applicationResponse;
-                  if (!application.job_post_id || !application.job_seeker_id) {
-                    console.warn(`Invalid job_post_id or job_seeker_id for job application ${review.job_application_id}`);
-                    return {
-                      ...review,
-                      job_post: null,
-                      job_seeker: null,
-                    };
-                  }
-                  console.log(`Fetching job post for application ${review.job_application_id} with job_post_id ${application.job_post_id}`);
-                  const jobPostResponse = await getJobPost(application.job_post_id);
-                  const jobPost = jobPostResponse;
-                  console.log(`Fetching job seeker profile for application ${review.job_application_id} with job_seeker_id ${application.job_seeker_id}`);
-                  const jobSeekerResponse = await getUserProfileById(application.job_seeker_id);
-                  const jobSeeker = jobSeekerResponse;
-                  return {
-                    ...review,
-                    job_post: {
-                      id: jobPost.id,
-                      title: jobPost.title,
-                    },
-                    job_seeker: {
-                      id: jobSeeker.id,
-                      username: jobSeeker.username,
-                    },
-                  };
-                } catch (error) {
-                  const axiosError = error as AxiosError<{ message?: string }>;
-                  console.error(`Error enriching review ${review.id}:`, axiosError.response?.data?.message || axiosError.message);
-                  return {
-                    ...review,
-                    job_post: null,
-                    job_seeker: null,
-                  };
-                }
-              })
-            );
-            setReviews(enrichedReviews);
-            console.log('Enriched reviews set in state:', enrichedReviews);
-            break;
+  const reviewsData = value as Review[] || [];
+  const enrichedReviews = await Promise.all(
+    reviewsData.map(async (review) => {
+      try {
+        if (!review.job_application_id) {
+          console.warn(`No job_application_id provided for review ${review.id}`);
+          return {
+            ...review,
+            job_post: null,
+            job_seeker: null,
+          };
+        }
+        console.log(`Fetching job application for review ${review.id} with ID ${review.job_application_id}`);
+        const applicationResponse = await getJobApplicationById(review.job_application_id).catch((err) => {
+          console.warn(`Job application ${review.job_application_id} not found:`, err);
+          return null;
+        });
+        if (!applicationResponse || !applicationResponse.job_post_id || !applicationResponse.job_seeker_id) {
+          console.warn(`Invalid or missing job application data for ID ${review.job_application_id}`);
+          return {
+            ...review,
+            job_post: null,
+            job_seeker: null,
+          };
+        }
+        const application = applicationResponse;
+        console.log(`Fetching job post for application ${review.job_application_id} with job_post_id ${application.job_post_id}`);
+        const jobPostResponse = await getJobPost(application.job_post_id);
+        const jobPost = jobPostResponse;
+        console.log(`Fetching job seeker profile for application ${review.job_application_id} with job_seeker_id ${application.job_seeker_id}`);
+        const jobSeekerResponse = await getUserProfileById(application.job_seeker_id);
+        const jobSeeker = jobSeekerResponse;
+        return {
+          ...review,
+          job_post: {
+            id: jobPost.id,
+            title: jobPost.title,
+          },
+          job_seeker: {
+            id: jobSeeker.id,
+            username: jobSeeker.username,
+          },
+        };
+      } catch (error) {
+        const axiosError = error as AxiosError<{ message?: string }>;
+        console.error(`Error enriching review ${review.id}:`, axiosError.response?.data?.message || axiosError.message);
+        return {
+          ...review,
+          job_post: null,
+          job_seeker: null,
+        };
+      }
+    })
+  );
+  setReviews(enrichedReviews);
+  console.log('Enriched reviews set in state:', enrichedReviews);
+  break;
           case 3:
             setFeedback(value as Feedback[] || []);
             break;
           case 4:
             setBlockedCountries(value as BlockedCountry[] || []);
             break;
-          case 5:
-            setCategories(value as Category[] || []);
-            break;
+case 5:
+  setCategories(value as Category[] || []);
+  break;
           case 6:
             setAnalytics(value as typeof analytics || null);
             break;

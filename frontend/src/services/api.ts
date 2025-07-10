@@ -288,8 +288,15 @@ export const createCategory = async (data: { name: string; parentId?: string }) 
 };
 
 export const getCategories = async () => {
-  const response = await api.get<Category[]>('/admin/categories');
-  return response.data;
+  try {
+    const response = await api.get<Category[]>('/categories');
+    console.log('Fetched categories:', response.data);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error fetching categories:', axiosError.response?.data?.message || axiosError.message);
+    throw axiosError;
+  }
 };
 
 // Job Applications
@@ -748,6 +755,10 @@ export const getJobPostsWithApplications = async (): Promise<JobPostWithApplicat
     const response: AxiosResponse<{ id: string; title: string; status: string; applicationCount: number; created_at: string; employer_id: string }[]> = await api.get('/admin/job-posts/applications');
     const enrichedData = await Promise.all(response.data.map(async (post) => {
       try {
+        if (!post.employer_id || post.employer_id === 'undefined') {
+          console.warn(`Invalid employer_id for job post ${post.id}: ${post.employer_id}`);
+          return { ...post, username: 'N/A' } as JobPostWithApplications;
+        }
         const employer = await getUserById(post.employer_id);
         return { ...post, username: employer.username || 'N/A' } as JobPostWithApplications;
       } catch (error) {
@@ -805,3 +816,14 @@ export const getComplaintsModerator = async () => {
   return response.data;
 };
 
+export const getAdminCategories = async () => {
+  try {
+    const response = await api.get<Category[]>('/admin/categories');
+    console.log('Fetched admin categories:', response.data);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error fetching admin categories:', axiosError.response?.data?.message || axiosError.message);
+    throw axiosError;
+  }
+};

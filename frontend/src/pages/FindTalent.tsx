@@ -8,6 +8,9 @@ import { Profile, Category } from '@types';
 import { FaUserCircle, FaFilter } from 'react-icons/fa';
 import { AxiosError } from 'axios';
 
+
+
+
 interface TalentResponse {
   total: number;
   data: Profile[];
@@ -64,31 +67,29 @@ const [searchType, setSearchType] = useState<'talents' | 'jobseekers'>('talents'
   const navigate = useNavigate();
 
 
-  useEffect(() => {
+useEffect(() => {
   const fetchData = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const [response, categoriesData] = await Promise.all([
-        searchType === 'talents'
-          ? searchTalents({
-              skills: filters.skills,
-              experience: filters.experience,
-              description: filters.description,
-              rating: filters.rating,
-              timezone: filters.timezone,
-              skill_id: filters.skill_id,
-              page: filters.page,
-              limit: filters.limit,
-            })
-          : searchJobseekers({
-              username: filters.username,
-              skills: filters.skills,
-              page: filters.page,
-              limit: filters.limit,
-            }),
-        getCategories(),
-      ]);
+      const response = await (searchType === 'talents'
+        ? searchTalents({
+            skills: filters.skills,
+            experience: filters.experience,
+            description: filters.description,
+            rating: filters.rating,
+            timezone: filters.timezone,
+            skill_id: filters.skill_id,
+            page: filters.page,
+            limit: filters.limit,
+          })
+        : searchJobseekers({
+            username: filters.username,
+            skills: filters.skills,
+            page: filters.page,
+            limit: filters.limit,
+          }));
+
       console.log('Fetched data:', JSON.stringify(response, null, 2));
       let talentData: Profile[] = [];
       let totalCount = 0;
@@ -109,7 +110,9 @@ const [searchType, setSearchType] = useState<'talents' | 'jobseekers'>('talents'
 
       setTalents(talentData);
       setTotal(totalCount);
-      setCategories(categoriesData);
+
+const categoriesData = await getCategories();
+setCategories(categoriesData || []);
     } catch (err) {
       const axiosError = err as AxiosError<{ message?: string }>;
       console.error('Error fetching data:', axiosError);

@@ -172,22 +172,23 @@ const PostJob: React.FC = () => {
                       <span>Without discrimination based on gender, age, nationality and other non-business qualities</span>
                       <span>At least 150 characters</span>
                     </div>
-                    <ReactQuill
-                      value={description}
-                      onChange={setDescription}
-                      placeholder="Enter vacancy description"
-                      modules={{
-                        toolbar: [
-                          ['bold', 'italic'],
-                          [{ list: 'bullet' }, { list: 'ordered' }],
-                          ['undo'],
-                          [{ header: [1, 2, 3, false] }],
-                          ['clean']
-                        ]
-                      }}
-                      formats={['header', 'bold', 'italic', 'list', 'bullet', 'indent']}
-                      style={{ height: '380px', marginBottom: '40px' }}
-                    />
+<div style={{ height: '380px', marginBottom: '40px' }}>
+  <ReactQuill
+    value={description}
+    onChange={setDescription}
+    placeholder="Enter vacancy description"
+    modules={{
+      toolbar: [
+        ['bold', 'italic'],
+        [{ list: 'bullet' }, { list: 'ordered' }],
+        ['undo'],
+        [{ header: [1, 2, 3, false] }],
+        ['clean']
+      ]
+    }}
+    formats={['header', 'bold', 'italic', 'list', 'bullet', 'indent']}
+  />
+</div>
                     {!isDescriptionValid && (
                       <p className="error-message-symbols">A vacancy description must consist of 150 or more characters</p>
                     )}

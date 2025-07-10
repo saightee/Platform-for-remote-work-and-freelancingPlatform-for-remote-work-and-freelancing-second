@@ -39,10 +39,9 @@ export interface EmployerProfile {
 export interface JobSeekerProfile {
   id: string;
   role: 'jobseeker';
-  email?: string;
+  email?: string; // Оставлено как необязательное для публичного профиля
   username: string;
   skills?: Category[];
-  categories?: Category[];
   experience?: string;
   description?: string;
   portfolio?: string;
@@ -87,13 +86,13 @@ export interface JobPost {
   id: string;
   title: string;
   description: string;
-  location: string;
+  location?: string; // Изменено на необязательное
   salary: number | null;
   category_id?: string;
-  category?: Category;
+  category?: Category | null;
   job_type?: 'Full-time' | 'Part-time' | 'Project-based' | null;
-  employer_id: string;
-  employer?: EmployerProfile;
+  employer_id: string; // Убрано необязательное, так как всегда возвращается
+  employer?: EmployerProfile | null;
   pending_review?: boolean;
   applicationLimit?: number;
   created_at: string;
@@ -146,15 +145,15 @@ export interface Review {
     job_post_id: string;
     job_seeker_id: string;
     status: string;
-  };
+  } | null; // Добавлено null для соответствия возможным случаям
   job_post?: {
     id: string;
     title: string;
-  } | null; // Добавляем возможность null
+  } | null;
   job_seeker?: {
     id: string;
     username: string;
-  } | null; // Добавляем возможность null
+  } | null;
   created_at: string;
   updated_at: string;
 }
@@ -211,5 +210,4 @@ export interface Analytics {
   activeJobPosts: number;
   totalApplications: number;
   totalReviews: number;
-  [key: string]: any; // Для дополнительных полей
 }
