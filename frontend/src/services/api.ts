@@ -181,6 +181,20 @@ export const deleteAccount = async () => {
   return response.data;
 };
 
+export const searchCategories = async (term: string) => {
+  try {
+    const response = await api.get<Category[]>('/categories/search', {
+      params: { term },
+    });
+    console.log('Search categories response:', response.data);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error searching categories:', axiosError.response?.data?.message || axiosError.message);
+    throw axiosError;
+  }
+};
+
 export const uploadAvatar = async (formData: FormData) => {
   const response = await api.post<Profile>('/profile/upload-avatar', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -659,6 +673,15 @@ export const submitFeedback = async (message: string) => {
   return response.data;
 };
 
+export const deletePlatformFeedback = async (id: string) => {
+  const token = localStorage.getItem('token');
+  const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
+  const isModerator = decoded?.role === 'moderator';
+  const endpoint = isModerator ? `/moderator/platform-feedback/${id}` : `/admin/platform-feedback/${id}`;
+  const response = await api.delete<{ message: string }>(endpoint);
+  return response.data;
+};
+
 export const getFeedback = async () => {
   try {
     const response = await api.get<Feedback[]>('/feedback');
@@ -728,6 +751,7 @@ export interface JobPostWithApplications {
   status: string;
   applicationCount: number;
   created_at: string;
+  employer_id?: string; // Добавляем employer_id для ясности
 }
 
 export const getOnlineUsers = async (): Promise<OnlineUsers | null> => {
@@ -752,24 +776,40 @@ export const getRecentRegistrations = async (params: { limit?: number }): Promis
 
 export const getJobPostsWithApplications = async (): Promise<JobPostWithApplications[]> => {
   try {
-    const response: AxiosResponse<{ id: string; title: string; status: string; applicationCount: number; created_at: string; employer_id: string }[]> = await api.get('/admin/job-posts/applications');
+    const response: AxiosResponse<{ id: string; title: string; status: string; applicationCount: number; created_at: string; employer_id: string; employer_username?: string }[]> = await api.get('/admin/job-posts/applications', {
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+    });
+    console.log('getJobPostsWithApplications response:', response.data); // Логирование для диагностики
     const enrichedData = await Promise.all(response.data.map(async (post) => {
       try {
+        // Если employer_username уже пришел в ответе, используем его
+        if (post.employer_username) {
+          return { ...post, username: post.employer_username, applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
+        }
+        // Проверяем валидность employer_id
         if (!post.employer_id || post.employer_id === 'undefined') {
           console.warn(`Invalid employer_id for job post ${post.id}: ${post.employer_id}`);
-          return { ...post, username: 'N/A' } as JobPostWithApplications;
+          return { ...post, username: 'N/A', applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
         }
         const employer = await getUserById(post.employer_id);
-        return { ...post, username: employer.username || 'N/A' } as JobPostWithApplications;
+        if (!employer || !employer.username) {
+          console.warn(`No username found for employer_id ${post.employer_id} for job post ${post.id}`);
+          return { ...post, username: 'N/A', applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
+        }
+        return { ...post, username: employer.username, applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
       } catch (error) {
-        console.error('Error fetching employer for job post:', error);
-        return { ...post, username: 'N/A' } as JobPostWithApplications;
+        const axiosError = error as AxiosError<{ message?: string }>;
+        console.error(`Error fetching employer for job post ${post.id}:`, axiosError.response?.data?.message || axiosError.message);
+        return { ...post, username: 'N/A', applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
       }
     }));
     return enrichedData;
   } catch (error) {
-    console.error('Error fetching job posts with applications:', error);
-    return [];
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error fetching job posts with applications:', axiosError.response?.data?.message || axiosError.message);
+    throw axiosError;
   }
 };
 

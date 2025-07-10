@@ -14,36 +14,37 @@ const VerifyEmail: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    console.log('Verification token:', token); // Логирование токена для диагностики
-    if (!token) {
-      setError('Invalid or missing verification token.');
+  const token = searchParams.get('token');
+  console.log('Verification token:', token); // Логирование токена для диагностики
+  if (!token) {
+    setError('Invalid or missing verification token.');
+    setIsLoading(false);
+    return;
+  }
+
+  const verify = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await verifyEmail(token);
+      console.log('Email verification response:', response); // Логирование ответа
+      setMessage(response.message || 'Email successfully confirmed');
+      setTimeout(() => navigate('/login'), 5000); // Редирект на страницу логина через 5 секунд
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<{ message?: string }>;
+      console.error('Error verifying email:', axiosError.response?.data || axiosError.message);
+      const errorMessage =
+        axiosError.response?.status === 400
+          ? axiosError.response?.data?.message || 'Invalid or expired verification token.'
+          : 'Failed to verify email. Please try again or contact support.';
+      setError(errorMessage);
+    } finally {
       setIsLoading(false);
-      return;
     }
+  };
 
-    const verify = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await verifyEmail(token);
-        console.log('Email verification response:', response); // Логирование ответа
-        setMessage(response.message || 'Email successfully confirmed');
-        setTimeout(() => navigate('/login'), 5000); // Увеличиваем время редиректа до 5 секунд
-      } catch (err: unknown) {
-        const axiosError = err as AxiosError<{ message?: string }>;
-        console.error('Error verifying email:', axiosError.response?.data || axiosError.message);
-        setError(
-          axiosError.response?.data?.message ||
-            'Failed to verify email. The token may be invalid or expired. Please try again.'
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    verify();
-  }, [searchParams, navigate]);
+  verify();
+}, [searchParams, navigate]);
 
   return (
     <div className="container verify-email-container">

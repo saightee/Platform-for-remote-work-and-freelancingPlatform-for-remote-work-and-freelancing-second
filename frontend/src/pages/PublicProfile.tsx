@@ -17,7 +17,7 @@ const PublicProfile: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+    useEffect(() => {
     const fetchProfile = async () => {
       if (!id) {
         setError('Invalid user ID.');
@@ -35,8 +35,9 @@ const PublicProfile: React.FC = () => {
         console.log('Fetched profile:', profileData);
         setProfile(profileData);
         setReviews(reviewsData || []);
-        if (profileData.role === 'jobseeker') {
+        if (profileData.role === 'jobseeker' && !sessionStorage.getItem(`viewed_profile_${id}`)) {
           await incrementProfileView(id);
+          sessionStorage.setItem(`viewed_profile_${id}`, 'true');
         }
       } catch (error: any) {
         console.error('Error fetching public profile:', error);

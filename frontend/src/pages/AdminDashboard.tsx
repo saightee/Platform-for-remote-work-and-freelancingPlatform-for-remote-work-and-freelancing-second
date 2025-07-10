@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz'; // Для времени по Маниле
-import { FaHome, FaSignOutAlt, FaUser, FaSearch, FaArrowUp, FaArrowDown } from 'react-icons/fa'; // Иконки
+import { FaHome, FaSignOutAlt, FaUser, FaSearch, FaArrowUp, FaArrowDown, FaFilePdf } from 'react-icons/fa'; // Иконки
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'; // Диаграммы
 import { Link, useNavigate } from 'react-router-dom'; // Для навигации и Link
 import { jwtDecode } from 'jwt-decode'; // Для декодирования токена
@@ -20,7 +20,7 @@ import {
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
-  logout, getAdminCategories // Добавляем logout из api
+  logout, getAdminCategories, deletePlatformFeedback // Добавляем logout из api
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile } from '@types';
 import { AxiosError } from 'axios';
@@ -378,12 +378,12 @@ useEffect(() => {
       getJobPostsWithApplications: '',
     }));
 
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = subDays(new Date(), 1).toISOString().split('T')[0];
-    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0];
-    const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0];
-    const monthStart = startOfMonth(new Date()).toISOString().split('T')[0];
-    const monthEnd = endOfMonth(new Date()).toISOString().split('T')[0];
+      const today = format(new Date(), 'yyyy-MM-dd'); // Используем date-fns для форматирования
+      const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+      const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+      const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd');
 
     const requests = [
       getAllJobPosts({ page: jobPostPage, limit: jobPostLimit }),
@@ -486,11 +486,17 @@ useEffect(() => {
         }
         const application = applicationResponse;
         console.log(`Fetching job post for application ${review.job_application_id} with job_post_id ${application.job_post_id}`);
-        const jobPostResponse = await getJobPost(application.job_post_id);
-        const jobPost = jobPostResponse;
+        const jobPostResponse = await getJobPost(application.job_post_id).catch((err) => {
+          console.warn(`Job post ${application.job_post_id} not found:`, err);
+          return null;
+        });
+        const jobPost = jobPostResponse || { id: application.job_post_id, title: 'Unknown Job' };
         console.log(`Fetching job seeker profile for application ${review.job_application_id} with job_seeker_id ${application.job_seeker_id}`);
-        const jobSeekerResponse = await getUserProfileById(application.job_seeker_id);
-        const jobSeeker = jobSeekerResponse;
+        const jobSeekerResponse = await getUserProfileById(application.job_seeker_id).catch((err) => {
+          console.warn(`Job seeker ${application.job_seeker_id} not found:`, err);
+          return null;
+        });
+        const jobSeeker = jobSeekerResponse || { id: application.job_seeker_id, username: 'Unknown' };
         return {
           ...review,
           job_post: {
@@ -587,8 +593,9 @@ case 5:
             break;
         }
       } else {
-        console.error(`${endpoints[index]} failed:`, result.reason);
-        const errorMsg = (result.reason as AxiosError<{ message?: string }>)?.response?.data?.message || `Failed to load ${endpoints[index]} data`;
+        const axiosError = result.reason as AxiosError<{ message?: string }>;
+        console.error(`${endpoints[index]} failed:`, axiosError.response?.data?.message || axiosError.message);
+        const errorMsg = axiosError.response?.data?.message || `Failed to load ${endpoints[index]} data`;
         errors[endpoints[index]] = errorMsg;
       }
     }
@@ -963,23 +970,29 @@ const handleNotifySubmit = async () => {
   };
 
 
-  const handleSetGlobalLimit = async () => {
-    const limit = prompt('Enter global application limit:');
-    if (limit && !isNaN(Number(limit)) && Number(limit) >= 0) {
-      try {
-        await setGlobalApplicationLimit(Number(limit));
-        const limitData = await getGlobalApplicationLimit();
-        setGlobalLimit(limitData.globalApplicationLimit ?? null);
-        alert('Global application limit set successfully!');
-      } catch (error) {
-        const axiosError = error as AxiosError<{ message?: string }>;
-        console.error('Error setting global limit:', axiosError);
-        alert(axiosError.response?.data?.message || 'Failed to set global limit.');
-      }
-    } else {
-      alert('Please enter a valid non-negative number.');
+const handleSetGlobalLimit = async () => {
+  const limit = prompt('Enter global application limit:');
+  if (limit && !isNaN(Number(limit)) && Number(limit) >= 0) {
+    try {
+      const setResponse = await setGlobalApplicationLimit(Number(limit));
+      console.log('Set global application limit response:', setResponse); // Логирование ответа
+      const limitData = await getGlobalApplicationLimit();
+      console.log('Get global application limit response:', limitData); // Логирование ответа
+      setGlobalLimit(limitData.globalApplicationLimit ?? null);
+      alert(`Global application limit set to ${limitData.globalApplicationLimit ?? 'Not set'} successfully!`);
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      console.error('Error setting global limit:', axiosError.response?.data?.message || axiosError.message);
+      setFetchErrors((prev) => ({
+        ...prev,
+        getGlobalApplicationLimit: axiosError.response?.data?.message || 'Failed to set or retrieve global limit.',
+      }));
+      alert(axiosError.response?.data?.message || 'Failed to set global limit.');
     }
-  };
+  } else {
+    alert('Please enter a valid non-negative number.');
+  }
+};
 
   const handleAddBlockedCountry = async () => {
     if (!newCountryCode.trim()) {
@@ -1169,8 +1182,8 @@ if (isLoading) {
     <tbody>
       <tr>
         <td>Freelancer Signups by Country</td>
-        <td>{freelancerSignupsToday.length > 0 ? freelancerSignupsToday.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
-        <td>{freelancerSignupsYesterday.length > 0 ? freelancerSignupsYesterday.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
+        <td>{freelancerSignupsToday.length > 0 ? freelancerSignupsToday.map(item => `${item.country}: ${item.count}`).join(', ') : 'No data'}</td>
+        <td>{freelancerSignupsYesterday.length > 0 ? freelancerSignupsYesterday.map(item => `${item.country}: ${item.count}`).join(', ') : 'No data'}</td>
         <td>{freelancerSignupsWeek.length > 0 ? freelancerSignupsWeek.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
         <td>{freelancerSignupsMonth.length > 0 ? freelancerSignupsMonth.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
       </tr>
@@ -1224,7 +1237,6 @@ if (isLoading) {
                   <table className="dashboard-table">
                     <thead>
                       <tr>
-                        <th>ID</th>
                         <th>Username</th>
                         <th>Email</th>
                         <th>Created At</th>
@@ -1233,14 +1245,13 @@ if (isLoading) {
                     <tbody>
                       {recentRegistrations.jobseekers.length > 0 ? recentRegistrations.jobseekers.map((user) => (
                         <tr key={user.id}>
-                          <td>{user.id}</td>
                           <td>{user.username}</td>
                           <td>{user.email}</td>
                           <td>{format(new Date(user.created_at), 'PP')}</td>
                         </tr>
                       )) : (
                         <tr>
-                          <td colSpan={4}>No recent freelancer registrations.</td>
+                          <td colSpan={3}>No recent freelancer registrations.</td>
                         </tr>
                       )}
                     </tbody>
@@ -1252,7 +1263,6 @@ if (isLoading) {
                   <table className="dashboard-table">
                     <thead>
                       <tr>
-                        <th>ID</th>
                         <th>Username</th>
                         <th>Email</th>
                         <th>Created At</th>
@@ -1261,14 +1271,13 @@ if (isLoading) {
                     <tbody>
                       {recentRegistrations.employers.length > 0 ? recentRegistrations.employers.map((user) => (
                         <tr key={user.id}>
-                          <td>{user.id}</td>
                           <td>{user.username}</td>
                           <td>{user.email}</td>
                           <td>{format(new Date(user.created_at), 'PP')}</td>
                         </tr>
                       )) : (
                         <tr>
-                          <td colSpan={4}>No recent business registrations.</td>
+                          <td colSpan={3}>No recent business registrations.</td>
                         </tr>
                       )}
                     </tbody>
@@ -1280,41 +1289,37 @@ if (isLoading) {
   <h3>Job Postings with Applications</h3>
   <table className="dashboard-table">
     <thead>
-      <tr>
-        <th onClick={() => handleSort('id')} style={{ cursor: 'pointer' }}>
-          ID {sortColumn === 'id' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-        </th>
-        <th>Firstname Lastname</th>
-        <th>Title</th>
-        <th onClick={() => handleSort('applicationCount')} style={{ cursor: 'pointer' }}>
-          Applications {sortColumn === 'applicationCount' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-        </th>
-        <th onClick={() => handleSort('created_at')} style={{ cursor: 'pointer' }}>
-          Created At {sortColumn === 'created_at' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-        </th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {paginatedJobPostsWithApps.length > 0 ? paginatedJobPostsWithApps.map((post) => (
-        <tr key={post.id}>
-          <td>{post.id}</td>
-          <td>{post.username || 'N/A'}</td>
-          <td>{post.title}</td>
-          <td>{post.applicationCount}</td>
-          <td>{format(new Date(post.created_at), 'PP')}</td>
-          <td>
-            <button onClick={() => handleNotifyCandidates(post.id)} className="action-button">
-              Notify Seekers
-            </button>
-          </td>
-        </tr>
-      )) : (
-        <tr>
-          <td colSpan={6}>No job postings with applications found.</td>
-        </tr>
-      )}
-    </tbody>
+  <tr>
+    <th>Username</th>
+    <th>Title</th>
+    <th onClick={() => handleSort('applicationCount')} style={{ cursor: 'pointer' }}>
+      Applications {sortColumn === 'applicationCount' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+    </th>
+    <th onClick={() => handleSort('created_at')} style={{ cursor: 'pointer' }}>
+      Created At {sortColumn === 'created_at' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+    </th>
+    <th>Actions</th>
+  </tr>
+</thead>
+<tbody>
+  {paginatedJobPostsWithApps.length > 0 ? paginatedJobPostsWithApps.map((post) => (
+    <tr key={post.id}>
+      <td>{post.username || 'N/A'}</td>
+      <td>{post.title}</td>
+      <td>{post.applicationCount}</td>
+      <td>{format(new Date(post.created_at), 'PP')}</td>
+      <td>
+        <button onClick={() => handleNotifyCandidates(post.id)} className="action-button">
+          Notify Seekers
+        </button>
+      </td>
+    </tr>
+  )) : (
+    <tr>
+      <td colSpan={5}>No job postings with applications found.</td>
+    </tr>
+  )}
+</tbody>
   </table>
   <div className="pagination">
     <button
@@ -1393,85 +1398,107 @@ if (isLoading) {
       return null;
     })()}
     <table className="dashboard-table">
-      <thead>
-        <tr>
-          <th onClick={() => handleUserSort('id')} style={{ cursor: 'pointer' }}>
-            ID {userSortColumn === 'id' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-          </th>
-          <th>Username</th>
-          <th>Email</th>
-          <th onClick={() => handleUserSort('role')} style={{ cursor: 'pointer' }}>
-            Role {userSortColumn === 'role' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-          </th>
-          <th onClick={() => handleUserSort('is_blocked')} style={{ cursor: 'pointer' }}>
-            Blocked Status {userSortColumn === 'is_blocked' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-          </th>
-          <th>Online Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {sortedUsers.length > 0 ? sortedUsers.map((user) => (
-          <tr key={user.id}>
-            <td>{user.id}</td>
-            <td>{user.username}</td>
-            <td>{user.email}</td>
-            <td>{user.role}</td>
-            <td>{user.is_blocked ? 'Blocked' : 'Active'}</td>
-            <td>
-              {onlineStatuses[user.id] !== undefined ? (
-                onlineStatuses[user.id] ? 'Online' : 'Offline'
-              ) : (
-                <button
-                  onClick={() => handleCheckOnlineStatus(user.id)}
-                  className="action-button"
-                >
-                  Check Status
-                </button>
-              )}
-            </td>
-            <td>
-              <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
-                Delete
-              </button>
-              <button onClick={() => handleResetPassword(user.id)} className="action-button">
-                Reset Password
-              </button>
-              <button onClick={() => handleVerifyIdentity(user.id, true)} className="action-button success">
-                Verify Identity
-              </button>
-              <button onClick={() => handleVerifyIdentity(user.id, false)} className="action-button warning">
-                Reject Identity
-              </button>
-              {user.is_blocked ? (
-                <button
-                  onClick={() => handleUnblockUser(user.id, user.username)}
-                  className="action-button success"
-                >
-                  Unblock
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleBlockUser(user.id, user.username)}
-                  className="action-button danger"
-                >
-                  Block
-                </button>
-              )}
-              <button
-                onClick={() => handleViewRiskScore(user.id)}
-                className="action-button"
-              >
-                View Risk Score
-              </button>
-            </td>
-          </tr>
-        )) : (
-          <tr>
-            <td colSpan={7}>No users found.</td>
-          </tr>
+     <thead>
+  <tr>
+    <th onClick={() => handleUserSort('id')} style={{ cursor: 'pointer' }}>
+      ID {userSortColumn === 'id' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+    </th>
+    <th>Username</th>
+    <th>Email</th>
+    <th onClick={() => handleUserSort('role')} style={{ cursor: 'pointer' }}>
+      Role {userSortColumn === 'role' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+    </th>
+    <th onClick={() => handleUserSort('is_blocked')} style={{ cursor: 'pointer' }}>
+      Blocked Status {userSortColumn === 'is_blocked' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+    </th>
+    <th>Identity Verified</th>
+    <th>Identity Document</th>
+    <th>Online Status</th>
+    <th>Actions</th>
+  </tr>
+</thead>
+<tbody>
+  {sortedUsers.length > 0 ? sortedUsers.map((user) => (
+    <tr key={user.id}>
+      <td>{user.id}</td>
+      <td>{user.username}</td>
+      <td>{user.email}</td>
+      <td>{user.role}</td>
+      <td>{user.is_blocked ? 'Blocked' : 'Active'}</td>
+      <td>{user.identity_verified ? 'Yes' : 'No'}</td>
+      <td>
+        {user.identity_document ? (
+          user.identity_document.endsWith('.pdf') ? (
+            <a href={`https://jobforge.net/backend${user.identity_document}`} target="_blank" rel="noopener noreferrer">
+              <FaFilePdf size={20} /> View PDF
+            </a>
+          ) : (
+            <a href={`https://jobforge.net/backend${user.identity_document}`} target="_blank" rel="noopener noreferrer">
+              View Image
+            </a>
+          )
+        ) : (
+          'Not uploaded'
         )}
-      </tbody>
+      </td>
+      <td>
+        {onlineStatuses[user.id] !== undefined ? (
+          onlineStatuses[user.id] ? 'Online' : 'Offline'
+        ) : (
+          <button
+            onClick={() => handleCheckOnlineStatus(user.id)}
+            className="action-button"
+          >
+            Check Status
+          </button>
+        )}
+      </td>
+      <td>
+        <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
+          Delete
+        </button>
+        <button onClick={() => handleResetPassword(user.id)} className="action-button">
+          Reset Password
+        </button>
+        {user.identity_document && !user.identity_verified && (
+          <>
+            <button onClick={() => handleVerifyIdentity(user.id, true)} className="action-button success">
+              Verify Identity
+            </button>
+            <button onClick={() => handleVerifyIdentity(user.id, false)} className="action-button warning">
+              Reject Identity
+            </button>
+          </>
+        )}
+        {user.is_blocked ? (
+          <button
+            onClick={() => handleUnblockUser(user.id, user.username)}
+            className="action-button success"
+          >
+            Unblock
+          </button>
+        ) : (
+          <button
+            onClick={() => handleBlockUser(user.id, user.username)}
+            className="action-button danger"
+          >
+            Block
+          </button>
+        )}
+        <button
+          onClick={() => handleViewRiskScore(user.id)}
+          className="action-button"
+        >
+          View Risk Score
+        </button>
+      </td>
+    </tr>
+  )) : (
+    <tr>
+      <td colSpan={9}>No users found.</td>
+    </tr>
+  )}
+</tbody>
     </table>
     <div className="pagination">
       <button
@@ -1508,72 +1535,88 @@ if (isLoading) {
 )}
 
           {activeTab === 'Job Posts' && (
-            <div>
-              <h4>Job Posts</h4>
-              {fetchErrors.getPendingJobPosts && <p className="error-message">{fetchErrors.getPendingJobPosts}</p>}
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Title</th>
-                    <th>Status</th>
-                    <th>Pending Review</th>
-                    <th>Created At</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {jobPosts.length > 0 ? jobPosts.map((post) => (
-                    <tr key={post.id}>
-                      <td>{post.id}</td>
-                      <td>{post.title}</td>
-                      <td>{post.status}</td>
-                      <td>{post.pending_review ? 'Yes' : 'No'}</td>
-                      <td>{format(new Date(post.created_at), 'PP')}</td>
-                      <td>
-                        <button onClick={() => handleDeleteJobPost(post.id)} className="action-button danger">
-                          Delete
-                        </button>
-                        <button onClick={() => handleApproveJobPost(post.id)} className="action-button success">
-                          Approve
-                        </button>
-                        <button onClick={() => handleFlagJobPost(post.id)} className="action-button warning">
-                          Flag
-                        </button>
-                        <button onClick={() => handleSetApplicationLimit(post.id)} className="action-button">
-                          Set App Limit
-                        </button>
-                        <button onClick={() => handleNotifyCandidates(post.id)} className="action-button success">
-                          Notify Seekers
-                        </button>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={6}>No job posts found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              <div className="pagination">
-                <button
-                  onClick={() => setJobPostPage(prev => Math.max(prev - 1, 1))}
-                  disabled={jobPostPage === 1}
-                  className="action-button"
-                >
-                  Previous
+  <div>
+    <h4>Job Posts</h4>
+    <div className="form-group">
+      <label>Filter by Status:</label>
+      <select
+        value={statusFilter}
+        onChange={(e) => {
+          setStatusFilter(e.target.value as 'All' | 'Pending' | 'Resolved' | 'Rejected');
+          setJobPostPage(1); // Сбрасываем страницу при смене фильтра
+        }}
+        className="status-filter"
+      >
+        <option value="All">All</option>
+        <option value="Pending">Pending</option>
+      </select>
+    </div>
+    {fetchErrors.getPendingJobPosts && <p className="error-message">{fetchErrors.getPendingJobPosts}</p>}
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Title</th>
+          <th>Status</th>
+          <th>Pending Review</th>
+          <th>Created At</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {jobPosts.length > 0 ? jobPosts
+          .filter(post => statusFilter === 'All' || (statusFilter === 'Pending' && post.pending_review))
+          .map((post) => (
+            <tr key={post.id}>
+              <td>{post.id}</td>
+              <td>{post.title}</td>
+              <td>{post.status}</td>
+              <td>{post.pending_review ? 'Yes' : 'No'}</td>
+              <td>{format(new Date(post.created_at), 'PP')}</td>
+              <td>
+                <button onClick={() => handleDeleteJobPost(post.id)} className="action-button danger">
+                  Delete
                 </button>
-                <span className="page-number">Page {jobPostPage}</span>
-                <button
-                  onClick={() => setJobPostPage(prev => prev + 1)}
-                  disabled={jobPosts.length < jobPostLimit}
-                  className="action-button"
-                >
-                  Next
+                <button onClick={() => handleApproveJobPost(post.id)} className="action-button success">
+                  Approve
                 </button>
-              </div>
-            </div>
+                <button onClick={() => handleFlagJobPost(post.id)} className="action-button warning">
+                  Flag
+                </button>
+                <button onClick={() => handleSetApplicationLimit(post.id)} className="action-button">
+                  Set App Limit
+                </button>
+                <button onClick={() => handleNotifyCandidates(post.id)} className="action-button success">
+                  Notify Seekers
+                </button>
+              </td>
+            </tr>
+          )) : (
+            <tr>
+              <td colSpan={6}>No job posts found.</td>
+            </tr>
           )}
+      </tbody>
+    </table>
+    <div className="pagination">
+      <button
+        onClick={() => setJobPostPage(prev => Math.max(prev - 1, 1))}
+        disabled={jobPostPage === 1}
+        className="action-button"
+      >
+        Previous
+      </button>
+      <span className="page-number">Page {jobPostPage}</span>
+      <button
+        onClick={() => setJobPostPage(prev => prev + 1)}
+        disabled={jobPosts.length < jobPostLimit}
+        className="action-button"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+)}
 
           {activeTab === 'Reviews' && (
   <div>
@@ -1598,13 +1641,13 @@ if (isLoading) {
             <td>{review.rating}</td>
             <td>{review.comment}</td>
             <td>{review.reviewer?.username || 'Anonymous'}</td>
-            <td>
-              {review.job_post
-                ? `Job Post: ${review.job_post.title}`
-                : review.job_seeker
-                ? `Profile: ${review.job_seeker.username}`
-                : 'N/A'}
-            </td>
+           <td>
+            {review.job_post
+              ? `Job Post: ${review.job_post.title}`
+              : review.job_seeker
+              ? `Profile: ${review.job_seeker.username}`
+              : 'Not specified'}
+          </td>
             <td>{format(new Date(review.created_at), 'PP')}</td>
             <td>
               <button onClick={() => handleDeleteReview(review.id)} className="action-button danger">
@@ -1623,35 +1666,56 @@ if (isLoading) {
 )}
 
           {activeTab === 'Feedback' && (
-            <div>
-              <h4>Feedback</h4>
-              {fetchErrors.getFeedback && <p className="error-message">{fetchErrors.getFeedback}</p>}
-              <table className="dashboard-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Message</th>
-                    <th>User</th>
-                    <th>Created At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {feedback.length > 0 ? feedback.map((fb) => (
-                    <tr key={fb.id}>
-                      <td>{fb.id}</td>
-                      <td>{fb.message}</td>
-                      <td>{fb.user?.username || 'Unknown'}</td>
-                      <td>{format(new Date(fb.created_at), 'PP')}</td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={4}>No feedback found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+  <div>
+    <h4>Feedback</h4>
+    {fetchErrors.getFeedback && <p className="error-message">{fetchErrors.getFeedback}</p>}
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Message</th>
+          <th>User</th>
+          <th>Created At</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {feedback.length > 0 ? feedback.map((fb) => (
+          <tr key={fb.id}>
+            <td>{fb.id}</td>
+            <td>{fb.message}</td>
+            <td>{fb.user?.username || 'Unknown'}</td>
+            <td>{format(new Date(fb.created_at), 'PP')}</td>
+            <td>
+              <button
+                onClick={async () => {
+                  if (window.confirm('Are you sure you want to delete this feedback?')) {
+                    try {
+                      await deletePlatformFeedback(fb.id);
+                      setFeedback(feedback.filter((item) => item.id !== fb.id));
+                      alert('Feedback deleted successfully!');
+                    } catch (error) {
+                      const axiosError = error as AxiosError<{ message?: string }>;
+                      console.error('Error deleting feedback:', axiosError);
+                      alert(axiosError.response?.data?.message || 'Failed to delete feedback.');
+                    }
+                  }
+                }}
+                className="action-button danger"
+              >
+                Delete
+              </button>
+            </td>
+          </tr>
+        )) : (
+          <tr>
+            <td colSpan={5}>No feedback found.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+)}
 
           {activeTab === 'Categories' && (
   <div>
@@ -1682,38 +1746,28 @@ if (isLoading) {
       </button>
     </form>
     {fetchErrors.getCategories && <p className="error-message">{fetchErrors.getCategories}</p>}
-    <table className="dashboard-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Name</th>
-          <th>Parent Category</th>
-          <th>Subcategories</th>
-        </tr>
-      </thead>
-      <tbody>
-        {categories.length > 0 ? categories.map((category) => (
-          <tr key={category.id}>
-            <td>{category.id}</td>
-            <td>{category.name}</td>
-            <td>
-              {category.parent_id
-                ? categories.find((cat) => cat.id === category.parent_id)?.name || 'Unknown'
-                : 'None'}
-            </td>
-            <td>
-              {category.subcategories && category.subcategories.length > 0
-                ? category.subcategories.map((sub) => sub.name).join(', ')
-                : 'None'}
-            </td>
-          </tr>
-        )) : (
-          <tr>
-            <td colSpan={4}>No categories found.</td>
-          </tr>
-        )}
-      </tbody>
-    </table>
+    <div className="category-tree">
+      <h5>Category Hierarchy</h5>
+      <ul className="category-tree-list">
+        {categories
+          .filter((category) => !category.parent_id)
+          .map((category) => (
+            <li key={category.id} className="category-tree-item">
+              <span>{category.name} (ID: {category.id})</span>
+              {category.subcategories && category.subcategories.length > 0 && (
+                <ul className="category-tree-sublist">
+                  {category.subcategories.map((sub) => (
+                    <li key={sub.id} className="category-tree-subitem">
+                      {sub.name} (ID: {sub.id})
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        {categories.length === 0 && <p>No categories found.</p>}
+      </ul>
+    </div>
   </div>
 )}
 
@@ -2081,97 +2135,49 @@ if (isLoading) {
   </tbody>
 </table>
     <h4>Top Employers</h4>
-    {fetchErrors.getTopEmployers && <p className="error-message">{fetchErrors.getTopEmployers}</p>}
-    {topEmployers.length > 0 && (
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={topEmployers}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="username" />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey="job_count" fill="#8884d8" />
-        </BarChart>
-      </ResponsiveContainer>
+{fetchErrors.getTopEmployers && <p className="error-message">{fetchErrors.getTopEmployers}</p>}
+<table className="dashboard-table">
+  <thead>
+    <tr>
+      <th>Username</th>
+      <th>Job Count</th>
+    </tr>
+  </thead>
+  <tbody>
+    {topEmployers.length > 0 ? topEmployers.map((employer) => (
+      <tr key={employer.employer_id}>
+        <td>{employer.username}</td>
+        <td>{employer.job_count}</td>
+      </tr>
+    )) : (
+      <tr>
+        <td colSpan={2}>No top employers found.</td>
+      </tr>
     )}
-    <table className="dashboard-table">
-      <thead>
-        <tr>
-          <th>Username</th>
-          <th>Job Count</th>
-        </tr>
-      </thead>
-      <tbody>
-        {topEmployers.length > 0 ? topEmployers.map((employer) => (
-          <tr key={employer.employer_id}>
-            <td>{employer.username}</td>
-            <td>{employer.job_count}</td>
-          </tr>
-        )) : (
-          <tr>
-            <td colSpan={2}>No top employers found.</td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-    <h4>Top Employers by Job Posts</h4>
-    {fetchErrors.getTopEmployersByPosts && <p className="error-message">{fetchErrors.getTopEmployersByPosts}</p>}
-    <table className="dashboard-table">
-      <thead>
-        <tr>
-          <th>Username</th>
-          <th>Email</th>
-          <th>Job Count</th>
-        </tr>
-      </thead>
-      <tbody>
-        {topEmployersByPosts.length > 0 ? topEmployersByPosts.map((employer) => (
-          <tr key={employer.userId}>
-            <td>{employer.username}</td>
-            <td>{employer.email}</td>
-            <td>{employer.jobCount}</td>
-          </tr>
-        )) : (
-          <tr>
-            <td colSpan={3}>No top employers by posts found.</td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-    <h4>Top Jobseekers</h4>
-    {fetchErrors.getTopJobseekers && <p className="error-message">{fetchErrors.getTopJobseekers}</p>}
-    {topJobseekers.length > 0 && (
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={topJobseekers}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="username" />
-          <YAxis />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey="application_count" fill="#82ca9d" />
-        </BarChart>
-      </ResponsiveContainer>
+  </tbody>
+</table>
+<h4>Top Jobseekers</h4>
+{fetchErrors.getTopJobseekers && <p className="error-message">{fetchErrors.getTopJobseekers}</p>}
+<table className="dashboard-table">
+  <thead>
+    <tr>
+      <th>Username</th>
+      <th>Application Count</th>
+    </tr>
+  </thead>
+  <tbody>
+    {topJobseekers.length > 0 ? topJobseekers.map((jobseeker) => (
+      <tr key={jobseeker.job_seeker_id}>
+        <td>{jobseeker.username}</td>
+        <td>{jobseeker.application_count}</td>
+      </tr>
+    )) : (
+      <tr>
+        <td colSpan={2}>No top jobseekers found.</td>
+      </tr>
     )}
-    <table className="dashboard-table">
-      <thead>
-        <tr>
-          <th>Username</th>
-          <th>Application Count</th>
-        </tr>
-      </thead>
-      <tbody>
-        {topJobseekers.length > 0 ? topJobseekers.map((jobseeker) => (
-          <tr key={jobseeker.job_seeker_id}>
-            <td>{jobseeker.username}</td>
-            <td>{jobseeker.application_count}</td>
-          </tr>
-        )) : (
-          <tr>
-            <td colSpan={2}>No top jobseekers found.</td>
-          </tr>
-        )}
-      </tbody>
-    </table>
+  </tbody>
+</table>
     <h4>Top Jobseekers by Profile Views</h4>
     {fetchErrors.getTopJobseekersByViews && <p className="error-message">{fetchErrors.getTopJobseekersByViews}</p>}
     <table className="dashboard-table">
@@ -2199,19 +2205,19 @@ if (isLoading) {
   </div>
 )}
 
-          {activeTab === 'Settings' && (
-            <div>
-              <h4>Settings</h4>
-              <div className="dashboard-section">
-                <h3>Global Application Limit</h3>
-                {fetchErrors.getGlobalApplicationLimit && <p className="error-message">{fetchErrors.getGlobalApplicationLimit}</p>}
-                <p>Current Limit: {globalLimit !== null ? globalLimit : 'Not set'}</p>
-                <button onClick={handleSetGlobalLimit} className="action-button">
-                  Set Global Limit
-                </button>
-              </div>
-            </div>
-          )}
+        {activeTab === 'Settings' && (
+  <div>
+    <h4>Settings</h4>
+    <div className="dashboard-section">
+      <h3>Global Application Limit</h3>
+      {fetchErrors.getGlobalApplicationLimit && <p className="error-message">{fetchErrors.getGlobalApplicationLimit}</p>}
+      <p>Current Limit: {globalLimit !== null ? globalLimit : 'Not set'}</p>
+      <button onClick={handleSetGlobalLimit} className="action-button">
+        Set Global Limit
+      </button>
+    </div>
+  </div>
+)}
         </div>
       </div>
     </div>

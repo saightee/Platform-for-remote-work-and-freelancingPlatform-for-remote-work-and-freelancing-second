@@ -17,7 +17,11 @@ export interface User {
   created_at: string;
   updated_at: string;
   is_blocked: boolean;
+  identity_verified?: boolean;
+  identity_document?: string | null;
 }
+
+
 
 export interface EmployerProfile {
   id: string;

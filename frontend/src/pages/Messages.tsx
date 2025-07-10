@@ -204,7 +204,10 @@ const getChatPartner = (jobApplicationId: string) => {
   if (currentRole === 'jobseeker') {
     const app = applications.find((a) => a.id === jobApplicationId);
     console.log('Application for jobseeker:', app); // Отладочный лог
-    return app?.job_post?.employer?.username || app?.job_post?.employer?.email || 'Unknown';
+    if (app?.job_post?.employer_id) {
+      return app.job_post.employer?.username || 'Unknown';
+    }
+    return 'Unknown';
   } else if (currentRole === 'employer') {
     const app = Object.values(jobPostApplications).flat().find(a => a.applicationId === jobApplicationId);
     return app?.username || 'Unknown';
@@ -326,6 +329,8 @@ const getChatPartner = (jobApplicationId: string) => {
         </div>
       </div>
     </div>
+     <Footer />
+       <Copyright />
     </div>
   );
 };
