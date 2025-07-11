@@ -783,28 +783,29 @@ export const getJobPostsWithApplications = async (): Promise<JobPostWithApplicat
     });
     console.log('getJobPostsWithApplications response:', response.data); // Логирование для диагностики
     const enrichedData = await Promise.all(response.data.map(async (post) => {
-      try {
-        // Если employer_username уже пришел в ответе, используем его
-        if (post.employer_username) {
-          return { ...post, username: post.employer_username, applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
-        }
-        // Проверяем валидность employer_id
-        if (!post.employer_id || post.employer_id === 'undefined') {
-          console.warn(`Invalid employer_id for job post ${post.id}: ${post.employer_id}`);
-          return { ...post, username: 'N/A', applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
-        }
-        const employer = await getUserById(post.employer_id);
-        if (!employer || !employer.username) {
-          console.warn(`No username found for employer_id ${post.employer_id} for job post ${post.id}`);
-          return { ...post, username: 'N/A', applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
-        }
-        return { ...post, username: employer.username, applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
-      } catch (error) {
-        const axiosError = error as AxiosError<{ message?: string }>;
-        console.error(`Error fetching employer for job post ${post.id}:`, axiosError.response?.data?.message || axiosError.message);
-        return { ...post, username: 'N/A', applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
-      }
-    }));
+  try {
+    console.log('Processing post:', post); // Добавил лог для диагностики: смотри в консоли, есть ли employer_username или employer_id
+    // Если employer_username уже пришел в ответе, используем его
+    if (post.employer_username) {
+      return { ...post, username: post.employer_username, applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
+    }
+    // Проверяем валидность employer_id
+    if (!post.employer_id || post.employer_id === 'undefined') {
+      console.warn(`Invalid employer_id for job post ${post.id}: ${post.employer_id}`);
+      return { ...post, username: 'N/A', applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
+    }
+    const employer = await getUserById(post.employer_id);
+    if (!employer || !employer.username) {
+      console.warn(`No username found for employer_id ${post.employer_id} for job post ${post.id}`);
+      return { ...post, username: 'N/A', applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
+    }
+    return { ...post, username: employer.username, applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error(`Error fetching employer for job post ${post.id}:`, axiosError.response?.data?.message || axiosError.message);
+    return { ...post, username: 'N/A', applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
+  }
+}));
     return enrichedData;
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;

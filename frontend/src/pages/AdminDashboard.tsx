@@ -24,6 +24,7 @@ import {
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile } from '@types';
 import { AxiosError } from 'axios';
+import { useCallback } from 'react';
 // import {
 //   mockUsers, mockJobPosts, mockJobPostsWithApps, mockReviews, mockFeedback,
 //   mockBlockedCountries, mockCategories, mockAnalytics, mockRegistrationStats,
@@ -64,6 +65,7 @@ interface DecodedToken {
 const AdminDashboard: React.FC = () => {
   const { currentRole } = useRole();
   const [activeTab, setActiveTab] = useState('Dashboard');
+  const [showDocumentModal, setShowDocumentModal] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Resolved' | 'Rejected'>('All');
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
@@ -292,24 +294,32 @@ const sortedComplaints = [...complaints]
 
 // Для пользователей
 
-useEffect(() => {
-  const fetchUsers = async () => {
-    if (!currentRole || currentRole !== 'admin') {
-      setError('This page is only available for admins.');
-      setIsLoading(false);
-      return;
-    }
+const fetchUsers = useCallback(async (params: { page?: number; limit?: number; username?: string; email?: string } = {}) => {
+  if (!currentRole || currentRole !== 'admin') {
+    setError('This page is only available for admins.');
+    setIsLoading(false);
+    return;
+  }
 
-    try {
-      setIsLoading(true);
-      setFetchErrors((prev) => ({ ...prev, getAllUsers: '' }));
-      const userResponse = await getAllUsers({ page: userPage, limit: userLimit });
-      console.log('Raw getAllUsers response:', userResponse);
-      const userData = Array.isArray(userResponse) ? userResponse : userResponse?.data || [];
-      console.log('Extracted userData:', userData);
-      setUsers(userData);
-      console.log('Users set in state:', userData);
-      // Удаляем установку ошибки для пустого массива
+  try {
+    setIsLoading(true);
+    setFetchErrors((prev) => ({ ...prev, getAllUsers: '' }));
+    const userResponse = await getAllUsers({ page: params.page || userPage, limit: userLimit, username: params.username, email: params.email });
+    console.log('Raw getAllUsers response:', userResponse);
+    const userData = Array.isArray(userResponse) ? userResponse : userResponse?.data || [];
+    console.log('Extracted userData:', userData);
+    setUsers(userData);
+    console.log('Users set in state:', userData);
+      
+      // Добавлено: запрос онлайн-статусов для всех юзеров
+      const statusPromises = userData.map((user) => getUserOnlineStatus(user.id).catch(() => ({ isOnline: false })));
+      const statuses = await Promise.all(statusPromises);
+      const statusMap = userData.reduce((acc, user, index) => {
+        acc[user.id] = statuses[index].isOnline;
+        return acc;
+      }, {} as { [key: string]: boolean });
+      setOnlineStatuses(statusMap);
+      
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       console.error('Error fetching users:', axiosError.response?.data?.message || axiosError.message);
@@ -321,12 +331,12 @@ useEffect(() => {
     } finally {
       setIsLoading(false);
     }
-  };
-  fetchUsers();
-}, [currentRole, userPage]);
+  }, [currentRole, userPage, userLimit]);
 
 
-
+useEffect(() => {
+  fetchUsers(); // Без params, как раньше
+}, [fetchUsers]);
 
 
 // useEffect(() => {
@@ -387,7 +397,6 @@ useEffect(() => {
 
     const requests = [
       getAllJobPosts({ page: jobPostPage, limit: jobPostLimit }),
-      getAllJobPosts({ status: 'Active', pendingReview: 'true', page: jobPostPage, limit: jobPostLimit }),
       getAllReviews(),
       getFeedback(),
       getBlockedCountries(),
@@ -438,7 +447,7 @@ useEffect(() => {
     const errors: { [key: string]: string } = {};
 
     const endpoints = [
-      'getAllJobPosts', 'getPendingJobPosts', 'getAllReviews', 'getFeedback',
+      'getAllJobPosts', 'getAllReviews', 'getFeedback',
       'getBlockedCountries', 'getCategories', 'getAnalytics', 'getRegistrationStats',
       'freelancerSignupsToday', 'freelancerSignupsYesterday', 'freelancerSignupsWeek', 'freelancerSignupsMonth',
       'businessSignupsToday', 'businessSignupsYesterday', 'businessSignupsWeek', 'businessSignupsMonth',
@@ -452,13 +461,11 @@ useEffect(() => {
         console.log(`${endpoints[index]} succeeded:`, result.value);
         const value = result.value as RequestResult;
         switch (index) {
-          case 0:
-            setJobPosts((value as PaginatedResponse<JobPost>).data || []);
-            break;
+case 0:
+    setJobPosts((value as PaginatedResponse<JobPost>).data || []);
+    break;
+          
           case 1:
-            setJobPosts((value as PaginatedResponse<JobPost>).data || []);
-            break;
-          case 2:
   const reviewsData = value as Review[] || [];
   const enrichedReviews = await Promise.all(
     reviewsData.map(async (review) => {
@@ -522,73 +529,74 @@ useEffect(() => {
   setReviews(enrichedReviews);
   console.log('Enriched reviews set in state:', enrichedReviews);
   break;
-          case 3:
+          case 2:
             setFeedback(value as Feedback[] || []);
             break;
-          case 4:
+          case 3:
             setBlockedCountries(value as BlockedCountry[] || []);
             break;
-case 5:
+case 4:
   setCategories(value as Category[] || []);
   break;
-          case 6:
+          case 5:
             setAnalytics(value as typeof analytics || null);
             break;
-          case 7:
+          case 6:
             setRegistrationStats(value as { period: string; count: number }[] || []);
             break;
-          case 8:
+          case 7:
             setFreelancerSignupsToday(value as { country: string; count: number }[] || []);
             break;
-          case 9:
+          case 8:
             setFreelancerSignupsYesterday(value as { country: string; count: number }[] || []);
             break;
-          case 10:
+          case 9:
             setFreelancerSignupsWeek(value as { country: string; count: number }[] || []);
             break;
-          case 11:
+          case 10:
             setFreelancerSignupsMonth(value as { country: string; count: number }[] || []);
             break;
-          case 12:
+          case 11:
             setBusinessSignupsToday(value as { country: string; count: number }[] || []);
             break;
-          case 13:
+          case 12:
             setBusinessSignupsYesterday(value as { country: string; count: number }[] || []);
             break;
-          case 14:
+          case 13:
             setBusinessSignupsWeek(value as { country: string; count: number }[] || []);
             break;
-          case 15:
+          case 14:
             setBusinessSignupsMonth(value as { country: string; count: number }[] || []);
             break;
-          case 16:
+          case 15:
             setTopEmployers(value as { employer_id: string; username: string; job_count: number }[] || []);
             break;
-          case 17:
+          case 16:
             setTopJobseekers(value as { job_seeker_id: string; username: string; application_count: number }[] || []);
             break;
-          case 18:
+          case 17:
             setTopJobseekersByViews(value as { userId: string; username: string; email: string; profileViews: number }[] || []);
             break;
-          case 19:
+          case 18:
             setTopEmployersByPosts(value as { userId: string; username: string; email: string; jobCount: number }[] || []);
             break;
-          case 20:
+          case 19:
             setGrowthTrends(value as typeof growthTrends || { registrations: [], jobPosts: [] });
             break;
-          case 21:
+          case 20:
             setComplaints(value as typeof complaints || []);
             break;
+case 21:
+  console.log('Global limit value:', value); // Добавил лог для диагностики
+  setGlobalLimit((value as { globalApplicationLimit: number | null }).globalApplicationLimit ?? null);
+  break;
           case 22:
-            setGlobalLimit((value as { globalApplicationLimit: number | null }).globalApplicationLimit ?? null);
-            break;
-          case 23:
             setOnlineUsers(value as OnlineUsers || null);
             break;
-          case 24:
+          case 23:
             setRecentRegistrations(value as RecentRegistrations || { jobseekers: [], employers: [] });
             break;
-          case 25:
+          case 24:
             setJobPostsWithApps((value as JobPostWithApplications[]) || []);
             break;
         }
@@ -775,15 +783,14 @@ const handleRefresh = async () => {
     }
   };
 
-  const handleCreateCategory = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleCreateCategory = async (parentId?: string) => { 
   if (!newCategoryName.trim()) {
     alert('Category name cannot be empty.');
     return;
   }
   try {
-    await createCategory({ name: newCategoryName, parentId: newParentCategoryId || undefined });
-    const updatedCategories = await getCategories();
+    await createCategory({ name: newCategoryName, parentId });
+    const updatedCategories = await getAdminCategories(); // Изменил на getAdminCategories, как в fetchOtherData
     setCategories(updatedCategories || []);
     setNewCategoryName('');
     setNewParentCategoryId('');
@@ -1388,15 +1395,33 @@ if (isLoading) {
 
 {activeTab === 'Users' && (
   <div>
-    <h4>Users</h4>
-    <button onClick={handleExportUsers} className="action-button">
-      Export to CSV
-    </button>
-    {fetchErrors.getAllUsers && <p className="error-message">{fetchErrors.getAllUsers}</p>}
-    {(() => {
-      console.log('Rendering users:', sortedUsers);
-      return null;
-    })()}
+  <h4>Users</h4>
+  <button onClick={handleExportUsers} className="action-button">
+    Export to CSV
+  </button>
+  {fetchErrors.getAllUsers && <p className="error-message">{fetchErrors.getAllUsers}</p>}
+  {(() => {
+    console.log('Rendering users:', sortedUsers);
+    return null;
+  })()}
+  
+  {/* Добавлено: search bar */}
+  <div className="search-bar" style={{ marginBottom: '10px' }}>
+    <input
+      type="text"
+      placeholder="Search by username or email"
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+    />
+ <button onClick={() => {
+  fetchUsers({ username: searchQuery, email: searchQuery, page: 1 });
+  setUserPage(1);
+}} className="action-button">
+  <FaSearch />
+</button>
+  </div>
+  
+  
     <table className="dashboard-table">
      <thead>
   <tr>
@@ -1426,33 +1451,27 @@ if (isLoading) {
       <td>{user.role}</td>
       <td>{user.is_blocked ? 'Blocked' : 'Active'}</td>
       <td>{user.identity_verified ? 'Yes' : 'No'}</td>
-      <td>
-        {user.identity_document ? (
-          user.identity_document.endsWith('.pdf') ? (
-            <a href={`https://jobforge.net/backend${user.identity_document}`} target="_blank" rel="noopener noreferrer">
-              <FaFilePdf size={20} /> View PDF
-            </a>
-          ) : (
-            <a href={`https://jobforge.net/backend${user.identity_document}`} target="_blank" rel="noopener noreferrer">
-              View Image
-            </a>
-          )
-        ) : (
-          'Not uploaded'
-        )}
-      </td>
-      <td>
-        {onlineStatuses[user.id] !== undefined ? (
-          onlineStatuses[user.id] ? 'Online' : 'Offline'
-        ) : (
-          <button
-            onClick={() => handleCheckOnlineStatus(user.id)}
-            className="action-button"
-          >
-            Check Status
-          </button>
-        )}
-      </td>
+<td>
+  {user.identity_document ? (
+    user.identity_document.endsWith('.pdf') ? (
+      <a href={`https://jobforge.net/backend${user.identity_document}`} target="_blank" rel="noopener noreferrer">
+        <FaFilePdf size={20} /> View PDF
+      </a>
+    ) : (
+      <button 
+        onClick={() => setShowDocumentModal(`https://jobforge.net/backend${user.identity_document}`)} 
+        className="action-button"
+      >
+        View Image
+      </button>
+    )
+  ) : (
+    'Not uploaded'
+  )}
+</td>
+<td>
+  {onlineStatuses[user.id] ? 'Online' : 'Offline'} {/* Теперь всегда показываем, без кнопки */}
+</td>
       <td>
         <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
           Delete
@@ -1669,106 +1688,121 @@ if (isLoading) {
   <div>
     <h4>Feedback</h4>
     {fetchErrors.getFeedback && <p className="error-message">{fetchErrors.getFeedback}</p>}
-    <table className="dashboard-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Message</th>
-          <th>User</th>
-          <th>Created At</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {feedback.length > 0 ? feedback.map((fb) => (
-          <tr key={fb.id}>
-            <td>{fb.id}</td>
-            <td>{fb.message}</td>
-            <td>{fb.user?.username || 'Unknown'}</td>
-            <td>{format(new Date(fb.created_at), 'PP')}</td>
-            <td>
-              <button
-                onClick={async () => {
-                  if (window.confirm('Are you sure you want to delete this feedback?')) {
-                    try {
-                      await deletePlatformFeedback(fb.id);
-                      setFeedback(feedback.filter((item) => item.id !== fb.id));
-                      alert('Feedback deleted successfully!');
-                    } catch (error) {
-                      const axiosError = error as AxiosError<{ message?: string }>;
-                      console.error('Error deleting feedback:', axiosError);
-                      alert(axiosError.response?.data?.message || 'Failed to delete feedback.');
-                    }
-                  }
-                }}
-                className="action-button danger"
-              >
-                Delete
-              </button>
-            </td>
-          </tr>
-        )) : (
-          <tr>
-            <td colSpan={5}>No feedback found.</td>
-          </tr>
-        )}
-      </tbody>
-    </table>
+<table className="dashboard-table">
+  <thead>
+    <tr>
+      <th>Message</th>
+      <th>User</th>
+      <th>Created At</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {feedback.length > 0 ? feedback.map((fb) => (
+      <tr key={fb.id}>
+        <td>{fb.message}</td> {/* Убрал <td>{fb.id}</td> */}
+        <td>{fb.user?.username || 'Unknown'}</td>
+        <td>{format(new Date(fb.created_at), 'PP')}</td>
+        <td>
+          <button
+            onClick={async () => {
+              if (window.confirm('Are you sure you want to delete this feedback?')) {
+                try {
+                  await deletePlatformFeedback(fb.id);
+                  setFeedback(feedback.filter((item) => item.id !== fb.id));
+                  alert('Feedback deleted successfully!');
+                } catch (error) {
+                  const axiosError = error as AxiosError<{ message?: string }>;
+                  console.error('Error deleting feedback:', axiosError);
+                  alert(axiosError.response?.data?.message || 'Failed to delete feedback.');
+                }
+              }
+            }}
+            className="action-button danger"
+          >
+            Delete
+          </button>
+        </td>
+      </tr>
+    )) : (
+      <tr>
+        <td colSpan={4}>No feedback found.</td> {/* Изменил colSpan с 5 на 4 */}
+      </tr>
+    )}
+  </tbody>
+</table>
   </div>
 )}
 
           {activeTab === 'Categories' && (
-  <div>
-    <h4>Categories</h4>
-    <form onSubmit={handleCreateCategory} className="form-group">
-      <input
-        type="text"
-        value={newCategoryName}
-        onChange={(e) => setNewCategoryName(e.target.value)}
-        placeholder="Enter category name"
-      />
-      <select
-        value={newParentCategoryId}
-        onChange={(e) => setNewParentCategoryId(e.target.value)}
-        className="category-select"
-      >
-        <option value="">No Parent (Main Category)</option>
-        {categories
-          .filter((category) => !category.parent_id)
-          .map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-      </select>
-      <button type="submit" className="action-button">
-        Create Category
-      </button>
-    </form>
-    {fetchErrors.getCategories && <p className="error-message">{fetchErrors.getCategories}</p>}
-    <div className="category-tree">
-      <h5>Category Hierarchy</h5>
-      <ul className="category-tree-list">
-        {categories
-          .filter((category) => !category.parent_id)
-          .map((category) => (
-            <li key={category.id} className="category-tree-item">
-              <span>{category.name} (ID: {category.id})</span>
+ <div>
+  <h4>Categories</h4>
+  
+  {/* Добавлено: 2 формы для main и sub */}
+  <div className="form-group">
+    <h5>Create Main Category</h5>
+    <input
+      type="text"
+      value={newCategoryName}
+      onChange={(e) => setNewCategoryName(e.target.value)}
+      placeholder="Enter main category name"
+    />
+  <button onClick={() => handleCreateCategory(undefined)} className="action-button">
+</button>
+  </div>
+  
+  <div className="form-group">
+    <h5>Create Subcategory</h5>
+    <input
+      type="text"
+      value={newCategoryName}
+      onChange={(e) => setNewCategoryName(e.target.value)}
+      placeholder="Enter subcategory name"
+    />
+    <select
+      value={newParentCategoryId}
+      onChange={(e) => setNewParentCategoryId(e.target.value)}
+      className="category-select"
+    >
+      <option value="">Select parent category</option>
+      {categories
+        .filter((category) => !category.parent_id)
+        .map((category) => (
+          <option key={category.id} value={category.id}>
+            {category.name}
+          </option>
+        ))}
+    </select>
+ <button onClick={() => handleCreateCategory(newParentCategoryId)} className="action-button"> 
+</button>
+  </div>
+  
+  {fetchErrors.getCategories && <p className="error-message">{fetchErrors.getCategories}</p>}
+  <div className="category-tree">
+    <h5>Category Hierarchy</h5>
+    <ul className="category-tree-list">
+      {categories
+        .filter((category) => !category.parent_id)
+        .map((category) => (
+          <li key={category.id} className="category-tree-item">
+            <details>
+              <summary>{category.name}</summary> {/* Убрал ID, добавил details summary для развертывания */}
               {category.subcategories && category.subcategories.length > 0 && (
                 <ul className="category-tree-sublist">
                   {category.subcategories.map((sub) => (
                     <li key={sub.id} className="category-tree-subitem">
-                      {sub.name} (ID: {sub.id})
+                      {sub.name} {/* Убрал ID */}
                     </li>
                   ))}
                 </ul>
               )}
-            </li>
-          ))}
-        {categories.length === 0 && <p>No categories found.</p>}
-      </ul>
-    </div>
+            </details>
+          </li>
+        ))}
+      {categories.length === 0 && <p>No categories found.</p>}
+    </ul>
   </div>
+</div>
 )}
 
           {activeTab === 'Blocked Countries' && (
@@ -1896,16 +1930,16 @@ if (isLoading) {
               <div className="form-group">
                 <label>Select Job Post:</label>
                 <select
-                  value={selectedJobPostId}
-                  onChange={(e) => handleViewJobApplications(e.target.value)}
-                >
-                  <option value="">Select a job post</option>
-                  {jobPostsWithApps.filter(post => post.applicationCount > 0).map(post => (
-                    <option key={post.id} value={post.id}>
-                      {post.title} (ID: {post.id})
-                    </option>
-                  ))}
-                </select>
+  value={selectedJobPostId}
+  onChange={(e) => handleViewJobApplications(e.target.value)}
+>
+  <option value="">Select a job post</option>
+  {jobPostsWithApps.map(post => ( // Убрал filter, показываем все post
+    <option key={post.id} value={post.id}>
+      {post.title} (ID: {post.id})
+    </option>
+  ))}
+</select>
               </div>
               {selectedJobPostId && (
                 <div className="form-group">
@@ -2218,6 +2252,15 @@ if (isLoading) {
     </div>
   </div>
 )}
+
+{showDocumentModal && (
+        <div className="modal" onClick={() => setShowDocumentModal(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <span className="close" onClick={() => setShowDocumentModal(null)}>×</span>
+            <img src={showDocumentModal} alt="Identity Document" className="modal-image" />
+          </div>
+        </div>
+      )}
         </div>
       </div>
     </div>
