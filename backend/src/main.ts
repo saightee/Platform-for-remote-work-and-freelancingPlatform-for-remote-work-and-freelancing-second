@@ -2,7 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as express from 'express';
 import { RedisService } from './redis/redis.service';
-import { ActivityMiddleware } from './middleware/activity.middleware';
 
 const session = require('express-session');
 const connectRedis = require('connect-redis');
@@ -38,9 +37,6 @@ async function bootstrap() {
       },
     }),
   );
-
-  // Применяем ActivityMiddleware ко всем маршрутам
-  app.use((req, res, next) => app.get(ActivityMiddleware).use(req, res, next));
 
   app.use('/Uploads', express.static('Uploads'));
 
