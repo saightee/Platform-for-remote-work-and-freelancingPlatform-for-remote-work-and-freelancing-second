@@ -1812,25 +1812,28 @@
 
 ### 35. Get Registration Stats (Admin)
 - **Endpoint**: `GET /api/admin/analytics/registrations`
-- **Description**: Retrieves registration statistics over a specified period (admin only).
+- **Description**: Retrieves registration statistics over a specified period, optionally filtered by user role (admin only).
 - **Headers**: `Authorization: Bearer <token>`
 - **Query Parameters**: 
   - `startDate` (string, required): Start date in format `YYYY-MM-DD`.
   - `endDate` (string, required): End date in format `YYYY-MM-DD`.
   - `interval` (string, required): Interval for grouping ("day", "week", "month").
-- **Example Request**: `/api/admin/analytics/registrations?startDate=2025-05-01&endDate=2025-05-15&interval=day`
+  - `role` (string, optional): Filter by user role ("jobseeker", "employer", "all"). Defaults to "all".
+- **Example Request**: 
+  - Without role filter: `/api/admin/analytics/registrations?startDate=2025-05-01&endDate=2025-05-15&interval=day`
+  - With role filter: `/api/admin/analytics/registrations?startDate=2025-05-01&endDate=2025-05-15&interval=day&role=jobseeker`
 - **Response (Success - 200)**: 
   ```json
-    [
-      {
-        "period": "2025-05-01T00:00:00.000Z",
-        "count": 5
-      },
-      {
-        "period": "2025-05-02T00:00:00.000Z",
-        "count": 3
-      }
-    ]
+  [
+    {
+      "period": "2025-05-01T00:00:00.000Z",
+      "count": 5
+    },
+    {
+      "period": "2025-05-02T00:00:00.000Z",
+      "count": 3
+    }
+  ]
 
 - **Response (Error - 400, if invalid dates)**:  
   ```json
@@ -2477,9 +2480,11 @@
 
 ### 60. Get Job Posts with Applications (Admin)
 - **Endpoint**: `GET /api/admin/job-posts/applications`
-- **Description**: Retrieves all job posts with their application counts (admin only).
+- **Description**: Retrieves job posts with their application counts and employer details, optionally filtered by status (admin only).
 - **Headers**: `Authorization: Bearer <token>`
-- **Query Parameters**: `limit` (number, optional): Number of results per role (default: 5).
+- **Query Parameters**: 
+  - `limit` (number, optional): Number of results to return (default: 5).
+  - `status` (string, optional): Filter by job post status ("Active", "Draft", "Closed").
 - **Response (Success - 200)**:
   ```json
   [
@@ -2488,7 +2493,12 @@
       "title": "Software Engineer",
       "status": "Active",
       "applicationCount": 10,
-      "created_at": "2025-05-27T06:00:00.000Z"
+      "created_at": "2025-05-27T06:00:00.000Z",
+      "employer": {
+        "id": "<userId>",
+        "username": "john_doe",
+        "company_name": "Tech Corp"
+      }
     }
   ]
 

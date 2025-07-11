@@ -455,6 +455,7 @@ export class AdminController {
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
     @Query('interval') interval: 'day' | 'week' | 'month',
+    @Query('role') role: 'jobseeker' | 'employer' | 'all' = 'all', // Add role parameter
     @Headers('authorization') authHeader: string,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -470,7 +471,7 @@ export class AdminController {
       throw new BadRequestException('Invalid date format');
     }
 
-    return this.adminService.getRegistrationStats(adminId, start, end, interval);
+    return this.adminService.getRegistrationStats(adminId, start, end, interval, role); // Pass role to service
   }
 
   @Get('analytics/geographic-distribution')
@@ -596,14 +597,18 @@ export class AdminController {
 
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Get('job-posts/applications')
-  async getJobPostsWithApplications(@Headers('authorization') authHeader: string) {
+  async getJobPostsWithApplications(
+    @Headers('authorization') authHeader: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: number,
+  ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
     }
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const adminId = payload.sub;
-    return this.adminService.getJobPostsWithApplications(adminId);
+    return this.adminService.getJobPostsWithApplications(adminId, status, limit || 5);
   }
 
   @UseGuards(AuthGuard('jwt'), AdminGuard)

@@ -446,9 +446,15 @@ export class AdminService {
     return this.blockedCountriesService.getBlockedCountries();
   }
 
-  async getRegistrationStats(adminId: string, startDate: Date, endDate: Date, interval: 'day' | 'week' | 'month') {
+  async getRegistrationStats(
+    adminId: string,
+    startDate: Date,
+    endDate: Date,
+    interval: 'day' | 'week' | 'month',
+    role: 'jobseeker' | 'employer' | 'all' = 'all', // Add role parameter
+  ) {
     await this.checkAdminRole(adminId);
-    return this.usersService.getRegistrationStats(startDate, endDate, interval);
+    return this.usersService.getRegistrationStats(startDate, endDate, interval, role); // Pass role to usersService
   }
 
   async getGeographicDistribution(
@@ -601,27 +607,45 @@ export class AdminService {
     };
   }
 
-  async getJobPostsWithApplications(adminId: string) {
+  async getJobPostsWithApplications(adminId: string, status?: string, limit: number = 5) {
     await this.checkAdminRole(adminId);
-    const jobPosts = await this.jobPostsRepository
+    const query = this.jobPostsRepository
       .createQueryBuilder('jobPost')
       .leftJoin('jobPost.applications', 'application')
+      .leftJoin('jobPost.employer', 'user')
+      .leftJoin('employers', 'employer', 'employer.user_id = user.id')
       .select([
-        'jobPost.id',
-        'jobPost.title',
-        'jobPost.status',
-        'jobPost.created_at',
-        'COUNT(application.id) as applicationCount',
+        'jobPost.id AS id',
+        'jobPost.title AS title',
+        'jobPost.status AS status',
+        'jobPost.created_at AS created_at',
+        'user.id AS user_id',
+        'user.username AS username',
+        'employer.company_name AS company_name',
+        'COUNT(application.id) AS application_count', // Изменяем псевдоним на application_count
       ])
-      .groupBy('jobPost.id')
-      .getRawAndEntities();
+      .groupBy('jobPost.id, user.id, user.username, employer.company_name, employer.user_id')
+      .take(limit);
 
-    return jobPosts.entities.map((post, index) => ({
-      id: post.id,
-      title: post.title,
-      status: post.status,
-      applicationCount: parseInt(jobPosts.raw[index].applicationCount) || 0,
-      created_at: post.created_at,
+    if (status) {
+      query.andWhere('jobPost.status = :status', { status });
+    }
+
+    const jobPosts = await query.getRawMany();
+    console.log('Raw query result:', JSON.stringify(jobPosts, null, 2));
+    console.log('Query:', query.getSql());
+
+    return jobPosts.map((row) => ({
+      id: row.id,
+      title: row.title,
+      status: row.status,
+      applicationCount: parseInt(row.application_count) || 0, 
+      created_at: row.created_at,
+      employer: {
+        id: row.user_id,
+        username: row.username,
+        company_name: row.company_name || null,
+      },
     }));
   }
 
