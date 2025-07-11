@@ -171,21 +171,32 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { email } });
   }
 
-  async getRegistrationStats(startDate: Date, endDate: Date, interval: 'day' | 'week' | 'month') {
+  async getRegistrationStats(
+    startDate: Date,
+    endDate: Date,
+    interval: 'day' | 'week' | 'month',
+    role: 'jobseeker' | 'employer' | 'all' = 'all' // Добавляем role
+  ) {
     const start = new Date(startDate);
     const end = new Date(endDate);
     start.setUTCHours(0, 0, 0, 0);
     end.setUTCHours(23, 59, 59, 999);
-
-    const query = this.usersRepository.createQueryBuilder('user')
+  
+    const query = this.usersRepository
+      .createQueryBuilder('user')
       .select(`DATE_TRUNC('${interval}', user.created_at AT TIME ZONE 'UTC') as period`)
       .addSelect('COUNT(*) as count')
-      .where('user.created_at AT TIME ZONE \'UTC\' BETWEEN :startDate AND :endDate', { startDate: start, endDate: end })
-      .groupBy('period')
-      .orderBy('period', 'ASC');
-
+      .where('user.created_at AT TIME ZONE \'UTC\' BETWEEN :startDate AND :endDate', { startDate: start, endDate: end });
+  
+    // Добавляем фильтр по роли, если role !== 'all'
+    if (role !== 'all') {
+      query.andWhere('user.role = :role', { role });
+    }
+  
+    query.groupBy('period').orderBy('period', 'ASC');
+  
     const result = await query.getRawMany();
-
+  
     return result.map(row => ({
       period: row.period,
       count: parseInt(row.count, 10),
