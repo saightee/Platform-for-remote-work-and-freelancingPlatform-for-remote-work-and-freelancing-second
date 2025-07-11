@@ -82,16 +82,6 @@ import { PlatformFeedbackModule } from './platform-feedback/platform-feedback.mo
 })
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(ActivityMiddleware)
-      .forRoutes(
-        { path: 'api/profile/*path', method: RequestMethod.ALL }, // Исправлено
-        { path: 'api/job-posts/*path', method: RequestMethod.ALL },
-        { path: 'api/job-applications/*path', method: RequestMethod.ALL },
-        { path: 'api/reviews/*path', method: RequestMethod.ALL },
-        { path: 'api/talents/*path', method: RequestMethod.ALL },
-        { path: 'api/complaints/*path', method: RequestMethod.ALL },
-        { path: 'api/feedback/*path', method: RequestMethod.ALL },
-      );
+    consumer.apply(ActivityMiddleware).forRoutes('*');
   }
 }
