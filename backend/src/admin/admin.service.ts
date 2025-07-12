@@ -465,6 +465,12 @@ export class AdminService {
   ) {
     await this.checkAdminRole(adminId);
   
+    let adjustedEndDate = endDate;
+    if (endDate) {
+      adjustedEndDate = new Date(endDate);
+      adjustedEndDate.setHours(23, 59, 59, 999);  // Устанавливаем конец дня (23:59:59.999)
+    }
+  
     const query = this.usersRepository
       .createQueryBuilder('user')
       .select('user.country', 'country')
@@ -479,8 +485,8 @@ export class AdminService {
       query.andWhere('user.created_at >= :startDate', { startDate });
     }
   
-    if (endDate) {
-      query.andWhere('user.created_at <= :endDate', { endDate });
+    if (adjustedEndDate) {
+      query.andWhere('user.created_at <= :adjustedEndDate', { adjustedEndDate });
     }
   
     const result = await query.getRawMany();
