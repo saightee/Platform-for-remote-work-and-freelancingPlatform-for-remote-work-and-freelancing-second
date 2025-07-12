@@ -10,13 +10,13 @@ export class SettingsService {
     private settingsRepository: Repository<Settings>,
   ) {}
 
-  async getGlobalApplicationLimit(): Promise<number> {
+  async getGlobalApplicationLimit(): Promise<{ globalApplicationLimit: number | null }> {
     const setting = await this.settingsRepository.findOne({ where: { key: 'global_application_limit' } });
-    const limit = setting ? parseInt(setting.value, 10) : 100; // Изменено с Infinity на 100
+    let limit: number | null = setting ? parseInt(setting.value, 10) : null; 
     if (isNaN(limit) || !Number.isFinite(limit) || limit < 0) {
-      return 100; // Возвращаем 100, если значение невалидно
+      limit = null; 
     }
-    return limit;
+    return { globalApplicationLimit: limit };
   }
 
   async setGlobalApplicationLimit(value: number): Promise<void> {
