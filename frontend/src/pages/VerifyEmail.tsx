@@ -48,7 +48,7 @@ const VerifyEmail: React.FC = () => {
 
   return (
     <div className="container verify-email-container">
-      <Header />
+      
       <h2>Email Verification</h2>
       {isLoading && <p>Verifying your email...</p>}
       {message && (
@@ -66,8 +66,6 @@ const VerifyEmail: React.FC = () => {
           </p>
         </div>
       )}
-      <Footer />
-      <Copyright />
     </div>
   );
 };

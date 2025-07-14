@@ -20,7 +20,7 @@ import {
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
-  logout, getAdminCategories, deletePlatformFeedback // Добавляем logout из api
+  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback // Добавляем logout из api
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile } from '@types';
 import { AxiosError } from 'axios';
@@ -35,14 +35,7 @@ import { useCallback } from 'react';
 // } from '../mocks';
 
 
-interface JobPostWithApplications {
-  id: string;
-  username?: string; 
-  title: string;
-  status: string;
-  applicationCount: number;
-  created_at: string;
-}
+
 interface OnlineUsers {
   jobseekers: number;
   employers: number;
@@ -79,6 +72,8 @@ const AdminDashboard: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newParentCategoryId, setNewParentCategoryId] = useState<string>('');
+  const [issues, setIssues] = useState<Feedback[]>([]);
+const [stories, setStories] = useState<{ id: string; user_id: string; rating: number; description: string; created_at: string; updated_at: string; user: { id: string; username: string; role: string } }[]>([]);
   const [analytics, setAnalytics] = useState<{
     totalUsers: number;
     employers: number;
@@ -364,6 +359,7 @@ useEffect(() => {
       getPendingJobPosts: '',
       getAllReviews: '',
       getFeedback: '',
+      getPlatformFeedback: '',
       getBlockedCountries: '',
       getCategories: '',
       getAnalytics: '',
@@ -399,7 +395,8 @@ useEffect(() => {
       getAllJobPosts({ page: jobPostPage, limit: jobPostLimit }),
       getAllReviews(),
       getFeedback(),
-      getBlockedCountries(),
+      getPlatformFeedback(),
+      getBlockedCountries(), 
       getAdminCategories(),
       getAnalytics(),
       getRegistrationStats({ startDate: '2023-01-01', endDate: new Date().toISOString().split('T')[0], interval: 'month' }),
@@ -427,6 +424,7 @@ useEffect(() => {
       | PaginatedResponse<JobPost>
       | Review[]
       | Feedback[]
+      | { id: string; user_id: string; rating: number; description: string; created_at: string; updated_at: string; user: { id: string; username: string; role: string } }[]
       | BlockedCountry[]
       | Category[]
       | { totalUsers: number; employers: number; jobSeekers: number; totalJobPosts: number; activeJobPosts: number; totalApplications: number; totalReviews: number }
@@ -532,71 +530,73 @@ case 0:
           case 2:
             setFeedback(value as Feedback[] || []);
             break;
-          case 3:
+            case 3: setIssues(value as Feedback[] || []);
+            case 4: setStories(value as { id: string; user_id: string; rating: number; description: string; created_at: string; updated_at: string; user: { id: string; username: string; role: string } }[] || []);
+          case 5:
             setBlockedCountries(value as BlockedCountry[] || []);
             break;
-case 4:
+case 6:
   setCategories(value as Category[] || []);
   break;
-          case 5:
+          case 7:
             setAnalytics(value as typeof analytics || null);
             break;
-          case 6:
+          case 8:
             setRegistrationStats(value as { period: string; count: number }[] || []);
             break;
-          case 7:
+          case 9:
             setFreelancerSignupsToday(value as { country: string; count: number }[] || []);
             break;
-          case 8:
+          case 10:
             setFreelancerSignupsYesterday(value as { country: string; count: number }[] || []);
             break;
-          case 9:
+          case 11:
             setFreelancerSignupsWeek(value as { country: string; count: number }[] || []);
             break;
-          case 10:
+          case 12:
             setFreelancerSignupsMonth(value as { country: string; count: number }[] || []);
             break;
-          case 11:
+          case 13:
             setBusinessSignupsToday(value as { country: string; count: number }[] || []);
             break;
-          case 12:
+          case 14:
             setBusinessSignupsYesterday(value as { country: string; count: number }[] || []);
             break;
-          case 13:
+          case 15:
             setBusinessSignupsWeek(value as { country: string; count: number }[] || []);
             break;
-          case 14:
+          case 16:
             setBusinessSignupsMonth(value as { country: string; count: number }[] || []);
             break;
-          case 15:
+          case 17:
             setTopEmployers(value as { employer_id: string; username: string; job_count: number }[] || []);
             break;
-          case 16:
+          case 18:
             setTopJobseekers(value as { job_seeker_id: string; username: string; application_count: number }[] || []);
             break;
-          case 17:
+          case 19:
             setTopJobseekersByViews(value as { userId: string; username: string; email: string; profileViews: number }[] || []);
             break;
-          case 18:
+          case 20:
             setTopEmployersByPosts(value as { userId: string; username: string; email: string; jobCount: number }[] || []);
             break;
-          case 19:
+          case 21:
             setGrowthTrends(value as typeof growthTrends || { registrations: [], jobPosts: [] });
             break;
-          case 20:
+          case 22:
             setComplaints(value as typeof complaints || []);
             break;
-case 21:
+case 23:
   console.log('Global limit value:', value); // Добавил лог для диагностики
   setGlobalLimit((value as { globalApplicationLimit: number | null }).globalApplicationLimit ?? null);
   break;
-          case 22:
+          case 24:
             setOnlineUsers(value as OnlineUsers || null);
             break;
-          case 23:
+          case 25:
             setRecentRegistrations(value as RecentRegistrations || { jobseekers: [], employers: [] });
             break;
-          case 24:
+          case 26:
             setJobPostsWithApps((value as JobPostWithApplications[]) || []);
             break;
         }
@@ -715,18 +715,17 @@ const handleRefresh = async () => {
 
 
 
-  const handleVerifyIdentity = async (id: string, verify: boolean) => {
-    try {
-      await verifyIdentity(id, verify);
-      alert(`Identity ${verify ? 'verified' : 'rejected'} successfully!`);
-      const usersData = await getAllUsers({ page: userPage, limit: userLimit });
-      setUsers(usersData.data || []);
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error verifying identity:', axiosError);
-      alert(axiosError.response?.data?.message || 'Failed to verify identity.');
-    }
-  };
+const handleVerifyIdentity = async (id: string, verify: boolean) => {
+  try {
+    await verifyIdentity(id, verify);
+    alert(`Identity ${verify ? 'verified' : 'rejected'} successfully!`);
+    await fetchUsers({ username: searchQuery, email: searchQuery }); // Reuse fetchUsers with current searchQuery (resets page to 1 if search)
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error verifying identity:', axiosError);
+    alert(axiosError.response?.data?.message || 'Failed to verify identity.');
+  }
+};
 
   const handleBlockUser = async (id: string, username: string) => {
     if (window.confirm(`Are you sure you want to block ${username}?`)) {
@@ -839,35 +838,31 @@ const handleRefresh = async () => {
     }
   };
 
-  const handleApproveJobPost = async (id: string) => {
-    try {
-      const updatedPost = await approveJobPost(id);
-      setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
-      setJobPostsWithApps(jobPostsWithApps.map((post) => (post.id === id ? { ...post, ...updatedPost } : post)));
-      const updatedPosts = await getAllJobPosts({ status: 'Active', pendingReview: 'true', page: jobPostPage, limit: jobPostLimit });
-      setJobPosts(updatedPosts.data || []);
-      alert('Job post approved successfully!');
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error approving job post:', axiosError);
-      alert(axiosError.response?.data?.message || 'Failed to approve job post.');
-    }
-  };
+const handleApproveJobPost = async (id: string) => {
+  try {
+    const updatedPost = await approveJobPost(id);
+    setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
+    setJobPostsWithApps(jobPostsWithApps.map((post) => (post.id === id ? { ...post, status: updatedPost.status, pending_review: updatedPost.pending_review } : post)));
+    alert('Job post approved successfully!');
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error approving job post:', axiosError);
+    alert(axiosError.response?.data?.message || 'Failed to approve job post.');
+  }
+};
 
-  const handleFlagJobPost = async (id: string) => {
-    try {
-      const updatedPost = await flagJobPost(id);
-      setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
-      setJobPostsWithApps(jobPostsWithApps.map((post) => (post.id === id ? { ...post, ...updatedPost } : post)));
-      const updatedPosts = await getAllJobPosts({ status: 'Active', pendingReview: 'true', page: jobPostPage, limit: jobPostLimit });
-      setJobPosts(updatedPosts.data || []);
-      alert('Job post flagged successfully!');
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error flagging job post:', axiosError);
-      alert(axiosError.response?.data?.message || 'Failed to flag job post.');
-    }
-  };
+const handleFlagJobPost = async (id: string) => {
+  try {
+    const updatedPost = await flagJobPost(id);
+    setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
+    setJobPostsWithApps(jobPostsWithApps.map((post) => (post.id === id ? { ...post, status: updatedPost.status, pending_review: updatedPost.pending_review } : post)));
+    alert('Job post flagged successfully!');
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error flagging job post:', axiosError);
+    alert(axiosError.response?.data?.message || 'Failed to flag job post.');
+  }
+};
 
   const handleSetApplicationLimit = async (id: string) => {
     const limit = prompt('Enter application limit:');
@@ -1189,45 +1184,45 @@ if (isLoading) {
     <tbody>
       <tr>
         <td>Freelancer Signups by Country</td>
-        <td>{freelancerSignupsToday.length > 0 ? freelancerSignupsToday.map(item => `${item.country}: ${item.count}`).join(', ') : 'No data'}</td>
-        <td>{freelancerSignupsYesterday.length > 0 ? freelancerSignupsYesterday.map(item => `${item.country}: ${item.count}`).join(', ') : 'No data'}</td>
-        <td>{freelancerSignupsWeek.length > 0 ? freelancerSignupsWeek.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
-        <td>{freelancerSignupsMonth.length > 0 ? freelancerSignupsMonth.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
+        <td>{freelancerSignupsToday.length > 0 ? freelancerSignupsToday.map(item => `${item.country}: ${item.count}`).join(', ') : 'None registered'}</td>
+        <td>{freelancerSignupsYesterday.length > 0 ? freelancerSignupsYesterday.map(item => `${item.country}: ${item.count}`).join(', ') : 'None registered'}</td>
+        <td>{freelancerSignupsWeek.length > 0 ? freelancerSignupsWeek.map(item => `${item.country} ${item.count}`).join(' | ') : 'None registered'}</td>
+        <td>{freelancerSignupsMonth.length > 0 ? freelancerSignupsMonth.map(item => `${item.country} ${item.count}`).join(' | ') : 'None registered'}</td>
       </tr>
       <tr>
         <td>Business Signups by Country</td>
-        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} ${item.count}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} ${item.count}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} ${item.count}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} ${item.count}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} ${item.count}`).join(' | ') : 'None registered'}</td>
       </tr>
       <tr>
         <td>New Business Subscriptions</td>
-        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
       </tr>
       <tr>
         <td>New Business Subscription by Country</td>
-        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
       </tr>
       <tr>
         <td>Business Resubscriptions</td>
-        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
       </tr>
       <tr>
         <td>Business Resubscription by Country</td>
-        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
-        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'No data'}</td>
+        <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
+        <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
       </tr>
     </tbody>
   </table>
@@ -1299,6 +1294,7 @@ if (isLoading) {
   <tr>
     <th>Username</th>
     <th>Title</th>
+    <th>Category</th> {/* Added */}
     <th onClick={() => handleSort('applicationCount')} style={{ cursor: 'pointer' }}>
       Applications {sortColumn === 'applicationCount' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
     </th>
@@ -1313,6 +1309,7 @@ if (isLoading) {
     <tr key={post.id}>
       <td>{post.username || 'N/A'}</td>
       <td>{post.title}</td>
+      <td>{post.category || 'N/A'}</td> {/* Added */}
       <td>{post.applicationCount}</td>
       <td>{format(new Date(post.created_at), 'PP')}</td>
       <td>
@@ -1323,7 +1320,7 @@ if (isLoading) {
     </tr>
   )) : (
     <tr>
-      <td colSpan={5}>No job postings with applications found.</td>
+      <td colSpan={6}>No job postings with applications found.</td> {/* colSpan +1 */}
     </tr>
   )}
 </tbody>
@@ -1686,51 +1683,94 @@ if (isLoading) {
 
           {activeTab === 'Feedback' && (
   <div>
-    <h4>Feedback</h4>
-    {fetchErrors.getFeedback && <p className="error-message">{fetchErrors.getFeedback}</p>}
-<table className="dashboard-table">
-  <thead>
-    <tr>
-      <th>Message</th>
-      <th>User</th>
-      <th>Created At</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {feedback.length > 0 ? feedback.map((fb) => (
-      <tr key={fb.id}>
-        <td>{fb.message}</td> {/* Убрал <td>{fb.id}</td> */}
-        <td>{fb.user?.username || 'Unknown'}</td>
-        <td>{format(new Date(fb.created_at), 'PP')}</td>
-        <td>
-          <button
-            onClick={async () => {
-              if (window.confirm('Are you sure you want to delete this feedback?')) {
-                try {
-                  await deletePlatformFeedback(fb.id);
-                  setFeedback(feedback.filter((item) => item.id !== fb.id));
-                  alert('Feedback deleted successfully!');
-                } catch (error) {
-                  const axiosError = error as AxiosError<{ message?: string }>;
-                  console.error('Error deleting feedback:', axiosError);
-                  alert(axiosError.response?.data?.message || 'Failed to delete feedback.');
-                }
-              }
-            }}
-            className="action-button danger"
-          >
-            Delete
-          </button>
-        </td>
-      </tr>
-    )) : (
+  <h4>Issues Feedback (Technical/Support)</h4>
+  <table className="dashboard-table">
+    <thead>
       <tr>
-        <td colSpan={4}>No feedback found.</td> {/* Изменил colSpan с 5 на 4 */}
+        <th>Message</th>
+        <th>User</th>
+        <th>Created At</th>
+        <th>Actions</th>
       </tr>
-    )}
-  </tbody>
-</table>
+    </thead>
+    <tbody>
+      {issues.length > 0 ? issues.map((fb) => (
+        <tr key={fb.id}>
+          <td>{fb.message}</td>
+          <td>{fb.user?.username || 'Unknown'}</td>
+          <td>{format(new Date(fb.created_at), 'PP')}</td>
+          <td>
+            <button
+              onClick={async () => {
+                if (window.confirm('Are you sure you want to delete this feedback?')) {
+                  try {
+                    await deletePlatformFeedback(fb.id); // Reuse, but endpoint is same for both? No, for issues it's /admin/feedback/:id DELETE? Docs no, only for platform-feedback.
+                    setIssues(issues.filter((item) => item.id !== fb.id));
+                    alert('Feedback deleted successfully!');
+                  } catch (error) {
+                    // ...
+                  }
+                }
+              }}
+              className="action-button danger"
+            >
+              Delete
+            </button>
+          </td>
+        </tr>
+      )) : (
+        <tr>
+          <td colSpan={4}>No issues feedback found.</td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+
+  <h4>Success Stories Feedback</h4>
+  <table className="dashboard-table">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th>Rating</th>
+        <th>User</th>
+        <th>Created At</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {stories.length > 0 ? stories.map((story) => (
+        <tr key={story.id}>
+          <td>{story.description}</td>
+          <td>{story.rating}</td>
+          <td>{story.user?.username || 'Unknown'}</td>
+          <td>{format(new Date(story.created_at), 'PP')}</td>
+          <td>
+            <button
+              onClick={async () => {
+                if (window.confirm('Are you sure you want to delete this story?')) {
+                  try {
+                    await deletePlatformFeedback(story.id);
+                    setStories(stories.filter((item) => item.id !== story.id));
+                    alert('Story deleted successfully!');
+                  } catch (error) {
+                    // ...
+                  }
+                }
+              }}
+              className="action-button danger"
+            >
+              Delete
+            </button>
+          </td>
+        </tr>
+      )) : (
+        <tr>
+          <td colSpan={5}>No success stories found.</td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+
   </div>
 )}
 

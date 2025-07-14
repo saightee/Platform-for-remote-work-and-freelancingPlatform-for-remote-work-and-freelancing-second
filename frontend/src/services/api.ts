@@ -751,7 +751,8 @@ export interface JobPostWithApplications {
   status: string;
   applicationCount: number;
   created_at: string;
-  employer_id?: string; // Добавляем employer_id для ясности
+  // employer_id?: string; 
+  category?: string;
 }
 
 export const getOnlineUsers = async (): Promise<OnlineUsers | null> => {
@@ -782,28 +783,41 @@ export const getJobPostsWithApplications = async (): Promise<JobPostWithApplicat
       },
     });
     console.log('getJobPostsWithApplications response:', response.data); // Логирование для диагностики
-    const enrichedData = await Promise.all(response.data.map(async (post) => {
+    const enrichedData = await Promise.all(response.data.map(async (post: { id: string; title: string; status: string; applicationCount: number; created_at: string; employer_id: string; employer_username?: string }) => {
   try {
     console.log('Processing post:', post); // Добавил лог для диагностики: смотри в консоли, есть ли employer_username или employer_id
-    // Если employer_username уже пришел в ответе, используем его
+    let username = 'N/A';
+    let category = 'N/A';
+
+    // Fetch username if not provided
     if (post.employer_username) {
-      return { ...post, username: post.employer_username, applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
-    }
-    // Проверяем валидность employer_id
-    if (!post.employer_id || post.employer_id === 'undefined') {
+      username = post.employer_username;
+    } else if (post.employer_id && post.employer_id !== 'undefined') {
+      const employer = await getUserById(post.employer_id);
+      username = employer?.username || 'N/A';
+    } else {
       console.warn(`Invalid employer_id for job post ${post.id}: ${post.employer_id}`);
-      return { ...post, username: 'N/A', applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
     }
-    const employer = await getUserById(post.employer_id);
-    if (!employer || !employer.username) {
-      console.warn(`No username found for employer_id ${post.employer_id} for job post ${post.id}`);
-      return { ...post, username: 'N/A', applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
-    }
-    return { ...post, username: employer.username, applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
+
+    // Fetch category from job post details (since not in response)
+    const jobDetails = await getJobPost(post.id);
+    category = jobDetails.category?.name || 'N/A';
+
+    return { 
+      ...post, 
+      username, 
+      category, // Добавляем category
+      applicationCount: post.applicationCount || 0 
+    } as JobPostWithApplications;
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
-    console.error(`Error fetching employer for job post ${post.id}:`, axiosError.response?.data?.message || axiosError.message);
-    return { ...post, username: 'N/A', applicationCount: post.applicationCount || 0 } as JobPostWithApplications;
+    console.error(`Error enriching job post ${post.id}:`, axiosError.response?.data?.message || axiosError.message);
+    return { 
+      ...post, 
+      username: 'N/A', 
+      category: 'N/A', // Fallback for category
+      applicationCount: post.applicationCount || 0 
+    } as JobPostWithApplications;
   }
 }));
     return enrichedData;
@@ -865,6 +879,17 @@ export const getAdminCategories = async () => {
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
     console.error('Error fetching admin categories:', axiosError.response?.data?.message || axiosError.message);
+    throw axiosError;
+  }
+};
+
+export const getPlatformFeedback = async () => {
+  try {
+    const response = await api.get('/admin/platform-feedback');
+    return response.data.data || []; // Paginated, так что data.data
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error fetching platform feedback:', axiosError.response?.data?.message || axiosError.message);
     throw axiosError;
   }
 };

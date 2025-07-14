@@ -37,6 +37,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import Complaint from './pages/Complaint';
 import ForgotPassword from './pages/ForgotPassword';
 import CheckEmail from './pages/CheckEmail';
+import Support from './pages/Support';
 
 const App: React.FC = () => {
   return (
@@ -49,6 +50,7 @@ const App: React.FC = () => {
           <Route path="/register/:role" element={<Register />} />
           <Route path="/role-selection" element={<RoleSelection />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/support" element={<Support />} />
           <Route path="/public-profile/:id" element={<PublicProfile />} />
           <Route path="/check-email" element={<CheckEmail />} />
           <Route path="/post-job" element={<PostJob />} />
