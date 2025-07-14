@@ -24,6 +24,7 @@ import { CategoriesService } from '../categories/categories.service';
 import { Category } from '../categories/category.entity';
 import { Feedback } from '../feedback/feedback.entity';
 import { PlatformFeedback } from '../platform-feedback/platform-feedback.entity';
+import { Message } from '../chat/entities/message.entity';
 
 @Injectable()
 export class AdminService {
@@ -61,6 +62,8 @@ export class AdminService {
     private feedbackRepository: Repository<Feedback>,
     @InjectRepository(PlatformFeedback)
     private platformFeedbackRepository: Repository<PlatformFeedback>,
+    @InjectRepository(Message)
+    private messagesRepository: Repository<Message>,
   ) {}
 
   async checkAdminRole(userId: string) {
@@ -146,52 +149,54 @@ export class AdminService {
   }
 
   async deleteUser(adminId: string, userId: string) {
-      await this.checkAdminRole(adminId);
-      const user = await this.usersRepository.findOne({ where: { id: userId } });
-      if (!user) {
-          throw new NotFoundException('User not found');
-      }
+    await this.checkAdminRole(adminId);
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
 
-      try {
-          if (user.role === 'employer') {
-              const jobPosts = await this.jobPostsRepository.find({ where: { employer_id: userId } });
-              for (const jobPost of jobPosts) {
-                  const applications = await this.jobApplicationsRepository.find({ where: { job_post_id: jobPost.id } });
-                  if (applications.length > 0) {
-                      const applicationIds = applications.map(app => app.id);
-                      await this.reviewsRepository.delete({ job_application_id: In(applicationIds) });
-                  }
-                  await this.jobApplicationsRepository.delete({ job_post_id: jobPost.id });
-                  await this.applicationLimitsRepository.delete({ job_post_id: jobPost.id });
-                  await this.jobPostsRepository.delete(jobPost.id);
-              }
-              await this.employerRepository.delete({ user_id: userId });
-          } else if (user.role === 'jobseeker') {
-              const applications = await this.jobApplicationsRepository.find({ where: { job_seeker_id: userId } });
-              if (applications.length > 0) {
-                  const applicationIds = applications.map(app => app.id);
-                  await this.reviewsRepository.delete({ job_application_id: In(applicationIds) });
-              }
-              await this.jobApplicationsRepository.delete({ job_seeker_id: userId });
-              await this.jobSeekerRepository.delete({ user_id: userId });
+    try {
+      if (user.role === 'employer') {
+        const jobPosts = await this.jobPostsRepository.find({ where: { employer_id: userId } });
+        for (const jobPost of jobPosts) {
+          const applications = await this.jobApplicationsRepository.find({ where: { job_post_id: jobPost.id } });
+          if (applications.length > 0) {
+            const applicationIds = applications.map(app => app.id);
+            await this.reviewsRepository.delete({ job_application_id: In(applicationIds) });
+            await this.messagesRepository.delete({ job_application_id: In(applicationIds) });
           }
-
-          await this.reviewsRepository.delete({ reviewer_id: userId });
-          await this.reviewsRepository.delete({ reviewed_id: userId });
-
-          await this.complaintsRepository.delete({ complainant_id: userId });
-          await this.complaintsRepository.delete({ profile_id: userId });
-
-          await this.feedbackRepository.delete({ user_id: userId });
-          await this.fingerprintRepository.delete({ user_id: userId });
-          await this.platformFeedbackRepository.delete({ user_id: userId });
-
-          await this.usersRepository.delete(userId);
-          return { message: 'User deleted successfully' };
-      } catch (error) {
-          console.error('Error deleting user:', error);
-          throw new BadRequestException('Failed to delete user: ' + error.message);
+          await this.jobApplicationsRepository.delete({ job_post_id: jobPost.id });
+          await this.applicationLimitsRepository.delete({ job_post_id: jobPost.id });
+          await this.jobPostsRepository.delete(jobPost.id);
+        }
+        await this.employerRepository.delete({ user_id: userId });
+      } else if (user.role === 'jobseeker') {
+        const applications = await this.jobApplicationsRepository.find({ where: { job_seeker_id: userId } });
+        if (applications.length > 0) {
+          const applicationIds = applications.map(app => app.id);
+          await this.reviewsRepository.delete({ job_application_id: In(applicationIds) });
+          await this.messagesRepository.delete({ job_application_id: In(applicationIds) });
+        }
+        await this.jobApplicationsRepository.delete({ job_seeker_id: userId });
+        await this.jobSeekerRepository.delete({ user_id: userId });
       }
+
+      await this.reviewsRepository.delete({ reviewer_id: userId });
+      await this.reviewsRepository.delete({ reviewed_id: userId });
+
+      await this.complaintsRepository.delete({ complainant_id: userId });
+      await this.complaintsRepository.delete({ profile_id: userId });
+
+      await this.feedbackRepository.delete({ user_id: userId });
+      await this.fingerprintRepository.delete({ user_id: userId });
+      await this.platformFeedbackRepository.delete({ user_id: userId });
+
+      await this.usersRepository.delete(userId);
+      return { message: 'User deleted successfully' };
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw new BadRequestException('Failed to delete user: ' + error.message);
+    }
   }
 
   async resetPassword(adminId: string, userId: string, newPassword: string) {
@@ -289,9 +294,7 @@ export class AdminService {
     }
 
     try {
-
       const applications = await this.jobApplicationsRepository.find({ where: { job_post_id: jobPostId } });
-
       if (applications.length > 0) {
         const applicationIds = applications.map(app => app.id);
         await this.reviewsRepository.createQueryBuilder()
@@ -299,8 +302,8 @@ export class AdminService {
           .from(Review)
           .where('job_application_id IN (:...applicationIds)', { applicationIds })
           .execute();
+        await this.messagesRepository.delete({ job_application_id: In(applicationIds) });
       }
-
       await this.jobApplicationsRepository.delete({ job_post_id: jobPostId });
       await this.applicationLimitsRepository.delete({ job_post_id: jobPostId });
       await this.complaintsRepository.delete({ job_post_id: jobPostId });
@@ -780,6 +783,7 @@ export class AdminService {
         .from(Review)
         .where('job_application_id IN (:...applicationIds)', { applicationIds })
         .execute();
+      await this.messagesRepository.delete({ job_application_id: In(applicationIds) });
     }
     await this.jobApplicationsRepository.delete({ job_post_id: jobPostId });
     await this.applicationLimitsRepository.delete({ job_post_id: jobPostId });
