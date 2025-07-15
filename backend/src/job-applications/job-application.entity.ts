@@ -14,6 +14,9 @@ export class JobApplication {
   @JoinColumn({ name: 'job_post_id' })
   job_post: JobPost;
 
+  @Column({ type: 'text', nullable: true })
+  cover_letter: string;
+
   @Column()
   job_seeker_id: string;
 
