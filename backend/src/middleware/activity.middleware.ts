@@ -26,7 +26,6 @@ export class ActivityMiddleware implements NestMiddleware {
           await this.redisService.extendOnlineStatus(userId, role as 'jobseeker' | 'employer' | 'admin' | 'moderator');
           const ttl = await this.redisService.getClient().ttl(`online:${userId}`);
           console.log(`ActivityMiddleware: TTL для online:${userId} = ${ttl} секунд`);
-          // Обновляем сессию только если пользователь отсутствует или отличается
           if (!req.session.user || req.session.user.id !== userId) {
             req.session.user = { id: userId, email: payload.email, role };
             req.session.save((err) => {

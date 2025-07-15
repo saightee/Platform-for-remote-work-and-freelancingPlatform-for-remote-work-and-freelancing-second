@@ -11,14 +11,14 @@ export class ApplicationLimitsService {
   ) {}
 
   async initializeLimits(jobPostId: string, totalLimit: number): Promise<void> {
-    const distribution = [0.6, 0.8, 0.9, 1.0]; // Кумулятивные лимиты: 60%, 80%, 90%, 100%
+    const distribution = [0.6, 0.8, 0.9, 1.0]; 
     const now = new Date();
 
     for (let day = 1; day <= 4; day++) {
       const cumulativeLimit = Math.floor(totalLimit * distribution[day - 1]);
       const allowedApplications = day === 1 
         ? cumulativeLimit 
-        : Math.floor(totalLimit * (distribution[day - 1] - distribution[day - 2])); // Разница для дня
+        : Math.floor(totalLimit * (distribution[day - 1] - distribution[day - 2])); 
 
       const date = new Date(now);
       date.setDate(now.getDate() + (day - 1));

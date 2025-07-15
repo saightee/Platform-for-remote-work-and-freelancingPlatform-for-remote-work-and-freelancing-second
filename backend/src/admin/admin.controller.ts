@@ -455,7 +455,7 @@ export class AdminController {
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
     @Query('interval') interval: 'day' | 'week' | 'month',
-    @Query('role') role: 'jobseeker' | 'employer' | 'all' = 'all', // Add role parameter
+    @Query('role') role: 'jobseeker' | 'employer' | 'all' = 'all',
     @Headers('authorization') authHeader: string,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -471,7 +471,7 @@ export class AdminController {
       throw new BadRequestException('Invalid date format');
     }
 
-    return this.adminService.getRegistrationStats(adminId, start, end, interval, role); // Pass role to service
+    return this.adminService.getRegistrationStats(adminId, start, end, interval, role);
   }
 
   @Get('analytics/geographic-distribution')
@@ -804,5 +804,21 @@ export class AdminController {
     const payload = this.jwtService.verify(token);
     const adminId = payload.sub;
     return this.adminService.deletePlatformFeedback(adminId, feedbackId);
+  }
+
+  @Delete('categories/:id')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async deleteCategory(
+    @Param('id') categoryId: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+
+    return this.adminService.deleteCategory(adminId, categoryId);
   }
 }

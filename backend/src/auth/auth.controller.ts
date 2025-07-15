@@ -50,7 +50,7 @@ export class AuthController {
     return this.authService.login(
       loginDto.email,
       loginDto.password,
-      loginDto.rememberMe ?? false, // Значение по умолчанию false
+      loginDto.rememberMe ?? false, 
       req.ip,
       req.headers['x-fingerprint'],
       req.session,

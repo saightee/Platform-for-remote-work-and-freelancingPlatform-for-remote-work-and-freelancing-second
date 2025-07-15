@@ -454,10 +454,10 @@ export class AdminService {
     startDate: Date,
     endDate: Date,
     interval: 'day' | 'week' | 'month',
-    role: 'jobseeker' | 'employer' | 'all' = 'all', // Add role parameter
+    role: 'jobseeker' | 'employer' | 'all' = 'all', 
   ) {
     await this.checkAdminRole(adminId);
-    return this.usersService.getRegistrationStats(startDate, endDate, interval, role); // Pass role to usersService
+    return this.usersService.getRegistrationStats(startDate, endDate, interval, role); 
   }
 
   async getGeographicDistribution(
@@ -471,7 +471,7 @@ export class AdminService {
     let adjustedEndDate = endDate;
     if (endDate) {
       adjustedEndDate = new Date(endDate);
-      adjustedEndDate.setHours(23, 59, 59, 999);  // Устанавливаем конец дня (23:59:59.999)
+      adjustedEndDate.setHours(23, 59, 59, 999);  
     }
   
     const query = this.usersRepository
@@ -631,7 +631,7 @@ export class AdminService {
         'user.id AS user_id',
         'user.username AS username',
         'employer.company_name AS company_name',
-        'COUNT(application.id) AS application_count', // Изменяем псевдоним на application_count
+        'COUNT(application.id) AS application_count',
       ])
       .groupBy('jobPost.id, user.id, user.username, employer.company_name, employer.user_id')
       .take(limit);
@@ -698,7 +698,6 @@ export class AdminService {
 
       const total = await query.getCount();
 
-      // Ограничение количества и сортировка
       query.take(limit);
       if (orderBy === 'beginning') {
         query.orderBy('user.created_at', 'ASC');
@@ -774,7 +773,6 @@ export class AdminService {
       throw new NotFoundException('Job post not found');
     }
 
-    // Удаление связанных данных (аналогично deleteJobPost)
     const applications = await this.jobApplicationsRepository.find({ where: { job_post_id: jobPostId } });
     if (applications.length > 0) {
       const applicationIds = applications.map(app => app.id);
@@ -790,7 +788,6 @@ export class AdminService {
     await this.complaintsRepository.delete({ job_post_id: jobPostId });
     await this.jobPostsRepository.delete(jobPostId);
 
-    // Отправка уведомления работодателю
     try {
       await this.emailService.sendJobPostRejectionNotification(
         jobPost.employer.email,
@@ -804,4 +801,43 @@ export class AdminService {
 
     return { message: 'Job post rejected successfully', reason };
   }
+
+  async deleteCategory(adminId: string, categoryId: string) {
+    await this.checkAdminRole(adminId);
+
+    const category = await this.categoriesRepository.findOne({ where: { id: categoryId } });
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
+
+    const subcategories = await this.categoriesRepository.find({ where: { parent_id: categoryId } });
+    if (subcategories.length > 0) {
+      throw new BadRequestException('You cannot delete a category that contains subcategories. First remove subcategories.');
+    }
+
+    const jobPosts = await this.jobPostsRepository.find({ where: { category_id: categoryId } });
+    if (jobPosts.length > 0) {
+      await this.jobPostsRepository.update({ category_id: categoryId }, { category_id: null });
+      console.log(`Updated ${jobPosts.length} vacancies: category_id set to null`);
+    }
+
+    const jobSeekers = await this.jobSeekerRepository
+      .createQueryBuilder('jobSeeker')
+      .leftJoin('jobSeeker.skills', 'category')
+      .where('category.id = :categoryId', { categoryId })
+      .getMany();
+
+    if (jobSeekers.length > 0) {
+      for (const jobSeeker of jobSeekers) {
+        jobSeeker.skills = jobSeeker.skills.filter(skill => skill.id !== categoryId);
+        await this.jobSeekerRepository.save(jobSeeker);
+      }
+      console.log(`Updated ${jobSeekers.length} jobseeker profiles: category removed from skills`);
+    }
+
+    await this.categoriesRepository.delete(categoryId);
+
+    return { message: 'Category successfully deleted' };
+  }
+
   }

@@ -72,7 +72,7 @@ export class ChatGateway {
 
       client.data.userId = payload.sub;
       client.data.role = payload.role;
-      client.data.joinedRooms = new Set<string>(); // Храним список комнат, к которым подключен клиент
+      client.data.joinedRooms = new Set<string>(); 
       await this.redisService.set(`socket:${payload.sub}`, client.id, 3600);
     } catch (error) {
       console.error(`WebSocket connection error: ${error.message}, namespace: ${client.nsp.name}, clientIP: ${client.handshake.address}`);
@@ -104,17 +104,15 @@ export class ChatGateway {
       }
 
       const room = `chat:${jobApplicationId}`;
-      // Проверяем, не подключен ли уже клиент к комнате
       if (client.data.joinedRooms.has(room)) {
         console.log(`User ${userId} already in chat room ${room}, skipping join`);
         return;
       }
 
       client.join(room);
-      client.data.joinedRooms.add(room); // Отмечаем комнату как подключенную
+      client.data.joinedRooms.add(room); 
       console.log(`User ${userId} joined chat room ${room}`);
 
-      // Отправляем chatInitialized для всех в комнате
       if (!this.server) {
         console.error('Socket.IO server is null in ChatGateway');
       } else {
@@ -126,7 +124,6 @@ export class ChatGateway {
         console.log(`Emitted chatInitialized for room ${room}`);
       }
 
-      // Отмечаем сообщения как прочитанные для получателя
       await this.chatService.markMessagesAsRead(jobApplicationId, userId);
 
       const messages = await this.chatService.getChatHistory(jobApplicationId);

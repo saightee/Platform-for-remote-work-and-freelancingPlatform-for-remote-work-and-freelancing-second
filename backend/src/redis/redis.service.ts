@@ -148,7 +148,7 @@ async extendOnlineStatus(userId: string, role: 'jobseeker' | 'employer' | 'admin
   const key = `online:${userId}`;
   const exists = await this.client.get(key);
   if (exists) {
-    await this.client.expire(key, 300); // Продлеваем TTL до 5 минут
+    await this.client.expire(key, 300); 
     console.debug(`Redis extended TTL for ${key} to 300 seconds`);
   } else {
     await this.setUserOnline(userId, role);

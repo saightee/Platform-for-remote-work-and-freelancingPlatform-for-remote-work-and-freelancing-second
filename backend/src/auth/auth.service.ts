@@ -156,7 +156,6 @@ export class AuthService {
     await this.redisService.set(`token:${user.id}`, token, expirySeconds);
     await this.redisService.setUserOnline(user.id, user.role as 'jobseeker' | 'employer');
     
-    // Регенерация сессии для уникальности
     return new Promise((resolve, reject) => {
       session.regenerate((err) => {
         if (err) {

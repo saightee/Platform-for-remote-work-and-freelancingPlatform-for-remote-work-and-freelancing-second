@@ -24,7 +24,7 @@ import { ChatGateway } from '../chat/chat.gateway';
       inject: [ConfigService],
     }),
     ApplicationLimitsModule,
-    ChatModule, // Импортируем ChatModule
+    ChatModule, 
   ],
   controllers: [JobApplicationsController],
   providers: [

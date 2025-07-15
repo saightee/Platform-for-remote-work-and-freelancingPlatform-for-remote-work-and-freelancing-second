@@ -889,6 +889,38 @@
     "error": "Bad Request"
   }
 
+### 13.4. Delete Category (Admin)
+- **Endpoint**: `DELETE /api/admin/categories/:id`
+- **Description**: Deletes a specific category or subcategory (admin only). Checks for subcategories, associated job posts, and jobseeker profiles. If job posts are linked, their `category_id` is set to `null`. If used in jobseeker profiles, the category is removed from their skills.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id` (string, required): The ID of the category to delete.
+- **Response (Success - 200)**:
+  ```json
+  {
+    "message": "Category successfully deleted"
+  }
+- **Response (Error - 400, if category has subcategories)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "You cannot delete a category that contains subcategories. First remove subcategories.",
+    "error": "Bad Request"
+  }
+- **Response (Error - 401, if token is invalid or user is not an admin)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+- **Response (Error - 404, if category not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Category not found",
+    "error": "Not Found"
+  }  
+
 ### 14. Apply to Job Post
 - **Endpoint**: `POST /api/job-applications`
 - **Description**: Allows a jobseeker to apply to a job post. Applications are limited per job post (default: 100) and distributed cumulatively over 4 days (60%, 80%, 90%, 100%). If the daily limit is reached, a "Daily application limit reached" error is returned. If the total limit is reached, a "Job full" error is returned.

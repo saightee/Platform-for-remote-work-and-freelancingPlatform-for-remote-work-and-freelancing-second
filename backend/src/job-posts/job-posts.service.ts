@@ -38,7 +38,7 @@ export class JobPostsService {
     const limitObj = await this.settingsService.getGlobalApplicationLimit();
     let globalLimit = limitObj.globalApplicationLimit;
     if (!Number.isFinite(globalLimit) || globalLimit < 0) {
-      globalLimit = 100; // Значение по умолчанию, если глобальный лимит не установлен или некорректен
+      globalLimit = 100; 
     }
   
     const jobPost = this.jobPostsRepository.create({

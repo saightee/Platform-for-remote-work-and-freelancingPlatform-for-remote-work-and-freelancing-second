@@ -175,7 +175,7 @@ export class UsersService {
     startDate: Date,
     endDate: Date,
     interval: 'day' | 'week' | 'month',
-    role: 'jobseeker' | 'employer' | 'all' = 'all' // Добавляем role
+    role: 'jobseeker' | 'employer' | 'all' = 'all' 
   ) {
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -188,7 +188,6 @@ export class UsersService {
       .addSelect('COUNT(*) as count')
       .where('user.created_at AT TIME ZONE \'UTC\' BETWEEN :startDate AND :endDate', { startDate: start, endDate: end });
   
-    // Добавляем фильтр по роли, если role !== 'all'
     if (role !== 'all') {
       query.andWhere('user.role = :role', { role });
     }

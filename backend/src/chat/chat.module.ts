@@ -23,6 +23,6 @@ import { RedisModule } from '../redis/redis.module';
     RedisModule,
   ],
   providers: [ChatGateway, ChatService],
-  exports: [ChatGateway, ChatService], // Экспортируем оба
+  exports: [ChatGateway, ChatService], 
 })
 export class ChatModule {}
