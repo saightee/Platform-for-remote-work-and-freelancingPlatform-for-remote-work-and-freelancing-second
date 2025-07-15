@@ -12,18 +12,19 @@ export class JobApplicationsController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post()
-  async applyToJob(
-    @Headers('authorization') authHeader: string,
-    @Body('job_post_id') jobPostId: string,
-  ) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Invalid token');
+    async applyToJob(
+      @Headers('authorization') authHeader: string,
+      @Body('job_post_id') jobPostId: string,
+      @Body('cover_letter') coverLetter: string,
+    ) {
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        throw new UnauthorizedException('Invalid token');
+      }
+      const token = authHeader.replace('Bearer ', '');
+      const payload = this.jwtService.verify(token);
+      const userId = payload.sub;
+      return this.jobApplicationsService.applyToJob(userId, jobPostId, coverLetter);
     }
-    const token = authHeader.replace('Bearer ', '');
-    const payload = this.jwtService.verify(token);
-    const userId = payload.sub;
-    return this.jobApplicationsService.applyToJob(userId, jobPostId);
-  }
 
   @UseGuards(AuthGuard('jwt'))
   @Get('my-applications')
@@ -39,18 +40,18 @@ export class JobApplicationsController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get('job-post/:id')
-  async getApplicationsForJobPost(
-    @Headers('authorization') authHeader: string,
-    @Param('id') jobPostId: string,
-  ) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Invalid token');
+    async getApplicationsForJobPost(
+      @Headers('authorization') authHeader: string,
+      @Param('id') jobPostId: string,
+    ) {
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        throw new UnauthorizedException('Invalid token');
+      }
+      const token = authHeader.replace('Bearer ', '');
+      const payload = this.jwtService.verify(token);
+      const userId = payload.sub;
+      return this.jobApplicationsService.getApplicationsForJobPost(userId, jobPostId);
     }
-    const token = authHeader.replace('Bearer ', '');
-    const payload = this.jwtService.verify(token);
-    const userId = payload.sub;
-    return this.jobApplicationsService.getApplicationsForJobPost(userId, jobPostId);
-  }
 
   @UseGuards(AuthGuard('jwt'))
   @Put(':id')

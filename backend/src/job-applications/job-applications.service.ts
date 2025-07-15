@@ -25,7 +25,7 @@ export class JobApplicationsService {
     @Inject('SOCKET_IO_SERVER') private server: Server,
   ) {}
 
-  async applyToJob(userId: string, jobPostId: string) {
+  async applyToJob(userId: string, jobPostId: string, coverLetter: string) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -58,6 +58,7 @@ export class JobApplicationsService {
       job_post_id: jobPostId,
       job_seeker_id: userId,
       status: 'Pending',
+      cover_letter: coverLetter,
     });
     const savedApplication = await this.jobApplicationsRepository.save(application);
 
@@ -118,6 +119,7 @@ export class JobApplicationsService {
           username: userData.username,
           email: userData.email,
           jobDescription: jobSeeker?.experience || '',
+          coverLetter: app.cover_letter,
           appliedAt: app.created_at.toISOString(),
           status: app.status,
           job_post_id: app.job_post_id,
@@ -197,6 +199,7 @@ export class JobApplicationsService {
       username: application.job_seeker.username,
       email: application.job_seeker.email,
       jobDescription: jobSeeker?.experience || '',
+      coverLetter: application.cover_letter,
       appliedAt: application.created_at.toISOString(),
       status: application.status,
       job_post_id: application.job_post_id,

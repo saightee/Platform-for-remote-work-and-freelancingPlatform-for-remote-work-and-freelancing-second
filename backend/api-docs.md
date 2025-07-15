@@ -928,7 +928,8 @@
 - **Request Body**:
   ```json
   {
-    "job_post_id": "<jobPostId>"
+    "job_post_id": "<jobPostId>",
+    "cover_letter": "Your cover letter text here"
   }
 
 - **Response (Success - 200)**:
@@ -1113,11 +1114,15 @@
   ```json
   [
     {
+      "applicationId": "<applicationId>",
       "userId": "<jobseekerId>",
       "username": "john_doe107",
       "email": "jobseeker107@example.com",
       "jobDescription": "Experienced web developer with 5 years in React.",
-      "appliedAt": "2025-05-15T06:12:00.000Z"
+      "coverLetter": "I am excited to apply for this position...",
+      "appliedAt": "2025-05-15T06:12:00.000Z",
+      "status": "Pending",
+      "job_post_id": "<jobPostId>"
     }
   ]
 
@@ -1158,6 +1163,7 @@
     "username": "john_doe",
     "email": "john@example.com",
     "jobDescription": "Experienced web developer with 5 years in React",
+    "coverLetter": "I am excited to apply for this position...",
     "appliedAt": "2025-05-15T06:12:00.000Z",
     "status": "Pending",
     "job_post_id": "<jobPostId>",
