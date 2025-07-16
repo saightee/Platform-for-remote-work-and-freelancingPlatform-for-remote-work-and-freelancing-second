@@ -71,7 +71,7 @@ const Register: React.FC = () => {
     }
     try {
       setErrorMessage(null);
-      await register({ username, email, password, role });
+            await register({ username, email, password, role });
       // Auto login after register
       const loginRes = await login({ email, password });
       localStorage.setItem('token', loginRes.accessToken);
@@ -88,7 +88,7 @@ const Register: React.FC = () => {
           await uploadIdentityDocument(formData);
         }
       }
-      navigate('/');
+      navigate('/check-email');
     } catch (error: any) {
       console.error('Register error:', error);
       const errorMsg =

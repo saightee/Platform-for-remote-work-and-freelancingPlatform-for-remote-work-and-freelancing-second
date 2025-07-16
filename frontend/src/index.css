@@ -465,6 +465,11 @@ header nav.mobile-menu-open .dropdown.active .dropdown-menu {
   flex-wrap: wrap;
 }
 
+.pp-description {
+  flex: 1; 
+  padding-left: 20px;
+}
+
 .pp-details {
   flex: 1;
   min-width: 300px;
@@ -476,6 +481,17 @@ header nav.mobile-menu-open .dropdown.active .dropdown-menu {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
+.add-avatar {
+  position: absolute; 
+  bottom: 0; 
+  right: 0; 
+  font-size: 24px; 
+  cursor: pointer;
+} 
+
+.default-avatar {
+  position: relative;
+}
 
 .pp-avatar-section {
   text-align: center;
@@ -550,6 +566,10 @@ header nav.mobile-menu-open .dropdown.active .dropdown-menu {
   display: flex;
   flex-direction: column;
   gap: 15px;
+}
+
+.pp-reviews {
+  margin-top: 40px;
 }
 
 .pp-review-item {
@@ -2806,6 +2826,20 @@ table th {
   justify-content: space-between;
   align-items: center;
   border-radius: 6px;
+}
+
+.salary-group {
+  display: flex;
+  align-items: center;
+}
+
+.salary-group input {
+  flex: 1;
+}
+
+.salary-group select {
+  margin-left: 10px;
+  width: 120px;
 }
 
 .job-card-find-jobs .salary {

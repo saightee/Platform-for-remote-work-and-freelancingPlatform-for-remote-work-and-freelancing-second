@@ -11,6 +11,7 @@ import { parseISO } from 'date-fns';
 import { Socket } from 'socket.io-client';
 import { AxiosError } from 'axios'; // Import AxiosError
 import sanitizeHtml from 'sanitize-html'; // Import sanitize-html (install via npm if needed)
+import Loader from '../components/Loader';
 
 const MyJobPosts: React.FC = () => {
   const { profile, isLoading: roleLoading } = useRole();
@@ -200,7 +201,7 @@ const MyJobPosts: React.FC = () => {
         <Header />
         <div className="container">
           <h2>My Job Posts</h2>
-          <p>Loading...</p>
+          <Loader />
         </div>
       </div>
     );

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
+import Loader from '../components/Loader';
 import { useRole } from '../context/RoleContext';
 import {
   getAllJobPosts,
@@ -267,7 +268,7 @@ useEffect(() => {
  
           <div className="content">
             <h2>Moderator Dashboard</h2>
-            <p>Loading...</p>
+            <Loader />
           </div>
           <Footer />
           <Copyright />

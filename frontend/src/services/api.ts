@@ -314,8 +314,8 @@ export const getCategories = async () => {
 };
 
 // Job Applications
-export const applyToJobPost = async (job_post_id: string) => {
-  const response = await api.post<JobApplication>('/job-applications', { job_post_id });
+export const applyToJobPost = async (job_post_id: string, cover_letter: string) => {
+  const response = await api.post<JobApplication>('/job-applications', { job_post_id, cover_letter });
   return response.data;
 };
 
@@ -751,8 +751,9 @@ export interface JobPostWithApplications {
   status: string;
   applicationCount: number;
   created_at: string;
-  // employer_id?: string; 
-  category?: string;
+  employer_id?: string; // Добавлено из docs employer.id
+  employer?: { id: string; username: string; company_name?: string }; // Nested employer
+  category?: string | { id: string; name: string }; // Поддержка string или object для гибкости
 }
 
 export const getOnlineUsers = async (): Promise<OnlineUsers | null> => {
@@ -892,4 +893,9 @@ export const getPlatformFeedback = async () => {
     console.error('Error fetching platform feedback:', axiosError.response?.data?.message || axiosError.message);
     throw axiosError;
   }
+};
+
+export const deleteCategory = async (id: string) => {
+  const response = await api.delete<{ message: string }>(`/admin/categories/${id}`);
+  return response.data;
 };

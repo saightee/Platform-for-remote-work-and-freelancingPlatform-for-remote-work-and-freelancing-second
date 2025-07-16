@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { getProfile, updateProfile, uploadIdentityDocument, deleteAccount, getCategories, searchCategories } from '../services/api';
+import { getProfile, updateProfile, uploadIdentityDocument, deleteAccount, getCategories, searchCategories, uploadAvatar } from '../services/api';
 import { Profile, Category, JobSeekerProfile, EmployerProfile } from '@types';
 import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
@@ -10,6 +10,7 @@ import { FaUserCircle, FaFilePdf } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
+
 
 const ProfilePage: React.FC = () => {
   const { profile, refreshProfile } = useRole();
@@ -26,6 +27,8 @@ const ProfilePage: React.FC = () => {
   const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const timezones = Intl.supportedValuesOf('timeZone').sort();
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const avatarRef = useRef<HTMLInputElement>(null);
   const currencies = ['USD', 'EUR', 'GBP', 'JPY'];
 
  
@@ -218,33 +221,40 @@ const handleUpdateProfile = async (e: React.MouseEvent) => {
         {formError && <p className="error-message">{formError}</p>}
         <div className="profile-content">
           <div className="profile-details">
-            <div className="profile-avatar-section">
+          <div 
+              className="profile-avatar-section"
+              onClick={() => isEditing && !profileData.avatar && avatarRef.current?.click()}
+            >
               {profileData.avatar ? (
                 <img src={`https://jobforge.net/backend${profileData.avatar}`} alt="Avatar" className="profile-avatar" />
               ) : (
-                <FaUserCircle className="profile-avatar-icon" />
+                <div className="default-avatar">
+                  <FaUserCircle className="profile-avatar-icon" />
+                  {isEditing && <span className="add-avatar">+</span>}
+                </div>
               )}
             </div>
+            <input
+              ref={avatarRef}
+              type="file"
+              accept="image/jpeg,image/jpg,image/png"
+              hidden
+              onChange={(e) => setAvatarFile(e.target.files ? e.target.files[0] : null)}
+            />
+            {avatarFile && isEditing && (
+              <button onClick={async () => {
+                const formData = new FormData();
+                formData.append('avatar', avatarFile);
+                const updated = await uploadAvatar(formData);
+                setProfileData(updated);
+                setAvatarFile(null);
+                await refreshProfile();
+              }} className="action-button">
+                Upload Avatar
+              </button>
+            )}
             {isEditing ? (
-              <>
-                <div className="form-group">
-                  <label>Username:</label>
-                  <input
-                    type="text"
-                    value={profileData.username}
-                    onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
-                    placeholder="Enter your username"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Email:</label>
-                  <input
-                    type="email"
-                    value={profileData.email || ''}
-                    onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                    placeholder="Enter your email"
-                  />
-                </div>
+                            <>
 {profileData.role === 'employer' && (
   <>
     <div className="form-group">
@@ -315,7 +325,7 @@ const handleUpdateProfile = async (e: React.MouseEvent) => {
           type="text"
           value={skillInput}
           onChange={(e) => setSkillInput(e.target.value)}
-          placeholder="Type to search skills..."
+          placeholder="Start typing to search skills..."
           className="category-select"
           onFocus={() => skillInput.trim() && setIsDropdownOpen(true)}
           onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}

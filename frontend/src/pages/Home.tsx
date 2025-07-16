@@ -11,6 +11,9 @@ import { JobPost, Category } from '@types';
 import { FaSearch, FaLock, FaGlobe, FaChartLine } from 'react-icons/fa';
 import CallToAction from '../components/CallToAction';
 import CountUp from 'react-countup';
+import Loader from '../components/Loader';
+import { useRole } from '../context/RoleContext';
+
 
 const Home: React.FC = () => {
   const [jobs, setJobs] = useState<JobPost[]>([]);
@@ -18,6 +21,7 @@ const Home: React.FC = () => {
   const [filters, setFilters] = useState<{ title?: string }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { profile } = useRole();
   const [stats, setStats] = useState({
     totalResumes: 0,
     totalJobPosts: 0,
@@ -77,6 +81,10 @@ const Home: React.FC = () => {
     localStorage.setItem('cookieConsent', 'accepted');
     setShowCookieBanner(false);
   };
+
+  if (isLoading) {
+    return <Loader />; // Добавлен лоадер: если страница грузится (isLoading true), показываем только Loader вместо всего контента
+  }
 
   return (
     <div>
@@ -148,25 +156,19 @@ const Home: React.FC = () => {
         <div className="categories">
           <h2>Popular Job Categories</h2>
           <div className="category-list">
-            {staticCategories.map((category, index) => {
-              // Ищем соответствующую категорию из API
-              const matchedCategory = categories.find(
-                (cat) => cat.name.toLowerCase() === category.toLowerCase()
-              );
-              return (
-                <Link
-                  key={index}
-                  to={`/find-job?category_id=${matchedCategory?.id || ''}`}
-                  className={`category-item category-${index}`}
-                >
-                  {category}
-                </Link>
-              );
-            })}
+            {categories.map((category, index) => (
+              <Link
+                key={index}
+                to={`/find-job?category_id=${category.id}`}
+                className={`category-item category-${index % categories.length}`}
+              >
+                {category.name}
+              </Link>
+            ))}
           </div>
         </div>
       </div>
-      <CallToAction />
+      {!profile && <CallToAction />}
       <Footer />
       <Copyright />
       {showCookieBanner && (

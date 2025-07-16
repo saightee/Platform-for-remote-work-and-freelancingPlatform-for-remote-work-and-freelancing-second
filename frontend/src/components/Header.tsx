@@ -232,7 +232,7 @@ const Header: React.FC = () => {
                     {socketStatus === 'reconnecting' && <span className="reconnecting">...</span>}
                   </Link>
                   <Link to="/feedback" onClick={closeMobileMenu}>
-                    Feedback
+                    Contact
                   </Link>
                   <span className="greeting">Hello, <span className="username-bold">{profile?.username} ({capitalizeRole(profile?.role)})</span></span>
                   <button

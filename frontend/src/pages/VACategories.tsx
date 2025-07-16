@@ -4,6 +4,8 @@ import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { getCategories } from '../services/api';
 import { Category } from '@types';
+import Loader from '../components/Loader';
+import { Link } from 'react-router-dom';
 
 const VACategories: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -26,7 +28,7 @@ const VACategories: React.FC = () => {
     fetchCategories();
   }, []);
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) return <Loader />;
   if (error) return <div className="error-message">{error}</div>;
 
   return (
@@ -37,9 +39,13 @@ const VACategories: React.FC = () => {
         <p>Explore our range of virtual assistant categories to find the perfect fit for your needs.</p>
         <div className="category-list">
           {categories.map((category, index) => (
-            <div key={category.id} className={`category-item category-${index % 17}`}>
+            <Link
+              key={category.id}
+              to={`/find-talent?skill_id=${category.id}`}
+              className={`category-item category-${index % 17}`}
+            >
               {category.name}
-            </div>
+            </Link>
           ))}
         </div>
       </div>

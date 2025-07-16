@@ -5,6 +5,7 @@ import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { verifyEmail } from '../services/api';
 import { AxiosError } from 'axios';
+import Loader from '../components/Loader';
 
 const VerifyEmail: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -46,11 +47,14 @@ const VerifyEmail: React.FC = () => {
   verify();
 }, [searchParams, navigate]);
 
+  if (isLoading) {
+    return <Loader />; // Лоадер на время верификации
+  }
+
   return (
     <div className="container verify-email-container">
       
       <h2>Email Verification</h2>
-      {isLoading && <p>Verifying your email...</p>}
       {message && (
         <div className="success-message">
           <p>{message}</p>

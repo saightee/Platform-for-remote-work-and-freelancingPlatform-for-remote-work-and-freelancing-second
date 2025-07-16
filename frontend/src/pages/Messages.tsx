@@ -7,6 +7,8 @@ import { useRole } from '../context/RoleContext';
 import { getMyApplications, getMyJobPosts, getApplicationsForJobPost } from '../services/api';
 import { JobApplication, JobPost, JobApplicationDetails } from '@types';
 import { format } from 'date-fns';
+import Loader from '../components/Loader';
+
 
 interface Message {
   id: string;
@@ -240,7 +242,7 @@ const getChatPartner = (jobApplicationId: string) => {
       <Header />
       <div className="container">
         <h2>Messages</h2>
-        <p>Loading...</p>
+        <Loader />
       </div>
       </div>
     );

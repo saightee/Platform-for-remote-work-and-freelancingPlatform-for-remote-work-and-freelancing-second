@@ -5,7 +5,7 @@ import Copyright from '../components/Copyright';
 import { getPlatformFeedback } from '../services/api';
 import Loader from '../components/Loader';
 
-const SuccessStories: React.FC = () => {
+const ClientStories: React.FC = () => {
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -15,8 +15,8 @@ const SuccessStories: React.FC = () => {
       try {
         setIsLoading(true);
         const response = await getPlatformFeedback();
-        const jobseekerFeedbacks = response.data.filter((fb: any) => fb.user.role === 'jobseeker');
-        setFeedbacks(jobseekerFeedbacks);
+        const employerFeedbacks = response.data.filter((fb: any) => fb.user.role === 'employer');
+        setFeedbacks(employerFeedbacks);
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to load feedback.');
       } finally {
@@ -33,7 +33,7 @@ const SuccessStories: React.FC = () => {
     <div>
       <Header />
       <div className="container">
-        <h2>Success Stories</h2>
+        <h2>Client Stories</h2>
         {feedbacks.length > 0 ? (
           feedbacks.map((fb) => (
             <div key={fb.id} className="feedback-item">
@@ -44,7 +44,7 @@ const SuccessStories: React.FC = () => {
             </div>
           ))
         ) : (
-          <p>No success stories yet.</p>
+          <p>No client stories yet.</p>
         )}
       </div>
       <Footer />
@@ -53,4 +53,4 @@ const SuccessStories: React.FC = () => {
   );
 };
 
-export default SuccessStories;
+export default ClientStories;

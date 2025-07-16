@@ -4,6 +4,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { forgotPassword } from '../services/api';
+import Loader from '../components/Loader';
 
 
 const ForgotPassword: React.FC = () => {
@@ -34,6 +35,10 @@ const ForgotPassword: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  if (isLoading) {
+    return <Loader />; // Добавлен лоадер здесь, как в ProfilePage: если isLoading, показываем только Loader вместо всего контента
+  }
 
   return (
     <div className="container forgot-password-container">

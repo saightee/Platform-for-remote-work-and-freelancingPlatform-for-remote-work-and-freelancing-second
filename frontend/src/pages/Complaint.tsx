@@ -5,6 +5,7 @@ import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { useRole } from '../context/RoleContext';
 import { submitComplaint } from '../services/api';
+import Loader from '../components/Loader';
 
 
 const Complaint: React.FC = () => {
@@ -74,6 +75,10 @@ const Complaint: React.FC = () => {
       </div>
       </div>
     );
+  }
+
+  if (isLoading) {
+    return <Loader />; // Добавлен лоадер здесь, как в ProfilePage: если isLoading, показываем только Loader вместо всего контента
   }
 
   return (
