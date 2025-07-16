@@ -9,6 +9,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { useRole } from '../context/RoleContext';
+import Loader from '../components/Loader';
 import {
   getAllUsers, getUserById, updateUser, deleteUser, resetUserPassword,
   getAllJobPosts, updateJobPostAdmin, deleteJobPostAdmin, approveJobPost, flagJobPost,
@@ -20,7 +21,7 @@ import {
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
-  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback // Добавляем logout из api
+  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory // Добавляем logout из api
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile } from '@types';
 import { AxiosError } from 'axios';
@@ -146,6 +147,10 @@ const [userSortColumn, setUserSortColumn] = useState<'id' | 'role' | 'is_blocked
 const [userSortDirection, setUserSortDirection] = useState<'asc' | 'desc'>('asc');
 const [complaintSortColumn, setComplaintSortColumn] = useState<'created_at' | 'status' | null>(null);
 const [complaintSortDirection, setComplaintSortDirection] = useState<'asc' | 'desc'>('asc');
+const [issuesSortColumn, setIssuesSortColumn] = useState<'created_at' | null>(null);
+const [issuesSortDirection, setIssuesSortDirection] = useState<'asc' | 'desc'>('asc');
+const [storiesSortColumn, setStoriesSortColumn] = useState<'created_at' | null>(null);
+const [storiesSortDirection, setStoriesSortDirection] = useState<'asc' | 'desc'>('asc');
 const [freelancerSignupsToday, setFreelancerSignupsToday] = useState<{ country: string; count: number }[]>([]);
   const [freelancerSignupsYesterday, setFreelancerSignupsYesterday] = useState<{ country: string; count: number }[]>([]);
   const [freelancerSignupsWeek, setFreelancerSignupsWeek] = useState<{ country: string; count: number }[]>([]);
@@ -225,6 +230,36 @@ const handleComplaintSort = (column: 'created_at' | 'status') => {
   }
 };
 
+const handleIssuesSort = (column: 'created_at') => {
+  if (issuesSortColumn === column) {
+    setIssuesSortDirection(issuesSortDirection === 'asc' ? 'desc' : 'asc');
+  } else {
+    setIssuesSortColumn(column);
+    setIssuesSortDirection('asc');
+  }
+};
+
+const sortedIssues = [...issues].sort((a, b) => {
+  if (!issuesSortColumn) return 0;
+  const direction = issuesSortDirection === 'asc' ? 1 : -1;
+  return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * direction;
+});
+
+const handleStoriesSort = (column: 'created_at') => {
+  if (storiesSortColumn === column) {
+    setStoriesSortDirection(storiesSortDirection === 'asc' ? 'desc' : 'asc');
+  } else {
+    setStoriesSortColumn(column);
+    setStoriesSortDirection('asc');
+  }
+};
+
+const sortedStories = [...stories].sort((a, b) => {
+  if (!storiesSortColumn) return 0;
+  const direction = storiesSortDirection === 'asc' ? 1 : -1;
+  return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * direction;
+});
+
 const sortedComplaints = [...complaints]
   .filter((complaint) => statusFilter === 'All' || complaint.status === statusFilter)
   .sort((a, b) => {
@@ -301,8 +336,18 @@ const fetchUsers = useCallback(async (params: { page?: number; limit?: number; u
     setIsLoading(true);
     setFetchErrors((prev) => ({ ...prev, getAllUsers: '' }));
     const effectivePage = params.page || userPage;
-    console.log('Fetching users with params:', { ...params, page: effectivePage, limit: userLimit }); // Лог для диагностики
-    const userResponse = await getAllUsers({ page: effectivePage, limit: userLimit, username: params.username, email: params.email });
+    const queryParams: { page: number; limit: number; username?: string; email?: string } = {
+      page: effectivePage,
+      limit: userLimit,
+    };
+    if (params.username) {
+      queryParams.username = params.username;
+    }
+    if (params.email) {
+      queryParams.email = params.email;
+    }
+    console.log('Fetching users with params:', queryParams); // Лог для диагностики
+    const userResponse = await getAllUsers(queryParams);
     console.log('Raw getAllUsers response:', userResponse);
     const userData = Array.isArray(userResponse) ? userResponse : userResponse?.data || [];
     console.log('Extracted userData:', userData);
@@ -469,65 +514,63 @@ case 0:
           
           case 1:
   const reviewsData = value as Review[] || [];
-  const enrichedReviews = await Promise.all(
-    reviewsData.map(async (review) => {
-      try {
-        if (!review.job_application_id) {
-          console.warn(`No job_application_id provided for review ${review.id}`);
-          return {
-            ...review,
-            job_post: null,
-            job_seeker: null,
-          };
-        }
-        console.log(`Fetching job application for review ${review.id} with ID ${review.job_application_id}`);
-        const applicationResponse = await getJobApplicationById(review.job_application_id).catch((err) => {
-          console.warn(`Job application ${review.job_application_id} not found:`, err);
-          return null;
-        });
-        if (!applicationResponse || !applicationResponse.job_post_id || !applicationResponse.job_seeker_id) {
-          console.warn(`Invalid or missing job application data for ID ${review.job_application_id}`);
-          return {
-            ...review,
-            job_post: null,
-            job_seeker: null,
-          };
-        }
-        const application = applicationResponse;
-        console.log(`Fetching job post for application ${review.job_application_id} with job_post_id ${application.job_post_id}`);
-        const jobPostResponse = await getJobPost(application.job_post_id).catch((err) => {
-          console.warn(`Job post ${application.job_post_id} not found:`, err);
-          return null;
-        });
-        const jobPost = jobPostResponse || { id: application.job_post_id, title: 'Unknown Job' };
-        console.log(`Fetching job seeker profile for application ${review.job_application_id} with job_seeker_id ${application.job_seeker_id}`);
-        const jobSeekerResponse = await getUserProfileById(application.job_seeker_id).catch((err) => {
-          console.warn(`Job seeker ${application.job_seeker_id} not found:`, err);
-          return null;
-        });
-        const jobSeeker = jobSeekerResponse || { id: application.job_seeker_id, username: 'Unknown' };
-        return {
-          ...review,
-          job_post: {
-            id: jobPost.id,
-            title: jobPost.title,
-          },
-          job_seeker: {
-            id: jobSeeker.id,
-            username: jobSeeker.username,
-          },
-        };
-      } catch (error) {
-        const axiosError = error as AxiosError<{ message?: string }>;
-        console.error(`Error enriching review ${review.id}:`, axiosError.response?.data?.message || axiosError.message);
+  const enrichedReviews = await Promise.all(reviewsData.map(async (review) => {
+    try {
+      if (!review.job_application_id) {
+        console.warn(`No job_application_id provided for review ${review.id}`);
         return {
           ...review,
           job_post: null,
           job_seeker: null,
         };
       }
-    })
-  );
+      console.log(`Fetching job application for review ${review.id} with ID ${review.job_application_id}`);
+      const applicationResponse = await getJobApplicationById(review.job_application_id).catch((err) => {
+        console.warn(`Job application ${review.job_application_id} not found:`, err);
+        return null;
+      });
+      if (!applicationResponse || !applicationResponse.job_post_id || !applicationResponse.job_seeker_id) {
+        console.warn(`Invalid or missing job application data for ID ${review.job_application_id}`);
+        return {
+          ...review,
+          job_post: null,
+          job_seeker: null,
+        };
+      }
+      const application = applicationResponse;
+      console.log(`Fetching job post for application ${review.job_application_id} with job_post_id ${application.job_post_id}`);
+      const jobPostResponse = await getJobPost(application.job_post_id).catch((err) => {
+        console.warn(`Job post ${application.job_post_id} not found:`, err);
+        return null;
+      });
+      const jobPost = jobPostResponse || { id: application.job_post_id, title: 'Unknown Job' };
+      console.log(`Fetching job seeker profile for application ${review.job_application_id} with job_seeker_id ${application.job_seeker_id}`);
+      const jobSeekerResponse = await getUserProfileById(application.job_seeker_id).catch((err) => {
+        console.warn(`Job seeker ${application.job_seeker_id} not found:`, err);
+        return null;
+      });
+      const jobSeeker = jobSeekerResponse || { id: application.job_seeker_id, username: 'Unknown' };
+      return {
+        ...review,
+        job_post: {
+          id: jobPost.id,
+          title: jobPost.title,
+        },
+        job_seeker: {
+          id: jobSeeker.id,
+          username: jobSeeker.username,
+        },
+      };
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      console.error(`Error enriching review ${review.id}:`, axiosError.response?.data?.message || axiosError.message);
+      return {
+        ...review,
+        job_post: null,
+        job_seeker: null,
+      };
+    }
+  }));
   setReviews(enrichedReviews);
   console.log('Enriched reviews set in state:', enrichedReviews);
   break;
@@ -571,12 +614,14 @@ case 5:
           case 15:
             setBusinessSignupsMonth(value as { country: string; count: number }[] || []);
             break;
-          case 16:
-            setTopEmployers(value as { employer_id: string; username: string; job_count: number }[] || []);
-            break;
-          case 17:
-            setTopJobseekers(value as { job_seeker_id: string; username: string; application_count: number }[] || []);
-            break;
+case 16:
+  setTopEmployers(value as { employer_id: string; username: string; job_count: number }[] || []);
+  console.log('Top Employers data:', value); // Для проверки
+  break;
+case 17:
+  setTopJobseekers(value as { job_seeker_id: string; username: string; application_count: number }[] || []);
+  console.log('Top Jobseekers data:', value);
+  break;
           case 18:
             setTopJobseekersByViews(value as { userId: string; username: string; email: string; profileViews: number }[] || []);
             break;
@@ -599,9 +644,15 @@ case 22:
           case 24:
             setRecentRegistrations(value as RecentRegistrations || { jobseekers: [], employers: [] });
             break;
-          case 25:
-            setJobPostsWithApps((value as JobPostWithApplications[]) || []);
-            break;
+case 25:
+  const jobPostsWithApps = (value as JobPostWithApplications[]).map(post => ({
+    ...post,
+    username: post.employer?.username || 'N/A',
+    category: typeof post.category === 'string' ? post.category : post.category?.name || 'N/A', // Обработка string или object
+  }));
+  setJobPostsWithApps(jobPostsWithApps);
+  console.log('Job Posts with Applications:', JSON.stringify(jobPostsWithApps, null, 2)); // Для отладки
+  break;
         }
       } else {
         const axiosError = result.reason as AxiosError<{ message?: string }>;
@@ -731,34 +782,32 @@ const handleVerifyIdentity = async (id: string, verify: boolean) => {
 };
 
   const handleBlockUser = async (id: string, username: string) => {
-    if (window.confirm(`Are you sure you want to block ${username}?`)) {
-      try {
-        await blockUser(id);
-        alert('User blocked successfully!');
-        const usersData = await getAllUsers({ page: userPage, limit: userLimit });
-        setUsers(usersData.data || []);
-      } catch (error) {
-        const axiosError = error as AxiosError<{ message?: string }>;
-        console.error('Error blocking user:', axiosError);
-        alert(axiosError.response?.data?.message || 'Failed to block user.');
-      }
+  if (window.confirm(`Are you sure you want to block ${username}?`)) {
+    try {
+      await blockUser(id);
+      alert('User blocked successfully!');
+      fetchUsers({ username: searchQuery, email: searchQuery, page: userPage }); // Перезагружаем с текущим поиском и страницей
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      console.error('Error blocking user:', axiosError);
+      alert(axiosError.response?.data?.message || 'Failed to block user.');
     }
-  };
+  }
+};
 
-  const handleUnblockUser = async (id: string, username: string) => {
-    if (window.confirm(`Are you sure you want to unblock ${username}?`)) {
-      try {
-        await unblockUser(id);
-        alert('User unblocked successfully!');
-        const usersData = await getAllUsers({ page: userPage, limit: userLimit });
-        setUsers(usersData.data || []);
-      } catch (error) {
-        const axiosError = error as AxiosError<{ message?: string }>;
-        console.error('Error unblocking user:', axiosError);
-        alert(axiosError.response?.data?.message || 'Failed to unblock user.');
-      }
+const handleUnblockUser = async (id: string, username: string) => {
+  if (window.confirm(`Are you sure you want to unblock ${username}?`)) {
+    try {
+      await unblockUser(id);
+      alert('User unblocked successfully!');
+      fetchUsers({ username: searchQuery, email: searchQuery, page: userPage }); // Перезагружаем с текущим поиском и страницей
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      console.error('Error unblocking user:', axiosError);
+      alert(axiosError.response?.data?.message || 'Failed to unblock user.');
     }
-  };
+  }
+};
 
   const handleViewRiskScore = async (id: string) => {
     try {
@@ -804,27 +853,22 @@ const handleVerifyIdentity = async (id: string, verify: boolean) => {
   }
 };
 
+const handleDeleteCategory = async (id: string) => {
+  if (window.confirm('Are you sure you want to delete this category?')) {
+    try {
+      await deleteCategory(id);
+      const updatedCategories = await getAdminCategories();
+      setCategories(updatedCategories || []);
+      alert('Category deleted successfully!');
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      console.error('Error deleting category:', axiosError);
+      alert(axiosError.response?.data?.message || 'Failed to delete category.');
+    }
+  }
+};
 
 
-// const handleCreateCategory = async (e: React.FormEvent) => {
-//   e.preventDefault();
-//   if (!newCategoryName.trim()) {
-//     alert('Category name cannot be empty.');
-//     return;
-//   }
-//   const newCategory: Category = {
-//     id: `cat${Date.now()}`,
-//     name: newCategoryName,
-//     parent_id: newParentCategoryId || null,
-//     created_at: new Date().toISOString(),
-//     updated_at: new Date().toISOString(),
-//     subcategories: [],
-//   };
-//   setCategories([...categories, newCategory]);
-//   setNewCategoryName('');
-//   setNewParentCategoryId('');
-//   alert('Category created successfully!');
-// };
 
   const handleDeleteJobPost = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this job post?')) {
@@ -1067,7 +1111,7 @@ if (isLoading) {
         <div className="main-content">
           <div className="content">
             <h2>Admin Dashboard</h2>
-            <p>Loading...</p>
+            <Loader />
           </div>
         </div>
       </div>
@@ -1312,7 +1356,7 @@ if (isLoading) {
     <tr key={post.id}>
       <td>{post.username || 'N/A'}</td>
       <td>{post.title}</td>
-      <td>{post.category || 'N/A'}</td> {/* Added */}
+      <td>{typeof post.category === 'string' ? post.category : post.category?.name || 'N/A'}</td> {/* Обработка: string или object.name */}
       <td>{post.applicationCount}</td>
       <td>{format(new Date(post.created_at), 'PP')}</td>
       <td>
@@ -1583,38 +1627,40 @@ if (isLoading) {
         </tr>
       </thead>
       <tbody>
-        {jobPosts.length > 0 ? jobPosts
-          .filter(post => statusFilter === 'All' || (statusFilter === 'Pending' && post.pending_review))
-          .map((post) => (
-            <tr key={post.id}>
-              <td>{post.id}</td>
-              <td>{post.title}</td>
-              <td>{post.status}</td>
-              <td>{post.pending_review ? 'Yes' : 'No'}</td>
-              <td>{format(new Date(post.created_at), 'PP')}</td>
-              <td>
-                <button onClick={() => handleDeleteJobPost(post.id)} className="action-button danger">
-                  Delete
-                </button>
-                <button onClick={() => handleApproveJobPost(post.id)} className="action-button success">
-                  Approve
-                </button>
-                <button onClick={() => handleFlagJobPost(post.id)} className="action-button warning">
-                  Flag
-                </button>
-                <button onClick={() => handleSetApplicationLimit(post.id)} className="action-button">
-                  Set App Limit
-                </button>
-                <button onClick={() => handleNotifyCandidates(post.id)} className="action-button success">
-                  Notify Seekers
-                </button>
-              </td>
-            </tr>
-          )) : (
-            <tr>
-              <td colSpan={6}>No job posts found.</td>
-            </tr>
-          )}
+{jobPosts.length > 0 ? jobPosts
+  .filter(post => statusFilter === 'All' || (statusFilter === 'Pending' && post.pending_review))
+  .map((post) => (
+    <tr key={post.id}>
+      <td>{post.id}</td>
+      <td>{post.title}</td>
+      <td>{post.status}</td>
+      <td>{post.pending_review ? 'Yes' : 'No'}</td>
+      <td>{format(new Date(post.created_at), 'PP')}</td>
+      <td>
+        <button onClick={() => handleDeleteJobPost(post.id)} className="action-button danger">
+          Delete
+        </button>
+        {post.pending_review && (
+          <button onClick={() => handleApproveJobPost(post.id)} className="action-button success">
+            Approve
+          </button>
+        )}
+        <button onClick={() => handleFlagJobPost(post.id)} className="action-button warning">
+          Flag
+        </button>
+        <button onClick={() => handleSetApplicationLimit(post.id)} className="action-button">
+          Set App Limit
+        </button>
+        <button onClick={() => handleNotifyCandidates(post.id)} className="action-button success">
+          Notify Seekers
+        </button>
+      </td>
+    </tr>
+  )) : (
+    <tr>
+      <td colSpan={6}>No job posts found.</td>
+    </tr>
+  )}
       </tbody>
     </table>
     <div className="pagination">
@@ -1684,7 +1730,7 @@ if (isLoading) {
   </div>
 )}
 
-          {activeTab === 'Feedback' && (
+         {activeTab === 'Feedback' && (
   <div>
   <h4>Issues Feedback (Technical/Support)</h4>
   <table className="dashboard-table">
@@ -1692,12 +1738,14 @@ if (isLoading) {
       <tr>
         <th>Message</th>
         <th>User</th>
-        <th>Created At</th>
+        <th onClick={() => handleIssuesSort('created_at')} style={{ cursor: 'pointer' }}>
+          Created At {issuesSortColumn === 'created_at' ? (issuesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+        </th>
         <th>Actions</th>
       </tr>
     </thead>
     <tbody>
-      {issues.length > 0 ? issues.map((fb) => (
+      {sortedIssues.length > 0 ? sortedIssues.map((fb) => (
         <tr key={fb.id}>
           <td>{fb.message}</td>
           <td>{fb.user?.username || 'Unknown'}</td>
@@ -1736,12 +1784,14 @@ if (isLoading) {
         <th>Description</th>
         <th>Rating</th>
         <th>User</th>
-        <th>Created At</th>
+        <th onClick={() => handleStoriesSort('created_at')} style={{ cursor: 'pointer' }}>
+          Created At {storiesSortColumn === 'created_at' ? (storiesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+        </th>
         <th>Actions</th>
       </tr>
     </thead>
     <tbody>
-      {stories.length > 0 ? stories.map((story) => (
+      {sortedStories.length > 0 ? sortedStories.map((story) => (
         <tr key={story.id}>
           <td>{story.description}</td>
           <td>{story.rating}</td>
@@ -1783,68 +1833,70 @@ if (isLoading) {
   
   {/* Добавлено: 2 формы для main и sub */}
   <div className="form-group">
-    <h5>Create Main Category</h5>
-    <input
-      type="text"
-      value={newCategoryName}
-      onChange={(e) => setNewCategoryName(e.target.value)}
-      placeholder="Enter main category name"
-    />
-  <button onClick={() => handleCreateCategory(undefined)} className="action-button">
+  <h5>Create Main Category</h5>
+  <input
+    type="text"
+    value={newCategoryName}
+    onChange={(e) => setNewCategoryName(e.target.value)}
+    placeholder="Enter main category name"
+  />
+<button onClick={() => handleCreateCategory(undefined)} className="action-button">
+  Create Main
 </button>
-  </div>
-  
-  <div className="form-group">
-    <h5>Create Subcategory</h5>
-    <input
-      type="text"
-      value={newCategoryName}
-      onChange={(e) => setNewCategoryName(e.target.value)}
-      placeholder="Enter subcategory name"
-    />
-    <select
-      value={newParentCategoryId}
-      onChange={(e) => setNewParentCategoryId(e.target.value)}
-      className="category-select"
-    >
-      <option value="">Select parent category</option>
-      {categories
-        .filter((category) => !category.parent_id)
-        .map((category) => (
-          <option key={category.id} value={category.id}>
-            {category.name}
-          </option>
-        ))}
-    </select>
- <button onClick={() => handleCreateCategory(newParentCategoryId)} className="action-button"> 
+</div>
+
+<div className="form-group">
+  <h5>Create Subcategory</h5>
+  <input
+    type="text"
+    value={newCategoryName}
+    onChange={(e) => setNewCategoryName(e.target.value)}
+    placeholder="Enter subcategory name"
+  />
+  <select
+    value={newParentCategoryId}
+    onChange={(e) => setNewParentCategoryId(e.target.value)}
+    className="category-select"
+  >
+    <option value="">Select parent category</option>
+    {categories
+      .filter((category) => !category.parent_id)
+      .map((category) => (
+        <option key={category.id} value={category.id}>
+          {category.name}
+        </option>
+      ))}
+  </select>
+<button onClick={() => handleCreateCategory(newParentCategoryId)} className="action-button"> 
+  Create Sub
 </button>
-  </div>
-  
-  {fetchErrors.getCategories && <p className="error-message">{fetchErrors.getCategories}</p>}
-  <div className="category-tree">
-    <h5>Category Hierarchy</h5>
-    <ul className="category-tree-list">
-      {categories
-        .filter((category) => !category.parent_id)
-        .map((category) => (
-          <li key={category.id} className="category-tree-item">
-            <details>
-              <summary>{category.name}</summary> {/* Убрал ID, добавил details summary для развертывания */}
-              {category.subcategories && category.subcategories.length > 0 && (
-                <ul className="category-tree-sublist">
-                  {category.subcategories.map((sub) => (
-                    <li key={sub.id} className="category-tree-subitem">
-                      {sub.name} {/* Убрал ID */}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </details>
-          </li>
-        ))}
-      {categories.length === 0 && <p>No categories found.</p>}
-    </ul>
-  </div>
+</div>
+
+{fetchErrors.getCategories && <p className="error-message">{fetchErrors.getCategories}</p>}
+<div className="category-tree">
+  <h5>Category Hierarchy</h5>
+  <ul className="category-tree-list">
+    {categories
+      .filter((category) => !category.parent_id)
+      .map((category) => (
+        <li key={category.id} className="category-tree-item">
+          <details>
+            <summary>{category.name} <button onClick={() => handleDeleteCategory(category.id)} className="action-button danger small">Delete</button></summary> {/* Убрал ID, добавил details summary для развертывания */}
+            {category.subcategories && category.subcategories.length > 0 && (
+              <ul className="category-tree-sublist">
+                {category.subcategories.map((sub) => (
+                  <li key={sub.id} className="category-tree-subitem">
+                    {sub.name} <button onClick={() => handleDeleteCategory(sub.id)} className="action-button danger small">Delete</button> {/* Убрал ID */}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </details>
+        </li>
+      ))}
+    {categories.length === 0 && <p>No categories found.</p>}
+  </ul>
+</div>
 </div>
 )}
 
@@ -2113,15 +2165,15 @@ if (isLoading) {
     {fetchErrors.getRegistrationStats && <p className="error-message">{fetchErrors.getRegistrationStats}</p>}
     {registrationStats.length > 0 && (
   <ResponsiveContainer width="100%" height={300}>
-    <LineChart data={registrationStats}>
-      <CartesianGrid strokeDasharray="3 3" />
-      <XAxis dataKey="period" />
-      <YAxis />
-      <Tooltip formatter={(value: number) => [value, 'Registrations']} />
-      <Legend />
-      <Line type="monotone" dataKey="count" stroke="#8884d8" />
-    </LineChart>
-  </ResponsiveContainer>
+  <BarChart data={registrationStats}>
+    <CartesianGrid strokeDasharray="3 3" />
+    <XAxis dataKey="period" />
+    <YAxis />
+    <Tooltip formatter={(value: number) => [value, 'Registrations']} />
+    <Legend />
+    <Bar dataKey="count" fill="#8884d8" />
+  </BarChart>
+</ResponsiveContainer>
 )}
     <table className="dashboard-table">
       <thead>
@@ -2211,22 +2263,27 @@ if (isLoading) {
     )}
   </tbody>
 </table>
-    <h4>Top Employers</h4>
+   <h4>Top Employers by Total Applicants</h4> {/* Изменено название */}
 {fetchErrors.getTopEmployers && <p className="error-message">{fetchErrors.getTopEmployers}</p>}
 <table className="dashboard-table">
   <thead>
     <tr>
       <th>Username</th>
-      <th>Job Count</th>
+      <th>Total Applicants</th> {/* Изменено с Job Count */}
     </tr>
   </thead>
   <tbody>
-    {topEmployers.length > 0 ? topEmployers.map((employer) => (
-      <tr key={employer.employer_id}>
-        <td>{employer.username}</td>
-        <td>{employer.job_count}</td>
-      </tr>
-    )) : (
+    {topEmployers.length > 0 ? topEmployers.map((employer) => {
+      const totalApplicants = jobPostsWithApps
+        .filter(post => post.employer_id === employer.employer_id)
+        .reduce((sum, post) => sum + post.applicationCount, 0);
+      return (
+        <tr key={employer.employer_id}>
+          <td>{employer.username}</td>
+          <td>{totalApplicants}</td> {/* Используем аггрегированный count applicants */}
+        </tr>
+      );
+    }) : (
       <tr>
         <td colSpan={2}>No top employers found.</td>
       </tr>

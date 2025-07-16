@@ -120,15 +120,17 @@ export interface JobApplication {
   job_post_id: string;
   job_seeker_id: string;
   status: 'Pending' | 'Accepted' | 'Rejected';
-  job_post?: JobPost;
-  job_seeker?: {
-    id: string;
-    email: string;
-    username: string;
-    role: 'jobseeker';
-  };
+  job_post?: { id: string; title: string; employer_id?: string; employer?: { id: string; username: string; }; }; // Расширено для employer_id и employer
+  job_seeker?: { id: string; username: string; email?: string; }; // Nested из docs, убрал email/role если не нужно
   created_at: string;
   updated_at: string;
+}
+
+export interface ReviewJobApplication {
+  id: string;
+  job_post_id: string;
+  job_seeker_id: string;
+  status: 'Pending' | 'Accepted' | 'Rejected';
 }
 
 export interface Review {
@@ -144,12 +146,7 @@ export interface Review {
     username: string;
     role: 'employer' | 'jobseeker';
   };
-  job_application?: {
-    id: string;
-    job_post_id: string;
-    job_seeker_id: string;
-    status: string;
-  } | null; // Добавлено null для соответствия возможным случаям
+  job_application?: ReviewJobApplication | null; // Изменено на JobApplication, которая имеет nested job_post/job_seeker
   job_post?: {
     id: string;
     title: string;

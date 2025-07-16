@@ -34,7 +34,7 @@ const Footer: React.FC = () => {
             <Link to="/how-it-works/employer-faq">How to Hire</Link>
             <Link to="/pricing">Pricing Plans</Link>
             <Link to="/va-categories">VA Categories</Link>
-            <Link to="/real-results">Client Stories</Link>
+            <Link to="/client-stories">Client Stories</Link>
           </div>
         </div>
         <div className="footer-column">

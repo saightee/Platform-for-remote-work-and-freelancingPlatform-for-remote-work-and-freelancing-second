@@ -6,6 +6,7 @@ import { JobApplication } from '@types';
 import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
 import { formatDateInTimezone } from '../utils/dateUtils';
+import Loader from '../components/Loader';
 // import { mockApplications } from '../mocks/mockMyApplications'; // Закомментировано
 
 const MyApplications: React.FC = () => {
@@ -15,36 +16,9 @@ const MyApplications: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [reviewForm, setReviewForm] = useState<{ applicationId: string; rating: number; comment: string } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [leftReviews, setLeftReviews] = useState<{ [appId: string]: { rating: number; comment: string } }>({});
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
-  // Эмуляция profile для мока (закомментировано)
-  // const mockProfile = { role: 'jobseeker' };
-  // if (!mockProfile || mockProfile.role !== 'jobseeker') {
-  //   return (
-  //     <div>
-  //       <Header />
-  //       <div className="container">
-  //         <h2>My Applications</h2>
-  //         <p>This page is only available for jobseekers.</p>
-  //       </div>
-  //       <Footer />
-  //       <Copyright />
-  //     </div>
-  //   );
-  // }
-
-  // Мок-useEffect закомментирован
-  // useEffect(() => {
-  //   const mockProfile = { role: 'jobseeker' };
-  //   if (!mockProfile || mockProfile.role !== 'jobseeker') {
-  //     setError('This page is only available for jobseekers.');
-  //     setIsLoading(false);
-  //     return;
-  //   }
-  //   setApplications(mockApplications);
-  //   setIsLoading(false);
-  // }, []);
-
-  // Для продакшена: раскомментировать этот useEffect
   useEffect(() => {
     const fetchApplications = async () => {
       if (!profile || profile.role !== 'jobseeker') {
@@ -86,7 +60,9 @@ const MyApplications: React.FC = () => {
         rating: reviewForm.rating,
         comment: reviewForm.comment,
       });
+      setLeftReviews({ ...leftReviews, [reviewForm.applicationId]: { rating: reviewForm.rating, comment: reviewForm.comment } });
       setReviewForm(null);
+      setIsReviewModalOpen(false);
       alert('Review submitted successfully!');
     } catch (error: any) {
       console.error('Error creating review:', error);
@@ -106,7 +82,7 @@ const MyApplications: React.FC = () => {
         <Header />
         <div className="container">
           <h2>My Applications</h2>
-          <p>Loading...</p>
+          <Loader />
         </div>
       </div>
     );
@@ -140,66 +116,83 @@ const MyApplications: React.FC = () => {
                 {app.status === 'Accepted' && (
                   <>
                     <p className="my-app-success">Congratulations! Your application has been accepted.</p>
-                    <button
-                      onClick={() => setReviewForm({ applicationId: app.id, rating: 5, comment: '' })}
-                      className="my-app-button"
-                    >
-                      Leave Review
-                    </button>
+                    {leftReviews[app.id] ? (
+                      <div className="left-review">
+                        <h4>Your Review:</h4>
+                        <p><strong>Rating:</strong> {leftReviews[app.id].rating} ★</p>
+                        <p><strong>Comment:</strong> {leftReviews[app.id].comment}</p>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setReviewForm({ applicationId: app.id, rating: 5, comment: '' });
+                          setIsReviewModalOpen(true);
+                        }}
+                        className="my-app-button"
+                      >
+                        Leave Review
+                      </button>
+                    )}
                   </>
                 )}
                 {app.status === 'Rejected' && (
                   <p className="my-app-error">Unfortunately, your application was rejected.</p>
-                )}
-                {reviewForm && reviewForm.applicationId === app.id && (
-                  <form onSubmit={handleCreateReview} className="my-app-review-form">
-                    {formError && <p className="my-app-error">{formError}</p>}
-                    <div className="my-app-form-group">
-                      <label>Rating (1-5 stars):</label>
-                      <div className="my-app-star-rating">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <span
-                            key={star}
-                            className={`my-app-star ${star <= (reviewForm.rating || 0) ? 'my-app-star-filled' : ''}`}
-                            onClick={() => handleStarClick(star)}
-                          >
-                            ★
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="my-app-form-group">
-                      <label>Comment:</label>
-                      <textarea
-                        value={reviewForm.comment}
-                        onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
-                        placeholder="Enter your review"
-                        rows={4}
-                      />
-                    </div>
-                    <div className="my-app-action-buttons">
-                      <button type="submit" className="my-app-button my-app-success">
-                        Submit Review
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setReviewForm(null);
-                          setFormError(null);
-                        }}
-                        className="my-app-button"
-                        style={{ marginLeft: '10px' }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
                 )}
               </div>
             ))}
           </div>
         ) : (
           <p>No applications found.</p>
+        )}
+        {isReviewModalOpen && reviewForm && (
+          <div className="modal">
+            <div className="modal-content">
+              <span className="close" onClick={() => { setIsReviewModalOpen(false); setReviewForm(null); }}>×</span>
+              <form onSubmit={handleCreateReview} className="my-app-review-form">
+                {formError && <p className="my-app-error">{formError}</p>}
+                <div className="my-app-form-group">
+                  <label>Rating (1-5 stars):</label>
+                  <div className="my-app-star-rating">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span
+                        key={star}
+                        className={`my-app-star ${star <= (reviewForm.rating || 0) ? 'my-app-star-filled' : ''}`}
+                        onClick={() => handleStarClick(star)}
+                      >
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="my-app-form-group">
+                  <label>Comment:</label>
+                  <textarea
+                    value={reviewForm.comment}
+                    onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+                    placeholder="Enter your review"
+                    rows={4}
+                  />
+                </div>
+                <div className="my-app-action-buttons">
+                  <button type="submit" className="my-app-button my-app-success">
+                    Submit Review
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReviewForm(null);
+                      setFormError(null);
+                      setIsReviewModalOpen(false);
+                    }}
+                    className="my-app-button"
+                    style={{ marginLeft: '10px' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
       </div>
          <Footer />

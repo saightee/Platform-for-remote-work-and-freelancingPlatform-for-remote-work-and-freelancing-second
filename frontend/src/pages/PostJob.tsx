@@ -8,12 +8,18 @@ import { Category, JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import Loader from '../components/Loader';
 
 const PostJob: React.FC = () => {
   const navigate = useNavigate();
   const { profile } = useRole();
   const [title, setTitle] = useState('');
-  const [description] = useState('');
+  const [description, setDescription] = useState('');
+  const [skillInput, setSkillInput] = useState('');
+  const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [selectedCategoryName, setSelectedCategoryName] = useState('');
+  const [salaryType, setSalaryType] = useState('per hour');
   
   // const [location, setLocation] = useState('');
   const [salary, setSalary] = useState<number | null>(null);
@@ -91,7 +97,7 @@ const removeCountry = (country: string) => {
     }
   }, [profile]);
 
-  const handleSubmit = async (e: FormEvent) => {
+      const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!profile || profile.role !== 'employer') {
       navigate('/login');
@@ -104,6 +110,7 @@ const removeCountry = (country: string) => {
         description,
         excluded_locations: excludedCountries,
         salary: salary !== null ? salary : null,
+        salary_type: salaryType,
         status: 'Active',
         job_type: jobType,
         category_id: categoryId || undefined,
@@ -122,7 +129,7 @@ const removeCountry = (country: string) => {
         <Header />
         <div className="container">
           <h2>Post a Job</h2>
-          <p>Loading...</p>
+          <Loader />
         </div>
         <Footer />
         <Copyright />
@@ -195,13 +202,19 @@ const removeCountry = (country: string) => {
 </div>
                   <div className="form-group">
                     <label>Salary</label>
-                    <input
-                      type="number"
-                      value={salary !== null ? salary : ''}
-                      onChange={(e) => setSalary(e.target.value ? Number(e.target.value) : null)}
-                      placeholder="Enter salary ($/hour)"
-                      min="0"
-                    />
+                    <div className="salary-group">
+                      <input
+                        type="number"
+                        value={salary !== null ? salary : ''}
+                        onChange={(e) => setSalary(e.target.value ? Number(e.target.value) : null)}
+                        placeholder="Enter salary"
+                        min="0"
+                      />
+                      <select value={salaryType} onChange={(e) => setSalaryType(e.target.value)}>
+                        <option>per hour</option>
+                        <option>per month</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="form-group">
                     <label>Job Type</label>
@@ -220,20 +233,48 @@ const removeCountry = (country: string) => {
                   </div>
                   <div className="form-group">
                     <label>Category</label>
-                    <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                      <option value="">Select category</option>
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="autocomplete-wrapper">
+                      <input
+                        type="text"
+                        value={skillInput}
+                        onChange={(e) => setSkillInput(e.target.value)}
+                        placeholder="Type to search category..."
+                        className="category-select"
+                        onFocus={() => skillInput.trim() && setIsDropdownOpen(true)}
+                        onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                      />
+                      {isDropdownOpen && filteredSkills.length > 0 && (
+                        <ul className="autocomplete-dropdown">
+                          {filteredSkills.map((skill) => (
+                            <li
+                              key={skill.id}
+                              className="autocomplete-item"
+                              onMouseDown={() => {
+                                setCategoryId(skill.id);
+                                setSelectedCategoryName(skill.parent_id 
+                                  ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
+                                  : skill.name);
+                                setSkillInput('');
+                                setIsDropdownOpen(false);
+                              }}
+                            >
+                              {skill.parent_id
+                                ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
+                                : skill.name}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    {selectedCategoryName && <p>Selected: {selectedCategoryName}</p>}
                   </div>
                 </div>
                 <div className="form-column right-column">
                   <div className="description-editor">
                     <h3>Job description</h3>
-   <ReactQuill
+                    <ReactQuill
+                      value={description}
+                      onChange={setDescription}
                       placeholder="Enter job description"
                       style={{ height: '380px', marginBottom: '10px' }}
                     />

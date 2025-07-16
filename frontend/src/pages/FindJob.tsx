@@ -8,6 +8,7 @@ import { JobPost, Category, PaginatedResponse } from '@types';
 import { FaFilter } from 'react-icons/fa';
 import { searchJobPosts, getCategories, checkJobApplicationStatus } from '../services/api';
 import { useRole } from '../context/RoleContext';
+import Loader from '../components/Loader';
 
 const FindJob: React.FC = () => {
   const { profile } = useRole();
@@ -167,7 +168,7 @@ const handleSearch = (e: React.FormEvent) => {
     return pages;
   };
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) return <Loader />;
   if (error) return <div className="error-message">{error}</div>;
 
   return (
@@ -249,7 +250,7 @@ const handleSearch = (e: React.FormEvent) => {
         <option value="Project-based">Project-based</option>
       </select>
     </div>
-    <div className="form-group">
+        <div className="form-group">
       <label>Category:</label>
       <select
         value={tempSearchState.category_id}
@@ -257,9 +258,16 @@ const handleSearch = (e: React.FormEvent) => {
       >
         <option value="">All Categories</option>
         {categories.map((category) => (
-          <option key={category.id} value={category.id}>
-            {category.name}
-          </option>
+          <>
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+            {category.subcategories?.map((sub) => (
+              <option key={sub.id} value={sub.id}>
+                {`${category.name} > ${sub.name}`}
+              </option>
+            ))}
+          </>
         ))}
       </select>
     </div>

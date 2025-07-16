@@ -2,6 +2,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 
+
 const Careers: React.FC = () => {
   return (
     <div>

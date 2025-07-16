@@ -8,6 +8,7 @@ import { JobSeekerProfile, Review, Category } from '@types';
 import { useRole } from '../context/RoleContext';
 import { FaUserCircle } from 'react-icons/fa';
 import { formatDateInTimezone } from '../utils/dateUtils';
+import Loader from '../components/Loader';
 
 const PublicProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -50,10 +51,10 @@ const PublicProfile: React.FC = () => {
     fetchProfile();
   }, [id]);
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) return <Loader />;
   if (error || !profile) return <div className="error-message">{error || 'Profile not found'}</div>;
 
-  return (
+    return (
     <div>
       <Header />
       <div className="pp-container">
@@ -61,15 +62,15 @@ const PublicProfile: React.FC = () => {
         <div className="pp-content">
           <div className="pp-details">
             <div className="pp-avatar-section">
-             {profile.avatar ? (
-  <img
-    src={`https://jobforge.net/backend${profile.avatar}`}
-    alt="Avatar"
-    className="pp-avatar"
-  />
-) : (
-  <FaUserCircle className="pp-avatar-icon" />
-)}
+              {profile.avatar ? (
+                <img
+                  src={`https://jobforge.net/backend${profile.avatar}`}
+                  alt="Avatar"
+                  className="pp-avatar"
+                />
+              ) : (
+                <FaUserCircle className="pp-avatar-icon" />
+              )}
             </div>
             <h3>{profile.username}</h3>
             <p><strong>Email:</strong> {profile.email || 'Not visible'}</p>
@@ -102,25 +103,9 @@ const PublicProfile: React.FC = () => {
             </p>
             <p><strong>Profile Views:</strong> {profile.profile_views || 0}</p>
           </div>
-          <div className="pp-actions">
-            <h3>Reviews</h3>
-            {reviews.length > 0 ? (
-              <div className="pp-review-list">
-                {reviews.map((review) => (
-                  <div key={review.id} className="pp-review-item">
-                    <div className="pp-review-content">
-                      <h4>{review.reviewer?.username || 'Anonymous'}</h4>
-                      <p><strong>Rating:</strong> {review.rating} ★</p>
-                      <p><strong>Comment:</strong> {review.comment}</p>
-                      <p><strong>Job Application ID:</strong> {review.job_application?.id || 'Not specified'}</p>
-                      <p><strong>Date:</strong> {formatDateInTimezone(review.created_at)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p>No reviews yet.</p>
-            )}
+          <div className="pp-description">
+            <h3>Description</h3>
+            <p>{profile.description || 'Not specified'}</p>
             {currentUser && (
               <Link
                 to={`/complaint?type=profile&id=${id}`}
@@ -130,6 +115,26 @@ const PublicProfile: React.FC = () => {
               </Link>
             )}
           </div>
+        </div>
+        <div className="pp-reviews">
+          <h3>Reviews</h3>
+          {reviews.length > 0 ? (
+            <div className="pp-review-list">
+              {reviews.map((review) => (
+                <div key={review.id} className="pp-review-item">
+                  <div className="pp-review-content">
+                    <h4>{review.reviewer?.username || 'Anonymous'}</h4>
+                    <p><strong>Rating:</strong> {review.rating} ★</p>
+                    <p><strong>Comment:</strong> {review.comment}</p>
+                    <p><strong>Job Application ID:</strong> {review.job_application?.id || 'Not specified'}</p>
+                    <p><strong>Date:</strong> {formatDateInTimezone(review.created_at)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p>No reviews yet.</p>
+          )}
         </div>
       </div>
       <Footer />

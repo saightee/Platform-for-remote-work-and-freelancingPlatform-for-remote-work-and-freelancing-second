@@ -6,10 +6,11 @@ import Copyright from '../components/Copyright';
 import { getJobPost, applyToJobPost, incrementJobView, checkJobApplicationStatus } from '../services/api';
 import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
-import { FaEye, FaBriefcase, FaDollarSign, FaMapMarkerAlt, FaCalendarAlt, FaUserCircle } from 'react-icons/fa';
+import { FaEye, FaBriefcase, FaDollarSign, FaMapMarkerAlt, FaCalendarAlt, FaUserCircle, FaTools } from 'react-icons/fa';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
 import sanitizeHtml from 'sanitize-html';
+import Loader from '../components/Loader';
 
 const JobDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +21,8 @@ const JobDetails: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasApplied, setHasApplied] = useState<boolean>(false);
+  const [coverLetter, setCoverLetter] = useState('');
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -59,10 +62,19 @@ const JobDetails: React.FC = () => {
       setError('Only job seekers can apply for jobs.');
       return;
     }
+    setIsApplyModalOpen(true);
+  };
+
+  const submitApply = async () => {
+    if (!coverLetter.trim()) {
+      setError('Cover letter is required.');
+      return;
+    }
     try {
       if (id) {
-        await applyToJobPost(id);
+        await applyToJobPost(id, coverLetter);
         setHasApplied(true);
+        setIsApplyModalOpen(false);
         navigate('/my-applications');
       }
     } catch (err: any) {
@@ -91,7 +103,7 @@ const JobDetails: React.FC = () => {
     navigate('/find-job', { state: { scrollPosition: location.state?.scrollPosition || 0 } });
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <Loader />;
   if (!job) return <div>Job not found.</div>;
 
   return (
@@ -157,6 +169,17 @@ const JobDetails: React.FC = () => {
           <div className="job-details-info">
             <h2>Job Overview</h2>
             <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(job.description) }} />
+            {job.required_skills && job.required_skills.length > 0 && (
+              <div className="skill-requirement">
+                <FaTools className="skill-icon" />
+                <strong>Skill requirement:</strong>
+                <div className="skill-tags">
+                  {job.required_skills.map((skill, idx) => (
+                    <span key={idx} className="skill-tag">{skill}</span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <div className="job-details-actions">
             {profile?.role === 'jobseeker' && job.status === 'Active' ? (
@@ -182,6 +205,24 @@ const JobDetails: React.FC = () => {
             )}
           </div>
         </div>
+        {isApplyModalOpen && (
+          <div className="modal">
+            <div className="modal-content">
+              <span className="close" onClick={() => setIsApplyModalOpen(false)}>×</span>
+              <h3>Apply with Cover Letter</h3>
+              <textarea
+                value={coverLetter}
+                onChange={(e) => setCoverLetter(e.target.value)}
+                placeholder="Write your cover letter here..."
+                rows={6}
+              />
+              <p>Your resume from profile will be attached automatically.</p>
+              <button onClick={submitApply} className="action-button">
+                Submit Application
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       <Footer />
       <Copyright />

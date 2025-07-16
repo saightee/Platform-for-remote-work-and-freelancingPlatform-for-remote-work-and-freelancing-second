@@ -38,6 +38,7 @@ import Complaint from './pages/Complaint';
 import ForgotPassword from './pages/ForgotPassword';
 import CheckEmail from './pages/CheckEmail';
 import Support from './pages/Support';
+import Clientstories from './pages/ClientStories';
 
 const App: React.FC = () => {
   return (
@@ -63,6 +64,7 @@ const App: React.FC = () => {
           <Route path="/reset-password/confirm" element={<ConfirmResetPassword />} />
           <Route path="/how-it-works/jobseeker-faq" element={<HowItWorksJobseekerFAQ />} />
           <Route path="/how-it-works/employer-faq" element={<HowItWorksEmployerFAQ />} />
+          <Route path="/client-stories" element={<Clientstories />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/real-results" element={<RealResults />} />
           <Route path="/find-job" element={<FindJob />} />

@@ -3,10 +3,11 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { searchTalents, searchJobseekers, getCategories } from '../services/api';
+import { searchTalents, searchJobseekers, getCategories, searchCategories } from '../services/api';
 import { Profile, Category } from '@types';
 import { FaUserCircle, FaFilter } from 'react-icons/fa';
 import { AxiosError } from 'axios';
+import Loader from '../components/Loader';
 
 
 
@@ -20,41 +21,29 @@ const FindTalent: React.FC = () => {
  const [searchParams, setSearchParams] = useSearchParams();
 const [searchInput, setSearchInput] = useState(searchParams.get('skills') || '');
 const [filters, setFilters] = useState<{
-  skills: string;
   username: string;
   experience: string;
-  description: string;
   rating?: number;
-  timezone: string;
   skill_id: string;
   page: number;
   limit: number;
 }>({
-  skills: searchParams.get('skills') || '',
   username: searchParams.get('username') || '',
   experience: '',
-  description: '',
   rating: undefined,
-  timezone: '',
   skill_id: '',
   page: 1,
   limit: 10,
 });
 const [tempFilters, setTempFilters] = useState<{
-  skills: string;
   username: string;
   experience: string;
-  description: string;
   rating?: number;
-  timezone: string;
   skill_id: string;
 }>({
-  skills: searchParams.get('skills') || '',
   username: searchParams.get('username') || '',
   experience: '',
-  description: '',
   rating: undefined,
-  timezone: '',
   skill_id: '',
 });
 const [talents, setTalents] = useState<Profile[]>([]);
@@ -65,6 +54,9 @@ const [searchType, setSearchType] = useState<'talents' | 'jobseekers'>('talents'
   const [error, setError] = useState<string | null>(null);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const navigate = useNavigate();
+const [skillInput, setSkillInput] = useState('');
+const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
+const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
 
 useEffect(() => {
@@ -74,18 +66,14 @@ useEffect(() => {
       setError(null);
       const response = await (searchType === 'talents'
         ? searchTalents({
-            skills: filters.skills,
             experience: filters.experience,
-            description: filters.description,
             rating: filters.rating,
-            timezone: filters.timezone,
             skill_id: filters.skill_id,
             page: filters.page,
             limit: filters.limit,
           })
         : searchJobseekers({
             username: filters.username,
-            skills: filters.skills,
             page: filters.page,
             limit: filters.limit,
           }));
@@ -129,16 +117,36 @@ setCategories(categoriesData || []);
   fetchData();
 }, [filters, searchType, navigate]);
 
+useEffect(() => {
+  const searchCategoriesAsync = async () => {
+    if (skillInput.trim() === '') {
+      setFilteredSkills([]);
+      setIsDropdownOpen(false);
+      return;
+    }
+    try {
+      const response = await searchCategories(skillInput);
+      setFilteredSkills(response);
+      setIsDropdownOpen(true);
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      console.error('Error searching categories:', axiosError.response?.data?.message || axiosError.message);
+      setFilteredSkills([]);
+      setIsDropdownOpen(false);
+    }
+  };
+  const debounce = setTimeout(searchCategoriesAsync, 300);
+  return () => clearTimeout(debounce);
+}, [skillInput]);
+
 const handleSearch = (e: React.FormEvent) => {
   e.preventDefault();
   setFilters((prev) => ({
     ...prev,
     ...tempFilters,
-    skills: searchInput, // Применяем значение из поискового бара
     page: 1,
   }));
   setSearchParams({
-    skills: searchInput,
     username: searchType === 'jobseekers' ? tempFilters.username : '',
   });
   setIsFilterPanelOpen(false);
@@ -215,15 +223,6 @@ const handleSearch = (e: React.FormEvent) => {
           <div className="ft-filters ${isFilterPanelOpen ? 'open' : ''}">
   <h3>Filters</h3>
   <form onSubmit={handleSearch} className="ft-search-form">
-    <div className="ft-form-group">
-      <label>Skills:</label>
-      <input
-        type="text"
-        value={tempFilters.skills}
-        onChange={(e) => setTempFilters({ ...tempFilters, skills: e.target.value })}
-        placeholder="Enter skills (e.g., JavaScript, Python)"
-      />
-    </div>
     {searchType === 'jobseekers' && (
       <div className="ft-form-group">
         <label>Username:</label>
@@ -245,15 +244,6 @@ const handleSearch = (e: React.FormEvent) => {
       />
     </div>
     <div className="ft-form-group">
-      <label>Description:</label>
-      <input
-        type="text"
-        value={tempFilters.description}
-        onChange={(e) => setTempFilters({ ...tempFilters, description: e.target.value })}
-        placeholder="Enter keywords for description"
-      />
-    </div>
-    <div className="ft-form-group">
       <label>Minimum Rating:</label>
       <input
         type="number"
@@ -270,27 +260,37 @@ const handleSearch = (e: React.FormEvent) => {
       />
     </div>
     <div className="ft-form-group">
-      <label>Timezone:</label>
-      <input
-        type="text"
-        value={tempFilters.timezone}
-        onChange={(e) => setTempFilters({ ...tempFilters, timezone: e.target.value })}
-        placeholder="Enter timezone (e.g., America/New_York)"
-      />
-    </div>
-    <div className="ft-form-group">
-      <label>Skill:</label>
-      <select
-        value={tempFilters.skill_id}
-        onChange={(e) => setTempFilters({ ...tempFilters, skill_id: e.target.value })}
-      >
-        <option value="">All Skills</option>
-        {categories.map((category) => (
-          <option key={category.id} value={category.id}>
-            {category.name}
-          </option>
-        ))}
-      </select>
+      <label>Category/Skill:</label>
+      <div className="autocomplete-wrapper">
+        <input
+          type="text"
+          value={skillInput}
+          onChange={(e) => setSkillInput(e.target.value)}
+          placeholder="Type to search categories/skills..."
+          className="category-select"
+          onFocus={() => skillInput.trim() && setIsDropdownOpen(true)}
+          onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+        />
+        {isDropdownOpen && filteredSkills.length > 0 && (
+          <ul className="autocomplete-dropdown">
+            {filteredSkills.map((skill) => (
+              <li
+                key={skill.id}
+                className="autocomplete-item"
+                onMouseDown={() => {
+                  setTempFilters({ ...tempFilters, skill_id: skill.id });
+                  setSkillInput(skill.name);
+                  setIsDropdownOpen(false);
+                }}
+              >
+                {skill.parent_id
+                  ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
+                  : skill.name}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
     <button type="submit" className="ft-button ft-success">
       Apply Filters
@@ -300,7 +300,7 @@ const handleSearch = (e: React.FormEvent) => {
           <div className="ft-results">
             <div className="ft-grid">
               {isLoading ? (
-                <p>Loading...</p>
+                <Loader />
               ) : error ? (
                 <p className="error-message">{error}</p>
               ) : talents.length > 0 ? (
