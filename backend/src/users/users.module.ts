@@ -8,10 +8,12 @@ import { Employer } from './entities/employer.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RedisModule } from '../redis/redis.module';
+import { Category } from '../categories/category.entity';
+
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, JobSeeker, Employer]),
+    TypeOrmModule.forFeature([User, JobSeeker, Employer, Category]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

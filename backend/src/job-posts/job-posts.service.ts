@@ -22,7 +22,17 @@ export class JobPostsService {
     private settingsService: SettingsService, 
   ) {}
 
-  async createJobPost(userId: string, jobPostData: { title: string; description: string; location: string; salary: number; status: 'Active' | 'Draft' | 'Closed'; category_id?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based' }) {
+  async createJobPost(userId: string, jobPostData: { 
+    title: string; 
+    description: string; 
+    location: string; 
+    salary: number; 
+    status: 'Active' | 'Draft' | 'Closed'; 
+    category_id?: string; 
+    job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+    salary_type?: 'per hour' | 'per month';  
+    excluded_locations?: string[];  
+  }) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -53,7 +63,17 @@ export class JobPostsService {
     return savedJobPost;
   }
   
-  async updateJobPost(userId: string, jobPostId: string, updates: { title?: string; description?: string; location?: string; salary?: number; status?: 'Active' | 'Draft' | 'Closed'; category_id?: string; job_type?: 'Full-time' | 'Part-time' |  'Project-based'; applicationLimit?: number }) {
+  async updateJobPost(userId: string, jobPostId: string, updates: { 
+    title?: string; 
+    description?: string; 
+    location?: string; 
+    salary?: number; 
+    status?: 'Active' | 'Draft' | 'Closed'; 
+    category_id?: string; 
+    job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+    salary_type?: 'per hour' | 'per month';  
+    excluded_locations?: string[];  
+  }) {
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: userId } });
     if (!jobPost) {
       throw new NotFoundException('Job post not found or you do not have permission to update it');
@@ -70,6 +90,8 @@ export class JobPostsService {
     if (updates.status) jobPost.status = updates.status;
     if (updates.category_id) jobPost.category_id = updates.category_id;
     if (updates.job_type) jobPost.job_type = updates.job_type;
+    if (updates.salary_type) jobPost.salary_type = updates.salary_type;  
+    if (updates.excluded_locations) jobPost.excluded_locations = updates.excluded_locations;  
   
     return this.jobPostsRepository.save(jobPost);
   }
@@ -112,6 +134,7 @@ export class JobPostsService {
     limit?: number;
     sort_by?: 'created_at' | 'salary';
     sort_order?: 'ASC' | 'DESC';
+    salary_type?: 'per hour' | 'per month';  
   }) {
     const query = this.jobPostsRepository.createQueryBuilder('jobPost')
       .leftJoinAndSelect('jobPost.employer', 'employer')
@@ -139,6 +162,9 @@ export class JobPostsService {
     }
     if (filters.required_skills && filters.required_skills.length > 0) {
       query.andWhere('jobPost.required_skills && :required_skills', { required_skills: filters.required_skills });
+    }
+    if (filters.salary_type) { 
+      query.andWhere('jobPost.salary_type = :salary_type', { salary_type: filters.salary_type });
     }
 
     const total = await query.getCount();

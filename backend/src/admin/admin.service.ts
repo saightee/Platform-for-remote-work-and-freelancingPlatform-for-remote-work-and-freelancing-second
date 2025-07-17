@@ -76,17 +76,29 @@ export class AdminService {
     }
   }
 
-  async getUsers(adminId: string, filters: { username?: string; email?: string; createdAfter?: string; role?: 'employer' | 'jobseeker' | 'admin' | 'moderator'; status?: 'active' | 'blocked' }) {
+  async getUsers(adminId: string, filters: { username?: string; email?: string; id?: string; createdAfter?: string; role?: 'employer' | 'jobseeker' | 'admin' | 'moderator'; status?: 'active' |  'blocked' }) {
     await this.checkAdminRole(adminId);
 
     const query = this.usersRepository.createQueryBuilder('user');
 
-    if (filters.username) {
-      query.andWhere('user.username ILIKE :username', { username: `%${filters.username}%` });
+    let hasSearch = false;
+    if (filters.username || filters.email || filters.id) {
+      const conditions = [];
+      if (filters.username) {
+        conditions.push('user.username ILIKE :username');
+      }
+      if (filters.email) {
+        conditions.push('user.email ILIKE :email');
+      }
+      if (filters.id) {
+        conditions.push('user.id = :id');  
+      }
+      if (conditions.length > 0) {
+        query.andWhere(`(${conditions.join(' OR ')})`);
+        hasSearch = true;
+      }
     }
-    if (filters.email) {
-      query.andWhere('user.email ILIKE :email', { email: `%${filters.email}%` });
-    }
+
     if (filters.role) {
       query.andWhere('user.role = :role', { role: filters.role });
     }
@@ -100,6 +112,12 @@ export class AdminService {
       }
       query.andWhere('user.created_at >= :createdAfter', { createdAfter: createdAfterDate });
     }
+
+    const params: any = {};
+    if (filters.username) params.username = `%${filters.username}%`;
+    if (filters.email) params.email = `%${filters.email}%`;
+    if (filters.id) params.id = filters.id;
+    if (hasSearch) query.setParameters(params);
 
     return query.getMany();
   }
@@ -220,6 +238,7 @@ export class AdminService {
     category_id?: string;
     page?: number;
     limit?: number;
+    id?: string;
   }) {
     await this.checkAdminRole(adminId);
 
@@ -242,6 +261,9 @@ export class AdminService {
     if (filters.title) {
       query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.title}%` });
     }
+    if (filters.id) {
+      query.andWhere('jobPost.id = :id', { id: filters.id });
+    }
 
     const total = await query.getCount();
 
@@ -260,7 +282,15 @@ export class AdminService {
     };
   }
 
-  async updateJobPost(adminId: string, jobPostId: string, updateData: { title?: string; description?: string; location?: string; salary?: number; status?: 'Active' | 'Draft' | 'Closed' }) {
+  async updateJobPost(adminId: string, jobPostId: string, updateData: { 
+    title?: string; 
+    description?: string; 
+    location?: string; 
+    salary?: number; 
+    status?: 'Active' | 'Draft' | 'Closed';
+    salary_type?: 'per hour' | 'per month';  
+    excluded_locations?: string[];  
+  }) {
     await this.checkAdminRole(adminId);
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
     if (!jobPost) {
@@ -281,6 +311,12 @@ export class AdminService {
     }
     if (updateData.status) {
       jobPost.status = updateData.status;
+    }
+    if (updateData.salary_type) {  
+      jobPost.salary_type = updateData.salary_type;
+    }
+    if (updateData.excluded_locations) {  
+      jobPost.excluded_locations = updateData.excluded_locations;
     }
 
     return this.jobPostsRepository.save(jobPost);

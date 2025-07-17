@@ -50,6 +50,15 @@ export class JobApplicationsController {
       const token = authHeader.replace('Bearer ', '');
       const payload = this.jwtService.verify(token);
       const userId = payload.sub;
+
+      if (['admin', 'moderator'].includes(payload.role)) {
+        return this.jobApplicationsService.getApplicationsForJobPost(userId, jobPostId);  
+      }
+
+      if (payload.role !== 'employer') {
+        throw new UnauthorizedException('Only employers can view applications for their job posts');
+      }
+
       return this.jobApplicationsService.getApplicationsForJobPost(userId, jobPostId);
     }
 

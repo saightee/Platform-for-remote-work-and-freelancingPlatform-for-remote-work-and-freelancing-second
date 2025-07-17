@@ -4,6 +4,7 @@ import { Repository, DeepPartial, Not, IsNull, In } from 'typeorm';
 import { User } from './entities/user.entity';
 import { JobSeeker } from './entities/jobseeker.entity';
 import { Employer } from './entities/employer.entity';
+import { Category } from '../categories/category.entity';
 
 @Injectable()
 export class UsersService {
@@ -14,9 +15,11 @@ export class UsersService {
     private jobSeekerRepository: Repository<JobSeeker>,
     @InjectRepository(Employer)
     private employerRepository: Repository<Employer>,
+    @InjectRepository(Category) 
+    private categoriesRepository: Repository<Category>,
   ) {}
 
-  async create(
+async create(
     userData: Partial<User> & { email: string; username: string; role: 'employer' | 'jobseeker' | 'admin' | 'moderator' },
     additionalData: any,
   ): Promise<User> {
@@ -37,14 +40,17 @@ export class UsersService {
     if (userData.role === 'jobseeker') {
       const jobSeekerEntity: DeepPartial<JobSeeker> = {
         user_id: savedUser.id,
-        skills: additionalData.skills || [],
-        experience: additionalData.experience,
-        description: additionalData.description,
-        portfolio: additionalData.portfolio || '',
-        video_intro: additionalData.video_intro || '',
         timezone: additionalData.timezone || 'UTC',
         currency: additionalData.currency || 'USD',
       };
+
+      jobSeekerEntity.experience = additionalData.experience || null;
+      if (additionalData.skills && Array.isArray(additionalData.skills)) {
+        jobSeekerEntity.skills = await this.categoriesRepository.findByIds(additionalData.skills); 
+      } else {
+        jobSeekerEntity.skills = [];
+      }
+
       const jobSeeker = this.jobSeekerRepository.create(jobSeekerEntity);
       await this.jobSeekerRepository.save(jobSeeker);
       console.log('JobSeeker profile created:', jobSeeker);
