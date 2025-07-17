@@ -242,7 +242,9 @@ const getChatPartner = (jobApplicationId: string) => {
       <Header />
       <div className="container">
         <h2>Messages</h2>
-        <Loader />
+        {/* <Loader /> */}
+        <p>Loading chats...</p>
+        <p></p>
       </div>
       </div>
     );

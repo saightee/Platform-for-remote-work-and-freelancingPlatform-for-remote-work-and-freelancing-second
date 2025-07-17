@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { createJobPost, getCategories } from '../services/api';
+import { createJobPost, getCategories, searchCategories } from '../services/api';
 import { Category, JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import ReactQuill from 'react-quill';
@@ -20,8 +20,8 @@ const PostJob: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedCategoryName, setSelectedCategoryName] = useState('');
   const [salaryType, setSalaryType] = useState('per hour');
+  const [location, setLocation] = useState(''); // Uncommented and used for Work Mode
   
-  // const [location, setLocation] = useState('');
   const [salary, setSalary] = useState<number | null>(null);
   const [jobType, setJobType] = useState<JobPost['job_type']>(null);
   const [categoryId, setCategoryId] = useState('');
@@ -97,6 +97,21 @@ const removeCountry = (country: string) => {
     }
   }, [profile]);
 
+  useEffect(() => {
+    const search = async () => {
+      if (skillInput.trim()) {
+        const res = await searchCategories(skillInput);
+        setFilteredSkills(res);
+        setIsDropdownOpen(true);
+      } else {
+        setFilteredSkills([]);
+        setIsDropdownOpen(false);
+      }
+    };
+    const debounce = setTimeout(search, 300);
+    return () => clearTimeout(debounce);
+  }, [skillInput]);
+
       const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!profile || profile.role !== 'employer') {
@@ -108,13 +123,14 @@ const removeCountry = (country: string) => {
       const jobData: Partial<JobPost> = {
         title,
         description,
-        excluded_locations: excludedCountries,
+        location,
         salary: salary !== null ? salary : null,
         salary_type: salaryType,
+        excluded_locations: excludedCountries,
         status: 'Active',
         job_type: jobType,
         category_id: categoryId || undefined,
-      } as Partial<JobPost> & { excluded_locations?: string[] }; // Cast to fix TS error
+      } as Partial<JobPost> & { excluded_locations?: string[]; salary_type?: string };
       await createJobPost(jobData);
       navigate('/my-job-posts');
     } catch (err: any) {
@@ -201,6 +217,15 @@ const removeCountry = (country: string) => {
   </div>
 </div>
                   <div className="form-group">
+                    <label>Work Mode</label>
+                    <select value={location} onChange={(e) => setLocation(e.target.value)}>
+                      <option value="">Work mode</option>
+                      <option value="Remote">Remote</option>
+                      <option value="On-site">On-site</option>
+                      <option value="Hybrid">Hybrid</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
                     <label>Salary</label>
                     <div className="salary-group">
                       <input
@@ -282,7 +307,7 @@ const removeCountry = (country: string) => {
                 </div>
               </div>
               {error && <p className="error-message">{error}</p>}
-              <div style={{ textAlign: 'center', marginTop: '20px' }}>
+              <div style={{ textAlign: 'center', marginTop: '60px' }}>
                 <button type="submit" style={{ padding: '12px 32px', fontSize: '16px' }}>
                   Post Job
                 </button>
