@@ -20,6 +20,12 @@ export class JobPost {
   @Column('int')
   salary: number;
 
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  salary_type?: 'per hour' | 'per month';
+
+  @Column('text', { array: true, nullable: true })
+  excluded_locations?: string[];
+
   @Column({ type: 'varchar', length: 20 })
   status: 'Active' | 'Draft' | 'Closed';
 

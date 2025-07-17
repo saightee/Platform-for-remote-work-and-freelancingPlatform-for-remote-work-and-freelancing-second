@@ -17,7 +17,9 @@
     "email": "test@example.com",
     "password": "password",
     "username": "test",
-    "role": "employer" // or "jobseeker"
+    "role": "jobseeker",
+    "skills": ["<categoryId1>", "<categoryId2>"],  // Optional, array of category IDs
+    "experience": "3 years"  // Optional
   }
 
 - **Response (Success - 200)**:
@@ -52,27 +54,17 @@
 
 ### 1.1 Verify Email
 - **Endpoint**: `GET api/auth/verify-email`
-- **Description**: Verifies a user's email address using a token sent via email.
+- **Description**: Verifies a user's email address using a token sent via email and auto-logins the user by redirecting to frontend with JWT token.
 - **Query Parameters:**: `token`: (Required, token from the verification email)
-- **Response (Success - 200)**:
-  ```json
-  {
-    "message": "Email successfully confirmed"
-  }
+- **Response (Success - 302 Redirect)**: Redirects to `${FRONTEND_URL}/auth/callback?token=<JWT>&verified=true`
+  - `token`: JWT access token for auto-login.
+  - `verified`: true if successful.
 
-- **Response (Error - 400, if token is invalid or expired)**:
+- **Response (Error - 400, if token is invalid or expired)**: Redirect to `${FRONTEND_URL}/auth/callback?error=invalid_token` or JSON:
   ```json
   {
     "statusCode": 400,
     "message": "Invalid or expired verification token",
-    "error": "Bad Request"
-  }
-
-- **Response (Error - 400, if email already verified)**:
-  ```json
-  {
-    "statusCode": 400,
-    "message": "Email has already been confirmed",
     "error": "Bad Request"
   }
 
@@ -498,11 +490,12 @@
     "description": "We are looking for a skilled software engineer...",
     "location": "Remote",
     "salary": 50000,
+    "salary_type": "per hour",  // Optional: "per hour" or "per month"
+    "excluded_locations": ["India", "Pakistan"],  // Optional: array of country names to exclude applicants from
     "status": "Active",
     "category_id": "<categoryId>", // Optional
-    "job_type": "Full-time", // Optional: "Full-time", "Part-time", "Project-based"
+    "job_type": "Full-time" // Optional: "Full-time", "Part-time", "Project-based"
   }
-
 - **Response (Success - 200)**:
   ```json
   {
@@ -511,6 +504,8 @@
     "description": "We are looking for a skilled software engineer...",
     "location": "Remote",
     "salary": 50000,
+    "salary_type": "per hour",
+    "excluded_locations": ["India", "Pakistan"],
     "status": "Active",
     "category_id": "<categoryId>",
     "job_type": "Full-time",
@@ -519,7 +514,6 @@
     "created_at": "2025-05-13T18:00:00.000Z",
     "updated_at": "2025-05-13T18:00:00.000Z"
   }
-
 - **Response (Error - 401, if token is invalid or missing)**:
   ```json
   {
@@ -527,7 +521,6 @@
     "message": "Invalid token",
     "error": "Unauthorized"
   }
-
 - **Response (Error - 401, if user is not an employer)**:
   ```json
   {
@@ -535,7 +528,6 @@
     "message": "Only employers can create job posts",
     "error": "Unauthorized"
   }
-
 - **Response (Error - 404, if user not found)**:
   ```json
   {
@@ -547,19 +539,20 @@
 ### 9. Update Job Post
 - **Endpoint**: `PUT /api/job-posts/:id`
 - **Description**: Updates an existing job post for an authenticated employer.
-- **Headers**: `Authorization: Bearer <token>`
-- **Request Body:**:
+- **Headers**: `Authorization: Bearer <token>` 
+- **Request Body**::
   ```json
   {
     "title": "Senior Software Engineer",
     "description": "Updated description...",
     "location": "Remote",
     "salary": 60000,
+    "salary_type": "per month",
+    "excluded_locations": ["India"],
     "status": "Closed",
     "category_id": "<categoryId>", // Optional
     "job_type": "Full-time" // Optional: "Full-time", "Part-time", "Project-based"
   }
-
 - **Response (Success - 200)**:
   ```json
   {
@@ -568,6 +561,8 @@
     "description": "Updated description...",
     "location": "Remote",
     "salary": 60000,
+    "salary_type": "per month",
+    "excluded_locations": ["India"],
     "status": "Closed",
     "category_id": "<categoryId>",
     "job_type": "Full-time",
@@ -575,7 +570,6 @@
     "created_at": "2025-05-13T18:00:00.000Z",
     "updated_at": "2025-05-13T18:30:00.000Z"
   }
-
 - **Response (Error - 401, if token is invalid or missing)**:
   ```json
   {
@@ -583,7 +577,6 @@
     "message": "Invalid token",
     "error": "Unauthorized"
   }
-
 - **Response (Error - 404, if job post not found or user does not have permission)**:
   ```json
   {
@@ -596,7 +589,6 @@
 - **Endpoint**: `GET /api/job-posts/:id`
 - **Description**: Retrieves a specific job post by ID.
 - **Request Parameters**: `id`: The ID of the job post.
-
 - **Response (Success - 200)**:
   ```json
   {
@@ -605,26 +597,21 @@
     "description": "Updated description...",
     "location": "Remote",
     "salary": 60000,
+    "salary_type": "per month",
+    "excluded_locations": ["India"],
     "status": "Closed",
     "category_id": "<categoryId>",
-    "category": {
-      "id": "<categoryId>",
-      "name": "Software Development",
-      "created_at": "2025-05-13T18:00:00.000Z",
-      "updated_at": "2025-05-13T18:00:00.000Z"
-    },
     "job_type": "Full-time",
     "employer_id": "<userId>",
     "employer": {
       "id": "<userId>",
-      "email": "test15@example.com",
-      "username": "test15",
+      "email": "test@example.com",
+      "username": "test",
       "role": "employer"
     },
     "created_at": "2025-05-13T18:00:00.000Z",
     "updated_at": "2025-05-13T18:30:00.000Z"
   }
-
 - **Response (Error - 404, if job post not found)**:  
   ```json
   {
@@ -646,6 +633,8 @@
       "description": "Updated description...",
       "location": "Remote",
       "salary": 60000,
+      "salary_type": "per month",
+      "excluded_locations": ["India"],
       "status": "Closed",
       "category_id": "<categoryId>",
       "category": {
@@ -666,7 +655,6 @@
       "updated_at": "2025-05-13T18:30:00.000Z"
     }
   ]
-
 - **Response (Error - 401, if token is invalid or missing)**:
   ```json
   {
@@ -674,7 +662,6 @@
     "message": "Invalid token",
     "error": "Unauthorized"
   }
-
 - **Response (Error - 401, if user is not an employer)**:
   ```json
   {
@@ -682,7 +669,6 @@
     "message": "Only employers can view their job posts",
     "error": "Unauthorized"
   }
-
 - **Response (Error - 404, if user not found)**:
   ```json
   {
@@ -923,7 +909,7 @@
 
 ### 14. Apply to Job Post
 - **Endpoint**: `POST /api/job-applications`
-- **Description**: Allows a jobseeker to apply to a job post. Applications are limited per job post (default: 100) and distributed cumulatively over 4 days (60%, 80%, 90%, 100%). If the daily limit is reached, a "Daily application limit reached" error is returned. If the total limit is reached, a "Job full" error is returned.
+- **Description**: Allows a jobseeker to apply to a job post. Applications are limited per job post (default: 100) and distributed cumulatively over 4 days (60%, 80%, 90%, 100%). If the daily limit is reached, a "Daily application limit reached" error is returned. If the total limit is reached, a "Job full" error is returned. Applicants from excluded_locations are blocked.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
   ```json
@@ -931,7 +917,6 @@
     "job_post_id": "<jobPostId>",
     "cover_letter": "Your cover letter text here"
   }
-
 - **Response (Success - 200)**:
   ```json
   {
@@ -942,7 +927,6 @@
     "created_at": "2025-05-13T18:00:00.000Z",
     "updated_at": "2025-05-13T18:00:00.000Z"
   }
-
 - **Response (Error - 400, if daily limit reached)**:
   ```json
   {
@@ -950,7 +934,13 @@
     "message": "Daily application limit reached",
     "error": "Bad Request"
   }
-
+- **Response (Error - 400, if location excluded)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Applicants from your location are not allowed",
+    "error": "Bad Request"
+  }
 - **Response (Error - 401, if token is invalid or missing)**:
   ```json
   {
@@ -958,7 +948,6 @@
     "message": "Invalid token",
     "error": "Unauthorized"
   }
-
 - **Response (Error - 401, if user is not a jobseeker)**:  
   ```json
   {
@@ -966,7 +955,6 @@
     "message": "Only jobseekers can apply to job posts",
     "error": "Unauthorized"
   }
-
 - **Response (Error - 404, if job post not found)**: 
   ```json
   {
@@ -974,7 +962,6 @@
     "message": "Job post not found",
     "error": "Not Found"
   }
-
 - **Response (Error - 400, if job post is not active)**: 
   ```json
   {
@@ -982,7 +969,6 @@
     "message": "Cannot apply to a job post that is not active",
     "error": "Bad Request"
   }
-
 - **Response (Error - 400, if user already applied)**: 
   ```json
   {
@@ -990,7 +976,6 @@
     "message": "You have already applied to this job post",
     "error": "Bad Request"
   }
-
 - **Response (Error - 400, if application limit reached)**: 
   ```json
   {
@@ -998,7 +983,6 @@
     "message": "Job full",
     "error": "Bad Request"
   }
-
 - **Response (Error - 400, if application period ended)**: 
   ```json
   {
@@ -1273,13 +1257,14 @@
   - `job_type` (string, optional): Filter by job type ("Full-time", "Part-time", "Project-based").
   - `salary_min` (number, optional): Filter by minimum salary.
   - `salary_max` (number, optional): Filter by maximum salary.
+  - `salary_type` (string, optional): Filter by salary type ("per hour", "per month").
   - `category_id` (string, optional): Filter by category ID.
   - `required_skills` (string or string[], optional): Filter by required skills (e.g., "required_skills=JavaScript" or "required_skills[]=JavaScript&required_skills[]=Python").
   - `page` (number, optional): Page number for pagination (default: 1).
   - `limit` (number, optional): Number of items per page (default: 10).
   - `sort_by` (string, optional): Field to sort by ("created_at" or "salary", default: "created_at").
   - `sort_order` (string, optional): Sort order ("ASC" or "DESC", default: "DESC").
-- **Example Request**: `/api/job-posts/search?title=Engineer&location=Remote&salaryMin=40000&salaryMax=60000&job_type=Full-time&category_id=<categoryId>`
+- **Example Request**: `/api/job-posts/search?title=Engineer&location=Remote&salaryMin=40000&salaryMax=60000&job_type=Full-time&category_id=<categoryId>&salary_type=per%20hour`
 - **Response (Success - 200)**:
   ```json
   {
@@ -1291,6 +1276,8 @@
         "description": "We are looking for a skilled engineer...",
         "location": "Remote",
         "salary": 50000,
+        "salary_type": "per hour",
+        "excluded_locations": ["India", "Pakistan"],
         "status": "Active",
         "pending_review": false,
         "category_id": "<categoryId>",
@@ -1442,22 +1429,23 @@
 - **Query Parameters**:
   - `username` (string, optional): Filter by username (partial match, case-insensitive).
   - `email` (string, optional): Filter by email (partial match, case-insensitive).
-  - `createdAfter` (string, optional): Filter users created after this date (format: `YYYY-MM-DD`).
+  - `id` (string, optional): Filter by exact user ID.
+  - `createdAfter` (string, optional): Filter by creation date (users created after this date, format: YYYY-MM-DD).
   - `role` (string, optional): Filter by role ("employer", "jobseeker", "admin", "moderator").
   - `status` (string, optional): Filter by status ("active", "blocked").
-- **Example Request**: `/api/admin/users?username=john&email=example.com&createdAfter=2025-05-01&role=jobseeker&status=active`
-- **Response (Success - 200)**:
+- **Note**: Search parameters (username, email, id) work as OR — matches if at least one condition is true.
+- **Example Request**: `/api/admin/users?username=john&email=example.com&id=<userId>&role=jobseeker&status=active&createdAfter=2025-01-01`
+- **Response (Success - 200)**: 
   ```json
   [
     {
       "id": "<userId>",
-      "email": "john@example.com",
-      "username": "john_doe",
+      "email": "test@example.com",
+      "username": "test",
       "role": "jobseeker",
       "status": "active",
-      "provider": null,
-      "created_at": "2025-05-15T05:13:00.000Z",
-      "updated_at": "2025-05-15T05:13:00.000Z"
+      "created_at": "2025-05-13T18:00:00.000Z",
+      "updated_at": "2025-05-13T18:00:00.000Z"
     }
   ]
 

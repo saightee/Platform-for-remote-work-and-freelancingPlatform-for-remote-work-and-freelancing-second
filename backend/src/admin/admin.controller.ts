@@ -49,6 +49,7 @@ export class AdminController {
   async getUsers(
     @Query('username') username: string,
     @Query('email') email: string,
+    @Query('id') id: string,
     @Query('createdAfter') createdAfter: string,
     @Query('role') role: 'employer' | 'jobseeker' | 'admin' | 'moderator',
     @Query('status') status: 'active' | 'blocked',
@@ -61,13 +62,10 @@ export class AdminController {
     const payload = this.jwtService.verify(token);
     const userIdAdmin = payload.sub;
 
-  const filters: { username?: string; email?: string; createdAfter?: string; role?: 'employer' | 'jobseeker' | 'admin' | 'moderator'; status?: 'active' | 'blocked' } = {};
-  if (username) {
-    filters.username = username;
-  }
-  if (email) {
-    filters.email = email;
-  }
+  const filters: { username?: string; email?: string; id?: string; createdAfter?: string; role?: 'employer' | 'jobseeker' | 'admin' | 'moderator'; status?: 'active' | 'blocked' } = {};
+  if (username) filters.username = username;
+  if (email) filters.email = email;
+  if (id) filters.id = id;
   if (createdAfter) {
     filters.createdAfter = createdAfter;
   }
@@ -173,6 +171,7 @@ export class AdminController {
     @Query('employer_id') employer_id: string,
     @Query('category_id') category_id: string, 
     @Query('limit') limit: string, 
+    @Query('id') id: string,
     @Headers('authorization') authHeader: string,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -190,6 +189,7 @@ export class AdminController {
       category_id?: string;
       page?: number;
       limit?: number;
+      id?: string; 
     } = {};
     if (status) {
       filters.status = status;
@@ -205,6 +205,9 @@ export class AdminController {
     }
     if (category_id) {
       filters.category_id = category_id;
+    }
+    if (id) {
+      filters.id = id;  
     }
     if (page) {
       const parsedPage = parseInt(page, 10);
@@ -228,7 +231,15 @@ export class AdminController {
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   async updateJobPost(
     @Param('id') jobPostId: string,
-    @Body() body: { title?: string; description?: string; location?: string; salary?: number; status?: 'Active' | 'Draft' | 'Closed' },
+    @Body() body: { 
+      title?: string; 
+      description?: string; 
+      location?: string; 
+      salary?: number; 
+      status?: 'Active' | 'Draft' | 'Closed';
+      salary_type?: 'per hour' | 'per month';  
+      excluded_locations?: string[];  
+    },
     @Headers('authorization') authHeader: string,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

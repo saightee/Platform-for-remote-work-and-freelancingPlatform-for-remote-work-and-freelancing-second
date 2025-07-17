@@ -69,10 +69,16 @@ export class AuthService {
       country,
       is_email_verified: role === 'admin' || role === 'moderator',
     };
-    const additionalData = {
+    const additionalData: { timezone: string; currency: string; skills?: string[]; experience?: string } = {
       timezone: 'UTC',
       currency: 'USD',
     };
+
+  if (role === 'jobseeker' && 'skills' in dto && 'experience' in dto) {
+    additionalData.skills = dto.skills || [];
+    additionalData.experience = dto.experience;
+  }
+
     const newUser = await this.usersService.create(userData, additionalData);
     console.log('New User Created:', newUser);
 
@@ -101,39 +107,44 @@ export class AuthService {
     return { message: 'Registration is successful. Please confirm your email.' };
   }
 
-  async verifyEmail(token: string): Promise<void> {
-      console.log(`[verifyEmail] Начало верификации с токеном: ${token}`);
+  async verifyEmail(token: string): Promise<{ message: string; accessToken: string }> {  
+      console.log(`[verifyEmail] Start verification with token: ${token}`);
       const userId = await this.redisService.get(`verify:${token}`);
       if (!userId) {
-          console.error(`[verifyEmail] Недействительный или истёкший токен: ${token}`);
-          throw new BadRequestException('Invalid or expired verification token');
+        console.error(`[verifyEmail] Invalid or expired token: ${token}`);
+        throw new BadRequestException('Invalid or expired verification token');
       }
-      console.log(`[verifyEmail] Найден userId: ${userId}`);
+      console.log(`[verifyEmail] userId found: ${userId}`);
 
       const user = await this.usersService.getUserById(userId);
       if (!user) {
-          console.error(`[verifyEmail] Пользователь не найден для userId: ${userId}`);
-          throw new BadRequestException('User not found');
+        console.error(`[verifyEmail] User not found for userId: ${userId}`);
+        throw new BadRequestException('User not found');
       }
-      console.log(`[verifyEmail] Пользователь найден: ${user.email}, is_email_verified: ${user.is_email_verified}`);
+      console.log(`[verifyEmail] User found: ${user.email}, is_email_verified: ${user.is_email_verified}`);
 
       if (user.is_email_verified) {
-          console.log(`[verifyEmail] Email уже подтверждён для ${user.email}`);
-          throw new BadRequestException('Email has already been confirmed');
+        console.log(`[verifyEmail] Email already confirmed for ${user.email}`);
+        throw new BadRequestException('Email has already been confirmed');
       }
 
       try {
-          console.log(`[verifyEmail] Обновление is_email_verified для userId: ${userId}`);
-          await this.usersService.updateUser(userId, user.role, { is_email_verified: true });
-          console.log(`[verifyEmail] Обновление выполнено успешно для ${user.email}`);
+        console.log(`[verifyEmail] Update is_email_verified for userId: ${userId}`);
+        await this.usersService.updateUser(userId, user.role, { is_email_verified: true });
+        console.log(`[verifyEmail] The update was successful for ${user.email}`);
       } catch (error) {
-          console.error(`[verifyEmail] Ошибка при обновлении пользователя: ${error.message}`);
-          throw error;
+        console.error(`[verifyEmail] Error updating user: ${error.message}`);
+        throw error;
       }
 
       await this.redisService.del(`verify:${token}`);
-      console.log(`[verifyEmail] Токен удалён из Redis: verify:${token}`);
-  }
+      console.log(`[verifyEmail] Token removed from Redis: verify:${token}`);
+
+      const payload = { email: user.email, sub: user.id, role: user.role };
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' }); 
+
+      return { message: 'Email successfully confirmed', accessToken };
+    }
 
   async login(email: string, password: string, rememberMe: boolean, ip: string, fingerprint: string, session: any) {
     const user = await this.usersService.findByEmail(email);

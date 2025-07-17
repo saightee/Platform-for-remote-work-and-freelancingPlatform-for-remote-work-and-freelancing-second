@@ -42,6 +42,10 @@ export class JobApplicationsService {
       throw new BadRequestException('Cannot apply to a job post that is not active');
     }
 
+    if (jobPost.excluded_locations?.includes(user.country)) {
+      throw new BadRequestException('Applicants from your location are not allowed');
+    }
+
     const existingApplication = await this.jobApplicationsRepository.findOne({
       where: { job_post_id: jobPostId, job_seeker_id: userId },
     });
@@ -87,22 +91,29 @@ export class JobApplicationsService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    if (user.role !== 'employer') {
-      throw new UnauthorizedException('Only employers can view applications for their job posts');
+  
+    if (['admin', 'moderator'].includes(user.role)) {
+      const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
+      if (!jobPost) {
+        throw new NotFoundException('Job post not found');
+      }
+    } else {
+      if (user.role !== 'employer') {
+        throw new UnauthorizedException('Only employers can view applications for their job posts');
+      }
+      const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: userId } });
+      if (!jobPost) {
+        throw new NotFoundException('Job post not found or you do not have permission to view its applications');
+      }
     }
-
-    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: userId } });
-    if (!jobPost) {
-      throw new NotFoundException('Job post not found or you do not have permission to view its applications');
-    }
-
+  
     const applications = await this.jobApplicationsRepository.find({
       where: { job_post_id: jobPostId },
       relations: ['job_seeker'],
     });
-
+  
     console.log('Applications:', JSON.stringify(applications, null, 2));
-
+  
     const result = await Promise.all(
       applications.map(async (app) => {
         const jobSeeker = await this.jobSeekerRepository.findOne({

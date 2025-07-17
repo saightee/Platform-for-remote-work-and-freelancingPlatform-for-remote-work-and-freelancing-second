@@ -7,11 +7,12 @@ import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/forgot-password.dto';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
-import { Response } from 'express';
+import { Response } from 'express';  
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
+import { ConfigService } from '@nestjs/config';
 
 @Controller('auth')
 export class AuthController {
@@ -20,6 +21,7 @@ export class AuthController {
     private jwtService: JwtService,
     private usersService: UsersService,
     private redisService: RedisService,
+    private configService: ConfigService,
   ) {}
 
   @Post('register')
@@ -40,10 +42,21 @@ export class AuthController {
   }
 
   @Get('verify-email')
-  async verifyEmail(@Query('token') token: string) {
-    await this.authService.verifyEmail(token);
-    return { message: 'Email успешно подтверждён' };
-  }
+    async verifyEmail(@Query('token') token: string, @Res() res: Response) { 
+      try {
+        const { message, accessToken } = await this.authService.verifyEmail(token);  
+
+        const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';  
+        res.redirect(`${frontendUrl}/auth/callback?token=${accessToken}&verified=true`);
+      } catch (error) {
+        const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+        if (error instanceof BadRequestException) {
+          res.redirect(`${frontendUrl}/auth/callback?error=invalid_token`);
+        } else {
+          res.redirect(`${frontendUrl}/auth/callback?error=server_error`);
+        }
+      }
+    }
 
   @Post('login')
   async login(@Body() loginDto: LoginDto, @Req() req: any) {

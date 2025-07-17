@@ -14,7 +14,17 @@ export class JobPostsController {
   @Post()
   async createJobPost(
     @Headers('authorization') authHeader: string,
-    @Body() body: { title: string; description: string; location: string; salary: number; status: 'Active' | 'Draft' | 'Closed'; category_id?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based' },
+    @Body() body: { 
+      title: string; 
+      description: string; 
+      location: string; 
+      salary: number; 
+      status: 'Active' | 'Draft' | 'Closed'; 
+      category_id?: string; 
+      job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+      salary_type?: 'per hour' | 'per month'; 
+      excluded_locations?: string[]; 
+    },
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
@@ -30,7 +40,17 @@ export class JobPostsController {
   async updateJobPost(
     @Headers('authorization') authHeader: string,
     @Param('id') jobPostId: string,
-    @Body() body: { title?: string; description?: string; location?: string; salary?: number; status?: 'Active' | 'Draft' | 'Closed'; category_id?: string; job_type?: 'Full-time' | 'Part-time' | 'Project-based' },
+    @Body() body: { 
+      title?: string; 
+      description?: string; 
+      location?: string; 
+      salary?: number; 
+      status?: 'Active' | 'Draft' | 'Closed'; 
+      category_id?: string; 
+      job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+      salary_type?: 'per hour' | 'per month';  
+      excluded_locations?: string[]; 
+    },
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
@@ -54,6 +74,7 @@ export class JobPostsController {
     @Query('limit') limit: string,
     @Query('sort_by') sort_by: 'created_at' | 'salary',
     @Query('sort_order') sort_order: 'ASC' | 'DESC',
+    @Query('salary_type') salary_type: 'per hour' | 'per month',  
   ) {
     const filters: {
       title?: string;
@@ -67,6 +88,7 @@ export class JobPostsController {
       limit?: number;
       sort_by?: 'created_at' | 'salary';
       sort_order?: 'ASC' | 'DESC';
+      salary_type?: 'per hour' | 'per month';  
     } = {};
   
     if (title) filters.title = title;
@@ -82,7 +104,8 @@ export class JobPostsController {
     if (limit) filters.limit = parseInt(limit, 10);
     if (sort_by) filters.sort_by = sort_by;
     if (sort_order) filters.sort_order = sort_order;
-  
+    if (salary_type) filters.salary_type = salary_type;  
+
     return this.jobPostsService.searchJobPosts(filters);
   }
 
