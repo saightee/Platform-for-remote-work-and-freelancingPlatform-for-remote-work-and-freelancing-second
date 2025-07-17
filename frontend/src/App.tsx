@@ -39,6 +39,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import CheckEmail from './pages/CheckEmail';
 import Support from './pages/Support';
 import Clientstories from './pages/ClientStories';
+import AuthCallback from './pages/AuthCallback';
 
 const App: React.FC = () => {
   return (
@@ -49,6 +50,7 @@ const App: React.FC = () => {
           <Route path="/jobs/:id" element={<JobDetails />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register/:role" element={<Register />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/role-selection" element={<RoleSelection />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/support" element={<Support />} />

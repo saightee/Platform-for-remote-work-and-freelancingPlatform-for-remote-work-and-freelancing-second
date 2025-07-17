@@ -3960,13 +3960,13 @@ header nav .greeting {
   position: absolute;
   top: 100%;
   left: 0;
-  right: 0;
+  width: 100%; /* Full width of input */
   background-color: white;
   border: 1px solid #ccc;
   border-radius: 4px;
   max-height: 200px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 1000; /* Above other elements */
   list-style: none;
   padding: 0;
   margin: 0;
@@ -4027,7 +4027,7 @@ header nav .greeting {
   padding: 20px;
   border-radius: 5px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  max-width: 500px;
+  max-width: 600px;
   width: 100%;
   text-align: center;
 }
@@ -4036,6 +4036,18 @@ header nav .greeting {
   margin-bottom: 15px;
 }
 
+.modal-content textarea {
+  width: 100%; 
+  min-height: 200px; 
+  max-height: 400px; 
+  resize: none; 
+  padding: 10px; 
+  font-family: inherit; 
+  font-size: 14px; 
+  border: 1px solid #ccc; 
+  border-radius: 4px; 
+  box-sizing: border-box; 
+}
 /* My Job Posts Page */
 .my-job-posts-container {
   padding-bottom: 40px;
