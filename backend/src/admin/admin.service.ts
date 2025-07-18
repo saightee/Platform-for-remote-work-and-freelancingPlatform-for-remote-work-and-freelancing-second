@@ -375,7 +375,9 @@ export class AdminService {
 
   async getReviews(adminId: string) {
     await this.checkAdminRole(adminId);
-    return this.reviewsRepository.find({ relations: ['reviewer', 'reviewed', 'job_application'] });
+    return this.reviewsRepository.find({
+      relations: ['reviewer', 'reviewed', 'job_application', 'job_application.job_post', 'job_application.job_seeker'],
+    });
   }
 
   async deleteReview(adminId: string, reviewId: string) {
