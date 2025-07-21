@@ -13,7 +13,7 @@ export class EmailService {
     while (attempt <= maxRetries) {
       try {
         console.log(`Attempt ${attempt} to send verification email to ${toEmail}`);
-        const verificationLink = `${this.configService.get<string>('BASE_URL')}/api/verify-email?token=${verificationToken}`;
+        const verificationLink = `${this.configService.get<string>('BASE_URL')}/api/auth/verify-email?token=${verificationToken}`;
         const response = await axios.post(
           'https://api.brevo.com/v3/smtp/email',
           {
