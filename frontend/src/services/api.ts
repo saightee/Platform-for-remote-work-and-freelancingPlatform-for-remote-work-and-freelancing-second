@@ -60,14 +60,15 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     console.error('Axios error:', err.message, err.config?.url, err.code);
-    if (err.response?.status === 401) {
+    const token = localStorage.getItem('token');
+    if (err.response?.status === 401 && token) {
       localStorage.removeItem('token');
-      window.location.href = '/login'; // Редирект на login
+      document.cookie = 'jobforge.sid=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+      window.location.href = '/login';
     }
     return Promise.reject(err);
   }
 );
-
 
 export const initializeWebSocket = (
   onMessage: (message: WebSocketMessage) => void,
@@ -125,8 +126,15 @@ export const login = async (credentials: LoginCredentials) => {
 };
 
 export const logout = async () => {
-  const response = await api.post<{ message: string }>('/auth/logout');
-  return response.data;
+  try {
+    const response = await api.post<{ message: string }>('/auth/logout');
+    document.cookie = 'jobforge.sid=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'; // Очистка cookie
+    return response.data;
+  } catch (error) {
+    console.error('Logout error:', error);
+    document.cookie = 'jobforge.sid=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'; // Очистка при ошибке
+    throw error;
+  }
 };
 
 export const requestPasswordReset = async (email: string) => {
