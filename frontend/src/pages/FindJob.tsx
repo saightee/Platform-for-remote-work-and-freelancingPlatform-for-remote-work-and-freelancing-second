@@ -271,7 +271,7 @@ const handleSearch = (e: React.FormEvent) => {
         ))}
       </select>
     </div>
-    <div className="form-group">
+    {/* <div className="form-group">
       <label>Skills (comma-separated):</label>
       <input
         type="text"
@@ -279,7 +279,7 @@ const handleSearch = (e: React.FormEvent) => {
         onChange={(e) => setTempSearchState({ ...tempSearchState, required_skills: e.target.value })}
         placeholder="e.g., JavaScript, Python"
       />
-    </div>
+    </div> */}
     <button type="submit" className="action-button">
       Apply Filters
     </button>

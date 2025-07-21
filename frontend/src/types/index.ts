@@ -131,6 +131,8 @@ export interface ReviewJobApplication {
   job_post_id: string;
   job_seeker_id: string;
   status: 'Pending' | 'Accepted' | 'Rejected';
+  job_post?: { id: string; title: string; };
+ job_seeker?: { id: string; username: string; };
 }
 
 export interface Review {
@@ -190,6 +192,8 @@ export interface LoginCredentials {
 export interface RegisterCredentials extends LoginCredentials {
   username: string;
   role: 'employer' | 'jobseeker';
+  skills?: string[]; 
+  experience?: string; 
 }
 
 export interface JobApplicationDetails {

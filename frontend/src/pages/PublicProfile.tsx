@@ -106,16 +106,7 @@ const PublicProfile: React.FC = () => {
           <div className="pp-description">
             <h3>Description</h3>
             <p>{profile.description || 'Not specified'}</p>
-            {currentUser && (
-              <Link
-                to={`/complaint?type=profile&id=${id}`}
-                className="report-link"
-              >
-                Report Profile
-              </Link>
-            )}
-          </div>
-        </div>
+  
         <div className="pp-reviews">
           <h3>Reviews</h3>
           {reviews.length > 0 ? (
@@ -135,6 +126,16 @@ const PublicProfile: React.FC = () => {
           ) : (
             <p>No reviews yet.</p>
           )}
+                    {currentUser && (
+              <Link
+                to={`/complaint?type=profile&id=${id}`}
+                className="report-link"
+              >
+                Report Profile
+              </Link>
+            )}
+          </div>
+        </div>
         </div>
       </div>
       <Footer />

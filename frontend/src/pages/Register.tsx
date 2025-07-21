@@ -71,23 +71,14 @@ const Register: React.FC = () => {
     }
     try {
       setErrorMessage(null);
-            await register({ username, email, password, role });
-      // Auto login after register
-      const loginRes = await login({ email, password });
-      localStorage.setItem('token', loginRes.accessToken);
-      await refreshProfile();
-      if (role === 'jobseeker') {
-        // Update profile with jobseeker-specific fields
-        await updateProfile({
-          experience,
-          skillIds: selectedSkills.map(s => s.id),
-        } as Partial<JobSeekerProfile>); // Cast to Partial<JobSeekerProfile> to fix TS error
-        if (resumeFile) {
-          const formData = new FormData();
-          formData.append('document', resumeFile);
-          await uploadIdentityDocument(formData);
-        }
-      }
+      await register({
+        username,
+        email,
+        password,
+        role,
+        skills: selectedSkills.map(s => s.id.toString()),  // id как string, если number — toString()
+        experience
+      });
       navigate('/check-email');
     } catch (error: any) {
       console.error('Register error:', error);
