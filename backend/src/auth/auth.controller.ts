@@ -46,10 +46,10 @@ export class AuthController {
       try {
         const { message, accessToken } = await this.authService.verifyEmail(token);  
 
-        const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';  
+        const frontendUrl = this.configService.get<string>('BASE_URL') || 'https://jobforge.net/';  
         res.redirect(`${frontendUrl}/auth/callback?token=${accessToken}&verified=true`);
       } catch (error) {
-        const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+        const frontendUrl = this.configService.get<string>('BASE_URL') || 'https://jobforge.net/';
         if (error instanceof BadRequestException) {
           res.redirect(`${frontendUrl}/auth/callback?error=invalid_token`);
         } else {
