@@ -222,37 +222,35 @@ const handleUpdateProfile = async (e: React.MouseEvent) => {
         <div className="profile-content">
           <div className="profile-details">
           <div 
-              className="profile-avatar-section"
-              onClick={() => isEditing && !profileData.avatar && avatarRef.current?.click()}
-            >
-              {profileData.avatar ? (
-                <img src={`https://jobforge.net/backend${profileData.avatar}`} alt="Avatar" className="profile-avatar" />
-              ) : (
-                <div className="default-avatar">
-                  <FaUserCircle className="profile-avatar-icon" />
-                  {isEditing && <span className="add-avatar">+</span>}
-                </div>
-              )}
-            </div>
-            <input
-              ref={avatarRef}
-              type="file"
-              accept="image/jpeg,image/jpg,image/png"
-              hidden
-              onChange={(e) => setAvatarFile(e.target.files ? e.target.files[0] : null)}
-            />
-            {avatarFile && isEditing && (
-              <button onClick={async () => {
-                const formData = new FormData();
-                formData.append('avatar', avatarFile);
-                const updated = await uploadAvatar(formData);
-                setProfileData(updated);
-                setAvatarFile(null);
-                await refreshProfile();
-              }} className="action-button">
-                Upload Avatar
-              </button>
-            )}
+  className="profile-avatar-section"
+  onClick={() => isEditing && !profileData.avatar && avatarRef.current?.click()}
+>
+  {profileData.avatar ? (
+    <img src={`https://jobforge.net/backend${profileData.avatar}`} alt="Avatar" className="profile-avatar" />
+  ) : (
+    <div className="default-avatar">
+      <FaUserCircle className="profile-avatar-icon" />
+      {isEditing && <span className="add-avatar" onClick={() => avatarRef.current?.click()}>+</span>} // Клик на +
+    </div>
+  )}
+</div>
+{profileData.avatar && isEditing && (
+  <button onClick={() => avatarRef.current?.click()} className="action-button">
+    Change Avatar
+  </button>
+)}
+{avatarFile && isEditing && (
+  <button onClick={async () => {
+    const formData = new FormData();
+    formData.append('avatar', avatarFile);
+    const updated = await uploadAvatar(formData);
+    setProfileData(updated);
+    setAvatarFile(null);
+    await refreshProfile();
+  }} className="action-button">
+    Upload Avatar
+  </button>
+)}
             {isEditing ? (
                             <>
 {profileData.role === 'employer' && (

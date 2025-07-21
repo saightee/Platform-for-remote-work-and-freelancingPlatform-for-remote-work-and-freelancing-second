@@ -60,6 +60,10 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     console.error('Axios error:', err.message, err.config?.url, err.code);
+    if (err.response?.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/login'; // Редирект на login
+    }
     return Promise.reject(err);
   }
 );

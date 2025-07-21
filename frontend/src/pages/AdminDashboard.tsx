@@ -62,6 +62,7 @@ const AdminDashboard: React.FC = () => {
   const [showDocumentModal, setShowDocumentModal] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [userTotal, setUserTotal] = useState<number>(0);
+  const [selectedInterval, setSelectedInterval] = useState<'day' | 'week' | 'month'>('month');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Resolved' | 'Rejected'>('All');
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [jobPostsWithApps, setJobPostsWithApps] = useState<JobPostWithApplications[]>([]);
@@ -130,6 +131,7 @@ const [stories, setStories] = useState<{ id: string; user_id: string; rating: nu
   const [recentRegistrations, setRecentRegistrations] = useState<RecentRegistrations>({ jobseekers: [], employers: [] });
   const [globalLimit, setGlobalLimit] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchJobId, setSearchJobId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [riskScoreData, setRiskScoreData] = useState<{ userId: string; riskScore: number; details: { duplicateIp: boolean; proxyDetected: boolean; duplicateFingerprint: boolean } } | null>(null);
   const [showRiskModal, setShowRiskModal] = useState(false);
@@ -336,7 +338,7 @@ const fetchUsers = useCallback(async (params: { page?: number; limit?: number; u
     setIsLoading(true);
     setFetchErrors((prev) => ({ ...prev, getAllUsers: '' }));
     const effectivePage = params.page || userPage;
-    const queryParams: { page: number; limit: number; username?: string; email?: string } = {
+    const queryParams: { page: number; limit: number; username?: string; email?: string; id?: string; } = {
       page: effectivePage,
       limit: userLimit,
     };
@@ -448,7 +450,7 @@ useEffect(() => {
       getBlockedCountries(), 
       getAdminCategories(),
       getAnalytics(),
-      getRegistrationStats({ startDate: '2023-01-01', endDate: new Date().toISOString().split('T')[0], interval: 'month' }),
+      getRegistrationStats({ startDate: '2023-01-01', endDate: new Date().toISOString().split('T')[0], interval: selectedInterval }),
       getGeographicDistribution({ role: 'jobseeker', startDate: today, endDate: today }),
       getGeographicDistribution({ role: 'jobseeker', startDate: yesterday, endDate: yesterday }),
       getGeographicDistribution({ role: 'jobseeker', startDate: weekStart, endDate: weekEnd }),
@@ -514,62 +516,10 @@ case 0:
           
           case 1:
   const reviewsData = value as Review[] || [];
-  const enrichedReviews = await Promise.all(reviewsData.map(async (review) => {
-    try {
-      if (!review.job_application_id) {
-        console.warn(`No job_application_id provided for review ${review.id}`);
-        return {
-          ...review,
-          job_post: null,
-          job_seeker: null,
-        };
-      }
-      console.log(`Fetching job application for review ${review.id} with ID ${review.job_application_id}`);
-      const applicationResponse = await getJobApplicationById(review.job_application_id).catch((err) => {
-        console.warn(`Job application ${review.job_application_id} not found:`, err);
-        return null;
-      });
-      if (!applicationResponse || !applicationResponse.job_post_id || !applicationResponse.job_seeker_id) {
-        console.warn(`Invalid or missing job application data for ID ${review.job_application_id}`);
-        return {
-          ...review,
-          job_post: null,
-          job_seeker: null,
-        };
-      }
-      const application = applicationResponse;
-      console.log(`Fetching job post for application ${review.job_application_id} with job_post_id ${application.job_post_id}`);
-      const jobPostResponse = await getJobPost(application.job_post_id).catch((err) => {
-        console.warn(`Job post ${application.job_post_id} not found:`, err);
-        return null;
-      });
-      const jobPost = jobPostResponse || { id: application.job_post_id, title: 'Unknown Job' };
-      console.log(`Fetching job seeker profile for application ${review.job_application_id} with job_seeker_id ${application.job_seeker_id}`);
-      const jobSeekerResponse = await getUserProfileById(application.job_seeker_id).catch((err) => {
-        console.warn(`Job seeker ${application.job_seeker_id} not found:`, err);
-        return null;
-      });
-      const jobSeeker = jobSeekerResponse || { id: application.job_seeker_id, username: 'Unknown' };
-      return {
-        ...review,
-        job_post: {
-          id: jobPost.id,
-          title: jobPost.title,
-        },
-        job_seeker: {
-          id: jobSeeker.id,
-          username: jobSeeker.username,
-        },
-      };
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error(`Error enriching review ${review.id}:`, axiosError.response?.data?.message || axiosError.message);
-      return {
-        ...review,
-        job_post: null,
-        job_seeker: null,
-      };
-    }
+  const enrichedReviews = reviewsData.map((review) => ({
+    ...review,
+    job_post: review.job_application?.job_post || null,
+    job_seeker: review.job_application?.job_seeker || null,
   }));
   setReviews(enrichedReviews);
   console.log('Enriched reviews set in state:', enrichedReviews);
@@ -988,21 +938,26 @@ const handleNotifySubmit = async () => {
     }
   };
 
-  const handleViewJobApplications = async (jobPostId: string) => {
-    try {
-      setError(null);
-      setSelectedJobPostId(jobPostId);
-      setSelectedJobApplicationId('');
-      setChatHistory({ total: 0, data: [] });
-      const applications = await getApplicationsForJobPost(jobPostId);
-      setJobApplications(applications.filter(app => app.status === 'Accepted') || []);
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error fetching job applications:', axiosError);
-      setError(axiosError.response?.data?.message || 'Failed to fetch job applications.');
+const handleViewJobApplications = async (jobPostId: string) => {
+  try {
+    setError(null);
+    setSelectedJobPostId(jobPostId);
+    setSelectedJobApplicationId('');
+    setChatHistory({ total: 0, data: [] });
+    const applications = await getApplicationsForJobPost(jobPostId);
+    const acceptedApps = applications.filter(app => app.status === 'Accepted');
+    setJobApplications(acceptedApps || []);
+    if (acceptedApps.length > 0) {
+      handleViewChatHistory(acceptedApps[0].applicationId); // Авто для первого (единственного) Accepted
+    } else {
+      setError('No accepted applications found for this job post.');
     }
-  };
-
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error fetching job applications:', axiosError);
+    setError(axiosError.response?.data?.message || 'Failed to fetch job applications.');
+  }
+};
 
   const handleViewChatHistory = async (jobApplicationId: string, page: number = 1) => {
     try {
@@ -1212,6 +1167,11 @@ if (isLoading) {
 
           {activeTab === 'Dashboard' && (
             <div>
+              <div className="interval-tabs">
+  <button className={selectedInterval === 'day' ? 'active' : ''} onClick={() => { setSelectedInterval('day'); handleRefresh(); }}>Day</button>
+  <button className={selectedInterval === 'week' ? 'active' : ''} onClick={() => { setSelectedInterval('week'); handleRefresh(); }}>Week</button>
+  <button className={selectedInterval === 'month' ? 'active' : ''} onClick={() => { setSelectedInterval('month'); handleRefresh(); }}>Month</button>
+</div>
               <h4>Dashboard</h4>
               <div className="dashboard-section">
   <div className="table-header">
@@ -1458,7 +1418,15 @@ if (isLoading) {
       onChange={(e) => setSearchQuery(e.target.value)}
     />
  <button onClick={() => {
-  fetchUsers({ username: searchQuery, email: searchQuery, page: 1 });
+  let params: { page: number; username?: string; email?: string; id?: string; } = { page: 1 };
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(searchQuery)) { // UUID regex
+    params.id = searchQuery;
+  } else if (searchQuery.includes('@')) {
+    params.email = searchQuery;
+  } else {
+    params.username = searchQuery;
+  }
+  fetchUsers(params);
   setUserPage(1);
 }} className="action-button">
   <FaSearch />
@@ -1466,103 +1434,103 @@ if (isLoading) {
   </div>
   
   
-    <table className="dashboard-table">
-     <thead>
-  <tr>
-    <th onClick={() => handleUserSort('id')} style={{ cursor: 'pointer' }}>
-      ID {userSortColumn === 'id' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-    </th>
-    <th>Username</th>
-    <th>Email</th>
-    <th onClick={() => handleUserSort('role')} style={{ cursor: 'pointer' }}>
-      Role {userSortColumn === 'role' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-    </th>
-    <th onClick={() => handleUserSort('is_blocked')} style={{ cursor: 'pointer' }}>
-      Blocked Status {userSortColumn === 'is_blocked' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-    </th>
-    <th>Identity Verified</th>
-    <th>Identity Document</th>
-    <th>Online Status</th>
-    <th>Actions</th>
-  </tr>
-</thead>
-<tbody>
-  {sortedUsers.length > 0 ? sortedUsers.map((user) => (
-    <tr key={user.id}>
-      <td>{user.id}</td>
-      <td>{user.username}</td>
-      <td>{user.email}</td>
-      <td>{user.role}</td>
-      <td>{user.is_blocked ? 'Blocked' : 'Active'}</td>
-      <td>{user.identity_verified ? 'Yes' : 'No'}</td>
-<td>
-  {user.identity_document ? (
-    user.identity_document.endsWith('.pdf') ? (
-      <a href={`https://jobforge.net/backend${user.identity_document}`} target="_blank" rel="noopener noreferrer">
-        <FaFilePdf size={20} /> View PDF
-      </a>
-    ) : (
-      <button 
-        onClick={() => setShowDocumentModal(`https://jobforge.net/backend${user.identity_document}`)} 
-        className="action-button"
-      >
-        View Image
-      </button>
-    )
-  ) : (
-    'Not uploaded'
-  )}
-</td>
-<td>
-  {onlineStatuses[user.id] ? 'Online' : 'Offline'} {/* Теперь всегда показываем, без кнопки */}
-</td>
-      <td>
-        <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
-          Delete
-        </button>
-        <button onClick={() => handleResetPassword(user.id)} className="action-button">
-          Reset Password
-        </button>
-        {user.identity_document && !user.identity_verified && (
-          <>
-            <button onClick={() => handleVerifyIdentity(user.id, true)} className="action-button success">
-              Verify Identity
-            </button>
-            <button onClick={() => handleVerifyIdentity(user.id, false)} className="action-button warning">
-              Reject Identity
-            </button>
-          </>
-        )}
-        {user.is_blocked ? (
-          <button
-            onClick={() => handleUnblockUser(user.id, user.username)}
-            className="action-button success"
-          >
-            Unblock
-          </button>
-        ) : (
-          <button
-            onClick={() => handleBlockUser(user.id, user.username)}
-            className="action-button danger"
-          >
-            Block
-          </button>
-        )}
-        <button
-          onClick={() => handleViewRiskScore(user.id)}
-          className="action-button"
-        >
-          View Risk Score
-        </button>
-      </td>
-    </tr>
-  )) : (
+   <table className="dashboard-table">
+  <thead>
     <tr>
-      <td colSpan={9}>No users found.</td>
+      <th onClick={() => handleUserSort('id')} style={{ cursor: 'pointer' }}>
+        ID {userSortColumn === 'id' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+      </th>
+      <th>Username</th>
+      <th>Email</th>
+      <th onClick={() => handleUserSort('role')} style={{ cursor: 'pointer' }}>
+        Role {userSortColumn === 'role' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+      </th>
+      <th onClick={() => handleUserSort('is_blocked')} style={{ cursor: 'pointer' }}>
+        Blocked Status {userSortColumn === 'is_blocked' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+      </th>
+      <th>Identity Verified</th>
+      <th>Identity Document</th>
+      <th>Online Status</th>
+      <th>Actions</th>
     </tr>
-  )}
-</tbody>
-    </table>
+  </thead>
+  <tbody>
+    {sortedUsers.length > 0 ? sortedUsers.map((user) => (
+      <tr key={user.id}>
+        <td>{user.id}</td>
+        <td>{user.username}</td>
+        <td>{user.email}</td>
+        <td>{user.role}</td>
+        <td>{user.is_blocked ? 'Blocked' : 'Active'}</td>
+        <td>{user.identity_verified ? 'Yes' : 'No'}</td>
+        <td>
+          {user.identity_document ? (
+            user.identity_document.endsWith('.pdf') ? (
+              <a href={`https://jobforge.net/backend${user.identity_document}`} target="_blank" rel="noopener noreferrer">
+                <FaFilePdf size={20} /> View PDF
+              </a>
+            ) : (
+              <button 
+                onClick={() => setShowDocumentModal(`https://jobforge.net/backend${user.identity_document}`)} 
+                className="action-button"
+              >
+                View Image
+              </button>
+            )
+          ) : (
+            'Not uploaded'
+          )}
+        </td>
+        <td>
+          {onlineStatuses[user.id] ? 'Online' : 'Offline'} {/* Теперь всегда показываем, без кнопки */}
+        </td>
+        <td>
+          <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
+            Delete
+          </button>
+          <button onClick={() => handleResetPassword(user.id)} className="action-button">
+            Reset Password
+          </button>
+          {user.identity_document && !user.identity_verified && (
+            <>
+              <button onClick={() => handleVerifyIdentity(user.id, true)} className="action-button success">
+                Verify Identity
+              </button>
+              <button onClick={() => handleVerifyIdentity(user.id, false)} className="action-button warning">
+                Reject Identity
+              </button>
+            </>
+          )}
+          {user.is_blocked ? (
+            <button
+              onClick={() => handleUnblockUser(user.id, user.username)}
+              className="action-button success"
+            >
+              Unblock
+            </button>
+          ) : (
+            <button
+              onClick={() => handleBlockUser(user.id, user.username)}
+              className="action-button danger"  // Красный для Block
+            >
+              Block
+            </button>
+          )}
+          <button
+            onClick={() => handleViewRiskScore(user.id)}
+            className="action-button"
+          >
+            View Risk Score
+          </button>
+        </td>
+      </tr>
+    )) : (
+      <tr>
+        <td colSpan={9}>No users found.</td>
+      </tr>
+    )}
+  </tbody>
+</table>
 <div className="pagination">
   <button
     onClick={() => setUserPage(prev => Math.max(prev - 1, 1))}
@@ -1688,45 +1656,41 @@ if (isLoading) {
     <h4>Reviews</h4>
     {fetchErrors.getAllReviews && <p className="error-message">{fetchErrors.getAllReviews}</p>}
     <table className="dashboard-table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Rating</th>
-          <th>Comment</th>
-          <th>Reviewer</th>
-          <th>Target</th>
-          <th>Created At</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {reviews.length > 0 ? reviews.map((review) => (
-          <tr key={review.id}>
-            <td>{review.id}</td>
-            <td>{review.rating}</td>
-            <td>{review.comment}</td>
-            <td>{review.reviewer?.username || 'Anonymous'}</td>
-           <td>
-            {review.job_post
-              ? `Job Post: ${review.job_post.title}`
-              : review.job_seeker
-              ? `Profile: ${review.job_seeker.username}`
-              : 'Not specified'}
-          </td>
-            <td>{format(new Date(review.created_at), 'PP')}</td>
-            <td>
-              <button onClick={() => handleDeleteReview(review.id)} className="action-button danger">
-                Delete
-              </button>
-            </td>
-          </tr>
-        )) : (
-          <tr>
-            <td colSpan={7}>No reviews found.</td>
-          </tr>
-        )}
-      </tbody>
-    </table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Rating</th>
+      <th>Comment</th>
+      <th>Reviewer</th>
+      <th>Target</th>
+      <th>Related Job</th>
+      <th>Created At</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {reviews.length > 0 ? reviews.map((review) => (
+      <tr key={review.id}>
+        <td>{review.id}</td>
+        <td>{review.rating}</td>
+        <td>{review.comment}</td>
+        <td>{review.reviewer?.username || 'Anonymous'}</td>
+        <td>{`Profile ID: ${review.reviewed_id}`}</td>
+        <td>{review.job_post?.title || 'N/A'}</td>
+        <td>{format(new Date(review.created_at), 'PP')}</td>
+        <td>
+          <button onClick={() => handleDeleteReview(review.id)} className="action-button danger">
+            Delete
+          </button>
+        </td>
+      </tr>
+    )) : (
+      <tr>
+        <td colSpan={8}>No reviews found.</td>
+      </tr>
+    )}
+  </tbody>
+</table>
   </div>
 )}
 
@@ -2019,91 +1983,87 @@ if (isLoading) {
 )}
 
           {activeTab === 'Chat History' && (
-            <div>
-              <h4>Chat History</h4>
-              {error && <p className="error-message">{error}</p>}
-              <div className="form-group">
-                <label>Select Job Post:</label>
-                <select
-  value={selectedJobPostId}
-  onChange={(e) => handleViewJobApplications(e.target.value)}
->
-  <option value="">Select a job post</option>
-  {jobPostsWithApps.map(post => ( // Убрал filter, показываем все post
-    <option key={post.id} value={post.id}>
-      {post.title} (ID: {post.id})
-    </option>
-  ))}
-</select>
-              </div>
-              {selectedJobPostId && (
-                <div className="form-group">
-                  <label>Select Job Application ID:</label>
-                  <select
-                    value={selectedJobApplicationId}
-                    onChange={(e) => handleViewChatHistory(e.target.value)}
-                  >
-                    <option value="">Select a job application</option>
-                    {jobApplications.map((app: JobApplicationDetails) => (
-                      <option key={app.applicationId} value={app.applicationId}>
-                        {app.username} (ID: {app.applicationId})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {selectedJobApplicationId && (
-                <>
-                  <h3>Messages for Job Application ID: {selectedJobApplicationId}</h3>
-                  <table className="dashboard-table">
-                    <thead>
-                      <tr>
-                        <th>ID</th>
-                        <th>Sender</th>
-                        <th>Recipient</th>
-                        <th>Content</th>
-                        <th>Created At</th>
-                        <th>Read</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {chatHistory.data.length > 0 ? chatHistory.data.map((message) => (
-                        <tr key={message.id}>
-                          <td>{message.id}</td>
-                          <td>{message.sender.username}</td>
-                          <td>{message.recipient.username}</td>
-                          <td>{message.content}</td>
-                          <td>{format(new Date(message.created_at), 'PPpp')}</td>
-                          <td>{message.is_read ? 'Yes' : 'No'}</td>
-                        </tr>
-                      )) : (
-                        <tr>
-                          <td colSpan={6}>No messages found.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                  <div className="pagination">
-                    <button
-                      onClick={() => handleViewChatHistory(selectedJobApplicationId, chatPage - 1)}
-                      disabled={chatPage === 1}
-                      className="action-button"
-                    >
-                      Previous
-                    </button>
-                    <span className="page-number">Page {chatPage} of {Math.ceil(chatHistory.total / chatLimit)}</span>
-                    <button
-                      onClick={() => handleViewChatHistory(selectedJobApplicationId, chatPage + 1)}
-                      disabled={chatPage >= Math.ceil(chatHistory.total / chatLimit)}
-                      className="action-button"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+  <div>
+    <h4>Chat History</h4>
+    {error && <p className="error-message">{error}</p>}
+    <div className="form-group">
+      <label>Search by Job Post ID:</label>
+      <input
+        type="text"
+        value={searchJobId}
+        onChange={(e) => setSearchJobId(e.target.value)}
+        placeholder="Enter job post ID"
+      />
+      <button onClick={() => handleViewJobApplications(searchJobId)} className="action-button">
+        Search
+      </button>
+    </div>
+    <div className="form-group">
+      <label>Select Job Post:</label>
+      <select
+        value={selectedJobPostId}
+        onChange={(e) => handleViewJobApplications(e.target.value)}
+      >
+        <option value="">Select a job post</option>
+        {jobPostsWithApps.map(post => (
+          <option key={post.id} value={post.id}>
+            {post.title} (ID: {post.id})
+          </option>
+        ))}
+      </select>
+    </div>
+    {selectedJobPostId && chatHistory.data.length > 0 && (
+      <>
+        <h3>Messages for Job Application ID: {selectedJobApplicationId}</h3>
+        <table className="dashboard-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Sender</th>
+              <th>Recipient</th>
+              <th>Content</th>
+              <th>Created At</th>
+              <th>Read</th>
+            </tr>
+          </thead>
+          <tbody>
+            {chatHistory.data.length > 0 ? chatHistory.data.map((message) => (
+              <tr key={message.id}>
+                <td>{message.id}</td>
+                <td>{message.sender.username}</td>
+                <td>{message.recipient.username}</td>
+                <td>{message.content}</td>
+                <td>{format(new Date(message.created_at), 'PPpp')}</td>
+                <td>{message.is_read ? 'Yes' : 'No'}</td>
+              </tr>
+            )) : (
+              <tr>
+                <td colSpan={6}>No messages found.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        <div className="pagination">
+          <button
+            onClick={() => handleViewChatHistory(selectedJobApplicationId, chatPage - 1)}
+            disabled={chatPage === 1}
+            className="action-button"
+          >
+            Previous
+          </button>
+          <span className="page-number">Page {chatPage} of {Math.ceil(chatHistory.total / chatLimit)}</span>
+          <button
+            onClick={() => handleViewChatHistory(selectedJobApplicationId, chatPage + 1)}
+            disabled={chatPage >= Math.ceil(chatHistory.total / chatLimit)}
+            className="action-button"
+          >
+            Next
+          </button>
+        </div>
+      </>
+    )}
+  </div>
+)}
 
          {activeTab === 'Analytics' && (
   <div>
@@ -2303,7 +2263,7 @@ if (isLoading) {
     {topJobseekers.length > 0 ? topJobseekers.map((jobseeker) => (
       <tr key={jobseeker.job_seeker_id}>
         <td>{jobseeker.username}</td>
-        <td>{jobseeker.application_count}</td>
+        <td>{jobseeker.application_count > 0 ? jobseeker.application_count : 'No applications yet'}</td>
       </tr>
     )) : (
       <tr>

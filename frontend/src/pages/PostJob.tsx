@@ -257,42 +257,49 @@ const removeCountry = (country: string) => {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Category</label>
-                    <div className="autocomplete-wrapper">
-                      <input
-                        type="text"
-                        value={skillInput}
-                        onChange={(e) => setSkillInput(e.target.value)}
-                        placeholder="Type to search category..."
-                        className="category-select"
-                        onFocus={() => skillInput.trim() && setIsDropdownOpen(true)}
-                        onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                      />
-                      {isDropdownOpen && filteredSkills.length > 0 && (
-                        <ul className="autocomplete-dropdown">
-                          {filteredSkills.map((skill) => (
-                            <li
-                              key={skill.id}
-                              className="autocomplete-item"
-                              onMouseDown={() => {
-                                setCategoryId(skill.id);
-                                setSelectedCategoryName(skill.parent_id 
-                                  ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
-                                  : skill.name);
-                                setSkillInput('');
-                                setIsDropdownOpen(false);
-                              }}
-                            >
-                              {skill.parent_id
-                                ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
-                                : skill.name}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    {selectedCategoryName && <p>Selected: {selectedCategoryName}</p>}
-                  </div>
+  <label>Category</label>
+  <div className="autocomplete-wrapper">
+    <input
+      type="text"
+      value={skillInput}
+      onChange={(e) => setSkillInput(e.target.value)}
+      placeholder="Type to search category..."
+      className="category-select"
+      onFocus={() => { // Open on focus even if no input, show all if empty
+        if (!skillInput.trim()) {
+          setFilteredSkills(categories);
+          setIsDropdownOpen(true);
+        } else if (skillInput.trim()) {
+          setIsDropdownOpen(true);
+        }
+      }}
+      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+    />
+    {isDropdownOpen && filteredSkills.length > 0 && (
+      <ul className="autocomplete-dropdown">
+        {filteredSkills.map((skill) => (
+          <li
+            key={skill.id}
+            className="autocomplete-item"
+            onMouseDown={() => {
+              setCategoryId(skill.id);
+              setSelectedCategoryName(skill.parent_id 
+                ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
+                : skill.name);
+              setSkillInput('');
+              setIsDropdownOpen(false);
+            }}
+          >
+            {skill.parent_id
+              ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
+              : skill.name}
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+  {selectedCategoryName && <p>Selected: {selectedCategoryName}</p>}
+</div>
                 </div>
                 <div className="form-column right-column">
                   <div className="description-editor">
