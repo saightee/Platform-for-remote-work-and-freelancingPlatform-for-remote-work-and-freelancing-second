@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Loader from '../components/Loader';
-import { useRole } from '../context/RoleContext';  // Импорт useRole
+import { useRole } from '../context/RoleContext';
 
 const AuthCallback: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { refreshProfile } = useRole();  // Добавь
+  const { refreshProfile } = useRole();
   const params = new URLSearchParams(location.search);
   const token = params.get('token');
   const verified = params.get('verified');
@@ -14,20 +14,25 @@ const AuthCallback: React.FC = () => {
 
   useEffect(() => {
     if (token && verified === 'true') {
-      localStorage.setItem('token', token);  // Сохрани токен
-      refreshProfile().then(() => {
-        navigate('/');  // Или на основе role, если в context есть логика
-      }).catch((err) => {
-        console.error('Error refreshing profile:', err);
-        navigate('/login');
-      });
+      document.cookie = 'jobforge.sid=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'; // Очистка cookie
+      localStorage.setItem('token', token);
+      refreshProfile()
+        .then(() => {
+          navigate('/');
+        })
+        .catch((err) => {
+          console.error('Error refreshing profile:', err);
+          localStorage.removeItem('token');
+          document.cookie = 'jobforge.sid=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+          navigate('/login');
+        });
     } else if (error) {
-      alert('Verification error: ' + error);  // Обработай ошибку
+      alert('Verification error: ' + error);
       navigate('/login');
     } else {
-      navigate('/login');  // Фоллбек
+      navigate('/login');
     }
-  }, [navigate, refreshProfile]);  // Добавь refreshProfile в deps
+  }, [navigate, refreshProfile]);
 
   return <Loader />;
 };

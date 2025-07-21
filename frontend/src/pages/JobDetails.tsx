@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -6,7 +6,7 @@ import Copyright from '../components/Copyright';
 import { getJobPost, applyToJobPost, incrementJobView, checkJobApplicationStatus } from '../services/api';
 import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
-import { FaEye, FaBriefcase, FaDollarSign, FaMapMarkerAlt, FaCalendarAlt, FaUserCircle, FaTools } from 'react-icons/fa';
+import { FaEye, FaBriefcase, FaDollarSign, FaMapMarkerAlt, FaCalendarAlt, FaUserCircle, FaTools, FaFolder } from 'react-icons/fa';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
 import sanitizeHtml from 'sanitize-html';
@@ -23,6 +23,7 @@ const JobDetails: React.FC = () => {
   const [hasApplied, setHasApplied] = useState<boolean>(false);
   const [coverLetter, setCoverLetter] = useState('');
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const viewed = useRef(false); // Добавлено для предотвращения double increment
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -32,11 +33,14 @@ const JobDetails: React.FC = () => {
           setError(null);
           const jobData = await getJobPost(id);
           setJob(jobData);
-          try {
-            const response = await incrementJobView(id);
-            setJob((prev) => (prev ? { ...prev, views: response.views || (jobData.views || 0) + 1 } : prev));
-          } catch (viewError) {
-            console.error('Error incrementing job view:', viewError);
+          if (!viewed.current) {
+            viewed.current = true;
+            try {
+              const response = await incrementJobView(id);
+              setJob((prev) => (prev ? { ...prev, views: response.views || (jobData.views || 0) + 1 } : prev));
+            } catch (viewError) {
+              console.error('Error incrementing job view:', viewError);
+            }
           }
           if (profile?.role === 'jobseeker') {
             const applicationStatus = await checkJobApplicationStatus(id);
@@ -156,6 +160,9 @@ const JobDetails: React.FC = () => {
           </div>
           <div className="job-detail-item">
             <FaMapMarkerAlt /> <strong>Location:</strong> {job.location || 'Not specified'}
+          </div>
+          <div className="job-detail-item">
+            <FaFolder /> <strong>Category:</strong> {job.category?.name || 'Not specified'}
           </div>
           <div className="job-detail-item">
             <FaCalendarAlt /> <strong>Date Updated:</strong>{' '}
