@@ -90,7 +90,7 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout(@Headers('authorization') authHeader: string, @Req() req: any) {
+  async logout(@Headers('authorization') authHeader: string, @Req() req: any, @Res() res: Response) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
     }
@@ -102,10 +102,9 @@ export class AuthController {
     const payload = this.jwtService.verify(token);
     const userId = payload.sub;
     await this.authService.logout(userId); 
-    req.session.destroy((err) => { 
-      if (err) console.error('Session destroy error:', err);
-    });
-    return { message: 'Logout successful' };
+    req.session.destroy((err) => { if (err) console.error(err); });
+    res.clearCookie('jobforge.sid', { path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
+    return res.json({ message: 'Logout successful' });
   }
 
   @Get('google')
