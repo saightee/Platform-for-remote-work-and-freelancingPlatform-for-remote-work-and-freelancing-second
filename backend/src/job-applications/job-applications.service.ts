@@ -77,7 +77,7 @@ export class JobApplicationsService {
       throw new NotFoundException('User not found');
     }
     if (user.role !== 'jobseeker') {
-      throw new UnauthorizedException('Only jobseekers can view their applications');
+      return [];
     }
 
     return this.jobApplicationsRepository.find({
