@@ -53,7 +53,7 @@ export class EmailService {
     while (attempt <= maxRetries) {
       try {
         console.log(`Attempt ${attempt} to send password reset email to ${toEmail}`);
-        const resetLink = `${this.configService.get<string>('BASE_URL')}/api/auth/reset-password?token=${resetToken}`;
+        const resetLink = `${this.configService.get<string>('BASE_URL')}/reset-password/confirm?token=${resetToken}`;
         const response = await axios.post(
           'https://api.brevo.com/v3/smtp/email',
           {
