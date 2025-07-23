@@ -724,6 +724,9 @@ export class AdminService {
       if (!jobPost.category_id) {
         throw new BadRequestException('Job post has no category assigned');
       }
+      if (jobPost.status !== 'Active') {
+        throw new BadRequestException('Notifications can only be sent for active job posts');
+      }
     
       const query = this.jobSeekerRepository
         .createQueryBuilder('jobSeeker')
@@ -754,7 +757,7 @@ export class AdminService {
             jobSeeker.user.username,
             jobPost.title,
             jobPost.description,
-            `${process.env.BASE_URL}/job-posts/${jobPost.id}`
+            `${process.env.BASE_URL}/jobs/${jobPost.id}` 
           );
         } catch (error) {
           console.error(`Failed to send email to ${jobSeeker.user.email}:`, error.message);

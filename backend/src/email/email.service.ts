@@ -86,6 +86,10 @@ export class EmailService {
     }
   }
 
+  private stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, '');
+  }
+
   async sendJobNotification(
     toEmail: string,
     username: string,
@@ -95,6 +99,8 @@ export class EmailService {
   ): Promise<void> {
     const maxRetries = 3;
     let attempt = 1;
+
+    const cleanedDescription = this.stripHtml(jobDescription);
 
     while (attempt <= maxRetries) {
       try {
@@ -107,7 +113,7 @@ export class EmailService {
             params: {
               username,
               jobTitle,
-              jobDescription,
+              jobDescription: cleanedDescription,
               jobLink,
             },
           },
