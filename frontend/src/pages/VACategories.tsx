@@ -39,13 +39,13 @@ const VACategories: React.FC = () => {
         <p>Explore our range of virtual assistant categories to find the perfect fit for your needs.</p>
         <div className="category-list">
           {categories.map((category, index) => (
-            <Link
-              key={category.id}
-              to={`/find-talent?skill_id=${category.id}`}
-              className={`category-item category-${index % 17}`}
-            >
-              {category.name}
-            </Link>
+<Link
+  key={category.id}
+  to={`/find-talent?category_id=${category.id}`} // Изменил на category_id
+  className={`category-item category-${index % 17}`}
+>
+  {category.name}
+</Link>
           ))}
         </div>
       </div>

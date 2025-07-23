@@ -19,6 +19,8 @@ const PostJob: React.FC = () => {
   const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedCategoryName, setSelectedCategoryName] = useState('');
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
   const [salaryType, setSalaryType] = useState('per hour');
   const [location, setLocation] = useState(''); // Uncommented and used for Work Mode
   
@@ -129,7 +131,7 @@ const removeCountry = (country: string) => {
         excluded_locations: excludedCountries,
         status: 'Active',
         job_type: jobType,
-        category_id: categoryId || undefined,
+        category_ids: categoryIds || undefined,
       } as Partial<JobPost> & { excluded_locations?: string[]; salary_type?: string };
       await createJobPost(jobData);
       navigate('/my-job-posts');
@@ -190,7 +192,7 @@ const removeCountry = (country: string) => {
                       required
                     />
                   </div>
-                 <div className="form-group">
+                 <div className="form-group relative">
   <label>Location Exclusions</label>
   <input
     type="text"
@@ -256,7 +258,7 @@ const removeCountry = (country: string) => {
                       <option value="Project-based">Project-based</option>
                     </select>
                   </div>
-                  <div className="form-group">
+<div className="form-group">
   <label>Category</label>
   <div className="autocomplete-wrapper">
     <input
@@ -282,10 +284,10 @@ const removeCountry = (country: string) => {
             key={skill.id}
             className="autocomplete-item"
             onMouseDown={() => {
-              setCategoryId(skill.id);
-              setSelectedCategoryName(skill.parent_id 
-                ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
-                : skill.name);
+              if (!selectedCategories.find(c => c.id === skill.id)) {
+                setSelectedCategories([...selectedCategories, skill]);
+                setCategoryIds([...categoryIds, skill.id]);
+              }
               setSkillInput('');
               setIsDropdownOpen(false);
             }}
@@ -298,7 +300,22 @@ const removeCountry = (country: string) => {
       </ul>
     )}
   </div>
-  {selectedCategoryName && <p>Selected: {selectedCategoryName}</p>}
+  <div className="category-tags">
+    {selectedCategories.map((cat) => (
+      <span key={cat.id} className="category-tag">
+        {cat.parent_id 
+          ? `${categories.find((c) => c.id === cat.parent_id)?.name || 'Category'} > ${cat.name}`
+          : cat.name}
+        <span 
+          className="remove-tag" 
+          onClick={() => {
+            setSelectedCategories(selectedCategories.filter(c => c.id !== cat.id));
+            setCategoryIds(categoryIds.filter(id => id !== cat.id));
+          }}
+        >×</span>
+      </span>
+    ))}
+  </div>
 </div>
                 </div>
                 <div className="form-column right-column">

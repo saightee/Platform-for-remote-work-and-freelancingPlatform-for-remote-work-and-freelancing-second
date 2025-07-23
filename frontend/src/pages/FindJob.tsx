@@ -31,6 +31,7 @@ const [searchState, setSearchState] = useState<{
   job_type: string;
   category_id: string;
   required_skills: string;
+  salary_type: string;
   page: number;
   limit: number;
 }>({
@@ -41,6 +42,7 @@ const [searchState, setSearchState] = useState<{
   job_type: '',
   category_id: '',
   required_skills: '',
+  salary_type: '',
   page: 1,
   limit: 30,
 });
@@ -52,6 +54,7 @@ const [tempSearchState, setTempSearchState] = useState<{
   job_type: string;
   category_id: string;
   required_skills: string;
+  salary_type: string;
 }>({
   title: searchParams.get('title') || '',
   location: '',
@@ -60,6 +63,7 @@ const [tempSearchState, setTempSearchState] = useState<{
   job_type: '',
   category_id: '',
   required_skills: '',
+  salary_type: '',
 });
 
   useEffect(() => {
@@ -77,6 +81,7 @@ const [tempSearchState, setTempSearchState] = useState<{
           required_skills: searchState.required_skills
             ? searchState.required_skills.split(',').map(skill => skill.trim())
             : undefined,
+          salary_type: searchState.salary_type || undefined,
           page: searchState.page,
           limit: searchState.limit,
           sort_by: 'created_at',
@@ -124,10 +129,9 @@ const handleSearch = (e: React.FormEvent) => {
   setSearchState((prev) => ({
     ...prev,
     ...tempSearchState,
-    title: searchInput,
     page: 1,
   }));
-  setSearchParams({ title: searchInput });
+  setSearchParams({ title: tempSearchState.title });
   setIsFilterPanelOpen(false);
 };
 
@@ -201,15 +205,19 @@ const handleSearch = (e: React.FormEvent) => {
         placeholder="Enter job title"
       />
     </div>
-    <div className="form-group">
-      <label>Location:</label>
-      <input
-        type="text"
-        value={tempSearchState.location}
-        onChange={(e) => setTempSearchState({ ...tempSearchState, location: e.target.value })}
-        placeholder="Enter location"
-      />
-    </div>
+<div className="form-group">
+  <label>Location:</label>
+  <select
+    value={tempSearchState.location}
+    onChange={(e) => setTempSearchState({ ...tempSearchState, location: e.target.value })}
+  >
+    <option value="">All Locations</option>
+    <option value="Remote">Remote</option>
+    <option value="On-site">On-site</option>
+    <option value="Hybrid">Hybrid</option>
+  </select>
+</div>
+
     <div className="form-group">
       <label>Minimum Salary:</label>
       <input
@@ -271,15 +279,18 @@ const handleSearch = (e: React.FormEvent) => {
         ))}
       </select>
     </div>
-    {/* <div className="form-group">
-      <label>Skills (comma-separated):</label>
-      <input
-        type="text"
-        value={tempSearchState.required_skills}
-        onChange={(e) => setTempSearchState({ ...tempSearchState, required_skills: e.target.value })}
-        placeholder="e.g., JavaScript, Python"
-      />
-    </div> */}
+    <div className="form-group">
+  <label>Salary Type:</label>
+  <select
+    value={tempSearchState.salary_type || ''}
+    onChange={(e) => setTempSearchState({ ...tempSearchState, salary_type: e.target.value })}
+  >
+    <option value="">All</option>
+    <option value="per hour">Per Hour</option>
+    <option value="per month">Per Month</option>
+  </select>
+</div>
+
     <button type="submit" className="action-button">
       Apply Filters
     </button>

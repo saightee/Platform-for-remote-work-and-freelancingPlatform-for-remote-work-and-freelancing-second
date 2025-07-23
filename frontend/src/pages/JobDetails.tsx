@@ -154,10 +154,10 @@ const JobDetails: React.FC = () => {
           <div className="job-detail-item">
             <FaBriefcase /> <strong>Type of Work:</strong> {job.job_type || 'Not specified'}
           </div>
-          <div className="job-detail-item">
-            <FaDollarSign /> <strong>Salary:</strong>{' '}
-            {job.salary !== null ? `$${job.salary}` : 'Not specified'}
-          </div>
+<div className="job-detail-item">
+  <FaDollarSign /> <strong>Salary:</strong>{' '}
+  {job.salary !== null ? `$${job.salary} ${job.salary_type || ''}` : 'Not specified'}
+</div>
           <div className="job-detail-item">
             <FaMapMarkerAlt /> <strong>Location:</strong> {job.location || 'Not specified'}
           </div>

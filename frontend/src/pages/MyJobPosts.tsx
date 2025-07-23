@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus, notifyCandidates, initializeWebSocket } from '../services/api';
+import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus, notifyCandidates, initializeWebSocket, createReview } from '../services/api';
 import { JobPost, Category, JobApplicationDetails } from '@types';
 import { useRole } from '../context/RoleContext';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
@@ -12,6 +12,7 @@ import { Socket } from 'socket.io-client';
 import { AxiosError } from 'axios'; // Import AxiosError
 import sanitizeHtml from 'sanitize-html'; // Import sanitize-html (install via npm if needed)
 import Loader from '../components/Loader';
+import ReactQuill from 'react-quill';
 
 const MyJobPosts: React.FC = () => {
   const { profile, isLoading: roleLoading } = useRole();
@@ -26,6 +27,8 @@ const MyJobPosts: React.FC = () => {
   const [editingJob, setEditingJob] = useState<Partial<JobPost> | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [selectedJobPostId, setSelectedJobPostId] = useState<string>(''); // Add state for selectedJobPostId
+  const [formError, setFormError] = useState<string | null>(null);
+  const [reviewForm, setReviewForm] = useState<{ applicationId: string; rating: number; comment: string } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -120,9 +123,9 @@ const MyJobPosts: React.FC = () => {
     }
   };
 
-  const handleEditJob = (job: JobPost) => {
-    setEditingJob({ ...job });
-  };
+const handleEditJob = (job: JobPost) => {
+  setEditingJob({ ...job });
+};
 
   const handleSaveEdit = async (id: string) => {
     if (!editingJob) return;
@@ -172,6 +175,33 @@ const MyJobPosts: React.FC = () => {
       alert(errorMsg);
     }
   };
+
+  const handleCreateReview = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!reviewForm) return;
+  if (reviewForm.rating < 1 || reviewForm.rating > 5) {
+    setFormError('Rating must be between 1 and 5.');
+    return;
+  }
+  if (!reviewForm.comment.trim()) {
+    setFormError('Comment cannot be empty.');
+    return;
+  }
+  try {
+    setFormError(null);
+    await createReview({
+      job_application_id: reviewForm.applicationId,
+      rating: reviewForm.rating,
+      comment: reviewForm.comment,
+    });
+    const updatedApps = await getApplicationsForJobPost(applications.jobPostId);
+    setApplications({ jobPostId: applications.jobPostId, apps: updatedApps || [] });
+    setReviewForm(null);
+    alert('Review submitted successfully!');
+  } catch (error: any) {
+    setFormError(error.response?.data?.message || 'Failed to submit review.');
+  }
+};
 
   const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
     if (!dateString) return 'Not specified';
@@ -240,22 +270,26 @@ const MyJobPosts: React.FC = () => {
                       />
                     </div>
                     <div className="my-job-form-group">
-                      <label>Description:</label>
-                      <textarea
-                        value={editingJob.description || ''}
-                        onChange={(e) => editingJob && setEditingJob({ ...editingJob, description: e.target.value })}
-                        rows={6}
-                        placeholder="Enter job description"
-                      />
-                    </div>
+    <label>Description:</label>
+    <ReactQuill
+      value={editingJob.description || ''}
+      onChange={(value) => editingJob && setEditingJob({ ...editingJob, description: value })}
+      placeholder="Enter job description"
+      style={{ height: '200px', marginBottom: '20px' }}
+    />
+  </div>
                     <div className="my-job-form-group">
-                      <label>Location:</label>
-                      <input
-                        type="text"
-                        value={editingJob.location || ''}
-                        onChange={(e) => editingJob && setEditingJob({ ...editingJob, location: e.target.value })}
-                      />
-                    </div>
+  <label>Work Mode:</label>
+  <select 
+    value={editingJob.location || ''} 
+    onChange={(e) => editingJob && setEditingJob({ ...editingJob, location: e.target.value })}
+  >
+    <option value="">Work mode</option>
+    <option value="Remote">Remote</option>
+    <option value="On-site">On-site</option>
+    <option value="Hybrid">Hybrid</option>
+  </select>
+</div>
                     <div className="my-job-form-group">
                       <label>Salary:</label>
                       <input
@@ -342,39 +376,58 @@ const MyJobPosts: React.FC = () => {
                             <tr>
                               <th>Username</th>
                               <th>Email</th>
-                              <th>Description</th>
+                              <th>Experience</th>
                               <th>Applied On</th>
                               <th>Status</th>
                               <th>Actions</th>
                             </tr>
                           </thead>
-                          <tbody>
-                            {applications.apps.map((app) => (
-                              <tr key={app.applicationId}>
-                                <td>{app.username}</td>
-                                <td>{app.email}</td>
-                                <td>{app.jobDescription || 'Not provided'}</td>
-                                <td>{formatDateInTimezone(app.appliedAt)}</td>
-                                <td>{app.status}</td>
-                                <td>
-                                  <button
-                                    onClick={() => handleUpdateApplicationStatus(app.applicationId, 'Accepted', post.id)}
-                                    className="my-job-action-button my-job-success"
-                                    disabled={app.status !== 'Pending'}
-                                  >
-                                    Accept
-                                  </button>
-                                  <button
-                                    onClick={() => handleUpdateApplicationStatus(app.applicationId, 'Rejected', post.id)}
-                                    className="my-job-action-button my-job-danger"
-                                    disabled={app.status !== 'Pending'}
-                                  >
-                                    Reject
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
+                         <tbody>
+  {applications.apps.map((app) => (
+    <tr key={app.applicationId}>
+      <td>{app.username}</td>
+      <td>{app.email}</td>
+      <td>{app.jobDescription || 'Not provided'}</td>
+      <td>{formatDateInTimezone(app.appliedAt)}</td>
+      <td>{app.status}</td>
+      <td>
+        <button
+          onClick={() => handleUpdateApplicationStatus(app.applicationId, 'Accepted', post.id)}
+          className="my-job-action-button my-job-success"
+          disabled={app.status !== 'Pending'}
+        >
+          Accept
+        </button>
+        <button
+          onClick={() => handleUpdateApplicationStatus(app.applicationId, 'Rejected', post.id)}
+          className="my-job-action-button my-job-danger"
+          disabled={app.status !== 'Pending'}
+        >
+          Reject
+        </button>
+        <button
+          onClick={() => alert(app.coverLetter || 'No cover letter')}
+          className="my-job-action-button"
+        >
+          View Cover Letter
+        </button>
+        <Link to={`/public-profile/${app.userId}`}>
+          <button className="my-job-action-button">
+            View Profile
+          </button>
+        </Link>
+        {app.status === 'Accepted' && (
+          <button
+            onClick={() => setReviewForm({ applicationId: app.applicationId, rating: 5, comment: '' })}
+            className="my-job-action-button"
+          >
+            Leave Review
+          </button>
+        )}
+      </td>
+    </tr>
+  ))}
+</tbody>
                         </table>
                       </div>
                     )}
@@ -387,6 +440,43 @@ const MyJobPosts: React.FC = () => {
           <p>No job posts found.</p>
         )}
       </div>
+
+
+      {reviewForm && (
+  <div className="modal">
+    <div className="modal-content">
+      <span className="close" onClick={() => setReviewForm(null)}>×</span>
+      <form onSubmit={handleCreateReview}>
+        {formError && <p className="error-message">{formError}</p>}
+        <div className="my-job-form-group">
+          <label>Rating:</label>
+          <div className="star-rating">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <span
+                key={star}
+                className={`star ${star <= reviewForm.rating ? 'filled' : ''}`}
+                onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+              >
+                ★
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="my-job-form-group">
+          <label>Comment:</label>
+          <textarea
+            value={reviewForm.comment}
+            onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+            rows={4}
+          />
+        </div>
+        <button type="submit" className="my-job-action-button my-job-success">
+          Submit Review
+        </button>
+      </form>
+    </div>
+  </div>
+)}
          <Footer />
       <Copyright />
     </div>
