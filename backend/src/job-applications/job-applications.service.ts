@@ -82,7 +82,7 @@ export class JobApplicationsService {
 
     return this.jobApplicationsRepository.find({
       where: { job_seeker_id: userId },
-      relations: ['job_post', 'job_seeker'],
+      relations: ['job_post', 'job_post.employer', 'job_seeker'], 
     });
   }
 

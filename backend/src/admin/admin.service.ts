@@ -713,7 +713,7 @@ export class AdminService {
       orderBy: 'beginning' | 'end' | 'random',
     ) {
       await this.checkAdminRole(adminId);
-
+    
       const jobPost = await this.jobPostsRepository.findOne({ 
         where: { id: jobPostId }, 
         relations: ['employer', 'category'] 
@@ -724,18 +724,18 @@ export class AdminService {
       if (!jobPost.category_id) {
         throw new BadRequestException('Job post has no category assigned');
       }
-
+    
       const query = this.jobSeekerRepository
         .createQueryBuilder('jobSeeker')
         .leftJoinAndSelect('jobSeeker.user', 'user')
-        .leftJoinAndSelect('jobSeeker.categories', 'categories')
+        .leftJoinAndSelect('jobSeeker.skills', 'skills') 
         .where('user.role = :role', { role: 'jobseeker' })
         .andWhere('user.status = :status', { status: 'active' })
         .andWhere('user.is_email_verified = :isEmailVerified', { isEmailVerified: true })
-        .andWhere('categories.id = :categoryId', { categoryId: jobPost.category_id });
-
+        .andWhere('skills.id = :categoryId', { categoryId: jobPost.category_id });
+    
       const total = await query.getCount();
-
+    
       query.take(limit);
       if (orderBy === 'beginning') {
         query.orderBy('user.created_at', 'ASC');
@@ -744,9 +744,9 @@ export class AdminService {
       } else if (orderBy === 'random') {
         query.orderBy('RANDOM()');
       }
-
+    
       const jobSeekers = await query.getMany();
-
+    
       for (const jobSeeker of jobSeekers) {
         try {
           await this.emailService.sendJobNotification(
@@ -760,7 +760,7 @@ export class AdminService {
           console.error(`Failed to send email to ${jobSeeker.user.email}:`, error.message);
         }
       }
-
+    
       return {
         total,
         sent: jobSeekers.length,
