@@ -1741,103 +1741,84 @@ setUserPage(1);
   </div>
 )}
 
-         {activeTab === 'Feedback' && (
+        {activeTab === 'Feedback' && (
   <div>
-  <h4>Issues Feedback (Technical/Support)</h4>
-  <table className="dashboard-table">
-    <thead>
-      <tr>
-        <th>Message</th>
-        <th>User</th>
-        <th onClick={() => handleIssuesSort('created_at')} style={{ cursor: 'pointer' }}>
-          Created At {issuesSortColumn === 'created_at' ? (issuesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-        </th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {sortedIssues.length > 0 ? sortedIssues.map((fb) => (
-        <tr key={fb.id}>
-          <td>{fb.message}</td>
-          <td>{fb.user?.username || 'Unknown'}</td>
-          <td>{format(new Date(fb.created_at), 'PP')}</td>
-          <td>
-            <button
-              onClick={async () => {
-                if (window.confirm('Are you sure you want to delete this feedback?')) {
-                  try {
-                    await deletePlatformFeedback(fb.id); // Reuse, but endpoint is same for both? No, for issues it's /admin/feedback/:id DELETE? Docs no, only for platform-feedback.
-                    setIssues(issues.filter((item) => item.id !== fb.id));
-                    alert('Feedback deleted successfully!');
-                  } catch (error) {
-                    // ...
-                  }
-                }
-              }}
-              className="action-button danger"
-            >
-              Delete
-            </button>
-          </td>
-        </tr>
-      )) : (
+    <h4>Issues Feedback (Technical/Support)</h4>
+    <table className="dashboard-table">
+      <thead>
         <tr>
-          <td colSpan={4}>No issues feedback found.</td>
+          <th>Message</th>
+          <th>User</th>
+          <th onClick={() => handleIssuesSort('created_at')} style={{ cursor: 'pointer' }}>
+            Created At {issuesSortColumn === 'created_at' ? (issuesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+          </th>
         </tr>
-      )}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        {sortedIssues.length > 0 ? sortedIssues.map((fb) => (
+          <tr key={fb.id}>
+            <td>{fb.message}</td>
+            <td>{fb.user?.username || 'Unknown'}</td>
+            <td>{format(new Date(fb.created_at), 'PP')}</td>
+          </tr>
+        )) : (
+          <tr>
+            <td colSpan={3}>No issues feedback found.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
 
-  <h4>Success Stories Feedback</h4>
-  <table className="dashboard-table">
-    <thead>
-      <tr>
-        <th>Description</th>
-        <th>Rating</th>
-        <th>User</th>
-        <th onClick={() => handleStoriesSort('created_at')} style={{ cursor: 'pointer' }}>
-          Created At {storiesSortColumn === 'created_at' ? (storiesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-        </th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {sortedStories.length > 0 ? sortedStories.map((story) => (
-        <tr key={story.id}>
-          <td>{story.description}</td>
-          <td>{story.rating}</td>
-          <td>{story.user?.username || 'Unknown'}</td>
-          <td>{format(new Date(story.created_at), 'PP')}</td>
-          <td>
-            <button
-              onClick={async () => {
-                if (window.confirm('Are you sure you want to delete this story?')) {
-                  try {
-                    await deletePlatformFeedback(story.id);
-                    setStories(stories.filter((item) => item.id !== story.id));
-                    alert('Story deleted successfully!');
-                  } catch (error) {
-                    // ...
-                  }
-                }
-              }}
-              className="action-button danger"
-            >
-              Delete
-            </button>
-          </td>
-        </tr>
-      )) : (
+    <h4>Success Stories Feedback</h4>
+    <table className="dashboard-table">
+      <thead>
         <tr>
-          <td colSpan={5}>No success stories found.</td>
+          <th>Description</th>
+          <th>Rating</th>
+          <th>User</th>
+          <th onClick={() => handleStoriesSort('created_at')} style={{ cursor: 'pointer' }}>
+            Created At {storiesSortColumn === 'created_at' ? (storiesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+          </th>
+          <th>Actions</th>
         </tr>
-      )}
-    </tbody>
-  </table>
-
+      </thead>
+      <tbody>
+        {sortedStories.length > 0 ? sortedStories.map((story) => (
+          <tr key={story.id}>
+            <td>{story.description}</td>
+            <td>{story.rating}</td>
+            <td>{story.user?.username || 'Unknown'}</td>
+            <td>{format(new Date(story.created_at), 'PP')}</td>
+            <td>
+              <button
+                onClick={async () => {
+                  if (window.confirm('Are you sure you want to delete this story?')) {
+                    try {
+                      await deletePlatformFeedback(story.id);
+                      setStories(stories.filter((item) => item.id !== story.id));
+                      alert('Story deleted successfully!');
+                    } catch (error) {
+                      const axiosError = error as AxiosError<{ message?: string }>;
+                      console.error('Error deleting story:', axiosError);
+                      alert(axiosError.response?.data?.message || 'Failed to delete story.');
+                    }
+                  }
+                }}
+                className="action-button danger"
+              >
+                Delete
+              </button>
+            </td>
+          </tr>
+        )) : (
+          <tr>
+            <td colSpan={5}>No success stories found.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   </div>
 )}
-
           {activeTab === 'Categories' && (
  <div>
   <h4>Categories</h4>

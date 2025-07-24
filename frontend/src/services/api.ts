@@ -697,12 +697,20 @@ export const submitFeedback = async (message: string) => {
 };
 
 export const deletePlatformFeedback = async (id: string) => {
-  const token = localStorage.getItem('token');
-  const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
-  const isModerator = decoded?.role === 'moderator';
-  const endpoint = isModerator ? `/moderator/platform-feedback/${id}` : `/admin/platform-feedback/${id}`;
-  const response = await api.delete<{ message: string }>(endpoint);
-  return response.data;
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No token found');
+    }
+    // Не нужно декодировать и менять endpoint — backend проверит роль
+    const endpoint = `/admin/platform-feedback/${id}`;
+    const response = await api.delete<{ message: string }>(endpoint);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error deleting platform feedback:', axiosError);
+    throw axiosError.response?.data?.message || 'Failed to delete feedback';
+  }
 };
 
 export const getFeedback = async () => {
