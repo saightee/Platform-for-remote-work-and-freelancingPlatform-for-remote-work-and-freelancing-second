@@ -747,6 +747,12 @@ header nav.mobile-menu-open .dropdown.active .dropdown-menu {
   margin-left: 10px;
 }
 
+.delete-cross {
+  cursor: pointer;
+  color: red;
+  font-size: 1.2em;
+  margin-left: 5px;
+}
 
 .category-tree {
   margin-top: 20px;
@@ -3667,7 +3673,7 @@ justify-content: space-between;
 }
 
 .interval-tabs button {
-  margin: 12px;
+  margin: 4px;
 }
 .analytics-chart {
   margin-bottom: 20px;
@@ -3845,7 +3851,7 @@ summary:hover {
 
 /* Profile Page */
 .profile-content {
-  display: grid;
+  /* display: grid; */
   grid-template-columns: 3fr 2fr;
   gap: 40px;
   margin-bottom: 20px;
@@ -3891,7 +3897,7 @@ summary:hover {
 }
 
 .profile-top-row {
-  display: flex;
+  /* display: flex; */
   gap: 20px;
 }
 

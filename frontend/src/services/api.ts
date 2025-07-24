@@ -226,6 +226,11 @@ export const uploadIdentityDocument = async (formData: FormData) => {
   return response.data;
 };
 
+export const rejectJobPost = async (id: string, reason: string) => {
+  const response = await api.post(`/admin/job-posts/${id}/reject`, { reason });
+  return response.data;
+};
+
 // Job Posts
 export const createJobPost = async (data: Partial<JobPost>) => {
   const response = await api.post<JobPost>('/job-posts', data);
@@ -692,12 +697,20 @@ export const submitFeedback = async (message: string) => {
 };
 
 export const deletePlatformFeedback = async (id: string) => {
-  const token = localStorage.getItem('token');
-  const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
-  const isModerator = decoded?.role === 'moderator';
-  const endpoint = isModerator ? `/moderator/platform-feedback/${id}` : `/admin/platform-feedback/${id}`;
-  const response = await api.delete<{ message: string }>(endpoint);
-  return response.data;
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No token found');
+    }
+    // Не нужно декодировать и менять endpoint — backend проверит роль
+    const endpoint = `/admin/platform-feedback/${id}`;
+    const response = await api.delete<{ message: string }>(endpoint);
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error deleting platform feedback:', axiosError);
+    throw axiosError.response?.data?.message || 'Failed to delete feedback';
+  }
 };
 
 export const getFeedback = async () => {

@@ -21,7 +21,7 @@ import {
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
-  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory // Добавляем logout из api
+  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost // Добавляем logout из api
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile } from '@types';
 import { AxiosError } from 'axios';
@@ -62,6 +62,7 @@ const AdminDashboard: React.FC = () => {
   const [showDocumentModal, setShowDocumentModal] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [userTotal, setUserTotal] = useState<number>(0);
+  const [jobStatusFilter, setJobStatusFilter] = useState<'All' | 'Active' | 'Draft' | 'Closed'>('All');
   const [selectedInterval, setSelectedInterval] = useState<'day' | 'week' | 'month'>('month');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Resolved' | 'Rejected'>('All');
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
@@ -75,6 +76,7 @@ const AdminDashboard: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newParentCategoryId, setNewParentCategoryId] = useState<string>('');
+  const [pendingReviewFilter, setPendingReviewFilter] = useState<'All' | 'true' | 'false'>('All');
   const [issues, setIssues] = useState<Feedback[]>([]);
 const [stories, setStories] = useState<{ id: string; user_id: string; rating: number; description: string; created_at: string; updated_at: string; user: { id: string; username: string; role: string } }[]>([]);
   const [analytics, setAnalytics] = useState<{
@@ -213,7 +215,9 @@ const sortedUsers = [...users].sort((a, b) => {
   } else if (userSortColumn === 'role') {
     return (a.role || '').localeCompare(b.role || '') * direction;
   } else if (userSortColumn === 'is_blocked') {
-    return (a.is_blocked === b.is_blocked ? 0 : a.is_blocked ? 1 : -1) * direction;
+    const aBlocked = a.status === 'blocked' ? 1 : 0;
+    const bBlocked = b.status === 'blocked' ? 1 : 0;
+    return (aBlocked - bBlocked) * direction;
   }
   return 0;
 });
@@ -327,7 +331,7 @@ const sortedComplaints = [...complaints]
 
 // Для пользователей
 
-const fetchUsers = useCallback(async (params: { page?: number; limit?: number; username?: string; email?: string } = {}) => {
+  const fetchUsers = useCallback(async (params: { page?: number; limit?: number; username?: string; email?: string; id?: string } = {}) => {
   if (!currentRole || currentRole !== 'admin') {
     setError('This page is only available for admins.');
     setIsLoading(false);
@@ -338,16 +342,19 @@ const fetchUsers = useCallback(async (params: { page?: number; limit?: number; u
     setIsLoading(true);
     setFetchErrors((prev) => ({ ...prev, getAllUsers: '' }));
     const effectivePage = params.page || userPage;
-    const queryParams: { page: number; limit: number; username?: string; email?: string; id?: string; } = {
-      page: effectivePage,
-      limit: userLimit,
-    };
-    if (params.username) {
-      queryParams.username = params.username;
-    }
-    if (params.email) {
-      queryParams.email = params.email;
-    }
+const queryParams: { page: number; limit: number; username?: string; email?: string; id?: string } = {
+  page: effectivePage,
+  limit: userLimit,
+};
+if (params.username) {
+  queryParams.username = params.username;
+}
+if (params.email) {
+  queryParams.email = params.email;
+}
+if (params.id) {
+  queryParams.id = params.id; // Добавь
+}
     console.log('Fetching users with params:', queryParams); // Лог для диагностики
     const userResponse = await getAllUsers(queryParams);
     console.log('Raw getAllUsers response:', userResponse);
@@ -703,6 +710,24 @@ const handleRefresh = async () => {
 //   }
 // };
 
+const handleRejectJobPost = async (id: string) => {
+  const reason = prompt('Enter reason for rejection:');
+  if (reason && reason.trim()) {
+    try {
+      await rejectJobPost(id, reason);
+      setJobPosts(jobPosts.filter((post) => post.id !== id));
+      setJobPostsWithApps(jobPostsWithApps.filter((post) => post.id !== id));
+      alert('Job post rejected successfully!');
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      console.error('Error rejecting job post:', axiosError);
+      alert(axiosError.response?.data?.message || 'Failed to reject job post.');
+    }
+  } else {
+    alert('Reason is required.');
+  }
+};
+
   const handleResetPassword = async (id: string) => {
     const newPassword = prompt('Enter new password:');
     if (newPassword) {
@@ -962,7 +987,7 @@ const handleViewJobApplications = async (jobPostId: string) => {
   const handleViewChatHistory = async (jobApplicationId: string, page: number = 1) => {
     try {
       setError(null);
-      const history = await getChatHistory(jobApplicationId, { page, limit: chatLimit });
+      const history = await getChatHistory(jobApplicationId, { page, limit: 1000 });
       setChatHistory(history);
       setSelectedJobApplicationId(jobApplicationId);
       setChatPage(page);
@@ -1414,16 +1439,16 @@ if (isLoading) {
       onChange={(e) => setSearchQuery(e.target.value)}
     />
  <button onClick={() => {
-  let params: { page: number; username?: string; email?: string; id?: string; } = { page: 1 };
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(searchQuery)) { // UUID regex
-    params.id = searchQuery;
-  } else if (searchQuery.includes('@')) {
-    params.email = searchQuery;
-  } else {
-    params.username = searchQuery;
-  }
-  fetchUsers(params);
-  setUserPage(1);
+  const params: { page: number; username?: string; email?: string; id?: string } = { page: 1 };
+if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(searchQuery)) {
+  params.id = searchQuery; // Поиск по ID
+} else if (searchQuery.includes('@')) {
+  params.email = searchQuery;
+} else {
+  params.username = searchQuery;
+}
+fetchUsers(params);
+setUserPage(1);
 }} className="action-button">
   <FaSearch />
 </button>
@@ -1444,9 +1469,8 @@ if (isLoading) {
       <th onClick={() => handleUserSort('is_blocked')} style={{ cursor: 'pointer' }}>
         Blocked Status {userSortColumn === 'is_blocked' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
       </th>
-      <th>Identity Verified</th>
-      <th>Identity Document</th>
       <th>Online Status</th>
+      <th>Risk Score</th>
       <th>Actions</th>
     </tr>
   </thead>
@@ -1457,28 +1481,14 @@ if (isLoading) {
         <td>{user.username}</td>
         <td>{user.email}</td>
         <td>{user.role}</td>
-        <td>{user.is_blocked ? 'Blocked' : 'Active'}</td>
-        <td>{user.identity_verified ? 'Yes' : 'No'}</td>
+        <td>{user.status === 'blocked' ? 'Blocked' : 'Active'}</td>
         <td>
-          {user.identity_document ? (
-            user.identity_document.endsWith('.pdf') ? (
-              <a href={`https://jobforge.net/backend${user.identity_document}`} target="_blank" rel="noopener noreferrer">
-                <FaFilePdf size={20} /> View PDF
-              </a>
-            ) : (
-              <button 
-                onClick={() => setShowDocumentModal(`https://jobforge.net/backend${user.identity_document}`)} 
-                className="action-button"
-              >
-                View Image
-              </button>
-            )
-          ) : (
-            'Not uploaded'
-          )}
+          {onlineStatuses[user.id] ? 'Online' : 'Offline'}
         </td>
         <td>
-          {onlineStatuses[user.id] ? 'Online' : 'Offline'} {/* Теперь всегда показываем, без кнопки */}
+          <button onClick={() => handleViewRiskScore(user.id)} className="action-button">
+            View Risk
+          </button>
         </td>
         <td>
           <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
@@ -1497,7 +1507,7 @@ if (isLoading) {
               </button>
             </>
           )}
-          {user.is_blocked ? (
+          {user.status === 'blocked' ? (
             <button
               onClick={() => handleUnblockUser(user.id, user.username)}
               className="action-button success"
@@ -1507,22 +1517,16 @@ if (isLoading) {
           ) : (
             <button
               onClick={() => handleBlockUser(user.id, user.username)}
-              className="action-button danger"  // Красный для Block
+              className="action-button danger"
             >
               Block
             </button>
           )}
-          <button
-            onClick={() => handleViewRiskScore(user.id)}
-            className="action-button"
-          >
-            View Risk Score
-          </button>
         </td>
       </tr>
     )) : (
       <tr>
-        <td colSpan={9}>No users found.</td>
+        <td colSpan={8}>No users found.</td>
       </tr>
     )}
   </tbody>
@@ -1538,44 +1542,84 @@ if (isLoading) {
   <span className="page-number">Page {userPage}</span>
   <button
     onClick={() => setUserPage(prev => prev + 1)}
-    disabled={(userPage * userLimit) >= userTotal} // Изменено: на основе total
+    disabled={(userPage * userLimit) >= userTotal}
     className="action-button"
   >
     Next
   </button>
 </div>
     {showRiskModal && riskScoreData && (
-      <div className="modal">
-        <div className="modal-content">
-          <h3>Risk Score for User ID: {riskScoreData.userId}</h3>
-          <p><strong>Risk Score:</strong> {riskScoreData.riskScore}</p>
-          <p><strong>Duplicate IP:</strong> {riskScoreData.details.duplicateIp ? 'Yes' : 'No'}</p>
-          <p><strong>Proxy Detected:</strong> {riskScoreData.details.proxyDetected ? 'Yes' : 'No'}</p>
-          <p><strong>Duplicate Fingerprint:</strong> {riskScoreData.details.duplicateFingerprint ? 'Yes' : 'No'}</p>
-          <button onClick={() => setShowRiskModal(false)} className="action-button">
-            Close
-          </button>
-        </div>
-      </div>
-    )}
+  <div className="modal">
+    <div className="modal-content">
+      <h3>Risk Score for User ID: {riskScoreData.userId}</h3>
+      <p><strong>Risk Score:</strong> {riskScoreData.riskScore}</p>
+      <p><strong>Duplicate IP:</strong> {riskScoreData.details.duplicateIp ? 'Yes' : 'No'}</p>
+      <p><strong>Proxy Detected:</strong> {riskScoreData.details.proxyDetected ? 'Yes' : 'No'}</p>
+      <p><strong>Duplicate Fingerprint:</strong> {riskScoreData.details.duplicateFingerprint ? 'Yes' : 'No'}</p>
+      <button onClick={() => setShowRiskModal(false)} className="action-button">
+        Close
+      </button>
+    </div>
+  </div>
+)}
   </div>
 )}
 
-          {activeTab === 'Job Posts' && (
+ {activeTab === 'Job Posts' && (
   <div>
     <h4>Job Posts</h4>
+    <div className="search-bar" style={{ marginBottom: '10px' }}>
+      <input
+        type="text"
+        placeholder="Search by title or employer username/email"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
+      <button onClick={() => {
+        let params: { page: number; title?: string; employer_id?: string; employer_username?: string; employer_email?: string } = { page: 1 };
+        if (searchQuery.includes('@')) {
+          params.employer_email = searchQuery; // Если содержит @, ищем по employer email
+        } else if (searchQuery.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
+          params.employer_id = searchQuery; // Если UUID, ищем по employer_id
+        } else {
+          params.title = searchQuery; // По умолчанию по title
+          params.employer_username = searchQuery; // Или по username
+        }
+        fetchOtherData(); // Перезагружаем данные с новыми params (нужно адаптировать fetchOtherData для params, но поскольку оно без, используй separate fetch if needed)
+        setJobPostPage(1);
+      }} className="action-button">
+        <FaSearch />
+      </button>
+    </div>
     <div className="form-group">
-      <label>Filter by Status:</label>
+  <label>Filter by Status:</label>
+  <select
+    value={jobStatusFilter}
+    onChange={(e) => {
+      setJobStatusFilter(e.target.value as 'All' | 'Active' | 'Draft' | 'Closed');
+      setJobPostPage(1);
+    }}
+    className="status-filter"
+  >
+    <option value="All">All</option>
+    <option value="Active">Active</option>
+    <option value="Draft">Draft</option>
+    <option value="Closed">Closed</option>
+  </select>
+</div>
+    <div className="form-group">
+      <label>Filter by Pending Review:</label>
       <select
-        value={statusFilter}
+        value={pendingReviewFilter} // Добавь state const [pendingReviewFilter, setPendingReviewFilter] = useState<'All' | 'true' | 'false'>('All');
         onChange={(e) => {
-          setStatusFilter(e.target.value as 'All' | 'Pending' | 'Resolved' | 'Rejected');
-          setJobPostPage(1); // Сбрасываем страницу при смене фильтра
+          setPendingReviewFilter(e.target.value as 'All' | 'true' | 'false');
+          setJobPostPage(1);
         }}
         className="status-filter"
       >
         <option value="All">All</option>
-        <option value="Pending">Pending</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
       </select>
     </div>
     {fetchErrors.getPendingJobPosts && <p className="error-message">{fetchErrors.getPendingJobPosts}</p>}
@@ -1591,8 +1635,9 @@ if (isLoading) {
         </tr>
       </thead>
       <tbody>
-{jobPosts.length > 0 ? jobPosts
-  .filter(post => statusFilter === 'All' || (statusFilter === 'Pending' && post.pending_review))
+  {jobPosts.length > 0 ? jobPosts
+  .filter(post => jobStatusFilter === 'All' || post.status === jobStatusFilter)
+  .filter(post => pendingReviewFilter === 'All' || (pendingReviewFilter === 'true' ? post.pending_review : !post.pending_review))
   .map((post) => (
     <tr key={post.id}>
       <td>{post.id}</td>
@@ -1601,24 +1646,30 @@ if (isLoading) {
       <td>{post.pending_review ? 'Yes' : 'No'}</td>
       <td>{format(new Date(post.created_at), 'PP')}</td>
       <td>
-        <button onClick={() => handleDeleteJobPost(post.id)} className="action-button danger">
-          Delete
-        </button>
-        {post.pending_review && (
-          <button onClick={() => handleApproveJobPost(post.id)} className="action-button success">
-            Approve
-          </button>
-        )}
-        <button onClick={() => handleFlagJobPost(post.id)} className="action-button warning">
-          Flag
-        </button>
-        <button onClick={() => handleSetApplicationLimit(post.id)} className="action-button">
-          Set App Limit
-        </button>
-        <button onClick={() => handleNotifyCandidates(post.id)} className="action-button success">
-          Notify Seekers
-        </button>
-      </td>
+  <button onClick={() => handleDeleteJobPost(post.id)} className="action-button danger">
+    Delete
+  </button>
+  {post.pending_review && (
+    <button onClick={() => handleApproveJobPost(post.id)} className="action-button success">
+      Approve
+    </button>
+  )}
+  <button onClick={() => handleFlagJobPost(post.id)} className="action-button warning">
+    Flag
+  </button>
+  <button onClick={() => {
+    if (post.category_id) {
+      handleNotifyCandidates(post.id);
+    } else {
+      alert('Job post has no category assigned. Cannot notify candidates.');
+    }
+  }} className="action-button success">
+    Notify Seekers
+  </button>
+  <button onClick={() => handleRejectJobPost(post.id)} className="action-button danger">
+    Reject
+  </button>
+</td>
     </tr>
   )) : (
     <tr>
@@ -1690,103 +1741,84 @@ if (isLoading) {
   </div>
 )}
 
-         {activeTab === 'Feedback' && (
+        {activeTab === 'Feedback' && (
   <div>
-  <h4>Issues Feedback (Technical/Support)</h4>
-  <table className="dashboard-table">
-    <thead>
-      <tr>
-        <th>Message</th>
-        <th>User</th>
-        <th onClick={() => handleIssuesSort('created_at')} style={{ cursor: 'pointer' }}>
-          Created At {issuesSortColumn === 'created_at' ? (issuesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-        </th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {sortedIssues.length > 0 ? sortedIssues.map((fb) => (
-        <tr key={fb.id}>
-          <td>{fb.message}</td>
-          <td>{fb.user?.username || 'Unknown'}</td>
-          <td>{format(new Date(fb.created_at), 'PP')}</td>
-          <td>
-            <button
-              onClick={async () => {
-                if (window.confirm('Are you sure you want to delete this feedback?')) {
-                  try {
-                    await deletePlatformFeedback(fb.id); // Reuse, but endpoint is same for both? No, for issues it's /admin/feedback/:id DELETE? Docs no, only for platform-feedback.
-                    setIssues(issues.filter((item) => item.id !== fb.id));
-                    alert('Feedback deleted successfully!');
-                  } catch (error) {
-                    // ...
-                  }
-                }
-              }}
-              className="action-button danger"
-            >
-              Delete
-            </button>
-          </td>
-        </tr>
-      )) : (
+    <h4>Issues Feedback (Technical/Support)</h4>
+    <table className="dashboard-table">
+      <thead>
         <tr>
-          <td colSpan={4}>No issues feedback found.</td>
+          <th>Message</th>
+          <th>User</th>
+          <th onClick={() => handleIssuesSort('created_at')} style={{ cursor: 'pointer' }}>
+            Created At {issuesSortColumn === 'created_at' ? (issuesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+          </th>
         </tr>
-      )}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        {sortedIssues.length > 0 ? sortedIssues.map((fb) => (
+          <tr key={fb.id}>
+            <td>{fb.message}</td>
+            <td>{fb.user?.username || 'Unknown'}</td>
+            <td>{format(new Date(fb.created_at), 'PP')}</td>
+          </tr>
+        )) : (
+          <tr>
+            <td colSpan={3}>No issues feedback found.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
 
-  <h4>Success Stories Feedback</h4>
-  <table className="dashboard-table">
-    <thead>
-      <tr>
-        <th>Description</th>
-        <th>Rating</th>
-        <th>User</th>
-        <th onClick={() => handleStoriesSort('created_at')} style={{ cursor: 'pointer' }}>
-          Created At {storiesSortColumn === 'created_at' ? (storiesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-        </th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {sortedStories.length > 0 ? sortedStories.map((story) => (
-        <tr key={story.id}>
-          <td>{story.description}</td>
-          <td>{story.rating}</td>
-          <td>{story.user?.username || 'Unknown'}</td>
-          <td>{format(new Date(story.created_at), 'PP')}</td>
-          <td>
-            <button
-              onClick={async () => {
-                if (window.confirm('Are you sure you want to delete this story?')) {
-                  try {
-                    await deletePlatformFeedback(story.id);
-                    setStories(stories.filter((item) => item.id !== story.id));
-                    alert('Story deleted successfully!');
-                  } catch (error) {
-                    // ...
-                  }
-                }
-              }}
-              className="action-button danger"
-            >
-              Delete
-            </button>
-          </td>
-        </tr>
-      )) : (
+    <h4>Success Stories Feedback</h4>
+    <table className="dashboard-table">
+      <thead>
         <tr>
-          <td colSpan={5}>No success stories found.</td>
+          <th>Description</th>
+          <th>Rating</th>
+          <th>User</th>
+          <th onClick={() => handleStoriesSort('created_at')} style={{ cursor: 'pointer' }}>
+            Created At {storiesSortColumn === 'created_at' ? (storiesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+          </th>
+          <th>Actions</th>
         </tr>
-      )}
-    </tbody>
-  </table>
-
+      </thead>
+      <tbody>
+        {sortedStories.length > 0 ? sortedStories.map((story) => (
+          <tr key={story.id}>
+            <td>{story.description}</td>
+            <td>{story.rating}</td>
+            <td>{story.user?.username || 'Unknown'}</td>
+            <td>{format(new Date(story.created_at), 'PP')}</td>
+            <td>
+              <button
+                onClick={async () => {
+                  if (window.confirm('Are you sure you want to delete this story?')) {
+                    try {
+                      await deletePlatformFeedback(story.id);
+                      setStories(stories.filter((item) => item.id !== story.id));
+                      alert('Story deleted successfully!');
+                    } catch (error) {
+                      const axiosError = error as AxiosError<{ message?: string }>;
+                      console.error('Error deleting story:', axiosError);
+                      alert(axiosError.response?.data?.message || 'Failed to delete story.');
+                    }
+                  }
+                }}
+                className="action-button danger"
+              >
+                Delete
+              </button>
+            </td>
+          </tr>
+        )) : (
+          <tr>
+            <td colSpan={5}>No success stories found.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   </div>
 )}
-
           {activeTab === 'Categories' && (
  <div>
   <h4>Categories</h4>
@@ -1841,12 +1873,12 @@ if (isLoading) {
       .map((category) => (
         <li key={category.id} className="category-tree-item">
           <details>
-            <summary>{category.name} <button onClick={() => handleDeleteCategory(category.id)} className="action-button danger small">Delete</button></summary> {/* Убрал ID, добавил details summary для развертывания */}
+            <summary>{category.name} <span onClick={() => handleDeleteCategory(category.id)} className="delete-cross">×</span></summary> 
             {category.subcategories && category.subcategories.length > 0 && (
               <ul className="category-tree-sublist">
                 {category.subcategories.map((sub) => (
                   <li key={sub.id} className="category-tree-subitem">
-                    {sub.name} <button onClick={() => handleDeleteCategory(sub.id)} className="action-button danger small">Delete</button> {/* Убрал ID */}
+                    {sub.name} <span onClick={() => handleDeleteCategory(sub.id)} className="delete-cross">×</span>
                   </li>
                 ))}
               </ul>
@@ -1996,24 +2028,24 @@ if (isLoading) {
     </div>
     <div className="form-group">
       <label>Select Job Post:</label>
-      <select
-        value={selectedJobPostId}
-        onChange={(e) => handleViewJobApplications(e.target.value)}
-      >
-        <option value="">Select a job post</option>
-        {jobPostsWithApps.map(post => (
-          <option key={post.id} value={post.id}>
-            {post.title} (ID: {post.id})
-          </option>
-        ))}
-      </select>
+<select
+  value={selectedJobPostId}
+  onChange={(e) => handleViewJobApplications(e.target.value)}
+>
+  <option value="">Select a job post</option>
+  {jobPostsWithApps.filter(post => post.status === 'Closed').map(post => (
+    <option key={post.id} value={post.id}>
+      {post.title} (ID: {post.id})
+    </option>
+  ))}
+</select>
     </div>
     {selectedJobPostId && chatHistory.data.length > 0 && (
       <>
         <h3>Messages for Job Application ID: {selectedJobApplicationId}</h3>
-        <div className="chat-messages">
+       <div className="chat-messages" style={{ overflowY: 'auto', maxHeight: '400px' }}> // Добавил скролл
   {chatHistory.data.length > 0 ? chatHistory.data.map((message) => (
-    <div key={message.id} className={`message ${message.sender_id === message.sender.id ? 'sent' : 'received'}`}>
+    <div key={message.id} className={`message ${message.sender.role === 'jobseeker' ? 'received' : 'sent'}`}> // Left if jobseeker, right if employer
       <p><strong>{message.sender.username}:</strong> {message.content}</p>
       <span>{format(new Date(message.created_at), 'PPpp')}</span>
       <span>{message.is_read ? 'Read' : 'Unread'}</span>
@@ -2022,23 +2054,7 @@ if (isLoading) {
     <p>No messages found.</p>
   )}
 </div>
-        <div className="pagination">
-          <button
-            onClick={() => handleViewChatHistory(selectedJobApplicationId, chatPage - 1)}
-            disabled={chatPage === 1}
-            className="action-button"
-          >
-            Previous
-          </button>
-          <span className="page-number">Page {chatPage} of {Math.ceil(chatHistory.total / chatLimit)}</span>
-          <button
-            onClick={() => handleViewChatHistory(selectedJobApplicationId, chatPage + 1)}
-            disabled={chatPage >= Math.ceil(chatHistory.total / chatLimit)}
-            className="action-button"
-          >
-            Next
-          </button>
-        </div>
+       
       </>
     )}
   </div>
@@ -2046,11 +2062,7 @@ if (isLoading) {
 
          {activeTab === 'Analytics' && (
   <div>
-                 <div className="interval-tabs">
-  <button className={selectedInterval === 'day' ? 'active' : ''} onClick={() => { setSelectedInterval('day'); handleRefresh(); }}>Day</button>
-  <button className={selectedInterval === 'week' ? 'active' : ''} onClick={() => { setSelectedInterval('week'); handleRefresh(); }}>Week</button>
-  <button className={selectedInterval === 'month' ? 'active' : ''} onClick={() => { setSelectedInterval('month'); handleRefresh(); }}>Month</button>
-</div>
+
     <h4>Analytics</h4>
     {fetchErrors.getAnalytics && <p className="error-message">{fetchErrors.getAnalytics}</p>}
     {analytics ? (
@@ -2106,6 +2118,11 @@ if (isLoading) {
       <p>No analytics data available.</p>
     )}
     <h4>Registration Stats</h4>
+                     <div className="interval-tabs">
+  <button className={selectedInterval === 'day' ? 'active' : ''} onClick={() => { setSelectedInterval('day'); handleRefresh(); }}>Day</button>
+  <button className={selectedInterval === 'week' ? 'active' : ''} onClick={() => { setSelectedInterval('week'); handleRefresh(); }}>Week</button>
+  <button className={selectedInterval === 'month' ? 'active' : ''} onClick={() => { setSelectedInterval('month'); handleRefresh(); }}>Month</button>
+</div>
     {fetchErrors.getRegistrationStats && <p className="error-message">{fetchErrors.getRegistrationStats}</p>}
     {registrationStats.length > 0 && (
   <ResponsiveContainer width="100%" height={300}>
@@ -2129,7 +2146,7 @@ if (isLoading) {
       <tbody>
         {registrationStats.length > 0 ? registrationStats.map((stat, index) => (
           <tr key={index}>
-            <td>{stat.period}</td>
+           <td>{format(new Date(stat.period), 'dd.MM.yyyy')}</td>
             <td>{stat.count}</td>
           </tr>
         )) : (
