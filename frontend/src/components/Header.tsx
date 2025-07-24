@@ -95,11 +95,18 @@ const Header: React.FC = () => {
           }
         });
 
-        socket.on('newMessage', (message: Message) => {
-          if (message.recipient_id === profile.id && !message.is_read) {
-            setUnreadCount(prev => prev + 1);
-          }
-        });
+        // socket.on('newMessage', (message: Message) => {
+        //   if (message.recipient_id === profile.id && !message.is_read) {
+        //     setUnreadCount(prev => prev + 1);
+        //   }
+        // });
+
+        socket.on('newMessage', (message) => {
+  if (message.recipient_id === profile.id && !message.is_read) {
+    setUnreadCount(prev => prev + 1);
+  }
+});
+        
 
         socket.on('connect_error', (err) => {
           console.error('WebSocket connection error in Header:', err.message);

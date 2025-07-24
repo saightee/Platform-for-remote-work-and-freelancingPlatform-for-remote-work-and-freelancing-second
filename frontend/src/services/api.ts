@@ -70,6 +70,11 @@ api.interceptors.response.use(
   }
 );
 
+export const submitPlatformFeedback = async (rating: number, description: string) => {
+  const response = await api.post('/platform-feedback', { rating, description });
+  return response.data;
+};
+
 export const initializeWebSocket = (
   onMessage: (message: WebSocketMessage) => void,
   onError: (error: WebSocketError) => void
@@ -258,6 +263,7 @@ export const searchJobPosts = async (params: {
   job_type?: string;
   category_id?: string;
   required_skills?: string | string[];
+  salary_type?: string;
   page?: number;
   limit?: number;
   sort_by?: string;
@@ -727,6 +733,7 @@ export const searchTalents = async (params: {
   rating?: number;
   timezone?: string;
   skill_id?: string;
+  salary_type?: string;
   page?: number;
   limit?: number;
   sort_by?: string;

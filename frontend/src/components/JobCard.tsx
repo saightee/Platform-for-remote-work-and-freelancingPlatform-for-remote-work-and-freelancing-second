@@ -39,7 +39,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
           <p><strong>Location:</strong> {job.location || 'Remote'}</p>
         </div>
         <div className="job-card-footer">
-          <span className="salary">{job.salary !== null ? `$${job.salary} per hour` : 'Not specified'}</span>
+          <span className="salary">{job.salary !== null ? `$${job.salary} ${job.salary_type || 'per hour'}` : 'Not specified'}</span>
           <Link to={`/jobs/${job.id}`}>
             <button className="view-details-button">View Details</button>
           </Link>
@@ -73,7 +73,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
         <p><strong>Location:</strong> {job.location || 'Not specified'}</p>
         <p><strong>Category:</strong> {job.category?.name || 'Not specified'}</p>
         <div className="job-card-footer">
-          <span className="salary">{job.salary !== null ? `$${job.salary}/hr` : 'Not specified'}</span>
+          <span className="salary">{job.salary !== null ? `$${job.salary} ${job.salary_type || 'per hour'}` : 'Not specified'}</span>
           <Link to={`/jobs/${job.id}`}>
             <button className="view-details-button">View Details</button>
           </Link>

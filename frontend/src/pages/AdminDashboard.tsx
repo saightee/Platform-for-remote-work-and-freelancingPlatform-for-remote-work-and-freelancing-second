@@ -1167,11 +1167,7 @@ if (isLoading) {
 
           {activeTab === 'Dashboard' && (
             <div>
-              <div className="interval-tabs">
-  <button className={selectedInterval === 'day' ? 'active' : ''} onClick={() => { setSelectedInterval('day'); handleRefresh(); }}>Day</button>
-  <button className={selectedInterval === 'week' ? 'active' : ''} onClick={() => { setSelectedInterval('week'); handleRefresh(); }}>Week</button>
-  <button className={selectedInterval === 'month' ? 'active' : ''} onClick={() => { setSelectedInterval('month'); handleRefresh(); }}>Month</button>
-</div>
+ 
               <h4>Dashboard</h4>
               <div className="dashboard-section">
   <div className="table-header">
@@ -2015,34 +2011,17 @@ if (isLoading) {
     {selectedJobPostId && chatHistory.data.length > 0 && (
       <>
         <h3>Messages for Job Application ID: {selectedJobApplicationId}</h3>
-        <table className="dashboard-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Sender</th>
-              <th>Recipient</th>
-              <th>Content</th>
-              <th>Created At</th>
-              <th>Read</th>
-            </tr>
-          </thead>
-          <tbody>
-            {chatHistory.data.length > 0 ? chatHistory.data.map((message) => (
-              <tr key={message.id}>
-                <td>{message.id}</td>
-                <td>{message.sender.username}</td>
-                <td>{message.recipient.username}</td>
-                <td>{message.content}</td>
-                <td>{format(new Date(message.created_at), 'PPpp')}</td>
-                <td>{message.is_read ? 'Yes' : 'No'}</td>
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan={6}>No messages found.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <div className="chat-messages">
+  {chatHistory.data.length > 0 ? chatHistory.data.map((message) => (
+    <div key={message.id} className={`message ${message.sender_id === message.sender.id ? 'sent' : 'received'}`}>
+      <p><strong>{message.sender.username}:</strong> {message.content}</p>
+      <span>{format(new Date(message.created_at), 'PPpp')}</span>
+      <span>{message.is_read ? 'Read' : 'Unread'}</span>
+    </div>
+  )) : (
+    <p>No messages found.</p>
+  )}
+</div>
         <div className="pagination">
           <button
             onClick={() => handleViewChatHistory(selectedJobApplicationId, chatPage - 1)}
@@ -2067,6 +2046,11 @@ if (isLoading) {
 
          {activeTab === 'Analytics' && (
   <div>
+                 <div className="interval-tabs">
+  <button className={selectedInterval === 'day' ? 'active' : ''} onClick={() => { setSelectedInterval('day'); handleRefresh(); }}>Day</button>
+  <button className={selectedInterval === 'week' ? 'active' : ''} onClick={() => { setSelectedInterval('week'); handleRefresh(); }}>Week</button>
+  <button className={selectedInterval === 'month' ? 'active' : ''} onClick={() => { setSelectedInterval('month'); handleRefresh(); }}>Month</button>
+</div>
     <h4>Analytics</h4>
     {fetchErrors.getAnalytics && <p className="error-message">{fetchErrors.getAnalytics}</p>}
     {analytics ? (

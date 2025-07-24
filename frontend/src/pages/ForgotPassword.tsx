@@ -37,12 +37,15 @@ const ForgotPassword: React.FC = () => {
   };
 
   if (isLoading) {
-    return <Loader />; // Добавлен лоадер здесь, как в ProfilePage: если isLoading, показываем только Loader вместо всего контента
+    return <Loader />; 
   }
 
   return (
-    <div className="container forgot-password-container">
+    <div>
       <Header />
+    
+    <div className="container forgot-password-container">
+      
       <h2>Forgot Password</h2>
       {message && <p className="success-message">{message}</p>}
       {error && <p className="error-message">{error}</p>}
@@ -60,7 +63,9 @@ const ForgotPassword: React.FC = () => {
           {isLoading ? 'Sending...' : 'Send Reset Link'}
         </button>
       </form>
-      <Footer />
+     
+    </div>
+     <Footer />
       <Copyright />
     </div>
   );

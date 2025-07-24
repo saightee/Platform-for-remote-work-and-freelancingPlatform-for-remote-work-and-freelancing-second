@@ -227,14 +227,6 @@ const Register: React.FC = () => {
                   ))}
                 </div>
               </div>
-              <div className="form-group">
-                <label>Resume:</label>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png,application/pdf"
-                  onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
-                />
-              </div>
             </>
           )}
           <button type="submit">Sign Up as {role === 'employer' ? 'Employer' : 'Jobseeker'}</button>

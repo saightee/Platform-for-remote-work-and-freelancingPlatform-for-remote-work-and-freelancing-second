@@ -34,41 +34,42 @@ const Messages: React.FC = () => {
   const [isTyping, setIsTyping] = useState<{ [jobApplicationId: string]: boolean }>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<{ [jobApplicationId: string]: number }>({});
+  const hasJoinedChats = useRef(false); // To prevent multiple joins
 
   useEffect(() => {
-  const fetchData = async () => {
-    try {
-      setIsLoading(true);
-      if (currentRole === 'jobseeker') {
-        const apps = await getMyApplications();
-        console.log('Fetched applications for jobseeker:', apps); // Отладочный лог
-        setApplications(apps.filter((app) => app.status === 'Accepted'));
-      } else if (currentRole === 'employer') {
-        const posts = await getMyJobPosts();
-        console.log('Fetched job posts for employer:', posts); // Отладочный лог
-        setJobPosts(posts);
-        const appsArrays = await Promise.all(
-          posts.map(post => getApplicationsForJobPost(post.id))
-        );
-        const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
-        posts.forEach((post, index) => {
-          appsMap[post.id] = appsArrays[index].filter((app) => app.status === 'Accepted');
-          console.log(`Applications for job post ${post.id}:`, appsMap[post.id]); // Отладочный лог
-        });
-        setJobPostApplications(appsMap);
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        if (currentRole === 'jobseeker') {
+          const apps = await getMyApplications();
+          console.log('Fetched applications for jobseeker:', apps); // Отладочный лог
+          setApplications(apps.filter((app) => app.status === 'Accepted'));
+        } else if (currentRole === 'employer') {
+          const posts = await getMyJobPosts();
+          console.log('Fetched job posts for employer:', posts); // Отладочный лог
+          setJobPosts(posts);
+          const appsArrays = await Promise.all(
+            posts.map(post => getApplicationsForJobPost(post.id))
+          );
+          const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
+          posts.forEach((post, index) => {
+            appsMap[post.id] = appsArrays[index].filter((app) => app.status === 'Accepted');
+            console.log(`Applications for job post ${post.id}:`, appsMap[post.id]); // Отладочный лог
+          });
+          setJobPostApplications(appsMap);
+        }
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+        setError('Failed to load applications.');
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching applications:', error);
-      setError('Failed to load applications.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
 
-  if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole) && socket) {
-    fetchData();
-  }
-}, [profile, currentRole, socket]);
+    if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole) && socket) {
+      fetchData();
+    }
+  }, [profile, currentRole, socket]);
 
   useEffect(() => {
     if (!socket || !profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) {
@@ -78,15 +79,19 @@ const Messages: React.FC = () => {
     }
 
     const joinChats = () => {
+      if (hasJoinedChats.current) return; // Prevent multiple joins
+      hasJoinedChats.current = true;
+      
+      let chats: { id: string }[] = [];
       if (currentRole === 'jobseeker') {
-        applications.forEach((app) => {
-          socket.emit('joinChat', { jobApplicationId: app.id });
-        });
+        chats = applications.map(app => ({ id: app.id }));
       } else if (currentRole === 'employer') {
-        Object.values(jobPostApplications).flat().forEach(app => {
-          socket.emit('joinChat', { jobApplicationId: app.applicationId });
-        });
+        chats = Object.values(jobPostApplications).flat().map(app => ({ id: app.applicationId }));
       }
+
+      chats.forEach(chat => {
+        socket.emit('joinChat', { jobApplicationId: chat.id });
+      });
     };
 
     socket.on('chatHistory', (history: Message[]) => {
@@ -96,9 +101,10 @@ const Messages: React.FC = () => {
           ...prev,
           [jobApplicationId]: history.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
         }));
+        const unread = history.filter((msg) => msg.recipient_id === profile.id && !msg.is_read).length;
         setUnreadCounts((prevCounts) => ({
           ...prevCounts,
-          [jobApplicationId]: selectedChat === jobApplicationId ? 0 : history.filter((msg) => msg.recipient_id === profile.id && !msg.is_read).length,
+          [jobApplicationId]: selectedChat === jobApplicationId ? 0 : unread,
         }));
       }
     });
@@ -113,6 +119,14 @@ const Messages: React.FC = () => {
           ...prevCounts,
           [message.job_application_id]: (prevCounts[message.job_application_id] || 0) + 1,
         }));
+      } else if (selectedChat === message.job_application_id && message.recipient_id === profile.id) {
+        socket.emit('markMessagesAsRead', { jobApplicationId: selectedChat });
+      }
+    });
+
+    socket.on('typing', (data: { userId: string; jobApplicationId: string; isTyping: boolean }) => {
+      if (data.userId !== profile.id) {
+        setIsTyping((prev) => ({ ...prev, [data.jobApplicationId]: data.isTyping }));
       }
     });
 
@@ -142,6 +156,11 @@ const Messages: React.FC = () => {
     socket.on('connect_error', (err) => {
       console.error('WebSocket connection error in Messages:', err.message);
       setError('Failed to connect to chat server. Retrying...');
+      hasJoinedChats.current = false; // Allow rejoin on reconnect
+    });
+
+    socket.on('connect', () => {
+      joinChats(); // Rejoin on reconnect
     });
 
     joinChats();
@@ -149,14 +168,22 @@ const Messages: React.FC = () => {
     return () => {
       socket.off('chatHistory');
       socket.off('newMessage');
+      socket.off('typing');
       socket.off('chatInitialized');
       socket.off('connect_error');
+      socket.off('connect');
+      hasJoinedChats.current = false;
     };
   }, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, selectedChat]);
+useEffect(() => {
+  if (messagesEndRef.current && selectedChat) {
+    const messagesContainer = messagesEndRef.current.parentElement;
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+  }
+}, [selectedChat, messages, isTyping]); // Зависимости изменены
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,20 +197,20 @@ const Messages: React.FC = () => {
     setNewMessage('');
   };
 
-const handleSelectChat = (jobApplicationId: string) => {
-  setSelectedChat(jobApplicationId);
-  setUnreadCounts((prev) => ({
-    ...prev,
-    [jobApplicationId]: 0,
-  }));
-  if (socket && socketStatus === 'connected') {
-    socket.emit('joinChat', { jobApplicationId });
-    socket.emit('markMessagesAsRead', { jobApplicationId });
-  } else {
-    console.warn('WebSocket not connected, cannot join chat or mark messages as read');
-    setError('Chat server not connected. Please try again later.');
-  }
-};
+  const handleSelectChat = (jobApplicationId: string) => {
+    setSelectedChat(jobApplicationId);
+    setUnreadCounts((prev) => ({
+      ...prev,
+      [jobApplicationId]: 0,
+    }));
+    if (socket && socketStatus === 'connected') {
+      socket.emit('joinChat', { jobApplicationId });
+      socket.emit('markMessagesAsRead', { jobApplicationId });
+    } else {
+      console.warn('WebSocket not connected, cannot join chat or mark messages as read');
+      setError('Chat server not connected. Please try again later.');
+    }
+  };
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!socket || !selectedChat) return;
@@ -202,20 +229,20 @@ const handleSelectChat = (jobApplicationId: string) => {
     }, 1000);
   };
 
-const getChatPartner = (jobApplicationId: string) => {
-  if (currentRole === 'jobseeker') {
-    const app = applications.find((a) => a.id === jobApplicationId);
-    console.log('Application for jobseeker:', app); // Отладочный лог
-    if (app?.job_post?.employer_id) {
-      return app.job_post.employer?.username || 'Unknown';
+  const getChatPartner = (jobApplicationId: string) => {
+    if (currentRole === 'jobseeker') {
+      const app = applications.find((a) => a.id === jobApplicationId);
+      console.log('Application for jobseeker:', app); // Отладочный лог
+      if (app?.job_post?.employer_id) {
+        return app.job_post.employer?.username || 'Unknown';
+      }
+      return 'Unknown';
+    } else if (currentRole === 'employer') {
+      const app = Object.values(jobPostApplications).flat().find(a => a.applicationId === jobApplicationId);
+      return app?.username || 'Unknown';
     }
     return 'Unknown';
-  } else if (currentRole === 'employer') {
-    const app = Object.values(jobPostApplications).flat().find(a => a.applicationId === jobApplicationId);
-    return app?.username || 'Unknown';
-  }
-  return 'Unknown';
-};
+  };
 
   const getChatList = () => {
     if (currentRole === 'jobseeker') {
@@ -236,29 +263,38 @@ const getChatPartner = (jobApplicationId: string) => {
     return [];
   };
 
-  if (isLoading) {
-    return (
+  if (isLoading) return (
     <div>
       <Header />
       <div className="container">
         <h2>Messages</h2>
-        {/* <Loader /> */}
         <p>Loading chats...</p>
-        <p></p>
       </div>
+    </div>
+  );
+
+  if (getChatList().length === 0 && !isLoading) return (
+    <div>
+      <Header />
+      <div className="container">
+        <h2>Messages</h2>
+        <p>There are no available chats.</p>
       </div>
-    );
-  }
+      <Footer />
+      <Copyright />
+    </div>
+  );
 
   if (!profile || !['jobseeker', 'employer'].includes(currentRole || '')) {
     return (
       <div>
-      <Header />
-      <div className="container">
         <Header />
-        <h2>Messages</h2>
-        <p>This page is only available for jobseekers and employers.</p>
-      </div>
+        <div className="container">
+          <h2>Messages</h2>
+          <p>This page is only available for jobseekers and employers.</p>
+        </div>
+        <Footer />
+        <Copyright />
       </div>
     );
   }
@@ -266,75 +302,75 @@ const getChatPartner = (jobApplicationId: string) => {
   return (
     <div>
       <Header />
-    <div className="container messages-container">
-      <h2>Messages</h2>
-      {error && <p className="error-message">{error}</p>}
-      {socketStatus === 'reconnecting' && <p className="error-message">Reconnecting to chat server...</p>}
-      <div className="messages-content">
-        <div className="chat-list">
-          <h3>Chats</h3>
-          {getChatList().length > 0 ? (
-            <ul>
-              {getChatList().map((chat) => (
-                <li
-                  key={chat.id}
-                  className={`chat-item ${selectedChat === chat.id ? 'active' : ''}`}
-                  onClick={() => handleSelectChat(chat.id)}
-                >
-                  <p>
-                    <strong>{chat.title}</strong>
-                  </p>
-                  <p>{chat.partner}</p>
-                  {chat.unreadCount > 0 && <span className="unread-count">{chat.unreadCount}</span>}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>No active chats found.</p>
-          )}
-        </div>
-        <div className="chat-window">
-          {selectedChat ? (
-            <>
-              <h3>Chat with {getChatPartner(selectedChat)}</h3>
-              <div className="messages">
-                {(messages[selectedChat] || []).map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`message ${msg.sender_id === profile.id ? 'sent' : 'received'}`}
+      <div className="container messages-container">
+        <h2>Messages</h2>
+        {error && <p className="error-message">{error}</p>}
+        {socketStatus === 'reconnecting' && <p className="error-message">Reconnecting to chat server...</p>}
+        <div className="messages-content">
+          <div className="chat-list">
+            <h3>Chats</h3>
+            {getChatList().length > 0 ? (
+              <ul>
+                {getChatList().map((chat) => (
+                  <li
+                    key={chat.id}
+                    className={`chat-item ${selectedChat === chat.id ? 'active' : ''}`}
+                    onClick={() => handleSelectChat(chat.id)}
                   >
-                    <p>{msg.content}</p>
-                    <span>{format(new Date(msg.created_at), 'PPpp')}</span>
-                    <span>{msg.is_read ? 'Read' : 'Unread'}</span>
-                  </div>
+                    <p>
+                      <strong>{chat.title}</strong>
+                    </p>
+                    <p>{chat.partner}</p>
+                    {chat.unreadCount > 0 && <span className="unread-count">{chat.unreadCount}</span>}
+                  </li>
                 ))}
-                {isTyping[selectedChat] && (
-                  <div className="typing-indicator">
-                    <p>Typing...</p>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-              <form onSubmit={handleSendMessage} className="message-form">
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={handleTyping}
-                  placeholder="Type a message..."
-                />
-                <button type="submit" className="action-button">
-                  Send
-                </button>
-              </form>
-            </>
-          ) : (
-            <p>Select a chat to start messaging.</p>
-          )}
+              </ul>
+            ) : (
+              <p>No active chats found.</p>
+            )}
+          </div>
+          <div className="chat-window">
+            {selectedChat ? (
+              <>
+                <h3>Chat with {getChatPartner(selectedChat)}</h3>
+                <div className="messages">
+                  {(messages[selectedChat] || []).map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`message ${msg.sender_id === profile.id ? 'sent' : 'received'}`}
+                    >
+                      <p>{msg.content}</p>
+                      <span>{format(new Date(msg.created_at), 'PPpp')}</span>
+                      <span>{msg.is_read ? 'Read' : 'Unread'}</span>
+                    </div>
+                  ))}
+                  {isTyping[selectedChat] && (
+                    <div className="typing-indicator">
+                      <p>Typing...</p>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+                <form onSubmit={handleSendMessage} className="message-form">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={handleTyping}
+                    placeholder="Type a message..."
+                  />
+                  <button type="submit" className="action-button">
+                    Send
+                  </button>
+                </form>
+              </>
+            ) : (
+              <p>Select a chat to start messaging.</p>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-     <Footer />
-       <Copyright />
+      <Footer />
+      <Copyright />
     </div>
   );
 };

@@ -92,6 +92,7 @@ export interface JobPost {
   description: string;
   location?: string; // Изменено на необязательное
   salary: number | null;
+  salary_type: string | null;
   category_id?: string;
   category?: Category | null;
   job_type?: 'Full-time' | 'Part-time' | 'Project-based' | null;
@@ -205,6 +206,7 @@ export interface JobApplicationDetails {
   appliedAt: string;
   status: 'Pending' | 'Accepted' | 'Rejected';
   job_post_id: string; // Добавлено
+  coverLetter?: string;
 }
 
 export interface Analytics {

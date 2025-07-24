@@ -25,6 +25,7 @@ const [filters, setFilters] = useState<{
   experience: string;
   rating?: number;
   skill_id: string;
+  salary_type: string;
   page: number;
   limit: number;
 }>({
@@ -32,6 +33,7 @@ const [filters, setFilters] = useState<{
   experience: '',
   rating: undefined,
   skill_id: '',
+  salary_type: '',
   page: 1,
   limit: 10,
 });
@@ -40,11 +42,13 @@ const [tempFilters, setTempFilters] = useState<{
   experience: string;
   rating?: number;
   skill_id: string;
+  salary_type: string;
 }>({
   username: searchParams.get('username') || '',
   experience: '',
   rating: undefined,
   skill_id: '',
+  salary_type: '',
 });
 const [talents, setTalents] = useState<Profile[]>([]);
 const [total, setTotal] = useState<number>(0);
@@ -64,19 +68,20 @@ useEffect(() => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await (searchType === 'talents'
-        ? searchTalents({
-            experience: filters.experience,
-            rating: filters.rating,
-            skill_id: filters.skill_id,
-            page: filters.page,
-            limit: filters.limit,
-          })
-        : searchJobseekers({
-            username: filters.username,
-            page: filters.page,
-            limit: filters.limit,
-          }));
+const response = await (searchType === 'talents'
+  ? searchTalents({
+      experience: filters.experience,
+      rating: filters.rating,
+      skill_id: filters.skill_id,
+      salary_type: filters.salary_type || undefined, // Добавлено
+      page: filters.page,
+      limit: filters.limit,
+    })
+  : searchJobseekers({
+      username: filters.username,
+      page: filters.page,
+      limit: filters.limit,
+    }));
 
       console.log('Fetched data:', JSON.stringify(response, null, 2));
       let talentData: Profile[] = [];
@@ -234,15 +239,20 @@ const handleSearch = (e: React.FormEvent) => {
         />
       </div>
     )}
-    <div className="ft-form-group">
-      <label>Experience:</label>
-      <input
-        type="text"
-        value={tempFilters.experience}
-        onChange={(e) => setTempFilters({ ...tempFilters, experience: e.target.value })}
-        placeholder="Enter experience (e.g., 3 years)"
-      />
-    </div>
+   <div className="ft-form-group">
+  <label>Experience:</label>
+  <select
+    value={tempFilters.experience}
+    onChange={(e) => setTempFilters({ ...tempFilters, experience: e.target.value })}
+  >
+    <option value="">All</option>
+    <option value="Less than 1 year">Less than 1 year</option>
+    <option value="1-2 years">1-2 years</option>
+    <option value="2-3 years">2-3 years</option>
+    <option value="3-6 years">3-6 years</option>
+    <option value="6+ years">6+ years</option>
+  </select>
+</div>
     <div className="ft-form-group">
       <label>Minimum Rating:</label>
       <input

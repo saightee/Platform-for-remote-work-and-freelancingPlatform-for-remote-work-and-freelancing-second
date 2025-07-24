@@ -42,33 +42,35 @@ const MyApplications: React.FC = () => {
     fetchApplications();
   }, [profile]);
 
-  const handleCreateReview = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reviewForm) return;
-    if (reviewForm.rating < 1 || reviewForm.rating > 5) {
-      setFormError('Please select a rating between 1 and 5 stars.');
-      return;
-    }
-    if (!reviewForm.comment.trim()) {
-      setFormError('Comment cannot be empty.');
-      return;
-    }
-    try {
-      setFormError(null);
-      await createReview({
-        job_application_id: reviewForm.applicationId,
-        rating: reviewForm.rating,
-        comment: reviewForm.comment,
-      });
-      setLeftReviews({ ...leftReviews, [reviewForm.applicationId]: { rating: reviewForm.rating, comment: reviewForm.comment } });
-      setReviewForm(null);
-      setIsReviewModalOpen(false);
-      alert('Review submitted successfully!');
-    } catch (error: any) {
-      console.error('Error creating review:', error);
-      setFormError(error.response?.data?.message || 'Failed to submit review.');
-    }
-  };
+const handleCreateReview = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!reviewForm) return;
+  if (reviewForm.rating < 1 || reviewForm.rating > 5) {
+    setFormError('Please select a rating between 1 and 5 stars.');
+    return;
+  }
+  if (!reviewForm.comment.trim()) {
+    setFormError('Comment cannot be empty.');
+    return;
+  }
+  try {
+    setFormError(null);
+    await createReview({
+      job_application_id: reviewForm.applicationId,
+      rating: reviewForm.rating,
+      comment: reviewForm.comment,
+    });
+    setLeftReviews({ ...leftReviews, [reviewForm.applicationId]: { rating: reviewForm.rating, comment: reviewForm.comment } });
+    const updatedApps = await getMyApplications();
+    setApplications(updatedApps);
+    setReviewForm(null);
+    setIsReviewModalOpen(false);
+    alert('Review submitted successfully!');
+  } catch (error: any) {
+    console.error('Error creating review:', error);
+    setFormError(error.response?.data?.message || 'Failed to submit review.');
+  }
+};
 
   const handleStarClick = (rating: number) => {
     if (reviewForm) {
