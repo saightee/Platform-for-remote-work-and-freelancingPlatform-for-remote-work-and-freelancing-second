@@ -226,6 +226,11 @@ export const uploadIdentityDocument = async (formData: FormData) => {
   return response.data;
 };
 
+export const rejectJobPost = async (id: string, reason: string) => {
+  const response = await api.post(`/admin/job-posts/${id}/reject`, { reason });
+  return response.data;
+};
+
 // Job Posts
 export const createJobPost = async (data: Partial<JobPost>) => {
   const response = await api.post<JobPost>('/job-posts', data);

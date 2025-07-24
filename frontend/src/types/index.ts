@@ -17,6 +17,7 @@ export interface User {
   created_at: string;
   updated_at: string;
   is_blocked: boolean;
+  status?: 'active' | 'blocked';
   identity_verified?: boolean;
   identity_document?: string | null;
 }
