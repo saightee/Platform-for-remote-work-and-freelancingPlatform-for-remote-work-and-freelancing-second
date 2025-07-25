@@ -24,7 +24,7 @@ const [filters, setFilters] = useState<{
   username: string;
   experience: string;
   rating?: number;
-  skill_id: string;
+  skills?: string[]; // Изменено
   salary_type: string;
   page: number;
   limit: number;
@@ -32,7 +32,7 @@ const [filters, setFilters] = useState<{
   username: searchParams.get('username') || '',
   experience: '',
   rating: undefined,
-  skill_id: '',
+  skills: undefined, // Изменено
   salary_type: '',
   page: 1,
   limit: 10,
@@ -41,13 +41,13 @@ const [tempFilters, setTempFilters] = useState<{
   username: string;
   experience: string;
   rating?: number;
-  skill_id: string;
+  skills?: string[]; // Изменено, убрал skill_id
   salary_type: string;
 }>({
   username: searchParams.get('username') || '',
   experience: '',
   rating: undefined,
-  skill_id: '',
+  skills: undefined, // Добавлено
   salary_type: '',
 });
 const [talents, setTalents] = useState<Profile[]>([]);
@@ -70,13 +70,14 @@ useEffect(() => {
       setError(null);
 const response = await (searchType === 'talents'
   ? searchTalents({
-      experience: filters.experience,
-      rating: filters.rating,
-      skill_id: filters.skill_id,
-      salary_type: filters.salary_type || undefined, // Добавлено
-      page: filters.page,
-      limit: filters.limit,
-    })
+    experience: filters.experience,
+    rating: filters.rating,
+    skills: filters.skills,
+    salary_type: filters.salary_type || undefined, // Добавлено
+    description: searchInput,
+    page: filters.page,
+    limit: filters.limit,
+  })
   : searchJobseekers({
       username: filters.username,
       page: filters.page,
@@ -149,6 +150,7 @@ const handleSearch = (e: React.FormEvent) => {
   setFilters((prev) => ({
     ...prev,
     ...tempFilters,
+    description: searchInput,
     page: 1,
   }));
   setSearchParams({
@@ -288,7 +290,7 @@ const handleSearch = (e: React.FormEvent) => {
                 key={skill.id}
                 className="autocomplete-item"
                 onMouseDown={() => {
-                  setTempFilters({ ...tempFilters, skill_id: skill.id });
+                  setTempFilters({ ...tempFilters, skills: [skill.id] });
                   setSkillInput(skill.name);
                   setIsDropdownOpen(false);
                 }}

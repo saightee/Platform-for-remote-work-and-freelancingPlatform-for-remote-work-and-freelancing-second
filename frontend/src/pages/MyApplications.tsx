@@ -46,7 +46,7 @@ const handleCreateReview = async (e: React.FormEvent) => {
   e.preventDefault();
   if (!reviewForm) return;
   if (reviewForm.rating < 1 || reviewForm.rating > 5) {
-    setFormError('Please select a rating between 1 and 5 stars.');
+    setFormError('Rating must be between 1 and 5.');
     return;
   }
   if (!reviewForm.comment.trim()) {
@@ -67,7 +67,6 @@ const handleCreateReview = async (e: React.FormEvent) => {
     setIsReviewModalOpen(false);
     alert('Review submitted successfully!');
   } catch (error: any) {
-    console.error('Error creating review:', error);
     setFormError(error.response?.data?.message || 'Failed to submit review.');
   }
 };
@@ -146,56 +145,61 @@ const handleCreateReview = async (e: React.FormEvent) => {
         ) : (
           <p>No applications found.</p>
         )}
-        {isReviewModalOpen && reviewForm && (
-          <div className="modal">
-            <div className="modal-content">
-              <span className="close" onClick={() => { setIsReviewModalOpen(false); setReviewForm(null); }}>×</span>
-              <form onSubmit={handleCreateReview} className="my-app-review-form">
-                {formError && <p className="my-app-error">{formError}</p>}
-                <div className="my-app-form-group">
-                  <label>Rating (1-5 stars):</label>
-                  <div className="my-app-star-rating">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <span
-                        key={star}
-                        className={`my-app-star ${star <= (reviewForm.rating || 0) ? 'my-app-star-filled' : ''}`}
-                        onClick={() => handleStarClick(star)}
-                      >
-                        ★
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="my-app-form-group">
-                  <label>Comment:</label>
-                  <textarea
-                    value={reviewForm.comment}
-                    onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
-                    placeholder="Enter your review"
-                    rows={4}
-                  />
-                </div>
-                <div className="my-app-action-buttons">
-                  <button type="submit" className="my-app-button my-app-success">
-                    Submit Review
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReviewForm(null);
-                      setFormError(null);
-                      setIsReviewModalOpen(false);
-                    }}
-                    className="my-app-button"
-                    style={{ marginLeft: '10px' }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
+     {isReviewModalOpen && reviewForm && (
+  <div className="modal" onClick={(e) => {
+    if (e.target === e.currentTarget) {
+      setIsReviewModalOpen(false);
+      setReviewForm(null);
+    }
+  }}>
+    <div className="modal-content">
+      <span className="close" onClick={() => { setIsReviewModalOpen(false); setReviewForm(null); }}>×</span>
+      <form onSubmit={handleCreateReview} className="my-app-review-form">
+        {formError && <p className="my-app-error">{formError}</p>}
+        <div className="my-app-form-group">
+          <label>Rating (1-5 stars):</label>
+          <div className="my-app-star-rating">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <span
+                key={star}
+                className={`my-app-star ${star <= (reviewForm.rating || 0) ? 'my-app-star-filled' : ''}`}
+                onClick={() => handleStarClick(star)}
+              >
+                ★
+              </span>
+            ))}
           </div>
-        )}
+        </div>
+        <div className="my-app-form-group">
+          <label>Comment:</label>
+          <textarea
+            value={reviewForm.comment}
+            onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+            placeholder="Enter your review"
+            rows={4}
+          />
+        </div>
+        <div className="my-app-action-buttons">
+          <button type="submit" className="my-app-button my-app-success">
+            Submit Review
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setReviewForm(null);
+              setFormError(null);
+              setIsReviewModalOpen(false);
+            }}
+            className="my-app-button"
+            style={{ marginLeft: '10px' }}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
       </div>
          <Footer />
       <Copyright />

@@ -14,21 +14,21 @@ const SuccessStories: React.FC = () => {
   const [description, setDescription] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchFeedback = async () => {
-      try {
-        setIsLoading(true);
-        const response = await getPlatformFeedback();
-        const jobseekerFeedbacks = response.data.filter((fb: any) => fb.user.role === 'jobseeker');
-        setFeedbacks(jobseekerFeedbacks);
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to load feedback.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchFeedback();
-  }, []);
+useEffect(() => {
+  const fetchFeedback = async () => {
+    try {
+      setIsLoading(true);
+      const response = await getPlatformFeedback(); // Теперь /api/platform-feedback, не /admin
+      const jobseekerFeedbacks = response.data.filter((fb: any) => fb.user.role === 'jobseeker');
+      setFeedbacks(jobseekerFeedbacks);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load feedback.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  fetchFeedback();
+}, []);
 
   const handleSubmitStory = async () => {
     if (rating < 1 || rating > 5) {
@@ -102,18 +102,18 @@ const SuccessStories: React.FC = () => {
             </div>
           </div>
         )}
-        {feedbacks.length > 0 ? (
-          feedbacks.map((fb) => (
-            <div key={fb.id} className="feedback-item">
-              <p><strong>Rating:</strong> {fb.rating} ★</p>
-              <p><strong>Description:</strong> {fb.description}</p>
-              <p><strong>By:</strong> {fb.user.username} ({fb.user.role})</p>
-              <p><strong>Date:</strong> {fb.created_at}</p>
-            </div>
-          ))
-        ) : (
-          <p>No success stories yet.</p>
-        )}
+{feedbacks.length > 0 ? (
+  feedbacks.map((fb) => (
+    <div key={fb.id} className="feedback-item">
+      <p><strong>Rating:</strong> {fb.rating} ★</p>
+      <p><strong>Description:</strong> {fb.description}</p>
+      <p><strong>By:</strong> {fb.user.username} ({fb.user.role})</p>
+      <p><strong>Date:</strong> {fb.created_at}</p> 
+    </div>
+  ))
+) : (
+  <p>No success stories yet.</p>
+)}
       </div>
       <Footer />
       <Copyright />

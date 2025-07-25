@@ -10,6 +10,7 @@ import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { useRole } from '../context/RoleContext';
 import Loader from '../components/Loader';
+import sanitizeHtml from 'sanitize-html';
 import {
   getAllUsers, getUserById, updateUser, deleteUser, resetUserPassword,
   getAllJobPosts, updateJobPostAdmin, deleteJobPostAdmin, approveJobPost, flagJobPost,
@@ -74,6 +75,7 @@ const AdminDashboard: React.FC = () => {
   const [blockedCountries, setBlockedCountries] = useState<BlockedCountry[]>([]);
   const [newCountryCode, setNewCountryCode] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
+  const [showJobModal, setShowJobModal] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newParentCategoryId, setNewParentCategoryId] = useState<string>('');
   const [pendingReviewFilter, setPendingReviewFilter] = useState<'All' | 'true' | 'false'>('All');
@@ -278,6 +280,21 @@ const sortedComplaints = [...complaints]
     }
     return 0;
   });
+
+  const fetchJobPosts = useCallback(async (params: { page?: number; title?: string; employer_id?: string; employer_username?: string; employer_email?: string } = {}) => {
+  try {
+    setIsLoading(true);
+    setFetchErrors((prev) => ({ ...prev, getAllJobPosts: '' }));
+    const response = await getAllJobPosts(params);
+    setJobPosts(response.data || []);
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error fetching job posts:', axiosError);
+    setFetchErrors((prev) => ({ ...prev, getAllJobPosts: axiosError.response?.data?.message || 'Failed to load job posts.' }));
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -637,12 +654,14 @@ case 25:
 useEffect(() => {
   if (currentRole === 'admin') {
     fetchOtherData();
+    fetchJobPosts();
   }
 }, [currentRole, jobPostPage]);
 
 // Функция handleRefresh
 const handleRefresh = async () => {
   setIsLoading(true);
+  await fetchJobPosts();
   await fetchOtherData();
   setIsLoading(false);
 };
@@ -1578,39 +1597,39 @@ setUserPage(1);
       <button onClick={() => {
         let params: { page: number; title?: string; employer_id?: string; employer_username?: string; employer_email?: string } = { page: 1 };
         if (searchQuery.includes('@')) {
-          params.employer_email = searchQuery; // Если содержит @, ищем по employer email
+          params.employer_email = searchQuery;
         } else if (searchQuery.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
-          params.employer_id = searchQuery; // Если UUID, ищем по employer_id
+          params.employer_id = searchQuery;
         } else {
-          params.title = searchQuery; // По умолчанию по title
-          params.employer_username = searchQuery; // Или по username
+          params.title = searchQuery;
+          params.employer_username = searchQuery;
         }
-        fetchOtherData(); // Перезагружаем данные с новыми params (нужно адаптировать fetchOtherData для params, но поскольку оно без, используй separate fetch if needed)
+        fetchJobPosts(params);
         setJobPostPage(1);
       }} className="action-button">
         <FaSearch />
       </button>
     </div>
     <div className="form-group">
-  <label>Filter by Status:</label>
-  <select
-    value={jobStatusFilter}
-    onChange={(e) => {
-      setJobStatusFilter(e.target.value as 'All' | 'Active' | 'Draft' | 'Closed');
-      setJobPostPage(1);
-    }}
-    className="status-filter"
-  >
-    <option value="All">All</option>
-    <option value="Active">Active</option>
-    <option value="Draft">Draft</option>
-    <option value="Closed">Closed</option>
-  </select>
-</div>
+      <label>Filter by Status:</label>
+      <select
+        value={jobStatusFilter}
+        onChange={(e) => {
+          setJobStatusFilter(e.target.value as 'All' | 'Active' | 'Draft' | 'Closed');
+          setJobPostPage(1);
+        }}
+        className="status-filter"
+      >
+        <option value="All">All</option>
+        <option value="Active">Active</option>
+        <option value="Draft">Draft</option>
+        <option value="Closed">Closed</option>
+      </select>
+    </div>
     <div className="form-group">
       <label>Filter by Pending Review:</label>
       <select
-        value={pendingReviewFilter} // Добавь state const [pendingReviewFilter, setPendingReviewFilter] = useState<'All' | 'true' | 'false'>('All');
+        value={pendingReviewFilter}
         onChange={(e) => {
           setPendingReviewFilter(e.target.value as 'All' | 'true' | 'false');
           setJobPostPage(1);
@@ -1628,6 +1647,7 @@ setUserPage(1);
         <tr>
           <th>ID</th>
           <th>Title</th>
+          <th>Employer</th>
           <th>Status</th>
           <th>Pending Review</th>
           <th>Created At</th>
@@ -1635,47 +1655,51 @@ setUserPage(1);
         </tr>
       </thead>
       <tbody>
-  {jobPosts.length > 0 ? jobPosts
-  .filter(post => jobStatusFilter === 'All' || post.status === jobStatusFilter)
-  .filter(post => pendingReviewFilter === 'All' || (pendingReviewFilter === 'true' ? post.pending_review : !post.pending_review))
-  .map((post) => (
-    <tr key={post.id}>
-      <td>{post.id}</td>
-      <td>{post.title}</td>
-      <td>{post.status}</td>
-      <td>{post.pending_review ? 'Yes' : 'No'}</td>
-      <td>{format(new Date(post.created_at), 'PP')}</td>
-      <td>
-  <button onClick={() => handleDeleteJobPost(post.id)} className="action-button danger">
-    Delete
-  </button>
-  {post.pending_review && (
-    <button onClick={() => handleApproveJobPost(post.id)} className="action-button success">
-      Approve
-    </button>
-  )}
-  <button onClick={() => handleFlagJobPost(post.id)} className="action-button warning">
-    Flag
-  </button>
-  <button onClick={() => {
-    if (post.category_id) {
-      handleNotifyCandidates(post.id);
-    } else {
-      alert('Job post has no category assigned. Cannot notify candidates.');
-    }
-  }} className="action-button success">
-    Notify Seekers
-  </button>
-  <button onClick={() => handleRejectJobPost(post.id)} className="action-button danger">
-    Reject
-  </button>
-</td>
-    </tr>
-  )) : (
-    <tr>
-      <td colSpan={6}>No job posts found.</td>
-    </tr>
-  )}
+        {jobPosts.length > 0 ? jobPosts
+          .filter(post => jobStatusFilter === 'All' || post.status === jobStatusFilter)
+          .filter(post => pendingReviewFilter === 'All' || (pendingReviewFilter === 'true' ? post.pending_review : !post.pending_review))
+          .map((post) => (
+            <tr key={post.id}>
+              <td>{post.id}</td>
+              <td>{post.title}</td>
+              <td>{post.employer?.username || 'N/A'}</td>
+              <td>{post.status}</td>
+              <td>{post.pending_review ? 'Yes' : 'No'}</td>
+              <td>{format(new Date(post.created_at), 'PP')}</td>
+              <td>
+                <button onClick={() => handleDeleteJobPost(post.id)} className="action-button danger">
+                  Delete
+                </button>
+                {post.pending_review && (
+                  <button onClick={() => handleApproveJobPost(post.id)} className="action-button success">
+                    Approve
+                  </button>
+                )}
+                <button onClick={() => handleFlagJobPost(post.id)} className="action-button warning">
+                  Flag
+                </button>
+                <button onClick={() => {
+                  if (post.category_id) {
+                    handleNotifyCandidates(post.id);
+                  } else {
+                    alert('Job post has no category assigned. Cannot notify candidates.');
+                  }
+                }} className="action-button success">
+                  Notify Seekers
+                </button>
+                <button onClick={() => handleRejectJobPost(post.id)} className="action-button danger">
+                  Reject
+                </button>
+                <button onClick={() => setShowJobModal(post.id)} className="action-button">
+                  View Job
+                </button>
+              </td>
+            </tr>
+          )) : (
+            <tr>
+              <td colSpan={7}>No job posts found.</td>
+            </tr>
+          )}
       </tbody>
     </table>
     <div className="pagination">
@@ -1695,6 +1719,24 @@ setUserPage(1);
         Next
       </button>
     </div>
+    {showJobModal && jobPosts.find(post => post.id === showJobModal) && (
+      <div className="modal">
+        <div className="modal-content">
+          <span className="close" onClick={() => setShowJobModal(null)}>×</span>
+          <h3>Job Post Details</h3>
+          <p><strong>Title:</strong> {jobPosts.find(post => post.id === showJobModal)?.title}</p>
+          <p><strong>Description:</strong> <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(jobPosts.find(post => post.id === showJobModal)?.description || '') }} /></p>
+          {jobPosts.find(post => post.id === showJobModal)?.pending_review && (
+            <button onClick={() => {
+              handleApproveJobPost(showJobModal);
+              setShowJobModal(null);
+            }} className="action-button success">
+              Approve
+            </button>
+          )}
+        </div>
+      </div>
+    )}
   </div>
 )}
 
@@ -2014,18 +2056,24 @@ setUserPage(1);
   <div>
     <h4>Chat History</h4>
     {error && <p className="error-message">{error}</p>}
-    <div className="form-group">
-      <label>Search by Job Post ID:</label>
-      <input
-        type="text"
-        value={searchJobId}
-        onChange={(e) => setSearchJobId(e.target.value)}
-        placeholder="Enter job post ID"
-      />
-      <button onClick={() => handleViewJobApplications(searchJobId)} className="action-button">
-        Search
-      </button>
-    </div>
+<div className="form-group">
+  <label>Search by Job Post ID:</label>
+  <input
+    type="text"
+    value={searchJobId}
+    onChange={(e) => setSearchJobId(e.target.value)}
+    placeholder="Enter job post ID"
+  />
+  <button onClick={() => {
+    if (searchJobId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(searchJobId)) {
+      alert('Wrong format Job Post ID. Enter valid UUID (example, 123e4567-e89b-12d3-a456-426614174000).');
+      return;
+    }
+    handleViewJobApplications(searchJobId);
+  }} className="action-button">
+    Search
+  </button>
+</div>
     <div className="form-group">
       <label>Select Job Post:</label>
 <select
@@ -2043,9 +2091,9 @@ setUserPage(1);
     {selectedJobPostId && chatHistory.data.length > 0 && (
       <>
         <h3>Messages for Job Application ID: {selectedJobApplicationId}</h3>
-       <div className="chat-messages" style={{ overflowY: 'auto', maxHeight: '400px' }}> // Добавил скролл
+       <div className="chat-messages" style={{ overflowY: 'auto', maxHeight: '400px' }}> 
   {chatHistory.data.length > 0 ? chatHistory.data.map((message) => (
-    <div key={message.id} className={`message ${message.sender.role === 'jobseeker' ? 'received' : 'sent'}`}> // Left if jobseeker, right if employer
+    <div key={message.id} className={`message ${message.sender.role === 'jobseeker' ? 'received' : 'sent'}`}> 
       <p><strong>{message.sender.username}:</strong> {message.content}</p>
       <span>{format(new Date(message.created_at), 'PPpp')}</span>
       <span>{message.is_read ? 'Read' : 'Unread'}</span>

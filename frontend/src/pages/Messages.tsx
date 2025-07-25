@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { useRole } from '../context/RoleContext';
-import { getMyApplications, getMyJobPosts, getApplicationsForJobPost } from '../services/api';
+import { getMyApplications, getMyJobPosts, getApplicationsForJobPost, getChatHistory, createReview } from '../services/api';
 import { JobApplication, JobPost, JobApplicationDetails } from '@types';
 import { format } from 'date-fns';
 import Loader from '../components/Loader';
@@ -35,6 +35,11 @@ const Messages: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<{ [jobApplicationId: string]: number }>({});
   const hasJoinedChats = useRef(false); // To prevent multiple joins
+  const joinQueue = useRef<string[]>([]); // Добавлено для queue joins
+  const [reviewForm, setReviewForm] = useState<{ applicationId: string; rating: number; comment: string } | null>(null); // Добавлено
+  const [formError, setFormError] = useState<string | null>(null); // Добавлено
+  const currentMessages = useMemo(() => selectedChat ? messages[selectedChat] : [], [selectedChat, messages]);
+const currentTyping = useMemo(() => selectedChat ? isTyping[selectedChat] : false, [selectedChat, isTyping]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,162 +77,231 @@ const Messages: React.FC = () => {
   }, [profile, currentRole, socket]);
 
   useEffect(() => {
-    if (!socket || !profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) {
-      setUnreadCounts({});
-      setIsTyping({});
-      return;
+  if (!socket || !profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) {
+    setUnreadCounts({});
+    setIsTyping({});
+    return;
+  }
+
+  const joinChats = () => {
+    if (hasJoinedChats.current) return;
+    hasJoinedChats.current = true;
+    
+    let chats: { id: string }[] = [];
+    if (currentRole === 'jobseeker') {
+      chats = applications.map(app => ({ id: app.id }));
+    } else if (currentRole === 'employer') {
+      chats = Object.values(jobPostApplications).flat().map(app => ({ id: app.applicationId }));
     }
 
-    const joinChats = () => {
-      if (hasJoinedChats.current) return; // Prevent multiple joins
-      hasJoinedChats.current = true;
-      
-      let chats: { id: string }[] = [];
-      if (currentRole === 'jobseeker') {
-        chats = applications.map(app => ({ id: app.id }));
-      } else if (currentRole === 'employer') {
-        chats = Object.values(jobPostApplications).flat().map(app => ({ id: app.applicationId }));
-      }
-
-      chats.forEach(chat => {
+    chats.forEach(chat => {
+      if (socket.connected) {
         socket.emit('joinChat', { jobApplicationId: chat.id });
-      });
-    };
-
-    socket.on('chatHistory', (history: Message[]) => {
-      if (history.length > 0) {
-        const jobApplicationId = history[0].job_application_id;
-        setMessages((prev) => ({
-          ...prev,
-          [jobApplicationId]: history.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
-        }));
-        const unread = history.filter((msg) => msg.recipient_id === profile.id && !msg.is_read).length;
-        setUnreadCounts((prevCounts) => ({
-          ...prevCounts,
-          [jobApplicationId]: selectedChat === jobApplicationId ? 0 : unread,
-        }));
+      } else {
+        joinQueue.current.push(chat.id);
       }
     });
+  };
 
-    socket.on('newMessage', (message: Message) => {
+  socket.on('chatHistory', (history: Message[]) => {
+    if (history.length > 0) {
+      const jobApplicationId = history[0].job_application_id;
       setMessages((prev) => ({
         ...prev,
-        [message.job_application_id]: [...(prev[message.job_application_id] || []), message],
+        [jobApplicationId]: history.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
       }));
-      if (message.recipient_id === profile.id && !message.is_read && selectedChat !== message.job_application_id) {
-        setUnreadCounts((prevCounts) => ({
-          ...prevCounts,
-          [message.job_application_id]: (prevCounts[message.job_application_id] || 0) + 1,
-        }));
-      } else if (selectedChat === message.job_application_id && message.recipient_id === profile.id) {
-        socket.emit('markMessagesAsRead', { jobApplicationId: selectedChat });
-      }
-    });
+      const unread = history.filter((msg) => msg.recipient_id === profile.id && !msg.is_read).length;
+      setUnreadCounts((prevCounts) => ({
+        ...prevCounts,
+        [jobApplicationId]: selectedChat === jobApplicationId ? 0 : unread,
+      }));
+    }
+  });
 
-    socket.on('typing', (data: { userId: string; jobApplicationId: string; isTyping: boolean }) => {
-      if (data.userId !== profile.id) {
-        setIsTyping((prev) => ({ ...prev, [data.jobApplicationId]: data.isTyping }));
-      }
-    });
-
-    socket.on('chatInitialized', async (data: { jobApplicationId: string }) => {
-      console.log('Chat initialized for application:', data.jobApplicationId);
-      socket.emit('joinChat', { jobApplicationId: data.jobApplicationId });
-      try {
-        if (currentRole === 'jobseeker') {
-          const apps = await getMyApplications();
-          setApplications(apps.filter(app => app.status === 'Accepted'));
-        } else if (currentRole === 'employer') {
-          const posts = await getMyJobPosts();
-          const appsArrays = await Promise.all(
-            posts.map(post => getApplicationsForJobPost(post.id))
-          );
-          const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
-          posts.forEach((post, index) => {
-            appsMap[post.id] = appsArrays[index].filter(app => app.status === 'Accepted');
-          });
-          setJobPostApplications(appsMap);
-        }
-      } catch (err) {
-        console.error('Error refreshing applications after chat initialization:', err);
-      }
-    });
-
-    socket.on('connect_error', (err) => {
-      console.error('WebSocket connection error in Messages:', err.message);
-      setError('Failed to connect to chat server. Retrying...');
-      hasJoinedChats.current = false; // Allow rejoin on reconnect
-    });
-
-    socket.on('connect', () => {
-      joinChats(); // Rejoin on reconnect
-    });
-
-    joinChats();
-
-    return () => {
-      socket.off('chatHistory');
-      socket.off('newMessage');
-      socket.off('typing');
-      socket.off('chatInitialized');
-      socket.off('connect_error');
-      socket.off('connect');
-      hasJoinedChats.current = false;
-    };
-  }, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
-
-useEffect(() => {
-  if (messagesEndRef.current && selectedChat) {
-    const messagesContainer = messagesEndRef.current.parentElement;
-    if (messagesContainer) {
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+socket.on('newMessage', (message: Message) => {
+  setMessages((prev) => ({
+    ...prev,
+    [message.job_application_id]: [...(prev[message.job_application_id] || []), message],
+  }));
+  if (message.recipient_id === profile.id && !message.is_read) {
+    if (selectedChat && selectedChat === message.job_application_id) {
+      socket.emit('markMessagesAsRead', { jobApplicationId: message.job_application_id });
+    } else {
+      setUnreadCounts((prevCounts) => ({
+        ...prevCounts,
+        [message.job_application_id]: (prevCounts[message.job_application_id] || 0) + 1,
+      }));
     }
   }
-}, [selectedChat, messages, isTyping]); // Зависимости изменены
+});
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!socket || !selectedChat || !newMessage.trim()) return;
+  socket.on('typing', (data: { userId: string; jobApplicationId: string; isTyping: boolean }) => {
+    if (data.userId !== profile.id) {
+      setIsTyping((prev) => ({ ...prev, [data.jobApplicationId]: data.isTyping }));
+    }
+  });
 
-    socket.emit('sendMessage', {
-      jobApplicationId: selectedChat,
-      content: newMessage.trim(),
-    });
-
-    setNewMessage('');
-  };
-
-  const handleSelectChat = (jobApplicationId: string) => {
-    setSelectedChat(jobApplicationId);
-    setUnreadCounts((prev) => ({
+socket.on('messagesRead', (updatedMessages: { data: Message[] }) => { // Изменено тип
+  if (updatedMessages.data.length > 0) {
+    const jobId = updatedMessages.data[0].job_application_id;
+    setMessages((prev) => ({
       ...prev,
-      [jobApplicationId]: 0,
+      [jobId]: updatedMessages.data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
     }));
-    if (socket && socketStatus === 'connected') {
-      socket.emit('joinChat', { jobApplicationId });
-      socket.emit('markMessagesAsRead', { jobApplicationId });
+    setUnreadCounts((prev) => ({ ...prev, [jobId]: 0 }));
+  }
+});
+
+  socket.on('chatInitialized', async (data: { jobApplicationId: string }) => {
+    console.log('Chat initialized for application:', data.jobApplicationId);
+    if (socket.connected) {
+      socket.emit('joinChat', { jobApplicationId: data.jobApplicationId });
     } else {
-      console.warn('WebSocket not connected, cannot join chat or mark messages as read');
-      setError('Chat server not connected. Please try again later.');
+      joinQueue.current.push(data.jobApplicationId);
     }
-  };
-
-  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!socket || !selectedChat) return;
-
-    const content = e.target.value;
-    setNewMessage(content);
-
-    socket.emit('typing', { jobApplicationId: selectedChat, isTyping: true });
-
-    if (typingTimeoutRef.current[selectedChat]) {
-      clearTimeout(typingTimeoutRef.current[selectedChat]);
+    try {
+      if (currentRole === 'jobseeker') {
+        const apps = await getMyApplications();
+        setApplications(apps.filter(app => app.status === 'Accepted'));
+      } else if (currentRole === 'employer') {
+        const posts = await getMyJobPosts();
+        const appsArrays = await Promise.all(
+          posts.map(post => getApplicationsForJobPost(post.id))
+        );
+        const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
+        posts.forEach((post, index) => {
+          appsMap[post.id] = appsArrays[index].filter(app => app.status === 'Accepted');
+        });
+        setJobPostApplications(appsMap);
+      }
+    } catch (err) {
+      console.error('Error refreshing applications after chat initialization:', err);
     }
+  });
 
-    typingTimeoutRef.current[selectedChat] = setTimeout(() => {
-      socket.emit('typing', { jobApplicationId: selectedChat, isTyping: false });
-    }, 1000);
+  socket.on('connect_error', (err) => {
+    console.error('WebSocket connection error in Messages:', err.message);
+    setError('Failed to connect to chat server. Retrying...');
+    hasJoinedChats.current = false;
+  });
+
+  socket.on('connect', () => {
+    setError(null); // Clear error
+    joinChats(); // Rejoin on connect
+    joinQueue.current.forEach(id => {
+      socket.emit('joinChat', { jobApplicationId: id });
+      if (selectedChat === id) {
+        socket.emit('markMessagesAsRead', { jobApplicationId: id });
+      }
+    });
+    joinQueue.current = []; // Clear queue
+  });
+
+  joinChats();
+
+  return () => {
+    socket.off('chatHistory');
+    socket.off('newMessage');
+    socket.off('typing');
+    socket.off('messagesRead');
+    socket.off('chatInitialized');
+    socket.off('connect_error');
+    socket.off('connect');
+    hasJoinedChats.current = false;
   };
+}, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
+
+const scrollToBottom = useCallback(() => {
+  if (messagesEndRef.current) {
+    messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  }
+}, []);
+
+useEffect(() => {
+  scrollToBottom();
+}, [selectedChat, currentMessages, currentTyping, scrollToBottom]);
+
+const handleSendMessage = (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!socket || !selectedChat || !newMessage.trim()) return;
+
+  if (typingTimeoutRef.current[selectedChat]) {
+    clearTimeout(typingTimeoutRef.current[selectedChat]);
+  }
+  socket.emit('typing', { jobApplicationId: selectedChat, isTyping: false });
+
+  socket.emit('sendMessage', {
+    jobApplicationId: selectedChat,
+    content: newMessage.trim(),
+  });
+
+  setNewMessage('');
+};
+
+const handleSelectChat = (jobApplicationId: string) => {
+  setSelectedChat(jobApplicationId);
+  setUnreadCounts((prev) => ({
+    ...prev,
+    [jobApplicationId]: 0,
+  }));
+  if (socket && socket.connected) { // Changed to socket.connected
+    socket.emit('joinChat', { jobApplicationId });
+    socket.emit('markMessagesAsRead', { jobApplicationId });
+  } else {
+    joinQueue.current.push(jobApplicationId);
+    setError('Connecting to chat server...');
+  }
+  // Fetch history if not loaded
+  if (!messages[jobApplicationId] || messages[jobApplicationId].length === 0) {
+    getChatHistory(jobApplicationId, {}).then((history) => { // Добавил {}
+      setMessages((prev) => ({ ...prev, [jobApplicationId]: history.data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) })); // history.data
+    }).catch((err) => {
+      setError('Failed to load chat history.');
+    });
+  }
+};
+
+const handleCreateReview = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!reviewForm) return;
+  if (reviewForm.rating < 1 || reviewForm.rating > 5) {
+    setFormError('Rating must be between 1 and 5.');
+    return;
+  }
+  if (!reviewForm.comment.trim()) {
+    setFormError('Comment cannot be empty.');
+    return;
+  }
+  try {
+    setFormError(null);
+    await createReview({
+      job_application_id: reviewForm.applicationId,
+      rating: reviewForm.rating,
+      comment: reviewForm.comment,
+    });
+    alert('Review submitted successfully!');
+    setReviewForm(null);
+  } catch (error: any) {
+    setFormError(error.response?.data?.message || 'Failed to submit review.');
+  }
+};
+
+const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (!socket || !selectedChat) return;
+
+  const content = e.target.value;
+  setNewMessage(content);
+
+  socket.emit('typing', { jobApplicationId: selectedChat, isTyping: true });
+
+  if (typingTimeoutRef.current[selectedChat]) {
+    clearTimeout(typingTimeoutRef.current[selectedChat]);
+  }
+
+  typingTimeoutRef.current[selectedChat] = setTimeout(() => {
+    socket.emit('typing', { jobApplicationId: selectedChat, isTyping: false });
+  }, 3000);
+};
 
   const getChatPartner = (jobApplicationId: string) => {
     if (currentRole === 'jobseeker') {
@@ -244,24 +318,24 @@ useEffect(() => {
     return 'Unknown';
   };
 
-  const getChatList = () => {
-    if (currentRole === 'jobseeker') {
-      return applications.map((app) => ({
-        id: app.id,
-        title: app.job_post?.title || 'Unknown Job',
-        partner: getChatPartner(app.id),
-        unreadCount: unreadCounts[app.id] || 0,
-      }));
-    } else if (currentRole === 'employer') {
-      return Object.values(jobPostApplications).flat().map(app => ({
-        id: app.applicationId,
-        title: jobPosts.find(post => post.id === app.job_post_id)?.title || 'Unknown Job',
-        partner: app.username,
-        unreadCount: unreadCounts[app.applicationId] || 0
-      }));
-    }
-    return [];
-  };
+const getChatList = () => {
+  if (currentRole === 'jobseeker') {
+    return applications.map((app) => ({
+      id: app.id,
+      title: app.job_post?.title || 'Unknown Job',
+      partner: getChatPartner(app.id),
+      unreadCount: unreadCounts[app.id] || 0,
+    }));
+  } else if (currentRole === 'employer') {
+    return Object.values(jobPostApplications).flat().map(app => ({
+      id: app.applicationId,
+      title: jobPosts.find(post => post.id === app.job_post_id)?.title || 'Unknown Job',
+      partner: app.username,
+      unreadCount: unreadCounts[app.applicationId] || 0
+    }));
+  }
+  return [];
+};
 
   if (isLoading) return (
     <div>
@@ -310,26 +384,66 @@ useEffect(() => {
           <div className="chat-list">
             <h3>Chats</h3>
             {getChatList().length > 0 ? (
-              <ul>
-                {getChatList().map((chat) => (
-                  <li
-                    key={chat.id}
-                    className={`chat-item ${selectedChat === chat.id ? 'active' : ''}`}
-                    onClick={() => handleSelectChat(chat.id)}
-                  >
-                    <p>
-                      <strong>{chat.title}</strong>
-                    </p>
-                    <p>{chat.partner}</p>
-                    {chat.unreadCount > 0 && <span className="unread-count">{chat.unreadCount}</span>}
-                  </li>
-                ))}
-              </ul>
+<ul>
+  {getChatList().map((chat) => (
+    <li
+      key={chat.id}
+      className={`chat-item ${selectedChat === chat.id ? 'active' : ''}`}
+      onClick={() => handleSelectChat(chat.id)}
+    >
+      <p>
+        <strong>{chat.title}</strong>
+      </p>
+      <p>{chat.partner}</p>
+      {chat.unreadCount > 0 && <span className="unread-count">{chat.unreadCount}</span>}
+      {currentRole === 'employer' && ( 
+        <button onClick={() => setReviewForm({ applicationId: chat.id, rating: 5, comment: '' })}>
+          Leave Review
+        </button>
+      )}
+    </li>
+  ))}
+</ul>
             ) : (
               <p>No active chats found.</p>
             )}
           </div>
           <div className="chat-window">
+            {reviewForm && (
+  <div className="modal">
+    <div className="modal-content">
+      <span className="close" onClick={() => setReviewForm(null)}>×</span>
+      <form onSubmit={handleCreateReview}>
+        {formError && <p className="error-message">{formError}</p>}
+        <div className="form-group">
+          <label>Rating:</label>
+          <div className="star-rating">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <span
+                key={star}
+                className={`star ${star <= reviewForm.rating ? 'filled' : ''}`}
+                onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+              >
+                ★
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="form-group">
+          <label>Comment:</label>
+          <textarea
+            value={reviewForm.comment}
+            onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+            rows={4}
+          />
+        </div>
+        <button type="submit" className="action-button success">
+          Submit Review
+        </button>
+      </form>
+    </div>
+  </div>
+)}
             {selectedChat ? (
               <>
                 <h3>Chat with {getChatPartner(selectedChat)}</h3>
