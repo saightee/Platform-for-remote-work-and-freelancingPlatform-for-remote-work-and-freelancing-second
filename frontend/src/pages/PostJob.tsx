@@ -99,14 +99,14 @@ const removeCountry = (country: string) => {
     }
   }, [profile]);
 
-  useEffect(() => {
+useEffect(() => {
     const search = async () => {
       if (skillInput.trim()) {
         const res = await searchCategories(skillInput);
         setFilteredSkills(res);
         setIsDropdownOpen(true);
       } else {
-        setFilteredSkills([]);
+        setFilteredSkills([]); 
         setIsDropdownOpen(false);
       }
     };
@@ -267,9 +267,9 @@ const removeCountry = (country: string) => {
       onChange={(e) => setSkillInput(e.target.value)}
       placeholder="Type to search category..."
       className="category-select"
-      onFocus={() => { // Open on focus even if no input, show all if empty
+      onFocus={() => { // Изменено: показ всех категорий если input пуст, для выбора main/sub
         if (!skillInput.trim()) {
-          setFilteredSkills(categories);
+          setFilteredSkills(categories); // Показываем все категории (main + sub)
           setIsDropdownOpen(true);
         } else if (skillInput.trim()) {
           setIsDropdownOpen(true);
@@ -294,7 +294,7 @@ const removeCountry = (country: string) => {
           >
             {skill.parent_id
               ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
-              : skill.name}
+              : skill.name} 
           </li>
         ))}
       </ul>

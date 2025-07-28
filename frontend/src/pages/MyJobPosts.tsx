@@ -275,7 +275,7 @@ const handleEditJob = (job: JobPost) => {
       value={editingJob.description || ''}
       onChange={(value) => editingJob && setEditingJob({ ...editingJob, description: value })}
       placeholder="Enter job description"
-      style={{ height: '200px', marginBottom: '20px' }}
+      style={{ height: '200px', marginBottom: '60px' }}
     />
   </div>
                     <div className="my-job-form-group">
@@ -300,6 +300,14 @@ const handleEditJob = (job: JobPost) => {
                         }
                         min="0"
                       />
+                      <select 
+    value={editingJob.salary_type || 'per hour'}
+    onChange={(e) => editingJob && setEditingJob({ ...editingJob, salary_type: e.target.value })}
+  >
+    <option value="per hour">per hour</option>
+    <option value="per month">per month</option>
+  </select>
+
                     </div>
                     <div className="my-job-form-group">
                       <label>Job Type:</label>
@@ -382,7 +390,7 @@ const handleEditJob = (job: JobPost) => {
                               <th>Actions</th>
                             </tr>
                           </thead>
-                         <tbody>
+                        <tbody>
   {applications.apps.map((app) => (
     <tr key={app.applicationId}>
       <td>{app.username}</td>
@@ -391,22 +399,35 @@ const handleEditJob = (job: JobPost) => {
       <td>{formatDateInTimezone(app.appliedAt)}</td>
       <td>{app.status}</td>
       <td>
+        {app.status === 'Pending' && ( // Изменено: показывать кнопки только если Pending
+          <>
+            <button
+              onClick={() => handleUpdateApplicationStatus(app.applicationId, 'Accepted', post.id)}
+              className="my-job-action-button my-job-success"
+            >
+              Accept
+            </button>
+            <button
+              onClick={() => handleUpdateApplicationStatus(app.applicationId, 'Rejected', post.id)}
+              className="my-job-action-button my-job-danger"
+            >
+              Reject
+            </button>
+          </>
+        )}
         <button
-          onClick={() => handleUpdateApplicationStatus(app.applicationId, 'Accepted', post.id)}
-          className="my-job-action-button my-job-success"
-          disabled={app.status !== 'Pending'}
-        >
-          Accept
-        </button>
-        <button
-          onClick={() => handleUpdateApplicationStatus(app.applicationId, 'Rejected', post.id)}
-          className="my-job-action-button my-job-danger"
-          disabled={app.status !== 'Pending'}
-        >
-          Reject
-        </button>
-        <button
-          onClick={() => alert(app.coverLetter || 'No cover letter')}
+          onClick={() => { // Изменено: попап вместо alert
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+              <div class="modal-content">
+                <span class="close" onclick="this.parentElement.parentElement.remove()">×</span>
+                <h4>Cover Letter</h4>
+                <p>${app.coverLetter || 'No cover letter'}</p>
+              </div>
+            `;
+            document.body.appendChild(modal);
+          }}
           className="my-job-action-button"
         >
           View Cover Letter
@@ -416,14 +437,7 @@ const handleEditJob = (job: JobPost) => {
             View Profile
           </button>
         </Link>
-        {app.status === 'Accepted' && (
-          <button
-            onClick={() => setReviewForm({ applicationId: app.applicationId, rating: 5, comment: '' })}
-            className="my-job-action-button"
-          >
-            Leave Review
-          </button>
-        )}
+       
       </td>
     </tr>
   ))}

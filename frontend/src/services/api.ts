@@ -740,7 +740,7 @@ export const getBlockedCountries = async () => {
 };
 
 export const searchTalents = async (params: {
-  skills?: string;
+  skills?: string | string[];
   experience?: string;
   description?: string;
   rating?: number;
