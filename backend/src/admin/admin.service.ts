@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Like } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { JobPost } from '../job-posts/job-post.entity';
 import { Review } from '../reviews/review.entity';
@@ -25,6 +25,7 @@ import { Category } from '../categories/category.entity';
 import { Feedback } from '../feedback/feedback.entity';
 import { PlatformFeedback } from '../platform-feedback/platform-feedback.entity';
 import { Message } from '../chat/entities/message.entity';
+import { EmailNotification } from '../email-notifications/email-notification.entity';
 
 @Injectable()
 export class AdminService {
@@ -64,6 +65,8 @@ export class AdminService {
     private platformFeedbackRepository: Repository<PlatformFeedback>,
     @InjectRepository(Message)
     private messagesRepository: Repository<Message>,
+    @InjectRepository(EmailNotification)
+    private emailNotificationsRepository: Repository<EmailNotification>,
   ) {}
 
   async checkAdminRole(userId: string) {
@@ -276,10 +279,25 @@ export class AdminService {
 
     const jobPosts = await query.getMany();
 
-    return {
-      total,
-      data: jobPosts,
-    };
+    const enhancedJobPosts = await Promise.all(jobPosts.map(async (post) => {
+        const stats = await this.emailNotificationsRepository.createQueryBuilder('n')
+          .select('COUNT(*) as sent, SUM(CASE WHEN n.opened THEN 1 ELSE 0 END) as opened, SUM(CASE WHEN n.clicked THEN 1 ELSE 0 END) as clicked')
+          .where('n.job_post_id = :id', { id: post.id })
+          .getRawOne();
+        return {
+          ...post,
+          emailStats: {
+            sent: parseInt(stats.sent) || 0,
+            opened: parseInt(stats.opened) || 0,
+            clicked: parseInt(stats.clicked) || 0,
+          },
+        };
+      }));
+    
+      return {
+        total,
+        data: enhancedJobPosts,
+      };
   }
 
   async updateJobPost(adminId: string, jobPostId: string, updateData: { 
@@ -707,69 +725,165 @@ export class AdminService {
   }
 
   async notifyJobSeekers(
-      adminId: string,
-      jobPostId: string,
-      limit: number,
-      orderBy: 'beginning' | 'end' | 'random',
-    ) {
-      await this.checkAdminRole(adminId);
-    
-      const jobPost = await this.jobPostsRepository.findOne({ 
-        where: { id: jobPostId }, 
-        relations: ['employer', 'category'] 
-      });
-      if (!jobPost) {
-        throw new NotFoundException('Job post not found');
-      }
-      if (!jobPost.category_id) {
-        throw new BadRequestException('Job post has no category assigned');
-      }
-      if (jobPost.status !== 'Active') {
-        throw new BadRequestException('Notifications can only be sent for active job posts');
-      }
-    
-      const query = this.jobSeekerRepository
-        .createQueryBuilder('jobSeeker')
-        .leftJoinAndSelect('jobSeeker.user', 'user')
-        .leftJoinAndSelect('jobSeeker.skills', 'skills') 
-        .where('user.role = :role', { role: 'jobseeker' })
-        .andWhere('user.status = :status', { status: 'active' })
-        .andWhere('user.is_email_verified = :isEmailVerified', { isEmailVerified: true })
-        .andWhere('skills.id = :categoryId', { categoryId: jobPost.category_id });
-    
-      const total = await query.getCount();
-    
-      query.take(limit);
-      if (orderBy === 'beginning') {
-        query.orderBy('user.created_at', 'ASC');
-      } else if (orderBy === 'end') {
-        query.orderBy('user.created_at', 'DESC');
-      } else if (orderBy === 'random') {
-        query.orderBy('RANDOM()');
-      }
-    
-      const jobSeekers = await query.getMany();
-    
-      for (const jobSeeker of jobSeekers) {
-        try {
-          await this.emailService.sendJobNotification(
-            jobSeeker.user.email,
-            jobSeeker.user.username,
-            jobPost.title,
-            jobPost.description,
-            `${process.env.BASE_URL}/jobs/${jobPost.id}` 
-          );
-        } catch (error) {
-          console.error(`Failed to send email to ${jobSeeker.user.email}:`, error.message);
-        }
-      }
-    
-      return {
-        total,
-        sent: jobSeekers.length,
-        jobPostId,
-      };
+    adminId: string,
+    jobPostId: string,
+    limit: number,
+    orderBy: 'beginning' | 'end' | 'random',
+  ) {
+    await this.checkAdminRole(adminId);
+
+    const jobPost = await this.jobPostsRepository.findOne({
+      where: { id: jobPostId },
+      relations: ['employer', 'category'],
+    });
+    if (!jobPost) {
+      throw new NotFoundException('Job post not found');
     }
+    if (!jobPost.category_id) {
+      throw new BadRequestException('Job post has no category assigned');
+    }
+    if (jobPost.status !== 'Active') {
+      throw new BadRequestException('Notifications can only be sent for active job posts');
+    }
+
+    // Подзапрос для получения jobSeeker с нужной категорией
+    const subQuery = this.jobSeekerRepository
+      .createQueryBuilder('js')
+      .leftJoin('js.skills', 'skills')
+      .where('skills.id = :categoryId', { categoryId: jobPost.category_id })
+      .select('js.user_id');
+
+    const query = this.jobSeekerRepository
+      .createQueryBuilder('jobSeeker')
+      .leftJoinAndSelect('jobSeeker.user', 'user')
+      .where('jobSeeker.user_id IN (' + subQuery.getQuery() + ')')
+      .andWhere('user.role = :role', { role: 'jobseeker' })
+      .andWhere('user.status = :status', { status: 'active' })
+      .andWhere('user.is_email_verified = :isEmailVerified', { isEmailVerified: true })
+      .setParameters(subQuery.getParameters()); // Передаем параметры из subQuery
+
+    const total = await query.getCount();
+
+    query.take(limit);
+    if (orderBy === 'beginning') {
+      query.orderBy('user.created_at', 'ASC');
+    } else if (orderBy === 'end') {
+      query.orderBy('user.created_at', 'DESC');
+    } else if (orderBy === 'random') {
+      query.addSelect('RANDOM()', 'randomOrder').orderBy('randomOrder', 'ASC'); // Добавляем RANDOM() в SELECT
+    }
+
+    const jobSeekers = await query.getMany();
+
+    let sentCount = 0;
+    const sentEmails = [];
+
+    for (const jobSeeker of jobSeekers) {
+      try {
+        const response = await this.emailService.sendJobNotification(
+          jobSeeker.user.email,
+          jobSeeker.user.username,
+          jobPost.title,
+          jobPost.description,
+          `${process.env.BASE_URL}/jobs/${jobPost.id}`,
+        );
+
+        // Сохраняем уведомление в БД
+        const notification = this.emailNotificationsRepository.create({
+          job_post_id: jobPostId,
+          recipient_email: jobSeeker.user.email,
+          recipient_username: jobSeeker.user.username,
+          message_id: response.messageId,
+          sent_at: new Date(),
+        });
+        await this.emailNotificationsRepository.save(notification);
+
+        sentEmails.push(jobSeeker.user.email);
+        sentCount++;
+      } catch (error) {
+        console.error(`Failed to send email to ${jobSeeker.user.email}:`, error.message);
+      }
+    }
+
+    return {
+      total,
+      sent: sentCount,
+      emails: sentEmails,
+      jobPostId,
+    };
+  }
+
+  async getEmailStatsForJobPost(adminId: string, jobPostId: string) {
+    await this.checkAdminRole(adminId);
+
+    const notifications = await this.emailNotificationsRepository.find({ where: { job_post_id: jobPostId } });
+    const sent = notifications.length;
+    const opened = notifications.filter(n => n.opened).length;
+    const clicked = notifications.filter(n => n.clicked).length;
+    const details = notifications.map(n => ({
+      email: n.recipient_email,
+      username: n.recipient_username,
+      opened: n.opened,
+      clicked: n.clicked,
+      sent_at: n.sent_at,
+      opened_at: n.opened_at,
+      clicked_at: n.clicked_at,
+    }));
+
+    return { sent, opened, clicked, details };
+  }
+  
+  async getAllEmailStats(
+    adminId: string, 
+    filters: { jobPostId?: string, title?: string, employerId?: string, employerEmail?: string, employerUsername?: string }
+  ) {
+    await this.checkAdminRole(adminId);
+
+    const query = this.emailNotificationsRepository.createQueryBuilder('notification')
+      .leftJoin('job_posts', 'jobPost', 'notification.job_post_id = jobPost.id')  
+      .leftJoin('users', 'employer', 'jobPost.employer_id = employer.id');  
+
+    if (filters.jobPostId) {
+      query.andWhere('notification.job_post_id = :jobPostId', { jobPostId: filters.jobPostId });
+    }
+    if (filters.title) {
+      query.andWhere('jobPost.title LIKE :title', { title: `%${filters.title}%` }); 
+    }
+    if (filters.employerId) {
+      query.andWhere('jobPost.employer_id = :employerId', { employerId: filters.employerId });
+    }
+    if (filters.employerEmail) {
+      query.andWhere('employer.email LIKE :employerEmail', { employerEmail: `%${filters.employerEmail}%` });
+    }
+    if (filters.employerUsername) {
+      query.andWhere('employer.username LIKE :employerUsername', { employerUsername: `%${filters.employerUsername}%` });
+    }
+
+    const notifications = await query.getMany();
+    const sent = notifications.length;
+    const opened = notifications.filter(n => n.opened).length;
+    const clicked = notifications.filter(n => n.clicked).length;
+    const details = notifications.map(n => ({
+      job_post_id: n.job_post_id,
+      email: n.recipient_email,
+      username: n.recipient_username,
+      opened: n.opened,
+      clicked: n.clicked,
+      sent_at: n.sent_at,
+      opened_at: n.opened_at,
+      clicked_at: n.clicked_at,
+    }));
+
+    return { sent, opened, clicked, details };
+  }
+
+  async getNotificationByMessageId(messageId: string): Promise<EmailNotification | null> {
+    return this.emailNotificationsRepository.findOne({ where: { message_id: messageId } });
+  }
+
+  async updateNotification(notification: EmailNotification): Promise<EmailNotification> {
+    return this.emailNotificationsRepository.save(notification);
+  }
 
   async createCategory(adminId: string, name: string, parentId?: string) {
     await this.checkAdminRole(adminId);
@@ -880,5 +994,7 @@ export class AdminService {
 
     return { message: 'Category successfully deleted' };
   }
+
+
 
   }

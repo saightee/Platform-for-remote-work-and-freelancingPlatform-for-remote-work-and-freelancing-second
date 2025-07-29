@@ -28,6 +28,9 @@ export class JobSeeker {
   video_intro?: string;
 
   @Column({ nullable: true })
+  resume?: string;
+
+  @Column({ nullable: true })
   timezone?: string;
 
   @Column({ nullable: true })

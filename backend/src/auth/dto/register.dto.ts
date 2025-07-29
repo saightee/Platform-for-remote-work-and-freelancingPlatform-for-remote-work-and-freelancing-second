@@ -24,4 +24,8 @@ export class RegisterDto {
   @IsOptional() 
   @IsString()
   experience?: string;
+
+  @IsOptional() 
+  @IsString()
+  resume?: string;
 }

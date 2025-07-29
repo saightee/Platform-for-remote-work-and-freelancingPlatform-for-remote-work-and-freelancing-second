@@ -96,7 +96,7 @@ export class EmailService {
     jobTitle: string,
     jobDescription: string,
     jobLink: string,
-  ): Promise<void> {
+  ): Promise<any> { 
     const maxRetries = 3;
     let attempt = 1;
 
@@ -126,7 +126,7 @@ export class EmailService {
           },
         );
         console.log(`Job notification email sent to ${toEmail}:`, response.data);
-        return;
+        return response.data;  
       } catch (error) {
         console.error(`Attempt ${attempt} failed for ${toEmail}:`, error.message);
         if (attempt === maxRetries) {

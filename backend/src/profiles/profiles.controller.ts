@@ -62,7 +62,8 @@ export class ProfilesController {
       experience?: string; 
       description?: string;
       portfolio?: string; 
-      video_intro?: string; 
+      video_intro?: string;
+      resume?: string; 
       timezone?: string; 
       currency?: string; 
       company_name?: string; 
@@ -165,5 +166,46 @@ export class ProfilesController {
   @Post(':id/increment-view')
   async incrementProfileView(@Param('id') userId: string) {
     return this.profilesService.incrementProfileView(userId);
+  }
+
+  @Post('upload-resume')
+  @UseGuards(AuthGuard('jwt'))
+  @UseInterceptors(FileInterceptor('resume', {
+    storage: diskStorage({
+      destination: './uploads/resumes',
+      filename: (req, file, cb) => {
+        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
+        return cb(null, `${randomName}${extname(file.originalname)}`);
+      },
+    }),
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = /pdf|doc|docx/;
+      const extName = allowedTypes.test(extname(file.originalname).toLowerCase());
+      const mimeType = allowedTypes.test(file.mimetype);
+      if (extName && mimeType) {
+        return cb(null, true);
+      } else {
+        cb(new BadRequestException('Only PDF, DOC, and DOCX files are allowed'), false);
+      }
+    },
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  }))
+  async uploadResume(
+    @Headers('authorization') authHeader: string,
+    @UploadedFile() resume: any,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+  
+    if (!resume) {
+      throw new BadRequestException('Resume file is required');
+    }
+  
+    const resumePath = `/uploads/resumes/${resume.filename}`;
+    return this.profilesService.uploadResume(userId, resumePath);
   }
 }

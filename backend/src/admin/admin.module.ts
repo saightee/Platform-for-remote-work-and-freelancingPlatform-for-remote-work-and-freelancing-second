@@ -30,9 +30,10 @@ import { CategoriesModule } from '../categories/categories.module';
 import { Category } from '../categories/category.entity';
 import { PlatformFeedback } from '../platform-feedback/platform-feedback.entity';
 import { Message } from '../chat/entities/message.entity';
+import { EmailNotification } from '../email-notifications/email-notification.entity';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, JobPost, Review, Feedback, BlockedCountry, JobApplication, JobSeeker, Employer, ApplicationLimit, UserFingerprint, Complaint, PlatformFeedback, Category, Message]),
+    TypeOrmModule.forFeature([User, JobPost, Review, Feedback, BlockedCountry, JobApplication, JobSeeker, Employer, ApplicationLimit, UserFingerprint, Complaint, PlatformFeedback, Category, Message, EmailNotification]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -52,6 +53,7 @@ import { Message } from '../chat/entities/message.entity';
     EmailModule,
     ChatModule,
     CategoriesModule,
+    EmailNotification,
   ],
   controllers: [AdminController],
   providers: [AdminService, ComplaintsService],

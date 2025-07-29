@@ -47,6 +47,7 @@ export class ProfilesService {
         description: jobSeeker.description,
         portfolio: jobSeeker.portfolio,
         video_intro: jobSeeker.video_intro,
+        resume: jobSeeker.resume,
         timezone: jobSeeker.timezone,
         currency: jobSeeker.currency,
         average_rating: jobSeeker.average_rating,
@@ -97,6 +98,9 @@ export class ProfilesService {
       });
       if (!jobSeeker) {
         throw new NotFoundException('JobSeeker profile not found');
+      }
+      if (updateData.resume) {
+        jobSeeker.resume = updateData.resume;
       }
 
       if (updateData.skillIds && Array.isArray(updateData.skillIds)) {
@@ -182,6 +186,28 @@ export class ProfilesService {
     await this.usersRepository.save(user);
     return this.getProfile(userId, true);
   }
+
+  async uploadResume(userId: string, resumeUrl: string) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.role !== 'jobseeker') {
+      throw new BadRequestException('Only jobseekers can upload resumes');
+    }
+    if (!resumeUrl) {
+      throw new BadRequestException('Resume URL is required');
+    }
+    
+    const jobSeeker = await this.jobSeekerRepository.findOne({ where: { user_id: userId } });
+    if (!jobSeeker) {
+      throw new NotFoundException('JobSeeker profile not found');
+    }
+    
+    jobSeeker.resume = resumeUrl;
+    await this.jobSeekerRepository.save(jobSeeker);
+    return this.getProfile(userId, true);
+    }
 
   async incrementProfileView(userId: string) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
