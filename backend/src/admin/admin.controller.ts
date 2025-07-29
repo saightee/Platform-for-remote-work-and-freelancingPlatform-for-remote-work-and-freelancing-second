@@ -832,4 +832,72 @@ export class AdminController {
 
     return this.adminService.deleteCategory(adminId, categoryId);
   }
+
+  @Get('job-posts/:id/email-stats')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async getEmailStatsForJobPost(
+    @Param('id') jobPostId: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+
+    return this.adminService.getEmailStatsForJobPost(adminId, jobPostId);
+  }
+
+  @Get('email-stats')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async getAllEmailStats(
+    @Query('jobPostId') jobPostId: string,
+    @Query('title') title: string,
+    @Query('employerId') employerId: string,
+    @Query('employerEmail') employerEmail: string,
+    @Query('employerUsername') employerUsername: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+
+    const filters = { jobPostId, title, employerId, employerEmail, employerUsername };
+    return this.adminService.getAllEmailStats(adminId, filters);
+  }
+
+  @Post('webhooks/brevo')
+  async handleBrevoWebhook(@Body() body: any) {
+    console.log('Brevo webhook received:', body);
+  
+    const event = body.event;
+    const messageId = body['message-id'];
+    const timestamp = body.ts;
+  
+    if (!messageId || !event) {
+      return { status: 'ignored' };
+    }
+  
+    const notification = await this.adminService.getNotificationByMessageId(messageId);
+    if (!notification) {
+      return { status: 'not_found' };
+    }
+  
+    if (event === 'opened') {
+      notification.opened = true;
+      notification.opened_at = new Date(timestamp * 1000);
+    } else if (event === 'clicked') {
+      notification.clicked = true;
+      notification.clicked_at = new Date(timestamp * 1000);
+    } else {
+      return { status: 'ignored_event' };
+    }
+  
+    await this.adminService.updateNotification(notification);
+    return { status: 'ok' };
+  }
 }

@@ -69,14 +69,15 @@ export class AuthService {
       country,
       is_email_verified: role === 'admin' || role === 'moderator',
     };
-    const additionalData: { timezone: string; currency: string; skills?: string[]; experience?: string } = {
+    const additionalData: { timezone: string; currency: string; skills?: string[]; experience?: string; resume?: string } = {
       timezone: 'UTC',
       currency: 'USD',
     };
 
-  if (role === 'jobseeker' && 'skills' in dto && 'experience' in dto) {
+  if (role === 'jobseeker' && 'skills' in dto && 'experience' in dto && 'resume' in dto) {
     additionalData.skills = dto.skills || [];
     additionalData.experience = dto.experience;
+    additionalData.resume = dto.resume || null;
   }
 
     const newUser = await this.usersService.create(userData, additionalData);

@@ -43,7 +43,7 @@ async create(
         timezone: additionalData.timezone || 'UTC',
         currency: additionalData.currency || 'USD',
       };
-
+      jobSeekerEntity.resume = additionalData.resume || null;
       jobSeekerEntity.experience = additionalData.experience || null;
       if (additionalData.skills && Array.isArray(additionalData.skills)) {
         jobSeekerEntity.skills = await this.categoriesRepository.findByIds(additionalData.skills); 
@@ -139,6 +139,9 @@ async create(
       }
       if (additionalData.currency) {
         jobSeeker.currency = additionalData.currency;
+      }
+      if (additionalData.resume) {
+        jobSeeker.resume = additionalData.resume;
       }
       await this.jobSeekerRepository.save(jobSeeker);
       console.log(`[UsersService] JobSeeker profile updated: ${JSON.stringify(jobSeeker)}`);
