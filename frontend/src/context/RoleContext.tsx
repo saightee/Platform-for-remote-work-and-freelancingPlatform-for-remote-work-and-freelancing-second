@@ -114,6 +114,72 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 }, []);
 
+// useEffect(() => {
+//   if (!profile || !['jobseeker', 'employer'].includes(profile.role) || socket) {
+//     return;
+//   }
+
+//   const initializeSocket = async () => {
+//     try {
+//       let hasApplications = false;
+//       if (profile.role === 'jobseeker') {
+//         const apps = await getMyApplications();
+//         hasApplications = apps.some(app => app.status === 'Accepted');
+//       } else if (profile.role === 'employer') {
+//         const posts = await getMyJobPosts();
+//         const appsPromises = posts.map(post => getApplicationsForJobPost(post.id));
+//         const appsArrays = await Promise.all(appsPromises);
+//         hasApplications = appsArrays.flat().some(app => app.status === 'Accepted');
+//       }
+
+//       if (!hasApplications) {
+//         console.log('No accepted applications, skipping WebSocket initialization.');
+//         return;
+//       }
+
+//       const newSocket = initializeWebSocket(
+//         () => {}, // Пустой обработчик
+//         (error: WebSocketError) => {
+//           console.error('WebSocket error in RoleContext:', error);
+//           setSocketStatus('disconnected');
+//           setError(error.message || 'WebSocket error occurred.');
+//         }
+//       );
+
+//       newSocket.on('connect', () => {
+//         console.log('WebSocket connected in RoleContext, transport:', newSocket.io.engine.transport.name);
+//         setSocketStatus('connected');
+//       });
+
+//       newSocket.on('connect_error', (err) => {
+//         console.error('WebSocket connection error in RoleContext:', err.message);
+//         setSocketStatus('reconnecting');
+//         setError('Failed to connect to real-time updates. Retrying...');
+//       });
+
+//       newSocket.on('disconnect', () => {
+//         console.log('WebSocket disconnected in RoleContext');
+//         setSocketStatus('disconnected');
+//       });
+
+//       setSocket(newSocket);
+
+//       return () => {
+//         newSocket.off('connect');
+//         newSocket.off('connect_error');
+//         newSocket.off('disconnect');
+//         newSocket.disconnect();
+//         setSocket(null);
+//         setSocketStatus('disconnected');
+//       };
+//     } catch (err) {
+//       console.error('Error checking applications for WebSocket:', err);
+//     }
+//   };
+
+//   initializeSocket();
+// }, [profile]);
+
 useEffect(() => {
   if (!profile || !['jobseeker', 'employer'].includes(profile.role) || socket) {
     return;
@@ -137,14 +203,22 @@ useEffect(() => {
         return;
       }
 
-      const newSocket = initializeWebSocket(
-        () => {}, // Пустой обработчик
-        (error: WebSocketError) => {
-          console.error('WebSocket error in RoleContext:', error);
-          setSocketStatus('disconnected');
-          setError(error.message || 'WebSocket error occurred.');
-        }
-      );
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No token for WebSocket auth.');
+        return;
+      }
+
+const newSocket = initializeWebSocket(  
+  () => {},   
+  (error: WebSocketError) => {  
+    console.error('WebSocket error in RoleContext:', error);  
+    setSocketStatus('disconnected');  
+    setError(error.message || 'WebSocket error occurred.');  
+  }  
+);
+
+      
 
       newSocket.on('connect', () => {
         console.log('WebSocket connected in RoleContext, transport:', newSocket.io.engine.transport.name);
@@ -155,6 +229,11 @@ useEffect(() => {
         console.error('WebSocket connection error in RoleContext:', err.message);
         setSocketStatus('reconnecting');
         setError('Failed to connect to real-time updates. Retrying...');
+        // Добавлено: reconnect with new token if 401
+        if (err.message.includes('401')) {
+          localStorage.removeItem('token');
+          window.location.href = '/login';
+        }
       });
 
       newSocket.on('disconnect', () => {

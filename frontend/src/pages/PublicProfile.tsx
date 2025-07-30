@@ -6,9 +6,10 @@ import Copyright from '../components/Copyright';
 import { getUserProfileById, getReviewsForUser, incrementProfileView } from '../services/api';
 import { JobSeekerProfile, Review, Category } from '@types';
 import { useRole } from '../context/RoleContext';
-import { FaUserCircle } from 'react-icons/fa';
+import { FaUserCircle, FaFilePdf } from 'react-icons/fa';
 import { formatDateInTimezone } from '../utils/dateUtils';
 import Loader from '../components/Loader';
+
 
 const PublicProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -101,6 +102,20 @@ const PublicProfile: React.FC = () => {
                 'Not specified'
               )}
             </p>
+           <p>
+  <strong>Resume:</strong>{' '}
+  {profile.resume ? (
+    <a 
+      href={profile.resume.startsWith('http') ? profile.resume : `https://jobforge.net/backend${profile.resume}`} 
+      target="_blank" 
+      rel="noopener noreferrer"
+    >
+      Download Resume <FaFilePdf />
+    </a>
+  ) : (
+    'Not specified'
+  )}
+</p>
             <p><strong>Profile Views:</strong> {profile.profile_views || 0}</p>
           </div>
           <div className="pp-description">

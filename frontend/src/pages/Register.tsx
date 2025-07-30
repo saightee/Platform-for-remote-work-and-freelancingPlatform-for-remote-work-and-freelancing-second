@@ -21,22 +21,24 @@ const Register: React.FC = () => {
   const [skillInput, setSkillInput] = useState(''); // New
   const [filteredSkills, setFilteredSkills] = useState<Category[]>([]); // New
   const [isDropdownOpen, setIsDropdownOpen] = useState(false); // New
-  const [resumeFile, setResumeFile] = useState<File | null>(null); // New for jobseeker
   const [categories, setCategories] = useState<Category[]>([]); // New
+  const [resumeFile, setResumeFile] = useState<File | null>(null); // New for jobseeker
+  const [resumeLink, setResumeLink] = useState(''); // Добавлено: для link на resume
 
   useEffect(() => {
     if (!role || !['employer', 'jobseeker'].includes(role)) {
       navigate('/role-selection');
     }
     if (role === 'jobseeker') {
-      const fetchCategories = async () => {
-        try {
-          const cats = await getCategories();
-          setCategories(cats);
-        } catch (error) {
-          console.error('Error fetching categories in Register:', error);
-        }
-      };
+const fetchCategories = async () => {
+  try {
+    const cats = await getCategories();
+    const sortedCats = cats.sort((a, b) => a.name.localeCompare(b.name));
+    setCategories(sortedCats);
+  } catch (error) {
+    console.error('Error fetching categories in Register:', error);
+  }
+};
       fetchCategories();
     }
   }, [role, navigate]);
@@ -63,32 +65,33 @@ const Register: React.FC = () => {
   }, [skillInput, role]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!role) return;
-    if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match!');
-      return;
-    }
-    try {
-      setErrorMessage(null);
-      await register({
-        username,
-        email,
-        password,
-        role,
-        skills: selectedSkills.map(s => s.id.toString()),  // id как string, если number — toString()
-        experience
-      });
-      navigate('/check-email');
-    } catch (error: any) {
-      console.error('Register error:', error);
-      const errorMsg =
-        error.response?.status === 403 && error.response?.data?.message === 'Registration is not allowed from your country'
-          ? 'Registration is not allowed from your country.'
-          : error.response?.data?.message || 'Registration failed. Please try again.';
-      setErrorMessage(errorMsg);
-    }
-  };
+  e.preventDefault();
+  if (!role) return;
+  if (password !== confirmPassword) {
+    setErrorMessage('Passwords do not match!');
+    return;
+  }
+  try {
+    setErrorMessage(null);
+    await register({
+      username,
+      email,
+      password,
+      role,
+      skills: selectedSkills.map(s => s.id.toString()),  // id как string, если number — toString()
+      experience,
+      resume: resumeLink || undefined, // Добавлено: optional resume link
+    });
+    navigate('/check-email');
+  } catch (error: any) {
+    console.error('Register error:', error);
+    const errorMsg =
+      error.response?.status === 403 && error.response?.data?.message === 'Registration is not allowed from your country'
+        ? 'Registration is not allowed from your country.'
+        : error.response?.data?.message || 'Registration failed. Please try again.';
+    setErrorMessage(errorMsg);
+  }
+};
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -177,56 +180,66 @@ const Register: React.FC = () => {
                   <option value="6+ years">6+ years</option>
                 </select>
               </div>
-              <div className="form-group">
-                <label>Talents/Skills:</label>
-                <div className="autocomplete-wrapper">
-                  <input
-                    type="text"
-                    value={skillInput}
-                    onChange={(e) => setSkillInput(e.target.value)}
-                    placeholder="Type to search skills..."
-                    className="category-select"
-                    onFocus={() => skillInput.trim() && setIsDropdownOpen(true)}
-                    onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                  />
-                  {isDropdownOpen && filteredSkills.length > 0 && (
-                    <ul className="autocomplete-dropdown">
-                      {filteredSkills.map((skill) => (
-                        <li
-                          key={skill.id}
-                          className="autocomplete-item"
-                          onMouseDown={() => {
-                            if (!selectedSkills.find(s => s.id === skill.id)) {
-                              setSelectedSkills([...selectedSkills, skill]);
-                            }
-                            setSkillInput('');
-                            setIsDropdownOpen(false);
-                          }}
-                        >
-                          {skill.parent_id
-                            ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
-                            : skill.name}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                <div className="category-tags">
-                  {selectedSkills.map((skill) => (
-                    <span key={skill.id} className="category-tag">
-                      {skill.name}
-                      <span
-                        className="remove-tag"
-                        onClick={() => {
-                          setSelectedSkills(selectedSkills.filter((s) => s.id !== skill.id));
-                        }}
-                      >
-                        ×
-                      </span>
-                    </span>
-                  ))}
-                </div>
-              </div>
+              <div className="form-group"> {/* Добавлено: input для resume link */}
+      <label>Resume Link (optional)</label>
+      <input
+        type="url"
+        value={resumeLink}
+        onChange={(e) => setResumeLink(e.target.value)}
+        placeholder="https://example.com/resume.pdf"
+      />
+      <p className="form-note">You can upload a file after registration.</p>
+    </div>
+             <div className="form-group">  
+  <label>Talents/Skills:</label>  
+  <div className="autocomplete-wrapper">  
+    <input  
+      type="text"  
+      value={skillInput}  
+      onChange={(e) => setSkillInput(e.target.value)}  
+      placeholder="Start typing to search skills..." // Изменено на шаблон из Profile  
+      className="category-select"  
+      onFocus={() => skillInput.trim() && setIsDropdownOpen(true)}  
+      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}  
+    />  
+    {isDropdownOpen && filteredSkills.length > 0 && (  
+      <ul className="autocomplete-dropdown">  
+        {filteredSkills.map((skill) => (  
+          <li  
+            key={skill.id}  
+            className="autocomplete-item"  
+            onMouseDown={() => {  
+              if (!selectedSkills.find(s => s.id === skill.id)) {  
+                setSelectedSkills([...selectedSkills, skill]);  
+              }  
+              setSkillInput('');  
+              setIsDropdownOpen(false);  
+            }}  
+          >  
+            {skill.parent_id  
+              ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`  
+              : skill.name}  
+          </li>  
+        ))}  
+      </ul>  
+    )}  
+  </div>  
+  <div className="category-tags">  
+    {selectedSkills.map((skill) => (  
+      <span key={skill.id} className="category-tag">  
+        {skill.name}  
+        <span  
+          className="remove-tag"  
+          onClick={() => {  
+            setSelectedSkills(selectedSkills.filter((s) => s.id !== skill.id));  
+          }}  
+        >  
+          ×  
+        </span>  
+      </span>  
+    ))}  
+  </div>  
+</div>  
             </>
           )}
           <button type="submit">Sign Up as {role === 'employer' ? 'Employer' : 'Jobseeker'}</button>

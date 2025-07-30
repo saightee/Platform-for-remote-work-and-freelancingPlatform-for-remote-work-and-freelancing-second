@@ -257,6 +257,11 @@ const handleSelectChat = (jobApplicationId: string) => {
       setMessages((prev) => ({ ...prev, [jobApplicationId]: history.data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) })); // history.data
     }).catch((err) => {
       setError('Failed to load chat history.');
+      // Добавлено: if 401, redirect to login
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
     });
   }
 };

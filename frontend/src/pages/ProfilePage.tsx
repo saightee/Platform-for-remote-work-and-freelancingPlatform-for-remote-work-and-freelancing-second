@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { getProfile, updateProfile, uploadIdentityDocument, deleteAccount, getCategories, searchCategories, uploadAvatar } from '../services/api';
+import { getProfile, updateProfile, uploadIdentityDocument, deleteAccount, getCategories, searchCategories, uploadAvatar, uploadResume } from '../services/api';
 import { Profile, Category, JobSeekerProfile, EmployerProfile, Review } from '@types';
 import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
@@ -28,6 +28,8 @@ const ProfilePage: React.FC = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
   const currencies = ['USD', 'EUR', 'GBP', 'JPY'];
+  const resumeRef = useRef<HTMLInputElement>(null);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -118,6 +120,7 @@ const ProfilePage: React.FC = () => {
           description: (profileData as JobSeekerProfile).description,
           portfolio: (profileData as JobSeekerProfile).portfolio,
           video_intro: (profileData as JobSeekerProfile).video_intro,
+          resume: (profileData as JobSeekerProfile).resume,
         };
         const updatedProfile = await updateProfile(updatedData);
         setProfileData(updatedProfile);
@@ -151,6 +154,33 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  const handleUploadResume = async () => {
+    if (!resumeFile) return;
+    try {
+      const formData = new FormData();
+      formData.append('resume', resumeFile);
+      const updated = await uploadResume(formData);
+      setProfileData(updated);
+      setResumeFile(null);
+      await refreshProfile();
+    } catch (err: any) {
+      setFormError(err.response?.data?.message || 'Failed to upload resume.');
+    }
+  };
+
+  const uploadAvatarFile = async (file: File) => {
+  try {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const updated = await uploadAvatar(formData);
+    setProfileData(updated);
+    setAvatarFile(null);
+    await refreshProfile();
+  } catch (err) {
+    console.error('Error uploading avatar:', err);
+  }
+};
+
   const handleDeleteAccount = async () => {
     if (!window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
       return;
@@ -180,43 +210,40 @@ const ProfilePage: React.FC = () => {
         <div className="profile-content">
           <div className="profile-top-row">
             <div className="profile-left-column">
-              <div 
-                className="profile-avatar-section"
-                onClick={() => avatarRef.current?.click()}
-              >
-                {profileData.avatar ? (
-                  <img src={`https://jobforge.net/backend${profileData.avatar}`} alt="Avatar" className="profile-avatar" />
-                ) : (
-                  <div className="default-avatar">
-                    <FaUserCircle className="profile-avatar-icon" />
-                    <span className="add-avatar">+</span>
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png"
-                  ref={avatarRef}
-                  style={{ display: 'none' }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setAvatarFile(file);
-                    }
-                  }}
-                />
-              </div>
-              {avatarFile && isEditing && (
-                <button onClick={async () => {
-                  const formData = new FormData();
-                  formData.append('avatar', avatarFile);
-                  const updated = await uploadAvatar(formData);
-                  setProfileData(updated);
-                  setAvatarFile(null);
-                  await refreshProfile();
-                }} className="action-button">
-                  Upload Avatar
-                </button>
-              )}
+<div 
+  className="profile-avatar-section"
+  onClick={() => avatarRef.current?.click()}
+>
+  {profileData.avatar ? (
+    <img src={`https://jobforge.net/backend${profileData.avatar}`} alt="Avatar" className="profile-avatar" />
+  ) : (
+    <div className="default-avatar">
+      <FaUserCircle className="profile-avatar-icon" />
+      <span className="add-avatar">+</span>
+    </div>
+  )}
+  <input
+    type="file"
+    accept="image/jpeg,image/jpg,image/png"
+    ref={avatarRef}
+    style={{ display: 'none' }}
+    onChange={(e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        setAvatarFile(file);
+        // Автоматический upload если не в edit mode
+        if (!isEditing) {
+          uploadAvatarFile(file);
+        }
+      }
+    }}
+  />
+</div>
+{avatarFile && isEditing && ( // Кнопка только в edit
+  <button onClick={() => uploadAvatarFile(avatarFile)} className="action-button">
+    Upload Avatar
+  </button>
+)}
               {isEditing ? (
                 <>
                   <div className="form-group">
@@ -420,6 +447,37 @@ const ProfilePage: React.FC = () => {
                           placeholder="Enter video intro URL"
                         />
                       </div>
+                      <div className="form-group"> {/* Добавлено: resume link + upload */}
+                        <label>Resume Link (optional):</label>
+                        <input
+                          type="url"
+                          value={(profileData as JobSeekerProfile).resume || ''}
+                          onChange={(e) => setProfileData({ ...profileData, resume: e.target.value })}
+                          placeholder="https://example.com/resume.pdf"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Upload Resume File (PDF, DOC, DOCX):</label>
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx"
+                          ref={resumeRef}
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) setResumeFile(file);
+                          }}
+                        />
+                        <button type="button" onClick={() => resumeRef.current?.click()}>
+                          Choose File
+                        </button>
+                        {resumeFile && <p>Selected: {resumeFile.name}</p>}
+                        {resumeFile && (
+                          <button type="button" onClick={handleUploadResume}>
+                            Upload Resume
+                          </button>
+                        )}
+                      </div>
                     </>
                   ) : (
                     <>
@@ -431,6 +489,17 @@ const ProfilePage: React.FC = () => {
                       <p><strong>Description:</strong> {(profileData as JobSeekerProfile).description || 'Not specified'}</p>
                       <p><strong>Portfolio:</strong> {(profileData as JobSeekerProfile).portfolio || 'Not specified'}</p>
                       <p><strong>Video Introduction:</strong> {(profileData as JobSeekerProfile).video_intro || 'Not specified'}</p>
+                      <p><strong>Resume:</strong> {(profileData as JobSeekerProfile).resume ? (
+                        <a
+                          href={(profileData as JobSeekerProfile).resume?.startsWith('http') 
+                            ? (profileData as JobSeekerProfile).resume 
+                            : `https://jobforge.net/backend${(profileData as JobSeekerProfile).resume}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Download Resume <FaFilePdf />
+                        </a>
+                      ) : 'Not specified'}</p>
                     </>
                   )}
                 </>

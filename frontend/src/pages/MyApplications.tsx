@@ -109,38 +109,38 @@ const handleCreateReview = async (e: React.FormEvent) => {
         {error && <p className="my-app-error">{error}</p>}
         {applications.length > 0 ? (
           <div className="my-app-grid">
-            {applications.map((app) => (
-              <div key={app.id} className="my-app-card">
-                <h3>{app.job_post?.title || 'Unknown Job'}</h3>
-                <p><strong>Status:</strong> {app.status}</p>
-                <p><strong>Applied On:</strong> {formatDateInTimezone(app.created_at, profile.timezone)}</p>
-                {app.status === 'Accepted' && (
-                  <>
-                    <p className="my-app-success">Congratulations! Your application has been accepted.</p>
-                    {leftReviews[app.id] ? (
-                      <div className="left-review">
-                        <h4>Your Review:</h4>
-                        <p><strong>Rating:</strong> {leftReviews[app.id].rating} ★</p>
-                        <p><strong>Comment:</strong> {leftReviews[app.id].comment}</p>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setReviewForm({ applicationId: app.id, rating: 5, comment: '' });
-                          setIsReviewModalOpen(true);
-                        }}
-                        className="my-app-button"
-                      >
-                        Leave Review
-                      </button>
-                    )}
-                  </>
-                )}
-                {app.status === 'Rejected' && (
-                  <p className="my-app-error">Unfortunately, your application was rejected.</p>
-                )}
-              </div>
-            ))}
+           {applications.map((app) => (
+  <div key={app.id} className="my-app-card">
+    <h3>{app.job_post?.title || 'Unknown Job'}</h3>
+    <p><strong>Status:</strong> {app.status}</p>
+    <p><strong>Applied On:</strong> {formatDateInTimezone(app.created_at, profile.timezone)}</p>
+    {app.status === 'Accepted' && (
+      <>
+        <p className="my-app-success">Congratulations! Your application has been accepted.</p>
+        {app.reviews && app.reviews.length > 0 ? ( 
+          <div className="left-review">
+            <h4>Your Review:</h4>
+            <p><strong>Rating:</strong> {app.reviews[0].rating} ★</p>
+            <p><strong>Comment:</strong> {app.reviews[0].comment}</p>
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              setReviewForm({ applicationId: app.id, rating: 5, comment: '' });
+              setIsReviewModalOpen(true);
+            }}
+            className="my-app-button"
+          >
+            Leave Review
+          </button>
+        )}
+      </>
+    )}
+    {app.status === 'Rejected' && (
+      <p className="my-app-error">Unfortunately, your application was rejected.</p>
+    )}
+  </div>
+))}
           </div>
         ) : (
           <p>No applications found.</p>

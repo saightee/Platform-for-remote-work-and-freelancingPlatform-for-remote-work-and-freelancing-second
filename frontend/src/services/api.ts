@@ -226,6 +226,44 @@ export const uploadIdentityDocument = async (formData: FormData) => {
   return response.data;
 };
 
+export const uploadResume = async (formData: FormData) => { // Добавлено: новая функция
+  const response = await api.post<Profile>('/profile/upload-resume', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
+export const getEmailStatsForJob = async (id: string) => {
+  const response = await api.get<{
+    sent: number;
+    opened: number;
+    clicked: number;
+    details: { email: string; username: string; opened: boolean; clicked: boolean; sent_at: string; opened_at: string | null; clicked_at: string | null; }[];
+  }>(`/admin/job-posts/${id}/email-stats`);
+  return response.data;
+};
+
+export const getAllEmailStats = async (params: {
+  jobPostId?: string;
+  title?: string;
+  employerId?: string;
+  employerEmail?: string;
+  employerUsername?: string;
+}) => {
+  const response = await api.get<{
+    sent: number;
+    opened: number;
+    clicked: number;
+    details: { job_post_id: string; email: string; username: string; opened: boolean; clicked: boolean; sent_at: string; opened_at: string | null; clicked_at: string | null; }[];
+  }>('/admin/email-stats', { params });
+  return response.data;
+};
+
+export const generateDescription = async (aiBrief: string) => { // Добавлено
+  const response = await api.post<{ description: string }>('/job-posts/generate-description', { aiBrief });
+  return response.data.description; 
+};
+
 export const rejectJobPost = async (id: string, reason: string) => {
   const response = await api.post(`/admin/job-posts/${id}/reject`, { reason });
   return response.data;

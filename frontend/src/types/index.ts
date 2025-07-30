@@ -58,6 +58,7 @@ export interface JobSeekerProfile {
   avatar?: string | null;
   identity_verified: boolean;
   identity_document?: string | null;
+  resume?: string; // Добавлено: link или path к resume (optional, как в docs)
   reviews: Review[];
 }
 
@@ -95,6 +96,7 @@ export interface JobPost {
   salary: number | null;
   salary_type: string | null;
   category_id?: string;
+  category_ids?: string[];
   category?: Category | null;
   job_type?: 'Full-time' | 'Part-time' | 'Project-based' | null;
   employer_id: string; // Убрано необязательное, так как всегда возвращается
@@ -106,6 +108,7 @@ export interface JobPost {
   views?: number;
   status: string;
   required_skills?: string[];
+  excluded_locations?: string[];
 }
 
 export interface Category {
@@ -115,6 +118,7 @@ export interface Category {
   created_at: string;
   updated_at: string;
   subcategories?: Category[];
+  
 }
 
 export interface JobApplication {
@@ -126,6 +130,7 @@ export interface JobApplication {
   job_seeker?: { id: string; username: string; email?: string; }; // Nested из docs, убрал email/role если не нужно
   created_at: string;
   updated_at: string;
+  reviews?: Review[];
 }
 
 export interface ReviewJobApplication {
@@ -196,6 +201,8 @@ export interface RegisterCredentials extends LoginCredentials {
   role: 'employer' | 'jobseeker';
   skills?: string[]; 
   experience?: string; 
+  resume?: string;
+
 }
 
 export interface JobApplicationDetails {

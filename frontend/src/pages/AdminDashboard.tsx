@@ -3,7 +3,7 @@ import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, format } fro
 import { formatInTimeZone } from 'date-fns-tz'; // Для времени по Маниле
 import { FaHome, FaSignOutAlt, FaUser, FaSearch, FaArrowUp, FaArrowDown, FaFilePdf } from 'react-icons/fa'; // Иконки
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'; // Диаграммы
-import { Link, useNavigate } from 'react-router-dom'; // Для навигации и Link
+import { Link, useNavigate, useLocation } from 'react-router-dom'; // Для навигации и Link
 import { jwtDecode } from 'jwt-decode'; // Для декодирования токена
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -22,7 +22,7 @@ import {
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
-  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost // Добавляем logout из api
+  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats // Добавляем logout из api
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile } from '@types';
 import { AxiosError } from 'axios';
@@ -157,6 +157,13 @@ const [issuesSortColumn, setIssuesSortColumn] = useState<'created_at' | null>(nu
 const [issuesSortDirection, setIssuesSortDirection] = useState<'asc' | 'desc'>('asc');
 const [storiesSortColumn, setStoriesSortColumn] = useState<'created_at' | null>(null);
 const [storiesSortDirection, setStoriesSortDirection] = useState<'asc' | 'desc'>('asc');
+const [notificationStats, setNotificationStats] = useState<{ [postId: string]: { sent: number, opened: number, clicked: number } }>({});
+const [allEmailStats, setAllEmailStats] = useState<{ sent: number, opened: number, clicked: number, details: { job_post_id: string; email: string; username: string; opened: boolean; clicked: boolean; sent_at: string; opened_at: string | null; clicked_at: string | null; }[] } | null>(null);
+const [filterJobPostId, setFilterJobPostId] = useState('');
+const [filterTitle, setFilterTitle] = useState('');
+const [filterEmployerId, setFilterEmployerId] = useState('');
+const [filterEmployerEmail, setFilterEmployerEmail] = useState('');
+const [filterEmployerUsername, setFilterEmployerUsername] = useState('');
 const [freelancerSignupsToday, setFreelancerSignupsToday] = useState<{ country: string; count: number }[]>([]);
   const [freelancerSignupsYesterday, setFreelancerSignupsYesterday] = useState<{ country: string; count: number }[]>([]);
   const [freelancerSignupsWeek, setFreelancerSignupsWeek] = useState<{ country: string; count: number }[]>([]);
@@ -186,6 +193,11 @@ const handleSort = (column: 'id' | 'applicationCount' | 'created_at') => {
     setSortDirection('asc');
   }
 };
+
+const location = useLocation();
+useEffect(() => {
+  if (location.state?.jobPostId) setFilterJobPostId(location.state.jobPostId);
+}, [location.state]);
 
 const sortedJobPostsWithApps = [...jobPostsWithApps].sort((a, b) => {
   if (!sortColumn) return 0;
@@ -322,6 +334,22 @@ const sortedComplaints = [...complaints]
 
     fetchUserData();
   }, []);
+
+useEffect(() => {
+  if (activeTab === 'Email Notifications') {
+    const fetch = async () => {
+      const params: { jobPostId?: string, title?: string, employerId?: string, employerEmail?: string, employerUsername?: string } = {};
+      if (filterJobPostId) params.jobPostId = filterJobPostId;
+      if (filterTitle) params.title = filterTitle;
+      if (filterEmployerId) params.employerId = filterEmployerId;
+      if (filterEmployerEmail) params.employerEmail = filterEmployerEmail;
+      if (filterEmployerUsername) params.employerUsername = filterEmployerUsername;
+      const data = await getAllEmailStats(params);
+      setAllEmailStats(data);
+    };
+    fetch();
+  }
+}, [activeTab, filterJobPostId, filterTitle, filterEmployerId, filterEmployerEmail, filterEmployerUsername]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -622,10 +650,18 @@ case 25:
   const jobPostsWithApps = (value as JobPostWithApplications[]).map(post => ({
     ...post,
     username: post.employer?.username || 'N/A',
-    category: typeof post.category === 'string' ? post.category : post.category?.name || 'N/A', // Обработка string или object
+    category: typeof post.category === 'string' ? post.category : post.category?.name || 'N/A',
   }));
   setJobPostsWithApps(jobPostsWithApps);
-  console.log('Job Posts with Applications:', JSON.stringify(jobPostsWithApps, null, 2)); // Для отладки
+  console.log('Job Posts with Applications:', JSON.stringify(jobPostsWithApps, null, 2));
+  // Добавлено: fetch stats for each post
+  const statsPromises = jobPostsWithApps.map(post => getEmailStatsForJob(post.id).catch(() => ({ sent: 0, opened: 0, clicked: 0 })));
+  const statsResults = await Promise.all(statsPromises);
+  const statsMap = jobPostsWithApps.reduce((acc: { [key: string]: { sent: number; opened: number; clicked: number } }, post, i) => {
+    acc[post.id] = statsResults[i];
+    return acc;
+  }, {});
+  setNotificationStats(statsMap);
   break;
         }
       } else {
@@ -1200,6 +1236,9 @@ if (isLoading) {
           <li className={activeTab === 'Analytics' ? 'active' : ''} onClick={() => setActiveTab('Analytics')}>
             Analytics
           </li>
+          <li className={activeTab === 'Email Notifications' ? 'active' : ''} onClick={() => setActiveTab('Email Notifications')}>
+  Email Notifications
+</li>
           <li className={activeTab === 'Settings' ? 'active' : ''} onClick={() => setActiveTab('Settings')}>
             Settings
           </li>
@@ -1348,7 +1387,6 @@ if (isLoading) {
     <th onClick={() => handleSort('created_at')} style={{ cursor: 'pointer' }}>
       Created At {sortColumn === 'created_at' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
     </th>
-    <th>Actions</th>
   </tr>
 </thead>
 <tbody>
@@ -1359,15 +1397,10 @@ if (isLoading) {
       <td>{typeof post.category === 'string' ? post.category : post.category?.name || 'N/A'}</td> {/* Обработка: string или object.name */}
       <td>{post.applicationCount}</td>
       <td>{format(new Date(post.created_at), 'PP')}</td>
-      <td>
-        <button onClick={() => handleNotifyCandidates(post.id)} className="action-button">
-          Notify Seekers
-        </button>
-      </td>
     </tr>
   )) : (
     <tr>
-      <td colSpan={6}>No job postings with applications found.</td> {/* colSpan +1 */}
+      <td colSpan={5}>No job postings with applications found.</td> {/* colSpan +1 */}
     </tr>
   )}
 </tbody>
@@ -1652,6 +1685,7 @@ setUserPage(1);
           <th>Pending Review</th>
           <th>Created At</th>
           <th>Actions</th>
+          <th>Notifications</th>
         </tr>
       </thead>
       <tbody>
@@ -1694,10 +1728,23 @@ setUserPage(1);
                   View Job
                 </button>
               </td>
+              <td>
+                <button onClick={() => handleNotifyCandidates(post.id)} className="action-button success">
+                  Notify Seekers
+                </button>
+                <span 
+                  title={`Sent: ${notificationStats[post.id]?.sent || 0} Opened: ${notificationStats[post.id]?.opened || 0} Clicked: ${notificationStats[post.id]?.clicked || 0}`}
+                >
+                  s:{notificationStats[post.id]?.sent || 0} o:{notificationStats[post.id]?.opened || 0} c:{notificationStats[post.id]?.clicked || 0}
+                </span>
+                <button onClick={() => navigate('/admin/email-notifications', { state: { jobPostId: post.id } })} className="action-button">
+                  View Details
+                </button>
+              </td>
             </tr>
           )) : (
             <tr>
-              <td colSpan={7}>No job posts found.</td>
+              <td colSpan={8}>No job posts found.</td> {/* colSpan +1 */}
             </tr>
           )}
       </tbody>
@@ -2345,6 +2392,78 @@ setUserPage(1);
         )}
       </tbody>
     </table>
+  </div>
+)}
+
+{activeTab === 'Email Notifications' && (
+  <div>
+    <h4>Email Notifications</h4>
+    <div className="form-group">
+      <label>Job Post ID:</label>
+      <input value={filterJobPostId} onChange={(e) => setFilterJobPostId(e.target.value)} />
+    </div>
+    <div className="form-group">
+      <label>Title:</label>
+      <input value={filterTitle} onChange={(e) => setFilterTitle(e.target.value)} />
+    </div>
+    <div className="form-group">
+      <label>Employer ID:</label>
+      <input value={filterEmployerId} onChange={(e) => setFilterEmployerId(e.target.value)} />
+    </div>
+    <div className="form-group">
+      <label>Employer Email:</label>
+      <input value={filterEmployerEmail} onChange={(e) => setFilterEmployerEmail(e.target.value)} />
+    </div>
+    <div className="form-group">
+      <label>Employer Username:</label>
+      <input value={filterEmployerUsername} onChange={(e) => setFilterEmployerUsername(e.target.value)} />
+    </div>
+    <button onClick={async () => {
+      const data = await getAllEmailStats({
+        jobPostId: filterJobPostId,
+        title: filterTitle,
+        employerId: filterEmployerId,
+        employerEmail: filterEmployerEmail,
+        employerUsername: filterEmployerUsername,
+      });
+      setAllEmailStats(data);
+    }} className="action-button">
+      Search
+    </button>
+    {allEmailStats && (
+      <table className="dashboard-table">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Username</th>
+            <th>Opened</th>
+            <th>Clicked</th>
+            <th>Sent At</th>
+            <th>Opened At</th>
+            <th>Clicked At</th>
+            <th>Job Post ID</th>
+          </tr>
+        </thead>
+        <tbody>
+          {allEmailStats.details.length > 0 ? allEmailStats.details.map((detail, i) => (
+            <tr key={i}>
+              <td>{detail.email}</td>
+              <td>{detail.username}</td>
+              <td>{detail.opened ? 'Yes' : 'No'}</td>
+              <td>{detail.clicked ? 'Yes' : 'No'}</td>
+              <td>{format(new Date(detail.sent_at), 'PPpp')}</td>
+              <td>{detail.opened_at ? format(new Date(detail.opened_at), 'PPpp') : 'N/A'}</td>
+              <td>{detail.clicked_at ? format(new Date(detail.clicked_at), 'PPpp') : 'N/A'}</td>
+              <td>{detail.job_post_id}</td>
+            </tr>
+          )) : (
+            <tr>
+              <td colSpan={8}>No notifications found.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    )}
   </div>
 )}
 

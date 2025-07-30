@@ -17,7 +17,9 @@ const VACategories: React.FC = () => {
       try {
         setIsLoading(true);
         const data = await getCategories();
-        setCategories(data);
+        // Сортировка категорий по имени в алфавитном порядке
+        const sortedData = data.sort((a, b) => a.name.localeCompare(b.name));
+        setCategories(sortedData);
       } catch (err: any) {
         console.error('Error fetching categories:', err);
         setError(err.response?.data?.message || 'Failed to load categories.');
