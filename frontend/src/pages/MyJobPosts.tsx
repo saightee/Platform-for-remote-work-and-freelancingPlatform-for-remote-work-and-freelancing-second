@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import React from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus, notifyCandidates, initializeWebSocket, createReview } from '../services/api';
+import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus, notifyCandidates, initializeWebSocket, createReview, searchCategories } from '../services/api';
 import { JobPost, Category, JobApplicationDetails } from '@types';
 import { useRole } from '../context/RoleContext';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
@@ -29,6 +30,9 @@ const MyJobPosts: React.FC = () => {
   const [selectedJobPostId, setSelectedJobPostId] = useState<string>(''); // Add state for selectedJobPostId
   const [formError, setFormError] = useState<string | null>(null);
   const [reviewForm, setReviewForm] = useState<{ applicationId: string; rating: number; comment: string } | null>(null);
+  const [skillInput, setSkillInput] = useState('');
+const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
+const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,6 +76,22 @@ const MyJobPosts: React.FC = () => {
       newSocket.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+  const search = async () => {
+    if (skillInput.trim()) {
+      const res = await searchCategories(skillInput);
+      const sortedFiltered = res.sort((a, b) => a.name.localeCompare(b.name));
+      setFilteredSkills(sortedFiltered);
+      setIsDropdownOpen(true);
+    } else {
+      setFilteredSkills([]); 
+      setIsDropdownOpen(false);
+    }
+  };
+  const debounce = setTimeout(search, 300);
+  return () => clearTimeout(debounce);
+}, [skillInput]);
 
   const handleUpdate = async (id: string, updatedData: Partial<JobPost>) => {
     try {
@@ -327,20 +347,50 @@ const handleEditJob = (job: JobPost) => {
                         <option value="Project-based">Project-based</option>
                       </select>
                     </div>
-                    <div className="my-job-form-group">
-                      <label>Category:</label>
-                      <select
-                        value={editingJob.category_id || ''}
-                        onChange={(e) => editingJob && setEditingJob({ ...editingJob, category_id: e.target.value || undefined })}
-                      >
-                        <option value="">Select category</option>
-                        {categories.map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+<div className="my-job-form-group">
+  <label>Category:</label>
+  <div className="autocomplete-wrapper">
+    <input
+      type="text"
+      value={skillInput}
+      onChange={(e) => setSkillInput(e.target.value)}
+      placeholder="Type to search categories..."
+      onFocus={() => setIsDropdownOpen(true)}
+      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+    />
+    {isDropdownOpen && (
+      <ul className="autocomplete-dropdown">
+        {(skillInput.trim() ? filteredSkills : categories).map((category) => (
+          <React.Fragment key={category.id}>
+            <li
+              className="autocomplete-item"
+              onMouseDown={() => {
+                setEditingJob({ ...editingJob, category_id: category.id });
+                setSkillInput(category.name);
+                setIsDropdownOpen(false);
+              }}
+            >
+              {category.name}
+            </li>
+            {category.subcategories?.map((sub) => (
+              <li
+                key={sub.id}
+                className="autocomplete-item sub-category"
+                onMouseDown={() => {
+                  setEditingJob({ ...editingJob, category_id: sub.id });
+                  setSkillInput(`${category.name} > ${sub.name}`);
+                  setIsDropdownOpen(false);
+                }}
+              >
+                {`${category.name} > ${sub.name}`}
+              </li>
+            ))}
+          </React.Fragment>
+        ))}
+      </ul>
+    )}
+  </div>
+</div>
                     <div className="my-job-action-buttons">
                       <button onClick={() => handleSaveEdit(post.id)} className="my-job-action-button my-job-success">
                         Save Changes

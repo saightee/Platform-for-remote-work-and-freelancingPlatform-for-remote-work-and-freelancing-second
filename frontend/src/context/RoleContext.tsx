@@ -27,6 +27,7 @@ interface RoleContextType {
   refreshProfile: () => Promise<void>;
   socket: Socket | null;
   socketStatus: 'connected' | 'disconnected' | 'reconnecting';
+  setSocketStatus: (status: 'connected' | 'disconnected' | 'reconnecting') => void; // Добавлено
 }
 
 interface DecodedToken {
@@ -259,11 +260,11 @@ const newSocket = initializeWebSocket(
   initializeSocket();
 }, [profile]);
 
-  return (
-    <RoleContext.Provider value={{ currentRole, profile, isLoading, error, refreshProfile, socket, socketStatus }}>
-      {children}
-    </RoleContext.Provider>
-  );
+return (
+  <RoleContext.Provider value={{ currentRole, profile, isLoading, error, refreshProfile, socket, socketStatus, setSocketStatus }}>
+    {children}
+  </RoleContext.Provider>
+);
 };
 
 export const useRole = () => {

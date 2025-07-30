@@ -20,6 +20,7 @@ const VACategories: React.FC = () => {
         // Сортировка категорий по имени в алфавитном порядке
         const sortedData = data.sort((a, b) => a.name.localeCompare(b.name));
         setCategories(sortedData);
+        console.log('Fetched categories in VACategories:', sortedData);
       } catch (err: any) {
         console.error('Error fetching categories:', err);
         setError(err.response?.data?.message || 'Failed to load categories.');
@@ -40,15 +41,15 @@ const VACategories: React.FC = () => {
         <h2>VA Categories</h2>
         <p>Explore our range of virtual assistant categories to find the perfect fit for your needs.</p>
         <div className="category-list">
-          {categories.map((category, index) => (
-<Link
-  key={category.id}
-  to={`/find-talent?category_id=${category.id}`} // Изменил на category_id
-  className={`category-item category-${index % 17}`}
->
-  {category.name}
-</Link>
-          ))}
+         { categories.map((category, index) => (
+  <Link
+    key={category.id}
+    to={`/find-talent?category_id=${category.id}`} // category_id для фильтра
+    className={`category-item category-${index % 17}`}
+  >
+    {category.name}
+  </Link>
+)) }
         </div>
       </div>
       <Footer />
