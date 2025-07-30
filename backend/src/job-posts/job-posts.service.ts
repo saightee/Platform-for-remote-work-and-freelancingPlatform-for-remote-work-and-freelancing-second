@@ -10,6 +10,7 @@ import { SettingsService } from '../settings/settings.service';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
+
 @Injectable()
 export class JobPostsService {
   constructor(
@@ -277,9 +278,8 @@ export class JobPostsService {
     - Responsibilities: Bullet point list of key duties.
     - Requirements: Bullet point list of must-have skills, experience, and qualifications.
     - Benefits: Bullet point list of perks, salary range if mentioned, and company culture.
-    - How to Apply: Short instruction.
     Make it concise (300-500 words), use markdown for formatting (e.g., **bold** for sections, - for bullets), and ensure it's appealing to candidates.`;
-  
+
     try {
       const response = await axios.post('https://api.x.ai/v1/chat/completions', {
         model: 'grok-beta',
