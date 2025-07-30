@@ -282,7 +282,7 @@ export class JobPostsService {
 
     try {
       const response = await axios.post('https://api.x.ai/v1/chat/completions', {
-        model: 'grok-beta',
+        model: 'grok-3-mini',
         messages: [{ role: 'user', content: prompt }],
       }, {
         headers: {
