@@ -68,11 +68,17 @@ useEffect(() => {
     try {
       setIsLoading(true);
       setError(null);
+      // Добавлено: получение category_id из params
+      const categoryId = searchParams.get('category_id');
+      let searchSkills = filters.skills;
+      if (categoryId) {
+        searchSkills = [categoryId]; // Фильтруем по категории как skill
+      }
 const response = await (searchType === 'talents'
   ? searchTalents({
     experience: filters.experience,
     rating: filters.rating,
-    skills: filters.skills,
+    skills: searchSkills, // Изменено: используем searchSkills
     salary_type: filters.salary_type || undefined, // Добавлено
     description: searchInput,
     page: filters.page,
@@ -121,7 +127,14 @@ setCategories(categoriesData || []);
     }
   };
   fetchData();
-}, [filters, searchType, navigate]);
+}, [filters, searchType, navigate, searchParams]); // Добавлен searchParams в зависимости
+
+useEffect(() => {
+  const debounce = setTimeout(() => {
+    handleSearch({ preventDefault: () => {} } as React.FormEvent); // Fake event
+  }, 500);
+  return () => clearTimeout(debounce);
+}, [searchInput]);
 
 useEffect(() => {
   const searchCategoriesAsync = async () => {
@@ -214,7 +227,7 @@ const handleSearch = (e: React.FormEvent) => {
       <Header />
       <div className="container ft-container">
         <h2>Find Talent</h2>
-        <div className="ft-search-bar">
+<div className="ft-search-bar">
   <input
     type="text"
     placeholder="Search by skills or keywords"
@@ -381,6 +394,17 @@ const handleSearch = (e: React.FormEvent) => {
                 <strong>Description:</strong>{' '}
                 {description ? truncateDescription(description, 100) : 'Not specified'}
               </p>
+              <p><strong>Resume:</strong> {(talent as any).resume ? ( 
+  <a 
+    href={(talent as any).resume.startsWith('http') 
+      ? (talent as any).resume 
+      : `https://jobforge.net/backend${(talent as any).resume}`}
+    target="_blank" 
+    rel="noopener noreferrer"
+  >
+    Download Resume
+  </a>
+) : 'Not provided'}</p>
             </div>
           </div>
           <div className="ft-footer">

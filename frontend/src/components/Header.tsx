@@ -129,11 +129,11 @@ const Header: React.FC = () => {
     try {
       await logout();
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      window.location.href = '/';
     } catch (error) {
       console.error('Logout error:', error);
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      window.location.href = '/';
     }
   };
 

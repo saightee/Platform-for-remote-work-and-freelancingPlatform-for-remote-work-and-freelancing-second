@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { createJobPost, getCategories, searchCategories } from '../services/api';
+import { createJobPost, getCategories, searchCategories, generateDescription } from '../services/api';
 import { Category, JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import ReactQuill from 'react-quill';
@@ -19,11 +19,15 @@ const PostJob: React.FC = () => {
   const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedCategoryName, setSelectedCategoryName] = useState('');
-  const [categoryIds, setCategoryIds] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [salaryType, setSalaryType] = useState('per hour');
   const [location, setLocation] = useState(''); // Uncommented and used for Work Mode
-  
+  const [selectedSkills, setSelectedSkills] = useState<Category[]>([]);
+ 
+  const [aiBrief, setAiBrief] = useState(''); // Новое: brief для AI
+  const [isEdited, setIsEdited] = useState(false);
+  const [requestTimes, setRequestTimes] = useState<number[]>([]);
   const [salary, setSalary] = useState<number | null>(null);
   const [jobType, setJobType] = useState<JobPost['job_type']>(null);
   const [categoryId, setCategoryId] = useState('');
@@ -65,7 +69,7 @@ useEffect(() => {
   } else {
     setFilteredCountries([]);
   }
-}, [countryInput, excludedCountries]);
+}, [countryInput, excludedCountries, profile, skillInput]);
 
 const addCountry = (country: string) => {
   if (!excludedCountries.includes(country)) {
@@ -79,19 +83,45 @@ const removeCountry = (country: string) => {
   setExcludedCountries(excludedCountries.filter(c => c !== country));
 };
 
+const handleGenerate = async (isRegenerate = false) => {
+    if (!aiBrief.trim()) {
+      setError('Brief description is required for generation.');
+      return;
+    }
+    const now = Date.now() / 1000;
+    const recentRequests = requestTimes.filter(t => now - t < 60);
+    if (recentRequests.length >= 5) {
+      setError('Rate limit exceeded: 5 generations per minute.');
+      return;
+    }
+    setRequestTimes([...recentRequests, now]);
+    try {
+      setError(null);
+      setIsLoading(true);
+      const res = await generateDescription(aiBrief);
+      setDescription(res);
+      setIsEdited(false); // Reset edited flag
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to generate description.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        setIsLoading(true);
-        const categoriesData = await getCategories();
-        setCategories(categoriesData || []);
-      } catch (err: any) {
-        console.error('Error fetching categories:', err);
-        setError(err.response?.data?.message || 'Failed to load categories.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+const fetchCategories = async () => {
+  try {
+    setIsLoading(true);
+    const data = await getCategories();
+    const sortedData = data.sort((a, b) => a.name.localeCompare(b.name));
+    setCategories(sortedData);
+  } catch (err: any) {
+    console.error('Error fetching categories:', err);
+    setError(err.response?.data?.message || 'Failed to load categories.');
+  } finally {
+    setIsLoading(false);
+  }
+};
     if (profile?.role === 'employer') {
       fetchCategories();
     } else {
@@ -114,17 +144,24 @@ useEffect(() => {
     return () => clearTimeout(debounce);
   }, [skillInput]);
 
-      const handleSubmit = async (e: FormEvent) => {
+const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!profile || profile.role !== 'employer') {
       navigate('/login');
       return;
     }
+    if (!title.trim()) {
+      setError('Job title is required.');
+      return;
+    }
+    if (!description.trim() && !aiBrief.trim()) {
+      setError('Either description or AI brief is required.');
+      return;
+    }
     try {
       setError(null);
-      const jobData: Partial<JobPost> = {
+      const jobData: Partial<JobPost> & { aiBrief?: string } = {
         title,
-        description,
         location,
         salary: salary !== null ? salary : null,
         salary_type: salaryType,
@@ -132,11 +169,15 @@ useEffect(() => {
         status: 'Active',
         job_type: jobType,
         category_ids: categoryIds || undefined,
-      } as Partial<JobPost> & { excluded_locations?: string[]; salary_type?: string };
+      };
+      if (isEdited || !aiBrief.trim()) {
+        jobData.description = description;
+      } else {
+        jobData.aiBrief = aiBrief;
+      }
       await createJobPost(jobData);
       navigate('/my-job-posts');
     } catch (err: any) {
-      console.error('Error creating job post:', err);
       setError(err.response?.data?.message || 'Failed to create job post.');
     }
   };
@@ -173,177 +214,195 @@ useEffect(() => {
   const isDescriptionValid = descriptionLength >= 150;
 
   return (
-    <div>
-      <Header />
-      <div className="container">
-        <div className="post-job-container">
-          <h1 style={{ textAlign: 'left', textTransform: 'uppercase' }}>POST A JOB</h1>
-          <div className="post-job-form">
-            <form onSubmit={handleSubmit}>
-              <div className="form-columns">
-                <div className="form-column left-column">
-                  <div className="form-group">
-                    <label>Job Title *</label>
+  <div>
+    <Header />
+    <div className="container">
+      <div className="post-job-container">
+        <h1 style={{ textAlign: 'left', textTransform: 'uppercase' }}>POST A JOB</h1>
+        <div className="post-job-form">
+          <form onSubmit={handleSubmit}>
+            <div className="form-columns">
+              <div className="form-column left-column">
+                <div className="form-group">
+                  <label>Job Title *</label>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Enter job title"
+                    required
+                  />
+                </div>
+                <div className="form-group relative">
+                  <label>Location Exclusions</label>
+                  <input
+                    type="text"
+                    value={countryInput}
+                    onChange={(e) => setCountryInput(e.target.value)}
+                    placeholder="Search countries to exclude..."
+                  />
+                  {filteredCountries.length > 0 && (
+                    <ul className="autocomplete-dropdown">
+                      {filteredCountries.map((country) => (
+                        <li key={country} className="autocomplete-item" onClick={() => addCountry(country)}>
+                          {country}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="category-tags">
+                    {excludedCountries.map((country) => (
+                      <span key={country} className="category-tag">
+                        {country}
+                        <span className="remove-tag" onClick={() => removeCountry(country)}>×</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Work Mode</label>
+                  <select value={location} onChange={(e) => setLocation(e.target.value)}>
+                    <option value="">Work mode</option>
+                    <option value="Remote">Remote</option>
+                    <option value="On-site">On-site</option>
+                    <option value="Hybrid">Hybrid</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Salary</label>
+                  <div className="salary-group">
+                    <input
+                      type="number"
+                      value={salary !== null ? salary : ''}
+                      onChange={(e) => setSalary(e.target.value ? Number(e.target.value) : null)}
+                      placeholder="Enter salary"
+                      min="0"
+                    />
+                    <select value={salaryType} onChange={(e) => setSalaryType(e.target.value)}>
+                      <option>per hour</option>
+                      <option>per month</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Job Type</label>
+                  <select
+                    value={jobType || ''}
+                    onChange={(e) => {
+                      const value = e.target.value as 'Full-time' | 'Part-time' | 'Project-based' | '';
+                      setJobType(value === '' ? null : value);
+                    }}
+                  >
+                    <option value="">Select job type</option>
+                    <option value="Full-time">Full-time</option>
+                    <option value="Part-time">Part-time</option>
+                    <option value="Project-based">Project-based</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Category</label>
+                  <div className="autocomplete-wrapper">
                     <input
                       type="text"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Enter job title"
-                      required
+                      value={skillInput}
+                      onChange={(e) => setSkillInput(e.target.value)}
+                      placeholder="Start typing to search skills..."
+                      className="category-select"
+                      onFocus={() => skillInput.trim() && setIsDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
                     />
+                    {isDropdownOpen && filteredSkills.length > 0 && (
+                      <ul className="autocomplete-dropdown">
+                        {filteredSkills.map((skill) => (
+                          <li
+                            key={skill.id}
+                            className="autocomplete-item"
+                            onMouseDown={() => {
+                              if (!selectedCategories.includes(skill.id)) {
+                                setSelectedCategories([...selectedCategories, skill.id]);
+                                setCategoryIds([...categoryIds, skill.id]);
+                                setSkillInput('');
+                                setIsDropdownOpen(false);
+                              }
+                            }}
+                          >
+                            {skill.parent_id
+                              ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
+                              : skill.name}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
-                 <div className="form-group relative">
-  <label>Location Exclusions</label>
-  <input
-    type="text"
-    value={countryInput}
-    onChange={(e) => setCountryInput(e.target.value)}
-    placeholder="Search countries to exclude..."
-  />
-  {filteredCountries.length > 0 && (
-    <ul className="autocomplete-dropdown">
-      {filteredCountries.map((country) => (
-        <li key={country} className="autocomplete-item" onClick={() => addCountry(country)}>
-          {country}
-        </li>
-      ))}
-    </ul>
-  )}
-  <div className="category-tags">
-    {excludedCountries.map((country) => (
-      <span key={country} className="category-tag">
-        {country}
-        <span className="remove-tag" onClick={() => removeCountry(country)}>×</span>
-      </span>
-    ))}
-  </div>
-</div>
-                  <div className="form-group">
-                    <label>Work Mode</label>
-                    <select value={location} onChange={(e) => setLocation(e.target.value)}>
-                      <option value="">Work mode</option>
-                      <option value="Remote">Remote</option>
-                      <option value="On-site">On-site</option>
-                      <option value="Hybrid">Hybrid</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Salary</label>
-                    <div className="salary-group">
-                      <input
-                        type="number"
-                        value={salary !== null ? salary : ''}
-                        onChange={(e) => setSalary(e.target.value ? Number(e.target.value) : null)}
-                        placeholder="Enter salary"
-                        min="0"
-                      />
-                      <select value={salaryType} onChange={(e) => setSalaryType(e.target.value)}>
-                        <option>per hour</option>
-                        <option>per month</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label>Job Type</label>
-                    <select
-                      value={jobType || ''}
-                      onChange={(e) => {
-                        const value = e.target.value as 'Full-time' | 'Part-time' | 'Project-based' | '';
-                        setJobType(value === '' ? null : value);
-                      }}
-                    >
-                      <option value="">Select job type</option>
-                      <option value="Full-time">Full-time</option>
-                      <option value="Part-time">Part-time</option>
-                      <option value="Project-based">Project-based</option>
-                    </select>
-                  </div>
-<div className="form-group">
-  <label>Category</label>
-  <div className="autocomplete-wrapper">
-    <input
-      type="text"
-      value={skillInput}
-      onChange={(e) => setSkillInput(e.target.value)}
-      placeholder="Type to search category..."
-      className="category-select"
-      onFocus={() => { // Изменено: показ всех категорий если input пуст, для выбора main/sub
-        if (!skillInput.trim()) {
-          setFilteredSkills(categories); // Показываем все категории (main + sub)
-          setIsDropdownOpen(true);
-        } else if (skillInput.trim()) {
-          setIsDropdownOpen(true);
-        }
-      }}
-      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-    />
-    {isDropdownOpen && filteredSkills.length > 0 && (
-      <ul className="autocomplete-dropdown">
-        {filteredSkills.map((skill) => (
-          <li
-            key={skill.id}
-            className="autocomplete-item"
-            onMouseDown={() => {
-              if (!selectedCategories.find(c => c.id === skill.id)) {
-                setSelectedCategories([...selectedCategories, skill]);
-                setCategoryIds([...categoryIds, skill.id]);
-              }
-              setSkillInput('');
-              setIsDropdownOpen(false);
-            }}
-          >
-            {skill.parent_id
-              ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
-              : skill.name} 
-          </li>
-        ))}
-      </ul>
-    )}
-  </div>
-  <div className="category-tags">
-    {selectedCategories.map((cat) => (
-      <span key={cat.id} className="category-tag">
-        {cat.parent_id 
-          ? `${categories.find((c) => c.id === cat.parent_id)?.name || 'Category'} > ${cat.name}`
-          : cat.name}
-        <span 
-          className="remove-tag" 
-          onClick={() => {
-            setSelectedCategories(selectedCategories.filter(c => c.id !== cat.id));
-            setCategoryIds(categoryIds.filter(id => id !== cat.id));
-          }}
-        >×</span>
-      </span>
-    ))}
-  </div>
-</div>
-                </div>
-                <div className="form-column right-column">
-                  <div className="description-editor">
-                    <h3>Job description</h3>
-                    <ReactQuill
-                      value={description}
-                      onChange={setDescription}
-                      placeholder="Enter job description"
-                      style={{ height: '380px', marginBottom: '10px' }}
-                    />
+                  <div className="category-tags">
+                    {selectedCategories.map((categoryId) => {
+                      const skill = categories.find((cat) => cat.id === categoryId) || filteredSkills.find((cat) => cat.id === categoryId);
+                      return (
+                        <span key={categoryId} className="category-tag">
+                          {skill
+                            ? (skill.parent_id
+                                ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
+                                : skill.name)
+                            : 'Unknown Category'}
+                          <span
+                            className="remove-tag"
+                            onClick={() => {
+                              setSelectedCategories(selectedCategories.filter((id) => id !== categoryId));
+                              setCategoryIds(categoryIds.filter((id) => id !== categoryId));
+                            }}
+                          >
+                            ×
+                          </span>
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
+                <div className="form-group">
+                  <label>Brief Description for AI (will generate full description) *</label>
+                  <textarea
+                    value={aiBrief}
+                    onChange={(e) => setAiBrief(e.target.value)}
+                    placeholder="Briefly describe the job and requirements (e.g., Python developer with 3 years experience for web app. Skills: Django, SQL. Duties: backend development.)"
+                    rows={4}
+                  />
+                  <button type="button" onClick={() => handleGenerate()} style={{ marginTop: '10px' }}>
+                    Generate Description
+                  </button>
+                </div>
               </div>
-              {error && <p className="error-message">{error}</p>}
-              <div style={{ textAlign: 'center', marginTop: '60px' }}>
-                <button type="submit" style={{ padding: '12px 32px', fontSize: '16px' }}>
-                  Post Job
-                </button>
+              <div className="form-column right-column">
+                <div className="description-editor">
+                  <h3>Job Description (editable)</h3>
+                  <ReactQuill
+                    value={description}
+                    onChange={(value) => {
+                      setDescription(value);
+                      if (!isEdited) setIsEdited(true);
+                    }}
+                    placeholder="Generated description will appear here"
+                    style={{ height: '380px', marginBottom: '10px' }}
+                  />
+                  <button type="button" onClick={() => handleGenerate(true)} style={{ marginTop: '50px' }}>
+                    Regenerate
+                  </button>
+                </div>
               </div>
-            </form>
-          </div>
+            </div>
+            {error && <p className="error-message">{error}</p>}
+            <div style={{ textAlign: 'center', marginTop: '60px' }}>
+              <button type="submit" style={{ padding: '12px 32px', fontSize: '16px' }}>
+                Post Job
+              </button>
+            </div>
+          </form>
         </div>
       </div>
-      <Footer />
-      <Copyright />
     </div>
-  );
+    <Footer />
+    <Copyright />
+  </div>
+);
 };
 
 export default PostJob;
