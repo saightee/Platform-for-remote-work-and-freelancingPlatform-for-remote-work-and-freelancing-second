@@ -2,12 +2,18 @@ import { Controller, Post, Put, Get, Body, Param, Headers, UnauthorizedException
 import { AuthGuard } from '@nestjs/passport';
 import { JwtService } from '@nestjs/jwt';
 import { JobPostsService } from './job-posts.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../users/entities/user.entity';
+import { ThrottlerGuard } from '@nestjs/throttler';
 
 @Controller('job-posts')
 export class JobPostsController {
   constructor(
     private jobPostsService: JobPostsService,
     private jwtService: JwtService,
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
   ) {}
 
   @UseGuards(AuthGuard('jwt'))
@@ -21,6 +27,7 @@ export class JobPostsController {
       salary: number; 
       status: 'Active' | 'Draft' | 'Closed'; 
       category_id?: string; 
+      aiBrief?: string;
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
       salary_type?: 'per hour' | 'per month'; 
       excluded_locations?: string[]; 
@@ -47,6 +54,7 @@ export class JobPostsController {
       salary?: number; 
       status?: 'Active' | 'Draft' | 'Closed'; 
       category_id?: string; 
+      aiBrief?: string;
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
       salary_type?: 'per hour' | 'per month';  
       excluded_locations?: string[]; 
@@ -144,5 +152,24 @@ export class JobPostsController {
   @Post(':id/increment-view')
   async incrementJobView(@Param('id') jobPostId: string) {
   return this.jobPostsService.incrementJobView(jobPostId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), ThrottlerGuard)
+  @Post('generate-description')
+  async generateDescription(
+    @Headers('authorization') authHeader: string,
+    @Body('aiBrief') aiBrief: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user || user.role !== 'employer') {
+      throw new UnauthorizedException('Only employers can generate descriptions');
+    }
+    return this.jobPostsService.generateDescription(aiBrief);
   }
 }

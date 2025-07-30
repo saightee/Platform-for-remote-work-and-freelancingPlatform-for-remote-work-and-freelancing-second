@@ -498,6 +498,7 @@
     "excluded_locations": ["India", "Pakistan"],  // Optional: array of country names to exclude applicants from
     "status": "Active",
     "category_id": "<categoryId>", // Optional
+    "aiBrief": "string", // Optional: Brief text for AI to generate description automatically
     "job_type": "Full-time" // Optional: "Full-time", "Part-time", "Project-based"
   }
 - **Response (Success - 200)**:
@@ -555,6 +556,7 @@
     "excluded_locations": ["India"],
     "status": "Closed",
     "category_id": "<categoryId>", // Optional
+    "aiBrief": "string", // Optional: Brief text for AI to generate description automatically.
     "job_type": "Full-time" // Optional: "Full-time", "Part-time", "Project-based"
   }
 - **Response (Success - 200)**:
@@ -587,6 +589,32 @@
     "statusCode": 404,
     "message": "Job post not found or you do not have permission to update it",
     "error": "Not Found"
+  }
+
+### 9.1 Generate Job Description (AI)
+- **Endpoint**: `POST /api/job-posts/generate-description`
+- **Description**: Generates a job description using AI based on a brief input. Useful for preview/regeneration without saving the post.
+- **Headers**: `Authorization: Bearer <token>` (Required for employers)
+- **Request Body**::
+  ```json
+  {
+    "aiBrief": "Need Python developer with 3 years experience for web app. Skills: Django, SQL."
+  }
+
+- **Response (Error - 400, if aiBrief missing)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "AI brief is required",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 500, AI fail)**:
+  ```json
+  {
+    "statusCode": 500,
+    "message": "Failed to generate description with AI",
+    "error": "Internal Server Error"
   }
 
 ### 10. Get Job Post

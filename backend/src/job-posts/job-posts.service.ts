@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JobPost } from './job-post.entity';
@@ -7,6 +7,8 @@ import { CategoriesService } from '../categories/categories.service';
 import { JobApplication } from '../job-applications/job-application.entity';
 import { ApplicationLimitsService } from '../application-limits/application-limits.service';
 import { SettingsService } from '../settings/settings.service';
+import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
 
 @Injectable()
 export class JobPostsService {
@@ -19,7 +21,8 @@ export class JobPostsService {
     private jobApplicationsRepository: Repository<JobApplication>,
     private categoriesService: CategoriesService,
     private applicationLimitsService: ApplicationLimitsService,
-    private settingsService: SettingsService, 
+    private settingsService: SettingsService,
+    private configService: ConfigService, 
   ) {}
 
   async createJobPost(userId: string, jobPostData: { 
@@ -28,6 +31,7 @@ export class JobPostsService {
     location: string; 
     salary: number; 
     status: 'Active' | 'Draft' | 'Closed'; 
+    aiBrief?: string;
     category_id?: string; 
     job_type?: 'Full-time' | 'Part-time' | 'Project-based';
     salary_type?: 'per hour' | 'per month';  
@@ -43,6 +47,10 @@ export class JobPostsService {
   
     if (jobPostData.category_id) {
       await this.categoriesService.getCategoryById(jobPostData.category_id);
+    }
+
+    if (jobPostData.aiBrief) {
+      jobPostData.description = await this.generateDescription(jobPostData.aiBrief);
     }
   
     const limitObj = await this.settingsService.getGlobalApplicationLimit();
@@ -70,6 +78,7 @@ export class JobPostsService {
     salary?: number; 
     status?: 'Active' | 'Draft' | 'Closed'; 
     category_id?: string; 
+    aiBrief?: string;
     job_type?: 'Full-time' | 'Part-time' | 'Project-based';
     salary_type?: 'per hour' | 'per month';  
     excluded_locations?: string[];  
@@ -81,6 +90,10 @@ export class JobPostsService {
   
     if (updates.category_id) {
       await this.categoriesService.getCategoryById(updates.category_id);
+    }
+
+    if (updates.aiBrief) {
+      updates.description = await this.generateDescription(updates.aiBrief);
     }
   
     if (updates.title) jobPost.title = updates.title;
@@ -250,5 +263,37 @@ export class JobPostsService {
     return { message: 'View count incremented', views: jobPost.views };
     }
 
-    
+  async generateDescription(aiBrief: string): Promise<string> {
+    if (!aiBrief) {
+      throw new BadRequestException('AI brief is required for description generation');
+    }
+    const apiKey = this.configService.get<string>('XAI_API_KEY');
+    if (!apiKey) {
+      throw new InternalServerErrorException('xAI API key is not configured');
+    }
+    const prompt = `Generate a professional, engaging job description in English for a job posting based on the following brief: ${aiBrief}. 
+    Structure it with the following sections: 
+    - Job Overview: Brief introduction to the role and company.
+    - Responsibilities: Bullet point list of key duties.
+    - Requirements: Bullet point list of must-have skills, experience, and qualifications.
+    - Benefits: Bullet point list of perks, salary range if mentioned, and company culture.
+    - How to Apply: Short instruction.
+    Make it concise (300-500 words), use markdown for formatting (e.g., **bold** for sections, - for bullets), and ensure it's appealing to candidates.`;
+  
+    try {
+      const response = await axios.post('https://api.x.ai/v1/chat/completions', {
+        model: 'grok-beta',
+        messages: [{ role: 'user', content: prompt }],
+      }, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data.choices[0].message.content.trim();
+    } catch (error) {
+      console.error('xAI API Error:', error.response?.data || error.message);
+      throw new InternalServerErrorException('Failed to generate description with AI');
+    }
+  }
 }
