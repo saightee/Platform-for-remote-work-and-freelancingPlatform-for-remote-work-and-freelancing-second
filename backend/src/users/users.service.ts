@@ -19,9 +19,10 @@ export class UsersService {
     private categoriesRepository: Repository<Category>,
   ) {}
 
-async create(
+  async create(
     userData: Partial<User> & { email: string; username: string; role: 'employer' | 'jobseeker' | 'admin' | 'moderator' },
     additionalData: any,
+    refCode?: string,
   ): Promise<User> {
     console.log('Creating user with data:', userData);
     const userEntity: DeepPartial<User> = {

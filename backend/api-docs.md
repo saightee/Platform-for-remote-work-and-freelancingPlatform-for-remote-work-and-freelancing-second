@@ -3572,3 +3572,104 @@
   "message": "Invalid token",
   "error": "Unauthorized"
   }
+
+### 84. Generate Referral Link for Job Post
+- **Endpoint**: `POST /api/admin/job-posts/:id/generate-referral`
+- **Description**: Generates or returns existing unique referral link for a job post to track clicks and registrations.
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  ```json
+  {
+    "refCode": "<uuid>",
+    "fullLink": "https://yourdomain.com/ref/<uuid>",
+    "jobPostId": "<jobPostId>"
+  }
+- **Error: 404 if job post not found, 401 if not admin.**
+
+### 85. Get All Referral Links
+- **Endpoint**: `GET /api/admin/referral-links`
+- **Description**: Retrieves all generated referral links with details (job post, clicks, registrations, registered users). Supports filters jobId and jobTitle.
+- **Query**: jobId (optional), jobTitle (optional, partial match).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "id": "<linkId>",
+      "ref_code": "<uuid>",
+      "clicks": 10,
+      "registrations": 5,
+      "job_post": { "id": "<jobId>", "title": "Job Title" },
+      "registrationsDetails": [
+        { "user": { "id": "<userId>", "username": "user", "email": "email@example.com", "role": "jobseeker", "created_at": "2025-07-31T00:00:00.000Z" } }
+      ],
+      "created_at": "2025-07-31T00:00:00.000Z"
+    }
+  ]
+- **Error: 401 if not admin.**
+
+### 86. Referral Redirect (Public)
+- **Endpoint**: `GET /ref/:refCode`
+- **Description**: Increments click count and redirects to the job post page.
+- **Response: Redirect to /jobs/<jobid>, or 404 if invalid.</jobid>**
+
+### 87. Get Chat History
+- **Endpoint**: `GET /api/chat/:jobApplicationId`
+- **Description**: Retrieves the chat history for a specific job application with pagination. Accessible only to the jobseeker or employer associated with the accepted job application. Messages are ordered by `created_at` in ascending order.
+- **Headers**: `Authorization: Bearer <token>` (Required, JWT token).
+- **Path Parameters**: `jobApplicationId` (string, required): The ID of the job application.
+- **Query Parameters**: 
+  - `page` (number, optional): Page number for pagination (default: 1).
+  - `limit` (number, optional): Number of messages per page (default: 10).
+- **Response (Success - 200)**:
+  ```json
+  {
+    "total": 50,
+    "data": [
+      {
+        "id": "<messageId>",
+        "job_application_id": "<jobApplicationId>",
+        "sender_id": "<userId>",
+        "sender": {
+          "id": "<userId>",
+          "username": "john_doe",
+          "email": "john@example.com",
+          "role": "jobseeker"
+        },
+        "recipient_id": "<userId>",
+        "recipient": {
+          "id": "<userId>",
+          "username": "jane_smith",
+          "email": "jane@example.com",
+          "role": "employer"
+        },
+        "content": "Hello, let's discuss the project!",
+        "created_at": "2025-06-16T05:47:00.000Z",
+        "is_read": false
+      }
+    ]
+  }
+
+- **Response (Error - 401, if token is invalid or user lacks access)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",  // or "No access to this chat"
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 400, if pagination parameters are invalid)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Page must be a positive integer",  // or similar for limit
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 404, if job application not found or not accepted)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job application not found",  // or "Chat is only available for accepted applications"
+    "error": "Not Found"
+  }

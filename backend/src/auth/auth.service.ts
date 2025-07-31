@@ -10,7 +10,6 @@ import * as geoip from 'geoip-lite';
 import { RegisterDto } from './dto/register.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { CreateModeratorDto } from './dto/create-moderator.dto';
-import { LoginDto } from './dto/login.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { Transporter } from 'nodemailer';
 
@@ -26,7 +25,7 @@ export class AuthService {
     @Inject('MAILER_TRANSPORT') private mailerTransport: Transporter,
   ) {}
 
-  async register(dto: RegisterDto | CreateAdminDto | CreateModeratorDto, ip: string, fingerprint?: string) {
+  async register(dto: RegisterDto | CreateAdminDto | CreateModeratorDto, ip: string, fingerprint?: string, refCode?: string) {
     console.log('Начало регистрации:', dto);
     const { email, password, username } = dto;
 
@@ -53,7 +52,7 @@ export class AuthService {
       if (dto.secretKey !== validSecretKey) {
         throw new UnauthorizedException('Invalid secret key');
       }
-      role = (dto as CreateModeratorDto).email.includes('moderator') ? 'moderator' : 'admin'; 
+      role = (dto as CreateModeratorDto).email.includes('moderator') ? 'moderator' : 'admin';
     } else {
       role = (dto as RegisterDto).role;
     }
@@ -63,24 +62,25 @@ export class AuthService {
 
     const userData = {
       email,
-      password: hashedPassword,
       username,
+      password: hashedPassword,
       role,
       country,
       is_email_verified: role === 'admin' || role === 'moderator',
+      referral_source: refCode || null,
     };
     const additionalData: { timezone: string; currency: string; skills?: string[]; experience?: string; resume?: string } = {
       timezone: 'UTC',
       currency: 'USD',
     };
 
-  if (role === 'jobseeker' && 'skills' in dto && 'experience' in dto && 'resume' in dto) {
-    additionalData.skills = dto.skills || [];
-    additionalData.experience = dto.experience;
-    additionalData.resume = dto.resume || null;
-  }
+    if (role === 'jobseeker' && 'skills' in dto && 'experience' in dto && 'resume' in dto) {
+      additionalData.skills = dto.skills || [];
+      additionalData.experience = dto.experience;
+      additionalData.resume = dto.resume || null;
+    }
 
-    const newUser = await this.usersService.create(userData, additionalData);
+    const newUser = await this.usersService.create(userData, additionalData, refCode);
     console.log('New User Created:', newUser);
 
     if (role === 'admin' || role === 'moderator') {

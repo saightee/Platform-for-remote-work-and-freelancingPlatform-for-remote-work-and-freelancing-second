@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
@@ -17,6 +17,7 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { ModeratorGuard } from './guards/moderator.guard';
 import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
 import { EmailModule } from '../email/email.module';
+import { AdminModule } from '../admin/admin.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { EmailModule } from '../email/email.module';
     BlockedCountriesModule,
     AntiFraudModule,
     EmailModule,
+    forwardRef(() => AdminModule),
   ],
   controllers: [AuthController],
   providers: [

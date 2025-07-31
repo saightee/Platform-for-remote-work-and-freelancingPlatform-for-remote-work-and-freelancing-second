@@ -1,17 +1,17 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LeaderboardsService } from './leaderboards.service';
 import { LeaderboardsController } from './leaderboards.controller';
 import { Employer } from '../users/entities/employer.entity';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
-import { JwtModule } from '@nestjs/jwt'; 
-import { ConfigModule, ConfigService } from '@nestjs/config'; 
-import { AuthModule } from '../auth/auth.module'; 
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Employer, JobSeeker]),
-    ConfigModule, 
+    ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -20,7 +20,7 @@ import { AuthModule } from '../auth/auth.module';
       }),
       inject: [ConfigService],
     }),
-    AuthModule, 
+    forwardRef(() => AuthModule),
   ],
   providers: [LeaderboardsService],
   controllers: [LeaderboardsController],
