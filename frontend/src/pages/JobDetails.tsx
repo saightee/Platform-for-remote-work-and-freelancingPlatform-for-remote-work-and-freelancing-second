@@ -26,6 +26,14 @@ const JobDetails: React.FC = () => {
   const viewed = useRef(false); // Добавлено для предотвращения double increment
 
   useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const ref = params.get('ref');
+  if (ref) {
+    localStorage.setItem('referralCode', ref);
+  }
+}, []);
+
+  useEffect(() => {
     const fetchJob = async () => {
       try {
         if (id) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -132,11 +132,11 @@ useEffect(() => {
     }
   };
   fetchData();
-}, [filters, searchType, navigate, searchParams, searchInput]); // Добавлен searchInput для реактивного поиска
+}, [filters, searchType, navigate, searchParams]); // Добавлен searchInput для реактивного поиска
 
 useEffect(() => {
   const debounce = setTimeout(() => {
-    handleSearch({ preventDefault: () => {} } as React.FormEvent); // Fake event
+    setFilters(prev => ({ ...prev, description: searchInput, page: 1 }));
   }, 500);
   return () => clearTimeout(debounce);
 }, [searchInput]);
@@ -150,7 +150,8 @@ useEffect(() => {
     }
     try {
       const response = await searchCategories(skillInput);
-      setFilteredSkills(response);
+      const sorted = response.sort((a, b) => a.name.localeCompare(b.name));
+      setFilteredSkills(sorted);
       setIsDropdownOpen(true);
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
@@ -194,38 +195,34 @@ const handleSearch = (e: React.FormEvent) => {
 
   const totalPages = Math.ceil(total / filters.limit) || 1;
 
-  const getVisiblePages = () => {
-    const maxVisible = 5;
-    const pages: (number | string)[] = [];
-    const currentPage = filters.page;
+const getVisiblePages = () => {
+  const maxVisible = 5;
+  const pages: (number | string)[] = [];
+  const currentPage = filters.page;
 
-    if (currentPage <= 3) {
-      for (let i = 1; i <= Math.min(maxVisible, totalPages); i++) {
-        pages.push(i);
-      }
-    } else {
-      pages.push(1);
-      if (currentPage > 4) {
-        pages.push('...');
-      }
-      for (let i = Math.max(2, currentPage - 1); i <= Math.min(currentPage + 1, totalPages); i++) {
-        if (i > 1 && i < totalPages) {
-          pages.push(i);
-        }
-      }
-    }
+  let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+  let end = Math.min(totalPages, start + maxVisible - 1);
 
-    if (totalPages > maxVisible && currentPage < totalPages - 1) {
-      if (!pages.includes('...')) {
-        pages.push('...');
-      }
-      if (!pages.includes(totalPages)) {
-        pages.push(totalPages);
-      }
-    }
+  if (end - start < maxVisible - 1) {
+    start = Math.max(1, end - maxVisible + 1);
+  }
 
-    return pages;
-  };
+  if (start > 1) {
+    pages.push(1);
+    if (start > 2) pages.push('...');
+  }
+
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+
+  if (end < totalPages) {
+    if (end < totalPages - 1) pages.push('...');
+    pages.push(totalPages);
+  }
+
+  return pages;
+};
 
   return (
     <div>
@@ -289,39 +286,51 @@ const handleSearch = (e: React.FormEvent) => {
         placeholder="Enter rating (0-5)"
       />
     </div>
-    <div className="ft-form-group">
-      <label>Category/Skill:</label>
-      <div className="autocomplete-wrapper">
-        <input
-          type="text"
-          value={skillInput}
-          onChange={(e) => setSkillInput(e.target.value)}
-          placeholder="Type to search categories/skills..."
-          className="category-select"
-          onFocus={() => skillInput.trim() && setIsDropdownOpen(true)}
-          onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-        />
-        {isDropdownOpen && filteredSkills.length > 0 && (
-          <ul className="autocomplete-dropdown">
-            {filteredSkills.map((skill) => (
-              <li
-                key={skill.id}
-                className="autocomplete-item"
-                onMouseDown={() => {
-                  setTempFilters({ ...tempFilters, skills: [skill.id] });
-                  setSkillInput(skill.name);
-                  setIsDropdownOpen(false);
-                }}
-              >
-                {skill.parent_id
-                  ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
-                  : skill.name}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+<div className="ft-form-group">
+  <label>Category/Skill:</label>
+  <div className="autocomplete-wrapper">
+    <input
+      type="text"
+      value={skillInput}
+      onChange={(e) => setSkillInput(e.target.value)}
+      placeholder="Type to search categories/skills..."
+      className="category-select"
+      onFocus={() => setIsDropdownOpen(true)} // Изменено: open always on focus, to show tree if empty
+      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+    />
+    {isDropdownOpen && (skillInput.trim() ? filteredSkills.length > 0 : categories.length > 0) && (
+      <ul className="autocomplete-dropdown">
+        {(skillInput.trim() ? filteredSkills : categories).map((cat) => (
+  <Fragment key={cat.id}>
+    <li
+      className="autocomplete-item"
+      onMouseDown={() => {
+        const displayName = cat.parent_id ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}` : cat.name;
+        setTempFilters({ ...tempFilters, skills: [cat.name] }); // Изменено: name, не id
+        setSkillInput(displayName);
+        setIsDropdownOpen(false);
+      }}
+    >
+      {cat.parent_id ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}` : cat.name}
+    </li>
+    {cat.subcategories?.map((sub) => (
+      <li
+        className="autocomplete-item sub-item"
+        onMouseDown={() => {
+          setTempFilters({ ...tempFilters, skills: [sub.name] }); // Изменено: name
+          setSkillInput(`${cat.name} > ${sub.name}`);
+          setIsDropdownOpen(false);
+        }}
+      >
+        {`${cat.name} > ${sub.name}`}
+      </li>
+    ))}
+  </Fragment>
+))}
+      </ul>
+    )}
+  </div>
+</div>
     <button type="submit" className="ft-button ft-success">
       Apply Filters
     </button>
@@ -426,29 +435,36 @@ const handleSearch = (e: React.FormEvent) => {
   <p>No talents found.</p>
 )}
             </div>
-            {total > 0 && (
-              <div className="ft-pagination">
-                {getVisiblePages().map((page, index) => (
-                  <button
-                    key={index}
-                    className={`ft-button ${
-                      page === filters.page ? 'ft-current' : ''
-                    } ${page === '...' ? 'ft-ellipsis' : ''}`}
-                    onClick={() => typeof page === 'number' && handlePageChange(page)}
-                    disabled={page === '...' || page === filters.page}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button
-                  className="ft-arrow"
-                  onClick={() => handlePageChange(filters.page + 1)}
-                  disabled={filters.page === totalPages}
-                >
-                  Next
-                </button>
-              </div>
-            )}
+           {total > 0 && (
+  <div className="ft-pagination">
+    <button
+      className="ft-arrow"
+      onClick={() => handlePageChange(filters.page - 1)}
+      disabled={filters.page === 1}
+    >
+      Previous
+    </button> {/* Добавлено: Prev кнопка */}
+    {getVisiblePages().map((page, index) => (
+      <button
+        key={index}
+        className={`ft-button ${
+          page === filters.page ? 'ft-current' : ''
+        } ${page === '...' ? 'ft-ellipsis' : ''}`}
+        onClick={() => typeof page === 'number' && handlePageChange(page)}
+        disabled={page === '...' || page === filters.page}
+      >
+        {page}
+      </button>
+    ))}
+    <button
+      className="ft-arrow"
+      onClick={() => handlePageChange(filters.page + 1)}
+      disabled={filters.page === totalPages}
+    >
+      Next
+    </button>
+  </div>
+)}
           </div>
         </div>
       </div>

@@ -22,15 +22,15 @@ const PostJob: React.FC = () => {
   const [selectedCategoryName, setSelectedCategoryName] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 const [categoryIds, setCategoryIds] = useState<string[]>([]);
-  const [salaryType, setSalaryType] = useState('per hour');
+ 
   const [location, setLocation] = useState(''); // Uncommented and used for Work Mode
   const [selectedSkills, setSelectedSkills] = useState<Category[]>([]);
- 
+  const [jobType, setJobType] = useState<JobPost['job_type'] | undefined>(undefined);
   const [aiBrief, setAiBrief] = useState(''); // Новое: brief для AI
   const [isEdited, setIsEdited] = useState(false);
   const [requestTimes, setRequestTimes] = useState<number[]>([]);
   const [salary, setSalary] = useState<number | null>(null);
-  const [jobType, setJobType] = useState<JobPost['job_type']>(null);
+  const [salaryType, setSalaryType] = useState<'per hour' | 'per month'>('per hour');
   const [categoryId, setCategoryId] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -100,10 +100,17 @@ const handleGenerate = async (isRegenerate = false) => {
   try {
     setError(null);
     setIsGenerating(true);
-    const res = await generateDescription(aiBrief);
-    console.log('Generated description:', res); // Лог для диагностики
+    const res = await generateDescription({
+      aiBrief,
+      title, 
+      location, 
+      salary: salary !== null ? salary : undefined, 
+      salary_type: salaryType, 
+      job_type: jobType ?? undefined,
+    });
+    console.log('Generated description:', res);
     setDescription(res || '');
-    setIsEdited(false); // Reset edited flag
+    setIsEdited(false);
   } catch (err: any) {
     setError(err.response?.data?.message || 'Failed to generate description.');
   } finally {
@@ -227,6 +234,17 @@ const handleSubmit = async (e: FormEvent) => {
   const descriptionLength = description.replace(/<[^>]+>/g, '').length;
   const isDescriptionValid = descriptionLength >= 150;
 
+  const findCategoryById = (id: string, cats: Category[]): Category | undefined => {
+  for (const cat of cats) {
+    if (cat.id === id) return cat;
+    if (cat.subcategories) {
+      const found = findCategoryById(id, cat.subcategories);
+      if (found) return found;
+    }
+  }
+  return undefined;
+};
+
   return (
   <div>
     <Header />
@@ -292,7 +310,7 @@ const handleSubmit = async (e: FormEvent) => {
                       placeholder="Enter salary"
                       min="0"
                     />
-                    <select value={salaryType} onChange={(e) => setSalaryType(e.target.value)}>
+                    <select value={salaryType} onChange={(e) => setSalaryType(e.target.value as 'per hour' | 'per month')}>
                       <option>per hour</option>
                       <option>per month</option>
                     </select>
@@ -304,7 +322,7 @@ const handleSubmit = async (e: FormEvent) => {
                     value={jobType || ''}
                     onChange={(e) => {
                       const value = e.target.value as 'Full-time' | 'Part-time' | 'Project-based' | '';
-                      setJobType(value === '' ? null : value);
+                      setJobType(value === '' ? undefined : value);
                     }}
                   >
                     <option value="">Select job type</option>
@@ -365,12 +383,13 @@ const handleSubmit = async (e: FormEvent) => {
   </div>
   <div className="category-tags">
     {selectedCategories.map((categoryId) => {
-      const skill = categories.find((cat) => cat.id === categoryId) || filteredSkills.find((cat) => cat.id === categoryId);
+      const skill = findCategoryById(categoryId, categories) || findCategoryById(categoryId, filteredSkills);
+      const parent = skill?.parent_id ? findCategoryById(skill.parent_id, categories) : undefined;
       return (
         <span key={categoryId} className="category-tag">
           {skill
-            ? (skill.parent_id
-                ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
+            ? (skill.parent_id && parent
+                ? `${parent.name} > ${skill.name}`
                 : skill.name)
             : 'Unknown Category'}
           <span
@@ -402,24 +421,25 @@ const handleSubmit = async (e: FormEvent) => {
               </div>
               <div className="form-column right-column">
   <div className="description-editor">
-    <h3>Job Description (editable)</h3>
-    {isGenerating ? (
-      <Loader />
-    ) : (
-      <ReactQuill
-        value={description || ''}
-        onChange={(value) => {
-          setDescription(value);
-          if (!isEdited) setIsEdited(true);
-        }}
-        placeholder="Generated description will appear here"
-        style={{ height: '380px', marginBottom: '10px' }}
-      />
-    )}
-    <button type="button" onClick={() => handleGenerate(true)} style={{ marginTop: '50px' }} disabled={isGenerating}>
-      Regenerate
-    </button>
-  </div>
+  <h3>Job Description (editable)</h3>
+  {isGenerating ? (
+    <Loader />
+  ) : (
+    <ReactQuill
+      key={description} // Force rerender
+      value={description || ''}
+      onChange={(value) => {
+        setDescription(value);
+        if (!isEdited) setIsEdited(true);
+      }}
+      placeholder="Generated description will appear here"
+      style={{ height: '380px', marginBottom: '10px' }}
+    />
+  )}
+  <button type="button" onClick={() => handleGenerate(true)} style={{ marginTop: '50px' }} disabled={isGenerating}>
+    Regenerate
+  </button>
+</div>
 </div>
             </div>
             {error && <p className="error-message">{error}</p>}

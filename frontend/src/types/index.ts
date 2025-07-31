@@ -183,6 +183,18 @@ export interface Feedback {
   updated_at: string;
 }
 
+export interface Message {
+  id: string;
+  job_application_id: string;
+  sender_id: string;
+  sender: { id: string; username: string; email: string; role: string }; // Добавлено: nested sender из docs
+  recipient_id: string;
+  recipient: { id: string; username: string; email: string; role: string }; // Добавлено: nested recipient
+  content: string;
+  created_at: string;
+  is_read: boolean;
+}
+
 export interface BlockedCountry {
   id: string;
   country_code: string;

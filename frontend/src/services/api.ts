@@ -5,7 +5,7 @@ import { jwtDecode } from 'jwt-decode';
 import { 
   User, Profile, JobPost, Category, JobApplication, Review, Feedback, 
   BlockedCountry, LoginCredentials, RegisterCredentials, PaginatedResponse,
-  JobSeekerProfile, JobApplicationDetails
+  JobSeekerProfile, JobApplicationDetails, Message,
 } from '@types';
 
 interface WebSocketMessage {
@@ -259,13 +259,34 @@ export const getAllEmailStats = async (params: {
   return response.data;
 };
 
-export const generateDescription = async (aiBrief: string) => { // Добавлено
-  const response = await api.post<{ description: string }>('/job-posts/generate-description', { aiBrief });
-  return response.data.description; 
+export const generateDescription = async (data: {
+  aiBrief: string;
+  title?: string;
+  location?: string;
+  salary?: number;
+  salary_type?: 'per hour' | 'per month';
+  job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+}) => {
+  const token = localStorage.getItem('token');
+  const response = await axios.post('/job-posts/generate-description', data, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
 };
 
 export const rejectJobPost = async (id: string, reason: string) => {
   const response = await api.post(`/admin/job-posts/${id}/reject`, { reason });
+  return response.data;
+};
+
+export const generateReferralLink = async (id: string) => {
+  const response = await api.post<{ fullLink: string; clicks: number; registrations: number }>(`/admin/job-posts/${id}/generate-referral`);
+  return response.data;
+};
+
+// Добавлено: функция для get referral links
+export const getReferralLinks = async (params: { jobId?: string; title?: string }) => {
+  const response = await api.get<{ id: string; jobPostId: string; refCode: string; fullLink: string; clicks: number; registrations: number; registrationsDetails: { user: { id: string; username: string; email: string; role: string; created_at: string } }[] }[]>('/admin/referral-links', { params });
   return response.data;
 };
 
@@ -691,25 +712,15 @@ export const resolveComplaint = async (id: string, data: { status: 'Resolved' | 
   return response.data;
 };
 
-export const getChatHistory = async (jobApplicationId: string, params: { page?: number; limit?: number }) => {
-  const token = localStorage.getItem('token');
-  const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
-  const isModerator = decoded?.role === 'moderator';
-  const endpoint = isModerator ? `/moderator/chat/${jobApplicationId}` : `/admin/chat/${jobApplicationId}`;
-  const response = await api.get<{
-    total: number;
-    data: {
-      id: string;
-      job_application_id: string;
-      sender_id: string;
-      sender: { id: string; username: string; email: string; role: string };
-      recipient_id: string;
-      recipient: { id: string; username: string; email: string; role: string };
-      content: string;
-      created_at: string;
-      is_read: boolean;
-    }[];
-  }>(endpoint, { params });
+export const getChatHistory = async (jobApplicationId: string, params: { page?: number; limit?: number } = {}, role: string) => {
+  let endpoint = '/chat/' + jobApplicationId; // Для users (jobseeker/employer)
+  if (role === 'admin') {
+    endpoint = '/admin/chat/' + jobApplicationId;
+  } else if (role === 'moderator') {
+    endpoint = '/moderator/chat/' + jobApplicationId; // Если модераторы имеют отдельный, иначе используйте /admin/
+  }
+  console.log('Fetching chat history with endpoint:', endpoint); // Добавлено: лог для отладки
+  const response = await api.get<{ total: number; data: Message[] }>(endpoint, { params });
   return response.data;
 };
 
@@ -969,3 +980,8 @@ export const deleteCategory = async (id: string) => {
   const response = await api.delete<{ message: string }>(`/admin/categories/${id}`);
   return response.data;
 };
+
+
+
+// Убедитесь, что api экспортировано (если не было)
+export { api };

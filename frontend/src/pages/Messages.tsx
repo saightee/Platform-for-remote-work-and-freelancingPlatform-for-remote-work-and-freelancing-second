@@ -127,6 +127,7 @@ socket.on('newMessage', (message: Message) => {
   if (message.recipient_id === profile.id && !message.is_read) {
     if (selectedChat && selectedChat === message.job_application_id) {
       socket.emit('markMessagesAsRead', { jobApplicationId: message.job_application_id });
+      scrollToBottom(); // Добавлено: прокрутка вниз при новом сообщении
     } else {
       setUnreadCounts((prevCounts) => ({
         ...prevCounts,
@@ -136,11 +137,12 @@ socket.on('newMessage', (message: Message) => {
   }
 });
 
-  socket.on('typing', (data: { userId: string; jobApplicationId: string; isTyping: boolean }) => {
-    if (data.userId !== profile.id) {
-      setIsTyping((prev) => ({ ...prev, [data.jobApplicationId]: data.isTyping }));
-    }
-  });
+socket.on('typing', (data: { userId: string; jobApplicationId: string; isTyping: boolean }) => {
+  console.log('Typing event received:', data); // Добавлено: лог для отладки typing
+  if (data.userId !== profile.id) {
+    setIsTyping((prev) => ({ ...prev, [data.jobApplicationId]: data.isTyping }));
+  }
+});
 
 socket.on('messagesRead', (updatedMessages: { data: Message[] }) => { // Изменено тип
   if (updatedMessages.data.length > 0) {
@@ -255,19 +257,12 @@ const handleSelectChat = (jobApplicationId: string) => {
     joinQueue.current.push(jobApplicationId);
     setError('Connecting to chat server... Please wait.');
   }
-  // Fetch history if not loaded
-  if (!messages[jobApplicationId] || messages[jobApplicationId].length === 0) {
-    getChatHistory(jobApplicationId, {}).then((history) => { // Добавил {}
-      setMessages((prev) => ({ ...prev, [jobApplicationId]: history.data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) })); // history.data
-    }).catch((err) => {
-      setError('Failed to load chat history.');
-      // Добавлено: if 401, redirect to login
-      if (err.response?.status === 401) {
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-      }
-    });
-  }
+  // Fetch history always (to refresh)
+  getChatHistory(jobApplicationId, { page: 1, limit: 100 }, currentRole!).then((history) => { // Добавлено: ! для non-null
+    setMessages((prev) => ({ ...prev, [jobApplicationId]: history.data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) })); // history.data
+  }).catch((err) => {
+    setError('Failed to load chat history.'); // Убрано: редирект на /login — теперь просто error
+  });
 };
 
 const handleCreateReview = async (e: React.FormEvent) => {
@@ -397,14 +392,14 @@ const getChatList = () => {
   {getChatList().map((chat) => (
     <li
       key={chat.id}
-      className={`chat-item ${selectedChat === chat.id ? 'active' : ''}`}
+      className={`chat-item ${selectedChat === chat.id ? 'active' : ''} ${chat.unreadCount > 0 ? 'unread' : ''}`} // Добавлено: класс 'unread' для выделения
       onClick={() => handleSelectChat(chat.id)}
     >
       <p>
         <strong>{chat.title}</strong>
       </p>
       <p>{chat.partner}</p>
-      {chat.unreadCount > 0 && <span className="unread-count">{chat.unreadCount}</span>}
+      {chat.unreadCount > 0 && <span className="unread-count">{chat.unreadCount}</span>} // Добавлено: бейдж для unread
       {currentRole === 'employer' && ( 
         <button onClick={() => setReviewForm({ applicationId: chat.id, rating: 5, comment: '' })}>
           Leave Review
@@ -467,11 +462,11 @@ const getChatList = () => {
                       <span>{msg.is_read ? 'Read' : 'Unread'}</span>
                     </div>
                   ))}
-                  {isTyping[selectedChat] && (
-                    <div className="typing-indicator">
-                      <p>Typing...</p>
-                    </div>
-                  )}
+             {isTyping[selectedChat] && (
+  <div className="typing-indicator">
+    <p>{getChatPartner(selectedChat)} is typing...</p> 
+  </div>
+)}
                   <div ref={messagesEndRef} />
                 </div>
                 <form onSubmit={handleSendMessage} className="message-form">

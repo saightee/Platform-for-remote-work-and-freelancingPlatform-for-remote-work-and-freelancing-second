@@ -40,11 +40,14 @@ import CheckEmail from './pages/CheckEmail';
 import Support from './pages/Support';
 import Clientstories from './pages/ClientStories';
 import AuthCallback from './pages/AuthCallback';
+import EmailNotifications from './pages/EmailNotifications';
+import { ErrorBoundary } from 'react-error-boundary';
 
 const App: React.FC = () => {
   return (
     <RoleProvider>
       <Router>
+        {/* <ErrorBoundary fallback={<div>Error loading app</div>}></ErrorBoundary> */}
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/jobs/:id" element={<JobDetails />} />
@@ -54,6 +57,7 @@ const App: React.FC = () => {
           <Route path="/role-selection" element={<RoleSelection />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/support" element={<Support />} />
+          <Route path="/admin/email-notifications" element={<EmailNotifications />} />
           <Route path="/public-profile/:id" element={<PublicProfile />} />
           <Route path="/check-email" element={<CheckEmail />} />
           <Route path="/post-job" element={<PostJob />} />

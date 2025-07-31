@@ -79,7 +79,6 @@ const PublicProfile: React.FC = () => {
             <p><strong>Timezone:</strong> {profile.timezone || 'Not specified'}</p>
             <p><strong>Currency:</strong> {profile.currency || 'Not specified'}</p>
             <p><strong>Average Rating:</strong> {profile.average_rating ? `${profile.average_rating} ★` : 'Not rated'}</p>
-            <p><strong>Identity Verified:</strong> {profile.identity_verified ? 'Yes' : 'No'}</p>
 <p><strong>Skills:</strong> {profile.skills?.map((skill: Category) => skill.name).join(', ') || 'Not specified'}</p>
             <p><strong>Experience:</strong> {profile.experience || 'Not specified'}</p>
             <p>
