@@ -109,7 +109,7 @@ const handleCreateReview = async (e: React.FormEvent) => {
         {error && <p className="my-app-error">{error}</p>}
         {applications.length > 0 ? (
           <div className="my-app-grid">
-           {applications.map((app) => (
+{applications.map((app) => (
   <div key={app.id} className="my-app-card">
     <h3>{app.job_post?.title || 'Unknown Job'}</h3>
     <p><strong>Status:</strong> {app.status}</p>
@@ -122,6 +122,7 @@ const handleCreateReview = async (e: React.FormEvent) => {
             <h4>Your Review:</h4>
             <p><strong>Rating:</strong> {app.reviews[0].rating} ★</p>
             <p><strong>Comment:</strong> {app.reviews[0].comment}</p>
+            <p className="review-already-left">You have already left a review for this application.</p> 
           </div>
         ) : (
           <button

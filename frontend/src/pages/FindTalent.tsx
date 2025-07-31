@@ -71,24 +71,27 @@ useEffect(() => {
       // Добавлено: получение category_id из params
       const categoryId = searchParams.get('category_id');
       let searchSkills = filters.skills;
-      if (categoryId) {
-        searchSkills = [categoryId]; // Фильтруем по категории как skill
+      if (categoryId && !filters.skills?.includes(categoryId)) {
+        searchSkills = [...(filters.skills || []), categoryId]; // Добавляем в массив, если multiple
+        setFilters(prev => ({ ...prev, skills: searchSkills }));
       }
-const response = await (searchType === 'talents'
-  ? searchTalents({
-    experience: filters.experience,
-    rating: filters.rating,
-    skills: searchSkills, // Изменено: используем searchSkills
-    salary_type: filters.salary_type || undefined, // Добавлено
-    description: searchInput,
-    page: filters.page,
-    limit: filters.limit,
-  })
-  : searchJobseekers({
-      username: filters.username,
-      page: filters.page,
-      limit: filters.limit,
-    }));
+      console.log('Fetching talents with params:', { ...filters, skills: searchSkills, description: searchInput }); // Лог для диагностики
+
+      const response = await (searchType === 'talents'
+        ? searchTalents({
+            experience: filters.experience,
+            rating: filters.rating,
+            skills: searchSkills, // Изменено: используем searchSkills
+            salary_type: filters.salary_type || undefined, // Добавлено
+            description: searchInput,
+            page: filters.page,
+            limit: filters.limit,
+          })
+        : searchJobseekers({
+            username: filters.username,
+            page: filters.page,
+            limit: filters.limit,
+          }));
 
       console.log('Fetched data:', JSON.stringify(response, null, 2));
       let talentData: Profile[] = [];
@@ -111,8 +114,10 @@ const response = await (searchType === 'talents'
       setTalents(talentData);
       setTotal(totalCount);
 
-const categoriesData = await getCategories();
-setCategories(categoriesData || []);
+      const categoriesData = await getCategories();
+      // Сортировка категорий по алфавиту
+      const sortedCategories = categoriesData.sort((a, b) => a.name.localeCompare(b.name));
+      setCategories(sortedCategories || []);
     } catch (err) {
       const axiosError = err as AxiosError<{ message?: string }>;
       console.error('Error fetching data:', axiosError);
@@ -127,7 +132,7 @@ setCategories(categoriesData || []);
     }
   };
   fetchData();
-}, [filters, searchType, navigate, searchParams]); // Добавлен searchParams в зависимости
+}, [filters, searchType, navigate, searchParams, searchInput]); // Добавлен searchInput для реактивного поиска
 
 useEffect(() => {
   const debounce = setTimeout(() => {

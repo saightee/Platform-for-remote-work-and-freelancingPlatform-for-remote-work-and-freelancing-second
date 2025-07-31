@@ -959,7 +959,7 @@ const handleFlagJobPost = async (id: string) => {
     }
   };
 
-  const handleNotifyCandidates = async (id: string) => {
+const handleNotifyCandidates = async (id: string) => {
   setNotifyJobPostId(id);
   setShowNotifyModal(true);
 };
@@ -1712,15 +1712,6 @@ setUserPage(1);
                 <button onClick={() => handleFlagJobPost(post.id)} className="action-button warning">
                   Flag
                 </button>
-                <button onClick={() => {
-                  if (post.category_id) {
-                    handleNotifyCandidates(post.id);
-                  } else {
-                    alert('Job post has no category assigned. Cannot notify candidates.');
-                  }
-                }} className="action-button success">
-                  Notify Seekers
-                </button>
                 <button onClick={() => handleRejectJobPost(post.id)} className="action-button danger">
                   Reject
                 </button>
@@ -1729,17 +1720,18 @@ setUserPage(1);
                 </button>
               </td>
               <td>
-                <button onClick={() => handleNotifyCandidates(post.id)} className="action-button success">
-                  Notify Seekers
-                </button>
-                <span 
-                  title={`Sent: ${notificationStats[post.id]?.sent || 0} Opened: ${notificationStats[post.id]?.opened || 0} Clicked: ${notificationStats[post.id]?.clicked || 0}`}
-                >
-                  s:{notificationStats[post.id]?.sent || 0} o:{notificationStats[post.id]?.opened || 0} c:{notificationStats[post.id]?.clicked || 0}
-                </span>
-                <button onClick={() => navigate('/admin/email-notifications', { state: { jobPostId: post.id } })} className="action-button">
-                  View Details
-                </button>
+<span 
+  title={`Sent: ${notificationStats[post.id]?.sent || 0} Opened: ${notificationStats[post.id]?.opened || 0} Clicked: ${notificationStats[post.id]?.clicked || 0}`}
+>
+  s:{notificationStats[post.id]?.sent || 0} o:{notificationStats[post.id]?.opened || 0} c:{notificationStats[post.id]?.clicked || 0}
+</span>
+<button onClick={() => handleNotifyCandidates(post.id)} className="action-button success" style={{ cursor: 'pointer' }}>
+  Notify Seekers
+</button>
+<button onClick={() => navigate('/admin/email-notifications', { state: { jobPostId: post.id } })} className="action-button">
+  View Details
+</button>
+               
               </td>
             </tr>
           )) : (

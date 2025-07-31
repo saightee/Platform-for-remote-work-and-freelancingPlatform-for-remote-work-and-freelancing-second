@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -31,39 +32,51 @@ const ProfilePage: React.FC = () => {
   const resumeRef = useRef<HTMLInputElement>(null);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const cats = await getCategories();
-        setCategories(cats);
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-      }
-    };
-    fetchCategories();
-  }, []);
+useEffect(() => {
+  const fetchCategories = async () => {
+    try {
+      const cats = await getCategories();
+      // Рекурсивная сортировка категорий по алфавиту
+      const sortCategories = (categories: Category[]): Category[] => {
+        const sorted = categories.sort((a, b) => a.name.localeCompare(b.name));
+        sorted.forEach(cat => {
+          if (cat.subcategories) {
+            cat.subcategories = sortCategories(cat.subcategories);
+          }
+        });
+        return sorted;
+      };
+      setCategories(sortCategories(cats));
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+  fetchCategories();
+}, []);
 
-  useEffect(() => {
-    const searchCategoriesAsync = async () => {
-      if (skillInput.trim() === '') {
-        setFilteredSkills([]);
-        setIsDropdownOpen(false);
-        return;
-      }
-      try {
-        const response = await searchCategories(skillInput);
-        setFilteredSkills(response);
-        setIsDropdownOpen(true);
-      } catch (error) {
-        const axiosError = error as AxiosError<{ message?: string }>;
-        console.error('Error searching categories:', axiosError.response?.data?.message || axiosError.message);
-        setFilteredSkills([]);
-        setIsDropdownOpen(false);
-      }
-    };
-    const debounce = setTimeout(searchCategoriesAsync, 300);
-    return () => clearTimeout(debounce);
-  }, [skillInput]);
+useEffect(() => {
+  const searchCategoriesAsync = async () => {
+    if (skillInput.trim() === '') {
+      setFilteredSkills([]);
+      setIsDropdownOpen(false);
+      return;
+    }
+    try {
+      const response = await searchCategories(skillInput);
+      // Сортировка filtered по алфавиту
+      const sortedFiltered = response.sort((a, b) => a.name.localeCompare(b.name));
+      setFilteredSkills(sortedFiltered);
+      setIsDropdownOpen(true);
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      console.error('Error searching categories:', axiosError.response?.data?.message || axiosError.message);
+      setFilteredSkills([]);
+      setIsDropdownOpen(false);
+    }
+  };
+  const debounce = setTimeout(searchCategoriesAsync, 300);
+  return () => clearTimeout(debounce);
+}, [skillInput]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -340,71 +353,98 @@ const ProfilePage: React.FC = () => {
                 <>
                   {isEditing ? (
                     <>
-                      <div className="form-group">
-                        <label>Skills:</label>
-                        <div className="autocomplete-wrapper">
-                          <input
-                            type="text"
-                            value={skillInput}
-                            onChange={(e) => setSkillInput(e.target.value)}
-                            placeholder="Start typing to search skills..."
-                            className="category-select"
-                            onFocus={() => skillInput.trim() && setIsDropdownOpen(true)}
-                            onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                          />
-                          {isDropdownOpen && filteredSkills.length > 0 && (
-                            <ul className="autocomplete-dropdown">
-                              {filteredSkills.map((skill) => (
-                                <li
-                                  key={skill.id}
-                                  className="autocomplete-item"
-                                  onMouseDown={() => {
-                                    if (!selectedSkillIds.includes(skill.id)) {
-                                      const newSkill: Category = {
-                                        id: skill.id,
-                                        name: skill.name,
-                                        parent_id: skill.parent_id || null,
-                                        created_at: skill.created_at,
-                                        updated_at: skill.updated_at,
-                                        subcategories: [],
-                                      };
-                                      setSelectedSkillIds([...selectedSkillIds, skill.id]);
-                                      setProfileData({
-                                        ...profileData,
-                                        skills: [...(profileData.skills || []), newSkill],
-                                      });
-                                      setSkillInput('');
-                                      setIsDropdownOpen(false);
-                                    }
-                                  }}
-                                >
-                                  {skill.parent_id
-                                    ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
-                                    : skill.name}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                        <div className="category-tags">
-                          {profileData.skills?.map((skill) => (
-                            <span key={skill.id} className="category-tag">
-                              {skill.name}
-                              <span
-                                className="remove-tag"
-                                onClick={() => {
-                                  const updatedSkills = profileData.skills?.filter((s) => s.id !== skill.id) || [];
-                                  const updatedSkillIds = selectedSkillIds.filter((id) => id !== skill.id);
-                                  setProfileData({ ...profileData, skills: updatedSkills });
-                                  setSelectedSkillIds(updatedSkillIds);
-                                }}
-                              >
-                                ×
-                              </span>
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                     <div className="form-group">
+  <label>Skills:</label>
+  <div className="autocomplete-wrapper">
+    <input
+      type="text"
+      value={skillInput}
+      onChange={(e) => setSkillInput(e.target.value)}
+      placeholder="Type to search skills..."
+      onFocus={() => setIsDropdownOpen(true)} // Open for full list on focus
+      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+    />
+    {isDropdownOpen && (
+      <ul className="autocomplete-dropdown">
+        {(skillInput.trim() ? filteredSkills : categories).map((category) => ( // Filtered if input, full if no
+          <React.Fragment key={category.id}>
+            <li
+              className="autocomplete-item"
+              onMouseDown={() => {
+                if (!selectedSkillIds.includes(category.id)) {
+                  const newSkill: Category = {
+                    id: category.id,
+                    name: category.name,
+                    parent_id: category.parent_id || null,
+                    created_at: category.created_at,
+                    updated_at: category.updated_at,
+                    subcategories: [],
+                  };
+                  setSelectedSkillIds([...selectedSkillIds, category.id]);
+                  setProfileData({
+                    ...profileData,
+                    skills: [...(profileData.skills || []), newSkill],
+                  });
+                }
+                setSkillInput('');
+                setIsDropdownOpen(false);
+              }}
+            >
+              {category.name}
+            </li>
+            {category.subcategories?.map((sub) => (
+              <li
+                key={sub.id}
+                className="autocomplete-item sub-category"
+                onMouseDown={() => {
+                  if (!selectedSkillIds.includes(sub.id)) {
+                    const newSkill: Category = {
+                      id: sub.id,
+                      name: sub.name,
+                      parent_id: sub.parent_id || null,
+                      created_at: sub.created_at,
+                      updated_at: sub.updated_at,
+                      subcategories: [],
+                    };
+                    setSelectedSkillIds([...selectedSkillIds, sub.id]);
+                    setProfileData({
+                      ...profileData,
+                      skills: [...(profileData.skills || []), newSkill],
+                    });
+                  }
+                  setSkillInput('');
+                  setIsDropdownOpen(false);
+                }}
+              >
+                {`${category.name} > ${sub.name}`}
+              </li>
+            ))}
+          </React.Fragment>
+        ))}
+      </ul>
+    )}
+  </div>
+  <div className="category-tags">
+    {profileData.skills?.map((skill) => (
+      <span key={skill.id} className="category-tag">
+        {skill.parent_id
+          ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
+          : skill.name}
+        <span
+          className="remove-tag"
+          onClick={() => {
+            const updatedSkills = profileData.skills?.filter((s) => s.id !== skill.id) || [];
+            const updatedSkillIds = selectedSkillIds.filter((id) => id !== skill.id);
+            setProfileData({ ...profileData, skills: updatedSkills });
+            setSelectedSkillIds(updatedSkillIds);
+          }}
+        >
+          ×
+        </span>
+      </span>
+    ))}
+  </div>
+</div>
                       <div className="form-group">
                         <label>Experience:</label>
                         <select

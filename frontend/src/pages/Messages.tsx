@@ -21,7 +21,7 @@ interface Message {
 }
 
 const Messages: React.FC = () => {
-  const { profile, currentRole, socket, socketStatus } = useRole();
+  const { profile, currentRole, socket, socketStatus, setSocketStatus } = useRole();
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [jobPostApplications, setJobPostApplications] = useState<{ [jobPostId: string]: JobApplicationDetails[] }>({});
@@ -40,6 +40,7 @@ const Messages: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null); // Добавлено
   const currentMessages = useMemo(() => selectedChat ? messages[selectedChat] : [], [selectedChat, messages]);
 const currentTyping = useMemo(() => selectedChat ? isTyping[selectedChat] : false, [selectedChat, isTyping]);
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -76,7 +77,7 @@ const currentTyping = useMemo(() => selectedChat ? isTyping[selectedChat] : fals
     }
   }, [profile, currentRole, socket]);
 
-  useEffect(() => {
+useEffect(() => {
   if (!socket || !profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) {
     setUnreadCounts({});
     setIsTyping({});
@@ -179,11 +180,14 @@ socket.on('messagesRead', (updatedMessages: { data: Message[] }) => { // Изм�
     }
   });
 
-  socket.on('connect_error', (err) => {
-    console.error('WebSocket connection error in Messages:', err.message);
-    setError('Failed to connect to chat server. Retrying...');
-    hasJoinedChats.current = false;
-  });
+socket.on('connect_error', (err) => {
+  console.error('WebSocket connection error:', err.message);
+  setSocketStatus('reconnecting');
+  if (err.message.includes('401')) { 
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+  }
+});
 
   socket.on('connect', () => {
     setError(null); // Clear error
@@ -244,12 +248,12 @@ const handleSelectChat = (jobApplicationId: string) => {
     ...prev,
     [jobApplicationId]: 0,
   }));
-  if (socket && socket.connected) { // Changed to socket.connected
+  if (socket && socket.connected) { // Emit only if connected
     socket.emit('joinChat', { jobApplicationId });
     socket.emit('markMessagesAsRead', { jobApplicationId });
   } else {
     joinQueue.current.push(jobApplicationId);
-    setError('Connecting to chat server...');
+    setError('Connecting to chat server... Please wait.');
   }
   // Fetch history if not loaded
   if (!messages[jobApplicationId] || messages[jobApplicationId].length === 0) {

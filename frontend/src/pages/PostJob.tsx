@@ -1,4 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -34,6 +35,7 @@ const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [excludedCountries, setExcludedCountries] = useState<string[]>([]); // New: selected exclusions
 const [countryInput, setCountryInput] = useState(''); // New: search input
 const [filteredCountries, setFilteredCountries] = useState<string[]>([]); // New: filtered by input
@@ -84,65 +86,77 @@ const removeCountry = (country: string) => {
 };
 
 const handleGenerate = async (isRegenerate = false) => {
-    if (!aiBrief.trim()) {
-      setError('Brief description is required for generation.');
-      return;
-    }
-    const now = Date.now() / 1000;
-    const recentRequests = requestTimes.filter(t => now - t < 60);
-    if (recentRequests.length >= 5) {
-      setError('Rate limit exceeded: 5 generations per minute.');
-      return;
-    }
-    setRequestTimes([...recentRequests, now]);
+  if (!aiBrief.trim()) {
+    setError('Brief description is required for generation.');
+    return;
+  }
+  const now = Date.now() / 1000;
+  const recentRequests = requestTimes.filter(t => now - t < 60);
+  if (recentRequests.length >= 5) {
+    setError('Rate limit exceeded: 5 generations per minute.');
+    return;
+  }
+  setRequestTimes([...recentRequests, now]);
+  try {
+    setError(null);
+    setIsGenerating(true);
+    const res = await generateDescription(aiBrief);
+    console.log('Generated description:', res); // Лог для диагностики
+    setDescription(res || '');
+    setIsEdited(false); // Reset edited flag
+  } catch (err: any) {
+    setError(err.response?.data?.message || 'Failed to generate description.');
+  } finally {
+    setIsGenerating(false);
+  }
+};
+  
+useEffect(() => {
+  const fetchCategories = async () => {
     try {
-      setError(null);
       setIsLoading(true);
-      const res = await generateDescription(aiBrief);
-      setDescription(res);
-      setIsEdited(false); // Reset edited flag
+      const data = await getCategories();
+      // Рекурсивная сортировка по алфавиту
+      const sortCategories = (categories: Category[]): Category[] => {
+        const sorted = categories.sort((a, b) => a.name.localeCompare(b.name));
+        sorted.forEach(cat => {
+          if (cat.subcategories) {
+            cat.subcategories = sortCategories(cat.subcategories);
+          }
+        });
+        return sorted;
+      };
+      setCategories(sortCategories(data));
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to generate description.');
+      console.error('Error fetching categories:', err);
+      setError(err.response?.data?.message || 'Failed to load categories.');
     } finally {
       setIsLoading(false);
     }
   };
-  
-  useEffect(() => {
-const fetchCategories = async () => {
-  try {
-    setIsLoading(true);
-    const data = await getCategories();
-    const sortedData = data.sort((a, b) => a.name.localeCompare(b.name));
-    setCategories(sortedData);
-  } catch (err: any) {
-    console.error('Error fetching categories:', err);
-    setError(err.response?.data?.message || 'Failed to load categories.');
-  } finally {
+  if (profile?.role === 'employer') {
+    fetchCategories();
+  } else {
     setIsLoading(false);
   }
-};
-    if (profile?.role === 'employer') {
-      fetchCategories();
-    } else {
-      setIsLoading(false);
-    }
-  }, [profile]);
+}, [profile]);
 
 useEffect(() => {
-    const search = async () => {
-      if (skillInput.trim()) {
-        const res = await searchCategories(skillInput);
-        setFilteredSkills(res);
-        setIsDropdownOpen(true);
-      } else {
-        setFilteredSkills([]); 
-        setIsDropdownOpen(false);
-      }
-    };
-    const debounce = setTimeout(search, 300);
-    return () => clearTimeout(debounce);
-  }, [skillInput]);
+  const search = async () => {
+    if (skillInput.trim()) {
+      const res = await searchCategories(skillInput);
+      // Сортировка filtered
+      const sortedFiltered = res.sort((a, b) => a.name.localeCompare(b.name));
+      setFilteredSkills(sortedFiltered);
+      setIsDropdownOpen(true);
+    } else {
+      setFilteredSkills([]); 
+      setIsDropdownOpen(false);
+    }
+  };
+  const debounce = setTimeout(search, 300);
+  return () => clearTimeout(debounce);
+}, [skillInput]);
 
 const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -300,64 +314,79 @@ const handleSubmit = async (e: FormEvent) => {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Category</label>
-                  <div className="autocomplete-wrapper">
-                    <input
-                      type="text"
-                      value={skillInput}
-                      onChange={(e) => setSkillInput(e.target.value)}
-                      placeholder="Start typing to search skills..."
-                      className="category-select"
-                      onFocus={() => skillInput.trim() && setIsDropdownOpen(true)}
-                      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                    />
-                    {isDropdownOpen && filteredSkills.length > 0 && (
-                      <ul className="autocomplete-dropdown">
-                        {filteredSkills.map((skill) => (
-                          <li
-                            key={skill.id}
-                            className="autocomplete-item"
-                            onMouseDown={() => {
-                              if (!selectedCategories.includes(skill.id)) {
-                                setSelectedCategories([...selectedCategories, skill.id]);
-                                setCategoryIds([...categoryIds, skill.id]);
-                                setSkillInput('');
-                                setIsDropdownOpen(false);
-                              }
-                            }}
-                          >
-                            {skill.parent_id
-                              ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
-                              : skill.name}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <div className="category-tags">
-                    {selectedCategories.map((categoryId) => {
-                      const skill = categories.find((cat) => cat.id === categoryId) || filteredSkills.find((cat) => cat.id === categoryId);
-                      return (
-                        <span key={categoryId} className="category-tag">
-                          {skill
-                            ? (skill.parent_id
-                                ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
-                                : skill.name)
-                            : 'Unknown Category'}
-                          <span
-                            className="remove-tag"
-                            onClick={() => {
-                              setSelectedCategories(selectedCategories.filter((id) => id !== categoryId));
-                              setCategoryIds(categoryIds.filter((id) => id !== categoryId));
-                            }}
-                          >
-                            ×
-                          </span>
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
+  <label>Category</label>
+  <div className="autocomplete-wrapper">
+    <input
+      type="text"
+      value={skillInput}
+      onChange={(e) => setSkillInput(e.target.value)}
+      placeholder="Start typing to search skills..."
+      className="category-select"
+      onFocus={() => setIsDropdownOpen(true)}
+      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+    />
+    {isDropdownOpen && (
+      <ul className="autocomplete-dropdown">
+        {(skillInput.trim() ? filteredSkills : categories).map((category) => (
+          <React.Fragment key={category.id}>
+            <li
+              className="autocomplete-item"
+              onMouseDown={() => {
+                if (!selectedCategories.includes(category.id)) {
+                  setSelectedCategories([...selectedCategories, category.id]);
+                  setCategoryIds([...categoryIds, category.id]);
+                  setSkillInput('');
+                  setIsDropdownOpen(false);
+                }
+              }}
+            >
+              {category.name}
+            </li>
+            {category.subcategories?.map((sub) => (
+              <li
+                key={sub.id}
+                className="autocomplete-item sub-category"
+                onMouseDown={() => {
+                  if (!selectedCategories.includes(sub.id)) {
+                    setSelectedCategories([...selectedCategories, sub.id]);
+                    setCategoryIds([...categoryIds, sub.id]);
+                    setSkillInput('');
+                    setIsDropdownOpen(false);
+                  }
+                }}
+              >
+                {`${category.name} > ${sub.name}`}
+              </li>
+            ))}
+          </React.Fragment>
+        ))}
+      </ul>
+    )}
+  </div>
+  <div className="category-tags">
+    {selectedCategories.map((categoryId) => {
+      const skill = categories.find((cat) => cat.id === categoryId) || filteredSkills.find((cat) => cat.id === categoryId);
+      return (
+        <span key={categoryId} className="category-tag">
+          {skill
+            ? (skill.parent_id
+                ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
+                : skill.name)
+            : 'Unknown Category'}
+          <span
+            className="remove-tag"
+            onClick={() => {
+              setSelectedCategories(selectedCategories.filter((id) => id !== categoryId));
+              setCategoryIds(categoryIds.filter((id) => id !== categoryId));
+            }}
+          >
+            ×
+          </span>
+        </span>
+      );
+    })}
+  </div>
+</div>
                 <div className="form-group">
                   <label>Brief Description for AI (will generate full description) *</label>
                   <textarea
@@ -372,22 +401,26 @@ const handleSubmit = async (e: FormEvent) => {
                 </div>
               </div>
               <div className="form-column right-column">
-                <div className="description-editor">
-                  <h3>Job Description (editable)</h3>
-                  <ReactQuill
-                    value={description}
-                    onChange={(value) => {
-                      setDescription(value);
-                      if (!isEdited) setIsEdited(true);
-                    }}
-                    placeholder="Generated description will appear here"
-                    style={{ height: '380px', marginBottom: '10px' }}
-                  />
-                  <button type="button" onClick={() => handleGenerate(true)} style={{ marginTop: '50px' }}>
-                    Regenerate
-                  </button>
-                </div>
-              </div>
+  <div className="description-editor">
+    <h3>Job Description (editable)</h3>
+    {isGenerating ? (
+      <Loader />
+    ) : (
+      <ReactQuill
+        value={description || ''}
+        onChange={(value) => {
+          setDescription(value);
+          if (!isEdited) setIsEdited(true);
+        }}
+        placeholder="Generated description will appear here"
+        style={{ height: '380px', marginBottom: '10px' }}
+      />
+    )}
+    <button type="button" onClick={() => handleGenerate(true)} style={{ marginTop: '50px' }} disabled={isGenerating}>
+      Regenerate
+    </button>
+  </div>
+</div>
             </div>
             {error && <p className="error-message">{error}</p>}
             <div style={{ textAlign: 'center', marginTop: '60px' }}>
