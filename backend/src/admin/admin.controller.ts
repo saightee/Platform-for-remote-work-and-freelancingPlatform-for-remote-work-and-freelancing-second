@@ -169,6 +169,7 @@ export class AdminController {
     @Query('title') title: string, 
     @Query('page') page: string,
     @Query('employer_id') employer_id: string,
+    @Query('employer_username') employer_username: string,
     @Query('category_id') category_id: string, 
     @Query('limit') limit: string, 
     @Query('id') id: string,
@@ -186,29 +187,19 @@ export class AdminController {
       pendingReview?: boolean; 
       title?: string;
       employer_id?: string;
+      employer_username?: string;
       category_id?: string;
       page?: number;
       limit?: number;
       id?: string; 
     } = {};
-    if (status) {
-      filters.status = status;
-    }
-    if (pendingReview !== undefined) {
-      filters.pendingReview = pendingReview === 'true';
-    }
-    if (title) {
-      filters.title = title;
-    }
-    if (employer_id) {
-      filters.employer_id = employer_id;
-    }
-    if (category_id) {
-      filters.category_id = category_id;
-    }
-    if (id) {
-      filters.id = id;  
-    }
+    if (status) filters.status = status;
+    if (pendingReview !== undefined) filters.pendingReview = pendingReview === 'true';
+    if (title) filters.title = title;
+    if (employer_id) filters.employer_id = employer_id;
+    if (employer_username) filters.employer_username = employer_username;
+    if (category_id) filters.category_id = category_id;
+    if (id) filters.id = id;
     if (page) {
       const parsedPage = parseInt(page, 10);
       if (isNaN(parsedPage) || parsedPage < 1) {

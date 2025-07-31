@@ -248,6 +248,7 @@ export class AdminService {
     pendingReview?: boolean;
     title?: string;
     employer_id?: string;
+    employer_username?: string; 
     category_id?: string;
     page?: number;
     limit?: number;
@@ -267,6 +268,9 @@ export class AdminService {
     }
     if (filters.employer_id) {
       query.andWhere('jobPost.employer_id = :employer_id', { employer_id: filters.employer_id });
+    }
+    if (filters.employer_username) {
+      query.andWhere('employer.username ILIKE :employer_username', { employer_username: `%${filters.employer_username}%` });
     }
     if (filters.category_id) {
       query.andWhere('jobPost.category_id = :category_id', { category_id: filters.category_id });
@@ -290,24 +294,24 @@ export class AdminService {
     const jobPosts = await query.getMany();
 
     const enhancedJobPosts = await Promise.all(jobPosts.map(async (post) => {
-        const stats = await this.emailNotificationsRepository.createQueryBuilder('n')
-          .select('COUNT(*) as sent, SUM(CASE WHEN n.opened THEN 1 ELSE 0 END) as opened, SUM(CASE WHEN n.clicked THEN 1 ELSE 0 END) as clicked')
-          .where('n.job_post_id = :id', { id: post.id })
-          .getRawOne();
-        return {
-          ...post,
-          emailStats: {
-            sent: parseInt(stats.sent) || 0,
-            opened: parseInt(stats.opened) || 0,
-            clicked: parseInt(stats.clicked) || 0,
-          },
-        };
-      }));
-    
+      const stats = await this.emailNotificationsRepository.createQueryBuilder('n')
+        .select('COUNT(*) as sent, SUM(CASE WHEN n.opened THEN 1 ELSE 0 END) as opened, SUM(CASE WHEN n.clicked THEN 1 ELSE 0 END) as clicked')
+        .where('n.job_post_id = :id', { id: post.id })
+        .getRawOne();
       return {
-        total,
-        data: enhancedJobPosts,
+        ...post,
+        emailStats: {
+          sent: parseInt(stats.sent) || 0,
+          opened: parseInt(stats.opened) || 0,
+          clicked: parseInt(stats.clicked) || 0,
+        },
       };
+    }));
+
+    return {
+      total,
+      data: enhancedJobPosts,
+    };
   }
 
   async updateJobPost(adminId: string, jobPostId: string, updateData: { 

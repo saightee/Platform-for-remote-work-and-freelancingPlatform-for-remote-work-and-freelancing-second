@@ -1617,10 +1617,11 @@
   - `title` (string, optional): Filter by job title (partial match, case-insensitive).
   - `employer_id` (string, optional): Filter by employer ID.
   - `category_id` (string, optional): Filter by category ID.
+  - `employer_username` (string, optional): Filter by employer username (partial match, case-insensitive).
   - `id` (string, optional): Filter by job post ID.
   - `page` (number, optional): Page number for pagination (default: 1).
   - `limit` (number, optional): Number of items per page (default: 10).
-- **Example Request**: `/api/admin/job-posts?status=Active&pendingReview=false&title=Software&employer_id=<employerId>&category_id=<categoryId>&id=<jobPostId>&page=1&limit=10`
+- **Example Request**: `/api/admin/job-posts?status=Active&pendingReview=false&title=Software&employer_id=<employerId>&employer_username=john&page=1&limit=10`
 - **Response (Success - 200)**: 
   ```json
   {
@@ -2805,23 +2806,23 @@
     {
       "id": "<complaintId>",
       "complainant_id": "<userId>",
-      "complainant": {
-        "id": "<userId>",
-        "username": "john_doe",
-        "email": "john@example.com",
-        "role": "jobseeker"
-      },
+      "complainant": { "id": "<userId>", "username": "user1", "email": "user1@example.com" },
       "job_post_id": "<jobPostId>",
-      "job_post": {
-        "id": "<jobPostId>",
-        "title": "Software Engineer",
-        "description": "Looking for a skilled engineer"
-      },
+      "job_post": { "id": "<jobPostId>", "title": "Software Engineer" },
       "profile_id": null,
-      "reason": "Inappropriate content in the job description",
-      "status": "Pending",
-      "created_at": "2025-06-06T12:00:00.000Z",
-      "updated_at": "2025-06-06T12:00:00.000Z"
+      "profile": null,
+      "reason": "Inappropriate job description",
+      "status": "Resolved",
+      "resolution_comment": "Issue addressed",
+      "resolver_id": "<adminId>",  
+      "resolver": {  
+        "id": "<adminId>",
+        "username": "admin1",
+        "email": "admin1@example.com",
+        "role": "admin"
+      },
+      "created_at": "2025-07-31T12:00:00Z",
+      "updated_at": "2025-07-31T12:10:00Z"
     }
   ]
 
@@ -2852,11 +2853,18 @@
     "complainant_id": "<userId>",
     "job_post_id": "<jobPostId>",
     "profile_id": null,
-    "reason": "Inappropriate content in the job description",
+    "reason": "Inappropriate job description",
     "status": "Resolved",
-    "resolution_comment": "Issue addressed with the user",
-    "created_at": "2025-06-06T12:00:00.000Z",
-    "updated_at": "2025-06-06T12:30:00.000Z"
+    "resolution_comment": "Issue addressed",
+    "resolver_id": "<adminId>",  
+    "resolver": {  
+      "id": "<adminId>",
+      "username": "admin1",
+      "email": "admin1@example.com",
+      "role": "admin"
+    },
+    "created_at": "2025-07-31T12:00:00Z",
+    "updated_at": "2025-07-31T12:10:00Z"
   }
 
 - **Response (Error - 401, if not admin)**:
