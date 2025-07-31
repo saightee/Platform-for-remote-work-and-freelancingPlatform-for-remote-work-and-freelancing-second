@@ -8,6 +8,7 @@ import { User } from '../users/entities/user.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RedisModule } from '../redis/redis.module';
+import { ChatController } from './chat.controller';
 
 @Module({
   imports: [
@@ -22,7 +23,8 @@ import { RedisModule } from '../redis/redis.module';
     }),
     RedisModule,
   ],
+  controllers: [ChatController],
   providers: [ChatGateway, ChatService],
-  exports: [ChatGateway, ChatService], 
+  exports: [ChatGateway, ChatService],
 })
 export class ChatModule {}

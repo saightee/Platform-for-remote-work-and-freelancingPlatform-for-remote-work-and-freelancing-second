@@ -90,6 +90,24 @@ export class ChatService {
     return { total, data: messages };
   }
 
+  async getChatHistoryForUser(userId: string, jobApplicationId: string, page: number = 1, limit: number = 10): Promise<{ total: number; data: Message[] }> {
+    await this.hasChatAccess(userId, jobApplicationId);
+
+    const query = this.messagesRepository.createQueryBuilder('message')
+      .where('message.job_application_id = :jobApplicationId', { jobApplicationId })
+      .leftJoinAndSelect('message.sender', 'sender')
+      .leftJoinAndSelect('message.recipient', 'recipient')
+      .orderBy('message.created_at', 'ASC');
+
+    const total = await query.getCount();
+    const skip = (page - 1) * limit;
+    query.skip(skip).take(limit);
+
+    const messages = await query.getMany();
+
+    return { total, data: messages };
+  }
+
   async markMessagesAsRead(jobApplicationId: string, userId: string): Promise<Message[]> {
     const application = await this.jobApplicationsRepository.findOne({
       where: { id: jobApplicationId },

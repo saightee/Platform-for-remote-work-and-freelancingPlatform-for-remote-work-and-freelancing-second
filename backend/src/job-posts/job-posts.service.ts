@@ -10,7 +10,6 @@ import { SettingsService } from '../settings/settings.service';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
-
 @Injectable()
 export class JobPostsService {
   constructor(
@@ -51,7 +50,14 @@ export class JobPostsService {
     }
 
     if (jobPostData.aiBrief) {
-      jobPostData.description = await this.generateDescription(jobPostData.aiBrief);
+      jobPostData.description = await this.generateDescription({
+        aiBrief: jobPostData.aiBrief,
+        title: jobPostData.title,
+        location: jobPostData.location,
+        salary: jobPostData.salary,
+        salary_type: jobPostData.salary_type,
+        job_type: jobPostData.job_type,
+      });
     }
   
     const limitObj = await this.settingsService.getGlobalApplicationLimit();
@@ -94,7 +100,14 @@ export class JobPostsService {
     }
 
     if (updates.aiBrief) {
-      updates.description = await this.generateDescription(updates.aiBrief);
+      updates.description = await this.generateDescription({
+        aiBrief: updates.aiBrief,
+        title: updates.title || jobPost.title,
+        location: updates.location || jobPost.location,
+        salary: updates.salary !== undefined ? updates.salary : jobPost.salary,
+        salary_type: updates.salary_type || jobPost.salary_type,
+        job_type: updates.job_type || jobPost.job_type,
+      });
     }
   
     if (updates.title) jobPost.title = updates.title;
@@ -262,23 +275,39 @@ export class JobPostsService {
     jobPost.views = (jobPost.views || 0) + 1;
     await this.jobPostsRepository.save(jobPost);
     return { message: 'View count incremented', views: jobPost.views };
-    }
+  }
 
-  async generateDescription(aiBrief: string): Promise<string> {
-    if (!aiBrief) {
+  async generateDescription(data: {
+    aiBrief: string;
+    title?: string;
+    location?: string;
+    salary?: number;
+    salary_type?: 'per hour' | 'per month';
+    job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+  }): Promise<string> {
+    if (!data.aiBrief) {
       throw new BadRequestException('AI brief is required for description generation');
     }
     const apiKey = this.configService.get<string>('XAI_API_KEY');
     if (!apiKey) {
       throw new InternalServerErrorException('xAI API key is not configured');
     }
-    const prompt = `Generate a professional, engaging job description in English for a job posting based on the following brief: ${aiBrief}. 
-    Structure it with the following sections: 
-    - Job Overview: Brief introduction to the role and company.
-    - Responsibilities: Bullet point list of key duties.
-    - Requirements: Bullet point list of must-have skills, experience, and qualifications.
-    - Benefits: Bullet point list of perks, salary range if mentioned, and company culture.
-    Make it concise (300-500 words), use markdown for formatting (e.g., **bold** for sections, - for bullets), and ensure it's appealing to candidates.`;
+    const prompt = `
+      Generate a professional and concise job description in English based on the following brief: "${data.aiBrief}".
+      Use the provided details exactly as given, without adding fictional information (e.g., company names, salary ranges, or benefits unless specified).
+      Structure it with markdown (## for sections, - for bullets) for the following sections:
+      - **Job Overview**: Short intro based on the brief and job title.
+      - **Responsibilities**: List key duties derived from the brief.
+      - **Requirements**: List skills and qualifications from the brief.
+      - **Work Details**: Include Work Mode, Salary (if provided), and Job Type.
+      Keep it 200-300 words, clear, and appealing to candidates. Ensure markdown is HTML-compatible.
+
+      **Provided Details**:
+      - Job Title: ${data.title || 'Not specified'}
+      - Work Mode: ${data.location || 'Not specified'}
+      - Salary: ${data.salary ? `${data.salary} ${data.salary_type || ''}` : 'Not specified'}
+      - Job Type: ${data.job_type || 'Not specified'}
+    `;
 
     try {
       const response = await axios.post('https://api.x.ai/v1/chat/completions', {
@@ -290,6 +319,7 @@ export class JobPostsService {
           'Content-Type': 'application/json',
         },
       });
+      console.log('xAI response:', response.data);
       return response.data.choices[0].message.content.trim();
     } catch (error) {
       console.error('xAI API Error:', error.response?.data || error.message);
