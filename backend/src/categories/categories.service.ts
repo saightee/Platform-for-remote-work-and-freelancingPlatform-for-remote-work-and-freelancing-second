@@ -28,7 +28,10 @@ export class CategoriesService {
   }
 
   async getCategories() {
-    const categories = await this.categoriesRepository.find({ relations: ['parent'] });
+    const categories = await this.categoriesRepository.find({ 
+      relations: ['parent'], 
+      order: { name: 'ASC' } 
+    });
     return this.buildCategoryTree(categories);
   }
 
@@ -58,6 +61,14 @@ export class CategoriesService {
       }
     });
 
+    tree.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+    tree.forEach(parent => {
+      if (parent.subcategories && parent.subcategories.length > 0) {
+        parent.subcategories.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+      }
+    });
+
     return tree;
   }
 
@@ -65,6 +76,7 @@ export class CategoriesService {
     return this.categoriesRepository
       .createQueryBuilder('category')
       .where('category.name ILIKE :searchTerm', { searchTerm: `%${searchTerm}%` })
+      .orderBy('category.name', 'ASC')
       .getMany();
   }
 }

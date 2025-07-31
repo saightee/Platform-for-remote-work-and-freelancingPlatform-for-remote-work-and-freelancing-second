@@ -151,7 +151,7 @@ export class JobPostsController {
 
   @Post(':id/increment-view')
   async incrementJobView(@Param('id') jobPostId: string) {
-  return this.jobPostsService.incrementJobView(jobPostId);
+    return this.jobPostsService.incrementJobView(jobPostId);
   }
 
   @UseGuards(AuthGuard('jwt'), ThrottlerGuard)
@@ -159,6 +159,11 @@ export class JobPostsController {
   async generateDescription(
     @Headers('authorization') authHeader: string,
     @Body('aiBrief') aiBrief: string,
+    @Body('title') title?: string,
+    @Body('location') location?: string,
+    @Body('salary') salary?: number,
+    @Body('salary_type') salary_type?: 'per hour' | 'per month',
+    @Body('job_type') job_type?: 'Full-time' | 'Part-time' | 'Project-based',
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
@@ -170,6 +175,6 @@ export class JobPostsController {
     if (!user || user.role !== 'employer') {
       throw new UnauthorizedException('Only employers can generate descriptions');
     }
-    return this.jobPostsService.generateDescription(aiBrief);
+    return this.jobPostsService.generateDescription({ aiBrief, title, location, salary, salary_type, job_type });
   }
 }
