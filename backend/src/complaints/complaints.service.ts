@@ -82,7 +82,7 @@ export class ComplaintsService {
     }
 
     return this.complaintsRepository.find({
-      relations: ['complainant', 'job_post', 'profile'],
+      relations: ['complainant', 'job_post', 'profile', 'resolver'],
     });
   }
 
@@ -99,6 +99,8 @@ export class ComplaintsService {
 
     complaint.status = status;
     complaint.resolution_comment = comment;
+    complaint.resolver_id = adminId;
+
     return this.complaintsRepository.save(complaint);
   }
 }

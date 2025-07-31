@@ -37,6 +37,13 @@ export class Complaint {
   @Column({ type: 'text', nullable: true })
   resolution_comment?: string; 
 
+  @Column({ nullable: true }) 
+  resolver_id: string;
+
+  @ManyToOne(() => User, { nullable: true }) 
+  @JoinColumn({ name: 'resolver_id' })
+  resolver: User;
+
   @CreateDateColumn()
   created_at: Date;
 
