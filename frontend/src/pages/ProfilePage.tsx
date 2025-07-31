@@ -259,7 +259,7 @@ useEffect(() => {
 )}
               {isEditing ? (
                 <>
-                  <div className="form-group">
+                  {/* <div className="form-group">
                     <label>Username:</label>
                     <input
                       type="text"
@@ -267,7 +267,7 @@ useEffect(() => {
                       onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
                       placeholder="Enter username"
                     />
-                  </div>
+                  </div> */}
                   <div className="form-group">
                     <label>Timezone:</label>
                     <select

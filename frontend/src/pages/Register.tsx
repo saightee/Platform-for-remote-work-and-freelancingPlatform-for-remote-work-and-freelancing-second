@@ -64,6 +64,13 @@ const fetchCategories = async () => {
     }
   }, [skillInput, role]);
 
+  const handleRegister = async () => {
+  const refCode = localStorage.getItem('referralCode');
+  const payload = { email, password, username, role: role as 'employer' | 'jobseeker', ref: refCode || undefined }; // Изменено: as type (non-null)
+  await register(payload);
+  if (refCode) localStorage.removeItem('referralCode'); // Очистка после рега
+};
+
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   if (!role) return;

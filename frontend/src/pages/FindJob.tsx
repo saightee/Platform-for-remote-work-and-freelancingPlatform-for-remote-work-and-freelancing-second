@@ -6,7 +6,7 @@ import Copyright from '../components/Copyright';
 import JobCard from '../components/JobCard';
 import { JobPost, Category, PaginatedResponse } from '@types';
 import { FaFilter } from 'react-icons/fa';
-import { searchJobPosts, getCategories, checkJobApplicationStatus } from '../services/api';
+import { searchJobPosts, getCategories, checkJobApplicationStatus, searchCategories } from '../services/api';
 import { useRole } from '../context/RoleContext';
 import Loader from '../components/Loader';
 
@@ -22,6 +22,10 @@ const [error, setError] = useState<string | null>(null);
 const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
 const [applicationStatus, setApplicationStatus] = useState<{ [key: string]: boolean }>({});
 const navigate = useNavigate();
+
+const [categoryInput, setCategoryInput] = useState('');
+const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
+const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
 
 const [searchState, setSearchState] = useState<{
   title: string;
@@ -93,7 +97,9 @@ const [tempSearchState, setTempSearchState] = useState<{
         ]);
         setJobs(jobsResponse.data || []);
         setTotalPages(Math.ceil(jobsResponse.total / searchState.limit) || 1);
-        setCategories(categoriesResponse || []);
+        // Сортировка категорий
+        const sortCategories = (cats: Category[]) => cats.sort((a, b) => a.name.localeCompare(b.name));
+        setCategories(sortCategories(categoriesResponse) || []);
 
 if (profile?.role === 'jobseeker') {
   try {
@@ -124,6 +130,36 @@ if (profile?.role === 'jobseeker') {
     fetchData();
   }, [searchState, profile]);
 
+  useEffect(() => {
+  const debounce = setTimeout(() => {
+    setSearchState((prev) => ({ ...prev, title: searchInput, page: 1 }));
+  }, 500);
+  return () => clearTimeout(debounce);
+}, [searchInput]);
+
+// Добавлено: search для categoryInput
+useEffect(() => {
+  const search = async () => {
+    if (categoryInput.trim() === '') {
+      setFilteredCategories([]);
+      setIsCategoryDropdownOpen(false);
+      return;
+    }
+    try {
+      const res = await searchCategories(categoryInput);
+      const sorted = res.sort((a, b) => a.name.localeCompare(b.name));
+      setFilteredCategories(sorted);
+      setIsCategoryDropdownOpen(true);
+    } catch (err) {
+      console.error('Error searching categories:', err);
+      setFilteredCategories([]);
+      setIsCategoryDropdownOpen(false);
+    }
+  };
+  const debounce = setTimeout(search, 300);
+  return () => clearTimeout(debounce);
+}, [categoryInput]);
+
 const handleSearch = (e: React.FormEvent) => {
   e.preventDefault();
   setSearchState((prev) => ({
@@ -139,34 +175,30 @@ const handleSearch = (e: React.FormEvent) => {
     setSearchState((prev) => ({ ...prev, page: newPage }));
   };
 
-  const getVisiblePages = () => {
+    const getVisiblePages = () => {
     const maxVisible = 5;
     const pages: (number | string)[] = [];
     const currentPage = searchState.page;
 
-    if (currentPage <= 3) {
-      for (let i = 1; i <= Math.min(maxVisible, totalPages); i++) {
-        pages.push(i);
-      }
-    } else {
-      pages.push(1);
-      if (currentPage > 4) {
-        pages.push('...');
-      }
-      for (let i = Math.max(2, currentPage - 1); i <= Math.min(currentPage + 1, totalPages); i++) {
-        if (i > 1 && i < totalPages) {
-          pages.push(i);
-        }
-      }
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+
+    if (end - start < maxVisible - 1) {
+      start = Math.max(1, end - maxVisible + 1);
     }
 
-    if (totalPages > maxVisible && currentPage < totalPages - 1) {
-      if (!pages.includes('...')) {
-        pages.push('...');
-      }
-      if (!pages.includes(totalPages)) {
-        pages.push(totalPages);
-      }
+    if (start > 1) {
+      pages.push(1);
+      if (start > 2) pages.push('...');
+    }
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+
+    if (end < totalPages) {
+      if (end < totalPages - 1) pages.push('...');
+      pages.push(totalPages);
     }
 
     return pages;
@@ -206,7 +238,7 @@ const handleSearch = (e: React.FormEvent) => {
       />
     </div>
 <div className="form-group">
-  <label>Location:</label>
+  <label>Work Mode:</label>
   <select
     value={tempSearchState.location}
     onChange={(e) => setTempSearchState({ ...tempSearchState, location: e.target.value })}
@@ -217,7 +249,17 @@ const handleSearch = (e: React.FormEvent) => {
     <option value="Hybrid">Hybrid</option>
   </select>
 </div>
-
+ <div className="form-group">
+  <label>Salary Type:</label>
+  <select
+    value={tempSearchState.salary_type || ''}
+    onChange={(e) => setTempSearchState({ ...tempSearchState, salary_type: e.target.value })}
+  >
+    <option value="">All</option>
+    <option value="per hour">Per Hour</option>
+    <option value="per month">Per Month</option>
+  </select>
+</div>
     <div className="form-group">
       <label>Minimum Salary:</label>
       <input
@@ -246,6 +288,7 @@ const handleSearch = (e: React.FormEvent) => {
         placeholder="Enter maximum salary"
       />
     </div>
+    
     <div className="form-group">
       <label>Job Type:</label>
       <select
@@ -258,38 +301,70 @@ const handleSearch = (e: React.FormEvent) => {
         <option value="Project-based">Project-based</option>
       </select>
     </div>
-        <div className="form-group">
-      <label>Category:</label>
-      <select
-        value={tempSearchState.category_id}
-        onChange={(e) => setTempSearchState({ ...tempSearchState, category_id: e.target.value })}
-      >
-        <option value="">All Categories</option>
+       <div className="form-group">
+  <label>Category:</label>
+  <div className="autocomplete-wrapper">
+    <input
+      type="text"
+      value={categoryInput}
+      onChange={(e) => setCategoryInput(e.target.value)}
+      placeholder="Type to search categories..."
+      className="category-select"
+      onFocus={() => categoryInput.trim() && setIsCategoryDropdownOpen(true)}
+      onBlur={() => setTimeout(() => setIsCategoryDropdownOpen(false), 200)}
+    />
+    {isCategoryDropdownOpen && filteredCategories.length > 0 && (
+      <ul className="autocomplete-dropdown">
+        {filteredCategories.map((cat) => (
+          <li
+            key={cat.id}
+            className="autocomplete-item"
+            onMouseDown={() => {
+              setTempSearchState({ ...tempSearchState, category_id: cat.id });
+              setCategoryInput(cat.parent_id ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}` : cat.name);
+              setIsCategoryDropdownOpen(false);
+            }}
+          >
+            {cat.parent_id ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}` : cat.name}
+          </li>
+        ))}
+      </ul>
+    )}
+    {!categoryInput && categories.length > 0 && isCategoryDropdownOpen && ( // Show all if empty
+      <ul className="autocomplete-dropdown">
         {categories.map((category) => (
           <>
-            <option key={category.id} value={category.id}>
+            <li
+              key={category.id}
+              className="autocomplete-item"
+              onMouseDown={() => {
+                setTempSearchState({ ...tempSearchState, category_id: category.id });
+                setCategoryInput(category.name);
+                setIsCategoryDropdownOpen(false);
+              }}
+            >
               {category.name}
-            </option>
+            </li>
             {category.subcategories?.map((sub) => (
-              <option key={sub.id} value={sub.id}>
+              <li
+                key={sub.id}
+                className="autocomplete-item sub-item"
+                onMouseDown={() => {
+                  setTempSearchState({ ...tempSearchState, category_id: sub.id });
+                  setCategoryInput(`${category.name} > ${sub.name}`);
+                  setIsCategoryDropdownOpen(false);
+                }}
+              >
                 {`${category.name} > ${sub.name}`}
-              </option>
+              </li>
             ))}
           </>
         ))}
-      </select>
-    </div>
-    <div className="form-group">
-  <label>Salary Type:</label>
-  <select
-    value={tempSearchState.salary_type || ''}
-    onChange={(e) => setTempSearchState({ ...tempSearchState, salary_type: e.target.value })}
-  >
-    <option value="">All</option>
-    <option value="per hour">Per Hour</option>
-    <option value="per month">Per Month</option>
-  </select>
+      </ul>
+    )}
+  </div>
 </div>
+   
 
     <button type="submit" className="action-button">
       Apply Filters

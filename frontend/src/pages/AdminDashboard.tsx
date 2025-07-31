@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz'; // Для времени по Маниле
-import { FaHome, FaSignOutAlt, FaUser, FaSearch, FaArrowUp, FaArrowDown, FaFilePdf } from 'react-icons/fa'; // Иконки
+import { FaHome, FaSignOutAlt, FaUser, FaSearch, FaArrowUp, FaArrowDown, FaFilePdf, FaLink, FaCopy } from 'react-icons/fa'; // Иконки
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'; // Диаграммы
 import { Link, useNavigate, useLocation } from 'react-router-dom'; // Для навигации и Link
 import { jwtDecode } from 'jwt-decode'; // Для декодирования токена
@@ -22,7 +22,7 @@ import {
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
-  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats // Добавляем logout из api
+  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, generateReferralLink, getReferralLinks, api// Добавляем logout из api
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile } from '@types';
 import { AxiosError } from 'axios';
@@ -80,6 +80,8 @@ const AdminDashboard: React.FC = () => {
   const [newParentCategoryId, setNewParentCategoryId] = useState<string>('');
   const [pendingReviewFilter, setPendingReviewFilter] = useState<'All' | 'true' | 'false'>('All');
   const [issues, setIssues] = useState<Feedback[]>([]);
+  const [growthPage, setGrowthPage] = useState(1);
+const [growthLimit] = useState(10); // Лимит на страницу
 const [stories, setStories] = useState<{ id: string; user_id: string; rating: number; description: string; created_at: string; updated_at: string; user: { id: string; username: string; role: string } }[]>([]);
   const [analytics, setAnalytics] = useState<{
     totalUsers: number;
@@ -147,16 +149,16 @@ const [jobPostPage, setJobPostPage] = useState(1);
 const [jobPostLimit] = useState(10);
 const [jobPostsWithAppsPage, setJobPostsWithAppsPage] = useState(1);
 const [jobPostsWithAppsLimit] = useState(10);
-const [sortColumn, setSortColumn] = useState<'id' | 'applicationCount' | 'created_at' | null>(null);
-const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+const [sortColumn, setSortColumn] = useState<'id' | 'applicationCount' | 'created_at' | null>('created_at'); 
+const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc'); // Изменено: дефолт 'desc' для новых сверху
 const [userSortColumn, setUserSortColumn] = useState<'id' | 'role' | 'is_blocked' | null>(null);
 const [userSortDirection, setUserSortDirection] = useState<'asc' | 'desc'>('asc');
 const [complaintSortColumn, setComplaintSortColumn] = useState<'created_at' | 'status' | null>(null);
 const [complaintSortDirection, setComplaintSortDirection] = useState<'asc' | 'desc'>('asc');
-const [issuesSortColumn, setIssuesSortColumn] = useState<'created_at' | null>(null);
-const [issuesSortDirection, setIssuesSortDirection] = useState<'asc' | 'desc'>('asc');
-const [storiesSortColumn, setStoriesSortColumn] = useState<'created_at' | null>(null);
-const [storiesSortDirection, setStoriesSortDirection] = useState<'asc' | 'desc'>('asc');
+const [issuesSortColumn, setIssuesSortColumn] = useState<'created_at' | null>('created_at'); 
+const [issuesSortDirection, setIssuesSortDirection] = useState<'asc' | 'desc'>('desc'); 
+const [storiesSortColumn, setStoriesSortColumn] = useState<'created_at' | null>('created_at'); 
+const [storiesSortDirection, setStoriesSortDirection] = useState<'asc' | 'desc'>('desc'); 
 const [notificationStats, setNotificationStats] = useState<{ [postId: string]: { sent: number, opened: number, clicked: number } }>({});
 const [allEmailStats, setAllEmailStats] = useState<{ sent: number, opened: number, clicked: number, details: { job_post_id: string; email: string; username: string; opened: boolean; clicked: boolean; sent_at: string; opened_at: string | null; clicked_at: string | null; }[] } | null>(null);
 const [filterJobPostId, setFilterJobPostId] = useState('');
@@ -181,6 +183,14 @@ const [username, setUsername] = useState<string>('Admin');
   const [onlineFreelancers, setOnlineFreelancers] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  const [showProfileModal, setShowProfileModal] = useState<string | null>(null); // Добавлено: state для модалки Profile
+const [selectedProfile, setSelectedProfile] = useState<JobSeekerProfile | null>(null);
+  const [referralLinks, setReferralLinks] = useState<{ id: string; jobPostId: string; refCode: string; fullLink: string; clicks: number; registrations: number; registrationsDetails: { user: { id: string; username: string; email: string; role: string; created_at: string } }[] }[]>([]); // Добавлено: state для referral links
+const [referralFilterJobId, setReferralFilterJobId] = useState(''); // Добавлено: filter by jobId
+const [referralFilterJobTitle, setReferralFilterJobTitle] = useState(''); // Добавлено: filter by title
+const [expandedReferral, setExpandedReferral] = useState<string | null>(null); // Добавлено: для expandable registrations
+const [showReferralModal, setShowReferralModal] = useState<{ fullLink: string; clicks: number; registrations: number } | null>(null); // Добавлено: модалка для new link
   
 
   const navigate = useNavigate();
@@ -193,6 +203,41 @@ const handleSort = (column: 'id' | 'applicationCount' | 'created_at') => {
     setSortDirection('asc');
   }
 };
+
+const handleGenerateReferral = async (id: string) => {
+  try {
+    const data = await generateReferralLink(id);
+    setShowReferralModal({ fullLink: data.fullLink, clicks: data.clicks, registrations: data.registrations }); // Открываем модалку
+    const updatedLinks = await getReferralLinks({});
+    setReferralLinks(updatedLinks || []);
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error generating referral:', axiosError);
+    alert(axiosError.response?.data?.message || 'Failed to generate referral link.');
+  }
+};
+
+useEffect(() => {
+  if (showProfileModal) {
+    const fetchProfile = async () => {
+      try {
+        const profileData = await getUserProfileById(showProfileModal);
+        setSelectedProfile(profileData);
+      } catch (error) {
+        const axiosError = error as AxiosError<{ message?: string }>;
+        console.error('Error fetching profile:', axiosError);
+        alert(axiosError.response?.data?.message || 'Failed to fetch profile.');
+      }
+    };
+    fetchProfile();
+  }
+}, [showProfileModal]);
+
+useEffect(() => {
+  if (showNotifyModal) {
+    console.log('Rendering modal'); // Добавлено: лог для проверки рендера модалки (без JSX)
+  }
+}, [showNotifyModal]);
 
 const location = useLocation();
 useEffect(() => {
@@ -271,6 +316,19 @@ const handleStoriesSort = (column: 'created_at') => {
   } else {
     setStoriesSortColumn(column);
     setStoriesSortDirection('asc');
+  }
+};
+
+const handleGenerateAffiliateLink = async (id: string) => {
+  try {
+    const response = await api.post<{ fullLink: string }>(`/admin/job-posts/${id}/generate-referral`);
+    alert(`Tracking Link generated: ${response.data.fullLink}`);
+    // Опционально: скопировать в clipboard
+    navigator.clipboard.writeText(response.data.fullLink);
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error generating affiliate link:', axiosError);
+    alert(axiosError.response?.data?.message || 'Failed to generate link.');
   }
 };
 
@@ -662,6 +720,9 @@ case 25:
     return acc;
   }, {});
   setNotificationStats(statsMap);
+  // Добавлено: fetch referral links
+  const referralData = await getReferralLinks({});
+  setReferralLinks(referralData || []);
   break;
         }
       } else {
@@ -960,8 +1021,10 @@ const handleFlagJobPost = async (id: string) => {
   };
 
 const handleNotifyCandidates = async (id: string) => {
+  console.log('Handle Notify called for id:', id); // Добавлено: лог для диагностики клика
   setNotifyJobPostId(id);
   setShowNotifyModal(true);
+  console.log('State should update to true'); // Добавлено: лог после setState
 };
 
 const handleNotifySubmit = async () => {
@@ -1040,18 +1103,18 @@ const handleViewJobApplications = async (jobPostId: string) => {
 };
 
   const handleViewChatHistory = async (jobApplicationId: string, page: number = 1) => {
-    try {
-      setError(null);
-      const history = await getChatHistory(jobApplicationId, { page, limit: 1000 });
-      setChatHistory(history);
-      setSelectedJobApplicationId(jobApplicationId);
-      setChatPage(page);
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error fetching chat history:', axiosError);
-      setError(axiosError.response?.data?.message || 'Failed to fetch chat history.');
-    }
-  };
+  try {
+    setError(null);
+    const history = await getChatHistory(jobApplicationId, { page, limit: 1000 }, currentRole!); // Добавлено: передача currentRole! (non-null)
+    setChatHistory(history);
+    setSelectedJobApplicationId(jobApplicationId);
+    setChatPage(page);
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error fetching chat history:', axiosError);
+    setError(axiosError.response?.data?.message || 'Failed to fetch chat history.');
+  }
+};
 
 
 const handleSetGlobalLimit = async () => {
@@ -1239,6 +1302,9 @@ if (isLoading) {
           <li className={activeTab === 'Email Notifications' ? 'active' : ''} onClick={() => setActiveTab('Email Notifications')}>
   Email Notifications
 </li>
+<li className={activeTab === 'Referral Links' ? 'active' : ''} onClick={() => setActiveTab('Referral Links')}> 
+  Referral Links
+</li>
           <li className={activeTab === 'Settings' ? 'active' : ''} onClick={() => setActiveTab('Settings')}>
             Settings
           </li>
@@ -1321,62 +1387,66 @@ if (isLoading) {
               <div className="dashboard-section">
                 <h3>Recent Registrations</h3>
                 <details>
-                  <summary>Last 5 Freelancer Registrations Today (Total: {recentRegistrations.jobseekers.length})</summary>
-                  <table className="dashboard-table">
-                    <thead>
-                      <tr>
-                        <th>Username</th>
-                        <th>Email</th>
-                        <th>Created At</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentRegistrations.jobseekers.length > 0 ? recentRegistrations.jobseekers.map((user) => (
-                        <tr key={user.id}>
-                          <td>{user.username}</td>
-                          <td>{user.email}</td>
-                          <td>{format(new Date(user.created_at), 'PP')}</td>
-                        </tr>
-                      )) : (
-                        <tr>
-                          <td colSpan={3}>No recent freelancer registrations.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                  <button className="view-all-button">View All</button>
-                </details>
-                <details>
-                  <summary>Last 5 Business Registrations Today (Total: {recentRegistrations.employers.length})</summary>
-                  <table className="dashboard-table">
-                    <thead>
-                      <tr>
-                        <th>Username</th>
-                        <th>Email</th>
-                        <th>Created At</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentRegistrations.employers.length > 0 ? recentRegistrations.employers.map((user) => (
-                        <tr key={user.id}>
-                          <td>{user.username}</td>
-                          <td>{user.email}</td>
-                          <td>{format(new Date(user.created_at), 'PP')}</td>
-                        </tr>
-                      )) : (
-                        <tr>
-                          <td colSpan={3}>No recent business registrations.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                  <button className="view-all-button">View All</button>
-                </details>
+  <summary>Last 5 Freelancer Registrations Today (Total: {recentRegistrations.jobseekers.filter(user => new Date(user.created_at).toDateString() === new Date().toDateString()).length})</summary> {/* Обработка: фильтр по сегодняшней дате */}
+  <table className="dashboard-table">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Created At</th>
+      </tr>
+    </thead>
+    <tbody>
+      {recentRegistrations.jobseekers
+        .filter(user => new Date(user.created_at).toDateString() === new Date().toDateString()) // Добавлено: фильтр по дате
+        .slice(0, 5) // Лимит 5
+        .map((user) => (
+          <tr key={user.id}>
+            <td>{user.username}</td>
+            <td>{user.email}</td>
+            <td>{format(new Date(user.created_at), 'PP')}</td>
+          </tr>
+        )) || (
+          <tr>
+            <td colSpan={3}>No recent freelancer registrations today.</td>
+          </tr>
+        )}
+    </tbody>
+  </table>
+</details>
+<details>
+  <summary>Last 5 Business Registrations Today (Total: {recentRegistrations.employers.filter(user => new Date(user.created_at).toDateString() === new Date().toDateString()).length})</summary>
+  <table className="dashboard-table">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Created At</th>
+      </tr>
+    </thead>
+    <tbody>
+      {recentRegistrations.employers
+        .filter(user => new Date(user.created_at).toDateString() === new Date().toDateString()) // Добавлено: фильтр по дате
+        .slice(0, 5) // Лимит 5
+        .map((user) => (
+          <tr key={user.id}>
+            <td>{user.username}</td>
+            <td>{user.email}</td>
+            <td>{format(new Date(user.created_at), 'PP')}</td>
+          </tr>
+        )) || (
+          <tr>
+            <td colSpan={3}>No recent business registrations today.</td>
+          </tr>
+        )}
+    </tbody>
+  </table>
+</details>
               </div>
 <div className="dashboard-section">
   <h3>Job Postings with Applications</h3>
   <table className="dashboard-table">
-    <thead>
+<thead>
   <tr>
     <th>Username</th>
     <th>Title</th>
@@ -1387,6 +1457,7 @@ if (isLoading) {
     <th onClick={() => handleSort('created_at')} style={{ cursor: 'pointer' }}>
       Created At {sortColumn === 'created_at' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
     </th>
+    <th>Affiliate/Tracking Link</th> // Добавлено: новая колонка
   </tr>
 </thead>
 <tbody>
@@ -1397,10 +1468,13 @@ if (isLoading) {
       <td>{typeof post.category === 'string' ? post.category : post.category?.name || 'N/A'}</td> {/* Обработка: string или object.name */}
       <td>{post.applicationCount}</td>
       <td>{format(new Date(post.created_at), 'PP')}</td>
+      <td>
+        <button onClick={() => handleGenerateAffiliateLink(post.id)} className="action-button">Generate Link</button> 
+      </td> 
     </tr>
   )) : (
     <tr>
-      <td colSpan={5}>No job postings with applications found.</td> {/* colSpan +1 */}
+      <td colSpan={6}>No job postings with applications found.</td> {/* Изменено: colSpan +1 */}
     </tr>
   )}
 </tbody>
@@ -1422,9 +1496,9 @@ if (isLoading) {
       Next
     </button>
   </div>
-  {showNotifyModal && (
-    <div className="modal">
-      <div className="modal-content">
+{showNotifyModal && (
+  <div className="modal_notify">
+    <div className="modal-content">
         <h3>Notify Candidates for Job Post ID: {notifyJobPostId}</h3>
         <div className="form-group">
           <label>Number of candidates to notify:</label>
@@ -1465,6 +1539,18 @@ if (isLoading) {
       </div>
     </div>
   )}
+  {showReferralModal && (
+  <div className="modal">
+    <div className="modal-content">
+      <span className="close" onClick={() => setShowReferralModal(null)}>×</span>
+      <h3>Referral Link Details</h3>
+      <p><strong>Full Link:</strong> {showReferralModal.fullLink}</p>
+      <button onClick={() => navigator.clipboard.writeText(showReferralModal.fullLink)} className="action-button"><FaCopy /> Copy Link</button>
+      <p><strong>Clicks:</strong> {showReferralModal.clicks}</p>
+      <p><strong>Registrations:</strong> {showReferralModal.registrations}</p>
+    </div>
+  </div>
+)}
 </div>
 </div>
           
@@ -1627,21 +1713,21 @@ setUserPage(1);
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
       />
-      <button onClick={() => {
-        let params: { page: number; title?: string; employer_id?: string; employer_username?: string; employer_email?: string } = { page: 1 };
-        if (searchQuery.includes('@')) {
-          params.employer_email = searchQuery;
-        } else if (searchQuery.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
-          params.employer_id = searchQuery;
-        } else {
-          params.title = searchQuery;
-          params.employer_username = searchQuery;
-        }
-        fetchJobPosts(params);
-        setJobPostPage(1);
-      }} className="action-button">
-        <FaSearch />
-      </button>
+<button onClick={() => {
+  let params: { page: number; title?: string; employer_id?: string; employer_username?: string; employer_email?: string } = { page: 1 };
+  if (searchQuery.includes('@')) {
+    params.employer_email = searchQuery;
+  } else if (searchQuery.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
+    params.employer_id = searchQuery;
+  } else {
+    params.title = searchQuery;
+    params.employer_username = searchQuery;
+  }
+  fetchJobPosts(params);
+  setJobPostPage(1);
+}} className="action-button">
+  <FaSearch />
+</button>
     </div>
     <div className="form-group">
       <label>Filter by Status:</label>
@@ -1718,6 +1804,7 @@ setUserPage(1);
                 <button onClick={() => setShowJobModal(post.id)} className="action-button">
                   View Job
                 </button>
+                <button onClick={() => handleGenerateReferral(post.id)} className="action-button">Generate Referral</button> 
               </td>
               <td>
 <span 
@@ -1776,6 +1863,20 @@ setUserPage(1);
         </div>
       </div>
     )}
+    {showProfileModal && selectedProfile && ( 
+  <div className="modal">
+    <div className="modal-content">
+      <span className="close" onClick={() => setShowProfileModal(null)}>×</span>
+      <h3>Profile Details</h3>
+      <p><strong>Username:</strong> {selectedProfile.username}</p>
+      <p><strong>Email:</strong> {selectedProfile.email || 'N/A'}</p>
+      <p><strong>Skills:</strong> {selectedProfile.skills?.map(skill => skill.name).join(', ') || 'N/A'}</p>
+      <p><strong>Experience:</strong> {selectedProfile.experience || 'N/A'}</p>
+      <p><strong>Average Rating:</strong> {selectedProfile.average_rating}</p>
+      <p><strong>Reviews:</strong> {selectedProfile.reviews.length > 0 ? selectedProfile.reviews.map(review => review.comment).join('; ') : 'No reviews'}</p>
+    </div>
+  </div>
+)}
   </div>
 )}
 
@@ -1803,7 +1904,7 @@ setUserPage(1);
         <td>{review.rating}</td>
         <td>{review.comment}</td>
         <td>{review.reviewer?.username || 'Anonymous'}</td>
-        <td>{`Profile ID: ${review.reviewed_id}`}</td>
+        <td>{review.job_seeker?.username || `Profile ID: ${review.reviewed_id}`}</td> // Изменено: job_seeker вместо reviewed (по @types Review)
         <td>{review.job_post?.title || 'N/A'}</td>
         <td>{format(new Date(review.created_at), 'PP')}</td>
         <td>
@@ -2059,27 +2160,30 @@ setUserPage(1);
           <tr key={complaint.id}>
             <td>{complaint.id}</td>
             <td>{complaint.complainant.username}</td>
-            <td>
-              {complaint.job_post_id
-                ? `Job Post: ${complaint.job_post?.title}`
-                : complaint.profile_id
-                ? `Profile ID: ${complaint.profile_id}`
-                : 'N/A'}
-            </td>
-            <td>{complaint.reason}</td>
-            <td>{complaint.status}</td>
-            <td>{complaint.resolution_comment || 'N/A'}</td>
-            <td>{format(new Date(complaint.created_at), 'PP')}</td>
-            <td>
-              {complaint.status === 'Pending' && (
-                <button
-                  onClick={() => handleResolveComplaint(complaint.id)}
-                  className="action-button"
-                >
-                  Resolve
-                </button>
-              )}
-            </td>
+<td>
+  {complaint.job_post_id
+    ? `Job Post: ${complaint.job_post?.title || 'N/A'}`
+    : complaint.profile_id
+    ? `Profile: ${complaint.profile_id || 'N/A'}` 
+    : 'N/A'}
+</td>
+<td>{complaint.resolution_comment ? `${complaint.resolution_comment} (by Unknown)` : 'N/A'}</td> 
+<td>
+  {complaint.status === 'Pending' && (
+    <button
+      onClick={() => handleResolveComplaint(complaint.id)}
+      className="action-button"
+    >
+      Resolve
+    </button>
+  )}
+  {complaint.job_post_id && (
+    <button onClick={() => setShowJobModal(complaint.job_post_id || null)} className="action-button">View Job</button> // Изменено: || null для undefined
+  )}
+  {complaint.profile_id && (
+    <button onClick={() => setShowProfileModal(complaint.profile_id || null)} className="action-button">View Profile</button> // Добавлено: || null для undefined
+  )}
+</td>
           </tr>
         )) : (
           <tr>
@@ -2243,6 +2347,7 @@ setUserPage(1);
         )}
       </tbody>
     </table>
+    
    <h4>Growth Trends</h4>
 {fetchErrors.getGrowthTrends && <p className="error-message">{fetchErrors.getGrowthTrends}</p>}
 <h5>Registrations</h5>
@@ -2265,8 +2370,10 @@ setUserPage(1);
       <th>Count</th>
     </tr>
   </thead>
-  <tbody>
-    {growthTrends.registrations.length > 0 ? growthTrends.registrations.map((stat, index) => (
+<tbody>
+  {growthTrends.registrations.length > 0 ? growthTrends.registrations
+    .slice((growthPage - 1) * growthLimit, growthPage * growthLimit) // Добавлено: slice для пагинации
+    .map((stat, index) => (
       <tr key={index}>
         <td>{format(new Date(stat.period), 'PP')}</td>
         <td>{stat.count}</td>
@@ -2276,8 +2383,13 @@ setUserPage(1);
         <td colSpan={2}>No registration trends found.</td>
       </tr>
     )}
-  </tbody>
+</tbody>
 </table>
+<div className="pagination"> 
+  <button onClick={() => setGrowthPage(prev => Math.max(prev - 1, 1))} disabled={growthPage === 1} className="action-button">Previous</button>
+  <span>Page {growthPage}</span>
+  <button onClick={() => setGrowthPage(prev => prev + 1)} disabled={(growthPage * growthLimit) >= growthTrends.registrations.length} className="action-button">Next</button>
+</div>
 <h5>Job Posts</h5>
 {growthTrends.jobPosts.length > 0 && (
   <ResponsiveContainer width="100%" height={300}>
@@ -2299,7 +2411,9 @@ setUserPage(1);
     </tr>
   </thead>
   <tbody>
-    {growthTrends.jobPosts.length > 0 ? growthTrends.jobPosts.map((stat, index) => (
+  {growthTrends.jobPosts.length > 0 ? growthTrends.jobPosts
+    .slice((growthPage - 1) * growthLimit, growthPage * growthLimit) // Добавлено: slice
+    .map((stat, index) => (
       <tr key={index}>
         <td>{format(new Date(stat.period), 'PP')}</td>
         <td>{stat.count}</td>
@@ -2309,15 +2423,21 @@ setUserPage(1);
         <td colSpan={2}>No job post trends found.</td>
       </tr>
     )}
-  </tbody>
+</tbody>
 </table>
-   <h4>Top Employers by Total Applicants</h4> {/* Изменено название */}
+<div className="pagination"> {/* Добавлено: пагинация для jobPosts */}
+  <button onClick={() => setGrowthPage(prev => Math.max(prev - 1, 1))} disabled={growthPage === 1} className="action-button">Previous</button>
+  <span>Page {growthPage}</span>
+  <button onClick={() => setGrowthPage(prev => prev + 1)} disabled={(growthPage * growthLimit) >= growthTrends.jobPosts.length} className="action-button">Next</button>
+</div>
+
+   {/* <h4>Top Employers by Total Applicants</h4> 
 {fetchErrors.getTopEmployers && <p className="error-message">{fetchErrors.getTopEmployers}</p>}
 <table className="dashboard-table">
   <thead>
     <tr>
       <th>Username</th>
-      <th>Total Applicants</th> {/* Изменено с Job Count */}
+      <th>Total Applicants</th> 
     </tr>
   </thead>
   <tbody>
@@ -2328,7 +2448,7 @@ setUserPage(1);
       return (
         <tr key={employer.employer_id}>
           <td>{employer.username}</td>
-          <td>{totalApplicants}</td> {/* Используем аггрегированный count applicants */}
+          <td>{totalApplicants}</td> 
         </tr>
       );
     }) : (
@@ -2359,7 +2479,7 @@ setUserPage(1);
       </tr>
     )}
   </tbody>
-</table>
+</table> */}
     <h4>Top Jobseekers by Profile Views</h4>
     {fetchErrors.getTopJobseekersByViews && <p className="error-message">{fetchErrors.getTopJobseekersByViews}</p>}
     <table className="dashboard-table">
@@ -2456,6 +2576,85 @@ setUserPage(1);
         </tbody>
       </table>
     )}
+  </div>
+)}
+
+{activeTab === 'Referral Links' && (
+  <div>
+    <h4>Referral Links</h4>
+    <div className="form-group">
+      <label>Filter by Job ID:</label>
+      <input value={referralFilterJobId} onChange={(e) => setReferralFilterJobId(e.target.value)} />
+    </div>
+    <div className="form-group">
+      <label>Filter by Job Title:</label>
+      <input value={referralFilterJobTitle} onChange={(e) => setReferralFilterJobTitle(e.target.value)} />
+    </div>
+    <button onClick={async () => {
+      const data = await getReferralLinks({ jobId: referralFilterJobId, title: referralFilterJobTitle });
+      setReferralLinks(data || []);
+    }} className="action-button">
+      Search
+    </button>
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>Job Title</th>
+          <th>Ref Code</th>
+          <th>Full Link</th>
+          <th>Clicks</th>
+          <th>Registrations</th>
+        </tr>
+      </thead>
+      <tbody>
+        {referralLinks.length > 0 ? referralLinks.map((link) => (
+          <>
+            <tr key={link.id} onClick={() => setExpandedReferral(expandedReferral === link.id ? null : link.id)} style={{ cursor: 'pointer' }}>
+              <td>{link.jobPostId} {/* Замените на title, если backend добавит */}</td>
+              <td>{link.refCode}</td>
+              <td>{link.fullLink}</td>
+              <td>{link.clicks}</td>
+              <td>{link.registrations}</td>
+            </tr>
+            {expandedReferral === link.id && (
+              <tr>
+                <td colSpan={5}>
+                  <details open>
+                    <summary>Registrations Details</summary>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>User ID</th>
+                          <th>Username</th>
+                          <th>Email</th>
+                          <th>Role</th>
+                          <th>Created At</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {link.registrationsDetails.map((reg, i) => (
+                          <tr key={i}>
+                            <td>{reg.user.id}</td>
+                            <td>{reg.user.username}</td>
+                            <td>{reg.user.email}</td>
+                            <td>{reg.user.role}</td>
+                            <td>{format(new Date(reg.user.created_at), 'PP')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </details>
+                </td>
+              </tr>
+            )}
+          </>
+        )) : (
+          <tr>
+            <td colSpan={5}>No referral links found.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   </div>
 )}
 

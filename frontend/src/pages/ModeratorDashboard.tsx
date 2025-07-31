@@ -242,10 +242,10 @@ useEffect(() => {
     }
   };
 
-  const handleViewChatHistory = async (jobApplicationId: string, page: number = 1) => {
+    const handleViewChatHistory = async (jobApplicationId: string, page: number = 1) => {
     try {
       setError(null);
-      const history = await getChatHistory(jobApplicationId, { page, limit: chatLimit });
+      const history = await getChatHistory(jobApplicationId, { page, limit: chatLimit }, currentRole!);
       setChatHistory(history);
       setSelectedJobApplicationId(jobApplicationId);
       setChatPage(page);
@@ -255,7 +255,7 @@ useEffect(() => {
       setError(axiosError.response?.data?.message || 'Failed to fetch chat history.');
     }
   };
-
+  
   if (isLoading) {
     return (
       <div>

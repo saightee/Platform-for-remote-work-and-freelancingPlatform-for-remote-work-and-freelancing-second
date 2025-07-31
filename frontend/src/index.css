@@ -29,9 +29,9 @@ p {
 }
 
 .typing-indicator {
-  font-style: italic; 
-  color: #888; 
-  margin: 10px;
+  display: block; /* Убедитесь, что visible */
+  color: #888;
+  font-style: italic;
 }
 button {
   background-color: #3498db;
@@ -625,11 +625,12 @@ header nav.mobile-menu-open .dropdown.active .dropdown-menu {
   color: grey;
 }
 .unread-count {
-  background-color: red;
+  background-color: red; /* Красный бейдж */
   color: white;
   border-radius: 50%;
   padding: 2px 6px;
   font-size: 12px;
+  margin-left: 10px;
 }
 
 
@@ -663,6 +664,11 @@ header nav.mobile-menu-open .dropdown.active .dropdown-menu {
   padding: 10px;
   cursor: pointer;
   border-bottom: 1px solid #eee;
+}
+
+.chat-item.unread {
+  background-color: #e6f3ff; /* Светлый фон для выделения */
+  font-weight: bold; /* Жирный текст */
 }
 
 .chat-item.active {
@@ -1681,6 +1687,19 @@ align-items: center;
 justify-content: center;
 z-index: 1000; 
 }
+
+.modal_notify {
+  display: block; /* Убедитесь, что visible при showNotifyModal=true */
+  position: fixed;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0,0,0,0.4);
+}
+
 .modal-content {
 background: white;
 padding: 20px;
@@ -2471,7 +2490,7 @@ table th {
 .complaint-container {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 70vh;
   padding: 20px;
 }
 
@@ -3734,6 +3753,16 @@ summary:hover {
   transition: background-color 0.3s;
 }
 
+.view-all-jobs {
+  text-decoration: none;
+    font-weight: bold;
+    color: #3498db;
+}
+
+.view-all-jobs:hover {
+  color: #3498db;
+}
+
 .action-button:hover, .view-all-button:hover {
   background-color: #2980b9;
 }
@@ -4286,7 +4315,7 @@ header nav .greeting {
 }
 .home-job-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
   margin-bottom: 40px;
 }
