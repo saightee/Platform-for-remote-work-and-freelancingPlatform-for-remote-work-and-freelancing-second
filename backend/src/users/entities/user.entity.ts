@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { ReferralRegistration } from '../../referrals/entities/referral-registration.entity';
 
 @Entity('users')
 export class User {
@@ -40,6 +41,12 @@ export class User {
 
   @Column({ type: 'boolean', default: false })
   is_email_verified: boolean;
+
+  @Column({ type: 'varchar', nullable: true })
+  referral_source: string | null;
+
+  @OneToMany(() => ReferralRegistration, (reg) => reg.user)
+  referralRegistrations: ReferralRegistration[];
 
   @CreateDateColumn()
   created_at: Date;

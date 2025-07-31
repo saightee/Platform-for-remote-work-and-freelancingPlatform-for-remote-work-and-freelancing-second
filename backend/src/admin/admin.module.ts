@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { AdminController } from './admin.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -31,9 +31,31 @@ import { Category } from '../categories/category.entity';
 import { PlatformFeedback } from '../platform-feedback/platform-feedback.entity';
 import { Message } from '../chat/entities/message.entity';
 import { EmailNotification } from '../email-notifications/email-notification.entity';
+import { ReferralLink } from '../referrals/entities/referral-link.entity';
+import { ReferralRegistration } from '../referrals/entities/referral-registration.entity';
+import { AuthModule } from '../auth/auth.module';
+
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, JobPost, Review, Feedback, BlockedCountry, JobApplication, JobSeeker, Employer, ApplicationLimit, UserFingerprint, Complaint, PlatformFeedback, Category, Message, EmailNotification]),
+    TypeOrmModule.forFeature([
+      User,
+      JobPost,
+      Review,
+      Feedback,
+      BlockedCountry,
+      JobApplication,
+      JobSeeker,
+      Employer,
+      ApplicationLimit,
+      UserFingerprint,
+      Complaint,
+      PlatformFeedback,
+      Category,
+      Message,
+      EmailNotification,
+      ReferralLink,
+      ReferralRegistration,
+    ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -46,16 +68,17 @@ import { EmailNotification } from '../email-notifications/email-notification.ent
     BlockedCountriesModule,
     SettingsModule,
     ApplicationLimitsModule,
-    LeaderboardsModule,
+    forwardRef(() => LeaderboardsModule),
     RedisModule,
     AntiFraudModule,
     ComplaintsModule,
     EmailModule,
     ChatModule,
     CategoriesModule,
-    EmailNotification,
+    forwardRef(() => AuthModule),
   ],
   controllers: [AdminController],
   providers: [AdminService, ComplaintsService],
+  exports: [AdminService], 
 })
 export class AdminModule {}

@@ -26,6 +26,10 @@ import { Feedback } from '../feedback/feedback.entity';
 import { PlatformFeedback } from '../platform-feedback/platform-feedback.entity';
 import { Message } from '../chat/entities/message.entity';
 import { EmailNotification } from '../email-notifications/email-notification.entity';
+import { ReferralRegistration } from '../referrals/entities/referral-registration.entity';
+import { ReferralLink } from '../referrals/entities/referral-link.entity';
+import { ConfigService } from '@nestjs/config';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class AdminService {
@@ -67,6 +71,11 @@ export class AdminService {
     private messagesRepository: Repository<Message>,
     @InjectRepository(EmailNotification)
     private emailNotificationsRepository: Repository<EmailNotification>,
+    @InjectRepository(ReferralLink)
+    private referralLinksRepository: Repository<ReferralLink>,
+    @InjectRepository(ReferralRegistration)
+    private referralRegistrationsRepository: Repository<ReferralRegistration>,
+    private configService: ConfigService,
   ) {}
 
   async checkAdminRole(userId: string) {
@@ -211,6 +220,7 @@ export class AdminService {
       await this.feedbackRepository.delete({ user_id: userId });
       await this.fingerprintRepository.delete({ user_id: userId });
       await this.platformFeedbackRepository.delete({ user_id: userId });
+      await this.referralRegistrationsRepository.delete({ user: { id: userId } });
 
       await this.usersRepository.delete(userId);
       return { message: 'User deleted successfully' };
@@ -361,6 +371,7 @@ export class AdminService {
       await this.jobApplicationsRepository.delete({ job_post_id: jobPostId });
       await this.applicationLimitsRepository.delete({ job_post_id: jobPostId });
       await this.complaintsRepository.delete({ job_post_id: jobPostId });
+      await this.referralLinksRepository.delete({ job_post: { id: jobPostId } });
       await this.jobPostsRepository.delete(jobPostId);
       return { message: 'Job post deleted successfully' };
     } catch (error) {
@@ -995,6 +1006,83 @@ export class AdminService {
     return { message: 'Category successfully deleted' };
   }
 
+  async generateReferralLink(adminId: string, jobPostId: string) {
+    await this.checkAdminRole(adminId);
+    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
+    if (!jobPost) {
+      throw new NotFoundException('Job post not found');
+    }
 
+    let referralLink = await this.referralLinksRepository.findOne({ where: { job_post: { id: jobPostId } } });
+    if (!referralLink) {
+      const refCode = uuidv4();
+      referralLink = this.referralLinksRepository.create({
+        ref_code: refCode,
+        job_post: jobPost,
+        created_at: new Date(),
+        updated_at: new Date(),
+      });
+      await this.referralLinksRepository.save(referralLink);
+    }
 
+    const baseUrl = this.configService.get<string>('BASE_URL', 'https://yourdomain.com');
+    return {
+      refCode: referralLink.ref_code,
+      fullLink: `${baseUrl}/ref/${referralLink.ref_code}`,
+      jobPostId,
+    };
   }
+
+  async getReferralLinks(adminId: string, filters: { jobId?: string, jobTitle?: string } = {}) {
+    await this.checkAdminRole(adminId);
+    const query = this.referralLinksRepository.createQueryBuilder('link')
+      .leftJoinAndSelect('link.job_post', 'jobPost')
+      .leftJoinAndSelect('link.registrationsDetails', 'reg')
+      .leftJoinAndSelect('reg.user', 'user')
+      .orderBy('link.created_at', 'DESC');
+
+    if (filters.jobId) {
+      query.andWhere('jobPost.id = :jobId', { jobId: filters.jobId });
+    }
+    if (filters.jobTitle) {
+      query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.jobTitle}%` });
+    }
+
+    return query.getMany();
+  }
+
+  async incrementClick(refCode: string) {
+    const referralLink = await this.referralLinksRepository.findOne({ where: { ref_code: refCode } });
+    if (!referralLink) {
+      throw new NotFoundException('Referral link not found');
+    }
+
+    referralLink.clicks += 1;
+    await this.referralLinksRepository.save(referralLink);
+    return referralLink.job_post.id;
+  }
+
+  async incrementRegistration(refCode: string, userId: string) {
+    const referralLink = await this.referralLinksRepository.findOne({ where: { ref_code: refCode } });
+    if (!referralLink) {
+      throw new NotFoundException('Referral link not found');
+    }
+
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    referralLink.registrations += 1;
+    await this.referralLinksRepository.save(referralLink);
+
+    const referralRegistration = this.referralRegistrationsRepository.create({
+      referral_link: referralLink,
+      user,
+      created_at: new Date(),
+    });
+
+    await this.referralRegistrationsRepository.save(referralRegistration);
+  }
+
+}

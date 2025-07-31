@@ -2,6 +2,7 @@ import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, OneToMan
 import { User } from '../users/entities/user.entity';
 import { Category } from '../categories/category.entity';
 import { JobApplication } from '../job-applications/job-application.entity'; 
+import { ReferralLink } from '../referrals/entities/referral-link.entity';
 
 @Entity('job_posts')
 export class JobPost {
@@ -57,6 +58,9 @@ export class JobPost {
 
   @OneToMany(() => JobApplication, application => application.job_post) 
   applications: JobApplication[];
+
+  @OneToMany(() => ReferralLink, (link) => link.job_post)
+  referralLinks: ReferralLink[];
 
   @CreateDateColumn()
   created_at: Date;

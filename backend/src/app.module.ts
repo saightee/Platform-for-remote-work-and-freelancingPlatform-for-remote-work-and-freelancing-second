@@ -26,6 +26,7 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ChatModule } from './chat/chat.module';
 import { ActivityMiddleware } from './middleware/activity.middleware';
 import { PlatformFeedbackModule } from './platform-feedback/platform-feedback.module';
+import { ReferralsModule } from './referrals/referrals.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { PlatformFeedbackModule } from './platform-feedback/platform-feedback.mo
     EmailModule,
     ChatModule,
     PlatformFeedbackModule,
+    ReferralsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

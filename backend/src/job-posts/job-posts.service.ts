@@ -292,21 +292,35 @@ export class JobPostsService {
     if (!apiKey) {
       throw new InternalServerErrorException('xAI API key is not configured');
     }
-    const prompt = `
-      Generate a professional and concise job description in English based on the following brief: "${data.aiBrief}".
-      Use the provided details exactly as given, without adding fictional information (e.g., company names, salary ranges, or benefits unless specified).
-      Structure it with markdown (## for sections, - for bullets) for the following sections:
-      - **Job Overview**: Short intro based on the brief and job title.
-      - **Responsibilities**: List key duties derived from the brief.
-      - **Requirements**: List skills and qualifications from the brief.
-      - **Work Details**: Include Work Mode, Salary (if provided), and Job Type.
-      Keep it 200-300 words, clear, and appealing to candidates. Ensure markdown is HTML-compatible.
+  const prompt = `
+      Generate a professional job description in English based solely on the provided brief: "${data.aiBrief}".
+      Do NOT add any fictional details (e.g., company names, team sizes, benefits, or unspecified information).
+      Use the exact details provided below for the job. Structure the description with markdown:
+      - Use ## for section headers.
+      - Use - for bullet points in lists.
+      - Add an empty line between sections for readability.
+      - Keep the total length between 150-180 words.
+      - Ensure the markdown is HTML-compatible for rendering in a rich text editor.
+      - Do NOT include a word count or concluding remarks (e.g., no "Apply today" or "Join us").
+
+      **Structure**:
+      ## Job Overview
+      One sentence summarizing the role based on the brief and title.
+      
+      ## Responsibilities
+      - List 3-5 key duties extracted directly from the brief.
+      
+      ## Requirements
+      - List 3-5 skills or qualifications from the brief.
+      
+      ## Work Details
+      - **Work Mode**: ${data.location || 'Not specified'}
+      - **Salary**: ${data.salary ? `${data.salary} ${data.salary_type || ''}` : 'Not specified'}
+      - **Job Type**: ${data.job_type || 'Not specified'}
 
       **Provided Details**:
       - Job Title: ${data.title || 'Not specified'}
-      - Work Mode: ${data.location || 'Not specified'}
-      - Salary: ${data.salary ? `${data.salary} ${data.salary_type || ''}` : 'Not specified'}
-      - Job Type: ${data.job_type || 'Not specified'}
+      - Brief: ${data.aiBrief}
     `;
 
     try {
