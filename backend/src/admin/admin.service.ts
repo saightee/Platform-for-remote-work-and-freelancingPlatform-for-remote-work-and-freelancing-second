@@ -1034,6 +1034,8 @@ export class AdminService {
       refCode: referralLink.ref_code,
       fullLink: `${baseUrl}/ref/${referralLink.ref_code}`,
       jobPostId,
+      clicks: referralLink.clicks,
+      registrations: referralLink.registrations, 
     };
   }
 
@@ -1056,13 +1058,22 @@ export class AdminService {
   }
 
   async incrementClick(refCode: string) {
-    const referralLink = await this.referralLinksRepository.findOne({ where: { ref_code: refCode } });
+    console.log(`Incrementing click for refCode: ${refCode}`);
+    const referralLink = await this.referralLinksRepository.findOne({ 
+      where: { ref_code: refCode },
+      relations: ['job_post'],
+    });
     if (!referralLink) {
+      console.error(`Referral link not found for refCode: ${refCode}`);
       throw new NotFoundException('Referral link not found');
     }
-
+    if (!referralLink.job_post) {
+      console.error(`Job post not found for referral link: ${refCode}`);
+      throw new NotFoundException('Job post not found for this referral link');
+    }
     referralLink.clicks += 1;
     await this.referralLinksRepository.save(referralLink);
+    console.log(`Click incremented for refCode: ${refCode}, jobPostId: ${referralLink.job_post.id}`);
     return referralLink.job_post.id;
   }
 
