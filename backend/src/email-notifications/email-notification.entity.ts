@@ -5,8 +5,8 @@ export class EmailNotification {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  job_post_id: string;  
+  @Column({ type: 'uuid' })
+  job_post_id: string;
 
   @Column()
   recipient_email: string;

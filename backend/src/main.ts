@@ -19,18 +19,24 @@ async function bootstrap() {
 
   const redisClient = redisService.getClient();
 
+  app.enableCors({
+    origin: '*',
+    methods: 'GET,POST,PUT,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type, Authorization',
+  });
+
   app.use(
     session({
       store: new RedisStore({
         client: redisClient,
-        ttl: 24 * 60 * 60, // 24 часа TTL
+        ttl: 24 * 60 * 60,
       }),
       secret: process.env.SESSION_SECRET || 'mySuperSecretSessionKey123!@#',
       resave: false,
       saveUninitialized: false,
       name: 'jobforge.sid',
       cookie: {
-        maxAge: 24 * 60 * 60 * 1000, // 24 часа
+        maxAge: 24 * 60 * 60 * 1000,
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
