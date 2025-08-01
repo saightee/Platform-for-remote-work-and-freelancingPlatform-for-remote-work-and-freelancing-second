@@ -3860,7 +3860,7 @@ summary:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   max-width: 500px;
   width: 100%;
-  text-align: center;
+  text-align: left;
   color: #333;
 }
 
@@ -4127,7 +4127,7 @@ header nav .greeting {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   max-width: 600px;
   width: 100%;
-  text-align: center;
+  text-align: left;
 }
 
 .modal-content h3 {

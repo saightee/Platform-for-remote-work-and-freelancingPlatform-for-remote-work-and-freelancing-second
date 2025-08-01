@@ -4,7 +4,7 @@ import App from './App'; // Removed .tsx extension
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+  // <StrictMode> // Закомментировано: убрано для теста max depth error в ReactQuill. Верните для dev после теста.
     <App />
-  </StrictMode>
+  // </StrictMode>
 );
