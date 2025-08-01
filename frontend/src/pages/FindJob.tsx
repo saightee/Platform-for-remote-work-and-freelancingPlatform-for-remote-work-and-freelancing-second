@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -22,6 +22,7 @@ const [error, setError] = useState<string | null>(null);
 const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
 const [applicationStatus, setApplicationStatus] = useState<{ [key: string]: boolean }>({});
 const navigate = useNavigate();
+const [skillInput, setSkillInput] = useState('');
 
 const [categoryInput, setCategoryInput] = useState('');
 const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
@@ -301,64 +302,46 @@ const handleSearch = (e: React.FormEvent) => {
         <option value="Project-based">Project-based</option>
       </select>
     </div>
-       <div className="form-group">
+      <div className="ft-form-group">
   <label>Category:</label>
   <div className="autocomplete-wrapper">
     <input
       type="text"
-      value={categoryInput}
-      onChange={(e) => setCategoryInput(e.target.value)}
-      placeholder="Type to search categories..."
+      value={skillInput}
+      onChange={(e) => setSkillInput(e.target.value)}
+      placeholder="Type to search categories/skills..."
       className="category-select"
-      onFocus={() => categoryInput.trim() && setIsCategoryDropdownOpen(true)}
+      onFocus={() => setIsCategoryDropdownOpen(true)}
       onBlur={() => setTimeout(() => setIsCategoryDropdownOpen(false), 200)}
     />
-    {isCategoryDropdownOpen && filteredCategories.length > 0 && (
+    {isCategoryDropdownOpen && (skillInput.trim() ? filteredCategories.length > 0 : categories.length > 0) && (
       <ul className="autocomplete-dropdown">
-        {filteredCategories.map((cat) => (
-          <li
-            key={cat.id}
-            className="autocomplete-item"
-            onMouseDown={() => {
-              setTempSearchState({ ...tempSearchState, category_id: cat.id });
-              setCategoryInput(cat.parent_id ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}` : cat.name);
-              setIsCategoryDropdownOpen(false);
-            }}
-          >
-            {cat.parent_id ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}` : cat.name}
-          </li>
-        ))}
-      </ul>
-    )}
-    {!categoryInput && categories.length > 0 && isCategoryDropdownOpen && ( // Show all if empty
-      <ul className="autocomplete-dropdown">
-        {categories.map((category) => (
-          <>
+        {(skillInput.trim() ? filteredCategories : categories).map((cat) => (
+          <Fragment key={cat.id}>
             <li
-              key={category.id}
               className="autocomplete-item"
               onMouseDown={() => {
-                setTempSearchState({ ...tempSearchState, category_id: category.id });
-                setCategoryInput(category.name);
+                const displayName = cat.parent_id ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}` : cat.name;
+                setTempSearchState({ ...tempSearchState, category_id: cat.id });
+                setSkillInput(displayName);
                 setIsCategoryDropdownOpen(false);
               }}
             >
-              {category.name}
+              {cat.parent_id ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}` : cat.name}
             </li>
-            {category.subcategories?.map((sub) => (
+            {cat.subcategories?.map((sub) => (
               <li
-                key={sub.id}
                 className="autocomplete-item sub-item"
                 onMouseDown={() => {
                   setTempSearchState({ ...tempSearchState, category_id: sub.id });
-                  setCategoryInput(`${category.name} > ${sub.name}`);
+                  setSkillInput(`${cat.name} > ${sub.name}`);
                   setIsCategoryDropdownOpen(false);
                 }}
               >
-                {`${category.name} > ${sub.name}`}
+                {`${cat.name} > ${sub.name}`}
               </li>
             ))}
-          </>
+          </Fragment>
         ))}
       </ul>
     )}

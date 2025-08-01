@@ -267,11 +267,18 @@ export const generateDescription = async (data: {
   salary_type?: 'per hour' | 'per month';
   job_type?: 'Full-time' | 'Part-time' | 'Project-based';
 }) => {
-  const token = localStorage.getItem('token');
-  const response = await axios.post('/job-posts/generate-description', data, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return response.data;
+  const token = localStorage.getItem('token'); // Добавлено: явный token на случай
+  try {
+    const response = await api.post('/job-posts/generate-description', data, {
+      headers: { Authorization: `Bearer ${token}` } // Добавлено: headers для surety
+    });
+    console.log('Generate description response:', response.data); // Добавлено: лог для отладки
+    return response.data;
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error generating description:', axiosError.response?.data?.message || axiosError.message, 'URL:', api.defaults.baseURL + '/job-posts/generate-description');
+    throw axiosError;
+  }
 };
 
 export const rejectJobPost = async (id: string, reason: string) => {
