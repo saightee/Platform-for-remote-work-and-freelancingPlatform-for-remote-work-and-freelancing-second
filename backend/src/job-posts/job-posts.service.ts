@@ -10,7 +10,9 @@ import { SettingsService } from '../settings/settings.service';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { marked } from 'marked';
-import sanitizeHtml from 'sanitize-html';
+import * as sanitizeHtmlModule from 'sanitize-html';
+
+const sanitizeHtml = sanitizeHtmlModule.default || sanitizeHtmlModule;
 
 @Injectable()
 export class JobPostsService {
@@ -339,7 +341,12 @@ export class JobPostsService {
       console.log('xAI response:', response.data);
 
       const markdownContent = response.data.choices[0].message.content.trim();
-      const htmlContent = await marked.parse(markdownContent); 
+      const htmlContent = await marked.parse(markdownContent);
+
+      console.log('sanitizeHtml type:', typeof sanitizeHtml);
+      if (typeof sanitizeHtml !== 'function') {
+        throw new Error('sanitizeHtml is not a function');
+      }
 
       const sanitizedHtml = sanitizeHtml(htmlContent, {
         allowedTags: ['h2', 'ul', 'li', 'p', 'strong', 'em'],
