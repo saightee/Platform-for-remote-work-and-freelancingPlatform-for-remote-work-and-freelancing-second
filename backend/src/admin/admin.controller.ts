@@ -863,33 +863,48 @@ export class AdminController {
 
   @Post('webhooks/brevo')
   async handleBrevoWebhook(@Body() body: any) {
-    console.log('Brevo webhook received:', body);
-  
+    console.log('Webhook received:', JSON.stringify(body, null, 2));  
+
     const event = body.event;
     const messageId = body['message-id'];
-    const timestamp = body.ts;
-  
+    const timestamp = body.ts;  
+
+    console.log('Extracted event:', event, 'messageId:', messageId, 'timestamp:', timestamp);
+
     if (!messageId || !event) {
+      console.log('Ignored: missing messageId or event');
       return { status: 'ignored' };
     }
-  
-    const notification = await this.adminService.getNotificationByMessageId(messageId);
-    if (!notification) {
-      return { status: 'not_found' };
+
+    try {
+      const notification = await this.adminService.getNotificationByMessageId(messageId);
+      if (!notification) {
+        console.log('Notification not found for messageId:', messageId);
+        return { status: 'not_found' };
+      }
+
+      console.log('Found notification:', notification);
+
+      if (['opened', 'first_opening', 'open'].includes(event)) {
+        notification.opened = true;
+        notification.opened_at = new Date(timestamp * 1000);
+        console.log('Updating opened for notification:', notification.id);
+      } else if (['clicked', 'click'].includes(event)) {
+        notification.clicked = true;
+        notification.clicked_at = new Date(timestamp * 1000);
+        console.log('Updating clicked for notification:', notification.id);
+      } else {
+        console.log('Ignored event:', event);
+        return { status: 'ignored_event' };
+      }
+
+      await this.adminService.updateNotification(notification);
+      console.log('Notification updated successfully:', notification);
+      return { status: 'ok' };
+    } catch (error) {
+      console.error('Error processing webhook:', error.message);
+      return { status: 'error', message: error.message };
     }
-  
-    if (event === 'opened') {
-      notification.opened = true;
-      notification.opened_at = new Date(timestamp * 1000);
-    } else if (event === 'clicked') {
-      notification.clicked = true;
-      notification.clicked_at = new Date(timestamp * 1000);
-    } else {
-      return { status: 'ignored_event' };
-    }
-  
-    await this.adminService.updateNotification(notification);
-    return { status: 'ok' };
   }
 
   @Post('job-posts/:id/generate-referral')
