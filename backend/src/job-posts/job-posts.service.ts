@@ -339,7 +339,7 @@ export class JobPostsService {
       console.log('xAI response:', response.data);
 
       const markdownContent = response.data.choices[0].message.content.trim();
-      const htmlContent = marked.parse(markdownContent);
+      const htmlContent = await marked.parse(markdownContent); 
 
       const sanitizedHtml = sanitizeHtml(htmlContent, {
         allowedTags: ['h2', 'ul', 'li', 'p', 'strong', 'em'],
