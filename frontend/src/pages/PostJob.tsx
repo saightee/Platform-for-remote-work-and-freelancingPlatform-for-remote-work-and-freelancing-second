@@ -10,6 +10,7 @@ import { useRole } from '../context/RoleContext';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import Loader from '../components/Loader';
+import { useRef } from 'react';
 
 const PostJob: React.FC = () => {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ const PostJob: React.FC = () => {
 const [categoryIds, setCategoryIds] = useState<string[]>([]);
  
   const [location, setLocation] = useState(''); // Uncommented and used for Work Mode
+  
   const [selectedSkills, setSelectedSkills] = useState<Category[]>([]);
   const [jobType, setJobType] = useState<JobPost['job_type'] | undefined>(undefined);
   const [aiBrief, setAiBrief] = useState(''); // Новое: brief для AI
@@ -85,6 +87,8 @@ const removeCountry = (country: string) => {
   setExcludedCountries(excludedCountries.filter(c => c !== country));
 };
 
+const quillRef = useRef<any>(null); // Добавлено: ref для Quill
+
 const handleGenerate = async (isRegenerate = false) => {
   if (!aiBrief.trim()) {
     setError('Brief description is required for generation.');
@@ -108,8 +112,13 @@ const handleGenerate = async (isRegenerate = false) => {
       salary_type: salaryType, 
       job_type: jobType ?? undefined,
     });
-    console.log('Generated description:', res);
-    setDescription(res || '');
+    const html = typeof res === 'string' ? res : res.description || ''; // Добавлено: обработка если res object
+    console.log('Generated description:', html);
+    if (quillRef.current) {
+      const editor = quillRef.current.getEditor();
+      editor.setContents(editor.clipboard.convert(html)); // Добавлено: set через Quill API, без триггера onChange
+    }
+    setDescription(html); // Сохраняем в state для persist
     setIsEdited(false);
   } catch (err: any) {
     setError(err.response?.data?.message || 'Failed to generate description.');
@@ -426,14 +435,17 @@ const handleSubmit = async (e: FormEvent) => {
     <Loader />
   ) : (
 <ReactQuill
+  ref={quillRef} // Добавлено: ref
   key={description}
   value={description || ''}
   onChange={(value) => {
-    if (value !== description) { // Добавьте эту проверку
+    if (value !== description) {
       setDescription(value);
       if (!isEdited) setIsEdited(true);
     }
   }}
+  modules={{ toolbar: false }} // Добавлено: отключить toolbar
+  formats={['header', 'bold', 'list', 'bullet']} // Добавлено: ограничить formats
   placeholder="Generated description will appear here"
   style={{ height: '380px', marginBottom: '10px' }}
 />
