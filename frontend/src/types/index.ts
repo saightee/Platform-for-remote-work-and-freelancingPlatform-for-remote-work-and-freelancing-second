@@ -155,6 +155,12 @@ export interface Review {
     username: string;
     role: 'employer' | 'jobseeker';
   };
+  reviewed?: { 
+    id: string;
+    email: string;
+    username: string;
+    role: 'employer' | 'jobseeker';
+  };
   job_application?: ReviewJobApplication | null; // Изменено на JobApplication, которая имеет nested job_post/job_seeker
   job_post?: {
     id: string;
@@ -167,6 +173,7 @@ export interface Review {
   created_at: string;
   updated_at: string;
 }
+
 
 export interface Feedback {
   id: string;
@@ -238,3 +245,22 @@ export interface Analytics {
   totalApplications: number;
   totalReviews: number;
 }
+
+interface Complaint { // Добавьте базовый, если typeof complaints[0] не работает (complaints - state)
+  id: string;
+  complainant_id: string;
+  complainant: { id: string; username: string; email: string; role: string };
+  job_post_id?: string;
+  job_post?: { id: string; title: string; description: string };
+  profile_id?: string;
+  reason: string;
+  status: 'Pending' | 'Resolved' | 'Rejected';
+  created_at: string;
+  resolution_comment?: string;
+  resolver?: { username: string }; // Добавьте для resolver.username
+}
+
+interface EnrichedComplaint extends Complaint { // Изменено: extends Complaint вместо typeof
+  targetUsername: string;
+}
+

@@ -193,7 +193,7 @@ const handleSearch = (e: React.FormEvent) => {
     return description || '';
   };
 
-  const totalPages = Math.ceil(total / filters.limit) || 1;
+ const totalPages = Math.ceil(total / filters.limit) || 1;
 
 const getVisiblePages = () => {
   const maxVisible = 5;
@@ -435,21 +435,12 @@ const getVisiblePages = () => {
   <p>No talents found.</p>
 )}
             </div>
-           {total > 0 && (
-  <div className="ft-pagination">
-    <button
-      className="ft-arrow"
-      onClick={() => handlePageChange(filters.page - 1)}
-      disabled={filters.page === 1}
-    >
-      Previous
-    </button> {/* Добавлено: Prev кнопка */}
+         {total > 0 && (
+  <div className="job-pagination">
     {getVisiblePages().map((page, index) => (
       <button
         key={index}
-        className={`ft-button ${
-          page === filters.page ? 'ft-current' : ''
-        } ${page === '...' ? 'ft-ellipsis' : ''}`}
+        className={`pagination-button ${page === filters.page ? 'pagination-current' : ''} ${page === '...' ? 'pagination-ellipsis' : ''}`}
         onClick={() => typeof page === 'number' && handlePageChange(page)}
         disabled={page === '...' || page === filters.page}
       >
@@ -457,7 +448,7 @@ const getVisiblePages = () => {
       </button>
     ))}
     <button
-      className="ft-arrow"
+      className="pagination-arrow"
       onClick={() => handlePageChange(filters.page + 1)}
       disabled={filters.page === totalPages}
     >

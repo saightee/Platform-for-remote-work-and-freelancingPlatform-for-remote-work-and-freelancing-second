@@ -105,7 +105,7 @@ useEffect(() => {
   };
 
   socket.on('chatHistory', (history: Message[]) => {
-    if (history.length > 0) {
+    if (history && history.length > 0) { // Изменено: добавлена проверка if (history)
       const jobApplicationId = history[0].job_application_id;
       setMessages((prev) => ({
         ...prev,
@@ -116,6 +116,8 @@ useEffect(() => {
         ...prevCounts,
         [jobApplicationId]: selectedChat === jobApplicationId ? 0 : unread,
       }));
+    } else {
+      console.warn('Received empty or undefined chat history');
     }
   });
 
@@ -127,31 +129,37 @@ socket.on('newMessage', (message: Message) => {
   if (message.recipient_id === profile.id && !message.is_read) {
     if (selectedChat && selectedChat === message.job_application_id) {
       socket.emit('markMessagesAsRead', { jobApplicationId: message.job_application_id });
-      scrollToBottom(); // Добавлено: прокрутка вниз при новом сообщении
+      scrollToBottom(); // Уже было, но подчеркиваю: скролл при новом сообщении если чат открыт
     } else {
       setUnreadCounts((prevCounts) => ({
         ...prevCounts,
         [message.job_application_id]: (prevCounts[message.job_application_id] || 0) + 1,
       }));
     }
+  } else {
+    if (selectedChat === message.job_application_id) {
+      scrollToBottom(); // Добавлено: скролл даже если сообщение от себя (для обоих пользователей)
+    }
   }
 });
 
 socket.on('typing', (data: { userId: string; jobApplicationId: string; isTyping: boolean }) => {
-  console.log('Typing event received:', data); // Добавлено: лог для отладки typing
+  console.log('Typing event received:', data); // Уже было, но для отладки: проверь консоль, приходит ли data.isTyping true/false
   if (data.userId !== profile.id) {
     setIsTyping((prev) => ({ ...prev, [data.jobApplicationId]: data.isTyping }));
   }
 });
 
-socket.on('messagesRead', (updatedMessages: { data: Message[] }) => { // Изменено тип
-  if (updatedMessages.data.length > 0) {
+socket.on('messagesRead', (updatedMessages: { data: Message[] }) => { 
+  if (updatedMessages.data && updatedMessages.data.length > 0) { // Изменено: добавлена проверка if (updatedMessages.data)
     const jobId = updatedMessages.data[0].job_application_id;
     setMessages((prev) => ({
       ...prev,
       [jobId]: updatedMessages.data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
     }));
     setUnreadCounts((prev) => ({ ...prev, [jobId]: 0 }));
+  } else {
+    console.warn('Received empty or undefined updated messages');
   }
 });
 
@@ -391,21 +399,21 @@ const getChatList = () => {
 <ul>
   {getChatList().map((chat) => (
     <li
-      key={chat.id}
-      className={`chat-item ${selectedChat === chat.id ? 'active' : ''} ${chat.unreadCount > 0 ? 'unread' : ''}`} // Добавлено: класс 'unread' для выделения
-      onClick={() => handleSelectChat(chat.id)}
-    >
-      <p>
-        <strong>{chat.title}</strong>
-      </p>
-      <p>{chat.partner}</p>
-      {chat.unreadCount > 0 && <span className="unread-count">{chat.unreadCount}</span>} // Добавлено: бейдж для unread
-      {currentRole === 'employer' && ( 
-        <button onClick={() => setReviewForm({ applicationId: chat.id, rating: 5, comment: '' })}>
-          Leave Review
-        </button>
-      )}
-    </li>
+  key={chat.id}
+  className={`chat-item ${selectedChat === chat.id ? 'active' : ''} ${chat.unreadCount > 0 ? 'unread' : ''}`}
+  onClick={() => handleSelectChat(chat.id)}
+>
+  <p>
+    <strong>{chat.title}</strong>
+  </p>
+  <p>{chat.partner}</p>
+  {chat.unreadCount > 0 && <span className="unread-count">{chat.unreadCount}</span>}
+  {(currentRole === 'employer' || currentRole === 'jobseeker') && ( // Изменено: добавили для jobseeker
+    <button onClick={() => setReviewForm({ applicationId: chat.id, rating: 5, comment: '' })}>
+      Leave Review
+    </button>
+  )}
+</li>
   ))}
 </ul>
             ) : (

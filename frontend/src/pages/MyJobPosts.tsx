@@ -147,27 +147,28 @@ const handleEditJob = (job: JobPost) => {
   setEditingJob({ ...job });
 };
 
-  const handleSaveEdit = async (id: string) => {
-    if (!editingJob) return;
-    if (!editingJob.title || !editingJob.description) {
-      alert('Job title and description are required.');
-      return;
-    }
-    try {
-      await handleUpdate(id, {
-        title: editingJob.title,
-        description: editingJob.description,
-        location: editingJob.location,
-        salary: editingJob.salary,
-        job_type: editingJob.job_type || null,
-        category_id: editingJob.category_id || undefined,
-      });
-      setEditingJob(null);
-    } catch (err: any) {
-      console.error('Error saving job edit:', err);
-      alert(err.response?.data?.message || 'Failed to save changes.');
-    }
-  };
+const handleSaveEdit = async (id: string) => {
+  if (!editingJob) return;
+  if (!editingJob.title || !editingJob.description) {
+    alert('Job title and description are required.');
+    return;
+  }
+  try {
+    await handleUpdate(id, {
+      title: editingJob.title,
+      description: editingJob.description,
+      location: editingJob.location,
+      salary: editingJob.salary,
+      salary_type: editingJob.salary_type, // Добавлено: передача salary_type
+      job_type: editingJob.job_type || null,
+      category_id: editingJob.category_id || undefined,
+    });
+    setEditingJob(null);
+  } catch (err: any) {
+    console.error('Error saving job edit:', err);
+    alert(err.response?.data?.message || 'Failed to save changes.');
+  }
+};
 
   const handleCancelEdit = () => {
     setEditingJob(null);
@@ -406,26 +407,28 @@ const handleEditJob = (job: JobPost) => {
                     <p><strong>Description:</strong> <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.description) }} /></p>
                     <p><strong>Status:</strong> {post.status}</p>
                    
-                    <div className="my-job-action-buttons">
-                      <button onClick={() => handleEditJob(post)} className="my-job-action-button">
-                        Edit Job Post
-                      </button>
-                      {post.status === 'Active' ? (
-                        <button onClick={() => handleClose(post.id)} className="my-job-action-button my-job-warning">
-                          Close Job Post
-                        </button>
-                      ) : (
-                        <button onClick={() => handleReopen(post.id)} className="my-job-action-button my-job-success">
-                          Reopen Job Post
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleViewApplications(post.id)}
-                        className="my-job-action-button my-job-success"
-                      >
-                        View Applications
-                      </button>
-                    </div>
+                   <div className="my-job-action-buttons">
+  {post.status !== 'Closed' && ( // Добавлено: условие для edit
+    <button onClick={() => handleEditJob(post)} className="my-job-action-button">
+      Edit Job Post
+    </button>
+  )}
+  {post.status === 'Active' ? (
+    <button onClick={() => handleClose(post.id)} className="my-job-action-button my-job-warning">
+      Close Job Post
+    </button>
+  ) : post.status !== 'Closed' && ( 
+    <button onClick={() => handleReopen(post.id)} className="my-job-action-button my-job-success">
+      Reopen Job Post
+    </button>
+  )}
+  <button
+    onClick={() => handleViewApplications(post.id)}
+    className="my-job-action-button my-job-success"
+  >
+    View Applications
+  </button>
+</div>
                     {applications.jobPostId === post.id && applications.apps.length > 0 && (
                       <div className="my-job-application-details-section">
                         <h4>Applications:</h4>
