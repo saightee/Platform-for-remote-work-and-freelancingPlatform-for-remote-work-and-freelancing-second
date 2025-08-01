@@ -9,6 +9,8 @@ import { ApplicationLimitsService } from '../application-limits/application-limi
 import { SettingsService } from '../settings/settings.service';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import { marked } from 'marked';
+import sanitizeHtml from 'sanitize-html';
 
 @Injectable()
 export class JobPostsService {
@@ -292,7 +294,7 @@ export class JobPostsService {
     if (!apiKey) {
       throw new InternalServerErrorException('xAI API key is not configured');
     }
-  const prompt = `
+    const prompt = `
       Generate a professional job description in English based solely on the provided brief: "${data.aiBrief}".
       Do NOT add any fictional details (e.g., company names, team sizes, benefits, or unspecified information).
       Use the exact details provided below for the job. Structure the description with markdown:
@@ -300,19 +302,20 @@ export class JobPostsService {
       - Use - for bullet points in lists.
       - Add an empty line between sections for readability.
       - Keep the total length between 150-180 words.
-      - Ensure the markdown is HTML-compatible for rendering in a rich text editor.
+      - Ensure the markdown is simple, HTML-compatible, and suitable for rendering in ReactQuill rich text editor.
+      - Use standard markdown (e.g., no tables, no complex nested elements, no extra line breaks within lists) to avoid rendering issues in ReactQuill.
       - Do NOT include a word count or concluding remarks (e.g., no "Apply today" or "Join us").
 
       **Structure**:
       ## Job Overview
       One sentence summarizing the role based on the brief and title.
-      
+
       ## Responsibilities
       - List 3-5 key duties extracted directly from the brief.
-      
+
       ## Requirements
       - List 3-5 skills or qualifications from the brief.
-      
+
       ## Work Details
       - **Work Mode**: ${data.location || 'Not specified'}
       - **Salary**: ${data.salary ? `${data.salary} ${data.salary_type || ''}` : 'Not specified'}
@@ -323,7 +326,7 @@ export class JobPostsService {
       - Brief: ${data.aiBrief}
     `;
 
-    try {
+  try {
       const response = await axios.post('https://api.x.ai/v1/chat/completions', {
         model: 'grok-3-mini',
         messages: [{ role: 'user', content: prompt }],
@@ -334,7 +337,16 @@ export class JobPostsService {
         },
       });
       console.log('xAI response:', response.data);
-      return response.data.choices[0].message.content.trim();
+
+      const markdownContent = response.data.choices[0].message.content.trim();
+      const htmlContent = marked.parse(markdownContent);
+
+      const sanitizedHtml = sanitizeHtml(htmlContent, {
+        allowedTags: ['h2', 'ul', 'li', 'p', 'strong', 'em'],
+        allowedAttributes: {},
+      });
+
+      return sanitizedHtml;
     } catch (error) {
       console.error('xAI API Error:', error.response?.data || error.message);
       throw new InternalServerErrorException('Failed to generate description with AI');
