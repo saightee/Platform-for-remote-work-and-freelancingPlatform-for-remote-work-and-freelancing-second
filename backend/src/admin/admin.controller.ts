@@ -863,11 +863,11 @@ export class AdminController {
 
   @Post('webhooks/brevo')
   async handleBrevoWebhook(@Body() body: any) {
-    console.log('Webhook received:', JSON.stringify(body, null, 2));  
+    console.log('Webhook received:', JSON.stringify(body, null, 2)); 
 
     const event = body.event;
     const messageId = body['message-id'];
-    const timestamp = body.ts;  
+    const timestamp = body.ts;
 
     console.log('Extracted event:', event, 'messageId:', messageId, 'timestamp:', timestamp);
 
@@ -885,7 +885,7 @@ export class AdminController {
 
       console.log('Found notification:', notification);
 
-      if (['opened', 'first_opening', 'open'].includes(event)) {
+      if (['first_opening', 'unique_opened'].includes(event)) {
         notification.opened = true;
         notification.opened_at = new Date(timestamp * 1000);
         console.log('Updating opened for notification:', notification.id);
