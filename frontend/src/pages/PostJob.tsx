@@ -425,16 +425,18 @@ const handleSubmit = async (e: FormEvent) => {
   {isGenerating ? (
     <Loader />
   ) : (
-    <ReactQuill
-      key={description} // Force rerender
-      value={description || ''}
-      onChange={(value) => {
-        setDescription(value);
-        if (!isEdited) setIsEdited(true);
-      }}
-      placeholder="Generated description will appear here"
-      style={{ height: '380px', marginBottom: '10px' }}
-    />
+<ReactQuill
+  key={description}
+  value={description || ''}
+  onChange={(value) => {
+    if (value !== description) { // Добавьте эту проверку
+      setDescription(value);
+      if (!isEdited) setIsEdited(true);
+    }
+  }}
+  placeholder="Generated description will appear here"
+  style={{ height: '380px', marginBottom: '10px' }}
+/>
   )}
   <button type="button" onClick={() => handleGenerate(true)} style={{ marginTop: '50px' }} disabled={isGenerating}>
     Regenerate

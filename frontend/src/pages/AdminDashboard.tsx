@@ -2231,6 +2231,40 @@ setUserPage(1);
   </div>
 )}
 
+    {showProfileModal && selectedProfile && ( 
+  <div className="modal">
+    <div className="modal-content">
+      <span className="close" onClick={() => setShowProfileModal(null)}>×</span>
+      <h3>Profile Details</h3>
+      <p><strong>Username:</strong> {selectedProfile.username}</p>
+      <p><strong>Email:</strong> {selectedProfile.email || 'N/A'}</p>
+      <p><strong>Skills:</strong> {selectedProfile.skills?.map(skill => skill.name).join(', ') || 'N/A'}</p>
+      <p><strong>Experience:</strong> {selectedProfile.experience || 'N/A'}</p>
+      <p><strong>Average Rating:</strong> {selectedProfile.average_rating}</p>
+      <p><strong>Reviews:</strong> {selectedProfile.reviews.length > 0 ? selectedProfile.reviews.map(review => review.comment).join('; ') : 'No reviews'}</p>
+    </div>
+  </div>
+  )}
+
+    {showJobModal && jobPosts.find(post => post.id === showJobModal) && (
+      <div className="modal">
+        <div className="modal-content">
+          <span className="close" onClick={() => setShowJobModal(null)}>×</span>
+          <h3>Job Post Details</h3>
+          <p><strong>Title:</strong> {jobPosts.find(post => post.id === showJobModal)?.title}</p>
+          <p><strong>Description:</strong> <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(jobPosts.find(post => post.id === showJobModal)?.description || '') }} /></p>
+          {jobPosts.find(post => post.id === showJobModal)?.pending_review && (
+            <button onClick={() => {
+              handleApproveJobPost(showJobModal);
+              setShowJobModal(null);
+            }} className="action-button success">
+              Approve
+            </button>
+          )}
+        </div>
+      </div>
+    )}
+
           {activeTab === 'Chat History' && (
   <div>
     <h4>Chat History</h4>
