@@ -64,13 +64,6 @@ const fetchCategories = async () => {
     }
   }, [skillInput, role]);
 
-  const handleRegister = async () => {
-  const refCode = localStorage.getItem('referralCode');
-  const payload = { email, password, username, role: role as 'employer' | 'jobseeker', ref: refCode || undefined }; // Изменено: as type (non-null)
-  await register(payload);
-  if (refCode) localStorage.removeItem('referralCode'); // Очистка после рега
-};
-
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   if (!role) return;
@@ -80,7 +73,9 @@ const fetchCategories = async () => {
   }
   try {
     setErrorMessage(null);
-    await register({
+    const refCode = localStorage.getItem('referralCode');
+    console.log('[Register] Extracted refCode from localStorage:', refCode); // Дебаг
+    const payload = {
       username,
       email,
       password,
@@ -88,7 +83,14 @@ const fetchCategories = async () => {
       skills: selectedSkills.map(s => s.id.toString()),  // id как string, если number — toString()
       experience,
       resume: resumeLink || undefined, // Добавлено: optional resume link
-    });
+      ref: refCode || undefined, // Добавляем ref
+    };
+    console.log('[Register] Register payload:', payload); // Дебаг для проверки
+    await register(payload);
+    if (refCode) {
+      localStorage.removeItem('referralCode');
+      console.log('[Register] Removed referralCode from localStorage after registration');
+    }
     navigate('/check-email');
   } catch (error: any) {
     console.error('Register error:', error);

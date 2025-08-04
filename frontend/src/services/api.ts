@@ -115,7 +115,7 @@ export const initializeWebSocket = (
 };
 
 // Authentication
-export const register = async (credentials: RegisterCredentials) => {
+export const register = async (credentials: RegisterCredentials & { ref?: string }) => {
   const fingerprint = await getFingerprint();
   const response = await api.post<{ message: string }>('/auth/register', credentials, {
     headers: {
@@ -124,6 +124,7 @@ export const register = async (credentials: RegisterCredentials) => {
   });
   return response.data;
 };
+
 
 export const login = async (credentials: LoginCredentials) => {
   const response = await api.post<{ accessToken: string }>('/auth/login', credentials);
