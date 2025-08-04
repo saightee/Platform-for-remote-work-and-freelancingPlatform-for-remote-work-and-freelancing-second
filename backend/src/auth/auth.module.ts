@@ -6,7 +6,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { RedisModule } from '../redis/redis.module';
 import { GoogleStrategy } from './strategies/google.strategy';
-import { LinkedInStrategy } from './strategies/linkedin.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { RedisService } from '../redis/redis.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -19,6 +18,29 @@ import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
 import { EmailModule } from '../email/email.module';
 import { AdminModule } from '../admin/admin.module';
 import { AdminService } from '../admin/admin.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from '../users/entities/user.entity';
+import { JobPost } from '../job-posts/job-post.entity';
+import { Review } from '../reviews/review.entity';
+import { JobApplication } from '../job-applications/job-application.entity';
+import { JobSeeker } from '../users/entities/jobseeker.entity';
+import { Employer } from '../users/entities/employer.entity';
+import { ApplicationLimit } from '../application-limits/application-limit.entity';
+import { UserFingerprint } from '../anti-fraud/entities/user-fingerprint.entity';
+import { Complaint } from '../complaints/complaint.entity';
+import { Category } from '../categories/category.entity';
+import { Feedback } from '../feedback/feedback.entity';
+import { PlatformFeedback } from '../platform-feedback/platform-feedback.entity';
+import { Message } from '../chat/entities/message.entity';
+import { EmailNotification } from '../email-notifications/email-notification.entity';
+import { ReferralLink } from '../referrals/entities/referral-link.entity';
+import { ReferralRegistration } from '../referrals/entities/referral-registration.entity';
+import { SettingsModule } from '../settings/settings.module';
+import { ApplicationLimitsModule } from '../application-limits/application-limits.module';
+import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
+import { ComplaintsModule } from '../complaints/complaints.module';
+import { ChatModule } from '../chat/chat.module';
+import { CategoriesModule } from '../categories/categories.module';
 
 @Module({
   imports: [
@@ -43,7 +65,31 @@ import { AdminService } from '../admin/admin.service';
     BlockedCountriesModule,
     AntiFraudModule,
     EmailModule,
+    SettingsModule,
+    ApplicationLimitsModule,
+    LeaderboardsModule,
+    ComplaintsModule,
+    ChatModule,
+    CategoriesModule,
     forwardRef(() => AdminModule),
+    TypeOrmModule.forFeature([
+      User,
+      JobPost,
+      Review,
+      JobApplication,
+      JobSeeker,
+      Employer,
+      ApplicationLimit,
+      UserFingerprint,
+      Complaint,
+      Category,
+      Feedback,
+      PlatformFeedback,
+      Message,
+      EmailNotification,
+      ReferralLink,
+      ReferralRegistration,
+    ]),
   ],
   controllers: [AuthController],
   providers: [
@@ -52,7 +98,6 @@ import { AdminService } from '../admin/admin.service';
     JwtStrategy,
     RedisService,
     GoogleAuthGuard,
-    // LinkedInStrategy,
     AdminGuard,
     ModeratorGuard,
     AdminService,
