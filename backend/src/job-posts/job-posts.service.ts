@@ -307,7 +307,6 @@ export class JobPostsService {
       - Do NOT include a word count or concluding remarks (e.g., no "Apply today" or "Join us").
 
       **Structure**:
-      ## Job Overview
       One sentence summarizing the role based on the brief and title.
 
       ## Responsibilities

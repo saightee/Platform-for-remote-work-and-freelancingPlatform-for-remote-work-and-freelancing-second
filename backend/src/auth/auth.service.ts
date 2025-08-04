@@ -12,6 +12,7 @@ import { CreateAdminDto } from './dto/create-admin.dto';
 import { CreateModeratorDto } from './dto/create-moderator.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { Transporter } from 'nodemailer';
+import { AdminService } from '../admin/admin.service';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +24,7 @@ export class AuthService {
     private antiFraudService: AntiFraudService,
     private emailService: EmailService,
     @Inject('MAILER_TRANSPORT') private mailerTransport: Transporter,
+    private adminService: AdminService,
   ) {}
 
   async register(dto: RegisterDto | CreateAdminDto | CreateModeratorDto, ip: string, fingerprint?: string, refCode?: string) {
@@ -80,17 +82,21 @@ export class AuthService {
       additionalData.resume = dto.resume || null;
     }
 
-    const newUser = await this.usersService.create(userData, additionalData, refCode);
+    const newUser = await this.usersService.create(userData, additionalData);
     console.log('New User Created:', newUser);
+    if (refCode) {
+        try {
+            await this.adminService.incrementRegistration(refCode, newUser.id);
+            console.log(`[AuthService] Incremented registration for refCode: ${refCode}, userId: ${newUser.id}`);
+        } catch (error) {
+            console.error(`[AuthService] Failed to increment registration for refCode ${refCode}:`, error);
+        }
+    }
 
     if (role === 'admin' || role === 'moderator') {
       const payload = { email: newUser.email, sub: newUser.id, role: newUser.role };
       const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
       return { accessToken };
-    }
-
-    if (fingerprint && ip) {
-      await this.antiFraudService.calculateRiskScore(newUser.id, fingerprint, ip);
     }
 
     try {

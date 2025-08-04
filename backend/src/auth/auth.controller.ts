@@ -26,7 +26,7 @@ export class AuthController {
 
   @Post('register')
   async register(
-    @Body() registerDto: RegisterDto,
+    @Body() registerDto: RegisterDto & { ref?: string },
     @Headers('x-forwarded-for') xForwardedFor?: string,
     @Headers('x-real-ip') xRealIp?: string,
     @Headers('x-fingerprint') fingerprint?: string,
@@ -38,7 +38,7 @@ export class AuthController {
     if (!fingerprint) {
       throw new BadRequestException('Fingerprint is required');
     }
-    return this.authService.register(registerDto, ip, fingerprint);
+    return this.authService.register(registerDto, ip, fingerprint, registerDto.ref);
   }
 
   @Get('verify-email')
