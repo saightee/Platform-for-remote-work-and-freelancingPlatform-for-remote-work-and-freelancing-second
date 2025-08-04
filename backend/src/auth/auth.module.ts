@@ -18,6 +18,7 @@ import { ModeratorGuard } from './guards/moderator.guard';
 import { AntiFraudModule } from '../anti-fraud/anti-fraud.module';
 import { EmailModule } from '../email/email.module';
 import { AdminModule } from '../admin/admin.module';
+import { AdminService } from '../admin/admin.service';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { AdminModule } from '../admin/admin.module';
     // LinkedInStrategy,
     AdminGuard,
     ModeratorGuard,
+    AdminService,
     {
       provide: 'MAILER_TRANSPORT',
       useFactory: (configService: ConfigService) => {

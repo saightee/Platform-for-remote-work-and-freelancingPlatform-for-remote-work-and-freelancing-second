@@ -1040,21 +1040,36 @@ export class AdminService {
   }
 
   async getReferralLinks(adminId: string, filters: { jobId?: string, jobTitle?: string } = {}) {
-    await this.checkAdminRole(adminId);
-    const query = this.referralLinksRepository.createQueryBuilder('link')
-      .leftJoinAndSelect('link.job_post', 'jobPost')
-      .leftJoinAndSelect('link.registrationsDetails', 'reg')
-      .leftJoinAndSelect('reg.user', 'user')
-      .orderBy('link.created_at', 'DESC');
+      await this.checkAdminRole(adminId);
+      const query = this.referralLinksRepository.createQueryBuilder('link')
+          .leftJoinAndSelect('link.job_post', 'jobPost')
+          .leftJoinAndSelect('link.registrationsDetails', 'reg')
+          .leftJoinAndSelect('reg.user', 'user')
+          .orderBy('link.created_at', 'DESC');
 
-    if (filters.jobId) {
-      query.andWhere('jobPost.id = :jobId', { jobId: filters.jobId });
-    }
-    if (filters.jobTitle) {
-      query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.jobTitle}%` });
-    }
+      if (filters.jobId) {
+          query.andWhere('jobPost.id = :jobId', { jobId: filters.jobId });
+      }
+      if (filters.jobTitle) {
+          query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.jobTitle}%` });
+      }
 
-    return query.getMany();
+      const links = await query.getMany();
+      const baseUrl = this.configService.get<string>('BASE_URL', 'https://jobforge.net');
+
+      return links.map(link => ({
+          id: link.id,
+          jobPostId: link.job_post?.id,
+          refCode: link.ref_code,
+          fullLink: `${baseUrl}/ref/${link.ref_code}`,
+          clicks: link.clicks,
+          registrations: link.registrations,
+          registrationsDetails: link.registrationsDetails || [],
+          job_post: link.job_post ? {
+              id: link.job_post.id,
+              title: link.job_post.title,
+          } : null,
+      }));
   }
 
   async incrementClick(refCode: string) {

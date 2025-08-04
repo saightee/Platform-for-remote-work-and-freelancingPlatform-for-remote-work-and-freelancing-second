@@ -926,19 +926,19 @@ export class AdminController {
   @Get('referral-links')
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   async getReferralLinks(
-    @Query('jobId') jobId: string,
-    @Query('jobTitle') jobTitle: string,
-    @Headers('authorization') authHeader: string,
+      @Query('jobId') jobId: string,
+      @Query('title') jobTitle: string,
+      @Headers('authorization') authHeader: string,
   ) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Invalid token');
-    }
-    const token = authHeader.replace('Bearer ', '');
-    const payload = this.jwtService.verify(token);
-    const adminId = payload.sub;
-  
-    const filters = { jobId, jobTitle };
-    return this.adminService.getReferralLinks(adminId, filters);
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          throw new UnauthorizedException('Invalid token');
+      }
+      const token = authHeader.replace('Bearer ', '');
+      const payload = this.jwtService.verify(token);
+      const adminId = payload.sub;
+
+      const filters = { jobId, jobTitle };
+      return this.adminService.getReferralLinks(adminId, filters);
   }
 
 }
