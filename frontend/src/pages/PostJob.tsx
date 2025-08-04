@@ -435,17 +435,16 @@ const handleSubmit = async (e: FormEvent) => {
     <Loader />
   ) : (
 <ReactQuill
-  ref={quillRef} // Добавлено: ref
-  key={description}
+  ref={quillRef}
   value={description || ''}
-  onChange={(value) => {
-    if (value !== description) {
+  onChange={(value, delta, source, editor) => {  
+    if (source === 'user') {  
       setDescription(value);
       if (!isEdited) setIsEdited(true);
     }
   }}
-  modules={{ toolbar: false }} // Добавлено: отключить toolbar
-  formats={['header', 'bold', 'list', 'bullet']} // Добавлено: ограничить formats
+  modules={{ toolbar: false }}
+  formats={['header', 'bold', 'list', 'bullet']}
   placeholder="Generated description will appear here"
   style={{ height: '380px', marginBottom: '10px' }}
 />
