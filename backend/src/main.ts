@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as express from 'express';
 import { RedisService } from './redis/redis.service';
+import vault from 'node-vault';
 
 const session = require('express-session');
 const connectRedis = require('connect-redis');

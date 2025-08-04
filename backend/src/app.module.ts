@@ -40,7 +40,7 @@ import { ReferralsModule } from './referrals/referrals.module';
         const dbConfig: TypeOrmModuleOptions = {
           type: 'postgres',
           host: configService.get('POSTGRES_HOST', 'localhost'),
-          port: +configService.get('POSTGRES_PORT', 5432),
+          port: configService.get('POSTGRES_PORT', 5432),
           username: configService.get('POSTGRES_USER', 'onlinejobs_user'),
           password: configService.get('POSTGRES_PASSWORD', 'onlinejobs123'),
           database: configService.get('POSTGRES_DB', 'onlinejobs_db_new'),
