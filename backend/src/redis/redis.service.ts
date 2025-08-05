@@ -1,17 +1,17 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Redis } from 'ioredis';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
   private client: Redis;
 
-  constructor() {
-    const port = process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : 6380;
-
+  constructor(private configService: ConfigService) { 
+    const port = this.configService.get<string>('REDIS_PORT');
     this.client = new Redis({
-      host: process.env.REDIS_HOST ?? '127.0.0.1',
-      port: port,
-      password: process.env.REDIS_PASSWORD ?? undefined,
+      host: this.configService.get<string>('REDIS_HOST'),
+      port: parseInt(port, 10),
+      password: this.configService.get<string>('REDIS_PASSWORD'),
       maxRetriesPerRequest: 3,
       retryStrategy: (times) => {
         console.warn(`Redis retry attempt ${times}`);
@@ -19,7 +19,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       },
       reconnectOnError: (err) => {
         console.error('Redis reconnect error:', err.message);
-        return err.message.includes('CONNECTION_BROKEN') ? 1 : false; // Fix: Replace 0 with false
+        return err.message.includes('CONNECTION_BROKEN') ? 1 : false;
       },
     });
 

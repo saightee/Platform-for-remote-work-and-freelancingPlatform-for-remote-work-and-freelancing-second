@@ -31,6 +31,7 @@ import { ReferralLink } from '../referrals/entities/referral-link.entity';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
 
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -800,7 +801,7 @@ export class AdminService {
           jobSeeker.user.username,
           jobPost.title,
           jobPost.description,
-          `${process.env.BASE_URL}/jobs/${jobPost.id}`,
+          `${this.configService.get('BASE_URL')}/jobs/${jobPost.id}`,
         );
 
         // Сохраняем уведомление в БД

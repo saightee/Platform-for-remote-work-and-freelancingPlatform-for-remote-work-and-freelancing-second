@@ -1,16 +1,16 @@
 import { DataSource } from 'typeorm';
-import { config } from 'dotenv';
+import { ConfigService } from '@nestjs/config';
 
-config(); 
-
-export const AppDataSource = new DataSource({
-  type: 'postgres',
-  host: process.env.POSTGRES_HOST || 'localhost',
-  port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
-  username: process.env.POSTGRES_USER || 'onlinejobs_user',
-  password: process.env.POSTGRES_PASSWORD || 'onlinejobs123',
-  database: process.env.POSTGRES_DB || 'onlinejobs_db_new',
-  schema: 'public',
-  entities: ['src/**/*.entity.ts'],
-  migrations: ['src/migration/*.ts'],
-});
+export const createDataSource = (configService: ConfigService) => {
+  return new DataSource({
+    type: 'postgres',
+    host: configService.get('POSTGRES_HOST'),
+    port: configService.get('POSTGRES_PORT'),
+    username: configService.get('POSTGRES_USER'),
+    password: configService.get('POSTGRES_PASSWORD'),
+    database: configService.get('POSTGRES_DB'),
+    schema: 'public',
+    entities: ['src/**/*.entity.ts'],
+    migrations: ['src/migration/*.ts'],
+  });
+};

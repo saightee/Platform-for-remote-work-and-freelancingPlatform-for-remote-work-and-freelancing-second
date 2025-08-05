@@ -46,7 +46,7 @@ import { CategoriesModule } from '../categories/categories.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '../.env',
+      envFilePath: '.env',
     }),
     UsersModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
@@ -55,7 +55,7 @@ import { CategoriesModule } from '../categories/categories.module';
       useFactory: async (configService: ConfigService) => {
         console.log('JWT_SECRET from ConfigService:', configService.get<string>('JWT_SECRET'));
         return {
-          secret: configService.get<string>('JWT_SECRET', 'mySuperSecretKey123!@#ForLocalDev2025'),
+          secret: configService.get<string>('JWT_SECRET'),
           signOptions: { expiresIn: '1h' },
         };
       },
