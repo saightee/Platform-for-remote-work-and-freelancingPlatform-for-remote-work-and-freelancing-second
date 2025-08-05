@@ -19,7 +19,7 @@ export class EmailService {
           {
             sender: { name: 'JobForge', email: 'support@jobforge.net' },
             to: [{ email: toEmail, name: username }],
-            templateId: 3, 
+            templateId: 2, 
             params: {
               username: username,
               verificationLink: verificationLink,
@@ -59,7 +59,7 @@ export class EmailService {
           {
             sender: { name: 'JobForge', email: 'support@jobforge.net' },
             to: [{ email: toEmail, name: username }],
-            templateId: 4,
+            templateId: 3,
             params: {
               username: username,
               resetLink: resetLink,
@@ -109,7 +109,7 @@ export class EmailService {
           {
             sender: { name: 'JobForge', email: 'support@jobforge.net' },
             to: [{ email: toEmail, name: username }],
-            templateId: 5, 
+            templateId: 4, 
             params: {
               username,
               jobTitle,
@@ -155,7 +155,7 @@ export class EmailService {
           {
             sender: { name: 'JobForge', email: 'support@jobforge.net' },
             to: [{ email: toEmail, name: username }],
-            templateId: 6, 
+            templateId: 5, 
             params: {
               username,
               jobTitle,
