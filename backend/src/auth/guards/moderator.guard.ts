@@ -21,7 +21,7 @@ export class ModeratorGuard implements CanActivate {
 
     try {
       const payload = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_SECRET', 'mySuperSecretKey123!@#ForLocalDev2025'),
+        secret: this.configService.get<string>('JWT_SECRET'),
       });
 
       if (!payload.sub || !payload.role) {

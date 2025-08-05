@@ -338,14 +338,14 @@ export class JobPostsService {
       console.log('xAI response:', response.data);
 
       const markdownContent = response.data.choices[0].message.content.trim();
-      console.log('markdownContent:', markdownContent); // Новый лог
+      console.log('markdownContent:', markdownContent); 
       const htmlContent = await marked.parse(markdownContent);
-      console.log('htmlContent:', htmlContent); // Новый лог
+      console.log('htmlContent:', htmlContent); 
       const sanitizedHtml = sanitizeHtml(htmlContent, {
         allowedTags: ['h2', 'ul', 'li', 'p', 'strong', 'em'],
         allowedAttributes: {},
       });
-      console.log('sanitizedHtml:', sanitizedHtml); // Новый лог
+      console.log('sanitizedHtml:', sanitizedHtml); 
 
       return sanitizedHtml;
     } catch (error) {

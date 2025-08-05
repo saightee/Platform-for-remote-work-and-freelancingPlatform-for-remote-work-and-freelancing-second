@@ -6,9 +6,9 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(configService: ConfigService) {
-    const clientID = configService.get<string>('GOOGLE_CLIENT_ID') || (() => { throw new Error('GOOGLE_CLIENT_ID is missing'); })();
-    const clientSecret = configService.get<string>('GOOGLE_CLIENT_SECRET') || (() => { throw new Error('GOOGLE_CLIENT_SECRET is missing'); })();
-    const callbackURL = configService.get<string>('GOOGLE_CALLBACK_URL') || (() => { throw new Error('GOOGLE_CALLBACK_URL is missing'); })();
+    const clientID = configService.get<string>('GOOGLE_CLIENT_ID');
+    const clientSecret = configService.get<string>('GOOGLE_CLIENT_SECRET');
+    const callbackURL = configService.get<string>('GOOGLE_CALLBACK_URL');
 
     console.log('GoogleStrategy - clientID:', clientID);
     console.log('GoogleStrategy - clientSecret:', clientSecret);
@@ -20,7 +20,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       callbackURL,
       scope: ['email', 'profile'],
       passReqToCallback: true,
-      state: true, // Включаем state
+      state: true,
     });
   }
 

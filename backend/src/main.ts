@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as express from 'express';
 import { RedisService } from './redis/redis.service';
-import vault from 'node-vault';
+import { ConfigService } from '@nestjs/config';
 
 const session = require('express-session');
 const connectRedis = require('connect-redis');
@@ -11,12 +11,9 @@ const RedisStore = connectRedis(session);
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const redisService = app.get(RedisService);
+  const configService = app.get(ConfigService);
+  const sessionSecret = configService.get('SESSION_SECRET');
 
-  console.log('Redis Config:', {
-    host: process.env.REDIS_HOST ?? '127.0.0.1',
-    port: parseInt(process.env.REDIS_PORT ?? '6380', 10),
-    password: process.env.REDIS_PASSWORD ? '[hidden]' : 'undefined',
-  });
 
   const redisClient = redisService.getClient();
 
@@ -32,14 +29,14 @@ async function bootstrap() {
         client: redisClient,
         ttl: 24 * 60 * 60,
       }),
-      secret: process.env.SESSION_SECRET || 'mySuperSecretSessionKey123!@#',
+      secret: sessionSecret,
       resave: false,
       saveUninitialized: false,
       name: 'jobforge.sid',
       cookie: {
         maxAge: 24 * 60 * 60 * 1000,
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: configService.get('NODE_ENV') === 'production',
         sameSite: 'lax',
       },
     }),

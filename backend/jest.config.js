@@ -14,7 +14,7 @@ module.exports = {
       pageTitle: 'JobForge Test Report',
       outputPath: './test-report/report.html',
       includeFailureMsg: true,
-      includeConsoleLog: true, // Добавляем логи
+      includeConsoleLog: true,
       includeSuiteFailure: true,
       includeStackTrace: true,
     }],

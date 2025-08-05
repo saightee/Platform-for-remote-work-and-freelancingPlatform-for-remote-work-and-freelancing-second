@@ -37,19 +37,24 @@ import { ReferralsModule } from './referrals/referrals.module';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService): TypeOrmModuleOptions => {
+        const host = configService.get('POSTGRES_HOST');
+        const port = configService.get('POSTGRES_PORT');
+        const username = configService.get('POSTGRES_USER');
+        const password = configService.get('POSTGRES_PASSWORD');
+        const database = configService.get('POSTGRES_DB');
+
         const dbConfig: TypeOrmModuleOptions = {
           type: 'postgres',
-          host: configService.get('POSTGRES_HOST', 'localhost'),
-          port: configService.get('POSTGRES_PORT', 5432),
-          username: configService.get('POSTGRES_USER', 'onlinejobs_user'),
-          password: configService.get('POSTGRES_PASSWORD', 'onlinejobs123'),
-          database: configService.get('POSTGRES_DB', 'onlinejobs_db_new'),
+          host,
+          port: parseInt(port, 10),
+          username,
+          password,
+          database,
           autoLoadEntities: true,
           synchronize: false,
           migrations: ['dist/migration/*.js'],
           migrationsRun: true,
         };
-        console.log('Database Config:', dbConfig);
         return dbConfig;
       },
       inject: [ConfigService],

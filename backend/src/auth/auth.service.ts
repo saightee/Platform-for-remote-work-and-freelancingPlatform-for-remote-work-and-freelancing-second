@@ -13,6 +13,7 @@ import { CreateModeratorDto } from './dto/create-moderator.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { Transporter } from 'nodemailer';
 import { AdminService } from '../admin/admin.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +26,7 @@ export class AuthService {
     private emailService: EmailService,
     @Inject('MAILER_TRANSPORT') private mailerTransport: Transporter,
     private adminService: AdminService,
+    private configService: ConfigService,
   ) {}
 
   async register(dto: RegisterDto | CreateAdminDto | CreateModeratorDto, ip: string, fingerprint?: string, refCode?: string) {
@@ -50,7 +52,7 @@ export class AuthService {
 
     let role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
     if ('secretKey' in dto) {
-      const validSecretKey = process.env.ADMIN_SECRET_KEY || 'mySuperSecretAdminKey123';
+      const validSecretKey = this.configService.get<string>('ADMIN_SECRET_KEY');
       if (dto.secretKey !== validSecretKey) {
         throw new UnauthorizedException('Invalid secret key');
       }
