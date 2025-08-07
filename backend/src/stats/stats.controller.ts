@@ -9,4 +9,14 @@ export class StatsController {
   async getPublicStats() {
     return this.statsService.getPublicStats();
   }
+
+  @Get('job-posts-by-main-categories')
+  async getJobPostsByMainCategories() {
+    return this.statsService.getJobPostsByMainCategories();
+  }
+
+  @Get('job-posts-by-subcategories')
+  async getJobPostsBySubcategories() {
+    return this.statsService.getJobPostsBySubcategories();
+  }
 }

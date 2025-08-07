@@ -3681,3 +3681,59 @@
     "message": "Job application not found",  // or "Chat is only available for accepted applications"
     "error": "Not Found"
   }
+
+### 88. Get Job Posts by Main Categories Stats
+- **Endpoint**: `GET /stats/job-posts-by-main-categories`
+- **Description**: Description: Retrieves statistics on the number of active job posts (vacancies) for each main category (categories without a parent_id), including the count of active job posts from their subcategories (recursive). Only active and approved job posts are counted (status = 'Active', pending_review = false). Excludes categories with zero job posts. Results are sorted by count in descending order.
+- **Headers**: None (public endpoint)
+- **Request Body**: None
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "categoryId": "<categoryId>",
+      "categoryName": "Development",
+      "count": 25
+    },
+    {
+      "categoryId": "<categoryId>",
+      "categoryName": "Design",
+      "count": 10
+    }
+  ]
+
+- **Response (Error - 500, if internal error)**:
+  ```json
+  {
+    "statusCode": 500,
+    "message": "Internal server error",
+    "error": "Internal Server Error"
+  }
+
+### 89. Get Job Posts by Subcategories Stats
+- **Endpoint**: `GET /stats/job-posts-by-subcategories`
+- **Description**: Retrieves statistics on the number of active job posts (vacancies) for each subcategory (categories with a parent_id), counting only the job posts directly associated with the subcategory (no recursive counting). Only active and approved job posts are counted (status = 'Active', pending_review = false). Excludes subcategories with zero job posts. Results are sorted by count in descending order.
+- **Headers**: None (public endpoint)
+- **Request Body**: None
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "categoryId": "<categoryId>",
+      "categoryName": "Web Development",
+      "count": 15
+    },
+    {
+      "categoryId": "<categoryId>",
+      "categoryName": "Graphic Design",
+      "count": 8
+    }
+  ]
+
+- **Response (Error - 500, if internal error)**:
+  ```json
+  {
+    "statusCode": 500,
+    "message": "Internal server error",
+    "error": "Internal Server Error"
+  }  
