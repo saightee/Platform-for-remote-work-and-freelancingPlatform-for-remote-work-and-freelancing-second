@@ -13,7 +13,7 @@ async function bootstrap() {
   const redisService = app.get(RedisService);
   const configService = app.get(ConfigService);
   const sessionSecret = configService.get('SESSION_SECRET');
-
+  const port = configService.get('PORT');
 
   const redisClient = redisService.getClient();
 
@@ -55,7 +55,7 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
   setInterval(() => redisService.cleanOldSessions(), 3600 * 1000);
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(port);
 }
 
 bootstrap();
