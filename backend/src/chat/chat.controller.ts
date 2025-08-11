@@ -3,7 +3,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { JwtService } from '@nestjs/jwt';
 import { ChatService } from './chat.service';
 
-// Новый контроллер для чата обычных пользователей
 @Controller('chat')
 export class ChatController {
   constructor(
@@ -11,7 +10,6 @@ export class ChatController {
     private jwtService: JwtService,
   ) {}
 
-  // Новый эндпоинт для получения истории чата для jobseeker/employer
   @UseGuards(AuthGuard('jwt'))
   @Get(':jobApplicationId')
   async getChatHistory(
