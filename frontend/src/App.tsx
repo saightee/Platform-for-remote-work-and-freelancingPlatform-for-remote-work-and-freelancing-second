@@ -42,6 +42,8 @@ import Clientstories from './pages/ClientStories';
 import AuthCallback from './pages/AuthCallback';
 import EmailNotifications from './pages/EmailNotifications';
 import { ErrorBoundary } from 'react-error-boundary';
+import EmployerDashboard from './pages/EmployerDashboard';
+import EmployerOverview from './pages/EmployerOverview';
 
 const App: React.FC = () => {
   return (
@@ -56,6 +58,14 @@ const App: React.FC = () => {
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/role-selection" element={<RoleSelection />} />
           <Route path="/profile" element={<ProfilePage />} />
+<Route path="/employer-dashboard" element={<EmployerDashboard />}>
+  <Route index element={<EmployerOverview />} />
+  <Route path="profile" element={<ProfilePage />} />
+  <Route path="my-job-posts" element={<MyJobPosts />} />
+  <Route path="post-job" element={<PostJob />} />
+  <Route path="messages" element={<Messages />} />
+  <Route path="contact" element={<Contact />} />
+</Route>
           <Route path="/support" element={<Support />} />
           <Route path="/admin/email-notifications" element={<EmailNotifications />} />
           <Route path="/public-profile/:id" element={<PublicProfile />} />
