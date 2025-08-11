@@ -1,0 +1,41 @@
+import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Feedback } from './feedback.entity';
+import { User } from '../users/entities/user.entity';
+
+@Injectable()
+export class FeedbackService {
+  constructor(
+    @InjectRepository(Feedback)
+    private feedbackRepository: Repository<Feedback>,
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
+  ) {}
+
+  async submitFeedback(userId: string, message: string) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.role !== 'jobseeker' && user.role !== 'employer') {
+      throw new UnauthorizedException('Only jobseekers and employers can submit feedback');
+    }
+
+    const feedback = this.feedbackRepository.create({
+      user_id: userId,
+      message,
+      role: user.role as 'jobseeker' | 'employer',
+    });
+    return this.feedbackRepository.save(feedback);
+  }
+
+  async getFeedback(adminId: string) {
+    const admin = await this.usersRepository.findOne({ where: { id: adminId } });
+    if (!admin || admin.role !== 'admin') {
+      throw new UnauthorizedException('Only admins can view feedback');
+    }
+
+    return this.feedbackRepository.find({ relations: ['user'] });
+  }
+}
