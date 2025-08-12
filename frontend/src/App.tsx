@@ -44,6 +44,8 @@ import EmailNotifications from './pages/EmailNotifications';
 import { ErrorBoundary } from 'react-error-boundary';
 import EmployerDashboard from './pages/EmployerDashboard';
 import EmployerOverview from './pages/EmployerOverview';
+import JobseekerDashboard from './pages/JobseekerDashboard';
+import JobseekerOverview from './pages/JobseekerOverview';
 
 const App: React.FC = () => {
   return (
@@ -66,6 +68,15 @@ const App: React.FC = () => {
   <Route path="messages" element={<Messages />} />
   <Route path="contact" element={<Contact />} />
 </Route>
+
+<Route path="/jobseeker-dashboard" element={<JobseekerDashboard />}>
+  <Route index element={<JobseekerOverview />} />
+  <Route path="profile" element={<ProfilePage />} />
+  <Route path="my-applications" element={<MyApplications />} />
+  <Route path="messages" element={<Messages />} />
+  <Route path="contact" element={<Contact />} />
+</Route>
+
           <Route path="/support" element={<Support />} />
           <Route path="/admin/email-notifications" element={<EmailNotifications />} />
           <Route path="/public-profile/:id" element={<PublicProfile />} />
