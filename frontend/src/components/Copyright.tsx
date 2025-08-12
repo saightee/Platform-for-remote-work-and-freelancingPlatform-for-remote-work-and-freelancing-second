@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 const Copyright: React.FC = () => {
   return (
     <div className="copyright">
-      ________________________________________________________
+      <p className="teere">______________________________________________________________________________________</p>
+   
       <p>
         © 2025 Jobforge. ALL RIGHTS RESERVED.{' '} <br />
         <Link to="/privacy-policy">Privacy Policy</Link> |{' '}

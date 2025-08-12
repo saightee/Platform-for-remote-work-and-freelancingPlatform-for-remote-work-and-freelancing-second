@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { JobPost } from '@types';
 import { formatDateInTimezone } from '../utils/dateUtils';
-import { FaEye, FaUserCircle } from 'react-icons/fa';
+import { FaEye, FaUserCircle, FaMapMarkerAlt, FaCalendarAlt, FaBriefcase, FaBuilding } from 'react-icons/fa';
 import sanitizeHtml from 'sanitize-html';
 
 interface JobCardProps {
@@ -23,25 +23,49 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
 
   if (variant === 'home') {
     return (
-      <div className="job-card job-card-home">
-        <div className="job-card-content">
-          <div className="job-title-row">
-            <h3>{job.title}</h3>
-            <span className="job-type">{job.job_type || 'Not specified'}</span>
-            <span className="view-counter">
+      <div className="job-card job-card-home jc-card jc-card--home" role="article">
+        <div className="jc-body">
+          <div className="jc-row jc-row--title">
+            <h3 className="jc-title" title={job.title}>{job.title}</h3>
+            <span className="jc-views" aria-label="views">
               <FaEye /> {job.views || 0}
             </span>
           </div>
-          <p className="employer-info">
-            <strong>{job.employer?.username || 'Unknown'}</strong> | Posted on: {formatDateInTimezone(job.created_at)}
+
+          <div className="jc-meta jc-meta--compact">
+            <span className="jc-chip">
+              <FaBriefcase /> {job.job_type || 'Not specified'}
+            </span>
+            <span className="jc-chip">
+              <FaBuilding /> {job.location || 'Not specified'}
+            </span>
+          </div>
+
+          <p className="jc-employer">
+            <strong className="jc-employer-name">{job.employer?.username || 'Unknown'}</strong>
+            {' '}|{' '}
+            <span className="jc-date"><FaCalendarAlt /> {formatDateInTimezone(job.created_at)}</span>
           </p>
-          <p className="description"><strong>Description:</strong> {truncateDescription(job.description, 100)}</p>
-          <p><strong>Location:</strong> {job.location || 'Remote'}</p>
+
+          <p className="jc-desc">
+            {truncateDescription(job.description, 100)}
+          </p>
+
+          {job.required_skills && job.required_skills.length > 0 && (
+            <div className="jc-tags" aria-label="required skills">
+              {job.required_skills.map((skill, i) => (
+                <span key={i} className="jc-tag">{skill}</span>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="job-card-footer">
-          <span className="salary">{job.salary !== null ? `$${job.salary} ${job.salary_type || 'per hour'}` : 'Not specified'}</span>
+
+        <div className="jc-footer">
+          <span className="jc-salary">
+            {job.salary !== null ? `$${job.salary} ${job.salary_type || 'per hour'}` : 'Not specified'}
+          </span>
           <Link to={`/jobs/${job.id}`}>
-            <button className="view-details-button">View Details</button>
+            <button className="jc-btn jc-btn--primary" type="button">View Details</button>
           </Link>
         </div>
       </div>
@@ -49,33 +73,57 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
   }
 
   return (
-    <div className="job-card job-card-find-jobs">
-      <div className="job-card-avatar">
-{job.employer?.avatar ? (
-  <img src={`https://jobforge.net/backend${job.employer.avatar}`} alt="Employer Avatar" />
-) : (
-  <FaUserCircle className="profile-avatar-icon" />
-)}
+    <div className="job-card job-card-find-jobs jc-card jc-card--list" role="article">
+      <div className="jc-avatar">
+        {job.employer?.avatar ? (
+          <img
+            src={`https://jobforge.net/backend${job.employer.avatar}`}
+            alt="Employer Avatar"
+            className="jc-avatar-img"
+          />
+        ) : (
+          <FaUserCircle className="jc-avatar-icon" />
+        )}
       </div>
-      <div className="job-card-content">
-        <div className="job-title-row">
-          <h3>{job.title}</h3>
-          <span className="job-type">{job.job_type || 'Not specified'}</span>
-          <span className="view-counter">
+
+      <div className="jc-body">
+        <div className="jc-row jc-row--title">
+          <h3 className="jc-title" title={job.title}>{job.title}</h3>
+          <span className="jc-views" aria-label="views">
             <FaEye /> {job.views || 0}
           </span>
         </div>
-        <p>
-          <span className="employer-name">{job.employer?.username || 'Unknown'}</span> |{' '}
-          <strong>Posted on:</strong> {formatDateInTimezone(job.created_at)}
+
+        <div className="jc-meta">
+          <span className="jc-chip"><FaBriefcase /> {job.job_type || 'Not specified'}</span>
+          <span className="jc-divider">•</span>
+          <span className="jc-employer-name">{job.employer?.username || 'Unknown'}</span>
+          <span className="jc-divider">|</span>
+          <span className="jc-date"><FaCalendarAlt /> {formatDateInTimezone(job.created_at)}</span>
+        </div>
+
+        <p className="jc-desc">
+          {truncateDescription(job.description, 150)}
         </p>
-        <p><strong>Description:</strong> {truncateDescription(job.description, 150)}</p>
-        <p><strong>Location:</strong> {job.location || 'Not specified'}</p>
-        <p><strong>Category:</strong> {job.category?.name || 'Not specified'}</p>
-        <div className="job-card-footer">
-          <span className="salary">{job.salary !== null ? `$${job.salary} ${job.salary_type || 'per hour'}` : 'Not specified'}</span>
+
+        <p className="jc-location"><FaMapMarkerAlt /> {job.location || 'Not specified'}</p>
+
+        <p className="jc-category"><strong>Category:</strong> {job.category?.name || 'Not specified'}</p>
+
+        {job.required_skills && job.required_skills.length > 0 && (
+          <div className="jc-tags" aria-label="required skills">
+            {job.required_skills.map((skill, i) => (
+              <span key={i} className="jc-tag">{skill}</span>
+            ))}
+          </div>
+        )}
+
+        <div className="jc-footer">
+          <span className="jc-salary">
+            {job.salary !== null ? `$${job.salary} ${job.salary_type || 'per hour'}` : 'Not specified'}
+          </span>
           <Link to={`/jobs/${job.id}`}>
-            <button className="view-details-button">View Details</button>
+            <button className="jc-btn jc-btn--primary" type="button">View Details</button>
           </Link>
         </div>
       </div>

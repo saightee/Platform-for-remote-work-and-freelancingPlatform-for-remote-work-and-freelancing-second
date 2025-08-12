@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FaBriefcase, FaUsers, FaSearch, FaChevronRight } from 'react-icons/fa';
 
 interface SearchBarProps {
   onSearch: (filters: { title?: string }) => void;
@@ -25,32 +26,39 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
   };
 
   const titlePlaceholder =
-    activeTab === 'find-work' ? 'Job title or keyword' : 'Candidate skills or role';
+    activeTab === 'find-work' ? 'job title or keyword' : 'candidate skills or role';
 
   return (
-    <div className="search-bar">
-      <div className="search-tabs">
+    <div className="search-bar sb">
+      <div className="search-tabs sb-tabs">
         <button
-          className={`tab ${activeTab === 'find-work' ? 'active' : 'inactive'}`}
+          className={`tab sb-tab ${activeTab === 'find-work' ? 'active' : 'inactive'}`}
           onClick={() => handleTabSwitch('find-work')}
+          type="button"
         >
-          Find Work
+          <FaBriefcase className="tab-icon sb-tab-icon" /> Find Work
         </button>
         <button
-          className={`tab ${activeTab === 'hire-talent' ? 'active' : 'inactive'}`}
+          className={`tab sb-tab ${activeTab === 'hire-talent' ? 'active' : 'inactive'}`}
           onClick={() => handleTabSwitch('hire-talent')}
+          type="button"
         >
-          Hire Talent
+          <FaUsers className="tab-icon sb-tab-icon" /> Hire Talent
         </button>
       </div>
-      <div className="search-inputs">
+
+      <div className="search-inputs sb-inputs">
+        <FaChevronRight className="input-icon sb-input-icon" />
         <input
+          className="sb-input"
           type="text"
           placeholder={titlePlaceholder}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
-        <button onClick={handleSubmit}>Search</button>
+        <button className="sb-btn" onClick={handleSubmit} type="button">
+          <FaSearch className="button-icon sb-button-icon" /> Search
+        </button>
       </div>
     </div>
   );

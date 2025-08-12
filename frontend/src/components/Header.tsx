@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useRole } from '../context/RoleContext';
 import { logout, getMyApplications, getMyJobPosts, getApplicationsForJobPost } from '../services/api';
 import { FaChevronDown, FaBars, FaTimes } from 'react-icons/fa';
-import { JobApplicationDetails, JobApplication } from '@types';
+import { JobApplicationDetails } from '@types';
 
 interface Message {
   id: string;
@@ -18,50 +18,28 @@ interface Message {
 const Header: React.FC = () => {
   const [applications, setApplications] = useState<JobApplicationDetails[]>([]);
   const { profile, isLoading, currentRole, socket, socketStatus } = useRole();
-  const token = localStorage.getItem('token');
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const isAuthenticated = !!token && (!!profile || ['admin', 'moderator'].includes(currentRole || ''));
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const location = useLocation();
 
-  const showBackToDashboard = ['admin', 'moderator'].includes(currentRole || '') &&
+  // Плашка "Back to Dashboard" для EMPLOYER на главной
+  const showBackToEmployerDashboard =
+    profile?.role === 'employer' && location.pathname === '/';
+
+  // "Back to Dashboard" для админа/модера
+  const showBackToDashboard =
+    ['admin', 'moderator'].includes(currentRole || '') &&
     !location.pathname.startsWith(currentRole === 'admin' ? '/admin' : '/moderator');
 
+  // fetch accepted apps (как было)
   useEffect(() => {
     const fetchApplications = async () => {
       try {
         const apps = await getMyApplications();
-        const transformedApps: JobApplicationDetails[] = apps.map(app => ({
-          applicationId: app.id,
-          userId: app.job_seeker_id,
-          username: app.job_seeker?.username || 'Unknown',
-          email: app.job_seeker?.email || 'Unknown',
-          jobDescription: '', // Заполни, если есть данные
-          appliedAt: app.created_at,
-          status: app.status,
-          job_post_id: app.job_post_id,
-        }));
-        setApplications(transformedApps.filter(app => app.status === 'Accepted'));
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-      }
-    };
-    fetchApplications();
-  }, []);
-
-  useEffect(() => {
-  if (!profile || !['jobseeker', 'employer'].includes(profile.role) || !socket || !token) {
-    setUnreadCount(0);
-    return;
-  }
-
-  const fetchUnreadMessages = async () => {
-    try {
-      let applications: JobApplicationDetails[] = [];
-      if (profile.role === 'jobseeker') {
-        const apps = await getMyApplications();
-        applications = apps.map(app => ({
+        const transformed: JobApplicationDetails[] = apps.map(app => ({
           applicationId: app.id,
           userId: app.job_seeker_id,
           username: app.job_seeker?.username || 'Unknown',
@@ -70,188 +48,213 @@ const Header: React.FC = () => {
           appliedAt: app.created_at,
           status: app.status,
           job_post_id: app.job_post_id,
-        })).filter(app => app.status === 'Accepted');
-      } else if (profile.role === 'employer') {
-        const posts = await getMyJobPosts();
-        const appsPromises = posts.map(post => getApplicationsForJobPost(post.id));
-        const appsArrays = await Promise.all(appsPromises);
-        applications = appsArrays.flat().filter(app => app.status === 'Accepted');
+        }));
+        setApplications(transformed.filter(a => a.status === 'Accepted'));
+      } catch (e) {
+        console.error('Error fetching applications:', e);
       }
+    };
+    fetchApplications();
+  }, []);
 
-      if (applications.length === 0) {
-        console.log('No accepted applications, skipping WebSocket join.');
-        setUnreadCount(0);
-        return;
-      }
-
-      applications.forEach(app => {
-        socket.emit('joinChat', { jobApplicationId: app.applicationId });
-      });
-
-      socket.on('chatHistory', (history: Message[]) => {
-        if (history && history.length > 0) { // Добавлено: проверка history
-          const unread = history.filter(msg => msg.recipient_id === profile.id && !msg.is_read).length;
-          setUnreadCount(unread);
-        } else {
-          setUnreadCount(0);
-        }
-      });
-
-      socket.on('newMessage', (message) => {
-        if (message.recipient_id === profile.id && !message.is_read) {
-          setUnreadCount(prev => prev + 1);
-        }
-      });
-
-      socket.on('connect_error', (err) => {
-        console.error('WebSocket connection error in Header:', err.message);
-      });
-
-      // Добавлено: refetch unread при reconnect или mount для persist при навигации
-      socket.on('connect', () => {
-        applications.forEach(app => {
-          socket.emit('joinChat', { jobApplicationId: app.applicationId });
-        });
-      });
-
-      return () => {
-        socket.off('chatHistory');
-        socket.off('newMessage');
-        socket.off('connect_error');
-        socket.off('connect');
-      };
-    } catch (err) {
-      console.error('Error fetching unread messages in Header:', err);
+  // unread по сокетам (как было)
+  useEffect(() => {
+    if (!profile || !['jobseeker', 'employer'].includes(profile.role) || !socket || !token) {
+      setUnreadCount(0);
+      return;
     }
-  };
 
-  fetchUnreadMessages();
-}, [profile, socket, token]);
+    const run = async () => {
+      try {
+        let acc: JobApplicationDetails[] = [];
+        if (profile.role === 'jobseeker') {
+          const apps = await getMyApplications();
+          acc = apps.map(app => ({
+            applicationId: app.id,
+            userId: app.job_seeker_id,
+            username: app.job_seeker?.username || 'Unknown',
+            email: app.job_seeker?.email || 'Unknown',
+            jobDescription: '',
+            appliedAt: app.created_at,
+            status: app.status,
+            job_post_id: app.job_post_id,
+          })).filter(a => a.status === 'Accepted');
+        } else {
+          const posts = await getMyJobPosts();
+          const arrays = await Promise.all(posts.map(p => getApplicationsForJobPost(p.id)));
+          acc = arrays.flat().filter(a => a.status === 'Accepted') as any;
+        }
+
+        if (acc.length === 0) {
+          setUnreadCount(0);
+          return;
+        }
+
+        acc.forEach(a => socket.emit('joinChat', { jobApplicationId: a.applicationId }));
+
+        socket.on('chatHistory', (history: Message[]) => {
+          if (history?.length) {
+            const unread = history.filter(m => m.recipient_id === profile.id && !m.is_read).length;
+            setUnreadCount(unread);
+          } else {
+            setUnreadCount(0);
+          }
+        });
+
+        socket.on('newMessage', (m: Message) => {
+          if (m.recipient_id === profile.id && !m.is_read) setUnreadCount(v => v + 1);
+        });
+
+        socket.on('connect', () => {
+          acc.forEach(a => socket.emit('joinChat', { jobApplicationId: a.applicationId }));
+        });
+
+        return () => {
+          socket.off('chatHistory');
+          socket.off('newMessage');
+          socket.off('connect');
+        };
+      } catch (e) {
+        console.error('Error fetching unread messages in Header:', e);
+      }
+    };
+
+    run();
+  }, [profile, socket, token]);
+
+  // закрытие при смене маршрута
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+    setIsDropdownOpen(false);
+  }, [location.pathname]);
+
+  // Esc + блокировка скролла бади при открытом меню
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setIsMobileMenuOpen(false);
+    if (isMobileMenuOpen) {
+      document.addEventListener('keydown', onKey);
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [isMobileMenuOpen]);
 
   const handleLogout = async () => {
     try {
       await logout();
       localStorage.removeItem('token');
       window.location.href = '/';
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch {
       localStorage.removeItem('token');
       window.location.href = '/';
     }
   };
 
   const toggleMobileMenu = () => {
-    setIsMobileMenuOpen((prev) => !prev);
+    setIsMobileMenuOpen(prev => !prev);
     if (isDropdownOpen) setIsDropdownOpen(false);
   };
-
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false);
     setIsDropdownOpen(false);
   };
-
   const toggleDropdown = (e: React.MouseEvent) => {
     e.preventDefault();
-    setIsDropdownOpen((prev) => !prev);
+    setIsDropdownOpen(prev => !prev);
   };
-
-  const capitalizeRole = (role?: string) => {
-    if (!role) return '';
-    return role.charAt(0).toUpperCase() + role.slice(1);
-  };
+  const capitalizeRole = (role?: string) => (!role ? '' : role.charAt(0).toUpperCase() + role.slice(1));
 
   if (isLoading) {
     return (
-      <header className="header-container">
-        <div className="header-content">
-          <Link to="/" className="logo">
-            Jobforge_
-          </Link>
-          <button className="burger-menu" onClick={toggleMobileMenu}>
-            {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
+      <header className="hm-header">
+        <div className="hm-container">
+          <Link to="/" className="hm-logo">Jobforge_</Link>
+          <button className="hm-burger" aria-label="Menu" onClick={toggleMobileMenu}>
+            <FaBars />
           </button>
-          <nav className={`nav ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>
-            <Link to="/role-selection" className="signup-link" onClick={closeMobileMenu}>
-              SIGN UP
-            </Link>
-            <Link to="/login" className="login-link" onClick={closeMobileMenu}>
-              LOG IN
-            </Link>
-          </nav>
         </div>
       </header>
     );
   }
 
   return (
-    <header className="header-container">
-      <div className="header-content">
-        <Link to="/" className="logo" onClick={closeMobileMenu}>
-          Jobforge_
-        </Link>
-        <button className="burger-menu" onClick={toggleMobileMenu}>
+    <header className="hm-header">
+      <div className="hm-container">
+        <Link to="/" className="hm-logo" onClick={closeMobileMenu}>Jobforge_</Link>
+
+        <button
+          className="hm-burger"
+          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={isMobileMenuOpen}
+          aria-controls="hm-nav"
+          onClick={toggleMobileMenu}
+        >
           {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
         </button>
-        <nav className={`nav ${isMobileMenuOpen ? 'mobile-menu-open' : ''}`}>
+
+        <nav id="hm-nav" className={`hm-nav ${isMobileMenuOpen ? 'is-open' : ''}`}>
           {isAuthenticated ? (
             <>
-              {['admin', 'moderator'].includes(currentRole || '') ? (
+              {/* ==== ADMIN / MOD ==== */}
+              {['admin', 'moderator'].includes(currentRole || '') && (
                 <>
                   {showBackToDashboard && (
-                    <Link to={currentRole === 'admin' ? '/admin' : '/moderator'} onClick={closeMobileMenu}>
+                    <Link to={currentRole === 'admin' ? '/admin' : '/moderator'} onClick={closeMobileMenu} className="hm-link">
                       Back to Dashboard
                     </Link>
                   )}
-                  <button
-                    onClick={() => {
-                      handleLogout();
-                      closeMobileMenu();
-                    }}
-                    className="action-button"
-                  >
+                  <button onClick={() => { handleLogout(); closeMobileMenu(); }} className="hm-btn hm-btn--ghost">
                     Logout
                   </button>
                 </>
-              ) : (
+              )}
+
+              {/* ==== EMPLOYER (минимальный хедер) ==== */}
+              {profile?.role === 'employer' && !['admin', 'moderator'].includes(currentRole || '') && (
                 <>
-                  <Link to="/profile" onClick={closeMobileMenu}>
-                    Profile
-                  </Link>
-                  {profile?.role === 'jobseeker' && (
-                    <>
-                      <Link to="/my-applications" onClick={closeMobileMenu}>
-                        My Applications
-                      </Link>
-                      <Link to="/find-job" onClick={closeMobileMenu}>
-                        Find Job
-                      </Link>
-                    </>
+                  {showBackToEmployerDashboard && (
+                    <Link to="/employer-dashboard" onClick={closeMobileMenu} className="hm-link">
+                      Back to Dashboard
+                    </Link>
                   )}
-                  {profile?.role === 'employer' && (
-                    <>
-                      <Link to="/my-job-posts" onClick={closeMobileMenu}>
-                        My Job Posts
-                      </Link>
-                      <Link to="/post-job" onClick={closeMobileMenu}>
-                        Post Job
-                      </Link>
-                    </>
-                  )}
-                  <Link to="/messages" onClick={closeMobileMenu}>
-                    Messages {unreadCount > 0 && <span className="unread-count">{unreadCount}</span>}
-                    {socketStatus === 'reconnecting' && <span className="reconnecting">...</span>}
+
+                  {/* Приветствие */}
+                  <span className="hm-greeting">
+                    Hello, <span className="hm-strong">{profile?.username} (Employer)</span>
+                  </span>
+
+                  {/* Только Logout */}
+                  <button onClick={() => { handleLogout(); closeMobileMenu(); }} className="hm-btn hm-btn--ghost">
+                    Logout
+                  </button>
+                </>
+              )}
+
+              {/* ==== JOBSEEKER ==== */}
+              {profile?.role === 'jobseeker' && (
+                <>
+                  <Link to="/profile" onClick={closeMobileMenu} className="hm-link">Profile</Link>
+                  <Link to="/my-applications" onClick={closeMobileMenu} className="hm-link">My Applications</Link>
+                  <Link to="/find-job" onClick={closeMobileMenu} className="hm-link">Find Job</Link>
+
+                  <Link to="/messages" onClick={closeMobileMenu} className="hm-link hm-link--pill">
+                    Messages
+                    {unreadCount > 0 && <span className="hm-pill">{unreadCount}</span>}
+                    {socketStatus === 'reconnecting' && <span className="hm-dot" />}
                   </Link>
-                  <Link to="/feedback" onClick={closeMobileMenu}>
-                    Contact
-                  </Link>
-                  <span className="greeting">Hello, <span className="username-bold">{profile?.username} ({capitalizeRole(profile?.role)})</span></span>
-                  <button
-                    onClick={() => {
-                      handleLogout();
-                      closeMobileMenu();
-                    }}
-                    className="action-button"
-                  >
+
+                  <Link to="/feedback" onClick={closeMobileMenu} className="hm-link">Contact</Link>
+
+                  <span className="hm-greeting">
+                    Hello, <span className="hm-strong">{profile?.username} ({capitalizeRole(profile?.role)})</span>
+                  </span>
+
+                  <button onClick={() => { handleLogout(); closeMobileMenu(); }} className="hm-btn hm-btn--ghost">
                     Logout
                   </button>
                 </>
@@ -259,42 +262,36 @@ const Header: React.FC = () => {
             </>
           ) : (
             <>
-              <div className={`dropdown ${isDropdownOpen ? 'active' : ''}`}>
-                <span className="dropdown-toggle" onClick={toggleDropdown}>
-                  How it Works <FaChevronDown className="dropdown-icon" />
+              <div className={`hm-dd ${isDropdownOpen ? 'active' : ''}`}>
+                <span className="hm-dd-toggle" onClick={toggleDropdown}>
+                  How it Works <FaChevronDown className="hm-dd-icon" />
                 </span>
-                <div className="dropdown-menu">
-                  <Link to="/how-it-works/jobseeker-faq" onClick={closeMobileMenu}>
-                    Jobseeker FAQ
-                  </Link>
-                  <Link to="/how-it-works/employer-faq" onClick={closeMobileMenu}>
-                    Employer FAQ
-                  </Link>
+                <div className="hm-dd-menu">
+                  <Link to="/how-it-works/jobseeker-faq" onClick={closeMobileMenu} className="hm-dd-item">Jobseeker FAQ</Link>
+                  <Link to="/how-it-works/employer-faq" onClick={closeMobileMenu} className="hm-dd-item">Employer FAQ</Link>
                 </div>
               </div>
-              <Link to="/pricing" onClick={closeMobileMenu}>
-                Pricing
-              </Link>
-              <Link to="/real-results" onClick={closeMobileMenu}>
-                Real Results
-              </Link>
-              <Link to="/role-selection" className="post-job" onClick={closeMobileMenu}>
+
+              <Link to="/pricing" onClick={closeMobileMenu} className="hm-link">Pricing</Link>
+              <Link to="/real-results" onClick={closeMobileMenu} className="hm-link">Real Results</Link>
+
+              <Link to="/role-selection" onClick={closeMobileMenu} className="hm-btn hm-btn--outline">
                 POST A JOB
               </Link>
-              <Link to="/find-job" className="find-job" onClick={closeMobileMenu}>
+              <Link to="/find-job" onClick={closeMobileMenu} className="hm-btn hm-btn--primary">
                 FIND JOB
               </Link>
-              <span className="nav-divider"></span>
-              <Link to="/login" className="login-link" onClick={closeMobileMenu}>
-                LOG IN
-              </Link>
-              <Link to="/role-selection" className="signup-link" onClick={closeMobileMenu}>
-                SIGN UP
-              </Link>
+
+              <span className="hm-divider" aria-hidden="true" />
+
+              <Link to="/login" onClick={closeMobileMenu} className="hm-link">LOG IN</Link>
+              <Link to="/role-selection" onClick={closeMobileMenu} className="hm-btn hm-btn--ghost">SIGN UP</Link>
             </>
           )}
         </nav>
       </div>
+
+      {isMobileMenuOpen && <button className="hm-overlay" aria-label="Close menu" onClick={closeMobileMenu} />}
     </header>
   );
 };
