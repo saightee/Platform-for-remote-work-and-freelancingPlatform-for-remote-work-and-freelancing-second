@@ -62,8 +62,12 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
 
         <div className="jc-footer">
           <span className="jc-salary">
-            {job.salary !== null ? `$${job.salary} ${job.salary_type || 'per hour'}` : 'Not specified'}
-          </span>
+  {job.salary_type === 'negotiable'
+    ? 'Negotiable'
+    : (job.salary !== null
+        ? `$${job.salary} ${job.salary_type || 'per hour'}`
+        : 'Not specified')}
+</span>
           <Link to={`/jobs/${job.id}`}>
             <button className="jc-btn jc-btn--primary" type="button">View Details</button>
           </Link>
@@ -120,7 +124,10 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
 
         <div className="jc-footer">
           <span className="jc-salary">
-            {job.salary !== null ? `$${job.salary} ${job.salary_type || 'per hour'}` : 'Not specified'}
+            {job.salary_type === 'negotiable'
+  ? 'Negotiable'
+  : (job.salary !== null ? `$${job.salary} ${job.salary_type || 'per hour'}` : 'Not specified')}
+
           </span>
           <Link to={`/jobs/${job.id}`}>
             <button className="jc-btn jc-btn--primary" type="button">View Details</button>

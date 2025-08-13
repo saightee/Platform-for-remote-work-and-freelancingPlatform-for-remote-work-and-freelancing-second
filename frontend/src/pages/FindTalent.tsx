@@ -24,32 +24,38 @@ const [filters, setFilters] = useState<{
   username: string;
   experience: string;
   rating?: number;
-  skills?: string[]; // Изменено
+  skills?: string[];
   salary_type: string;
   page: number;
   limit: number;
+  description?: string;          // ← добавили
 }>({
   username: searchParams.get('username') || '',
   experience: '',
   rating: undefined,
-  skills: undefined, // Изменено
+  skills: undefined,
   salary_type: '',
   page: 1,
   limit: 10,
+  description: searchParams.get('description') || '', // опционально
 });
+
 const [tempFilters, setTempFilters] = useState<{
   username: string;
   experience: string;
   rating?: number;
-  skills?: string[]; // Изменено, убрал skill_id
+  skills?: string[];
   salary_type: string;
+  description?: string;          // ← добавили (если захочешь использовать)
 }>({
   username: searchParams.get('username') || '',
   experience: '',
   rating: undefined,
-  skills: undefined, // Добавлено
+  skills: undefined,
   salary_type: '',
+  description: '',
 });
+
 const [talents, setTalents] = useState<Profile[]>([]);
 const [total, setTotal] = useState<number>(0);
 const [categories, setCategories] = useState<Category[]>([]);
@@ -61,6 +67,8 @@ const [searchType, setSearchType] = useState<'talents' | 'jobseekers'>('talents'
 const [skillInput, setSkillInput] = useState('');
 const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
 const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+// рядом с другими useState
+const [selectedSkillId, setSelectedSkillId] = useState<string>(searchParams.get('category_id') || '');
 
 
 useEffect(() => {
@@ -167,22 +175,30 @@ useEffect(() => {
 
 const handleSearch = (e: React.FormEvent) => {
   e.preventDefault();
+
   const cleanedSkills = skillInput.trim() ? tempFilters.skills : undefined;
 
-  setFilters((prev) => ({
+  setFilters(prev => ({
     ...prev,
     ...tempFilters,
-    skills: cleanedSkills,          // ← снимаем фильтр, если поле пустое
+    skills: cleanedSkills,
     description: searchInput,
     page: 1,
   }));
 
-  setSearchParams({
-    username: searchType === 'jobseekers' ? (tempFilters.username || '') : '',
-  });
+  const nextParams: Record<string, string> = {};
+  if (searchType === 'jobseekers' && (tempFilters.username || '').trim()) {
+    nextParams.username = (tempFilters.username || '').trim();
+  }
+  // ← вот здесь добавляем выбранную категорию в URL
+  if (selectedSkillId) {
+    nextParams.category_id = selectedSkillId;
+  }
 
+  setSearchParams(nextParams);
   setIsFilterPanelOpen(false);
 };
+
 
   const handlePageChange = (newPage: number) => {
     setFilters((prev) => ({ ...prev, page: newPage }));
@@ -308,29 +324,36 @@ const getVisiblePages = () => {
       <ul className="autocomplete-dropdown">
         {(skillInput.trim() ? filteredSkills : categories).map((cat) => (
   <Fragment key={cat.id}>
-    <li
-      className="autocomplete-item"
-      onMouseDown={() => {
-        const displayName = cat.parent_id ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}` : cat.name;
-        setTempFilters({ ...tempFilters, skills: [cat.name] }); // Изменено: name, не id
-        setSkillInput(displayName);
-        setIsDropdownOpen(false);
-      }}
-    >
-      {cat.parent_id ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}` : cat.name}
-    </li>
-    {cat.subcategories?.map((sub) => (
-      <li
-        className="autocomplete-item sub-item"
-        onMouseDown={() => {
-          setTempFilters({ ...tempFilters, skills: [sub.name] }); // Изменено: name
-          setSkillInput(`${cat.name} > ${sub.name}`);
-          setIsDropdownOpen(false);
-        }}
-      >
-        {`${cat.name} > ${sub.name}`}
-      </li>
-    ))}
+<li
+  className="autocomplete-item"
+  onMouseDown={() => {
+    const displayName = cat.parent_id
+      ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}`
+      : cat.name;
+
+    setTempFilters({ ...tempFilters, skills: [cat.name] }); // имя — как раньше
+    setSelectedSkillId(cat.id);                              // ← ВАЖНО: сохранить id
+    setSkillInput(displayName);
+    setIsDropdownOpen(false);
+  }}
+>
+  {cat.parent_id ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}` : cat.name}
+</li>
+
+{cat.subcategories?.map((sub) => (
+  <li
+    className="autocomplete-item sub-item"
+    onMouseDown={() => {
+      setTempFilters({ ...tempFilters, skills: [sub.name] }); // имя
+      setSelectedSkillId(sub.id);                              // ← id подкатегории
+      setSkillInput(`${cat.name} > ${sub.name}`);
+      setIsDropdownOpen(false);
+    }}
+  >
+    {`${cat.name} > ${sub.name}`}
+  </li>
+))}
+
   </Fragment>
 ))}
       </ul>

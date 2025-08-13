@@ -78,22 +78,23 @@ const [tempSearchState, setTempSearchState] = useState<{
       try {
         setIsLoading(true);
         setError(null);
-        const params = {
-          title: searchState.title || undefined,
-          location: searchState.location || undefined,
-          salary_min: searchState.salary_min,
-          salary_max: searchState.salary_max,
-          job_type: searchState.job_type || undefined,
-          category_id: searchState.category_id || undefined,
-          required_skills: searchState.required_skills
-            ? searchState.required_skills.split(',').map(skill => skill.trim())
-            : undefined,
-          salary_type: searchState.salary_type || undefined,
-          page: searchState.page,
-          limit: searchState.limit,
-          sort_by: 'created_at',
-          sort_order: 'DESC',
-        };
+const params = {
+  title: searchState.title || undefined,
+  location: searchState.location || undefined,
+  salary_min: searchState.salary_type === 'negotiable' ? undefined : searchState.salary_min,
+  salary_max: searchState.salary_type === 'negotiable' ? undefined : searchState.salary_max,
+  job_type: searchState.job_type || undefined,
+  category_id: searchState.category_id || undefined,
+  required_skills: searchState.required_skills
+    ? searchState.required_skills.split(',').map(skill => skill.trim())
+    : undefined,
+  salary_type: searchState.salary_type || undefined,
+  page: searchState.page,
+  limit: searchState.limit,
+  sort_by: 'created_at',
+  sort_order: 'DESC',
+};
+
         const [jobsResponse, categoriesResponse] = await Promise.all([
           searchJobPosts(params),
           getCategories(),
@@ -147,23 +148,23 @@ useEffect(() => {
 }, [searchInput]);
 
 
-useEffect(() => {
-  if (!searchState.category_id || categories.length === 0) return;
+// useEffect(() => {
+//   if (!searchState.category_id || categories.length === 0) return;
 
-  const getDisplayName = (id: string): string | null => {
-    for (const cat of categories) {
-      if (cat.id === id) return cat.name;
-      if (Array.isArray(cat.subcategories)) {
-        const sub = cat.subcategories.find(s => s.id === id);
-        if (sub) return `${cat.name} > ${sub.name}`;
-      }
-    }
-    return null;
-  };
+//   const getDisplayName = (id: string): string | null => {
+//     for (const cat of categories) {
+//       if (cat.id === id) return cat.name;
+//       if (Array.isArray(cat.subcategories)) {
+//         const sub = cat.subcategories.find(s => s.id === id);
+//         if (sub) return `${cat.name} > ${sub.name}`;
+//       }
+//     }
+//     return null;
+//   };
 
-  const display = getDisplayName(searchState.category_id);
-  if (display) setSkillInput(display);
-}, [categories, searchState.category_id]);
+//   const display = getDisplayName(searchState.category_id);
+//   if (display) setSkillInput(display);
+// }, [categories, searchState.category_id]);
 
 
 
@@ -194,13 +195,17 @@ const handleSearch = (e: React.FormEvent) => {
   e.preventDefault();
   const cleanedCategoryId = (skillInput.trim() ? tempSearchState.category_id : '');
 
-  setSearchState((prev) => ({
-    ...prev,
-    ...tempSearchState,
-    title: searchInput,
-    category_id: cleanedCategoryId,
-    page: 1,
-  }));
+setSearchState((prev) => ({
+  ...prev,
+  ...tempSearchState,
+  title: searchInput,
+  category_id: cleanedCategoryId,
+  // если выбрали negotiable — гарантированно убираем диапазон
+  salary_min: tempSearchState.salary_type === 'negotiable' ? undefined : tempSearchState.salary_min,
+  salary_max: tempSearchState.salary_type === 'negotiable' ? undefined : tempSearchState.salary_max,
+  page: 1,
+}));
+
 
   const nextParams: Record<string, string> = {};
   if (searchInput.trim()) nextParams.title = searchInput.trim();
@@ -289,44 +294,57 @@ const handleSearch = (e: React.FormEvent) => {
     <option value="Hybrid">Hybrid</option>
   </select>
 </div>
- <div className="form-group">
+<div className="form-group">
   <label>Salary Type:</label>
   <select
     value={tempSearchState.salary_type || ''}
-    onChange={(e) => setTempSearchState({ ...tempSearchState, salary_type: e.target.value })}
+    onChange={(e) => {
+      const st = e.target.value;
+      setTempSearchState({
+        ...tempSearchState,
+        salary_type: st,
+        // если negotiable — чистим диапазон и отключим поля ниже
+        salary_min: st === 'negotiable' ? undefined : tempSearchState.salary_min,
+        salary_max: st === 'negotiable' ? undefined : tempSearchState.salary_max,
+      });
+    }}
   >
     <option value="">All</option>
     <option value="per hour">Per Hour</option>
     <option value="per month">Per Month</option>
+    <option value="negotiable">Negotiable</option>
   </select>
 </div>
+
     <div className="form-group">
       <label>Minimum Salary:</label>
       <input
-        type="number"
-        value={tempSearchState.salary_min || ''}
-        onChange={(e) =>
-          setTempSearchState({
-            ...tempSearchState,
-            salary_min: e.target.value ? Number(e.target.value) : undefined,
-          })
-        }
-        placeholder="Enter minimum salary"
-      />
+  type="number"
+  value={tempSearchState.salary_min || ''}
+  onChange={(e) =>
+    setTempSearchState({
+      ...tempSearchState,
+      salary_min: e.target.value ? Number(e.target.value) : undefined,
+    })
+  }
+  placeholder="Enter minimum salary"
+  disabled={tempSearchState.salary_type === 'negotiable'}
+/>
     </div>
     <div className="form-group">
       <label>Maximum Salary:</label>
-      <input
-        type="number"
-        value={tempSearchState.salary_max || ''}
-        onChange={(e) =>
-          setTempSearchState({
-            ...tempSearchState,
-            salary_max: e.target.value ? Number(e.target.value) : undefined,
-          })
-        }
-        placeholder="Enter maximum salary"
-      />
+     <input
+  type="number"
+  value={tempSearchState.salary_max || ''}
+  onChange={(e) =>
+    setTempSearchState({
+      ...tempSearchState,
+      salary_max: e.target.value ? Number(e.target.value) : undefined,
+    })
+  }
+  placeholder="Enter maximum salary"
+  disabled={tempSearchState.salary_type === 'negotiable'}
+/>
     </div>
     
     <div className="form-group">
