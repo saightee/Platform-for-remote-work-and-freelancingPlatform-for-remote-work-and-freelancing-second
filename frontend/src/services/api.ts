@@ -264,8 +264,8 @@ export const generateDescription = async (data: {
   aiBrief: string;
   title?: string;
   location?: string;
-  salary?: number;
-  salary_type?: 'per hour' | 'per month';
+  salary?: number | null;
+  salary_type?: 'per hour' | 'per month' | 'negotiable';
   job_type?: 'Full-time' | 'Part-time' | 'Project-based';
 }) => {
   const token = localStorage.getItem('token'); // Добавлено: явный token на случай

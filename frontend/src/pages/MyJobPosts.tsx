@@ -5,7 +5,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus, notifyCandidates, initializeWebSocket, createReview, searchCategories } from '../services/api';
-import { JobPost, Category, JobApplicationDetails } from '@types';
+import { JobPost, Category, JobApplicationDetails, SalaryType } from '@types';
 import { useRole } from '../context/RoleContext';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
@@ -153,22 +153,39 @@ const handleSaveEdit = async (id: string) => {
     alert('Job title and description are required.');
     return;
   }
+
+  // Валидация зарплаты
+  if (editingJob.salary_type !== 'negotiable') {
+    if (editingJob.salary == null || editingJob.salary <= 0) {
+      alert('Salary is required (>0) unless salary type is negotiable.');
+      return;
+    }
+  }
+
   try {
-    await handleUpdate(id, {
+    const payload: Partial<JobPost> = {
       title: editingJob.title,
       description: editingJob.description,
       location: editingJob.location,
-      salary: editingJob.salary,
-      salary_type: editingJob.salary_type, // Добавлено: передача salary_type
-      job_type: editingJob.job_type || null,
+      salary_type: (editingJob.salary_type ?? null) as SalaryType | null,
+      salary:
+        editingJob.salary_type === 'negotiable'
+          ? null
+          : typeof editingJob.salary === 'number'
+          ? editingJob.salary
+          : null,
+      job_type: editingJob.job_type ?? null,
       category_id: editingJob.category_id || undefined,
-    });
+    };
+
+    await handleUpdate(id, payload);
     setEditingJob(null);
   } catch (err: any) {
     console.error('Error saving job edit:', err);
     alert(err.response?.data?.message || 'Failed to save changes.');
   }
 };
+
 
   const handleCancelEdit = () => {
     setEditingJob(null);
@@ -312,24 +329,46 @@ const handleSaveEdit = async (id: string) => {
   </select>
 </div>
                     <div className="my-job-form-group">
-                      <label>Salary:</label>
-                      <input
-                        type="number"
-                        value={editingJob.salary !== null ? editingJob.salary : ''}
-                        onChange={(e) =>
-                          editingJob && setEditingJob({ ...editingJob, salary: e.target.value ? Number(e.target.value) : null })
-                        }
-                        min="0"
-                      />
-                      <select 
-    value={editingJob.salary_type || 'per hour'}
-    onChange={(e) => editingJob && setEditingJob({ ...editingJob, salary_type: e.target.value })}
+  <label>Salary:</label>
+  <input
+    type="number"
+    value={
+      editingJob?.salary_type === 'negotiable'
+        ? ''
+        : editingJob?.salary ?? ''
+    }
+    onChange={(e) =>
+      editingJob &&
+      setEditingJob({
+        ...editingJob,
+        salary: e.target.value ? Number(e.target.value) : null,
+      })
+    }
+    min="0"
+    placeholder={
+      editingJob?.salary_type === 'negotiable' ? 'Negotiable' : 'Enter salary'
+    }
+    disabled={editingJob?.salary_type === 'negotiable'}
+  />
+
+  <select
+    value={editingJob?.salary_type ?? 'per hour'}
+    onChange={(e) => {
+      if (!editingJob) return;
+      const st = e.target.value as SalaryType; // ← ключевой каст
+      setEditingJob({
+        ...editingJob,
+        salary_type: st,
+        // при negotiable обнуляем зарплату
+        salary: st === 'negotiable' ? null : editingJob.salary ?? null,
+      });
+    }}
   >
     <option value="per hour">per hour</option>
     <option value="per month">per month</option>
+    <option value="negotiable">negotiable</option>
   </select>
-
-                    </div>
+</div>
                     <div className="my-job-form-group">
                       <label>Job Type:</label>
                       <select

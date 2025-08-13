@@ -5,7 +5,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { createJobPost, getCategories, searchCategories, generateDescription } from '../services/api';
-import { Category, JobPost } from '@types';
+import { Category, JobPost, SalaryType } from '@types';
 import { useRole } from '../context/RoleContext';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
@@ -23,6 +23,8 @@ const PostJob: React.FC = () => {
   const [selectedCategoryName, setSelectedCategoryName] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 const [categoryIds, setCategoryIds] = useState<string[]>([]);
+const [salaryType, setSalaryType] = useState<SalaryType>('per hour');
+const [isSubmitting, setIsSubmitting] = useState(false);
  
   const [location, setLocation] = useState(''); // Uncommented and used for Work Mode
   
@@ -32,7 +34,7 @@ const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [isEdited, setIsEdited] = useState(false);
   const [requestTimes, setRequestTimes] = useState<number[]>([]);
   const [salary, setSalary] = useState<number | null>(null);
-  const [salaryType, setSalaryType] = useState<'per hour' | 'per month'>('per hour');
+  
   const [categoryId, setCategoryId] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -126,6 +128,13 @@ const handleGenerate = async (isRegenerate = false) => {
     setIsGenerating(false);
   }
 };
+
+useEffect(() => {
+  if (salaryType === 'negotiable') {
+    setSalary(null);
+  }
+}, [salaryType]);
+
   
 useEffect(() => {
   const fetchCategories = async () => {
@@ -175,47 +184,67 @@ useEffect(() => {
 }, [skillInput]);
 
 const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!profile || profile.role !== 'employer') {
-      navigate('/login');
-      return;
-    }
-    if (!title.trim()) {
-      setError('Job title is required.');
-      return;
-    }
-    if (!description.trim() && !aiBrief.trim()) {
-      setError('Either description or AI brief is required.');
-      return;
-    }
-    try {
-      setError(null);
-      const jobData: Partial<JobPost> & { aiBrief?: string } = {
-        title,
-        location,
-        salary: salary !== null ? salary : null,
-        salary_type: salaryType,
-        excluded_locations: excludedCountries,
-        status: 'Active',
-        job_type: jobType,
-        category_ids: categoryIds || undefined,
-      };
-      if (isEdited || !aiBrief.trim()) {
-        jobData.description = description;
-      } else {
-        jobData.aiBrief = aiBrief;
+  e.preventDefault();
+  if (!profile || profile.role !== 'employer') {
+    navigate('/login');
+    return;
+  }
+  if (!title.trim()) {
+    setError('Job title is required.');
+    return;
+  }
+  if (!description.trim() && !aiBrief.trim()) {
+    setError('Either description or AI brief is required.');
+    return;
+  }
+
+  try {
+    setError(null);
+    setIsSubmitting(true); // ← показываем лоадер
+
+    if (salaryType !== 'negotiable') {
+      if (salary === null || salary <= 0) {
+        setError('Salary is required (>0) unless salary type is negotiable.');
+        setIsSubmitting(false);
+        return;
       }
-      await createJobPost(jobData);
-      navigate('/employer-dashboard');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create job post.');
     }
-  };
+
+    const jobData: Partial<JobPost> & { aiBrief?: string } = {
+      title,
+      location,
+      salary: salaryType === 'negotiable' ? null : (salary ?? null),
+      salary_type: salaryType,
+      excluded_locations: excludedCountries,
+      status: 'Active',
+      job_type: jobType,
+      category_id: categoryId || undefined,
+    };
+
+    if (isEdited || !aiBrief.trim()) {
+      jobData.description = description;
+    } else {
+      jobData.aiBrief = aiBrief;
+    }
+
+    await createJobPost(jobData);
+
+    // навигируемся — компонент размонтируется и лоадер исчезнет
+    navigate('/employer-dashboard');
+  } catch (err: any) {
+    setError(err.response?.data?.message || 'Failed to create job post.');
+  } finally {
+    // на случай если навигации не произошло (ошибка) — убираем лоадер
+    setIsSubmitting(false);
+  }
+};
 
   if (isLoading) {
     return (
       <div>
         <Header />
+        <div className={`loading-overlay ${isSubmitting ? 'visible' : ''}`}>
+  {isSubmitting && <Loader />}</div>
         <div className="container">
           <h2>Post a Job</h2>
           <Loader />
@@ -309,22 +338,29 @@ const handleSubmit = async (e: FormEvent) => {
                     <option value="Hybrid">Hybrid</option>
                   </select>
                 </div>
-                <div className="form-group">
-                  <label>Salary</label>
-                  <div className="salary-group">
-                    <input
-                      type="number"
-                      value={salary !== null ? salary : ''}
-                      onChange={(e) => setSalary(e.target.value ? Number(e.target.value) : null)}
-                      placeholder="Enter salary"
-                      min="0"
-                    />
-                    <select value={salaryType} onChange={(e) => setSalaryType(e.target.value as 'per hour' | 'per month')}>
-                      <option>per hour</option>
-                      <option>per month</option>
-                    </select>
-                  </div>
-                </div>
+               <div className="form-group">
+  <label>Salary</label>
+  <div className="salary-group">
+    <input
+      type="number"
+      value={salaryType === 'negotiable' ? '' : (salary !== null ? salary : '')}
+      onChange={(e) => setSalary(e.target.value ? Number(e.target.value) : null)}
+      placeholder={salaryType === 'negotiable' ? 'Negotiable' : 'Enter salary'}
+      min="0"
+      disabled={salaryType === 'negotiable'}          // ← отключаем при negotiable
+    />
+   <select
+  value={salaryType}
+  onChange={(e) => setSalaryType(e.target.value as SalaryType)}
+>
+  <option value="per hour">per hour</option>
+  <option value="per month">per month</option>
+  <option value="negotiable">negotiable</option>
+</select>
+
+  </div>
+</div>
+
                 <div className="form-group">
                   <label>Job Type</label>
                   <select
@@ -357,33 +393,27 @@ const handleSubmit = async (e: FormEvent) => {
         {(skillInput.trim() ? filteredSkills : categories).map((category) => (
           <React.Fragment key={category.id}>
             <li
-              className="autocomplete-item"
-              onMouseDown={() => {
-                if (!selectedCategories.includes(category.id)) {
-                  setSelectedCategories([...selectedCategories, category.id]);
-                  setCategoryIds([...categoryIds, category.id]);
-                  setSkillInput('');
-                  setIsDropdownOpen(false);
-                }
-              }}
-            >
-              {category.name}
-            </li>
+  className="autocomplete-item"
+  onMouseDown={() => {
+    setCategoryId(category.id);    // ← ставим одиночный category_id
+    setSkillInput(category.name);
+    setIsDropdownOpen(false);
+  }}
+>
+  {category.name}
+</li>
             {category.subcategories?.map((sub) => (
-              <li
-                key={sub.id}
-                className="autocomplete-item sub-category"
-                onMouseDown={() => {
-                  if (!selectedCategories.includes(sub.id)) {
-                    setSelectedCategories([...selectedCategories, sub.id]);
-                    setCategoryIds([...categoryIds, sub.id]);
-                    setSkillInput('');
-                    setIsDropdownOpen(false);
-                  }
-                }}
-              >
-                {`${category.name} > ${sub.name}`}
-              </li>
+         <li
+  key={sub.id}
+  className="autocomplete-item sub-category"
+  onMouseDown={() => {
+    setCategoryId(sub.id);         // ← субкатегория как category_id
+    setSkillInput(`${category.name} > ${sub.name}`);
+    setIsDropdownOpen(false);
+  }}
+>
+  {`${category.name} > ${sub.name}`}
+</li>
             ))}
           </React.Fragment>
         ))}
@@ -391,29 +421,21 @@ const handleSubmit = async (e: FormEvent) => {
     )}
   </div>
   <div className="category-tags">
-    {selectedCategories.map((categoryId) => {
-      const skill = findCategoryById(categoryId, categories) || findCategoryById(categoryId, filteredSkills);
-      const parent = skill?.parent_id ? findCategoryById(skill.parent_id, categories) : undefined;
-      return (
-        <span key={categoryId} className="category-tag">
-          {skill
-            ? (skill.parent_id && parent
-                ? `${parent.name} > ${skill.name}`
-                : skill.name)
-            : 'Unknown Category'}
-          <span
-            className="remove-tag"
-            onClick={() => {
-              setSelectedCategories(selectedCategories.filter((id) => id !== categoryId));
-              setCategoryIds(categoryIds.filter((id) => id !== categoryId));
-            }}
-          >
-            ×
-          </span>
-        </span>
-      );
-    })}
-  </div>
+  {categoryId && (() => {
+    const skill = findCategoryById(categoryId, categories) || findCategoryById(categoryId, filteredSkills);
+    const parent = skill?.parent_id ? findCategoryById(skill.parent_id, categories) : undefined;
+    const label = skill
+      ? (skill.parent_id && parent ? `${parent.name} > ${skill.name}` : skill.name)
+      : 'Unknown Category';
+    return (
+      <span className="category-tag">
+        {label}
+        <span className="remove-tag" onClick={() => setCategoryId('')}>×</span>
+      </span>
+    );
+  })()}
+</div>
+
 </div>
                 <div className="form-group">
                   <label>Brief Description for AI (will generate full description) *</label>
@@ -423,9 +445,9 @@ const handleSubmit = async (e: FormEvent) => {
                     placeholder="Briefly describe the job and requirements (e.g., Python developer with 3 years experience for web app. Skills: Django, SQL. Duties: backend development.)"
                     rows={4}
                   />
-                  <button type="button" onClick={() => handleGenerate()} style={{ marginTop: '10px' }}>
-                    Generate Description
-                  </button>
+                <button type="button" onClick={() => handleGenerate()} style={{ marginTop: '10px' }} disabled={isSubmitting || isGenerating}>
+  Generate Description
+</button>
                 </div>
               </div>
               <div className="form-column right-column">
@@ -457,9 +479,13 @@ const handleSubmit = async (e: FormEvent) => {
             </div>
             {error && <p className="error-message">{error}</p>}
             <div style={{ textAlign: 'center', marginTop: '60px' }}>
-              <button type="submit" style={{ padding: '12px 32px', fontSize: '16px' }}>
-                Post Job
-              </button>
+             <button
+  type="submit"
+  style={{ padding: '12px 32px', fontSize: '16px' }}
+  disabled={isSubmitting}
+>
+  {isSubmitting ? 'Posting…' : 'Post Job'}
+</button>
             </div>
           </form>
         </div>

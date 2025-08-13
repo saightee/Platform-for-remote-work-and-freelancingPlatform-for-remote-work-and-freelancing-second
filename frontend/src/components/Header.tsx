@@ -90,7 +90,7 @@ const Header: React.FC = () => {
                     onClick={closeMobileMenu}
                     className="hm-link"
                   >
-                    Back to Dashboard
+                    My Dashboard
                   </Link>
 
                   {isJobseeker && (

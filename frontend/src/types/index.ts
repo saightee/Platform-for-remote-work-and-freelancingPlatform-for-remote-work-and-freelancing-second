@@ -88,18 +88,20 @@ export interface ModeratorProfile {
 
 export type Profile = EmployerProfile | JobSeekerProfile | AdminProfile | ModeratorProfile;
 
+export type SalaryType = 'per hour' | 'per month' | 'negotiable';
+
 export interface JobPost {
   id: string;
   title: string;
   description: string;
-  location?: string; // Изменено на необязательное
+  location?: string;
   salary: number | null;
-  salary_type: string | null;
+  salary_type: SalaryType | null;
   category_id?: string;
   category_ids?: string[];
   category?: Category | null;
   job_type?: 'Full-time' | 'Part-time' | 'Project-based' | null;
-  employer_id: string; // Убрано необязательное, так как всегда возвращается
+  employer_id: string;
   employer?: EmployerProfile | null;
   pending_review?: boolean;
   applicationLimit?: number;
@@ -110,6 +112,8 @@ export interface JobPost {
   required_skills?: string[];
   excluded_locations?: string[];
 }
+
+
 
 export interface Category {
   id: string;
