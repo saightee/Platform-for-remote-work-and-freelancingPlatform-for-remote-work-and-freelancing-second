@@ -281,32 +281,43 @@ const PostJob: React.FC = () => {
                     />
                   </div>
 
-                  <div className="form-group relative">
-                    <label>Location Exclusions</label>
-                    <input
-                      type="text"
-                      value={countryInput}
-                      onChange={(e) => setCountryInput(e.target.value)}
-                      placeholder="Search countries to exclude..."
-                    />
-                    {filteredCountries.length > 0 && (
-                      <ul className="autocomplete-dropdown">
-                        {filteredCountries.map((country) => (
-                          <li key={country} className="autocomplete-item" onClick={() => addCountry(country)}>
-                            {country}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className="category-tags">
-                      {excludedCountries.map((country) => (
-                        <span key={country} className="category-tag">
-                          {country}
-                          <span className="remove-tag" onClick={() => removeCountry(country)}>×</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                 <div className="form-group">
+  <label>Location Exclusions</label>
+
+  {/* ВАЖНО: оборачиваем инпут + список в .autocomplete-wrapper */}
+  <div className="autocomplete-wrapper">
+    <input
+      type="text"
+      value={countryInput}
+      onChange={(e) => setCountryInput(e.target.value)}
+      placeholder="Search countries to exclude..."
+    />
+
+    {filteredCountries.length > 0 && (
+      <ul className="autocomplete-dropdown pj-country-dropdown">
+        {filteredCountries.map((country) => (
+          <li
+            key={country}
+            className="autocomplete-item"
+            onMouseDown={() => addCountry(country)}
+          >
+            {country}
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+
+  <div className="category-tags">
+    {excludedCountries.map((country) => (
+      <span key={country} className="category-tag">
+        {country}
+        <span className="remove-tag" onClick={() => removeCountry(country)}>×</span>
+      </span>
+    ))}
+  </div>
+</div>
+
 
                   <div className="form-group">
                     <label>Work Mode</label>
