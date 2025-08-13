@@ -1,0 +1,300 @@
+/* ========== Jobseeker Dashboard (jsd-*) — LIGHT BRIDGE ========== */
+
+.jsd-shell{
+  --jsd-accent:#4e74c8;
+  --jsd-bg:#f5f7fb;
+  --jsd-surface:#ffffff;
+  --jsd-surface-2:#f7f9fe;
+  --jsd-border:#e7edf5;
+  --jsd-text:#111827;
+  --jsd-text-dim:#5e6a7a;
+
+  --jsd-gap:16px;
+  --jsd-gap-lg:24px;
+  --jsd-radius:14px;
+  --jsd-radius-sm:12px;
+  --jsd-topbar-h:64px;
+  --jsd-sidebar-w:272px;
+
+  background:var(--jsd-bg);
+  color:var(--jsd-text);
+  min-height:100dvh;
+}
+
+/* прячем глобальные футеры/копирайт внутри outlet */
+.jsd-content :where(footer, .copyright, .copyright-container){
+  display:none !important;
+  height:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+  overflow:hidden !important;
+}
+
+.jsd-content .hm-header,
+.jsd-content header.header-container,
+.jsd-content header.site-header,
+.jsd-content .site-navbar {
+  display: none !important;
+}
+
+/* ===== Topbar ===== */
+.jsd-topbar{
+  position:sticky; top:0; z-index:40;
+  height:var(--jsd-topbar-h);
+  display:flex; align-items:center; gap:12px;
+  padding:0 16px; background:#fff; border-bottom:1px solid var(--jsd-border);
+}
+
+.jsd-topbar__burger{
+  display:grid; place-items:center;
+   border-radius:12px;
+  border:1px solid var(--jsd-border); background:#fff; color:var(--jsd-text);
+  cursor:pointer;
+}
+@media (min-width:1024px){ .jsd-topbar__burger{ display:none; } }
+
+/* лого — акцент, крупно, без ховеров */
+.jsd-topbar__logo{
+  text-decoration:none; font-weight:800; font-size:22px;
+  color:var(--jsd-accent); padding:0; margin-left:2px;
+}
+.jsd-topbar__logo:hover,.jsd-topbar__logo:focus{ color:var(--jsd-accent); outline:none; }
+
+.jsd-topbar__spacer{ flex:1; }
+
+/* CTA Find Job */
+.jsd-topbar__cta{
+  display:inline-flex; align-items:center; gap:8px;
+  text-decoration:none; background:var(--jsd-accent); color:#fff;
+  padding:10px 14px; border-radius:10px; border:1px solid var(--jsd-accent); font-size: 14px;
+  
+}
+.jsd-topbar__cta:hover{ filter:brightness(0.97); }
+
+.jsd-topbar__greet{ color:var(--jsd-text-dim); font-size:14px; white-space:nowrap; margin-left:12px; }
+.jsd-topbar__greet strong{ color:var(--jsd-text); }
+
+.jsd-topbar__logout{
+  border:1px solid var(--jsd-border); background:#fff; color:var(--jsd-text);
+  padding:10px 14px; border-radius:12px; cursor:pointer; margin-left:8px;
+}
+.jsd-topbar__logout:hover{ background:var(--jsd-surface-2); }
+
+/* ===== Sidebar ===== */
+.jsd-sidebar{
+  position:fixed;
+  inset:var(--jsd-topbar-h) auto 0 0;
+  width:var(--jsd-sidebar-w);
+  background:#fff;
+  border-right:1px solid var(--jsd-border);
+  transform:translateX(-100%);
+  transition:transform .25s ease;
+  z-index:35;
+}
+.jsd-sidebar.is-open{ transform:translateX(0); }
+
+@media (min-width:1024px){
+  .jsd-sidebar{
+    transform:none; /* просто фиксированная панель */
+  }
+  .jsd-overlay{ display:none; }
+}
+
+.jsd-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:34; border:0; }
+
+/* nav */
+.jsd-nav{ padding:18px; display:grid; gap:10px; }
+.jsd-nav__group{
+  font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--jsd-text-dim); margin:6px 10px 6px;
+}
+.jsd-nav__link{
+  display:flex; align-items:center; gap:10px;
+  text-decoration:none; color:var(--jsd-text);
+  padding:12px 14px; border-radius:12px;
+  border:1px solid var(--jsd-border); background:#fff;
+  transition:background .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.jsd-nav__link:hover{ background:var(--jsd-surface-2); }
+.jsd-nav__link.active{
+  border-color:var(--jsd-accent);
+  box-shadow:0 0 0 3px rgba(78,116,200,.12);
+}
+.jsd-nav__ico{ font-size:16px; color:var(--jsd-accent); }
+.jsd-nav__text{ flex:1 1 auto; }
+
+/* ===== Main ===== */
+.jsd-main{
+  min-height:calc(100dvh - var(--jsd-topbar-h));
+  display:flex; flex-direction:column;
+  padding:16px; padding-bottom:64px;
+}
+@media (min-width:1024px){
+  .jsd-main{ padding-left:calc(var(--jsd-sidebar-w) + 24px); }
+}
+
+.jsd-content{
+  max-width:1200px; width:100%;
+  margin:0 auto; padding:16px;
+}
+
+/* убираем верхние зазоры у первого видимого */
+.jsd-content > :first-child{ margin-top:0!important; }
+.jsd-content h1:first-child,
+.jsd-content .page-title:first-child,
+.jsd-content .section-title:first-child{ margin-top:0!important; }
+
+/* футер дашборда на всю ширину, с отступом слева под сайдбар на десктопе */
+.jsd-bottom{ width:100%; }
+@media (min-width:1024px){
+  .jsd-bottom footer .footer-content,
+  .jsd-bottom .copyright{
+    padding-left: calc(var(--jsd-sidebar-w) + 24px);
+  }
+}
+
+/* ===== Overview bits ===== */
+.jsd-title{ font-size:26px; font-weight:800; margin:16px 0 12px; letter-spacing:.3px; }
+
+.jsd-kpis{
+  display:grid; gap:var(--jsd-gap);
+  grid-template-columns:repeat(1,minmax(0,1fr));
+  margin-bottom:var(--jsd-gap-lg);
+}
+@media (min-width:640px){ .jsd-kpis{ grid-template-columns:repeat(2,1fr); } }
+@media (min-width:1024px){ .jsd-kpis{ grid-template-columns:repeat(4,1fr); } }
+
+.jsd-kpi{
+  background:#fff; border:1px solid var(--jsd-border);
+  border-radius:var(--jsd-radius); padding:18px;
+}
+.jsd-kpi__label{ color:var(--jsd-text-dim); font-size:13px; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+.jsd-kpi__ico{ font-size:16px; color:var(--jsd-accent); }
+.jsd-kpi__value{ font-size:28px; font-weight:800; letter-spacing:.4px; }
+
+.jsd-panels{ display:grid; gap:var(--jsd-gap); grid-template-columns:1fr; }
+@media (min-width:1024px){ .jsd-panels{ grid-template-columns:1fr 1fr; } }
+
+.jsd-panel{
+  background:#fff; border:1px solid var(--jsd-border);
+  border-radius:var(--jsd-radius); padding:16px; min-width:0;
+}
+.jsd-panel__head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.jsd-panel__head h3{ font-size:16px; margin:0; }
+.jsd-link{ color:var(--jsd-accent); text-decoration:none; font-size:14px; }
+.jsd-link:hover{ text-decoration:underline; }
+
+.jsd-actions{ display:grid; gap:10px; grid-template-columns:repeat(1,1fr); }
+@media (min-width:480px){ .jsd-actions{ grid-template-columns:repeat(2,1fr); } }
+.jsd-action{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  padding:14px 16px; border-radius:var(--jsd-radius-sm);
+  border:1px solid var(--jsd-border); background:#fff; color:var(--jsd-text);
+  text-decoration:none; font-weight:600;
+}
+.jsd-action:hover{ background:var(--jsd-surface-2); }
+.jsd-action__ico{ font-size:16px; color:var(--jsd-accent); }
+
+/* таблица */
+.jsd-table{ width:100%; display:grid; gap:8px; }
+.jsd-thead, .jsd-row{
+  display:grid; grid-template-columns:1.6fr .8fr .8fr; gap:8px; align-items:center;
+}
+.jsd-thead{
+  font-size:12px; color:var(--jsd-text-dim);
+  text-transform:uppercase; letter-spacing:.08em;
+  padding:8px 12px; border-radius:10px;
+  background:var(--jsd-surface-2); border:1px solid var(--jsd-border);
+}
+.jsd-tbody{ display:grid; gap:8px; }
+.jsd-row{
+  padding:12px; border-radius:12px; background:#fff; border:1px solid var(--jsd-border);
+}
+.jsd-row > div{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* бейджи статуса */
+.jsd-badge{
+  display:inline-block; padding:6px 10px; border-radius:999px; font-size:12px;
+  border:1px solid transparent; background:#eef3ff; color:var(--jsd-accent);
+}
+.jsd-badge--accepted{ background:#e9fbf3; color:#179b62; border-color:#c6f3e0; }
+.jsd-badge--pending{ background:#fff6e6; color:#b36b00; border-color:#ffe2b3; }
+.jsd-badge--rejected{ background:#ffecee; color:#d03a4b; border-color:#ffd0d6; }
+
+.jsd-empty{
+  color:var(--jsd-text-dim); border:1px dashed var(--jsd-border);
+  border-radius:var(--jsd-radius-sm); padding:24px; text-align:center;
+}
+
+.jsd-skel{
+  height:90px; border-radius:var(--jsd-radius);
+  background:linear-gradient(90deg,#f0f4fb 25%, #e8eef8 37%, #f0f4fb 63%);
+  background-size:400% 100%; animation:jsd-skel 1.2s ease-in-out infinite;
+  border:1px solid var(--jsd-border);
+}
+@keyframes jsd-skel{
+  0%{ background-position:100% 50%; }
+  100%{ background-position:0 50%; }
+}
+
+/* мобильная таблица */
+@media (max-width:640px){
+  .jsd-thead{ display:none; }
+  .jsd-row{ grid-template-columns:1fr; gap:6px; }
+  .jsd-row > div{ white-space:normal; overflow:visible; text-overflow:initial; }
+}
+
+/* фокусы */
+.jsd-shell a:focus, .jsd-shell button:focus{
+  outline:3px solid rgba(78,116,200,.35); outline-offset:2px;
+}
+
+/* правки вложенных страниц (не ломая их) */
+.jsd-content .container{ max-width:1200px; margin:0 auto; padding:16px; }
+.jsd-content .section, .jsd-content .page, .jsd-content .paper, .jsd-content .card{ margin-top:0; }
+
+/* ещё раз «жёстко» выпилим дубль футеров внутри outlet */
+.jsd-content :where(footer, .copyright, .copyright-container){
+  display:none !important; height:0 !important; margin:0 !important; padding:0 !important; overflow:hidden !important;
+}
+
+/* ===== 2 ряда в топбаре (≤580px) для Jobseeker ===== */
+@media (max-width: 680px) {
+  .jsd-topbar{
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding: 8px 12px;
+    height: auto;                 /* снимаем фикс-высоту */
+  }
+  .jsd-topbar__spacer{ display: none; }
+
+  /* форс-перенос строки после лого — всегда 2 ряда */
+  .jsd-topbar::after{
+    content:"";
+    flex-basis: 100%;
+    order: 3;
+  }
+
+  /* порядок элементов */
+  .jsd-topbar__burger{ order: 1; }
+  .jsd-topbar__logo  { order: 2; font-size: 18px; margin-left: 6px; }
+  .jsd-topbar__greet { order: 4; flex: 1 1 auto; min-width: 0; font-size: 12px; }
+
+  /* CTA Find Job (подстраховка по разным классам/разметке) */
+  .jsd-topbar__cta,
+  .jsd-topbar .jsd-findjob,
+  .jsd-topbar a[href="/find-job"]{
+    order: 5;
+    padding: 8px 10px;
+    font-size: 13px;
+    border-radius: 10px;
+  }
+
+  .jsd-topbar__logout{
+    order: 6;
+    padding: 8px 10px;
+    font-size: 13px;
+    margin-left: 8px;
+    border-radius: 10px;
+  }
+}

@@ -4,14 +4,24 @@ import React from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getMyJobPosts, updateJobPost, closeJobPost, getApplicationsForJobPost, getCategories, updateApplicationStatus, notifyCandidates, initializeWebSocket, createReview, searchCategories } from '../services/api';
-import { JobPost, Category, JobApplicationDetails } from '@types';
+import {
+  getMyJobPosts,
+  updateJobPost,
+  closeJobPost,
+  getApplicationsForJobPost,
+  getCategories,
+  updateApplicationStatus,
+  initializeWebSocket,
+  createReview,
+  searchCategories,
+} from '../services/api';
+import { JobPost, Category, JobApplicationDetails, SalaryType } from '@types';
 import { useRole } from '../context/RoleContext';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
 import { Socket } from 'socket.io-client';
-import { AxiosError } from 'axios'; // Import AxiosError
-import sanitizeHtml from 'sanitize-html'; // Import sanitize-html (install via npm if needed)
+import { AxiosError } from 'axios';
+import sanitizeHtml from 'sanitize-html';
 import Loader from '../components/Loader';
 import ReactQuill from 'react-quill';
 
@@ -27,12 +37,13 @@ const MyJobPosts: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [editingJob, setEditingJob] = useState<Partial<JobPost> | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [selectedJobPostId, setSelectedJobPostId] = useState<string>(''); // Add state for selectedJobPostId
+  const [selectedJobPostId, setSelectedJobPostId] = useState<string>('');
   const [formError, setFormError] = useState<string | null>(null);
   const [reviewForm, setReviewForm] = useState<{ applicationId: string; rating: number; comment: string } | null>(null);
   const [skillInput, setSkillInput] = useState('');
-const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
-const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [coverLetter, setCoverLetter] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -63,12 +74,11 @@ const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   useEffect(() => {
     const newSocket = initializeWebSocket(
       (message) => console.log('New message:', message),
-      (error) => console.error('WebSocket error:', error)
+      (err) => console.error('WebSocket error:', err)
     );
     setSocket(newSocket);
 
-    newSocket.on('chatInitialized', ({ jobApplicationId, jobSeekerId, employerId }) => {
-      console.log('Chat initialized:', { jobApplicationId, jobSeekerId, employerId });
+    newSocket.on('chatInitialized', ({ jobApplicationId }) => {
       newSocket.emit('joinChat', { jobApplicationId });
     });
 
@@ -78,20 +88,20 @@ const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   }, []);
 
   useEffect(() => {
-  const search = async () => {
-    if (skillInput.trim()) {
-      const res = await searchCategories(skillInput);
-      const sortedFiltered = res.sort((a, b) => a.name.localeCompare(b.name));
-      setFilteredSkills(sortedFiltered);
-      setIsDropdownOpen(true);
-    } else {
-      setFilteredSkills([]); 
-      setIsDropdownOpen(false);
-    }
-  };
-  const debounce = setTimeout(search, 300);
-  return () => clearTimeout(debounce);
-}, [skillInput]);
+    const search = async () => {
+      if (skillInput.trim()) {
+        const res = await searchCategories(skillInput);
+        const sortedFiltered = res.sort((a, b) => a.name.localeCompare(b.name));
+        setFilteredSkills(sortedFiltered);
+        setIsDropdownOpen(true);
+      } else {
+        setFilteredSkills([]);
+        setIsDropdownOpen(false);
+      }
+    };
+    const debounce = setTimeout(search, 300);
+    return () => clearTimeout(debounce);
+  }, [skillInput]);
 
   const handleUpdate = async (id: string, updatedData: Partial<JobPost>) => {
     try {
@@ -143,32 +153,48 @@ const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     }
   };
 
-const handleEditJob = (job: JobPost) => {
-  setEditingJob({ ...job });
-};
+  const handleEditJob = (job: JobPost) => {
+    setEditingJob({ ...job });
+  };
 
-const handleSaveEdit = async (id: string) => {
-  if (!editingJob) return;
-  if (!editingJob.title || !editingJob.description) {
-    alert('Job title and description are required.');
-    return;
-  }
-  try {
-    await handleUpdate(id, {
-      title: editingJob.title,
-      description: editingJob.description,
-      location: editingJob.location,
-      salary: editingJob.salary,
-      salary_type: editingJob.salary_type, // Добавлено: передача salary_type
-      job_type: editingJob.job_type || null,
-      category_id: editingJob.category_id || undefined,
-    });
-    setEditingJob(null);
-  } catch (err: any) {
-    console.error('Error saving job edit:', err);
-    alert(err.response?.data?.message || 'Failed to save changes.');
-  }
-};
+  const handleSaveEdit = async (id: string) => {
+    if (!editingJob) return;
+    if (!editingJob.title || !editingJob.description) {
+      alert('Job title and description are required.');
+      return;
+    }
+
+    // Валидация salary
+    if (editingJob.salary_type !== 'negotiable') {
+      if (editingJob.salary == null || editingJob.salary <= 0) {
+        alert('Salary is required (>0) unless salary type is negotiable.');
+        return;
+      }
+    }
+
+    try {
+      const payload: Partial<JobPost> = {
+        title: editingJob.title,
+        description: editingJob.description,
+        location: editingJob.location ?? undefined,
+        salary_type: (editingJob.salary_type ?? null) as SalaryType | null,
+        salary:
+          editingJob.salary_type === 'negotiable'
+            ? null
+            : typeof editingJob.salary === 'number'
+            ? editingJob.salary
+            : null,
+        job_type: editingJob.job_type ?? null,
+        category_id: editingJob.category_id || undefined,
+      };
+
+      await handleUpdate(id, payload);
+      setEditingJob(null);
+    } catch (err: any) {
+      console.error('Error saving job edit:', err);
+      alert(err.response?.data?.message || 'Failed to save changes.');
+    }
+  };
 
   const handleCancelEdit = () => {
     setEditingJob(null);
@@ -176,7 +202,6 @@ const handleSaveEdit = async (id: string) => {
 
   const handleUpdateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected', jobPostId: string) => {
     try {
-      console.log(`Updating application ${applicationId} to status ${status} for job post ${jobPostId}`);
       const updatedApplication = await updateApplicationStatus(applicationId, status);
       console.log('Application updated:', updatedApplication);
       const updatedApps = await getApplicationsForJobPost(jobPostId);
@@ -198,31 +223,31 @@ const handleSaveEdit = async (id: string) => {
   };
 
   const handleCreateReview = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!reviewForm) return;
-  if (reviewForm.rating < 1 || reviewForm.rating > 5) {
-    setFormError('Rating must be between 1 and 5.');
-    return;
-  }
-  if (!reviewForm.comment.trim()) {
-    setFormError('Comment cannot be empty.');
-    return;
-  }
-  try {
-    setFormError(null);
-    await createReview({
-      job_application_id: reviewForm.applicationId,
-      rating: reviewForm.rating,
-      comment: reviewForm.comment,
-    });
-    const updatedApps = await getApplicationsForJobPost(applications.jobPostId);
-    setApplications({ jobPostId: applications.jobPostId, apps: updatedApps || [] });
-    setReviewForm(null);
-    alert('Review submitted successfully!');
-  } catch (error: any) {
-    setFormError(error.response?.data?.message || 'Failed to submit review.');
-  }
-};
+    e.preventDefault();
+    if (!reviewForm) return;
+    if (reviewForm.rating < 1 || reviewForm.rating > 5) {
+      setFormError('Rating must be between 1 and 5.');
+      return;
+    }
+    if (!reviewForm.comment.trim()) {
+      setFormError('Comment cannot be empty.');
+      return;
+    }
+    try {
+      setFormError(null);
+      await createReview({
+        job_application_id: reviewForm.applicationId,
+        rating: reviewForm.rating,
+        comment: reviewForm.comment,
+      });
+      const updatedApps = await getApplicationsForJobPost(applications.jobPostId);
+      setApplications({ jobPostId: applications.jobPostId, apps: updatedApps || [] });
+      setReviewForm(null);
+      alert('Review submitted successfully!');
+    } catch (error: any) {
+      setFormError(error.response?.data?.message || 'Failed to submit review.');
+    }
+  };
 
   const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
     if (!dateString) return 'Not specified';
@@ -290,56 +315,76 @@ const handleSaveEdit = async (id: string) => {
                         onChange={(e) => editingJob && setEditingJob({ ...editingJob, title: e.target.value })}
                       />
                     </div>
+
                     <div className="my-job-form-group">
-    <label>Description:</label>
-    <ReactQuill
-      value={editingJob.description || ''}
-      onChange={(value) => editingJob && setEditingJob({ ...editingJob, description: value })}
-      placeholder="Enter job description"
-      style={{ height: '200px', marginBottom: '60px' }}
-    />
-  </div>
+                      <label>Description:</label>
+                      <ReactQuill
+                        value={editingJob.description || ''}
+                        onChange={(value) => editingJob && setEditingJob({ ...editingJob, description: value })}
+                        placeholder="Enter job description"
+                        style={{ height: '200px', marginBottom: '60px' }}
+                      />
+                    </div>
+
                     <div className="my-job-form-group">
-  <label>Work Mode:</label>
-  <select 
-    value={editingJob.location || ''} 
-    onChange={(e) => editingJob && setEditingJob({ ...editingJob, location: e.target.value })}
-  >
-    <option value="">Work mode</option>
-    <option value="Remote">Remote</option>
-    <option value="On-site">On-site</option>
-    <option value="Hybrid">Hybrid</option>
-  </select>
-</div>
+                      <label>Work Mode:</label>
+                      <select
+                        value={editingJob.location || ''}
+                        onChange={(e) => editingJob && setEditingJob({ ...editingJob, location: e.target.value })}
+                      >
+                        <option value="">Work mode</option>
+                        <option value="Remote">Remote</option>
+                        <option value="On-site">On-site</option>
+                        <option value="Hybrid">Hybrid</option>
+                      </select>
+                    </div>
+
                     <div className="my-job-form-group">
                       <label>Salary:</label>
                       <input
                         type="number"
-                        value={editingJob.salary !== null ? editingJob.salary : ''}
+                        value={editingJob?.salary_type === 'negotiable' ? '' : editingJob?.salary ?? ''}
                         onChange={(e) =>
-                          editingJob && setEditingJob({ ...editingJob, salary: e.target.value ? Number(e.target.value) : null })
+                          editingJob &&
+                          setEditingJob({
+                            ...editingJob,
+                            salary: e.target.value ? Number(e.target.value) : null,
+                          })
                         }
                         min="0"
+                        placeholder={editingJob?.salary_type === 'negotiable' ? 'Negotiable' : 'Enter salary'}
+                        disabled={editingJob?.salary_type === 'negotiable'}
                       />
-                      <select 
-    value={editingJob.salary_type || 'per hour'}
-    onChange={(e) => editingJob && setEditingJob({ ...editingJob, salary_type: e.target.value })}
-  >
-    <option value="per hour">per hour</option>
-    <option value="per month">per month</option>
-  </select>
 
+                      <select
+                        value={editingJob?.salary_type ?? 'per hour'}
+                        onChange={(e) => {
+                          if (!editingJob) return;
+                          const st = e.target.value as SalaryType;
+                          setEditingJob({
+                            ...editingJob,
+                            salary_type: st,
+                            salary: st === 'negotiable' ? null : editingJob.salary ?? null,
+                          });
+                        }}
+                      >
+                        <option value="per hour">per hour</option>
+                        <option value="per month">per month</option>
+                        <option value="negotiable">negotiable</option>
+                      </select>
                     </div>
+
                     <div className="my-job-form-group">
                       <label>Job Type:</label>
                       <select
                         value={editingJob.job_type || ''}
                         onChange={(e) => {
                           const value = e.target.value as 'Full-time' | 'Part-time' | 'Project-based' | '';
-                          editingJob && setEditingJob({
-                            ...editingJob,
-                            job_type: value === '' ? null : value,
-                          });
+                          editingJob &&
+                            setEditingJob({
+                              ...editingJob,
+                              job_type: value === '' ? null : value,
+                            });
                         }}
                       >
                         <option value="">Select job type</option>
@@ -348,50 +393,52 @@ const handleSaveEdit = async (id: string) => {
                         <option value="Project-based">Project-based</option>
                       </select>
                     </div>
-<div className="my-job-form-group">
-  <label>Category:</label>
-  <div className="autocomplete-wrapper">
-    <input
-      type="text"
-      value={skillInput}
-      onChange={(e) => setSkillInput(e.target.value)}
-      placeholder="Type to search categories..."
-      onFocus={() => setIsDropdownOpen(true)}
-      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-    />
-    {isDropdownOpen && (
-      <ul className="autocomplete-dropdown">
-        {(skillInput.trim() ? filteredSkills : categories).map((category) => (
-          <React.Fragment key={category.id}>
-            <li
-              className="autocomplete-item"
-              onMouseDown={() => {
-                setEditingJob({ ...editingJob, category_id: category.id });
-                setSkillInput(category.name);
-                setIsDropdownOpen(false);
-              }}
-            >
-              {category.name}
-            </li>
-            {category.subcategories?.map((sub) => (
-              <li
-                key={sub.id}
-                className="autocomplete-item sub-category"
-                onMouseDown={() => {
-                  setEditingJob({ ...editingJob, category_id: sub.id });
-                  setSkillInput(`${category.name} > ${sub.name}`);
-                  setIsDropdownOpen(false);
-                }}
-              >
-                {`${category.name} > ${sub.name}`}
-              </li>
-            ))}
-          </React.Fragment>
-        ))}
-      </ul>
-    )}
-  </div>
-</div>
+
+                    <div className="my-job-form-group">
+                      <label>Category:</label>
+                      <div className="autocomplete-wrapper">
+                        <input
+                          type="text"
+                          value={skillInput}
+                          onChange={(e) => setSkillInput(e.target.value)}
+                          placeholder="Type to search categories..."
+                          onFocus={() => setIsDropdownOpen(true)}
+                          onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                        />
+                        {isDropdownOpen && (
+                          <ul className="autocomplete-dropdown">
+                            {(skillInput.trim() ? filteredSkills : categories).map((category) => (
+                              <React.Fragment key={category.id}>
+                                <li
+                                  className="autocomplete-item"
+                                  onMouseDown={() => {
+                                    setEditingJob({ ...editingJob, category_id: category.id });
+                                    setSkillInput(category.name);
+                                    setIsDropdownOpen(false);
+                                  }}
+                                >
+                                  {category.name}
+                                </li>
+                                {category.subcategories?.map((sub) => (
+                                  <li
+                                    key={sub.id}
+                                    className="autocomplete-item sub-category"
+                                    onMouseDown={() => {
+                                      setEditingJob({ ...editingJob, category_id: sub.id });
+                                      setSkillInput(`${category.name} > ${sub.name}`);
+                                      setIsDropdownOpen(false);
+                                    }}
+                                  >
+                                    {`${category.name} > ${sub.name}`}
+                                  </li>
+                                ))}
+                              </React.Fragment>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+
                     <div className="my-job-action-buttons">
                       <button onClick={() => handleSaveEdit(post.id)} className="my-job-action-button my-job-success">
                         Save Changes
@@ -404,31 +451,38 @@ const handleSaveEdit = async (id: string) => {
                 ) : (
                   <>
                     <h3>{post.title}</h3>
-                    <p><strong>Description:</strong> <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.description) }} /></p>
-                    <p><strong>Status:</strong> {post.status}</p>
-                   
-                   <div className="my-job-action-buttons">
-  {post.status !== 'Closed' && ( // Добавлено: условие для edit
-    <button onClick={() => handleEditJob(post)} className="my-job-action-button">
-      Edit Job Post
-    </button>
-  )}
-  {post.status === 'Active' ? (
-    <button onClick={() => handleClose(post.id)} className="my-job-action-button my-job-warning">
-      Close Job Post
-    </button>
-  ) : post.status !== 'Closed' && ( 
-    <button onClick={() => handleReopen(post.id)} className="my-job-action-button my-job-success">
-      Reopen Job Post
-    </button>
-  )}
-  <button
-    onClick={() => handleViewApplications(post.id)}
-    className="my-job-action-button my-job-success"
-  >
-    View Applications
-  </button>
-</div>
+
+                    <div
+                      className="my-job-description-html"
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.description) }}
+                    />
+
+                    <p>
+                      <strong>Status:</strong> {post.status}
+                    </p>
+
+                    <div className="my-job-action-buttons">
+                      {post.status !== 'Closed' && (
+                        <button onClick={() => handleEditJob(post)} className="my-job-action-button">
+                          Edit Job Post
+                        </button>
+                      )}
+                      {post.status === 'Active' ? (
+                        <button onClick={() => handleClose(post.id)} className="my-job-action-button my-job-warning">
+                          Close Job Post
+                        </button>
+                      ) : (
+                        post.status !== 'Closed' && (
+                          <button onClick={() => handleReopen(post.id)} className="my-job-action-button my-job-success">
+                            Reopen Job Post
+                          </button>
+                        )
+                      )}
+                      <button onClick={() => handleViewApplications(post.id)} className="my-job-action-button my-job-success">
+                        View Applications
+                      </button>
+                    </div>
+
                     {applications.jobPostId === post.id && applications.apps.length > 0 && (
                       <div className="my-job-application-details-section">
                         <h4>Applications:</h4>
@@ -443,58 +497,50 @@ const handleSaveEdit = async (id: string) => {
                               <th>Actions</th>
                             </tr>
                           </thead>
-                        <tbody>
-  {applications.apps.map((app) => (
-    <tr key={app.applicationId}>
-      <td>{app.username}</td>
-      <td>{app.email}</td>
-      <td>{app.jobDescription || 'Not provided'}</td>
-      <td>{formatDateInTimezone(app.appliedAt)}</td>
-      <td>{app.status}</td>
-      <td>
-        {app.status === 'Pending' && ( // Изменено: показывать кнопки только если Pending
-          <>
-            <button
-              onClick={() => handleUpdateApplicationStatus(app.applicationId, 'Accepted', post.id)}
-              className="my-job-action-button my-job-success"
-            >
-              Accept
-            </button>
-            <button
-              onClick={() => handleUpdateApplicationStatus(app.applicationId, 'Rejected', post.id)}
-              className="my-job-action-button my-job-danger"
-            >
-              Reject
-            </button>
-          </>
-        )}
-        <button
-          onClick={() => { // Изменено: попап вместо alert
-            const modal = document.createElement('div');
-            modal.className = 'modal';
-            modal.innerHTML = `
-              <div class="modal-content">
-                <span class="close" onclick="this.parentElement.parentElement.remove()">×</span>
-                <h4>Cover Letter</h4>
-                <p>${app.coverLetter || 'No cover letter'}</p>
-              </div>
-            `;
-            document.body.appendChild(modal);
-          }}
-          className="my-job-action-button"
-        >
-          View Cover Letter
-        </button>
-        <Link to={`/public-profile/${app.userId}`}>
-          <button className="my-job-action-button">
-            View Profile
-          </button>
-        </Link>
-       
-      </td>
-    </tr>
-  ))}
-</tbody>
+                          <tbody>
+                            {applications.apps.map((app) => (
+                              <tr key={app.applicationId}>
+                                <td>{app.username}</td>
+                                <td>{app.email}</td>
+                                <td>{app.jobDescription || 'Not provided'}</td>
+                                <td>{formatDateInTimezone(app.appliedAt)}</td>
+                                <td>{app.status}</td>
+                                <td>
+                                  {app.status === 'Pending' && (
+                                    <>
+                                      <button
+                                        onClick={() =>
+                                          handleUpdateApplicationStatus(app.applicationId, 'Accepted', post.id)
+                                        }
+                                        className="my-job-action-button my-job-success"
+                                      >
+                                        Accept
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          handleUpdateApplicationStatus(app.applicationId, 'Rejected', post.id)
+                                        }
+                                        className="my-job-action-button my-job-danger"
+                                      >
+                                        Reject
+                                      </button>
+                                    </>
+                                  )}
+
+                                  <button
+                                    onClick={() => setCoverLetter(app.coverLetter || 'No cover letter')}
+                                    className="my-job-action-button"
+                                  >
+                                    View Cover Letter
+                                  </button>
+
+                                  <Link to={`/public-profile/${app.userId}`}>
+                                    <button className="my-job-action-button">View Profile</button>
+                                  </Link>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
                         </table>
                       </div>
                     )}
@@ -508,43 +554,59 @@ const handleSaveEdit = async (id: string) => {
         )}
       </div>
 
-
-      {reviewForm && (
-  <div className="modal">
-    <div className="modal-content">
-      <span className="close" onClick={() => setReviewForm(null)}>×</span>
-      <form onSubmit={handleCreateReview}>
-        {formError && <p className="error-message">{formError}</p>}
-        <div className="my-job-form-group">
-          <label>Rating:</label>
-          <div className="star-rating">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <span
-                key={star}
-                className={`star ${star <= reviewForm.rating ? 'filled' : ''}`}
-                onClick={() => setReviewForm({ ...reviewForm, rating: star })}
-              >
-                ★
-              </span>
-            ))}
+      {/* Modal: Cover Letter (без императивного DOM) */}
+      {coverLetter && (
+        <div className="modal" onClick={() => setCoverLetter(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <span className="close" onClick={() => setCoverLetter(null)}>
+              ×
+            </span>
+            <h4>Cover Letter</h4>
+            <p style={{ whiteSpace: 'pre-wrap' }}>{coverLetter}</p>
           </div>
         </div>
-        <div className="my-job-form-group">
-          <label>Comment:</label>
-          <textarea
-            value={reviewForm.comment}
-            onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
-            rows={4}
-          />
+      )}
+
+      {/* Modal: Review */}
+      {reviewForm && (
+        <div className="modal" onClick={() => setReviewForm(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <span className="close" onClick={() => setReviewForm(null)}>
+              ×
+            </span>
+            <form onSubmit={handleCreateReview}>
+              {formError && <p className="error-message">{formError}</p>}
+              <div className="my-job-form-group">
+                <label>Rating:</label>
+                <div className="star-rating">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <span
+                      key={star}
+                      className={`star ${star <= reviewForm.rating ? 'filled' : ''}`}
+                      onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+                    >
+                      ★
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="my-job-form-group">
+                <label>Comment:</label>
+                <textarea
+                  value={reviewForm.comment}
+                  onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+                  rows={4}
+                />
+              </div>
+              <button type="submit" className="my-job-action-button my-job-success">
+                Submit Review
+              </button>
+            </form>
+          </div>
         </div>
-        <button type="submit" className="my-job-action-button my-job-success">
-          Submit Review
-        </button>
-      </form>
-    </div>
-  </div>
-)}
-         <Footer />
+      )}
+
+      <Footer />
       <Copyright />
     </div>
   );

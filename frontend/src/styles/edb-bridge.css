@@ -1,0 +1,444 @@
+/* ========== Employer Dashboard (edb-*) — LIGHT THEME BRIDGE (final) ========== */
+
+.edb-shell{
+  /* цвета */
+  --edb-accent:#4e74c8;
+  --edb-bg:#f5f7fb;
+  --edb-surface:#ffffff;
+  --edb-surface-2:#f7f9fe;
+  --edb-border:#e7edf5;
+  --edb-text:#111827;
+  --edb-text-dim:#5e6a7a;
+
+  /* размеры */
+  --edb-gap:16px;
+  --edb-gap-lg:24px;
+  --edb-radius:14px;
+  --edb-radius-sm:12px;
+  --edb-topbar-h:64px;
+  --edb-sidebar-w:272px;
+
+  background:var(--edb-bg);
+  color:var(--edb-text);
+  min-height:100dvh;
+}
+
+/* скрываем глобальные хедер/футеры ВНУТРИ дашборда (чтобы не было дублей) */
+
+.edb-content :where(footer, .copyright, .copyright-container){
+  display:none !important;
+  height:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+  overflow:hidden !important;
+}
+
+/* ===== Topbar ===== */
+.edb-topbar{
+  position:sticky; top:0; z-index:40;
+  height:var(--edb-topbar-h);
+  display:flex; align-items:center; gap:12px;
+  padding:0 16px; background:#fff; border-bottom:1px solid var(--edb-border);
+}
+
+/* бургер — только мобилка */
+.edb-topbar__burger{
+  display:grid; place-items:center;
+   border-radius:12px;
+  border:1px solid var(--edb-border); background:#fff; color:var(--edb-text);
+  cursor:pointer;
+}
+@media (min-width:1024px){ .edb-topbar__burger{ display:none; } }
+
+/* логотип — акцент, крупнее, без ховеров/бордеров */
+.edb-topbar__logo{
+  text-decoration:none; font-weight:800; font-size:22px;
+  color:var(--edb-accent); padding:0; margin-left:2px;
+}
+.edb-topbar__logo:hover,
+.edb-topbar__logo:focus{ color:var(--edb-accent); outline:none; }
+
+.edb-topbar__spacer{ flex:1; }
+.edb-topbar__greet{ color:var(--edb-text-dim); font-size:14px; white-space:nowrap; }
+.edb-topbar__greet strong{ color:var(--edb-text); }
+.edb-topbar__logout{
+  border:1px solid var(--edb-border); background:#fff; color:var(--edb-text);
+  padding:10px 14px; border-radius:12px; cursor:pointer;
+}
+.edb-topbar__logout:hover{ background:var(--edb-surface-2); }
+
+/* ===== Sidebar ===== */
+/* мобилка: дровер */
+.edb-sidebar{
+  position:fixed;
+  inset:var(--edb-topbar-h) auto 0 0;
+  width:var(--edb-sidebar-w);
+  background:#fff;
+  border-right:1px solid var(--edb-border);
+  transform:translateX(-100%);
+  transition:transform .25s ease;
+  z-index:35;
+}
+.edb-sidebar.is-open{ transform:translateX(0); }
+
+/* десктоп: липкий сайдбар ПОД топбаром, без зазоров */
+@media (min-width:1024px){
+   .edb-sidebar{
+    transform: none;            /* показываем */
+  }
+  .edb-overlay{ display: none; }/* оверлей не нужен на десктопе */
+}
+
+/* навигация */
+.edb-nav{ padding:18px; display:grid; gap:10px; }
+.edb-nav__group{
+  font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--edb-text-dim); margin:6px 10px 6px;
+}
+.edb-nav__link{
+  display:block; text-decoration:none; color:var(--edb-text);
+  padding:12px 14px; border-radius:12px;
+  border:1px solid var(--edb-border); background:#fff;
+  transition:background .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.edb-nav__link:hover{ background:var(--edb-surface-2); }
+.edb-nav__link.active{
+  border-color:var(--edb-accent);
+  box-shadow:0 0 0 3px rgba(78,116,200,.12);
+}
+
+/* ===== Main каркас ===== */
+/* делаем колоночную раскладку, чтобы наш футер был прижат к низу */
+.edb-main{
+  min-height:calc(100dvh - var(--edb-topbar-h));
+  display:flex; flex-direction:column;
+  padding:16px; padding-bottom:64px;
+}
+@media (min-width:1024px){
+  .edb-main{ padding-left:calc(var(--edb-sidebar-w) + 24px); }
+}
+
+/* основной контент (где Outlet) */
+.edb-content{
+  max-width:1200px; width:100%;
+  margin:0 auto; padding:16px;
+}
+
+/* фикс «большой пустой верх» — убираем margin у первого узла и типичных заголовков */
+.edb-content > :first-child{ margin-top:0!important; }
+.edb-content h1:first-child,
+.edb-content .page-title:first-child,
+.edb-content .section-title:first-child{ margin-top:0!important; }
+
+/* наш футер */
+.edb-footer-wrap{
+  max-width:1200px; width:100%;
+  margin:32px auto 0;
+}
+
+/* ===== Overview ===== */
+.edb-title{ font-size:26px; font-weight:800; margin:16px 0 12px; letter-spacing:.3px; }
+
+.edb-kpis{
+  display:grid; gap:var(--edb-gap);
+  grid-template-columns:repeat(1,minmax(0,1fr));
+  margin-bottom:var(--edb-gap-lg);
+}
+@media (min-width:640px){ .edb-kpis{ grid-template-columns:repeat(2,1fr); } }
+@media (min-width:1024px){ .edb-kpis{ grid-template-columns:repeat(3,1fr); } }
+
+.edb-kpi{
+  background:#fff; border:1px solid var(--edb-border);
+  border-radius:var(--edb-radius); padding:18px;
+}
+.edb-kpi__label{ color:var(--edb-text-dim); font-size:13px; margin-bottom:6px;  }
+.edb-kpi__value{ font-size:28px; font-weight:800; letter-spacing:.4px; }
+
+.edb-panels{ display:grid; gap:var(--edb-gap); grid-template-columns:1fr; }
+@media (min-width:1024px){ .edb-panels{ grid-template-columns:1fr 1fr; } }
+
+.edb-panel{
+  background:#fff; border:1px solid var(--edb-border);
+  border-radius:var(--edb-radius); padding:16px; min-width:0;
+}
+.edb-panel__head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.edb-panel__head h3{ font-size:16px; margin:0; }
+.edb-link{ color:var(--edb-accent); text-decoration:none; font-size:14px; }
+.edb-link:hover{ text-decoration:underline; }
+
+/* quick actions */
+.edb-actions{ display:grid; gap:10px; grid-template-columns:repeat(1,1fr); }
+@media (min-width:480px){ .edb-actions{ grid-template-columns:repeat(2,1fr); } }
+.edb-action{
+  display:block; text-align:center; padding:14px 16px;
+  border-radius:var(--edb-radius-sm);
+  border:1px solid var(--edb-border); background:#fff; color:var(--edb-text);
+  text-decoration:none; font-weight:600;
+}
+.edb-action:hover{ background:var(--edb-surface-2); }
+
+/* таблица заявок */
+.edb-table{ width:100%; display:grid; gap:8px; }
+.edb-thead, .edb-row{
+  display:grid; grid-template-columns:1.2fr 1.4fr .9fr .8fr; gap:8px; align-items:center;
+}
+.edb-thead{
+  font-size:12px; color:var(--edb-text-dim);
+  text-transform:uppercase; letter-spacing:.08em;
+  padding:8px 12px; border-radius:10px;
+  background:var(--edb-surface-2); border:1px solid var(--edb-border);
+}
+.edb-tbody{ display:grid; gap:8px; }
+.edb-row{
+  padding:12px; border-radius:12px; background:#fff; border:1px solid var(--edb-border);
+}
+.edb-row > div{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* бейджи */
+.edb-badge{
+  display:inline-block; padding:6px 10px; border-radius:999px; font-size:12px;
+  border:1px solid transparent; background:#eef3ff; color:var(--edb-accent);
+}
+.edb-badge--accepted{ background:#e9fbf3; color:#179b62; border-color:#c6f3e0; }
+.edb-badge--pending{ background:#fff6e6; color:#b36b00; border-color:#ffe2b3; }
+.edb-badge--rejected{ background:#ffecee; color:#d03a4b; border-color:#ffd0d6; }
+
+/* empty */
+.edb-empty{
+  color:var(--edb-text-dim); border:1px dashed var(--edb-border);
+  border-radius:var(--edb-radius-sm); padding:24px; text-align:center;
+}
+
+/* skeleton */
+.edb-skel{
+  height:90px; border-radius:var(--edb-radius);
+  background:linear-gradient(90deg,#f0f4fb 25%, #e8eef8 37%, #f0f4fb 63%);
+  background-size:400% 100%; animation:edb-skel 1.2s ease-in-out infinite;
+  border:1px solid var(--edb-border);
+}
+@keyframes edb-skel{
+  0%{ background-position:100% 50%; }
+  100%{ background-position:0 50%; }
+}
+
+/* мобильная таблица */
+@media (max-width:640px){
+  .edb-thead{ display:none; }
+  .edb-row{ grid-template-columns:1fr; gap:6px; }
+  .edb-row > div{ white-space:normal; overflow:visible; text-overflow:initial; }
+}
+
+/* фокусы */
+.edb-shell a:focus, .edb-shell button:focus{
+  outline:3px solid rgba(78,116,200,.35); outline-offset:2px;
+}
+
+/* утилиты */
+.edb-muted{ color:var(--edb-text-dim); }
+
+/* ===== правки вложенных страниц (мягко, чтобы не ломать) ===== */
+/* базовый контейнер тех страниц, где он есть */
+.edb-content .container{
+  max-width:1200px; margin:0 auto; padding:16px;
+}
+/* если внутри страницы есть крупные секции/блоки с «внешними» отступами сверху — сгладим их */
+.edb-content .section, 
+.edb-content .page, 
+.edb-content .paper, 
+.edb-content .card{ margin-top:0; }
+
+
+
+.edb-main{
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr auto; /* контент растёт, футер внизу блока */
+  min-height: calc(100dvh - var(--edb-topbar-h));
+}
+
+/* убираем «наследованные» верхние отступы/пэддинги у вложенных страниц */
+.edb-content > :first-child { margin-block-start: 0 !important; }
+.edb-content main,
+.edb-content .container,
+.edb-content .content,
+.edb-content .page,
+.edb-content .section,
+.edb-content .paper,
+.edb-content .card {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  min-height: unset !important; /* если страницы ставили min-height под хедер */
+}
+
+/* если где-то есть искусственные «проставки» под хедер — прячем их в дашборде */
+.edb-content .site-spacer,
+.edb-content .header-spacer,
+.edb-content .hero-spacer {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* на всякий случай полностью убираем дубликаты копирайта внутри вложенных страниц */
+.edb-content .copyright,
+.edb-content .copyright-container,
+.edb-content footer {
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+.edb-content .hm-header,
+.edb-content header.header-container,
+.edb-content footer,
+.edb-content .copyright,
+.edb-content .copyright-container{ display:none!important; }
+
+.edb-content > :first-child { margin-top:0 !important; padding-top:0 !important; }
+.edb-content :where(.container, .content, .page, .section, .paper, .card, main){
+  margin-top:0 !important;
+  padding-top:0 !important;
+  min-height:auto !important;
+}
+
+
+
+/* Убираем ВСЕ возможные чужие футеры/копирайты внутри Outlet */
+.edb-content :where(footer, .copyright, .copyright-container) {
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Жёстко срезаем верхние отступы у типовых обёрток */
+.edb-content > :first-child { margin-top: 0 !important; padding-top: 0 !important; }
+
+.edb-content :is(.container, .content, .page, .section, .paper, .card, main, header, .inner, .wrapper) {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  min-height: auto !important;
+}
+
+/* Если заголовок — первый видимый элемент, не даём ему «продавить» родителя (коллапс маргинов) */
+.edb-content :is(h1, h2, .page-title, .section-title):first-child {
+  margin-top: 0 !important;
+}
+
+/* Бургер — только мобилка, лого — акцент без ховеров/бордеров (на всякий случай повторим) */
+@media (min-width:1024px){ .edb-topbar__burger{ display:none; } }
+.edb-topbar__logo{
+  color: var(--edb-accent); text-decoration:none; font-weight:800; font-size:22px;
+}
+.edb-topbar__logo:hover, .edb-topbar__logo:focus{ color:var(--edb-accent); outline:none; box-shadow:none; border:none; }
+
+/* Футер дашборда тянется на всю ширину, без левого зазора от сайдбара */
+.edb-bottom{ width:100%; }
+
+
+@media (min-width: 1024px){
+  .edb-bottom footer .footer-content,
+  .edb-bottom .copyright{
+    padding-left: calc(var(--edb-sidebar-w) + 24px);
+  }
+}
+
+/* 
+@media (max-width:580px){
+.edb-topbar__logo {
+  font-size: 14px;
+}
+
+.edb-topbar__greet {
+  font-size: 12px;
+}
+
+.edb-topbar__cta{
+
+  font-size: 10px!important;
+}
+
+} */
+
+
+.edb-nav__link { display:flex; align-items:center; gap:10px; }
+.edb-nav__ico  { font-size:16px; color:var(--edb-accent); flex:0 0 auto; }
+.edb-nav__text { flex:1 1 auto; }
+
+.edb-nav__link.active .edb-nav__ico { color:var(--edb-accent); }
+
+
+.edb-kpi__label { display:flex; align-items:center; gap:8px; }
+.edb-kpi__ico   { font-size:16px; color:var(--edb-accent); }
+
+.edb-action { display:flex; align-items:center; justify-content:center; gap:8px; }
+.edb-action__ico { font-size:16px; color:var(--edb-accent); }
+
+.edb-badge { display:inline-flex; align-items:center; gap:6px; }
+.edb-badge__ico { font-size:14px; }
+
+.edb-topbar__cta{
+  text-decoration:none;
+  padding:10px 14px;
+  border-radius:12px;
+  background:#4e74c8;
+  color:#fff;
+  margin-right:12px;
+  font-size: 14px;
+}
+.edb-topbar__cta:hover{ opacity:.92; }
+
+@media (max-width: 680px) {
+  .edb-shell .edb-topbar{
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding: 8px 12px;
+    height: auto;           /* вместо фиксированной */
+  }
+  .edb-shell .edb-topbar__spacer{ display: none; }
+
+  /* форсируем перенос строки после лого — всегда 2 ряда */
+  .edb-shell .edb-topbar::after{
+    content:"";
+    flex-basis: 100%;
+    order: 3;               /* идёт сразу после лого */
+  }
+
+  /* порядок элементов для двух рядов */
+  .edb-shell .edb-topbar__burger{ order:1; }
+  .edb-shell .edb-topbar__logo  { order:2; font-size:18px; margin-left:6px; }
+  .edb-shell .edb-topbar__greet { order:4; flex:1 1 auto; min-width:0; font-size:12px; }
+  .edb-shell .edb-topbar__cta   { order:5; padding:8px 10px; font-size:13px; }
+  .edb-shell .edb-topbar__logout{ order:6; padding:8px 10px; font-size:13px; margin-left:8px; }
+
+  /* чуть компактнее кнопки */
+  .edb-shell .edb-topbar__cta,
+  .edb-shell .edb-topbar__logout{
+    border-radius:10px;
+  }
+}
+
+
+/* скрываем дублированные футеры/копирайты внутри контента дашборда */
+.edb-content.edb-embed footer,
+.edb-content.edb-embed .copyright,
+.edb-content.edb-embed .copyright-container {
+  display: none !important;
+}
+
+/* убираем лишний верхний отступ у первой секции вложенной страницы */
+.edb-content.edb-embed > *:first-child {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* на всякий случай — спейсеры */
+.edb-content.edb-embed .site-spacer,
+.edb-content.edb-embed .header-spacer,
+.edb-content.edb-embed .hero-spacer {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}

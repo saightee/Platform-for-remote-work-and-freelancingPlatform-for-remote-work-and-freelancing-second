@@ -31,12 +31,12 @@ export class JobPostsService {
     title: string; 
     description: string; 
     location: string; 
-    salary: number; 
+    salary?: number; 
     status: 'Active' | 'Draft' | 'Closed'; 
     aiBrief?: string;
     category_id?: string; 
     job_type?: 'Full-time' | 'Part-time' | 'Project-based';
-    salary_type?: 'per hour' | 'per month';  
+    salary_type?: 'per hour' | 'per month' | 'negotiable';  
     excluded_locations?: string[];  
   }) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
@@ -49,6 +49,13 @@ export class JobPostsService {
   
     if (jobPostData.category_id) {
       await this.categoriesService.getCategoryById(jobPostData.category_id);
+    }
+
+    if (jobPostData.salary_type !== 'negotiable' && !jobPostData.salary) {
+      throw new BadRequestException('Salary is required unless salary_type is negotiable');
+    }
+    if (jobPostData.salary_type === 'negotiable') {
+      jobPostData.salary = null;
     }
 
     if (jobPostData.aiBrief) {
@@ -89,7 +96,7 @@ export class JobPostsService {
     category_id?: string; 
     aiBrief?: string;
     job_type?: 'Full-time' | 'Part-time' | 'Project-based';
-    salary_type?: 'per hour' | 'per month';  
+    salary_type?: 'per hour' | 'per month' | 'negotiable';
     excluded_locations?: string[];  
   }) {
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: userId } });
@@ -100,6 +107,14 @@ export class JobPostsService {
     if (updates.category_id) {
       await this.categoriesService.getCategoryById(updates.category_id);
     }
+
+  const effectiveSalaryType = updates.salary_type ?? jobPost.salary_type;
+    
+  if (effectiveSalaryType === 'negotiable') {
+    jobPost.salary = null;
+  } else if (updates.salary === undefined && jobPost.salary === null) {
+    throw new BadRequestException('Salary is required unless salary_type is negotiable');
+  }
 
     if (updates.aiBrief) {
       updates.description = await this.generateDescription({
@@ -115,7 +130,7 @@ export class JobPostsService {
     if (updates.title) jobPost.title = updates.title;
     if (updates.description) jobPost.description = updates.description;
     if (updates.location) jobPost.location = updates.location;
-    if (updates.salary) jobPost.salary = updates.salary;
+    if (updates.salary !== undefined) jobPost.salary = updates.salary;
     if (updates.status) jobPost.status = updates.status;
     if (updates.category_id) jobPost.category_id = updates.category_id;
     if (updates.job_type) jobPost.job_type = updates.job_type;
@@ -163,7 +178,7 @@ export class JobPostsService {
     limit?: number;
     sort_by?: 'created_at' | 'salary';
     sort_order?: 'ASC' | 'DESC';
-    salary_type?: 'per hour' | 'per month';  
+    salary_type?: 'per hour' | 'per month' | 'negotiable';
   }) {
     const query = this.jobPostsRepository.createQueryBuilder('jobPost')
       .leftJoinAndSelect('jobPost.employer', 'employer')
@@ -284,7 +299,7 @@ export class JobPostsService {
     title?: string;
     location?: string;
     salary?: number;
-    salary_type?: 'per hour' | 'per month';
+    salary_type?: 'per hour' | 'per month' | 'negotiable';
     job_type?: 'Full-time' | 'Part-time' | 'Project-based';
   }): Promise<string> {
     if (!data.aiBrief) {
@@ -317,7 +332,7 @@ export class JobPostsService {
 
       ## Work Details
       - **Work Mode**: ${data.location || 'Not specified'}
-      - **Salary**: ${data.salary ? `${data.salary} ${data.salary_type || ''}` : 'Not specified'}
+      - **Salary**: ${data.salary_type === 'negotiable' ? 'Negotiable' : (data.salary ? `${data.salary} ${data.salary_type || ''}` : 'Not specified')}
       - **Job Type**: ${data.job_type || 'Not specified'}
 
       **Provided Details**:

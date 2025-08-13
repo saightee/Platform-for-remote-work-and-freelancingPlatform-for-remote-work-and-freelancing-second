@@ -254,6 +254,7 @@ export class AdminService {
     page?: number;
     limit?: number;
     id?: string;
+    salary_type?: 'per hour' | 'per month' | 'negotiable';
   }) {
     await this.checkAdminRole(adminId);
 
@@ -281,6 +282,9 @@ export class AdminService {
     }
     if (filters.id) {
       query.andWhere('jobPost.id = :id', { id: filters.id });
+    }
+    if (filters.salary_type) {
+      query.andWhere('jobPost.salary_type = :salary_type', { salary_type: filters.salary_type });
     }
 
     const total = await query.getCount();
@@ -315,13 +319,13 @@ export class AdminService {
     };
   }
 
-  async updateJobPost(adminId: string, jobPostId: string, updateData: { 
+  async updateJobPost(adminId: string, jobPostId: string, updates: { 
     title?: string; 
     description?: string; 
     location?: string; 
     salary?: number; 
-    status?: 'Active' | 'Draft' | 'Closed';
-    salary_type?: 'per hour' | 'per month';  
+    status?: 'Active' | 'Draft' | 'Closed'; 
+    salary_type?: 'per hour' | 'per month' | 'negotiable';  
     excluded_locations?: string[];  
   }) {
     await this.checkAdminRole(adminId);
@@ -329,28 +333,22 @@ export class AdminService {
     if (!jobPost) {
       throw new NotFoundException('Job post not found');
     }
+  
+  const effectiveSalaryType = updates.salary_type ?? jobPost.salary_type;
 
-    if (updateData.title) {
-      jobPost.title = updateData.title;
-    }
-    if (updateData.description) {
-      jobPost.description = updateData.description;
-    }
-    if (updateData.location) {
-      jobPost.location = updateData.location;
-    }
-    if (updateData.salary) {
-      jobPost.salary = updateData.salary;
-    }
-    if (updateData.status) {
-      jobPost.status = updateData.status;
-    }
-    if (updateData.salary_type) {  
-      jobPost.salary_type = updateData.salary_type;
-    }
-    if (updateData.excluded_locations) {  
-      jobPost.excluded_locations = updateData.excluded_locations;
-    }
+  if (effectiveSalaryType === 'negotiable') {
+    jobPost.salary = null;
+  } else if (updates.salary === undefined && jobPost.salary === null) {
+    throw new BadRequestException('Salary is required unless salary_type is negotiable');
+  }
+
+    if (updates.title) jobPost.title = updates.title;
+    if (updates.description) jobPost.description = updates.description;
+    if (updates.location) jobPost.location = updates.location;
+    if (updates.salary !== undefined) jobPost.salary = updates.salary;
+    if (updates.status) jobPost.status = updates.status;
+    if (updates.salary_type) jobPost.salary_type = updates.salary_type;
+    if (updates.excluded_locations) jobPost.excluded_locations = updates.excluded_locations;
 
     return this.jobPostsRepository.save(jobPost);
   }

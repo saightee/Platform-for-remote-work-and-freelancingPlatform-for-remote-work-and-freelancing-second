@@ -31,10 +31,8 @@ export class TalentsService {
       .where('user.role = :role', { role: 'jobseeker' })
       .andWhere('user.status = :status', { status: 'active' });
 
-    if (filters.skills && filters.skills.length > 0) {
-      query
-        .leftJoin('jobSeeker.skills', 'skill')
-        .andWhere('skill.id IN (:...skills)', { skills: filters.skills });
+    if (filters.skills?.length) {
+      query.andWhere('skills.id IN (:...skills)', { skills: filters.skills });
     }
 
     if (filters.experience) {
