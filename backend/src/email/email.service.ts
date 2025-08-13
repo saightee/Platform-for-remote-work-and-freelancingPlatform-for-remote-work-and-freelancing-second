@@ -182,4 +182,43 @@ export class EmailService {
       }
     }
   }
+
+  async sendContactEmailViaTemplate(fromName: string, fromEmail: string, message: string): Promise<void> {
+    const maxRetries = 3;
+    let attempt = 1;
+  
+    const toInbox = 'support@jobforge.net'; 
+    const templateId = 6; 
+  
+    while (attempt <= maxRetries) {
+      try {
+        const res = await axios.post(
+          'https://api.brevo.com/v3/smtp/email',
+          {
+            sender: { name: 'JobForge', email: toInbox },
+            to: [{ email: toInbox, name: 'Support' }],
+            replyTo: { email: fromEmail, name: fromName },
+            templateId,
+            params: { fromName, fromEmail, message },
+          },
+          {
+            headers: {
+              'api-key': this.configService.get<string>('BREVO_API_KEY'),
+              'Content-Type': 'application/json',
+            },
+            timeout: 15000,
+          },
+        );
+        console.log('Contact email sent:', res.data);
+        return;
+      } catch (error: any) {
+        console.error(`Attempt ${attempt} failed:`, error.message);
+        if (attempt === maxRetries) {
+          throw new Error(`Failed after ${maxRetries} attempts: ${error.message}`);
+        }
+        attempt++;
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+      }
+    }
+  }
 }

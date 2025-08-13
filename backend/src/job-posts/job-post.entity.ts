@@ -18,11 +18,11 @@ export class JobPost {
   @Column()
   location: string;
 
-  @Column('int')
-  salary: number;
+  @Column('int', { nullable: true })
+  salary?: number;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
-  salary_type?: 'per hour' | 'per month';
+  salary_type?: 'per hour' | 'per month' | 'negotiable';
 
   @Column('text', { array: true, nullable: true })
   excluded_locations?: string[];
