@@ -8,6 +8,7 @@ export class TalentsController {
   @Get()
   async searchTalents(
     @Query('skills') skills: string | string[],
+    @Query('skills[]') skillsBracket: string | string[],
     @Query('experience') experience: string,
     @Query('description') description: string,
     @Query('rating') rating: string,
@@ -29,9 +30,12 @@ export class TalentsController {
       sort_order?: 'ASC' | 'DESC';
     } = {};
 
-    if (skills) {
-      filters.skills = Array.isArray(skills) ? skills : [skills];
-    }
+    const collected = [
+      ...(Array.isArray(skills) ? skills : skills ? [skills] : []),
+      ...(Array.isArray(skillsBracket) ? skillsBracket : skillsBracket ? [skillsBracket] : []),
+    ];
+    if (collected.length) filters.skills = collected;
+    
     if (experience) {
       filters.experience = experience;
     }
