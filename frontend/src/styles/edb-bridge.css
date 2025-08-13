@@ -419,3 +419,26 @@
     border-radius:10px;
   }
 }
+
+
+/* скрываем дублированные футеры/копирайты внутри контента дашборда */
+.edb-content.edb-embed footer,
+.edb-content.edb-embed .copyright,
+.edb-content.edb-embed .copyright-container {
+  display: none !important;
+}
+
+/* убираем лишний верхний отступ у первой секции вложенной страницы */
+.edb-content.edb-embed > *:first-child {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* на всякий случай — спейсеры */
+.edb-content.edb-embed .site-spacer,
+.edb-content.edb-embed .header-spacer,
+.edb-content.edb-embed .hero-spacer {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
