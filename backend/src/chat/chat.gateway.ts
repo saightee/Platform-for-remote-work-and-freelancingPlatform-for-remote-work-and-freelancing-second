@@ -124,8 +124,6 @@ export class ChatGateway {
         console.log(`Emitted chatInitialized for room ${room}`);
       }
 
-      await this.chatService.markMessagesAsRead(jobApplicationId, userId);
-
       const messages = await this.chatService.getChatHistory(jobApplicationId);
       client.emit('chatHistory', messages);
     } catch (error) {
@@ -191,7 +189,7 @@ export class ChatGateway {
       }
 
       const room = `chat:${jobApplicationId}`;
-      client.to(room).emit('typing', { userId, isTyping });
+      client.to(room).emit('typing', { userId: client.data.userId, jobApplicationId, isTyping });
       console.log(`Broadcasted typing event to room ${room} for user ${userId}`);
     } catch (error) {
       console.error(`Typing event error for user ${userId}: ${error.message}`);
