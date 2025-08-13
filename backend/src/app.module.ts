@@ -27,6 +27,7 @@ import { ChatModule } from './chat/chat.module';
 import { ActivityMiddleware } from './middleware/activity.middleware';
 import { PlatformFeedbackModule } from './platform-feedback/platform-feedback.module';
 import { ReferralsModule } from './referrals/referrals.module';
+import { ContactModule } from './contact/contact.module';
 
 @Module({
   imports: [
@@ -83,6 +84,7 @@ import { ReferralsModule } from './referrals/referrals.module';
     ChatModule,
     PlatformFeedbackModule,
     ReferralsModule,
+    ContactModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -173,6 +173,7 @@ export class AdminController {
     @Query('category_id') category_id: string, 
     @Query('limit') limit: string, 
     @Query('id') id: string,
+    @Query('salary_type') salary_type: 'per hour' | 'per month' | 'negotiable',
     @Headers('authorization') authHeader: string,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -192,6 +193,7 @@ export class AdminController {
       page?: number;
       limit?: number;
       id?: string; 
+      salary_type?: 'per hour' | 'per month' | 'negotiable';
     } = {};
     if (status) filters.status = status;
     if (pendingReview !== undefined) filters.pendingReview = pendingReview === 'true';
@@ -200,6 +202,7 @@ export class AdminController {
     if (employer_username) filters.employer_username = employer_username;
     if (category_id) filters.category_id = category_id;
     if (id) filters.id = id;
+    if (salary_type) filters.salary_type = salary_type;
     if (page) {
       const parsedPage = parseInt(page, 10);
       if (isNaN(parsedPage) || parsedPage < 1) {
@@ -228,7 +231,7 @@ export class AdminController {
       location?: string; 
       salary?: number; 
       status?: 'Active' | 'Draft' | 'Closed';
-      salary_type?: 'per hour' | 'per month';  
+      salary_type?: 'per hour' | 'per month' | 'negotiable';  
       excluded_locations?: string[];  
     },
     @Headers('authorization') authHeader: string,

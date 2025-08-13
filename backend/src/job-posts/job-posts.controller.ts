@@ -24,12 +24,12 @@ export class JobPostsController {
       title: string; 
       description: string; 
       location: string; 
-      salary: number; 
+      salary?: number; 
       status: 'Active' | 'Draft' | 'Closed'; 
       category_id?: string; 
       aiBrief?: string;
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
-      salary_type?: 'per hour' | 'per month'; 
+      salary_type?: 'per hour' | 'per month' | 'negotiable'; 
       excluded_locations?: string[]; 
     },
   ) {
@@ -56,7 +56,7 @@ export class JobPostsController {
       category_id?: string; 
       aiBrief?: string;
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
-      salary_type?: 'per hour' | 'per month';  
+      salary_type?: 'per hour' | 'per month' | 'negotiable';  
       excluded_locations?: string[]; 
     },
   ) {
@@ -82,7 +82,7 @@ export class JobPostsController {
     @Query('limit') limit: string,
     @Query('sort_by') sort_by: 'created_at' | 'salary',
     @Query('sort_order') sort_order: 'ASC' | 'DESC',
-    @Query('salary_type') salary_type: 'per hour' | 'per month',  
+    @Query('salary_type') salary_type?: 'per hour' | 'per month' | 'negotiable',
   ) {
     const filters: {
       title?: string;
@@ -96,7 +96,7 @@ export class JobPostsController {
       limit?: number;
       sort_by?: 'created_at' | 'salary';
       sort_order?: 'ASC' | 'DESC';
-      salary_type?: 'per hour' | 'per month';  
+      salary_type?: 'per hour' | 'per month' | 'negotiable';  
     } = {};
   
     if (title) filters.title = title;
@@ -162,7 +162,7 @@ export class JobPostsController {
     @Body('title') title?: string,
     @Body('location') location?: string,
     @Body('salary') salary?: number,
-    @Body('salary_type') salary_type?: 'per hour' | 'per month',
+    @Body('salary_type') salary_type?: 'per hour' | 'per month' | 'negotiable',
     @Body('job_type') job_type?: 'Full-time' | 'Part-time' | 'Project-based',
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

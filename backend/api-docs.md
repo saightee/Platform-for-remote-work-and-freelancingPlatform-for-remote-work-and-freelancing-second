@@ -485,7 +485,7 @@
 
 ### 8. Create Job Post
 - **Endpoint**: `POST /api/job-posts`
-- **Description**: Creates a new job post for an authenticated employer. The `applicationLimit` defaults to 100 if not specified.
+- **Description**: Creates a new job post for an authenticated employer. Salary is optional if salary_type is 'negotiable'.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
   ```json
@@ -493,31 +493,38 @@
     "title": "Software Engineer",
     "description": "We are looking for a skilled software engineer...",
     "location": "Remote",
-    "salary": 50000,
-    "salary_type": "per hour",  // Optional: "per hour" or "per month"
-    "excluded_locations": ["India", "Pakistan"],  // Optional: array of country names to exclude applicants from
+    "salary": 50000,  // Optional if salary_type is 'negotiable'
     "status": "Active",
-    "category_id": "<categoryId>", // Optional
-    "aiBrief": "string", // Optional: Brief text for AI to generate description automatically
-    "job_type": "Full-time" // Optional: "Full-time", "Part-time", "Project-based"
+    "category_id": "<categoryId>",
+    "aiBrief": "Develop web apps using React and Node.js",
+    "job_type": "Full-time",
+    "salary_type": "per month",  // Optional, one of: 'per hour', 'per month', 'negotiable'
+    "excluded_locations": ["Country1", "Country2"]
   }
 - **Response (Success - 200)**:
   ```json
   {
     "id": "<jobPostId>",
     "title": "Software Engineer",
-    "description": "We are looking for a skilled software engineer...",
+    "description": "Develop and maintain web applications.",
     "location": "Remote",
-    "salary": 50000,
-    "salary_type": "per hour",
-    "excluded_locations": ["India", "Pakistan"],
+    "salary": 50000,  // Can be null if salary_type is 'negotiable'
     "status": "Active",
     "category_id": "<categoryId>",
     "job_type": "Full-time",
+    "salary_type": "per month",  // Can be 'negotiable'
     "employer_id": "<userId>",
-    "applicationLimit": 100,
-    "created_at": "2025-05-13T18:00:00.000Z",
-    "updated_at": "2025-05-13T18:00:00.000Z"
+    "views": 0,
+    "pending_review": true,
+    "created_at": "2025-07-08T07:00:00.000Z",
+    "updated_at": "2025-07-08T07:00:00.000Z"
+  }
+- **Response (Error - 400, if salary is missing and salary_type is not 'negotiable')**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Salary is required unless salary_type is negotiable",
+    "error": "Bad Request"
   }
 - **Response (Error - 401, if token is invalid or missing)**:
   ```json
@@ -543,38 +550,46 @@
 
 ### 9. Update Job Post
 - **Endpoint**: `PUT /api/job-posts/:id`
-- **Description**: Updates an existing job post for an authenticated employer.
+- **Description**: Updates an existing job post for an authenticated employer. Salary is optional if salary_type is 'negotiable'.
 - **Headers**: `Authorization: Bearer <token>` 
 - **Request Body**::
   ```json
   {
     "title": "Senior Software Engineer",
-    "description": "Updated description...",
+    "description": "Develop and maintain web applications.",
     "location": "Remote",
-    "salary": 60000,
-    "salary_type": "per month",
-    "excluded_locations": ["India"],
-    "status": "Closed",
-    "category_id": "<categoryId>", // Optional
-    "aiBrief": "string", // Optional: Brief text for AI to generate description automatically.
-    "job_type": "Full-time" // Optional: "Full-time", "Part-time", "Project-based"
+    "salary": 60000,  // Optional if salary_type is 'negotiable'
+    "status": "Active",
+    "category_id": "<categoryId>",
+    "aiBrief": "Develop web apps using React and Node.js",
+    "job_type": "Full-time",
+    "salary_type": "per month",  // Optional, one of: 'per hour', 'per month', 'negotiable'
+    "excluded_locations": ["Country1"]
   }
 - **Response (Success - 200)**:
   ```json
   {
     "id": "<jobPostId>",
-    "title": "Senior Software Engineer",
-    "description": "Updated description...",
+    "title": "Software Engineer",
+    "description": "Develop and maintain web applications.",
     "location": "Remote",
-    "salary": 60000,
-    "salary_type": "per month",
-    "excluded_locations": ["India"],
-    "status": "Closed",
+    "salary": 50000,  // Can be null if salary_type is 'negotiable'
+    "status": "Active",
     "category_id": "<categoryId>",
     "job_type": "Full-time",
+    "salary_type": "per month",  // Can be 'negotiable'
     "employer_id": "<userId>",
-    "created_at": "2025-05-13T18:00:00.000Z",
-    "updated_at": "2025-05-13T18:30:00.000Z"
+    "views": 0,
+    "pending_review": true,
+    "created_at": "2025-07-08T07:00:00.000Z",
+    "updated_at": "2025-07-08T07:00:00.000Z"
+  }
+- **Response (Error - 400, if salary is missing and salary_type is not 'negotiable')**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Salary is required unless salary_type is negotiable",
+    "error": "Bad Request"
   }
 - **Response (Error - 401, if token is invalid or missing)**:
   ```json
@@ -593,14 +608,18 @@
 
 ### 9.1 Generate Job Description (AI)
 - **Endpoint**: `POST /api/job-posts/generate-description`
-- **Description**: Generates a job description using AI based on a brief input. Useful for preview/regeneration without saving the post.
+- **Description**: Generates a job description using AI based on a brief (for employers only). If salary_type is 'negotiable', salary can be omitted and description will show "Negotiable".
 - **Headers**: `Authorization: Bearer <token>` (Required for employers)
 - **Request Body**::
   ```json
   {
     "aiBrief": "Need Python developer with 3 years experience for web app. Skills: Django, SQL."
   }
-
+- **Response (Success - 200)**::
+  ```json
+  {
+    "description": "<html_formatted_description>"
+  }
 - **Response (Error - 400, if aiBrief missing)**:
   ```json
   {
@@ -619,30 +638,35 @@
 
 ### 10. Get Job Post
 - **Endpoint**: `GET /api/job-posts/:id`
-- **Description**: Retrieves a specific job post by ID.
+- **Description**: Retrieves a specific job post by ID. If salary_type is 'negotiable', salary can be null and UI should display "Negotiable".
 - **Request Parameters**: `id`: The ID of the job post.
 - **Response (Success - 200)**:
   ```json
   {
     "id": "<jobPostId>",
-    "title": "Senior Software Engineer",
-    "description": "Updated description...",
+    "title": "Software Engineer",
+    "description": "Develop and maintain web applications.",
     "location": "Remote",
-    "salary": 60000,
-    "salary_type": "per month",
-    "excluded_locations": ["India"],
-    "status": "Closed",
+    "salary": null,  // Can be null if salary_type is 'negotiable'
+    "status": "Active",
     "category_id": "<categoryId>",
     "job_type": "Full-time",
+    "salary_type": "negotiable",
     "employer_id": "<userId>",
+    "views": 10,
+    "pending_review": false,
+    "created_at": "2025-07-08T07:00:00.000Z",
+    "updated_at": "2025-07-08T07:00:00.000Z",
     "employer": {
       "id": "<userId>",
-      "email": "test@example.com",
-      "username": "test",
+      "username": "employer1",
+      "email": "employer@example.com",
       "role": "employer"
     },
-    "created_at": "2025-05-13T18:00:00.000Z",
-    "updated_at": "2025-05-13T18:30:00.000Z"
+    "category": {
+      "id": "<categoryId>",
+      "name": "Development"
+    }
   }
 - **Response (Error - 404, if job post not found)**:  
   ```json
@@ -1282,14 +1306,14 @@
 
 ### 19. Get All Job Posts
 - **Endpoint**: `GET /api/job-posts`
-- **Description**: Retrieves all active and approved job posts with optional filters, pagination, and sorting.
+- **Description**: Searches for active and approved job posts with optional filters. If salary_type is 'negotiable', salary can be null and UI should display "Negotiable".
 - **Query Parameters**:
   - `title` (string, optional): Filter by job title (partial match).
   - `location` (string, optional): Filter by location (partial match).
   - `job_type` (string, optional): Filter by job type ("Full-time", "Part-time", "Project-based").
-  - `salary_min` (number, optional): Filter by minimum salary.
-  - `salary_max` (number, optional): Filter by maximum salary.
-  - `salary_type` (string, optional): Filter by salary type ("per hour", "per month").
+  - `salary_min` (optional): Filter by minimum salary (ignored if salary_type is 'negotiable').
+  - `salary_max` (optional): Filter by maximum salary (ignored if salary_type is 'negotiable').
+  - `salary_type` (optional): Filter by salary type ('per hour', 'per month', 'negotiable').
   - `category_id` (string, optional): Filter by category ID.
   - `required_skills` (string or string[], optional): Filter by required skills (e.g., "required_skills=JavaScript" or "required_skills[]=JavaScript&required_skills[]=Python").
   - `page` (number, optional): Page number for pagination (default: 1).
@@ -1305,38 +1329,28 @@
       {
         "id": "<jobPostId>",
         "title": "Software Engineer",
-        "description": "We are looking for a skilled engineer...",
+        "description": "Develop and maintain web applications.",
         "location": "Remote",
-        "salary": 50000,
-        "salary_type": "per hour",
-        "excluded_locations": ["India", "Pakistan"],
+        "salary": null,  // Can be null if salary_type is 'negotiable'
         "status": "Active",
-        "pending_review": false,
         "category_id": "<categoryId>",
+        "job_type": "Full-time",
+        "salary_type": "negotiable",
+        "employer_id": "<userId>",
+        "views": 10,
+        "pending_review": false,
+        "created_at": "2025-07-08T07:00:00.000Z",
+        "updated_at": "2025-07-08T07:00:00.000Z",
+        "employer": {
+          "id": "<userId>",
+          "username": "employer1",
+          "email": "employer@example.com",
+          "role": "employer"
+        },
         "category": {
           "id": "<categoryId>",
-          "name": "Engineering",
-          "created_at": "2025-05-22T10:00:00.000Z",
-          "updated_at": "2025-05-22T10:00:00.000Z"
-        },
-        "job_type": "Full-time",
-        "employer_id": "<employerId>",
-        "employer": {
-          "user_id": "<employerId>",
-          "company_name": "Tech Corp",
-          "company_info": "A tech company",
-          "referral_link": null,
-          "timezone": "UTC",
-          "currency": "USD",
-          "average_rating": 0,
-          "created_at": "2025-05-22T10:00:00.000Z",
-          "updated_at": "2025-05-22T10:00:00.000Z"
-        },
-        "applicationLimit": 100,
-        "views": 0,
-        "required_skills": ["JavaScript", "TypeScript"],
-        "created_at": "2025-05-22T10:00:00.000Z",
-        "updated_at": "2025-05-22T10:00:00.000Z"
+          "name": "Development"
+        }
       }
     ]
   }
@@ -3737,3 +3751,31 @@
     "message": "Internal server error",
     "error": "Internal Server Error"
   }  
+
+### 90. Contact — Send a message
+- **Endpoint**: `POST /api/contact`
+- **Description**: Sends a message from the website contact form to the support inbox (support@jobforge.net) via Brevo. Uses a transactional template with parameters and sets Reply-To to the user’s email. (Implementation leverages the existing Brevo email flow used elsewhere in the app: SMTP API v3, templateId, params, retries, timeouts.)
+- **Request Body**:
+  ```json
+  {
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "message": "Hello! I'd like to know more about JobForge.",
+    "captchaToken": "optional-captcha-token",
+    "website": "" 
+  }
+- **Validation rules**:
+  - `name` — string, 2–100 chars
+  - `email` — valid email, ≤254 chars
+  - `message` — 10–2000 chars, links/HTML not allowed
+  - `website` — honeypot field, must be empty (hidden in UI)
+  - `captchaToken` — optional; if CAPTCHA is enabled in config, it must pass verification
+- **Spam & abuse protection**:
+  - `Rate limit` — 3 requests / 60s per IP (HTTP 429 on exceed).
+  - `Honeypot` — `website` must be empty; else 403.
+  - `Link ban` — messages containing links are rejected with 400.
+  - `CAPTCHA` — optional reCAPTCHA/hCaptcha server-side verification; on failure 403.
+  - `Email delivery` — Brevo template (e.g., templateId=6) with params: { fromName, fromEmail, message }; Reply-To = user email; To = support@jobforge.net. Same axios + retry strategy as other email flows (verification, reset, notifications).
+- **Response (202 Accepted)**:
+  ```json
+  { "message": "Message accepted" }
