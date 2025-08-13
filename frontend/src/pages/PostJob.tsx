@@ -206,7 +206,7 @@ const handleSubmit = async (e: FormEvent) => {
         jobData.aiBrief = aiBrief;
       }
       await createJobPost(jobData);
-      navigate('/my-job-posts');
+      navigate('/employer-dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create job post.');
     }

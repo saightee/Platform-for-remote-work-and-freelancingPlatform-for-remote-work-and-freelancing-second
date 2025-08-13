@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, Fragment } from 'react';
+import { useState, useEffect, useCallback, Fragment, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -69,29 +69,24 @@ useEffect(() => {
       setIsLoading(true);
       setError(null);
       // Добавлено: получение category_id из params
-      const categoryId = searchParams.get('category_id');
-      let searchSkills = filters.skills;
-      if (categoryId && !filters.skills?.includes(categoryId)) {
-        searchSkills = [...(filters.skills || []), categoryId]; // Добавляем в массив, если multiple
-        setFilters(prev => ({ ...prev, skills: searchSkills }));
-      }
-      console.log('Fetching talents with params:', { ...filters, skills: searchSkills, description: searchInput }); // Лог для диагностики
+      const categoryId = searchParams.get('category_id') || null;
 
-      const response = await (searchType === 'talents'
-        ? searchTalents({
-            experience: filters.experience,
-            rating: filters.rating,
-            skills: searchSkills, // Изменено: используем searchSkills
-            salary_type: filters.salary_type || undefined, // Добавлено
-            description: searchInput,
-            page: filters.page,
-            limit: filters.limit,
-          })
-        : searchJobseekers({
-            username: filters.username,
-            page: filters.page,
-            limit: filters.limit,
-          }));
+const response = await (searchType === 'talents'
+  ? searchTalents({
+      experience: filters.experience,
+      rating: filters.rating,
+      skills: filters.skills,                 // имена/строки из автокомплита
+      skill_id: categoryId || undefined,      // ← если пришли по ссылке с id — шлём отдельным параметром
+      salary_type: filters.salary_type || undefined,
+      description: searchInput,
+      page: filters.page,
+      limit: filters.limit,
+    })
+  : searchJobseekers({
+      username: filters.username,
+      page: filters.page,
+      limit: filters.limit,
+    }));
 
       console.log('Fetched data:', JSON.stringify(response, null, 2));
       let talentData: Profile[] = [];
@@ -134,7 +129,13 @@ useEffect(() => {
   fetchData();
 }, [filters, searchType, navigate, searchParams]); // Добавлен searchInput для реактивного поиска
 
+const firstRunRef = useRef(true);
+
 useEffect(() => {
+  if (firstRunRef.current) {
+    firstRunRef.current = false;
+    return;
+  }
   const debounce = setTimeout(() => {
     setFilters(prev => ({ ...prev, description: searchInput, page: 1 }));
   }, 500);
@@ -166,15 +167,20 @@ useEffect(() => {
 
 const handleSearch = (e: React.FormEvent) => {
   e.preventDefault();
+  const cleanedSkills = skillInput.trim() ? tempFilters.skills : undefined;
+
   setFilters((prev) => ({
     ...prev,
     ...tempFilters,
+    skills: cleanedSkills,          // ← снимаем фильтр, если поле пустое
     description: searchInput,
     page: 1,
   }));
+
   setSearchParams({
-    username: searchType === 'jobseekers' ? tempFilters.username : '',
+    username: searchType === 'jobseekers' ? (tempFilters.username || '') : '',
   });
+
   setIsFilterPanelOpen(false);
 };
 
@@ -242,7 +248,7 @@ const getVisiblePages = () => {
   </button>
 </div>
         <div className="ft-content">
-          <div className="ft-filters ${isFilterPanelOpen ? 'open' : ''}">
+          <div className={`ft-filters ${isFilterPanelOpen ? 'open' : ''}`}>
   <h3>Filters</h3>
   <form onSubmit={handleSearch} className="ft-search-form">
     {searchType === 'jobseekers' && (

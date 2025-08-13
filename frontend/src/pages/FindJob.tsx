@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -27,6 +27,7 @@ const [skillInput, setSkillInput] = useState('');
 const [categoryInput, setCategoryInput] = useState('');
 const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
 const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+const initialCategoryId = searchParams.get('category_id') || '';
 
 const [searchState, setSearchState] = useState<{
   title: string;
@@ -45,12 +46,13 @@ const [searchState, setSearchState] = useState<{
   salary_min: undefined,
   salary_max: undefined,
   job_type: '',
-  category_id: '',
+  category_id: initialCategoryId, // ← берём из URL
   required_skills: '',
   salary_type: '',
   page: 1,
   limit: 30,
 });
+
 const [tempSearchState, setTempSearchState] = useState<{
   title: string;
   location: string;
@@ -66,7 +68,7 @@ const [tempSearchState, setTempSearchState] = useState<{
   salary_min: undefined,
   salary_max: undefined,
   job_type: '',
-  category_id: '',
+  category_id: initialCategoryId, // ← тоже из URL
   required_skills: '',
   salary_type: '',
 });
@@ -131,23 +133,50 @@ if (profile?.role === 'jobseeker') {
     fetchData();
   }, [searchState, profile]);
 
-  useEffect(() => {
+  const firstRunRef = useRef(true);
+
+useEffect(() => {
+  if (firstRunRef.current) {
+    firstRunRef.current = false;
+    return;
+  }
   const debounce = setTimeout(() => {
     setSearchState((prev) => ({ ...prev, title: searchInput, page: 1 }));
   }, 500);
   return () => clearTimeout(debounce);
 }, [searchInput]);
 
+
+useEffect(() => {
+  if (!searchState.category_id || categories.length === 0) return;
+
+  const getDisplayName = (id: string): string | null => {
+    for (const cat of categories) {
+      if (cat.id === id) return cat.name;
+      if (Array.isArray(cat.subcategories)) {
+        const sub = cat.subcategories.find(s => s.id === id);
+        if (sub) return `${cat.name} > ${sub.name}`;
+      }
+    }
+    return null;
+  };
+
+  const display = getDisplayName(searchState.category_id);
+  if (display) setSkillInput(display);
+}, [categories, searchState.category_id]);
+
+
+
 // Добавлено: search для categoryInput
 useEffect(() => {
   const search = async () => {
-    if (categoryInput.trim() === '') {
+    if (skillInput.trim() === '') {
       setFilteredCategories([]);
       setIsCategoryDropdownOpen(false);
       return;
     }
     try {
-      const res = await searchCategories(categoryInput);
+      const res = await searchCategories(skillInput);
       const sorted = res.sort((a, b) => a.name.localeCompare(b.name));
       setFilteredCategories(sorted);
       setIsCategoryDropdownOpen(true);
@@ -159,16 +188,25 @@ useEffect(() => {
   };
   const debounce = setTimeout(search, 300);
   return () => clearTimeout(debounce);
-}, [categoryInput]);
+}, [skillInput]);
 
 const handleSearch = (e: React.FormEvent) => {
   e.preventDefault();
+  const cleanedCategoryId = (skillInput.trim() ? tempSearchState.category_id : '');
+
   setSearchState((prev) => ({
     ...prev,
     ...tempSearchState,
+    title: searchInput,
+    category_id: cleanedCategoryId,
     page: 1,
   }));
-  setSearchParams({ title: tempSearchState.title });
+
+  const nextParams: Record<string, string> = {};
+  if (searchInput.trim()) nextParams.title = searchInput.trim();
+  if (cleanedCategoryId)  nextParams.category_id = cleanedCategoryId;
+  setSearchParams(nextParams);
+
   setIsFilterPanelOpen(false);
 };
 
@@ -205,12 +243,13 @@ const handleSearch = (e: React.FormEvent) => {
     return pages;
   };
 
-  if (isLoading) return <Loader />;
-  if (error) return <div className="error-message">{error}</div>;
 
   return (
     <div>
       <Header />
+      {error && <div className="error-message">{error}</div>}
+       <div className={`loading-overlay ${isLoading ? 'visible' : ''}`}>
+        {isLoading && <Loader />}</div>
       <div className="container find-job-container">
         <h2>Find Jobs</h2>
         <div className="search-bar">

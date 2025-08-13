@@ -37,7 +37,7 @@ const Home: React.FC = () => {
     totalEmployers: 0,
   });
 
-  const [showCookieBanner, setShowCookieBanner] = useState<boolean>(true);
+ 
 
   // ——— Categories carousel state
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -45,6 +45,63 @@ const Home: React.FC = () => {
 
   // (если захочешь показывать кол-во вакансий по категориям — уже готов стейт)
   const [categoryCounts, setCategoryCounts] = useState<{ [key: string]: number }>({});
+
+  // 1) ключ и TTL (по желанию)
+const COOKIE_KEY = 'cookieConsent';
+const CONSENT_TTL_DAYS = 365; // покажем снова через год
+
+// 2) по умолчанию не показываем, чтобы избежать мигания
+const [showCookieBanner, setShowCookieBanner] = useState(false);
+
+// 3) на маунте проверяем localStorage
+useEffect(() => {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(COOKIE_KEY);
+    if (!raw) {
+      setShowCookieBanner(true);
+      return;
+    }
+    // поддержка старого формата "accepted" и нового с JSON
+    if (raw === 'accepted') {
+      setShowCookieBanner(false);
+      return;
+    }
+
+    const parsed = JSON.parse(raw) as { value: 'accepted'; ts: number };
+    const age = Date.now() - (parsed?.ts || 0);
+    const fresh = age < CONSENT_TTL_DAYS * 24 * 60 * 60 * 1000;
+    setShowCookieBanner(!fresh);
+  } catch {
+    setShowCookieBanner(true);
+  }
+}, []);
+
+// 4) синхронизация между вкладками (необязательно, но приятно)
+useEffect(() => {
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === COOKIE_KEY) {
+      setShowCookieBanner(false);
+    }
+  };
+  window.addEventListener('storage', onStorage);
+  return () => window.removeEventListener('storage', onStorage);
+}, []);
+
+// 5) обработчик клика
+const handleCookieConsent = () => {
+  try {
+    localStorage.setItem(
+      COOKIE_KEY,
+      JSON.stringify({ value: 'accepted', ts: Date.now() })
+    );
+  } catch {
+    // fallback на старый формат
+    localStorage.setItem(COOKIE_KEY, 'accepted');
+  }
+  setShowCookieBanner(false);
+};
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -169,10 +226,6 @@ const Home: React.FC = () => {
     setFilters(searchFilters);
   };
 
-  const handleCookieConsent = () => {
-    localStorage.setItem('cookieConsent', 'accepted');
-    setShowCookieBanner(false);
-  };
 
   if (isLoading) {
     return <Loader />;
