@@ -21,11 +21,53 @@ const JobseekerDashboard: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleLogout = async () => {
-    try { await logout(); } catch {}
-    localStorage.removeItem('token');
-    navigate('/');
+ 
+const [unreadTotal, setUnreadTotal] = useState(0);
+
+const unreadKey = React.useMemo(
+  () => `unreads_${profile?.id || 'anon'}`,
+  [profile?.id]
+);
+
+useEffect(() => {
+  const calc = () => {
+    try {
+      const raw = localStorage.getItem(unreadKey);
+      const map = raw ? JSON.parse(raw) as Record<string, number> : {};
+      const total = Object.values(map).reduce((s, v) => s + (Number(v) || 0), 0);
+      setUnreadTotal(total);
+    } catch {
+      setUnreadTotal(0);
+    }
   };
+
+  calc(); // начальное значение
+
+  // обновления из других вкладок
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === unreadKey) calc();
+  };
+
+  // обновления из текущего таба (Messages шлёт событие)
+  const onLocal = () => calc();
+
+  window.addEventListener('storage', onStorage);
+  window.addEventListener('jobforge:unreads-updated', onLocal);
+
+  return () => {
+    window.removeEventListener('storage', onStorage);
+    window.removeEventListener('jobforge:unreads-updated', onLocal);
+  };
+}, [unreadKey]);
+
+
+const handleLogout = async () => {
+  try { await logout(); } catch {}
+  try { localStorage.removeItem(`unreads_${profile?.id || 'anon'}`); } catch {}
+  localStorage.removeItem('token');
+  navigate('/');
+};
+
 
   const closeDrawer = () => setIsOpen(false);
 
@@ -126,13 +168,16 @@ const JobseekerDashboard: React.FC = () => {
             <span className="jsd-nav__text">My Applications</span>
           </NavLink>
 
-          <NavLink
-            to="/jobseeker-dashboard/messages"
-            className={({ isActive }) => `jsd-nav__link ${isActive ? 'active' : ''}`}
-          >
-            <FaComments className="jsd-nav__ico" />
-            <span className="jsd-nav__text">Messages</span>
-          </NavLink>
+        <NavLink to="/jobseeker-dashboard/messages" className={({ isActive }) => `jsd-nav__link ${isActive ? 'active' : ''}`}>
+  <FaComments className="jsd-nav__ico" />
+  <span className="jsd-nav__text">Messages</span>
+  {unreadTotal > 0 && (
+    <span className="nav-badge" aria-label={`${unreadTotal} unread`}>
+      {unreadTotal > 99 ? '99+' : unreadTotal}
+    </span>
+  )}
+</NavLink>
+
 
           <NavLink
             to="/jobseeker-dashboard/contact"

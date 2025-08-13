@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment, useRef } from 'react';
+import { useState, useEffect, Fragment, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -33,6 +33,10 @@ const FindTalent: React.FC = () => {
     description: searchParams.get('description') || '',
   });
 
+  const flattenCats = (cats: Category[]): Category[] =>
+  cats.flatMap(c => [c, ...(c.subcategories ? flattenCats(c.subcategories) : [])]);
+
+const norm = (s: string) => s.trim().toLowerCase();
   const [talents, setTalents] = useState<Profile[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -48,6 +52,26 @@ const FindTalent: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   // ВАЖНО: используем ID категории для поиска на бэке
   const [selectedSkillId, setSelectedSkillId] = useState<string>(searchParams.get('category_id') || '');
+
+  const allCats = useMemo(() => flattenCats(categories), [categories]);
+
+// Автоподбор ID категорий из глобальной строки поиска
+const autoSkillIds = useMemo(() => {
+  const q = norm(searchInput);
+  if (!q || q.length < 2) return [];
+
+  // 1) Точное совпадение по имени (может быть несколько — берём все)
+  const exact = allCats.filter(c => norm(c.name) === q).map(c => c.id);
+  if (exact.length) return Array.from(new Set(exact));
+
+  // 2) Частичное совпадение — берём немного, чтобы не шуметь
+  const partial = allCats
+    .filter(c => norm(c.name).includes(q))
+    .slice(0, 3)
+    .map(c => c.id);
+
+  return Array.from(new Set(partial));
+}, [searchInput, allCats]);
 
   // грузим категории ОДИН РАЗ (для дерева/выпадашки)
   useEffect(() => {
@@ -70,8 +94,12 @@ const FindTalent: React.FC = () => {
         setIsLoading(true);
         setError(null);
 
-        // формируем skills как массив id, если выбран из списка
-        const skillsParam = selectedSkillId ? [selectedSkillId] : undefined;
+    
+
+        const skillsParam =
+        selectedSkillId
+         ? [selectedSkillId]
+         : (autoSkillIds.length ? autoSkillIds : undefined);
 
         const response = await (searchType === 'talents'
           ? searchTalents({
@@ -122,7 +150,7 @@ const FindTalent: React.FC = () => {
       }
     };
     fetchData();
-  }, [filters, searchType, navigate, selectedSkillId]); // зависим от выбранного ID категории
+  }, [filters, searchType, navigate, selectedSkillId, autoSkillIds]);
 
   // debounce по полю глобального поиска (description)
   const firstRunRef = useRef(true);
@@ -163,24 +191,24 @@ const FindTalent: React.FC = () => {
     return () => clearTimeout(d);
   }, [skillInput]);
 
-  const handleSearch = (e: React.FormEvent) => {
+const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Обновляем фильтры: skills задаём ТОЛЬКО через selectedSkillId
     setFilters(prev => ({
       ...prev,
       description: searchInput,
       page: 1,
-      // experience/rating и т.д. можете подставлять из локальных временных фильтров, если нужны
     }));
 
     const nextParams: Record<string, string> = {};
     if (searchType === 'jobseekers' && filters.username?.trim()) {
-      nextParams.username = filters.username.trim();
+       nextParams.username = filters.username.trim();
     }
     if (selectedSkillId) {
-      nextParams.category_id = selectedSkillId; // для deeplink’ов/шаринга URL
+      nextParams.category_id = selectedSkillId;
     }
+     else if (autoSkillIds.length === 1) {
+      nextParams.category_id = autoSkillIds[0];
+     }
     if (searchInput.trim()) {
       nextParams.description = searchInput.trim();
     }

@@ -77,12 +77,41 @@ const currentTyping = useMemo(() => selectedChat ? isTyping[selectedChat] : fals
     }
   }, [profile, currentRole, socket]);
 
+
+  const unreadKey = useMemo(() => `unreads_${profile?.id || 'anon'}`, [profile?.id]);
+
+
+  useEffect(() => {
+  try {
+    const raw = localStorage.getItem(unreadKey);
+    if (raw) setUnreadCounts(JSON.parse(raw));
+    else setUnreadCounts({});
+  } catch {
+    setUnreadCounts({});
+  }
+}, [unreadKey]);
+
+
+useEffect(() => {
+  try {
+    localStorage.setItem(unreadKey, JSON.stringify(unreadCounts));
+    // оповестим все открытые страницы/компоненты в этом табе
+    window.dispatchEvent(new Event('jobforge:unreads-updated'));
+  } catch {}
+}, [unreadKey, unreadCounts]);
+
+
+
 useEffect(() => {
   if (!socket || !profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) {
     setUnreadCounts({});
     setIsTyping({});
     return;
   }
+
+
+const typingTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
 
   const joinChats = () => {
     if (hasJoinedChats.current) return;
@@ -126,20 +155,19 @@ socket.on('newMessage', (message: Message) => {
     ...prev,
     [message.job_application_id]: [...(prev[message.job_application_id] || []), message],
   }));
-  if (message.recipient_id === profile.id && !message.is_read) {
-    if (selectedChat && selectedChat === message.job_application_id) {
-      socket.emit('markMessagesAsRead', { jobApplicationId: message.job_application_id });
-      scrollToBottom(); // Уже было, но подчеркиваю: скролл при новом сообщении если чат открыт
-    } else {
-      setUnreadCounts((prevCounts) => ({
-        ...prevCounts,
-        [message.job_application_id]: (prevCounts[message.job_application_id] || 0) + 1,
-      }));
-    }
-  } else {
-    if (selectedChat === message.job_application_id) {
-      scrollToBottom(); // Добавлено: скролл даже если сообщение от себя (для обоих пользователей)
-    }
+
+  const inOpenedChat = selectedChat === message.job_application_id;
+
+  if (inOpenedChat) {
+    // если чат открыт — пометили прочитанным и плавно проскроллили
+    socket.emit('markMessagesAsRead', { jobApplicationId: message.job_application_id });
+    scrollToBottom(true); // <-- smooth ТОЛЬКО тут
+  } else if (message.recipient_id === profile.id && !message.is_read) {
+    // иначе увеличиваем счётчик
+    setUnreadCounts((prev) => ({
+      ...prev,
+      [message.job_application_id]: (prev[message.job_application_id] || 0) + 1,
+    }));
   }
 });
 
@@ -150,18 +178,28 @@ socket.on('typing', (data: { userId: string; jobApplicationId: string; isTyping:
   }
 });
 
-socket.on('messagesRead', (updatedMessages: { data: Message[] }) => { 
-  if (updatedMessages.data && updatedMessages.data.length > 0) { // Изменено: добавлена проверка if (updatedMessages.data)
-    const jobId = updatedMessages.data[0].job_application_id;
-    setMessages((prev) => ({
-      ...prev,
-      [jobId]: updatedMessages.data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
-    }));
+type MessagesReadPayload = { data: Message[] } | Message[];
+
+socket.on('messagesRead', (payload: MessagesReadPayload) => {
+  const list: Message[] = Array.isArray(payload) ? payload : (payload?.data || []);
+  if (!list.length) return;
+
+  const jobId = list[0].job_application_id;
+
+  setMessages((prev) => {
+    const prevList = prev[jobId] || [];
+    const updates = new Map(list.map((m) => [m.id, m]));
+    const nextList = prevList.map((m) => (updates.has(m.id) ? { ...m, ...updates.get(m.id)! } : m));
+    return { ...prev, [jobId]: nextList };
+  });
+
+  if (selectedChat === jobId) {
     setUnreadCounts((prev) => ({ ...prev, [jobId]: 0 }));
-  } else {
-    console.warn('Received empty or undefined updated messages');
   }
 });
+
+
+
 
   socket.on('chatInitialized', async (data: { jobApplicationId: string }) => {
     console.log('Chat initialized for application:', data.jobApplicationId);
@@ -225,15 +263,21 @@ socket.on('connect_error', (err) => {
   };
 }, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
 
-const scrollToBottom = useCallback(() => {
-  if (messagesEndRef.current) {
-    messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-  }
+// заменяем: по умолчанию autoscroll, smooth включаем вручную
+const scrollToBottom = useCallback((smooth: boolean = false) => {
+  messagesEndRef.current?.scrollIntoView({
+    behavior: smooth ? 'smooth' : 'auto',
+    block: 'end',
+  });
 }, []);
 
+// typing больше НЕ триггерит скролл
 useEffect(() => {
-  scrollToBottom();
-}, [selectedChat, currentMessages, currentTyping, scrollToBottom]);
+  // autoscroll при открытии чата и загрузке истории
+  scrollToBottom(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [selectedChat, (currentMessages || []).length, scrollToBottom]);
+
 
 const handleSendMessage = (e: React.FormEvent) => {
   e.preventDefault();
@@ -254,24 +298,30 @@ const handleSendMessage = (e: React.FormEvent) => {
 
 const handleSelectChat = (jobApplicationId: string) => {
   setSelectedChat(jobApplicationId);
-  setUnreadCounts((prev) => ({
-    ...prev,
-    [jobApplicationId]: 0,
-  }));
-  if (socket && socket.connected) { // Emit only if connected
+  setUnreadCounts((prev) => ({ ...prev, [jobApplicationId]: 0 }));
+
+  if (socket?.connected) {
     socket.emit('joinChat', { jobApplicationId });
     socket.emit('markMessagesAsRead', { jobApplicationId });
   } else {
     joinQueue.current.push(jobApplicationId);
     setError('Connecting to chat server... Please wait.');
   }
-  // Fetch history always (to refresh)
-  getChatHistory(jobApplicationId, { page: 1, limit: 100 }, currentRole!).then((history) => { // Добавлено: ! для non-null
-    setMessages((prev) => ({ ...prev, [jobApplicationId]: history.data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) })); // history.data
-  }).catch((err) => {
-    setError('Failed to load chat history.'); // Убрано: редирект на /login — теперь просто error
-  });
+
+  getChatHistory(jobApplicationId, { page: 1, limit: 100 }, currentRole!)
+    .then((history) => {
+      setMessages((prev) => ({
+        ...prev,
+        [jobApplicationId]: history.data.sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        ),
+      }));
+      // после подтяжки истории тоже гарантированно сбросим счётчик
+      setUnreadCounts((prev) => ({ ...prev, [jobApplicationId]: 0 }));
+    })
+    .catch(() => setError('Failed to load chat history.'));
 };
+
 
 const handleCreateReview = async (e: React.FormEvent) => {
   e.preventDefault();

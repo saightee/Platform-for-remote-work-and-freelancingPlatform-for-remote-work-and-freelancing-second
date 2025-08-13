@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment, useRef } from 'react';
+import { useState, useEffect, Fragment, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -231,6 +231,34 @@ const FindJob: React.FC = () => {
     return pages;
   };
 
+  // найти категорию по id (ходит по дереву)
+const findCategoryById = (id: string, cats: Category[]): Category | undefined => {
+  for (const c of cats) {
+    if (c.id === id) return c;
+    if (c.subcategories) {
+      const found = findCategoryById(id, c.subcategories);
+      if (found) return found;
+    }
+  }
+  return undefined;
+};
+
+
+// красивое имя выбранной категории для бейджа
+const selectedCategoryLabel = useMemo(() => {
+  const id = tempSearchState.category_id || searchState.category_id;
+  if (!id || categories.length === 0) return '';
+  const cat = findCategoryById(id, categories);
+  if (!cat) return '';
+  const parent = cat.parent_id ? findCategoryById(cat.parent_id, categories) : undefined;
+  return parent ? `${parent.name} > ${cat.name}` : cat.name;
+}, [tempSearchState.category_id, searchState.category_id, categories]);
+
+
+useEffect(() => {
+  if (!skillInput && selectedCategoryLabel) setSkillInput(selectedCategoryLabel);
+}, [selectedCategoryLabel, skillInput]);
+
   return (
     <div>
       <Header />
@@ -398,22 +426,16 @@ const FindJob: React.FC = () => {
                   )}
                 </div>
 
-                {(searchState.category_id || tempSearchState.category_id) && (
-                  <div className="category-tags" style={{ marginTop: 6 }}>
-                    <span className="category-tag">
-                      {skillInput || 'Selected category'}
-                      <span className="remove-tag" onClick={clearCategory}>×</span>
-                    </span>
-                    <button
-                      type="button"
-                      className="ft-button ft-warning"
-                      style={{ marginBottom: 8, padding: '6px 8px' }}
-                      onClick={clearCategory}
-                    >
-                      Clear category
-                    </button>
-                  </div>
-                )}
+{(searchState.category_id || tempSearchState.category_id) && (
+  <div className="category-tags" style={{ marginTop: 6 }}>
+    <span className="category-tag">
+      {selectedCategoryLabel || skillInput || 'Selected category'}
+      <span className="remove-tag" onClick={clearCategory}>×</span>
+    </span>
+  </div>
+)}
+
+
               </div>
 
               <button type="submit" className="action-button">
