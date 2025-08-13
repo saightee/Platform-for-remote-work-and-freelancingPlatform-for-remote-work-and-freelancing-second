@@ -4527,6 +4527,12 @@ font-weight: bold;
 
 .autocomplete-wrapper {
   position: relative;
+  padding-bottom: 14px;
+}
+
+.post-job-form .pj-country-dropdown {
+  top: calc(100% + 4px);
+  z-index: 2000;
 }
 
 .autocomplete-dropdown {

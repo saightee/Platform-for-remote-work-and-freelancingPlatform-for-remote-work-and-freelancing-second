@@ -407,7 +407,7 @@ const FindJob: React.FC = () => {
                     <button
                       type="button"
                       className="ft-button ft-warning"
-                      style={{ marginLeft: 8, padding: '2px 8px' }}
+                      style={{ marginBottom: 8, padding: '6px 8px' }}
                       onClick={clearCategory}
                     >
                       Clear category
