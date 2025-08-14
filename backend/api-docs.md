@@ -3753,29 +3753,35 @@
   }  
 
 ### 90. Contact — Send a message
-- **Endpoint**: `POST /api/contact`
-- **Description**: Sends a message from the website contact form to the support inbox (support@jobforge.net) via Brevo. Uses a transactional template with parameters and sets Reply-To to the user’s email. (Implementation leverages the existing Brevo email flow used elsewhere in the app: SMTP API v3, templateId, params, retries, timeouts.)
+- **Endpoint:** `POST /api/contact`
+- **Description:** Sends a message from the website contact form to the support inbox (support@jobforge.net) via Brevo. Single endpoint, two modes:
+  - **Guest (public):** no JWT, CAPTCHA required, strict rate-limit by IP, honeypot, link ban.
+  - **Dashboard (authenticated):** valid JWT, no CAPTCHA, softer rate-limit by userId, name/email auto-filled.
 - **Request Body**:
   ```json
   {
     "name": "Jane Doe",
     "email": "jane@example.com",
     "message": "Hello! I'd like to know more about JobForge.",
-    "captchaToken": "optional-captcha-token",
-    "website": "" 
+    "captchaToken": "token-from-recaptcha-or-hcaptcha",
+    "website": ""
   }
+- **Guest:** name, email, message, captchaToken required (honeypot website must be empty).
+- **Dashboard:** send the same shape; name, email, captchaToken are ignored if JWT is valid (server uses account data).
+- **Auth:**
+  - Optional JWT `(Authorization: Bearer <token>)`. If present and valid, the request is treated as Dashboard mode.
+- **Spam & abuse protection:**
+  - `Rate limit`: Guest — 3 req / 60s per IP; Dashboard — 10 req / 60s per userId.
+  - `Honeypot`: website must be empty (else 403).
+  - `Link ban`: messages containing links/HTML are rejected (400).
+  - `CAPTCHA`: required for Guests; not required for Dashboard.
+  - `Email delivery`: Brevo template (templateId=6) with params { fromName, fromEmail, message }. Reply-To = user email; To = support@jobforge.net.
 - **Validation rules**:
   - `name` — string, 2–100 chars
   - `email` — valid email, ≤254 chars
   - `message` — 10–2000 chars, links/HTML not allowed
   - `website` — honeypot field, must be empty (hidden in UI)
   - `captchaToken` — optional; if CAPTCHA is enabled in config, it must pass verification
-- **Spam & abuse protection**:
-  - `Rate limit` — 3 requests / 60s per IP (HTTP 429 on exceed).
-  - `Honeypot` — `website` must be empty; else 403.
-  - `Link ban` — messages containing links are rejected with 400.
-  - `CAPTCHA` — optional reCAPTCHA/hCaptcha server-side verification; on failure 403.
-  - `Email delivery` — Brevo template (e.g., templateId=6) with params: { fromName, fromEmail, message }; Reply-To = user email; To = support@jobforge.net. Same axios + retry strategy as other email flows (verification, reset, notifications).
 - **Response (202 Accepted)**:
   ```json
   { "message": "Message accepted" }
