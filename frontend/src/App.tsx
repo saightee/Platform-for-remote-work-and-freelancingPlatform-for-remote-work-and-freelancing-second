@@ -46,6 +46,7 @@ import EmployerDashboard from './pages/EmployerDashboard';
 import EmployerOverview from './pages/EmployerOverview';
 import JobseekerDashboard from './pages/JobseekerDashboard';
 import JobseekerOverview from './pages/JobseekerOverview';
+import ContactSupport from './pages/ContactSupport';
 
 const App: React.FC = () => {
   return (
@@ -60,6 +61,7 @@ const App: React.FC = () => {
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/role-selection" element={<RoleSelection />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/contact-support" element={<ContactSupport />} />
 <Route path="/employer-dashboard" element={<EmployerDashboard />}>
   <Route index element={<EmployerOverview />} />
   <Route path="profile" element={<ProfilePage />} />

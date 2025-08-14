@@ -10,7 +10,10 @@ import Loader from '../components/Loader';
 
 const Complaint: React.FC = () => {
   const { profile, currentRole } = useRole();
+  
   const [searchParams] = useSearchParams();
+
+
   const navigate = useNavigate();
   const [complaintType, setComplaintType] = useState<'job_post' | 'profile' | null>(null);
   const [targetId, setTargetId] = useState<string>('');
@@ -18,6 +21,10 @@ const Complaint: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const rawReturn = searchParams.get('return') || '';
+const allowed = ['/employer-dashboard', '/jobseeker-dashboard', '/'];
+const returnTo = allowed.some(p => rawReturn.startsWith(p)) ? rawReturn : '';
 
   useEffect(() => {
     if (!profile || !['jobseeker', 'employer'].includes(currentRole || '')) {
@@ -56,7 +63,19 @@ const Complaint: React.FC = () => {
       const response = await submitComplaint(data);
       setMessage(response.message || 'Complaint submitted successfully!');
       setReason('');
-      setTimeout(() => navigate('/profile'), 3000); // Редирект на профиль через 3 секунды
+
+
+
+      const fallback =
+      profile?.role === 'employer'
+      ? '/employer-dashboard'
+      : profile?.role === 'jobseeker'
+      ? '/jobseeker-dashboard'
+       : '/';
+       const dest = returnTo || fallback;
+       setTimeout(() => {
+  navigate(dest, { replace: true });
+}, 1200);
     } catch (err: any) {
       console.error('Error submitting complaint:', err);
       setError(err.response?.data?.message || 'Failed to submit complaint. Please try again.');

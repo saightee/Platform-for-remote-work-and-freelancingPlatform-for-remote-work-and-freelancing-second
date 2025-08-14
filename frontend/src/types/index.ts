@@ -206,6 +206,8 @@ export interface Message {
   is_read: boolean;
 }
 
+type MessagesReadPayload = { data: Message[] } | Message[];
+
 export interface BlockedCountry {
   id: string;
   country_code: string;
