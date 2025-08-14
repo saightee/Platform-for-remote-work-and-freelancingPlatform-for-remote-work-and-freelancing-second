@@ -8,6 +8,7 @@ import { Profile, Category } from '@types';
 import { FaUserCircle, FaFilter } from 'react-icons/fa';
 import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
+import '../styles/find-talent.css';
 
 interface TalentResponse {
   total: number;
@@ -34,9 +35,9 @@ const FindTalent: React.FC = () => {
   });
 
   const flattenCats = (cats: Category[]): Category[] =>
-  cats.flatMap(c => [c, ...(c.subcategories ? flattenCats(c.subcategories) : [])]);
+    cats.flatMap(c => [c, ...(c.subcategories ? flattenCats(c.subcategories) : [])]);
 
-const norm = (s: string) => s.trim().toLowerCase();
+  const norm = (s: string) => s.trim().toLowerCase();
   const [talents, setTalents] = useState<Profile[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -55,23 +56,31 @@ const norm = (s: string) => s.trim().toLowerCase();
 
   const allCats = useMemo(() => flattenCats(categories), [categories]);
 
-// Автоподбор ID категорий из глобальной строки поиска
-const autoSkillIds = useMemo(() => {
-  const q = norm(searchInput);
-  if (!q || q.length < 2) return [];
+  // Автоподбор ID категорий из глобальной строки поиска
+  const autoSkillIds = useMemo(() => {
+    const q = norm(searchInput);
+    if (!q || q.length < 2) return [];
 
-  // 1) Точное совпадение по имени (может быть несколько — берём все)
-  const exact = allCats.filter(c => norm(c.name) === q).map(c => c.id);
-  if (exact.length) return Array.from(new Set(exact));
+    const exact = allCats.filter(c => norm(c.name) === q).map(c => c.id);
+    if (exact.length) return Array.from(new Set(exact));
 
-  // 2) Частичное совпадение — берём немного, чтобы не шуметь
-  const partial = allCats
-    .filter(c => norm(c.name).includes(q))
-    .slice(0, 3)
-    .map(c => c.id);
+    const partial = allCats
+      .filter(c => norm(c.name).includes(q))
+      .slice(0, 3)
+      .map(c => c.id);
 
-  return Array.from(new Set(partial));
-}, [searchInput, allCats]);
+    return Array.from(new Set(partial));
+  }, [searchInput, allCats]);
+
+  useEffect(() => {
+    if (!selectedSkillId || !categories.length) return;
+    const all = allCats;
+    const cat = all.find(c => c.id === selectedSkillId);
+    if (!cat) return;
+    const parent = cat.parent_id ? all.find(c => c.id === cat.parent_id) : undefined;
+    const label = parent ? `${parent.name} > ${cat.name}` : cat.name;
+    setSkillInput(label);
+  }, [selectedSkillId, allCats]);
 
   // грузим категории ОДИН РАЗ (для дерева/выпадашки)
   useEffect(() => {
@@ -88,25 +97,27 @@ const autoSkillIds = useMemo(() => {
   }, []);
 
   // Подгрузка талантов / соискателей
+  const reqSeq = useRef(0);
+  const firstRunRef = useRef(true);
   useEffect(() => {
+    const seq = ++reqSeq.current;
     const fetchData = async () => {
       try {
         setIsLoading(true);
         setError(null);
 
-    
-
-        const skillsParam =
-        selectedSkillId
-         ? [selectedSkillId]
-         : (autoSkillIds.length ? autoSkillIds : undefined);
+        const useAutoSkills = !selectedSkillId && autoSkillIds.length > 0;
+        const effectiveDescription =
+          (selectedSkillId || useAutoSkills) ? undefined : (filters.description || undefined);
 
         const response = await (searchType === 'talents'
           ? searchTalents({
               experience: filters.experience || undefined,
               rating: filters.rating,
-              skills: skillsParam,                 // ← IDшники, как ждёт бэк
-              description: filters.description || undefined,
+              skills: selectedSkillId
+                ? [selectedSkillId]
+                : (useAutoSkills ? autoSkillIds : undefined),
+              description: effectiveDescription,
               page: filters.page,
               limit: filters.limit,
             })
@@ -128,42 +139,48 @@ const autoSkillIds = useMemo(() => {
           totalCount = (response as Profile[]).length;
         } else {
           console.error('Invalid response format:', response);
+          if (seq !== reqSeq.current) return;
           setError('Invalid data format received from server. Please try again.');
           setTalents([]);
           setTotal(0);
           return;
         }
 
+        if (seq !== reqSeq.current) return;
         setTalents(talentData);
         setTotal(totalCount);
       } catch (err) {
         const axiosError = err as AxiosError<{ message?: string }>;
         console.error('Error fetching data:', axiosError);
-        if (axiosError.response?.status === 401) {
-          setError('Unauthorized access. Please log in again.');
-          navigate('/login');
-        } else {
-          setError(axiosError.response?.data?.message || 'Failed to load talents. Please try again.');
+        if (seq === reqSeq.current) {
+          if (axiosError.response?.status === 401) {
+            setError('Unauthorized access. Please log in again.');
+            navigate('/login');
+          } else {
+            setError(axiosError.response?.data?.message || 'Failed to load talents. Please try again.');
+          }
         }
       } finally {
-        setIsLoading(false);
+        if (seq === reqSeq.current) setIsLoading(false);
       }
     };
     fetchData();
-  }, [filters, searchType, navigate, selectedSkillId, autoSkillIds]);
+  }, [filters, searchType, selectedSkillId, autoSkillIds, navigate]);
 
-  // debounce по полю глобального поиска (description)
-  const firstRunRef = useRef(true);
   useEffect(() => {
-    if (firstRunRef.current) {
-      firstRunRef.current = false;
-      return;
-    }
+    if (firstRunRef.current) { firstRunRef.current = false; return; }
+
     const t = setTimeout(() => {
-      setFilters(prev => ({ ...prev, description: searchInput, page: 1 }));
+      const useAutoSkills = !selectedSkillId && autoSkillIds.length > 0;
+      setFilters(prev => ({
+        ...prev,
+        description: useAutoSkills || selectedSkillId ? undefined : searchInput,
+        page: 1,
+      }));
     }, 500);
+
     return () => clearTimeout(t);
-  }, [searchInput]);
+  }, [searchInput, selectedSkillId, autoSkillIds]);
 
   // автокомплит категорий
   useEffect(() => {
@@ -171,7 +188,6 @@ const autoSkillIds = useMemo(() => {
       if (skillInput.trim() === '') {
         setFilteredSkills([]);
         setIsDropdownOpen(false);
-        // если поле очистили — снимаем выбранный id
         setSelectedSkillId('');
         return;
       }
@@ -191,25 +207,24 @@ const autoSkillIds = useMemo(() => {
     return () => clearTimeout(d);
   }, [skillInput]);
 
-const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const useAutoSkills = !selectedSkillId && autoSkillIds.length > 0;
+
     setFilters(prev => ({
       ...prev,
-      description: searchInput,
+      description: useAutoSkills || selectedSkillId ? undefined : searchInput,
       page: 1,
     }));
 
     const nextParams: Record<string, string> = {};
-    if (searchType === 'jobseekers' && filters.username?.trim()) {
-       nextParams.username = filters.username.trim();
-    }
     if (selectedSkillId) {
       nextParams.category_id = selectedSkillId;
-    }
-     else if (autoSkillIds.length === 1) {
+    } else if (useAutoSkills && autoSkillIds.length === 1) {
       nextParams.category_id = autoSkillIds[0];
-     }
-    if (searchInput.trim()) {
+    }
+    if (!useAutoSkills && !selectedSkillId && searchInput.trim()) {
       nextParams.description = searchInput.trim();
     }
 
@@ -254,267 +269,309 @@ const handleSearch = (e: React.FormEvent) => {
   return (
     <div>
       <Header />
-      <div className="container ft-container">
-        <h2>Find Talent</h2>
 
-        <div className="ft-search-bar">
-          <input
-            type="text"
-            placeholder="Search by skills or keywords"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
-          <button onClick={handleSearch}>Search</button>
-          <button className="ft-filter-toggle" onClick={toggleFilterPanel}>
-            <FaFilter />
-          </button>
-        </div>
+      {/* overlay-лоадер в едином стиле */}
+      <div className={`ftl-loading ${isLoading ? 'is-visible' : ''}`}>
+        {isLoading && <Loader />}
+      </div>
 
-        <div className="ft-content">
-          <div className={`ft-filters ${isFilterPanelOpen ? 'open' : ''}`}>
-            <h3>Filters</h3>
-            <form onSubmit={handleSearch} className="ft-search-form">
-              {searchType === 'jobseekers' && (
-                <div className="ft-form-group">
-                  <label>Username:</label>
-                  <input
-                    type="text"
-                    value={filters.username}
-                    onChange={(e) => setFilters({ ...filters, username: e.target.value })}
-                    placeholder="Enter username"
-                  />
-                </div>
-              )}
+      <div className="ftl-shell">
+        <div className="ftl-card">
+          <div className="ftl-headbar">
+            <h1 className="ftl-title">Find Talent</h1>
 
-              <div className="ft-form-group">
-                <label>Experience:</label>
-                <select
-                  value={filters.experience}
-                  onChange={(e) => setFilters({ ...filters, experience: e.target.value, page: 1 })}
-                >
-                  <option value="">All</option>
-                  <option value="Less than 1 year">Less than 1 year</option>
-                  <option value="1-2 years">1-2 years</option>
-                  <option value="2-3 years">2-3 years</option>
-                  <option value="3-6 years">3-6 years</option>
-                  <option value="6+ years">6+ years</option>
-                </select>
-              </div>
-
-              <div className="ft-form-group">
-                <label>Minimum Rating:</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="5"
-                  value={filters.rating ?? ''}
-                  onChange={(e) =>
-                    setFilters({
-                      ...filters,
-                      rating: e.target.value ? Number(e.target.value) : undefined,
-                      page: 1,
-                    })
-                  }
-                  placeholder="Enter rating (0-5)"
-                />
-              </div>
-
-              <div className="ft-form-group">
-                <label>Category/Skill:</label>
-                <div className="autocomplete-wrapper">
-                  <input
-                    type="text"
-                    value={skillInput}
-                    onChange={(e) => setSkillInput(e.target.value)}
-                    placeholder="Type to search categories/skills..."
-                    className="category-select"
-                    onFocus={() => setIsDropdownOpen(true)}
-                    onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                  />
-                  {isDropdownOpen && (skillInput.trim() ? filteredSkills.length > 0 : categories.length > 0) && (
-                    <ul className="autocomplete-dropdown">
-                      {(skillInput.trim() ? filteredSkills : categories).map((cat) => (
-                        <Fragment key={cat.id}>
-                          <li
-                            className="autocomplete-item"
-                            onMouseDown={() => {
-                              const displayName = cat.parent_id
-                                ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}`
-                                : cat.name;
-                              setSelectedSkillId(cat.id);           // ← пишем ID
-                              setSkillInput(displayName);           // текст
-                              setIsDropdownOpen(false);
-                              setFilters(prev => ({ ...prev, page: 1 })); // сброс страницы
-                            }}
-                          >
-                            {cat.parent_id
-                              ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}`
-                              : cat.name}
-                          </li>
-                          {cat.subcategories?.map((sub) => (
-                            <li
-                              key={sub.id}
-                              className="autocomplete-item sub-item"
-                              onMouseDown={() => {
-                                setSelectedSkillId(sub.id);          // ← ID подкатегории
-                                setSkillInput(`${cat.name} > ${sub.name}`);
-                                setIsDropdownOpen(false);
-                                setFilters(prev => ({ ...prev, page: 1 }));
-                              }}
-                            >
-                              {`${cat.name} > ${sub.name}`}
-                            </li>
-                          ))}
-                        </Fragment>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                {selectedSkillId && (
-                  <div className="category-tags" style={{ marginTop: 6 }}>
-                    <span className="category-tag">
-                      {skillInput || 'Selected category'}
-                      <span className="remove-tag" onClick={() => { setSelectedSkillId(''); setSkillInput(''); setFilters(prev => ({ ...prev, page: 1 })); }}>
-                        ×
-                      </span>
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <button type="submit" className="ft-button ft-success">
-                Apply Filters
+            <form className="ftl-search" onSubmit={handleSearch}>
+              <input
+                className="ftl-input"
+                type="text"
+                placeholder="Search by skills or keywords"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+              />
+              <button className="ftl-btn ftl-primary" type="submit">Search</button>
+              <button
+                className={`ftl-iconbtn ${isFilterPanelOpen ? 'is-active' : ''}`}
+                type="button"
+                onClick={toggleFilterPanel}
+                aria-label="Toggle filters"
+                title="Filters"
+              >
+                <FaFilter />
               </button>
             </form>
           </div>
 
-          <div className="ft-results">
-            <div className="ft-grid">
-              {isLoading ? (
-                <Loader />
-              ) : error ? (
-                <p className="error-message">{error}</p>
-              ) : talents.length > 0 ? (
-                talents.map((talent) => {
-                  const rating =
-                    (talent as any).average_rating ?? (talent as any).averageRating ?? null;
-                  const skills = Array.isArray((talent as any).skills) ? (talent as any).skills : [];
-                  const experience = (talent as any).experience ?? null;
-                  const description = (talent as any).description ?? null;
-                  const profileViews =
-                    (talent as any).profile_views ?? (talent as any).profileViews ?? 0;
+          {error && <div className="ftl-alert ftl-err">{error}</div>}
 
-                  return (
-                    <div key={talent.id} className="ft-card">
-                      <div className="ft-avatar-top">
-                        {talent.avatar ? (
-                          <img
-                            src={`https://jobforge.net/backend${talent.avatar}`}
-                            alt="Talent Avatar"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).style.display = 'none';
-                              const nextSibling = (e.currentTarget as any).nextSibling;
-                              if (nextSibling instanceof HTMLElement || nextSibling instanceof SVGElement) {
-                                (nextSibling as HTMLElement).style.display = 'block';
-                              }
-                            }}
-                          />
-                        ) : null}
-                        <FaUserCircle
-                          className="ft-avatar-icon"
-                          style={{ display: talent.avatar ? 'none' : 'block' }}
-                        />
-                      </div>
-                      <div className="ft-content">
-                        <div className="ft-title-row">
-                          <h3>{talent.username}</h3>
-                          {typeof rating === 'number' && (
-                            <span className="ft-rating-top-right">
-                              {Array.from({ length: 5 }, (_, i) => (
-                                <span
-                                  key={i}
-                                  className={i < Math.floor(rating) ? 'ft-star-filled' : 'ft-star'}
-                                >
-                                  ★
-                                </span>
-                              ))}
-                            </span>
-                          )}
-                        </div>
-                        <div className="ft-details-columns">
-                          <div className="ft-details-column">
-                            <p>
-                              <strong>Skills:</strong>{' '}
-                              {skills.length > 0 ? skills.map((s: Category) => s.name).join(', ') : 'Not specified'}
-                            </p>
-                            <p>
-                              <strong>Experience:</strong> {experience || 'Not specified'}
-                            </p>
-                          </div>
-                          <div className="ft-details-column">
-                            <p>
-                              <strong>Profile Views:</strong>{' '}
-                              {typeof profileViews === 'number' ? profileViews : 0}
-                            </p>
-                            <p>
-                              <strong>Description:</strong>{' '}
-                              {description ? truncateDescription(description, 100) : 'Not specified'}
-                            </p>
-                            <p>
-                              <strong>Resume:</strong>{' '}
-                              {(talent as any).resume ? (
-                                <a
-                                  href={(talent as any).resume.startsWith('http')
-                                    ? (talent as any).resume
-                                    : `https://jobforge.net/backend${(talent as any).resume}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  Download Resume
-                                </a>
-                              ) : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="ft-footer">
-                          <div className="ft-spacer"></div>
-                          <Link to={`/public-profile/${talent.id}`} className="ft-button ft-view">
-                            View Profile
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <p>No talents found.</p>
-              )}
-            </div>
+          <div className="ftl-content">
+            {/* Filters */}
+            <aside className={`ftl-filters ${isFilterPanelOpen ? 'is-open' : ''}`}>
+              <h3 className="ftl-filters-title">Filters</h3>
+              <form onSubmit={handleSearch} className="ftl-form">
+                {searchType === 'jobseekers' && (
+                  <div className="ftl-row">
+                    <label className="ftl-label">Username</label>
+                    <input
+                      className="ftl-input"
+                      type="text"
+                      value={filters.username}
+                      onChange={(e) => setFilters({ ...filters, username: e.target.value })}
+                      placeholder="Enter username"
+                    />
+                  </div>
+                )}
 
-            {total > 0 && (
-              <div className="job-pagination">
-                {getVisiblePages().map((page, index) => (
-                  <button
-                    key={index}
-                    className={`pagination-button ${page === filters.page ? 'pagination-current' : ''} ${page === '…' ? 'pagination-ellipsis' : ''}`}
-                    onClick={() => typeof page === 'number' && handlePageChange(page)}
-                    disabled={page === '…' || page === filters.page}
+                <div className="ftl-row">
+                  <label className="ftl-label">Experience</label>
+                  <select
+                    className="ftl-input"
+                    value={filters.experience}
+                    onChange={(e) => setFilters({ ...filters, experience: e.target.value, page: 1 })}
                   >
-                    {page}
-                  </button>
-                ))}
-                <button
-                  className="pagination-arrow"
-                  onClick={() => handlePageChange(filters.page + 1)}
-                  disabled={filters.page === totalPages}
-                >
-                  Next
+                    <option value="">All</option>
+                    <option value="Less than 1 year">Less than 1 year</option>
+                    <option value="1-2 years">1-2 years</option>
+                    <option value="2-3 years">2-3 years</option>
+                    <option value="3-6 years">3-6 years</option>
+                    <option value="6+ years">6+ years</option>
+                  </select>
+                </div>
+
+                <div className="ftl-row">
+                  <label className="ftl-label">Minimum Rating</label>
+                  <input
+                    className="ftl-input"
+                    type="number"
+                    min="0"
+                    max="5"
+                    value={filters.rating ?? ''}
+                    onChange={(e) =>
+                      setFilters({
+                        ...filters,
+                        rating: e.target.value ? Number(e.target.value) : undefined,
+                        page: 1,
+                      })
+                    }
+                    placeholder="Enter rating (0-5)"
+                  />
+                </div>
+
+                <div className="ftl-row">
+                  <label className="ftl-label">Category/Skill</label>
+                  <div className="ftl-autocomplete">
+                    <input
+                      className="ftl-input"
+                      type="text"
+                      value={skillInput}
+                      onChange={(e) => setSkillInput(e.target.value)}
+                      placeholder="Type to search categories/skills..."
+                      onFocus={() => setIsDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                    />
+                    {isDropdownOpen && (skillInput.trim() ? filteredSkills.length > 0 : categories.length > 0) && (
+                      <ul className="ftl-autocomplete-list">
+                        {(skillInput.trim() ? filteredSkills : categories).map((cat) => (
+                          <Fragment key={cat.id}>
+                            <li
+                              className="ftl-autocomplete-item"
+                              onMouseDown={() => {
+                                const displayName = cat.parent_id
+                                  ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}`
+                                  : cat.name;
+                                setSelectedSkillId(cat.id);
+                                setSkillInput(displayName);
+                                setIsDropdownOpen(false);
+                                setFilters(prev => ({ ...prev, page: 1 }));
+                              }}
+                            >
+                              {cat.parent_id
+                                ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}`
+                                : cat.name}
+                            </li>
+                            {cat.subcategories?.map((sub) => (
+                              <li
+                                key={sub.id}
+                                className="ftl-autocomplete-item ftl-sub"
+                                onMouseDown={() => {
+                                  setSelectedSkillId(sub.id);
+                                  setSkillInput(`${cat.name} > ${sub.name}`);
+                                  setIsDropdownOpen(false);
+                                  setFilters(prev => ({ ...prev, page: 1 }));
+                                }}
+                              >
+                                {`${cat.name} > ${sub.name}`}
+                              </li>
+                            ))}
+                          </Fragment>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {selectedSkillId && (
+                    <div className="ftl-tags">
+                      <span className="ftl-tag">
+                        {skillInput || 'Selected category'}
+                        <button
+                          type="button"
+                          className="ftl-tag-x"
+                          onClick={() => {
+                            setSelectedSkillId('');
+                            setSkillInput('');
+                            setFilters(prev => ({ ...prev, page: 1 }));
+                          }}
+                          aria-label="Remove category"
+                          title="Remove"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <button type="submit" className="ftl-btn ftl-primary" style={{ marginTop: 4 }}>
+                  Apply Filters
                 </button>
-              </div>
-            )}
+              </form>
+            </aside>
+
+            {/* Results */}
+            <section className="ftl-results">
+              {isLoading ? (
+                <div className="ftl-results-loader"><Loader /></div>
+              ) : error ? (
+                <p className="ftl-error">{error}</p>
+              ) : (
+                <>
+                  <div className="ftl-list">
+                    {talents.length > 0 ? (
+                      talents.map((talent) => {
+                        const rating =
+                          (talent as any).average_rating ?? (talent as any).averageRating ?? null;
+                        const skills = Array.isArray((talent as any).skills) ? (talent as any).skills : [];
+                        const experience = (talent as any).experience ?? null;
+                        const description = (talent as any).description ?? null;
+                        const profileViews =
+                          (talent as any).profile_views ?? (talent as any).profileViews ?? 0;
+
+                        return (
+                          <article key={talent.id} className="ftl-card-item" role="article">
+                            <div className="ftl-avatar">
+                              {talent.avatar ? (
+                                <img
+                                  src={`https://jobforge.net/backend${talent.avatar}`}
+                                  alt="Talent Avatar"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                    const nextSibling = (e.currentTarget as any).nextSibling;
+                                    if (nextSibling instanceof HTMLElement || nextSibling instanceof SVGElement) {
+                                      (nextSibling as HTMLElement).style.display = 'block';
+                                    }
+                                  }}
+                                  className="ftl-avatar-img"
+                                />
+                              ) : null}
+                              <FaUserCircle className="ftl-avatar-fallback" />
+                            </div>
+
+                            <div className="ftl-body">
+                              <div className="ftl-row ftl-row-head">
+                                <h3 className="ftl-name">{talent.username}</h3>
+                                {typeof rating === 'number' && (
+                                  <span className="ftl-stars" aria-label={`rating ${rating}/5`}>
+                                    {Array.from({ length: 5 }, (_, i) => (
+                                      <span
+                                        key={i}
+                                        className={i < Math.floor(rating) ? 'ftl-star is-on' : 'ftl-star'}
+                                      >
+                                        ★
+                                      </span>
+                                    ))}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="ftl-cols">
+                                <div className="ftl-col">
+                                  <p className="ftl-line">
+                                    <strong>Skills:</strong>{' '}
+                                    {skills.length > 0 ? skills.map((s: Category) => s.name).join(', ') : 'Not specified'}
+                                  </p>
+                                  <p className="ftl-line">
+                                    <strong>Experience:</strong> {experience || 'Not specified'}
+                                  </p>
+                                </div>
+                                <div className="ftl-col">
+                                  <p className="ftl-line">
+                                    <strong>Profile Views:</strong>{' '}
+                                    {typeof profileViews === 'number' ? profileViews : 0}
+                                  </p>
+                                  <p className="ftl-line">
+                                    <strong>Description:</strong>{' '}
+                                    {description ? truncateDescription(description, 120) : 'Not specified'}
+                                  </p>
+                                  <p className="ftl-line">
+                                    <strong>Resume:</strong>{' '}
+                                    {(talent as any).resume ? (
+                                      <a
+                                        href={(talent as any).resume.startsWith('http')
+                                          ? (talent as any).resume
+                                          : `https://jobforge.net/backend${(talent as any).resume}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      >
+                                        Download Resume
+                                      </a>
+                                    ) : 'Not provided'}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="ftl-foot">
+                                <div className="ftl-spacer" />
+                                <Link to={`/public-profile/${talent.id}`}>
+                                  <button className="ftl-btn ftl-outline">View Profile</button>
+                                </Link>
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <p className="ftl-empty">No talents found.</p>
+                    )}
+                  </div>
+
+                  {/* Pagination */}
+                  {total > 0 && (
+                    <div className="ftl-pagination" role="navigation" aria-label="Pagination">
+                      {getVisiblePages().map((page, index) => (
+                        <button
+                          key={index}
+                          className={`ftl-page ${page === filters.page ? 'is-current' : ''} ${page === '…' ? 'is-ellipsis' : ''}`}
+                          onClick={() => typeof page === 'number' && handlePageChange(page)}
+                          disabled={page === '…' || page === filters.page}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                      <button
+                        className="ftl-page ftl-next"
+                        onClick={() => handlePageChange(filters.page + 1)}
+                        disabled={filters.page === totalPages}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
           </div>
         </div>
       </div>
+
       <Footer />
       <Copyright />
     </div>

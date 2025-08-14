@@ -12,7 +12,8 @@ import MyJobPosts from './pages/MyJobPosts';
 import MyApplications from './pages/MyApplications';
 import AdminDashboard from './pages/AdminDashboard';
 import ModeratorDashboard from './pages/ModeratorDashboard';
-import Feedback from './pages/Feedback';
+import ReportIssue from './pages/ReportIssue';
+import ShareStory from './pages/ShareStory';
 import ResetPassword from './pages/ResetPassword';
 import ConfirmResetPassword from './pages/ConfirmResetPassword';
 import HowItWorksJobseekerFAQ from './pages/HowItWorksJobseekerFAQ';
@@ -26,18 +27,16 @@ import TermsOfService from './pages/TermsOfService';
 import UserReviews from './pages/UserReviews';
 import VACategories from './pages/VACategories';
 import ProfileTips from './pages/ProfileTips';
-import SkillTests from './pages/SkillTests';
+import SkillTest from './pages/SkillTest';
 import SuccessStories from './pages/SuccessStories';
 import AboutUs from './pages/AboutUs';
 import Careers from './pages/Careers';
 import Blog from './pages/Blog';
-import Contact from './pages/Contact';
 import Messages from './pages/Messages';
 import VerifyEmail from './pages/VerifyEmail';
 import Complaint from './pages/Complaint';
 import ForgotPassword from './pages/ForgotPassword';
 import CheckEmail from './pages/CheckEmail';
-import Support from './pages/Support';
 import Clientstories from './pages/ClientStories';
 import AuthCallback from './pages/AuthCallback';
 import EmailNotifications from './pages/EmailNotifications';
@@ -62,13 +61,15 @@ const App: React.FC = () => {
           <Route path="/role-selection" element={<RoleSelection />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/contact-support" element={<ContactSupport />} />
+           <Route path="/report-issue" element={<ReportIssue />} />
+           <Route path="/share-story" element={<ShareStory />} />
 <Route path="/employer-dashboard" element={<EmployerDashboard />}>
   <Route index element={<EmployerOverview />} />
   <Route path="profile" element={<ProfilePage />} />
   <Route path="my-job-posts" element={<MyJobPosts />} />
   <Route path="post-job" element={<PostJob />} />
   <Route path="messages" element={<Messages />} />
-  <Route path="contact" element={<Contact />} />
+  <Route path="report-issue" element={<ReportIssue />} />
 </Route>
 
 <Route path="/jobseeker-dashboard" element={<JobseekerDashboard />}>
@@ -76,10 +77,10 @@ const App: React.FC = () => {
   <Route path="profile" element={<ProfilePage />} />
   <Route path="my-applications" element={<MyApplications />} />
   <Route path="messages" element={<Messages />} />
-  <Route path="contact" element={<Contact />} />
+  <Route path="report-issue" element={<ReportIssue />} />
 </Route>
 
-          <Route path="/support" element={<Support />} />
+         
           <Route path="/admin/email-notifications" element={<EmailNotifications />} />
           <Route path="/public-profile/:id" element={<PublicProfile />} />
           <Route path="/check-email" element={<CheckEmail />} />
@@ -88,7 +89,6 @@ const App: React.FC = () => {
           <Route path="/my-applications" element={<MyApplications />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/moderator" element={<ModeratorDashboard />} />
-          <Route path="/feedback" element={<Feedback />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/reset-password/confirm" element={<ConfirmResetPassword />} />
           <Route path="/how-it-works/jobseeker-faq" element={<HowItWorksJobseekerFAQ />} />
@@ -103,12 +103,11 @@ const App: React.FC = () => {
           <Route path="/reviews/:id" element={<UserReviews />} />
           <Route path="/va-categories" element={<VACategories />} />
           <Route path="/profile-tips" element={<ProfileTips />} />
-          <Route path="/skill-tests" element={<SkillTests />} />
+          <Route path="/skill-test" element={<SkillTest />} />
           <Route path="/success-stories" element={<SuccessStories />} />
           <Route path="/about-us" element={<AboutUs />} />
           <Route path="/careers" element={<Careers />} />
           <Route path="/blog" element={<Blog />} />
-          <Route path="/contact" element={<Contact />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/complaint" element={<Complaint />} />

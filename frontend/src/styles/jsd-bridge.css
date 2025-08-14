@@ -318,3 +318,7 @@
   text-align: center;
   pointer-events: none;
 }
+
+
+.jsd-content .jf2-copy, .jsd-content .copyright, .jsd-content footer { display:none!important; }
+/* и т.д. */

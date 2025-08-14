@@ -10,11 +10,16 @@ import { useRole } from '../context/RoleContext';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import Loader from '../components/Loader';
+import {
+  FaBriefcase, FaMapMarkerAlt, FaMoneyBillWave, FaListUl,
+  FaBolt, FaRedo, FaSearch, FaTimes, FaLightbulb
+} from 'react-icons/fa';
+import '../styles/post-job.css';
 
 const PostJob: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const embedded = location.pathname.startsWith('/employer-dashboard'); // ← внутри дашборда?
+  const embedded = location.pathname.startsWith('/employer-dashboard');
   const { profile } = useRole();
 
   const [title, setTitle] = useState('');
@@ -24,7 +29,7 @@ const PostJob: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [salaryType, setSalaryType] = useState<SalaryType>('per hour');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [locationMode, setLocationMode] = useState(''); // Work Mode
+  const [locationMode, setLocationMode] = useState('');
   const [jobType, setJobType] = useState<JobPost['job_type'] | undefined>(undefined);
   const [aiBrief, setAiBrief] = useState('');
   const [isEdited, setIsEdited] = useState(false);
@@ -40,34 +45,33 @@ const PostJob: React.FC = () => {
   const [countryInput, setCountryInput] = useState('');
   const [filteredCountries, setFilteredCountries] = useState<string[]>([]);
 
- const allCountries = [ // From tool result, hardcoded
-  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria",
-  "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan",
-  "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia",
-  "Cameroon", "Canada", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo, Democratic Republic of the", "Congo, Republic of the",
-  "Costa Rica", "Cote d'Ivoire", "Croatia", "Cuba", "Cyprus", "Czechia", "Denmark", "Djibouti", "Dominica", "Dominican Republic",
-  "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland",
-  "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea",
-  "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq",
-  "Ireland", "Israel", "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Kosovo",
-  "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania",
-  "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius",
-  "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia",
-  "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia", "Norway",
-  "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland",
-  "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino",
-  "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands",
-  "Somalia", "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland",
-  "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia",
-  "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States of America", "Uruguay", "Uzbekistan",
-  "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
-]; // Sorted list from tool
+  const allCountries = [
+    "Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria",
+    "Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan",
+    "Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cabo Verde","Cambodia",
+    "Cameroon","Canada","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo, Democratic Republic of the","Congo, Republic of the",
+    "Costa Rica","Cote d'Ivoire","Croatia","Cuba","Cyprus","Czechia","Denmark","Djibouti","Dominica","Dominican Republic",
+    "Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Fiji","Finland",
+    "France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea",
+    "Guinea-Bissau","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq",
+    "Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Kosovo",
+    "Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania",
+    "Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania","Mauritius",
+    "Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia",
+    "Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia","Norway",
+    "Oman","Pakistan","Palau","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland",
+    "Portugal","Qatar","Romania","Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino",
+    "Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands",
+    "Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland",
+    "Syria","Taiwan","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tonga","Trinidad and Tobago","Tunisia",
+    "Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States of America","Uruguay","Uzbekistan",
+    "Vanuatu","Vatican City","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"
+  ];
 
   useEffect(() => {
     if (countryInput.trim()) {
-      const filtered = allCountries.filter(
-        (c) => c.toLowerCase().includes(countryInput.toLowerCase()) && !excludedCountries.includes(c)
-      );
+      const filtered = allCountries
+        .filter((c) => c.toLowerCase().includes(countryInput.toLowerCase()) && !excludedCountries.includes(c));
       setFilteredCountries(filtered);
     } else {
       setFilteredCountries([]);
@@ -132,9 +136,7 @@ const PostJob: React.FC = () => {
         const data = await getCategories();
         const sortCats = (cats: Category[]): Category[] => {
           const sorted = cats.sort((a, b) => a.name.localeCompare(b.name));
-          sorted.forEach((c) => {
-            if (c.subcategories) c.subcategories = sortCats(c.subcategories);
-          });
+          sorted.forEach((c) => { if (c.subcategories) c.subcategories = sortCats(c.subcategories); });
           return sorted;
         };
         setCategories(sortCats(data));
@@ -230,14 +232,13 @@ const PostJob: React.FC = () => {
     return (
       <div>
         {!embedded && <Header />}
-        <div className="container">
-          <h2>Post a Job</h2>
-          <Loader />
+        <div className="pjx-shell">
+          <div className="pjx-card">
+            <h1 className="pjx-title"><FaBriefcase /> Post a Job</h1>
+            <Loader />
+          </div>
         </div>
-        {!embedded && <>
-          <Footer />
-          <Copyright />
-        </>}
+        {!embedded && (<><Footer /><Copyright /></>)}
       </div>
     );
   }
@@ -246,14 +247,13 @@ const PostJob: React.FC = () => {
     return (
       <div>
         {!embedded && <Header />}
-        <div className="container">
-          <h2>Post a Job</h2>
-          <p>This page is only available for Employers.</p>
+        <div className="pjx-shell">
+          <div className="pjx-card">
+            <h1 className="pjx-title"><FaBriefcase /> Post a Job</h1>
+            <p className="pjx-subtitle">This page is only available for Employers.</p>
+          </div>
         </div>
-        {!embedded && <>
-          <Footer />
-          <Copyright />
-        </>}
+        {!embedded && (<><Footer /><Copyright /></>)}
       </div>
     );
   }
@@ -262,245 +262,281 @@ const PostJob: React.FC = () => {
     <div>
       {!embedded && <Header />}
 
-      <div className="container">
-        <div className="post-job-container">
-          <h1 style={{ textAlign: 'left', textTransform: 'uppercase' }}>POST A JOB</h1>
+      <div className="pjx-shell">
+        <div className="pjx-header">
+          <h1 className="pjx-title"><FaBriefcase /> Post a Job</h1>
+          <p className="pjx-subtitle">Create a great listing — or let AI draft the description for you.</p>
+        </div>
 
-          <div className="post-job-form">
-            <form onSubmit={handleSubmit}>
-              <div className="form-columns">
-                <div className="form-column left-column">
-                  <div className="form-group">
-                    <label>Job Title *</label>
-                    <input
-                      type="text"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Enter job title"
-                      required
-                    />
-                  </div>
+        {error && <div className="cs-alert cs-err">{error}</div>}
 
-                 <div className="form-group">
-  <label>Location Exclusions</label>
-
-  {/* ВАЖНО: оборачиваем инпут + список в .autocomplete-wrapper */}
-  <div className="autocomplete-wrapper">
-    <input
-      type="text"
-      value={countryInput}
-      onChange={(e) => setCountryInput(e.target.value)}
-      placeholder="Search countries to exclude..."
-    />
-
-    {filteredCountries.length > 0 && (
-      <ul className="autocomplete-dropdown pj-country-dropdown">
-        {filteredCountries.map((country) => (
-          <li
-            key={country}
-            className="autocomplete-item"
-            onMouseDown={() => addCountry(country)}
-          >
-            {country}
-          </li>
-        ))}
-      </ul>
-    )}
-  </div>
-
-  <div className="category-tags">
-    {excludedCountries.map((country) => (
-      <span key={country} className="category-tag">
-        {country}
-        <span className="remove-tag" onClick={() => removeCountry(country)}>×</span>
-      </span>
-    ))}
-  </div>
-</div>
-
-
-                  <div className="form-group">
-                    <label>Work Mode</label>
-                    <select value={locationMode} onChange={(e) => setLocationMode(e.target.value)}>
-                      <option value="">Work mode</option>
-                      <option value="Remote">Remote</option>
-                      <option value="On-site">On-site</option>
-                      <option value="Hybrid">Hybrid</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Salary</label>
-                    <div className="salary-group">
-                      <input
-                        type="number"
-                        value={salaryType === 'negotiable' ? '' : salary ?? ''}
-                        onChange={(e) => setSalary(e.target.value ? Number(e.target.value) : null)}
-                        placeholder={salaryType === 'negotiable' ? 'Negotiable' : 'Enter salary'}
-                        min="0"
-                        disabled={salaryType === 'negotiable'}
-                      />
-                      <select
-                        value={salaryType}
-                        onChange={(e) => setSalaryType(e.target.value as SalaryType)}
-                      >
-                        <option value="per hour">per hour</option>
-                        <option value="per month">per month</option>
-                        <option value="negotiable">negotiable</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Job Type</label>
-                    <select
-                      value={jobType || ''}
-                      onChange={(e) => {
-                        const v = e.target.value as 'Full-time' | 'Part-time' | 'Project-based' | '';
-                        setJobType(v === '' ? undefined : v);
-                      }}
-                    >
-                      <option value="">Select job type</option>
-                      <option value="Full-time">Full-time</option>
-                      <option value="Part-time">Part-time</option>
-                      <option value="Project-based">Project-based</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Category</label>
-                    <div className="autocomplete-wrapper">
-                      <input
-                        type="text"
-                        value={skillInput}
-                        onChange={(e) => setSkillInput(e.target.value)}
-                        placeholder="Start typing to search skills..."
-                        className="category-select"
-                        onFocus={() => setIsDropdownOpen(true)}
-                        onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                      />
-                      {isDropdownOpen && (
-                        <ul className="autocomplete-dropdown">
-                          {(skillInput.trim() ? filteredSkills : categories).map((category) => (
-                            <React.Fragment key={category.id}>
-                              <li
-                                className="autocomplete-item"
-                                onMouseDown={() => {
-                                  setCategoryId(category.id);
-                                  setSkillInput(category.name);
-                                  setIsDropdownOpen(false);
-                                }}
-                              >
-                                {category.name}
-                              </li>
-                              {category.subcategories?.map((sub) => (
-                                <li
-                                  key={sub.id}
-                                  className="autocomplete-item sub-category"
-                                  onMouseDown={() => {
-                                    setCategoryId(sub.id);
-                                    setSkillInput(`${category.name} > ${sub.name}`);
-                                    setIsDropdownOpen(false);
-                                  }}
-                                >
-                                  {`${category.name} > ${sub.name}`}
-                                </li>
-                              ))}
-                            </React.Fragment>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-
-                    <div className="category-tags">
-                      {categoryId && (() => {
-                        const skill =
-                          findCategoryById(categoryId, categories) ||
-                          findCategoryById(categoryId, filteredSkills);
-                        const parent = skill?.parent_id
-                          ? findCategoryById(skill.parent_id, categories)
-                          : undefined;
-                        const label = skill
-                          ? (skill.parent_id && parent ? `${parent.name} > ${skill.name}` : skill.name)
-                          : 'Unknown Category';
-                        return (
-                          <span className="category-tag">
-                            {label}
-                            <span className="remove-tag" onClick={() => setCategoryId('')}>×</span>
-                          </span>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Brief Description for AI (will generate full description) *</label>
-                    <textarea
-                      value={aiBrief}
-                      onChange={(e) => setAiBrief(e.target.value)}
-                      placeholder="Briefly describe the job and requirements..."
-                      rows={4}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleGenerate()}
-                      style={{ marginTop: '10px' }}
-                      disabled={isSubmitting || isGenerating}
-                    >
-                      {isGenerating ? 'Generating…' : 'Generate Description'}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="form-column right-column">
-                  <div className="description-editor">
-                    <h3>Job Description (editable)</h3>
-                    {isGenerating ? (
-                      <Loader />
-                    ) : (
-                      <ReactQuill
-                        ref={quillRef}
-                        value={description || ''}
-                        onChange={(value, _delta, source) => {
-                          if (source === 'user') {
-                            setDescription(value);
-                            if (!isEdited) setIsEdited(true);
-                          }
-                        }}
-                        modules={{ toolbar: false }}
-                        formats={['header', 'bold', 'list', 'bullet']}
-                        placeholder="Generated description will appear here"
-                        style={{ height: '380px', marginBottom: '10px' }}
-                      />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleGenerate(true)}
-                      style={{ marginTop: '50px' }}
-                      disabled={isGenerating}
-                    >
-                      Regenerate
-                    </button>
-                  </div>
-                </div>
+        <form onSubmit={handleSubmit} className="pjx-form" noValidate>
+          <div className="pjx-grid">
+            {/* LEFT */}
+            <div className="pjx-card">
+              <div className="pjx-row">
+                <label className="pjx-label"><FaBriefcase /> Job Title *</label>
+                <input
+                  className="pjx-input"
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g., Senior Virtual Assistant (E-commerce, Amazon)"
+                  required
+                />
+                <div className="pjx-hint"><FaLightbulb /> Keep it short and searchable: Role — focus area/tools.</div>
               </div>
 
-              {error && <p className="error-message">{error}</p>}
+              <div className="pjx-row">
+                <label className="pjx-label"><FaMapMarkerAlt /> Location Exclusions</label>
+                <div className="pjx-auto">
+                  <FaSearch className="pjx-auto-icon" />
+                  <input
+                    className="pjx-input pjx-auto-input"
+                    type="text"
+                    value={countryInput}
+                    onChange={(e) => setCountryInput(e.target.value)}
+                    placeholder="Search countries to exclude…"
+                  />
+                  {filteredCountries.length > 0 && (
+                    <ul className="pjx-dropdown">
+                      {filteredCountries.map((country) => (
+                        <li
+                          key={country}
+                          className="pjx-item"
+                          onMouseDown={() => addCountry(country)}
+                        >
+                          {country}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div className="pjx-hint">Add locations you <b>don’t</b> want to receive applications from.</div>
 
-              <div style={{ textAlign: 'center', marginTop: '60px' }}>
-                <button type="submit" style={{ padding: '12px 32px', fontSize: '16px' }} disabled={isSubmitting}>
-                  {isSubmitting ? 'Posting…' : 'Post Job'}
+                {excludedCountries.length > 0 && (
+                  <div className="pjx-chips">
+                    {excludedCountries.map((country) => (
+                      <span key={country} className="pjx-chip">
+                        {country}
+                        <button
+                          type="button"
+                          className="pjx-chip-x"
+                          onClick={() => removeCountry(country)}
+                          aria-label={`Remove ${country}`}
+                        >
+                          <FaTimes />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="pjx-row">
+                <label className="pjx-label"><FaMapMarkerAlt /> Work Mode</label>
+                <select
+                  className="pjx-select"
+                  value={locationMode}
+                  onChange={(e) => setLocationMode(e.target.value)}
+                >
+                  <option value="">Work mode</option>
+                  <option value="Remote">Remote</option>
+                  <option value="On-site">On-site</option>
+                  <option value="Hybrid">Hybrid</option>
+                </select>
+                <div className="pjx-hint">This appears on the job card and affects search filters.</div>
+              </div>
+
+              <div className="pjx-row">
+                <label className="pjx-label"><FaMoneyBillWave /> Salary</label>
+                <div className="pjx-salary">
+                  <input
+                    className="pjx-input"
+                    type="number"
+                    value={salaryType === 'negotiable' ? '' : salary ?? ''}
+                    onChange={(e) => setSalary(e.target.value ? Number(e.target.value) : null)}
+                    placeholder={salaryType === 'negotiable' ? 'Negotiable' : 'Enter amount'}
+                    min={0}
+                    disabled={salaryType === 'negotiable'}
+                  />
+                  <select
+                    className="pjx-select"
+                    value={salaryType}
+                    onChange={(e) => setSalaryType(e.target.value as SalaryType)}
+                  >
+                    <option value="per hour">per hour</option>
+                    <option value="per month">per month</option>
+                    <option value="negotiable">negotiable</option>
+                  </select>
+                </div>
+                <div className="pjx-hint">Choose a unit. Select “negotiable” to hide the exact amount.</div>
+              </div>
+
+              <div className="pjx-row">
+                <label className="pjx-label"><FaListUl /> Job Type</label>
+                <select
+                  className="pjx-select"
+                  value={jobType || ''}
+                  onChange={(e) => {
+                    const v = e.target.value as 'Full-time' | 'Part-time' | 'Project-based' | '';
+                    setJobType(v === '' ? undefined : v);
+                  }}
+                >
+                  <option value="">Select job type</option>
+                  <option value="Full-time">Full-time</option>
+                  <option value="Part-time">Part-time</option>
+                  <option value="Project-based">Project-based</option>
+                </select>
+                <div className="pjx-hint">How the role is contracted — affects candidate expectations.</div>
+              </div>
+
+              <div className="pjx-row">
+                <label className="pjx-label"><FaListUl /> Category</label>
+                <div className="pjx-auto">
+                  <FaSearch className="pjx-auto-icon" />
+                  <input
+                    className="pjx-input pjx-auto-input"
+                    type="text"
+                    value={skillInput}
+                    onChange={(e) => setSkillInput(e.target.value)}
+                    placeholder="Start typing to search categories…"
+                    onFocus={() => setIsDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                  />
+                  {isDropdownOpen && (
+                    <ul className="pjx-dropdown">
+                      {(skillInput.trim() ? filteredSkills : categories).map((category) => (
+                        <React.Fragment key={category.id}>
+                          <li
+                            className="pjx-item"
+                            onMouseDown={() => {
+                              setCategoryId(category.id);
+                              setSkillInput(category.name);
+                              setIsDropdownOpen(false);
+                            }}
+                          >
+                            {category.name}
+                          </li>
+                          {category.subcategories?.map((sub) => (
+                            <li
+                              key={sub.id}
+                              className="pjx-item pjx-sub"
+                              onMouseDown={() => {
+                                setCategoryId(sub.id);
+                                setSkillInput(`${category.name} > ${sub.name}`);
+                                setIsDropdownOpen(false);
+                              }}
+                            >
+                              {`${category.name} > ${sub.name}`}
+                            </li>
+                          ))}
+                        </React.Fragment>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div className="pjx-hint">Pick the closest match so candidates can find your post faster.</div>
+
+                {categoryId && (() => {
+                  const skill =
+                    findCategoryById(categoryId, categories) ||
+                    findCategoryById(categoryId, filteredSkills);
+                  const parent = skill?.parent_id
+                    ? findCategoryById(skill.parent_id, categories)
+                    : undefined;
+                  const label = skill
+                    ? (skill.parent_id && parent ? `${parent.name} > ${skill.name}` : skill.name)
+                    : 'Unknown Category';
+                  return (
+                    <div className="pjx-chips">
+                      <span className="pjx-chip">
+                        {label}
+                        <button
+                          type="button"
+                          className="pjx-chip-x"
+                          onClick={() => setCategoryId('')}
+                          aria-label="Remove category"
+                        >
+                          <FaTimes />
+                        </button>
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div className="pjx-row">
+                <label className="pjx-label"><FaBolt /> Brief Description for AI *</label>
+                <textarea
+                  className="pjx-textarea"
+                  value={aiBrief}
+                  onChange={(e) => setAiBrief(e.target.value)}
+                  placeholder="1–3 sentences: responsibilities, must-have skills, tools, seniority…"
+                  rows={4}
+                />
+                <div className="pjx-hint">
+                  Example: “Handle Amazon listings, keyword research, PPC optimization, weekly reporting. Excel/Sheets required.”
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleGenerate()}
+                  className="cs-button pjx-inline-btn"
+                  disabled={isSubmitting || isGenerating}
+                >
+                  {isGenerating ? 'Generating…' : <>Generate Description</>}
                 </button>
               </div>
-            </form>
+            </div>
+
+            {/* RIGHT */}
+            <div className="pjx-card">
+              <div className="pjx-row">
+                <label className="pjx-label">Job Description (editable)</label>
+                <div className="pjx-hint">
+                  You can edit the generated text below or click <b>Regenerate</b> to try a different wording.
+                </div>
+                {isGenerating ? (
+                  <Loader />
+                ) : (
+                  <div className="pjx-quill-wrap">
+                    <ReactQuill
+                      ref={quillRef}
+                      value={description || ''}
+                      onChange={(value, _delta, source) => {
+                        if (source === 'user') {
+                          setDescription(value);
+                          if (!isEdited) setIsEdited(true);
+                        }
+                      }}
+                      modules={{ toolbar: false }}
+                      formats={['header', 'bold', 'list', 'bullet']}
+                      placeholder="Generated description will appear here"
+                    />
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleGenerate(true)}
+                  className="cs-button pjx-inline-btn"
+                  disabled={isGenerating}
+                  title="Regenerate with AI"
+                >
+                  <FaRedo style={{ marginRight: 8 }} /> Regenerate
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+
+          <div className="pjx-actions">
+            <button type="submit" className="cs-button" disabled={isSubmitting}>
+              {isSubmitting ? 'Posting…' : 'Post Job'}
+            </button>
+          </div>
+        </form>
       </div>
 
-      {!embedded && <>
-        <Footer />
-        <Copyright />
-      </>}
+      {!embedded && (<><Footer /><Copyright /></>)}
     </div>
   );
 };
