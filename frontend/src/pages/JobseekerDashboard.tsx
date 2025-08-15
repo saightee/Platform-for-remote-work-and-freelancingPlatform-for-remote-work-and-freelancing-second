@@ -180,11 +180,11 @@ const handleLogout = async () => {
 
 
           <NavLink
-            to="/jobseeker-dashboard/contact"
+            to="/jobseeker-dashboard/report-issue"
             className={({ isActive }) => `jsd-nav__link ${isActive ? 'active' : ''}`}
           >
             <FaEnvelopeOpenText className="jsd-nav__ico" />
-            <span className="jsd-nav__text">Contact</span>
+            <span className="jsd-nav__text">Report tech issue</span>
           </NavLink>
         </nav>
       </aside>

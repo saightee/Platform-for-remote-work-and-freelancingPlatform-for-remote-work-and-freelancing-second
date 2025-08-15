@@ -462,3 +462,19 @@
   text-align: center;
   pointer-events: none;
 }
+
+/* Спрятать Copyright, который рендерится внутри вложенных страниц дашборда */
+.edb-embed .jf2-copy {
+  display: none !important;
+}
+
+/* На всякий: старые варианты классов */
+.edb-embed .copyright,
+.edb-embed .crp-wrap {
+  display: none !important;
+}
+
+/* Если когда-нибудь дублируется и футер новой версии */
+.edb-embed .jf2-footer {
+  display: none !important;
+}

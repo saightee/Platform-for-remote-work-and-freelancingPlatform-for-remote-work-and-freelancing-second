@@ -125,9 +125,9 @@ useEffect(() => {
   )}
 </NavLink>
 
-          <NavLink to="/employer-dashboard/contact" className={({ isActive }) => `edb-nav__link ${isActive ? 'active' : ''}`}>
+          <NavLink to="/employer-dashboard/report-issue" className={({ isActive }) => `edb-nav__link ${isActive ? 'active' : ''}`}>
             <FaEnvelopeOpenText aria-hidden className="edb-nav__ico" />
-            <span className="edb-nav__text">Contact</span>
+            <span className="edb-nav__text">Report tech Issue</span>
           </NavLink>
         </nav>
       </aside>

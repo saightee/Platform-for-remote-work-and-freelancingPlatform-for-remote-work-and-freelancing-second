@@ -1,0 +1,188 @@
+:root {
+  --cs-accent: #4e74c8;
+  --cs-bg: #f6f8ff;
+  --cs-white: #fff;
+  --cs-text: #1b1f2a;
+  --cs-muted: #6b7280;
+  --cs-shadow: 0 10px 30px rgba(18, 33, 73, 0.12);
+  --cs-shadow-sm: 0 6px 18px rgba(18, 33, 73, 0.1);
+  --cs-radius: 10px;
+}
+
+/* shell */
+.mjp-shell {
+  max-width: 1120px;
+  margin: 32px auto 56px;
+  padding: 0 16px;
+}
+.mjp-header { margin-bottom: 12px; }
+
+.mjp-title {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 0 6px;
+  font-size: 28px; font-weight: 800; color: var(--cs-text);
+  letter-spacing: .2px;
+}
+.mjp-subtitle { margin: 0 0 18px; color: var(--cs-muted); font-size: 15px; }
+
+/* cards & grid */
+.mjp-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+.mjp-card {
+  background: var(--cs-white);
+  border-radius: var(--cs-radius);
+  box-shadow: var(--cs-shadow);
+  padding: 24px;
+}
+
+/* alerts */
+.mjp-alert {
+  border-radius: 10px; padding: 12px 14px; margin: 12px 0 18px; font-size: 14px;
+  box-shadow: var(--cs-shadow-sm);
+}
+.mjp-err { background: #fdecea; color: #8a231f; }
+
+/* labels/inputs */
+.mjp-form { display: grid; gap: 16px; }
+.mjp-row { display: flex; flex-direction: column; gap: 8px; }
+.mjp-label {
+  font-size: 14px; font-weight: 700; color: var(--cs-text);
+  display: flex; align-items: center; gap: 8px;
+}
+
+.mjp-input, .mjp-select, .mjp-textarea {
+  width: 100%;
+  border: 1px solid #e3e6ef;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 15px;
+  outline: none;
+  transition: box-shadow .15s ease, border-color .15s ease;
+  background: #fff;
+}
+.mjp-input:focus, .mjp-select:focus, .mjp-textarea:focus {
+  border-color: var(--cs-accent);
+  box-shadow: 0 0 0 4px rgba(78,116,200, .12);
+}
+.mjp-textarea { resize: vertical; }
+
+/* quill */
+.mjp-quill-wrap {
+  border: 1px solid #e3e6ef;
+  border-radius: 10px;
+  overflow: hidden;
+  min-height: 220px;
+  background: #fff;
+}
+.mjp-quill-wrap .ql-container { min-height: 220px; font-size: 15px; }
+.mjp-quill-wrap .ql-editor { min-height: 220px; line-height: 1.5; }
+
+/* status pill */
+.mjp-card-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin-bottom: 8px;
+}
+.mjp-card-title { margin: 0; font-size: 20px; font-weight: 800; color: var(--cs-text); }
+.mjp-status {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 700;
+  padding: 6px 10px; border-radius: 999px;
+  background: #eef2ff; color: #334;
+}
+.mjp-status.active { background: #e9f7ef; color: #1c6b3c; }
+.mjp-status.closed { background: #fff2f2; color: #9b1c1c; }
+
+/* description */
+.mjp-desc { color: #242a35; line-height: 1.6; margin: 8px 0 12px; }
+.mjp-desc p { margin: 0 0 10px; }
+
+/* salary inline */
+.mjp-salary { display: grid; gap: 10px; grid-template-columns: 1fr 180px; }
+
+/* actions */
+.mjp-actions {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-top: 10px;
+}
+.mjp-actions-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+
+/* buttons */
+.mjp-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--cs-accent); color: #fff; border: none;
+  border-radius: 10px; padding: 10px 14px; font-weight: 700; letter-spacing: .2px;
+  cursor: pointer; box-shadow: var(--cs-shadow-sm);
+  transition: transform .05s ease, box-shadow .15s ease, opacity .15s ease;
+}
+.mjp-btn:hover { transform: translateY(-1px); box-shadow: var(--cs-shadow); }
+.mjp-btn.mjp-primary { background: var(--cs-accent); }
+.mjp-btn.mjp-success { background: #2ea36a; }
+.mjp-btn.mjp-warning { background: #e0a100; }
+.mjp-btn.mjp-danger { background: #d9534f; }
+.mjp-btn.mjp-sm { padding: 8px 12px; font-size: 13px; }
+
+/* table */
+.mjp-section-title {
+  margin: 6px 0 10px; font-size: 16px; font-weight: 800; color: var(--cs-text);
+  display: flex; align-items: center; gap: 8px;
+}
+.mjp-table-wrap { width: 100%; overflow: auto; border-radius: 10px; border: 1px solid #e3e6ef; }
+.mjp-table { width: 100%; border-collapse: collapse; background: #fff; }
+.mjp-table th, .mjp-table td { padding: 12px 14px; font-size: 14px; text-align: left; }
+.mjp-table thead th { background: #f6f8ff; color: #333; font-weight: 800; }
+.mjp-table tbody tr + tr { border-top: 1px solid #eef0f6; }
+.mjp-table-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* autocomplete */
+.mjp-auto { position: relative; }
+.mjp-auto-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--cs-muted); pointer-events: none;
+}
+.mjp-auto-input { padding-left: 38px; }
+
+.mjp-dropdown {
+  position: absolute; z-index: 10; top: calc(100% + 6px); left: 0; right: 0;
+  background: #fff; border: 1px solid #e3e6ef; border-radius: 10px;
+  box-shadow: var(--cs-shadow-sm); max-height: 280px; overflow: auto;
+}
+.mjp-item { padding: 10px 12px; cursor: pointer; font-size: 14px; }
+.mjp-item:hover { background: #f9fbff; }
+.mjp-sub { padding-left: 24px; color: #445; }
+
+/* stars */
+.mjp-stars { display: inline-flex; gap: 6px; font-size: 20px; cursor: pointer; }
+.mjp-star { color: #cbd5e1; }
+.mjp-star.filled { color: #f59e0b; }
+
+/* modal */
+.mjp-modal {
+  position: fixed; inset: 0; background: rgba(17,24,39,.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; z-index: 1000;
+}
+.mjp-modal-content {
+  position: relative;
+  background: #fff; border-radius: 12px; box-shadow: var(--cs-shadow);
+  width: min(720px, 96vw); padding: 20px 22px;
+}
+.mjp-modal-title { margin: 0 0 8px; font-size: 18px; font-weight: 800; color: var(--cs-text); display:flex; align-items:center; gap:8px; }
+.mjp-modal-body { color: #1f2937; font-size: 15px; }
+.mjp-modal-close {
+  position: absolute; right: 10px; top: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 999px; border: none;
+  background: #eef2ff; color: #333; cursor: pointer;
+}
+.mjp-modal-close:hover { background: #e2e8ff; }
+
+/* responsive */
+@media (max-width: 720px) {
+  .mjp-salary { grid-template-columns: 1fr; }
+  .mjp-card { padding: 18px; }
+  .mjp-title { font-size: 22px; }
+  .mjp-table th, .mjp-table td { padding: 10px 12px; font-size: 13px; }
+}

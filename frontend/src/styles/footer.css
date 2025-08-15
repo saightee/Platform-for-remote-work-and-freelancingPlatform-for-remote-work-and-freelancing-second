@@ -1,0 +1,109 @@
+:root{
+  --jf2-bg:#2c3e50;
+  --jf2-text:#e8edf3;
+  --jf2-muted:#b7c4d1;
+  --jf2-line:rgba(255,255,255,.12);
+  --jf2-link:#f0f5ff;
+  --jf2-link-hover:#ffffff;
+}
+
+/* ---------- FOOTER ---------- */
+.jf2-footer{ background:var(--jf2-bg); color:var(--jf2-text); padding:36px 0 18px; }
+.jf2-inner{ max-width:1200px; margin:0 auto; padding:0 16px; }
+
+/* 5 колонок на десктопе */
+.jf2-grid{ display:grid; gap:28px; align-items:flex-start; }
+.jf2-grid--5{
+  grid-template-columns: 1.8fr 1fr 1fr 1fr 1fr; /* бренд шире */
+}
+
+.jf2-col{ min-width:0; }
+
+/* бренд-колонка: больше правый отступ, чтобы выделить блок */
+.jf2-col--brand{
+  padding-right:48px;
+  border-right:1px solid var(--jf2-line);
+}
+.jf2-logo{ font-size:22px; font-weight:800; letter-spacing:.4px; margin-bottom:8px; color:#fff; }
+.jf2-desc{ margin:0; color:var(--jf2-muted); line-height:1.7; font-size:14px; }
+
+/* заголовки секций */
+.jf2-title{
+  width:100%; background:transparent; border:none; color:#fff;
+  padding:6px 0 8px; margin:0 0 6px;
+  display:flex; align-items:center; gap:10px; justify-content:center;
+  font-size:15px; font-weight:800; letter-spacing:.2px; cursor:pointer;
+}
+.jf2-title-text{ pointer-events:none; }
+.jf2-chevron{ display:none; } /* на десктопе не показываем */
+
+/* списки ссылок */
+.jf2-links{ display:block; }
+.jf2-links a{
+  display:block; padding:8px 0;
+  color:var(--jf2-muted); text-decoration:none; font-size:14px;
+  opacity:.95; transition:color .15s ease, transform .05s ease, opacity .15s ease;
+}
+.jf2-links a:hover{ color:var(--jf2-link-hover); opacity:1; transform:translateX(2px); }
+
+/* ---------- COPYRIGHT ---------- */
+.jf2-copy{
+  background:var(--jf2-bg);
+  border-top:1px solid var(--jf2-line);
+  color:var(--jf2-muted);
+  padding:14px 0 22px;
+}
+.jf2-copy__inner{
+  max-width:1200px; margin:0 auto; padding:0 16px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+}
+.jf2-copy__text{ margin:0; font-size:13px; letter-spacing:.2px; }
+.jf2-copy__links{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.jf2-copy__links a{ color:var(--jf2-link); text-decoration:none; font-size:13px; }
+.jf2-copy__links a:hover{ color:#fff; }
+.jf2-copy__dot{ opacity:.7; }
+
+/* ---------- DESKTOP BEHAVIOR ---------- */
+@media (min-width: 769px){
+  .jf2-chevron{ display:none !important; }
+  .jf2-title{ cursor:default; }
+  .jf2-links{ display:block !important; }
+}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 1024px){
+  .jf2-grid--5{ grid-template-columns: 1.4fr 1fr 1fr 1fr; }
+  .jf2-col--brand{ grid-column:1/-1; border-right:none; padding-right:0; border-bottom:1px solid var(--jf2-line); padding-bottom:14px; margin-bottom:6px; }
+}
+
+@media (max-width: 768px){
+  .jf2-grid--5{ grid-template-columns: 1fr; gap:18px; }
+  .jf2-col--brand{ border:none; padding-right:0; }
+  .jf2-chevron{ display:inline-grid; place-items:center; margin-left:auto; color:#fff; opacity:.9; }
+  .jf2-title{ cursor:pointer; }
+  .jf2-links{ display:none; border-left:2px solid var(--jf2-line); padding-left:10px; }
+  .jf2-links.is-open{ display:block; }
+}
+
+@media (max-width: 520px){
+  .jf2-copy__inner{ flex-direction:column; align-items:flex-start; }
+}
+
+
+/* Kill hover/focus styles for footer section headers */
+.jf2-footer .jf2-title,
+.jf2-footer .jf2-title:hover,
+.jf2-footer .jf2-title:focus,
+.jf2-footer .jf2-title:active {
+  background: transparent !important;
+  color: #fff !important;
+  transform: none !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+  opacity: 1 !important;
+}
+
+/* На десктопе курсор обычный, клика нет (аккордеон работает только на мобилке) */
+@media (min-width: 769px) {
+  .jf2-footer .jf2-title { cursor: default; }
+}
