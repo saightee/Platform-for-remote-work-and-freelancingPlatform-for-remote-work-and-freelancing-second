@@ -914,17 +914,36 @@ export class AdminService {
     return this.categoriesService.searchCategories(searchTerm);
   }
 
-  async getPlatformFeedback(adminId: string, page: number = 1, limit: number = 10) {
+  async getPlatformFeedback(adminId: string, page = 1, limit = 10) {
     await this.checkAdminRole(adminId);
-    const [feedback, total] = await this.platformFeedbackRepository.findAndCount({
+    const [data, total] = await this.platformFeedbackRepository.findAndCount({
       relations: ['user'],
       skip: (page - 1) * limit,
       take: limit,
       order: { created_at: 'DESC' },
     });
-    return { total, data: feedback };
+    return { total, data };
   }
   
+  async publishPlatformFeedback(adminId: string, feedbackId: string) {
+    await this.checkAdminRole(adminId);
+    const fb = await this.platformFeedbackRepository.findOne({ where: { id: feedbackId } });
+    if (!fb) throw new NotFoundException('Platform feedback not found');
+    if (!fb.allowed_to_publish) {
+      throw new BadRequestException('User did not allow publishing this story');
+    }
+    fb.is_public = true;
+    return this.platformFeedbackRepository.save(fb);
+  }
+  
+  async unpublishPlatformFeedback(adminId: string, feedbackId: string) {
+    await this.checkAdminRole(adminId);
+    const fb = await this.platformFeedbackRepository.findOne({ where: { id: feedbackId } });
+    if (!fb) throw new NotFoundException('Platform feedback not found');
+    fb.is_public = false;
+    return this.platformFeedbackRepository.save(fb);
+  }
+
   async deletePlatformFeedback(adminId: string, feedbackId: string) {
     await this.checkAdminRole(adminId);
     const feedback = await this.platformFeedbackRepository.findOne({ where: { id: feedbackId } });

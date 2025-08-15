@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Query, Body, Headers, UnauthorizedException, UseGuards, BadRequestException, Res } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Patch, Param, Query, Body, Headers, UnauthorizedException, UseGuards, BadRequestException, Res } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
@@ -796,6 +796,24 @@ export class AdminController {
     return this.adminService.getPlatformFeedback(adminId, parsedPage, parsedLimit);
   }
   
+  @Patch('platform-feedback/:id/publish')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async publishPlatformFeedback(@Param('id') id: string, @Headers('authorization') a: string) {
+    if (!a?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
+    const token = a.replace('Bearer ', '');
+    const { sub: adminId } = this.jwtService.verify(token);
+    return this.adminService.publishPlatformFeedback(adminId, id);
+  }
+
+  @Patch('platform-feedback/:id/unpublish')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async unpublishPlatformFeedback(@Param('id') id: string, @Headers('authorization') a: string) {
+    if (!a?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
+    const token = a.replace('Bearer ', '');
+    const { sub: adminId } = this.jwtService.verify(token);
+    return this.adminService.unpublishPlatformFeedback(adminId, id);
+  }
+
   @Delete('platform-feedback/:id')
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   async deletePlatformFeedback(

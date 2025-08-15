@@ -2,6 +2,7 @@ import { Controller, Post, Get, Body, Query, Headers, UseGuards, UnauthorizedExc
 import { PlatformFeedbackService } from './platform-feedback.service';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtService } from '@nestjs/jwt';
+import { SubmitSuccessStoryDto } from './dto/submit-success-story.dto';
 
 @Controller('platform-feedback')
 export class PlatformFeedbackController {
@@ -12,32 +13,21 @@ export class PlatformFeedbackController {
 
   @Post()
   @UseGuards(AuthGuard('jwt'))
-  async createFeedback(
-    @Body() body: { rating: number; description: string },
+  async create(
+    @Body() body: SubmitSuccessStoryDto,
     @Headers('authorization') authHeader: string,
   ) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Invalid token');
-    }
+    if (!authHeader?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
     const token = authHeader.replace('Bearer ', '');
-    const payload = this.jwtService.verify(token);
-    const userId = payload.sub;
-    return this.platformFeedbackService.createFeedback(userId, body.rating, body.description);
+    const { sub: userId } = this.jwtService.verify(token);
+    return this.platformFeedbackService.createSuccessStory(userId, body);
   }
 
   @Get()
-  async getPublicFeedback(
-    @Query('page') page: string = '1',
-    @Query('limit') limit: string = '10',
-  ) {
-    const parsedPage = parseInt(page, 10);
-    const parsedLimit = parseInt(limit, 10);
-    if (isNaN(parsedPage) || parsedPage < 1) {
-      throw new BadRequestException('Page must be a positive integer');
-    }
-    if (isNaN(parsedLimit) || parsedLimit < 1) {
-      throw new BadRequestException('Limit must be a positive integer');
-    }
-    return this.platformFeedbackService.getPublicFeedback(parsedPage, parsedLimit);
+  async publicStories(@Query('page') page = '1', @Query('limit') limit = '10') {
+    const p = parseInt(page, 10), l = parseInt(limit, 10);
+    if (!Number.isFinite(p) || p < 1) throw new BadRequestException('Page must be a positive integer');
+    if (!Number.isFinite(l) || l < 1) throw new BadRequestException('Limit must be a positive integer');
+    return this.platformFeedbackService.getPublicStories(p, l);
   }
 }
