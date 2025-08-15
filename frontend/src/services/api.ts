@@ -18,6 +18,24 @@ interface WebSocketMessage {
   is_read: boolean;
 }
 
+export async function contactSupport(payload: {
+  name: string;
+  email: string;
+  message: string;
+  captchaToken?: string;
+  website?: string; // honeypot
+}) {
+  const res = await fetch('/api/contact', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw { response: { data, status: res.status } };
+  return data;
+}
+
+
 interface WebSocketError {
   statusCode: number;
   message: string;
@@ -74,6 +92,56 @@ export const submitPlatformFeedback = async (rating: number, description: string
   const response = await api.post('/platform-feedback', { rating, description });
   return response.data;
 };
+
+export type IssuePayload = {
+  category: 'Bug' | 'UI' | 'Performance' | 'Data' | 'Other';
+  summary: string;
+  steps_to_reproduce?: string;
+  expected?: string;
+  actual?: string;
+  context?: {
+    url?: string;
+    user_agent?: string;
+    locale?: string;
+    tz?: string;
+  };
+};
+
+export type StoryPayload = {
+  headline: string;
+  story: string;
+  role: 'Employer' | 'Jobseeker';
+  company?: string;
+  country?: string;
+  consent_public: true; // должен быть true
+};
+
+
+// services/api.ts
+export const submitIssueFeedback = async (payload: {
+  category: 'Bug' | 'UI' | 'Performance' | 'Data' | 'Other';
+  summary: string;
+  steps_to_reproduce?: string;
+  expected?: string;
+  actual?: string;
+  context?: Record<string, any>;
+}) => {
+  const res = await api.post('/feedback', payload);
+  return res.data;
+};
+
+export const submitSuccessStory = async (payload: {
+  headline: string;
+  story: string;
+  role: 'Employer' | 'Jobseeker';
+  company?: string;
+  country?: string;
+  consent_public: true;
+}) => {
+  const res = await api.post('/platform-feedback', payload);
+  return res.data;
+};
+
 
 export const initializeWebSocket = (
   onMessage: (message: WebSocketMessage) => void,

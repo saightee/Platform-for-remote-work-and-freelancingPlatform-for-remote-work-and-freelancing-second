@@ -118,6 +118,39 @@ const JobDetails: React.FC = () => {
   if (loading) return <Loader />;
   if (!job) return <div>Job not found.</div>;
 
+
+const renderSalary = (j: JobPost): string => {
+  // страхуемся от пробелов, регистра и подчеркиваний
+  const st = String(j.salary_type ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, ' ');
+
+  if (st === 'negotiable') return 'Negotiable';
+
+  // salary может прийти строкой — нормализуем
+  const num = j.salary != null ? Number(j.salary) : NaN;
+  if (Number.isFinite(num) && num > 0) {
+    const unit = st === 'per hour' ? '/ hour' : st === 'per month' ? '/ month' : '';
+    const currency =
+      (j as any).currency ||
+      (j as any).salary_currency ||
+      '$';
+    return `${currency}${num} ${unit}`.trim();
+  }
+
+  return 'Not specified';
+};
+
+
+const backAfterReport =
+  profile?.role === 'employer'
+    ? '/employer-dashboard'
+    : profile?.role === 'jobseeker'
+    ? '/jobseeker-dashboard'
+    : '/';
+
+
   return (
     <div>
       <Header />
@@ -163,8 +196,7 @@ const JobDetails: React.FC = () => {
             <FaBriefcase /> <strong>Type of Work:</strong> {job.job_type || 'Not specified'}
           </div>
 <div className="job-detail-item">
-  <FaDollarSign /> <strong>Salary:</strong>{' '}
-  {job.salary !== null ? `$${job.salary} ${job.salary_type || ''}` : 'Not specified'}
+  <FaDollarSign /> <strong>Salary:</strong> {renderSalary(job)}
 </div>
           <div className="job-detail-item">
             <FaMapMarkerAlt /> <strong>Location:</strong> {job.location || 'Not specified'}
@@ -210,14 +242,16 @@ const JobDetails: React.FC = () => {
                 Login to Apply
               </button>
             ) : null}
-            {profile && (
-              <Link
-                to={`/complaint?type=job_post&id=${job.id}`}
-                className="report-link"
-              >
-                Report Job Post
-              </Link>
-            )}
+{profile && profile.id !== job.employer?.id && (
+  <Link
+    to={`/complaint?type=job_post&id=${job.id}&return=${encodeURIComponent(backAfterReport)}`}
+    className="report-link"
+  >
+    Report Job Post
+  </Link>
+)}
+
+
           </div>
         </div>
         {isApplyModalOpen && (

@@ -1,0 +1,235 @@
+/* ====== Light theme like support/find-job ====== */
+:root {
+  --stx-bg: #f6f8fc;
+  --stx-card: #ffffff;
+  --stx-border: #e6ecf5;
+  --stx-text: #1f2a44;
+  --stx-dim: #6b7a90;
+  --stx-accent: #4e74c8;   /* ваш акцент */
+  --stx-ok: #22c55e;
+  --stx-bad: #ef4444;
+  --stx-chip: #edf3ff;
+  --stx-chip-border: #dbe7ff;
+  --stx-shadow: 0 12px 30px rgba(12, 28, 58, .07);
+}
+
+.stx-shell {
+  min-height: 60vh;
+  padding: 32px 16px 64px;
+  background:
+    radial-gradient(900px 380px at 10% -10%, rgba(78,116,200,.12), transparent 60%),
+    radial-gradient(700px 300px at 110% -20%, rgba(78,116,200,.10), transparent 40%),
+    var(--stx-bg);
+}
+
+/* Карточка */
+.stx-card {
+  max-width: 1100px;
+  margin: 0 auto;
+  background: var(--stx-card);
+  border: 1px solid var(--stx-border);
+  border-radius: 16px;
+  box-shadow: var(--stx-shadow);
+  color: var(--stx-text);
+  padding: 24px;
+}
+
+/* Заголовок/интро */
+.stx-title { font-size: 28px; letter-spacing: .4px; margin: 0 0 6px; text-transform: uppercase; }
+.stx-subtitle { color: var(--stx-dim); margin: 0 0 18px; }
+
+.stx-meta { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+.stx-chip {
+  display:inline-flex; align-items:center; gap:8px;
+  background: var(--stx-chip);
+  border: 1px solid var(--stx-chip-border);
+  color:#294064;
+  padding:6px 10px; border-radius:999px; font-size:13px;
+}
+
+.stx-guidelines { margin:12px 0 22px; padding-left:18px; color:#3b4e6d; }
+.stx-guidelines li { margin:4px 0; }
+
+/* Кнопки */
+.stx-button {
+  background: var(--stx-accent); color:#fff; border:none;
+  padding:10px 18px; border-radius:10px; font-weight:700;
+  cursor:pointer; transition: transform .08s ease, box-shadow .2s ease, opacity .2s ease;
+  box-shadow: 0 4px 14px rgba(78,116,200,.25);
+}
+.stx-button:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(78,116,200,.32); }
+.stx-button:disabled { opacity:.6; cursor:not-allowed; box-shadow:none; }
+.stx-ghost { background:transparent; color:var(--stx-text); border:1px solid var(--stx-border); box-shadow:none; }
+.stx-success { background: var(--stx-ok); }
+
+/* Топбар и прогресс */
+.stx-topbar { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:16px; }
+.stx-progress { width:240px; height:8px; background:#eef3fb; border-radius:8px; border:1px solid var(--stx-border); overflow:hidden; }
+.stx-progress__bar { height:100%; background: linear-gradient(90deg, #4e74c8, #7ea1ff); }
+.stx-progress__text { font-size:13px; color:var(--stx-dim); margin-top:6px; }
+.stx-count { color:#294064; font-weight:600; }
+
+/* Вопрос */
+.stx-qcard {
+  border: 1px solid var(--stx-border);
+  border-radius: 14px;
+  padding: 16px;
+  background: #ffffff;
+}
+.stx-qhead { display:flex; gap:10px; align-items:center; margin-bottom:8px; }
+.stx-cat {
+  font-size:12px; text-transform:uppercase; letter-spacing:.7px;
+  background:#f0f5ff; color:#294064; border:1px solid var(--stx-border);
+  padding:4px 8px; border-radius:999px;
+}
+.stx-note { font-size:12px; color:#9a6b1f; }
+
+.stx-qtitle { margin:0 0 12px; font-size:18px; line-height:1.4; color:#152238; }
+
+/* Варианты */
+.stx-options { display:grid; gap:10px; }
+
+/* --- ФИКС «вертикального» текста: снимаем глобальные break-all --- */
+.stx-opt,
+.stx-opt__text {
+  word-break: normal !important;
+  overflow-wrap: break-word;   /* безопасные переносы длинных кусков */
+  white-space: normal;
+}
+
+.stx-opt {
+  display:grid; grid-template-columns: 18px 18px 1fr; gap:10px; align-items:center;
+  padding:12px; border:1px solid var(--stx-border); border-radius:10px; background:#fff;
+  cursor:pointer; user-select:none;
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+.stx-opt:hover { border-color:#cfd9eb; background:#f8fbff; box-shadow: 0 1px 0 rgba(78,116,200,.08); }
+.stx-opt input { display:none; }
+
+.stx-opt__fake {
+  width:18px; height:18px; border-radius:4px; border:1px solid #9bb0d8; background:#fff;
+  box-shadow: inset 0 0 0 2px #fff;
+}
+.stx-opt.is-checked .stx-opt__fake { background:#4e74c8; border-color:#4e74c8; box-shadow:none; }
+.stx-opt__text { color:#1f2a44; }
+
+/* Навигация */
+.stx-nav { display:flex; justify-content:space-between; gap:12px; margin-top:14px; }
+
+/* Практика */
+.stx-practical {
+  margin-top:16px; border:1px dashed #d6dff0; border-radius:12px; padding:14px; background:#fbfdff;
+}
+.stx-pr-title { margin:0 0 10px; color:#1f2a44; }
+.stx-row { margin-bottom:10px; }
+.stx-label { font-size:13px; color:#344b6a; display:block; margin-bottom:6px; }
+.stx-textarea {
+  width:100%; background:#fff; color:#1f2a44; border:1px solid var(--stx-border); border-radius:10px;
+  padding:10px; min-height:90px;
+}
+.stx-hint { font-size:12px; color:var(--stx-dim); margin:6px 0 0; }
+
+/* Результаты */
+.stx-result { padding-top:4px; }
+.stx-rescore {
+  display:flex; align-items:center; gap:12px; border:1px solid var(--stx-border); border-radius:14px; padding:12px; background:#f9fbff;
+}
+.stx-res-ico { font-size:28px; }
+.stx-res-ico.ok { color: var(--stx-ok); }
+.stx-res-ico.bad { color: var(--stx-bad); }
+.stx-res-main { font-size:18px; color:#152238; }
+.stx-res-sub { font-size:13px; color:var(--stx-dim); }
+
+.stx-cats { margin-top:14px; display:grid; gap:10px; }
+.stx-catline { border:1px solid var(--stx-border); border-radius:12px; padding:10px; background:#fff; }
+.stx-catline__head { display:flex; justify-content:space-between; align-items:center; }
+.stx-catline__pct { color:#294064; font-weight:700; }
+.stx-catline__bar { height:8px; background:#eef3fb; border:1px solid var(--stx-border); border-radius:999px; overflow:hidden; margin-top:8px; }
+.stx-catline__fill { height:100%; background: linear-gradient(90deg, #4e74c8, #7ea1ff); }
+
+.stx-capability { margin-top:6px; color:#3b4e6d; font-size:13px; }
+
+.stx-summary { margin-top:16px; border:1px solid var(--stx-border); border-radius:12px; padding:14px; background:#fff; }
+.stx-summary h3 { margin:0 0 8px; }
+.stx-summary ul { margin:0 0 8px 18px; color:#2a3d5b; }
+.stx-note2 { color:var(--stx-dim); font-size:13px; }
+
+.stx-pr-out { margin-top:16px; border-top:1px dashed #d6dff0; padding-top:12px; }
+.stx-pr-out__block { background:#fbfdff; border:1px solid var(--stx-border); border-radius:10px; padding:10px; margin-top:10px; }
+.stx-pr-label { font-size:12px; color:#5b6f8f; margin-bottom:6px; }
+.stx-pre { white-space: pre-wrap; color:#1f2a44; }
+
+/* Actions */
+.stx-actions { display:flex; gap:10px; margin-top:16px; }
+
+/* Responsive */
+@media (max-width: 720px) {
+  .stx-card { padding:16px; }
+  .stx-topbar { flex-direction:column; align-items:flex-start; }
+  .stx-progress { width:100%; }
+  .stx-nav { flex-direction:column; }
+  .stx-actions { flex-direction:column; }
+}
+
+
+/* ==== FIX: нормальное горизонтальное отображение вариантов ==== */
+/* Скоуп на контейнер теста, чтобы не задеть остальные страницы */
+.stx-shell .stx-options .stx-opt,
+.stx-shell .stx-options .option,
+.stx-shell .stx-options .answer {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* чекбокс/радио слева, текст занимает всё остальное */
+.stx-shell .stx-options .stx-opt > *,
+.stx-shell .stx-options .option > *,
+.stx-shell .stx-options .answer > * {
+  flex: 0 0 auto;
+}
+.stx-shell .stx-options .stx-opt__text,
+.stx-shell .stx-options .text,
+.stx-shell .stx-options label:last-child {
+  flex: 1 1 auto !important;
+  min-width: 0;
+}
+
+/* ключевое: отменяем вертикальное письмо и «ломание» слов по буквам */
+.stx-shell .stx-opt__text,
+.stx-shell .stx-options .text,
+.stx-shell .stx-options label {
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important; /* безопасные переносы */
+}
+
+/* иногда label делают узким inline-block — разжимаем */
+.stx-shell .stx-options label {
+  display: block !important;
+  width: auto !important;
+  max-width: 100% !important;
+}
+
+/* ---- Fix: white strip below copyright on Skill Test page ---- */
+html, body, #root { height: 100%; }         /* страховка от коллапса высоты */
+body { margin: 0; }
+
+.stx-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* контентная часть растягивается, футеры прижаты вниз */
+.stx-shell { flex: 1 0 auto; }
+.jf2-footer, .jf2-copy { flex: 0 0 auto; margin-bottom: 0 !important; }
+
+/* если где-то заданы большие нижние отступы — срежем их для этой страницы */
+.stx-page > .stx-shell,
+.stx-page .container:last-child {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}

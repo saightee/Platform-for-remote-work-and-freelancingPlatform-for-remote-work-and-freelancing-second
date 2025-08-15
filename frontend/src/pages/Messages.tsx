@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
@@ -7,8 +6,8 @@ import { useRole } from '../context/RoleContext';
 import { getMyApplications, getMyJobPosts, getApplicationsForJobPost, getChatHistory, createReview } from '../services/api';
 import { JobApplication, JobPost, JobApplicationDetails } from '@types';
 import { format } from 'date-fns';
-import Loader from '../components/Loader';
-
+import { FaComments, FaPaperPlane, FaStar } from 'react-icons/fa';
+import '../styles/messages.css';
 
 interface Message {
   id: string;
@@ -33,14 +32,41 @@ const Messages: React.FC = () => {
   const [unreadCounts, setUnreadCounts] = useState<{ [jobApplicationId: string]: number }>({});
   const [isTyping, setIsTyping] = useState<{ [jobApplicationId: string]: boolean }>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<{ [jobApplicationId: string]: number }>({});
-  const hasJoinedChats = useRef(false); // To prevent multiple joins
-  const joinQueue = useRef<string[]>([]); // Добавлено для queue joins
-  const [reviewForm, setReviewForm] = useState<{ applicationId: string; rating: number; comment: string } | null>(null); // Добавлено
-  const [formError, setFormError] = useState<string | null>(null); // Добавлено
+  const joinedSet = useRef<Set<string>>(new Set());
+  const joinQueue = useRef<string[]>([]);
+  const [reviewForm, setReviewForm] = useState<{ applicationId: string; rating: number; comment: string } | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const currentMessages = useMemo(() => selectedChat ? messages[selectedChat] : [], [selectedChat, messages]);
-const currentTyping = useMemo(() => selectedChat ? isTyping[selectedChat] : false, [selectedChat, isTyping]);
+  const currentTyping = useMemo(() => selectedChat ? isTyping[selectedChat] : false, [selectedChat, isTyping]);
 
+  type Timer = ReturnType<typeof setTimeout>;
+  const typingTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const joinChats = () => {
+    let ids: string[] = [];
+    if (currentRole === 'jobseeker') {
+      ids = applications.map(a => a.id);
+    } else if (currentRole === 'employer') {
+      ids = Object.values(jobPostApplications).flat().map(a => a.applicationId);
+    }
+
+    ids.forEach(id => {
+      if (joinedSet.current.has(id)) return;
+      if (socket?.connected) {
+        socket.emit('joinChat', { jobApplicationId: id });
+        joinedSet.current.add(id);
+      } else {
+        joinQueue.current.push(id);
+      }
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      Object.values(typingTimeoutRef.current).forEach(clearTimeout);
+      typingTimeoutRef.current = {};
+    };
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -48,19 +74,14 @@ const currentTyping = useMemo(() => selectedChat ? isTyping[selectedChat] : fals
         setIsLoading(true);
         if (currentRole === 'jobseeker') {
           const apps = await getMyApplications();
-          console.log('Fetched applications for jobseeker:', apps); // Отладочный лог
           setApplications(apps.filter((app) => app.status === 'Accepted'));
         } else if (currentRole === 'employer') {
           const posts = await getMyJobPosts();
-          console.log('Fetched job posts for employer:', posts); // Отладочный лог
           setJobPosts(posts);
-          const appsArrays = await Promise.all(
-            posts.map(post => getApplicationsForJobPost(post.id))
-          );
+          const appsArrays = await Promise.all(posts.map(post => getApplicationsForJobPost(post.id)));
           const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
           posts.forEach((post, index) => {
             appsMap[post.id] = appsArrays[index].filter((app) => app.status === 'Accepted');
-            console.log(`Applications for job post ${post.id}:`, appsMap[post.id]); // Отладочный лог
           });
           setJobPostApplications(appsMap);
         }
@@ -77,248 +98,250 @@ const currentTyping = useMemo(() => selectedChat ? isTyping[selectedChat] : fals
     }
   }, [profile, currentRole, socket]);
 
-useEffect(() => {
-  if (!socket || !profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) {
-    setUnreadCounts({});
-    setIsTyping({});
-    return;
-  }
+  const unreadKey = useMemo(() => `unreads_${profile?.id || 'anon'}`, [profile?.id]);
 
-  const joinChats = () => {
-    if (hasJoinedChats.current) return;
-    hasJoinedChats.current = true;
-    
-    let chats: { id: string }[] = [];
-    if (currentRole === 'jobseeker') {
-      chats = applications.map(app => ({ id: app.id }));
-    } else if (currentRole === 'employer') {
-      chats = Object.values(jobPostApplications).flat().map(app => ({ id: app.applicationId }));
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(unreadKey);
+      if (raw) setUnreadCounts(JSON.parse(raw));
+      else setUnreadCounts({});
+    } catch {
+      setUnreadCounts({});
+    }
+  }, [unreadKey]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(unreadKey, JSON.stringify(unreadCounts));
+      window.dispatchEvent(new Event('jobforge:unreads-updated'));
+    } catch {}
+  }, [unreadKey, unreadCounts]);
+
+  useEffect(() => {
+    if (!socket || !profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) {
+      setUnreadCounts({});
+      setIsTyping({});
+      return;
     }
 
-    chats.forEach(chat => {
-      if (socket.connected) {
-        socket.emit('joinChat', { jobApplicationId: chat.id });
+    socket.on('chatHistory', (history: Message[]) => {
+      if (history && history.length > 0) {
+        const jobApplicationId = history[0].job_application_id;
+        setMessages((prev) => ({
+          ...prev,
+          [jobApplicationId]: history.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+        }));
+        const unread = history.filter((msg) => msg.recipient_id === profile.id && !msg.is_read).length;
+        setUnreadCounts((prevCounts) => ({
+          ...prevCounts,
+          [jobApplicationId]: selectedChat === jobApplicationId ? 0 : unread,
+        }));
       } else {
-        joinQueue.current.push(chat.id);
+        console.warn('Received empty or undefined chat history');
       }
     });
-  };
 
-  socket.on('chatHistory', (history: Message[]) => {
-    if (history && history.length > 0) { // Изменено: добавлена проверка if (history)
-      const jobApplicationId = history[0].job_application_id;
+    socket.on('newMessage', (message: Message) => {
       setMessages((prev) => ({
         ...prev,
-        [jobApplicationId]: history.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+        [message.job_application_id]: [...(prev[message.job_application_id] || []), message],
       }));
-      const unread = history.filter((msg) => msg.recipient_id === profile.id && !msg.is_read).length;
-      setUnreadCounts((prevCounts) => ({
-        ...prevCounts,
-        [jobApplicationId]: selectedChat === jobApplicationId ? 0 : unread,
-      }));
-    } else {
-      console.warn('Received empty or undefined chat history');
+
+      const inOpenedChat = selectedChat === message.job_application_id;
+
+      if (inOpenedChat) {
+        socket.emit('markMessagesAsRead', { jobApplicationId: message.job_application_id });
+        scrollToBottom(true);
+      } else if (message.recipient_id === profile.id && !message.is_read) {
+        setUnreadCounts((prev) => ({
+          ...prev,
+          [message.job_application_id]: (prev[message.job_application_id] || 0) + 1,
+        }));
+      }
+    });
+
+    socket.on('typing', (data: { userId: string; jobApplicationId: string; isTyping: boolean }) => {
+      if (data.userId !== profile.id) {
+        setIsTyping((prev) => ({ ...prev, [data.jobApplicationId]: data.isTyping }));
+      }
+    });
+
+    type MessagesReadPayload = { data: Message[] } | Message[];
+
+    socket.on('messagesRead', (payload: MessagesReadPayload) => {
+      const list: Message[] = Array.isArray(payload) ? payload : (payload?.data || []);
+      if (!list.length) return;
+
+      const jobId = list[0].job_application_id;
+
+      setMessages((prev) => {
+        const prevList = prev[jobId] || [];
+        const updates = new Map(list.map((m) => [m.id, m]));
+        const nextList = prevList.map((m) => (updates.has(m.id) ? { ...m, ...updates.get(m.id)! } : m));
+        return { ...prev, [jobId]: nextList };
+      });
+
+      if (selectedChat === jobId) {
+        setUnreadCounts((prev) => ({ ...prev, [jobId]: 0 }));
+      }
+    });
+
+    socket.on('chatInitialized', async (data: { jobApplicationId: string }) => {
+      if (socket.connected) {
+        socket.emit('joinChat', { jobApplicationId: data.jobApplicationId });
+      } else {
+        joinQueue.current.push(data.jobApplicationId);
+      }
+      try {
+        if (currentRole === 'jobseeker') {
+          const apps = await getMyApplications();
+          setApplications(apps.filter(app => app.status === 'Accepted'));
+        } else if (currentRole === 'employer') {
+          const posts = await getMyJobPosts();
+          const appsArrays = await Promise.all(posts.map(post => getApplicationsForJobPost(post.id)));
+          const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
+          posts.forEach((post, index) => { appsMap[post.id] = appsArrays[index].filter(app => app.status === 'Accepted'); });
+          setJobPostApplications(appsMap);
+        }
+      } catch (err) {
+        console.error('Error refreshing applications after chat initialization:', err);
+      }
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('WebSocket connection error:', err.message);
+      setSocketStatus('reconnecting');
+      if (err.message.includes('401')) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+    });
+
+    socket.on('connect', () => {
+      setError(null);
+      joinChats();
+      joinQueue.current.forEach(id => {
+        socket.emit('joinChat', { jobApplicationId: id });
+        joinedSet.current.add(id);
+      });
+      joinQueue.current = [];
+    });
+
+    joinChats();
+
+    return () => {
+      socket.off('chatHistory');
+      socket.off('newMessage');
+      socket.off('typing');
+      socket.off('messagesRead');
+      socket.off('chatInitialized');
+      socket.off('connect_error');
+      socket.off('connect');
+      joinedSet.current.clear();
+    };
+  }, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
+
+  const scrollToBottom = useCallback((smooth: boolean = false) => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: smooth ? 'smooth' : 'auto',
+      block: 'end',
+    });
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom(false);
+  }, [selectedChat, (currentMessages || []).length, scrollToBottom]);
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!socket || !selectedChat || !newMessage.trim()) return;
+
+    if (typingTimeoutRef.current[selectedChat]) {
+      clearTimeout(typingTimeoutRef.current[selectedChat]);
     }
-  });
+    socket.emit('typing', { jobApplicationId: selectedChat, isTyping: false });
 
-socket.on('newMessage', (message: Message) => {
-  setMessages((prev) => ({
-    ...prev,
-    [message.job_application_id]: [...(prev[message.job_application_id] || []), message],
-  }));
-  if (message.recipient_id === profile.id && !message.is_read) {
-    if (selectedChat && selectedChat === message.job_application_id) {
-      socket.emit('markMessagesAsRead', { jobApplicationId: message.job_application_id });
-      scrollToBottom(); // Уже было, но подчеркиваю: скролл при новом сообщении если чат открыт
+    socket.emit('sendMessage', {
+      jobApplicationId: selectedChat,
+      content: newMessage.trim(),
+    });
+
+    setNewMessage('');
+  };
+
+  const handleSelectChat = (jobApplicationId: string) => {
+    setSelectedChat(jobApplicationId);
+    setUnreadCounts((prev) => ({ ...prev, [jobApplicationId]: 0 }));
+
+    if (socket?.connected) {
+      if (!joinedSet.current.has(jobApplicationId)) {
+        socket.emit('joinChat', { jobApplicationId });
+        joinedSet.current.add(jobApplicationId);
+      }
+      socket.emit('markMessagesAsRead', { jobApplicationId });
     } else {
-      setUnreadCounts((prevCounts) => ({
-        ...prevCounts,
-        [message.job_application_id]: (prevCounts[message.job_application_id] || 0) + 1,
-      }));
+      joinQueue.current.push(jobApplicationId);
+      setError('Connecting to chat server... Please wait.');
     }
-  } else {
-    if (selectedChat === message.job_application_id) {
-      scrollToBottom(); // Добавлено: скролл даже если сообщение от себя (для обоих пользователей)
+
+    getChatHistory(jobApplicationId, { page: 1, limit: 100 }, currentRole!)
+      .then((history) => {
+        setMessages((prev) => ({
+          ...prev,
+          [jobApplicationId]: history.data.sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          ),
+        }));
+        setUnreadCounts((prev) => ({ ...prev, [jobApplicationId]: 0 }));
+      })
+      .catch(() => setError('Failed to load chat history.'));
+  };
+
+  const handleCreateReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewForm) return;
+    if (reviewForm.rating < 1 || reviewForm.rating > 5) {
+      setFormError('Rating must be between 1 and 5.');
+      return;
     }
-  }
-});
-
-socket.on('typing', (data: { userId: string; jobApplicationId: string; isTyping: boolean }) => {
-  console.log('Typing event received:', data); // Уже было, но для отладки: проверь консоль, приходит ли data.isTyping true/false
-  if (data.userId !== profile.id) {
-    setIsTyping((prev) => ({ ...prev, [data.jobApplicationId]: data.isTyping }));
-  }
-});
-
-socket.on('messagesRead', (updatedMessages: { data: Message[] }) => { 
-  if (updatedMessages.data && updatedMessages.data.length > 0) { // Изменено: добавлена проверка if (updatedMessages.data)
-    const jobId = updatedMessages.data[0].job_application_id;
-    setMessages((prev) => ({
-      ...prev,
-      [jobId]: updatedMessages.data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
-    }));
-    setUnreadCounts((prev) => ({ ...prev, [jobId]: 0 }));
-  } else {
-    console.warn('Received empty or undefined updated messages');
-  }
-});
-
-  socket.on('chatInitialized', async (data: { jobApplicationId: string }) => {
-    console.log('Chat initialized for application:', data.jobApplicationId);
-    if (socket.connected) {
-      socket.emit('joinChat', { jobApplicationId: data.jobApplicationId });
-    } else {
-      joinQueue.current.push(data.jobApplicationId);
+    if (!reviewForm.comment.trim()) {
+      setFormError('Comment cannot be empty.');
+      return;
     }
     try {
-      if (currentRole === 'jobseeker') {
-        const apps = await getMyApplications();
-        setApplications(apps.filter(app => app.status === 'Accepted'));
-      } else if (currentRole === 'employer') {
-        const posts = await getMyJobPosts();
-        const appsArrays = await Promise.all(
-          posts.map(post => getApplicationsForJobPost(post.id))
-        );
-        const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
-        posts.forEach((post, index) => {
-          appsMap[post.id] = appsArrays[index].filter(app => app.status === 'Accepted');
-        });
-        setJobPostApplications(appsMap);
-      }
-    } catch (err) {
-      console.error('Error refreshing applications after chat initialization:', err);
+      setFormError(null);
+      await createReview({
+        job_application_id: reviewForm.applicationId,
+        rating: reviewForm.rating,
+        comment: reviewForm.comment,
+      });
+      alert('Review submitted successfully!');
+      setReviewForm(null);
+    } catch (error: any) {
+      setFormError(error.response?.data?.message || 'Failed to submit review.');
     }
-  });
-
-socket.on('connect_error', (err) => {
-  console.error('WebSocket connection error:', err.message);
-  setSocketStatus('reconnecting');
-  if (err.message.includes('401')) { 
-    localStorage.removeItem('token');
-    window.location.href = '/login';
-  }
-});
-
-  socket.on('connect', () => {
-    setError(null); // Clear error
-    joinChats(); // Rejoin on connect
-    joinQueue.current.forEach(id => {
-      socket.emit('joinChat', { jobApplicationId: id });
-      if (selectedChat === id) {
-        socket.emit('markMessagesAsRead', { jobApplicationId: id });
-      }
-    });
-    joinQueue.current = []; // Clear queue
-  });
-
-  joinChats();
-
-  return () => {
-    socket.off('chatHistory');
-    socket.off('newMessage');
-    socket.off('typing');
-    socket.off('messagesRead');
-    socket.off('chatInitialized');
-    socket.off('connect_error');
-    socket.off('connect');
-    hasJoinedChats.current = false;
   };
-}, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
 
-const scrollToBottom = useCallback(() => {
-  if (messagesEndRef.current) {
-    messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-  }
-}, []);
+  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!socket || !selectedChat) return;
 
-useEffect(() => {
-  scrollToBottom();
-}, [selectedChat, currentMessages, currentTyping, scrollToBottom]);
+    const content = e.target.value;
+    setNewMessage(content);
 
-const handleSendMessage = (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!socket || !selectedChat || !newMessage.trim()) return;
+    socket.emit('typing', { jobApplicationId: selectedChat, isTyping: true });
 
-  if (typingTimeoutRef.current[selectedChat]) {
-    clearTimeout(typingTimeoutRef.current[selectedChat]);
-  }
-  socket.emit('typing', { jobApplicationId: selectedChat, isTyping: false });
+    if (typingTimeoutRef.current[selectedChat]) {
+      clearTimeout(typingTimeoutRef.current[selectedChat]);
+    }
 
-  socket.emit('sendMessage', {
-    jobApplicationId: selectedChat,
-    content: newMessage.trim(),
-  });
-
-  setNewMessage('');
-};
-
-const handleSelectChat = (jobApplicationId: string) => {
-  setSelectedChat(jobApplicationId);
-  setUnreadCounts((prev) => ({
-    ...prev,
-    [jobApplicationId]: 0,
-  }));
-  if (socket && socket.connected) { // Emit only if connected
-    socket.emit('joinChat', { jobApplicationId });
-    socket.emit('markMessagesAsRead', { jobApplicationId });
-  } else {
-    joinQueue.current.push(jobApplicationId);
-    setError('Connecting to chat server... Please wait.');
-  }
-  // Fetch history always (to refresh)
-  getChatHistory(jobApplicationId, { page: 1, limit: 100 }, currentRole!).then((history) => { // Добавлено: ! для non-null
-    setMessages((prev) => ({ ...prev, [jobApplicationId]: history.data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) })); // history.data
-  }).catch((err) => {
-    setError('Failed to load chat history.'); // Убрано: редирект на /login — теперь просто error
-  });
-};
-
-const handleCreateReview = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!reviewForm) return;
-  if (reviewForm.rating < 1 || reviewForm.rating > 5) {
-    setFormError('Rating must be between 1 and 5.');
-    return;
-  }
-  if (!reviewForm.comment.trim()) {
-    setFormError('Comment cannot be empty.');
-    return;
-  }
-  try {
-    setFormError(null);
-    await createReview({
-      job_application_id: reviewForm.applicationId,
-      rating: reviewForm.rating,
-      comment: reviewForm.comment,
-    });
-    alert('Review submitted successfully!');
-    setReviewForm(null);
-  } catch (error: any) {
-    setFormError(error.response?.data?.message || 'Failed to submit review.');
-  }
-};
-
-const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
-  if (!socket || !selectedChat) return;
-
-  const content = e.target.value;
-  setNewMessage(content);
-
-  socket.emit('typing', { jobApplicationId: selectedChat, isTyping: true });
-
-  if (typingTimeoutRef.current[selectedChat]) {
-    clearTimeout(typingTimeoutRef.current[selectedChat]);
-  }
-
-  typingTimeoutRef.current[selectedChat] = setTimeout(() => {
-    socket.emit('typing', { jobApplicationId: selectedChat, isTyping: false });
-  }, 3000);
-};
+    typingTimeoutRef.current[selectedChat] = setTimeout(() => {
+      socket.emit('typing', { jobApplicationId: selectedChat, isTyping: false });
+    }, 3000);
+  };
 
   const getChatPartner = (jobApplicationId: string) => {
     if (currentRole === 'jobseeker') {
       const app = applications.find((a) => a.id === jobApplicationId);
-      console.log('Application for jobseeker:', app); // Отладочный лог
       if (app?.job_post?.employer_id) {
         return app.job_post.employer?.username || 'Unknown';
       }
@@ -330,31 +353,33 @@ const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
     return 'Unknown';
   };
 
-const getChatList = () => {
-  if (currentRole === 'jobseeker') {
-    return applications.map((app) => ({
-      id: app.id,
-      title: app.job_post?.title || 'Unknown Job',
-      partner: getChatPartner(app.id),
-      unreadCount: unreadCounts[app.id] || 0,
-    }));
-  } else if (currentRole === 'employer') {
-    return Object.values(jobPostApplications).flat().map(app => ({
-      id: app.applicationId,
-      title: jobPosts.find(post => post.id === app.job_post_id)?.title || 'Unknown Job',
-      partner: app.username,
-      unreadCount: unreadCounts[app.applicationId] || 0
-    }));
-  }
-  return [];
-};
+  const getChatList = () => {
+    if (currentRole === 'jobseeker') {
+      return applications.map((app) => ({
+        id: app.id,
+        title: app.job_post?.title || 'Unknown Job',
+        partner: getChatPartner(app.id),
+        unreadCount: unreadCounts[app.id] || 0,
+      }));
+    } else if (currentRole === 'employer') {
+      return Object.values(jobPostApplications).flat().map(app => ({
+        id: app.applicationId,
+        title: jobPosts.find(post => post.id === app.job_post_id)?.title || 'Unknown Job',
+        partner: app.username,
+        unreadCount: unreadCounts[app.applicationId] || 0
+      }));
+    }
+    return [];
+  };
 
   if (isLoading) return (
     <div>
       <Header />
-      <div className="container">
-        <h2>Messages</h2>
-        <p>Loading chats...</p>
+      <div className="msg-shell">
+        <div className="msg-card">
+          <h1 className="msg-title"><FaComments />&nbsp;Messages</h1>
+          <p className="msg-subtitle">Loading chats…</p>
+        </div>
       </div>
     </div>
   );
@@ -362,9 +387,11 @@ const getChatList = () => {
   if (getChatList().length === 0 && !isLoading) return (
     <div>
       <Header />
-      <div className="container">
-        <h2>Messages</h2>
-        <p>There are no available chats.</p>
+      <div className="msg-shell">
+        <div className="msg-card">
+          <h1 className="msg-title"><FaComments />&nbsp;Messages</h1>
+          <div className="msg-alert msg-err">There are no available chats.</div>
+        </div>
       </div>
       <Footer />
       <Copyright />
@@ -375,9 +402,11 @@ const getChatList = () => {
     return (
       <div>
         <Header />
-        <div className="container">
-          <h2>Messages</h2>
-          <p>This page is only available for jobseekers and employers.</p>
+        <div className="msg-shell">
+          <div className="msg-card">
+            <h1 className="msg-title"><FaComments />&nbsp;Messages</h1>
+            <div className="msg-alert msg-err">This page is only available for jobseekers and employers.</div>
+          </div>
         </div>
         <Footer />
         <Copyright />
@@ -388,110 +417,136 @@ const getChatList = () => {
   return (
     <div>
       <Header />
-      <div className="container messages-container">
-        <h2>Messages</h2>
-        {error && <p className="error-message">{error}</p>}
-        {socketStatus === 'reconnecting' && <p className="error-message">Reconnecting to chat server...</p>}
-        <div className="messages-content">
-          <div className="chat-list">
-            <h3>Chats</h3>
-            {getChatList().length > 0 ? (
-<ul>
-  {getChatList().map((chat) => (
-    <li
-  key={chat.id}
-  className={`chat-item ${selectedChat === chat.id ? 'active' : ''} ${chat.unreadCount > 0 ? 'unread' : ''}`}
-  onClick={() => handleSelectChat(chat.id)}
->
-  <p>
-    <strong>{chat.title}</strong>
-  </p>
-  <p>{chat.partner}</p>
-  {chat.unreadCount > 0 && <span className="unread-count">{chat.unreadCount}</span>}
-  {(currentRole === 'employer' || currentRole === 'jobseeker') && ( // Изменено: добавили для jobseeker
-    <button onClick={() => setReviewForm({ applicationId: chat.id, rating: 5, comment: '' })}>
-      Leave Review
-    </button>
-  )}
-</li>
-  ))}
-</ul>
-            ) : (
-              <p>No active chats found.</p>
+      <div className="msg-shell">
+        <div className="msg-card">
+          <div className="msg-headrow">
+            <h1 className="msg-title"><FaComments />&nbsp;Messages</h1>
+            {socketStatus === 'reconnecting' && (
+              <div className="msg-alert msg-err">Reconnecting to chat server…</div>
             )}
+            {error && <div className="msg-alert msg-err">{error}</div>}
           </div>
-          <div className="chat-window">
-            {reviewForm && (
-  <div className="modal">
-    <div className="modal-content">
-      <span className="close" onClick={() => setReviewForm(null)}>×</span>
-      <form onSubmit={handleCreateReview}>
-        {formError && <p className="error-message">{formError}</p>}
-        <div className="form-group">
-          <label>Rating:</label>
-          <div className="star-rating">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <span
-                key={star}
-                className={`star ${star <= reviewForm.rating ? 'filled' : ''}`}
-                onClick={() => setReviewForm({ ...reviewForm, rating: star })}
-              >
-                ★
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="form-group">
-          <label>Comment:</label>
-          <textarea
-            value={reviewForm.comment}
-            onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
-            rows={4}
-          />
-        </div>
-        <button type="submit" className="action-button success">
-          Submit Review
-        </button>
-      </form>
-    </div>
-  </div>
-)}
-            {selectedChat ? (
-              <>
-                <h3>Chat with {getChatPartner(selectedChat)}</h3>
-                <div className="messages">
-                  {(messages[selectedChat] || []).map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`message ${msg.sender_id === profile.id ? 'sent' : 'received'}`}
+
+          <div className="msg-grid">
+            {/* left: chat list */}
+            <aside className="msg-list-card">
+              <h3 className="msg-list-title">Chats</h3>
+              {getChatList().length > 0 ? (
+                <ul className="msg-list">
+                  {getChatList().map((chat) => (
+                    <li
+                      key={chat.id}
+                      className={`msg-list-item ${selectedChat === chat.id ? 'is-active' : ''} ${chat.unreadCount > 0 ? 'has-unread' : ''}`}
+                      onClick={() => handleSelectChat(chat.id)}
                     >
-                      <p>{msg.content}</p>
-                      <span>{format(new Date(msg.created_at), 'PPpp')}</span>
-                      <span>{msg.is_read ? 'Read' : 'Unread'}</span>
-                    </div>
+                      <div className="msg-list-meta">
+                        <div className="msg-list-title-row">
+                          <strong className="msg-list-job">{chat.title}</strong>
+                          {chat.unreadCount > 0 && <span className="msg-unread">{chat.unreadCount}</span>}
+                        </div>
+                        <div className="msg-list-partner">{chat.partner}</div>
+                      </div>
+
+                      {(currentRole === 'employer' || currentRole === 'jobseeker') && (
+                        <button
+                          className="msg-mini-btn"
+                          onClick={(e) => { e.stopPropagation(); setReviewForm({ applicationId: chat.id, rating: 5, comment: '' }); }}
+                          title="Leave review"
+                        >
+                          <FaStar />
+                        </button>
+                      )}
+                    </li>
                   ))}
-             {isTyping[selectedChat] && (
-  <div className="typing-indicator">
-    <p>{getChatPartner(selectedChat)} is typing...</p> 
-  </div>
-)}
-                  <div ref={messagesEndRef} />
+                </ul>
+              ) : (
+                <p className="msg-muted">No active chats found.</p>
+              )}
+            </aside>
+
+            {/* right: chat window */}
+            <section className="msg-window-card">
+              {reviewForm && (
+                <div className="msg-modal">
+                  <div className="msg-modal-content">
+                    <button className="msg-modal-close" onClick={() => setReviewForm(null)}>×</button>
+                    <form onSubmit={handleCreateReview} className="msg-review-form">
+                      {formError && <div className="msg-alert msg-err">{formError}</div>}
+
+                      <div className="msg-row">
+                        <label className="msg-label">Rating</label>
+                        <div className="msg-stars">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span
+                              key={star}
+                              className={`msg-star ${reviewForm.rating >= star ? 'is-filled' : ''}`}
+                              onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+                            >
+                              ★
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="msg-row">
+                        <label className="msg-label">Comment</label>
+                        <textarea
+                          className="msg-textarea"
+                          value={reviewForm.comment}
+                          onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+                          rows={4}
+                          placeholder="Share your feedback"
+                        />
+                      </div>
+
+                      <button type="submit" className="msg-btn">Submit review</button>
+                    </form>
+                  </div>
                 </div>
-                <form onSubmit={handleSendMessage} className="message-form">
-                  <input
-                    type="text"
-                    value={newMessage}
-                    onChange={handleTyping}
-                    placeholder="Type a message..."
-                  />
-                  <button type="submit" className="action-button">
-                    Send
-                  </button>
-                </form>
-              </>
-            ) : (
-              <p>Select a chat to start messaging.</p>
-            )}
+              )}
+
+              {selectedChat ? (
+                <>
+                  <div className="msg-window-head">
+                    <h3 className="msg-chat-title">Chat with <span>{getChatPartner(selectedChat)}</span></h3>
+                  </div>
+
+                  <div className="msg-thread">
+                    {(messages[selectedChat] || []).map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`msg-bubble ${msg.sender_id === profile.id ? 'from-me' : 'from-them'}`}
+                      >
+                        <div className="msg-bubble-text">{msg.content}</div>
+                        <div className="msg-bubble-meta">
+                          <span>{format(new Date(msg.created_at), 'PPpp')}</span>
+                          <span className={`msg-read ${msg.is_read ? 'is-read' : ''}`}>{msg.is_read ? 'Read' : 'Unread'}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {isTyping[selectedChat] && (
+                      <div className="msg-typing"> {getChatPartner(selectedChat)} is typing…</div>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  <form onSubmit={handleSendMessage} className="msg-composer">
+                    <input
+                      type="text"
+                      className="msg-input"
+                      value={newMessage}
+                      onChange={handleTyping}
+                      placeholder="Type a message…"
+                    />
+                    <button type="submit" className="msg-send-btn" title="Send">
+                      <FaPaperPlane />
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <p className="msg-muted">Select a chat to start messaging.</p>
+              )}
+            </section>
           </div>
         </div>
       </div>

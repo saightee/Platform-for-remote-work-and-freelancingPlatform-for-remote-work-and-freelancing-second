@@ -55,6 +55,15 @@ const PublicProfile: React.FC = () => {
   if (isLoading) return <Loader />;
   if (error || !profile) return <div className="error-message">{error || 'Profile not found'}</div>;
 
+
+  const backAfterReport =
+  currentUser?.role === 'employer'
+    ? '/employer-dashboard'
+    : currentUser?.role === 'jobseeker'
+    ? '/jobseeker-dashboard'
+    : '/';
+
+
     return (
     <div>
       <Header />
@@ -140,14 +149,15 @@ const PublicProfile: React.FC = () => {
           ) : (
             <p>No reviews yet.</p>
           )}
-                    {currentUser && (
-              <Link
-                to={`/complaint?type=profile&id=${id}`}
-                className="report-link"
-              >
-                Report Profile
-              </Link>
-            )}
+      {currentUser && currentUser.id !== profile.id && (
+
+     <Link to={`/complaint?type=profile&id=${profile.id}&return=${encodeURIComponent(backAfterReport)}`}
+    className="report-link"
+  >
+    Report Profile
+  </Link>
+)}
+
           </div>
         </div>
         </div>

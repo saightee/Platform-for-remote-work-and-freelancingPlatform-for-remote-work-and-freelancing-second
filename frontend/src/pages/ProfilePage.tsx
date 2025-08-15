@@ -1,16 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { getProfile, updateProfile, uploadIdentityDocument, deleteAccount, getCategories, searchCategories, uploadAvatar, uploadResume } from '../services/api';
+import Copyright from '../components/Copyright';
+import {
+  getProfile,
+  updateProfile,
+  uploadIdentityDocument, // оставил импорт, даже если не используется — функционал не трогаю
+  deleteAccount,
+  getCategories,
+  searchCategories,
+  uploadAvatar,
+  uploadResume,
+} from '../services/api';
 import { Profile, Category, JobSeekerProfile, EmployerProfile, Review } from '@types';
 import { useRole } from '../context/RoleContext';
-import Copyright from '../components/Copyright';
 import { FaUserCircle, FaFilePdf } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
+import '../styles/profile-page.css'; // 👈 новый стиль
 
 const ProfilePage: React.FC = () => {
   const { profile, refreshProfile } = useRole();
@@ -22,62 +31,69 @@ const ProfilePage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const navigate = useNavigate();
+
+  // --- skills autocomplete
   const [skillInput, setSkillInput] = useState('');
   const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const timezones = Intl.supportedValuesOf('timeZone').sort();
+
+  // --- avatar
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
-  const currencies = ['USD', 'EUR', 'GBP', 'JPY'];
+
+  // --- resume
   const resumeRef = useRef<HTMLInputElement>(null);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
 
-useEffect(() => {
-  const fetchCategories = async () => {
-    try {
-      const cats = await getCategories();
-      // Рекурсивная сортировка категорий по алфавиту
-      const sortCategories = (categories: Category[]): Category[] => {
-        const sorted = categories.sort((a, b) => a.name.localeCompare(b.name));
-        sorted.forEach(cat => {
-          if (cat.subcategories) {
-            cat.subcategories = sortCategories(cat.subcategories);
-          }
-        });
-        return sorted;
-      };
-      setCategories(sortCategories(cats));
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
-  };
-  fetchCategories();
-}, []);
+  // --- static sets
+  const timezones = Intl.supportedValuesOf('timeZone').sort();
+  const currencies = ['USD', 'EUR', 'GBP', 'JPY'];
 
-useEffect(() => {
-  const searchCategoriesAsync = async () => {
-    if (skillInput.trim() === '') {
-      setFilteredSkills([]);
-      setIsDropdownOpen(false);
-      return;
-    }
-    try {
-      const response = await searchCategories(skillInput);
-      // Сортировка filtered по алфавиту
-      const sortedFiltered = response.sort((a, b) => a.name.localeCompare(b.name));
-      setFilteredSkills(sortedFiltered);
-      setIsDropdownOpen(true);
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error searching categories:', axiosError.response?.data?.message || axiosError.message);
-      setFilteredSkills([]);
-      setIsDropdownOpen(false);
-    }
-  };
-  const debounce = setTimeout(searchCategoriesAsync, 300);
-  return () => clearTimeout(debounce);
-}, [skillInput]);
+  // ------- categories load (alphabetical, recursive)
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const cats = await getCategories();
+        const sortCategories = (items: Category[]): Category[] => {
+          const sorted = [...items].sort((a, b) => a.name.localeCompare(b.name));
+          sorted.forEach(cat => {
+            if (cat.subcategories) cat.subcategories = sortCategories(cat.subcategories);
+          });
+          return sorted;
+        };
+        setCategories(sortCategories(cats));
+      } catch (e) {
+        console.error('Error fetching categories:', e);
+      }
+    };
+    fetchCategories();
+  }, []);
 
+  // ------- categories search (autocomplete)
+  useEffect(() => {
+    const searchCategoriesAsync = async () => {
+      if (skillInput.trim() === '') {
+        setFilteredSkills([]);
+        setIsDropdownOpen(false);
+        return;
+      }
+      try {
+        const response = await searchCategories(skillInput);
+        const sorted = response.sort((a, b) => a.name.localeCompare(b.name));
+        setFilteredSkills(sorted);
+        setIsDropdownOpen(true);
+      } catch (error) {
+        const axiosError = error as AxiosError<{ message?: string }>;
+        console.error('Error searching categories:', axiosError.response?.data?.message || axiosError.message);
+        setFilteredSkills([]);
+        setIsDropdownOpen(false);
+      }
+    };
+    const d = setTimeout(searchCategoriesAsync, 300);
+    return () => clearTimeout(d);
+  }, [skillInput]);
+
+  // ------- profile + categories
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -90,20 +106,15 @@ useEffect(() => {
       try {
         setIsLoading(true);
         setError(null);
-        const [profileData, categoriesData] = await Promise.all([
-          getProfile(),
-          getCategories(),
-        ]);
-        setProfileData(profileData);
-        setCategories(categoriesData || []);
-        if (profileData.role === 'jobseeker') {
-          setSelectedSkillIds(
-            (profileData as JobSeekerProfile).skills?.map((skill: Category) => skill.id) || []
-          );
+        const [pData, cats] = await Promise.all([getProfile(), getCategories()]);
+        setProfileData(pData);
+        setCategories(cats || []);
+        if (pData.role === 'jobseeker') {
+          setSelectedSkillIds((pData as JobSeekerProfile).skills?.map((s: Category) => s.id) || []);
         }
-      } catch (error: any) {
-        console.error('Error fetching data:', error);
-        setError(error.response?.data?.message || 'Failed to load profile or categories.');
+      } catch (e: any) {
+        console.error('Error fetching data:', e);
+        setError(e?.response?.data?.message || 'Failed to load profile or categories.');
       } finally {
         setIsLoading(false);
       }
@@ -117,28 +128,30 @@ useEffect(() => {
     }
   }, [profile]);
 
+  // ------- save profile
   const handleUpdateProfile = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (!profileData) return;
     try {
       setFormError(null);
+
       if (profileData.role === 'jobseeker') {
-        const updatedData = {
+        const payload = {
           username: profileData.username,
           email: profileData.email,
           timezone: profileData.timezone,
           currency: profileData.currency,
-          skillIds: profileData.skills?.map((skill) => skill.id) || [],
+          skillIds: profileData.skills?.map(s => s.id) || [],
           experience: (profileData as JobSeekerProfile).experience,
           description: (profileData as JobSeekerProfile).description,
           portfolio: (profileData as JobSeekerProfile).portfolio,
           video_intro: (profileData as JobSeekerProfile).video_intro,
           resume: (profileData as JobSeekerProfile).resume,
         };
-        const updatedProfile = await updateProfile(updatedData);
-        setProfileData(updatedProfile);
+        const updated = await updateProfile(payload);
+        setProfileData(updated);
       } else if (profileData.role === 'employer') {
-        const updatedData: Partial<EmployerProfile> = {
+        const payload: Partial<EmployerProfile> = {
           username: profileData.username,
           email: profileData.email,
           timezone: profileData.timezone,
@@ -147,26 +160,28 @@ useEffect(() => {
           company_info: (profileData as EmployerProfile).company_info,
           referral_link: (profileData as EmployerProfile).referral_link,
         };
-        const updatedProfile = await updateProfile(updatedData);
-        setProfileData(updatedProfile);
+        const updated = await updateProfile(payload);
+        setProfileData(updated);
       } else {
-        const updatedData: Partial<Profile> = {
+        const payload: Partial<Profile> = {
           username: profileData.username,
           email: profileData.email,
           timezone: profileData.timezone,
           currency: profileData.currency,
         };
-        const updatedProfile = await updateProfile(updatedData);
-        setProfileData(updatedProfile);
+        const updated = await updateProfile(payload);
+        setProfileData(updated);
       }
+
       setIsEditing(false);
       await refreshProfile();
-    } catch (error: any) {
-      console.error('Error updating profile:', error);
-      setFormError(error.response?.data?.message || 'Failed to update profile.');
+    } catch (e: any) {
+      console.error('Error updating profile:', e);
+      setFormError(e?.response?.data?.message || 'Failed to update profile.');
     }
   };
 
+  // ------- resume upload
   const handleUploadResume = async () => {
     if (!resumeFile) return;
     try {
@@ -176,24 +191,26 @@ useEffect(() => {
       setProfileData(updated);
       setResumeFile(null);
       await refreshProfile();
-    } catch (err: any) {
-      setFormError(err.response?.data?.message || 'Failed to upload resume.');
+    } catch (e: any) {
+      setFormError(e?.response?.data?.message || 'Failed to upload resume.');
     }
   };
 
+  // ------- avatar upload
   const uploadAvatarFile = async (file: File) => {
-  try {
-    const formData = new FormData();
-    formData.append('avatar', file);
-    const updated = await uploadAvatar(formData);
-    setProfileData(updated);
-    setAvatarFile(null);
-    await refreshProfile();
-  } catch (err) {
-    console.error('Error uploading avatar:', err);
-  }
-};
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const updated = await uploadAvatar(formData);
+      setProfileData(updated);
+      setAvatarFile(null);
+      await refreshProfile();
+    } catch (e) {
+      console.error('Error uploading avatar:', e);
+    }
+  };
 
+  // ------- delete account
   const handleDeleteAccount = async () => {
     if (!window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
       return;
@@ -204,135 +221,150 @@ useEffect(() => {
       localStorage.removeItem('token');
       setProfileData(null);
       navigate('/');
-    } catch (error: any) {
-      console.error('Error deleting account:', error);
-      setFormError(error.response?.data?.message || 'Failed to delete account.');
+    } catch (e: any) {
+      console.error('Error deleting account:', e);
+      setFormError(e?.response?.data?.message || 'Failed to delete account.');
     }
   };
 
   if (isLoading) return <Loader />;
-  if (error) return <div>{error}</div>;
-  if (!profileData) return <div>Profile data is unavailable.</div>;
+  if (error) return <div className="pf-shell"><div className="pf-alert pf-err">{error}</div></div>;
+  if (!profileData) return <div className="pf-shell"><div className="pf-alert pf-err">Profile data is unavailable.</div></div>;
 
   return (
     <div>
       <Header />
-      <div className="container profile-container">
-        <h2>My Profile | {profileData.role}</h2>
-        {formError && <p className="error-message">{formError}</p>}
-        <div className="profile-content">
-          <div className="profile-top-row">
-            <div className="profile-left-column">
-<div 
-  className="profile-avatar-section"
-  onClick={() => avatarRef.current?.click()}
->
-  {profileData.avatar ? (
-    <img src={`https://jobforge.net/backend${profileData.avatar}`} alt="Avatar" className="profile-avatar" />
-  ) : (
-    <div className="default-avatar">
-      <FaUserCircle className="profile-avatar-icon" />
-      <span className="add-avatar">+</span>
-    </div>
-  )}
-  <input
-    type="file"
-    accept="image/jpeg,image/jpg,image/png"
-    ref={avatarRef}
-    style={{ display: 'none' }}
-    onChange={(e) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        setAvatarFile(file);
-        // Автоматический upload если не в edit mode
-        if (!isEditing) {
-          uploadAvatarFile(file);
-        }
-      }
-    }}
-  />
-</div>
-{avatarFile && isEditing && ( // Кнопка только в edit
-  <button onClick={() => uploadAvatarFile(avatarFile)} className="action-button">
-    Upload Avatar
-  </button>
-)}
-              {isEditing ? (
-                <>
-                  {/* <div className="form-group">
-                    <label>Username:</label>
-                    <input
-                      type="text"
-                      value={profileData.username || ''}
-                      onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
-                      placeholder="Enter username"
-                    />
-                  </div> */}
-                  <div className="form-group">
-                    <label>Timezone:</label>
-                    <select
-                      value={profileData.timezone || ''}
-                      onChange={(e) => setProfileData({ ...profileData, timezone: e.target.value })}
-                      className="category-select"
-                    >
-                      <option value="" disabled>Select timezone</option>
-                      {timezones.map((tz) => (
-                        <option key={tz} value={tz}>
-                          {tz}
-                        </option>
-                      ))}
-                    </select>
+
+      <div className="pf-shell">
+        <div className="pf-card">
+          <div className="pf-header">
+            <h1 className="pf-title">My Profile <span className="pf-role">| {profileData.role}</span></h1>
+            {!isEditing && (
+              <div className="pf-actions-top">
+                <button className="pf-button" onClick={() => setIsEditing(true)}>Edit Profile</button>
+                <button className="pf-button pf-danger" onClick={handleDeleteAccount}>Delete Account</button>
+              </div>
+            )}
+          </div>
+
+          {formError && <div className="pf-alert pf-err">{formError}</div>}
+
+          <div className="pf-grid">
+            {/* LEFT: avatar & general */}
+            <div className="pf-col pf-left">
+              <div
+                className="pf-avatar-wrap"
+                onClick={() => avatarRef.current?.click()}
+                title="Click to upload avatar"
+              >
+                {profileData.avatar ? (
+                  <img
+                    src={`https://jobforge.net/backend${profileData.avatar}`}
+                    alt="Avatar"
+                    className="pf-avatar"
+                  />
+                ) : (
+                  <div className="pf-avatar-placeholder">
+                    <FaUserCircle className="pf-avatar-icon" />
+                    <span className="pf-avatar-add">+</span>
                   </div>
-                  <div className="form-group">
-                    <label>Currency:</label>
-                    <select
-                      value={profileData.currency || ''}
-                      onChange={(e) => setProfileData({ ...profileData, currency: e.target.value })}
-                      className="category-select"
-                    >
-                      <option value="" disabled>Select currency</option>
-                      {currencies.map((currency) => (
-                        <option key={currency} value={currency}>
-                          {currency}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p><strong>Username:</strong> {profileData.username}</p>
-                  <p><strong>Timezone:</strong> {profileData.timezone || 'Not specified'}</p>
-                  <p><strong>Currency:</strong> {profileData.currency || 'Not specified'}</p>
-                </>
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png"
+                  ref={avatarRef}
+                  className="pf-file-hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setAvatarFile(file);
+                      if (!isEditing) {
+                        // авто-аплоад если не в режиме редактирования
+                        uploadAvatarFile(file);
+                      }
+                    }
+                  }}
+                />
+              </div>
+
+              {avatarFile && isEditing && (
+                <button className="pf-button pf-secondary" onClick={() => uploadAvatarFile(avatarFile)}>
+                  Upload Avatar
+                </button>
               )}
+
+              <div className="pf-section">
+                {!isEditing ? (
+                  <div className="pf-kv">
+                    <div className="pf-kv-row"><span className="pf-k">Username</span><span className="pf-v">{profileData.username}</span></div>
+                    <div className="pf-kv-row"><span className="pf-k">Timezone</span><span className="pf-v">{profileData.timezone || 'Not specified'}</span></div>
+                    <div className="pf-kv-row"><span className="pf-k">Currency</span><span className="pf-v">{profileData.currency || 'Not specified'}</span></div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="pf-row">
+                      <label className="pf-label">Timezone</label>
+                      <select
+                        value={profileData.timezone || ''}
+                        onChange={(e) => setProfileData({ ...profileData, timezone: e.target.value })}
+                        className="pf-select"
+                      >
+                        <option value="" disabled>Select timezone</option>
+                        {timezones.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                      </select>
+                    </div>
+                    <div className="pf-row">
+                      <label className="pf-label">Currency</label>
+                      <select
+                        value={profileData.currency || ''}
+                        onChange={(e) => setProfileData({ ...profileData, currency: e.target.value })}
+                        className="pf-select"
+                      >
+                        <option value="" disabled>Select currency</option>
+                        {currencies.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="profile-right-column">
+
+            {/* RIGHT: employer/jobseeker specifics */}
+            <div className="pf-col pf-right">
               {profileData.role === 'employer' && (
-                <>
-                  {isEditing ? (
+                <div className="pf-section">
+                  {!isEditing ? (
+                    <div className="pf-kv">
+                      <div className="pf-kv-row"><span className="pf-k">Company Name</span><span className="pf-v">{(profileData as EmployerProfile).company_name || 'Not specified'}</span></div>
+                      <div className="pf-kv-row"><span className="pf-k">Company Info</span><span className="pf-v">{(profileData as EmployerProfile).company_info || 'Not specified'}</span></div>
+                      <div className="pf-kv-row"><span className="pf-k">Referral Link</span><span className="pf-v">{(profileData as EmployerProfile).referral_link || 'Not specified'}</span></div>
+                    </div>
+                  ) : (
                     <>
-                      <div className="form-group">
-                        <label>Company Name:</label>
+                      <div className="pf-row">
+                        <label className="pf-label">Company Name</label>
                         <input
+                          className="pf-input"
                           type="text"
                           value={(profileData as EmployerProfile).company_name || ''}
                           onChange={(e) => setProfileData({ ...profileData, company_name: e.target.value })}
                           placeholder="Enter company name"
                         />
                       </div>
-                      <div className="form-group">
-                        <label>Company Info:</label>
+                      <div className="pf-row">
+                        <label className="pf-label">Company Info</label>
                         <textarea
+                          className="pf-textarea"
+                          rows={4}
                           value={(profileData as EmployerProfile).company_info || ''}
                           onChange={(e) => setProfileData({ ...profileData, company_info: e.target.value })}
                           placeholder="Enter company information"
-                          rows={4}
                         />
                       </div>
-                      <div className="form-group">
-                        <label>Referral Link:</label>
+                      <div className="pf-row">
+                        <label className="pf-label">Referral Link</label>
                         <input
+                          className="pf-input"
                           type="text"
                           value={(profileData as EmployerProfile).referral_link || ''}
                           onChange={(e) => setProfileData({ ...profileData, referral_link: e.target.value })}
@@ -340,117 +372,152 @@ useEffect(() => {
                         />
                       </div>
                     </>
+                  )}
+                </div>
+              )}
+
+              {profileData.role === 'jobseeker' && (
+                <div className="pf-section">
+                  {!isEditing ? (
+                    <div className="pf-kv pf-kv-vertical">
+                      <div className="pf-kv-row"><span className="pf-k">Skills</span><span className="pf-v">{(profileData as JobSeekerProfile).skills?.map(s => s.name).join(', ') || 'Not specified'}</span></div>
+                      <div className="pf-kv-row"><span className="pf-k">Experience</span><span className="pf-v">{(profileData as JobSeekerProfile).experience || 'Not specified'}</span></div>
+                      <div className="pf-kv-row"><span className="pf-k">Description</span><span className="pf-v">{(profileData as JobSeekerProfile).description || 'Not specified'}</span></div>
+                      <div className="pf-kv-row"><span className="pf-k">Portfolio</span><span className="pf-v">{(profileData as JobSeekerProfile).portfolio || 'Not specified'}</span></div>
+                      <div className="pf-kv-row"><span className="pf-k">Video Intro</span><span className="pf-v">{(profileData as JobSeekerProfile).video_intro || 'Not specified'}</span></div>
+                      <div className="pf-kv-row">
+                        <span className="pf-k">Resume</span>
+                        <span className="pf-v">
+                          {(profileData as JobSeekerProfile).resume ? (
+                            (() => {
+                              const resume = (profileData as JobSeekerProfile).resume ?? '';
+                              const href = resume.startsWith('http')
+                                ? resume
+                                : `https://jobforge.net/backend${resume}`;
+                              return (
+                                <a
+                                  href={href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="pf-link"
+                                >
+                                  Download Resume <FaFilePdf />
+                                </a>
+                              );
+                            })()
+                          ) : (
+                            'Not specified'
+                          )}
+                        </span>
+                      </div>
+
+                    </div>
                   ) : (
                     <>
-                      <p><strong>Company Name:</strong> {(profileData as EmployerProfile).company_name || 'Not specified'}</p>
-                      <p><strong>Company Info:</strong> {(profileData as EmployerProfile).company_info || 'Not specified'}</p>
-                      <p><strong>Referral Link:</strong> {(profileData as EmployerProfile).referral_link || 'Not specified'}</p>
-                    </>
-                  )}
-                </>
-              )}
-              {profileData.role === 'jobseeker' && (
-                <>
-                  {isEditing ? (
-                    <>
-                     <div className="form-group">
-  <label>Skills:</label>
-  <div className="autocomplete-wrapper">
-    <input
-      type="text"
-      value={skillInput}
-      onChange={(e) => setSkillInput(e.target.value)}
-      placeholder="Type to search skills..."
-      onFocus={() => setIsDropdownOpen(true)} // Open for full list on focus
-      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-    />
-    {isDropdownOpen && (
-      <ul className="autocomplete-dropdown">
-        {(skillInput.trim() ? filteredSkills : categories).map((category) => ( // Filtered if input, full if no
-          <React.Fragment key={category.id}>
-            <li
-              className="autocomplete-item"
-              onMouseDown={() => {
-                if (!selectedSkillIds.includes(category.id)) {
-                  const newSkill: Category = {
-                    id: category.id,
-                    name: category.name,
-                    parent_id: category.parent_id || null,
-                    created_at: category.created_at,
-                    updated_at: category.updated_at,
-                    subcategories: [],
-                  };
-                  setSelectedSkillIds([...selectedSkillIds, category.id]);
-                  setProfileData({
-                    ...profileData,
-                    skills: [...(profileData.skills || []), newSkill],
-                  });
-                }
-                setSkillInput('');
-                setIsDropdownOpen(false);
-              }}
-            >
-              {category.name}
-            </li>
-            {category.subcategories?.map((sub) => (
-              <li
-                key={sub.id}
-                className="autocomplete-item sub-category"
-                onMouseDown={() => {
-                  if (!selectedSkillIds.includes(sub.id)) {
-                    const newSkill: Category = {
-                      id: sub.id,
-                      name: sub.name,
-                      parent_id: sub.parent_id || null,
-                      created_at: sub.created_at,
-                      updated_at: sub.updated_at,
-                      subcategories: [],
-                    };
-                    setSelectedSkillIds([...selectedSkillIds, sub.id]);
-                    setProfileData({
-                      ...profileData,
-                      skills: [...(profileData.skills || []), newSkill],
-                    });
-                  }
-                  setSkillInput('');
-                  setIsDropdownOpen(false);
-                }}
-              >
-                {`${category.name} > ${sub.name}`}
-              </li>
-            ))}
-          </React.Fragment>
-        ))}
-      </ul>
-    )}
-  </div>
-  <div className="category-tags">
-    {profileData.skills?.map((skill) => (
-      <span key={skill.id} className="category-tag">
-        {skill.parent_id
-          ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
-          : skill.name}
-        <span
-          className="remove-tag"
-          onClick={() => {
-            const updatedSkills = profileData.skills?.filter((s) => s.id !== skill.id) || [];
-            const updatedSkillIds = selectedSkillIds.filter((id) => id !== skill.id);
-            setProfileData({ ...profileData, skills: updatedSkills });
-            setSelectedSkillIds(updatedSkillIds);
-          }}
-        >
-          ×
-        </span>
-      </span>
-    ))}
-  </div>
-</div>
-                      <div className="form-group">
-                        <label>Experience:</label>
+                      {/* Skills */}
+                      <div className="pf-row">
+                        <label className="pf-label">Skills</label>
+                        <div className="pf-ac-wrap">
+                          <input
+                            className="pf-input"
+                            type="text"
+                            value={skillInput}
+                            onChange={(e) => setSkillInput(e.target.value)}
+                            placeholder="Type to search skills…"
+                            onFocus={() => setIsDropdownOpen(true)}
+                            onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                          />
+                          {isDropdownOpen && (
+                            <ul className="pf-ac-dropdown">
+                              {(skillInput.trim() ? filteredSkills : categories).map(cat => (
+                                <React.Fragment key={cat.id}>
+                                  <li
+                                    className="pf-ac-item"
+                                    onMouseDown={() => {
+                                      if (!selectedSkillIds.includes(cat.id)) {
+                                        const newSkill: Category = {
+                                          id: cat.id,
+                                          name: cat.name,
+                                          parent_id: cat.parent_id || null,
+                                          created_at: cat.created_at,
+                                          updated_at: cat.updated_at,
+                                          subcategories: [],
+                                        };
+                                        setSelectedSkillIds([...selectedSkillIds, cat.id]);
+                                        setProfileData({
+                                          ...profileData,
+                                          skills: [...(profileData.skills || []), newSkill],
+                                        });
+                                      }
+                                      setSkillInput('');
+                                      setIsDropdownOpen(false);
+                                    }}
+                                  >
+                                    {cat.name}
+                                  </li>
+
+                                  {cat.subcategories?.map(sub => (
+                                    <li
+                                      key={sub.id}
+                                      className="pf-ac-item pf-ac-sub"
+                                      onMouseDown={() => {
+                                        if (!selectedSkillIds.includes(sub.id)) {
+                                          const newSkill: Category = {
+                                            id: sub.id,
+                                            name: sub.name,
+                                            parent_id: sub.parent_id || null,
+                                            created_at: sub.created_at,
+                                            updated_at: sub.updated_at,
+                                            subcategories: [],
+                                          };
+                                          setSelectedSkillIds([...selectedSkillIds, sub.id]);
+                                          setProfileData({
+                                            ...profileData,
+                                            skills: [...(profileData.skills || []), newSkill],
+                                          });
+                                        }
+                                        setSkillInput('');
+                                        setIsDropdownOpen(false);
+                                      }}
+                                    >
+                                      {`${cat.name} > ${sub.name}`}
+                                    </li>
+                                  ))}
+                                </React.Fragment>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+
+                        <div className="pf-tags">
+                          {profileData.skills?.map(skill => (
+                            <span key={skill.id} className="pf-tag">
+                              {skill.parent_id
+                                ? `${categories.find(c => c.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
+                                : skill.name}
+                              <span
+                                className="pf-tag-x"
+                                onClick={() => {
+                                  const updatedSkills = profileData.skills?.filter(s => s.id !== skill.id) || [];
+                                  const updatedIds = selectedSkillIds.filter(id => id !== skill.id);
+                                  setProfileData({ ...profileData, skills: updatedSkills });
+                                  setSelectedSkillIds(updatedIds);
+                                }}
+                              >
+                                ×
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Experience */}
+                      <div className="pf-row">
+                        <label className="pf-label">Experience</label>
                         <select
+                          className="pf-select"
                           value={(profileData as JobSeekerProfile).experience || ''}
                           onChange={(e) => setProfileData({ ...profileData, experience: e.target.value })}
-                          className="category-select"
                         >
                           <option value="" disabled>Select experience level</option>
                           <option value="Less than 1 year">Less than 1 year</option>
@@ -460,134 +527,126 @@ useEffect(() => {
                           <option value="6+ years">6+ years</option>
                         </select>
                       </div>
-                      <div className="form-group">
-                        <label>Description:</label>
+
+                      {/* Description */}
+                      <div className="pf-row">
+                        <label className="pf-label">Description</label>
                         <textarea
+                          className="pf-textarea"
+                          rows={4}
                           value={(profileData as JobSeekerProfile).description || ''}
                           onChange={(e) => setProfileData({ ...profileData, description: e.target.value })}
-                          placeholder="Enter your description"
-                          rows={4}
+                          placeholder="Tell a bit about yourself…"
                         />
                       </div>
-                      <div className="form-group">
-                        <label>Portfolio:</label>
+
+                      {/* Portfolio */}
+                      <div className="pf-row">
+                        <label className="pf-label">Portfolio</label>
                         <input
+                          className="pf-input"
                           type="text"
                           value={(profileData as JobSeekerProfile).portfolio || ''}
                           onChange={(e) => setProfileData({ ...profileData, portfolio: e.target.value })}
                           placeholder="Enter portfolio URL"
                         />
                       </div>
-                      <div className="form-group">
-                        <label>Video Introduction:</label>
+
+                      {/* Video Intro */}
+                      <div className="pf-row">
+                        <label className="pf-label">Video Introduction</label>
                         <input
+                          className="pf-input"
                           type="text"
                           value={(profileData as JobSeekerProfile).video_intro || ''}
                           onChange={(e) => setProfileData({ ...profileData, video_intro: e.target.value })}
-                          placeholder="Enter video intro URL"
+                          placeholder="Enter video URL"
                         />
                       </div>
-                      <div className="form-group"> {/* Добавлено: resume link + upload */}
-                        <label>Resume Link (optional):</label>
+
+                      {/* Resume link + file upload */}
+                      <div className="pf-row">
+                        <label className="pf-label">Resume Link (optional)</label>
                         <input
+                          className="pf-input"
                           type="url"
                           value={(profileData as JobSeekerProfile).resume || ''}
                           onChange={(e) => setProfileData({ ...profileData, resume: e.target.value })}
                           placeholder="https://example.com/resume.pdf"
                         />
                       </div>
-                      <div className="form-group">
-                        <label>Upload Resume File (PDF, DOC, DOCX):</label>
+
+                      <div className="pf-row">
+                        <label className="pf-label">Upload Resume File (PDF, DOC, DOCX)</label>
                         <input
+                          ref={resumeRef}
+                          className="pf-file-hidden"
                           type="file"
                           accept=".pdf,.doc,.docx"
-                          ref={resumeRef}
-                          style={{ display: 'none' }}
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) setResumeFile(file);
                           }}
                         />
-                        <button type="button" onClick={() => resumeRef.current?.click()}>
-                          Choose File
-                        </button>
-                        {resumeFile && <p>Selected: {resumeFile.name}</p>}
-                        {resumeFile && (
-                          <button type="button" onClick={handleUploadResume}>
-                            Upload Resume
+                        <div className="pf-file-inline">
+                          <button
+                            type="button"
+                            className="pf-button pf-secondary"
+                            onClick={() => resumeRef.current?.click()}
+                          >
+                            Choose File
                           </button>
-                        )}
+                          {resumeFile && <span className="pf-file-name">Selected: {resumeFile.name}</span>}
+                          {resumeFile && (
+                            <button
+                              type="button"
+                              className="pf-button"
+                              onClick={handleUploadResume}
+                            >
+                              Upload Resume
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </>
-                  ) : (
-                    <>
-                      <p>
-                        <strong>Skills:</strong>{' '}
-                        {(profileData as JobSeekerProfile).skills?.map((skill) => skill.name).join(', ') || 'Not specified'}
-                      </p>
-                      <p><strong>Experience:</strong> {(profileData as JobSeekerProfile).experience || 'Not specified'}</p>
-                      <p><strong>Description:</strong> {(profileData as JobSeekerProfile).description || 'Not specified'}</p>
-                      <p><strong>Portfolio:</strong> {(profileData as JobSeekerProfile).portfolio || 'Not specified'}</p>
-                      <p><strong>Video Introduction:</strong> {(profileData as JobSeekerProfile).video_intro || 'Not specified'}</p>
-                      <p><strong>Resume:</strong> {(profileData as JobSeekerProfile).resume ? (
-                        <a
-                          href={(profileData as JobSeekerProfile).resume?.startsWith('http') 
-                            ? (profileData as JobSeekerProfile).resume 
-                            : `https://jobforge.net/backend${(profileData as JobSeekerProfile).resume}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Download Resume <FaFilePdf />
-                        </a>
-                      ) : 'Not specified'}</p>
-                    </>
                   )}
-                </>
+                </div>
+              )}
+
+              {isEditing && (
+                <div className="pf-actions-bottom">
+                  <button className="pf-button" onClick={handleUpdateProfile}>Save Profile</button>
+                  <button className="pf-button pf-secondary" onClick={() => setIsEditing(false)}>Cancel</button>
+                </div>
               )}
             </div>
-            {isEditing && (
-              <div className="action-buttons">
-                <button onClick={handleUpdateProfile} className="action-button success">
-                  Save Profile
-                </button>
-                <button onClick={() => setIsEditing(false)} className="action-button">
-                  Cancel
-                </button>
-              </div>
-            )}
-   {(profileData.role === 'employer' || profileData.role === 'jobseeker') && (
-  <div className="profile-reviews-full-width">
-    <h3>Reviews</h3>
-    {profileData.reviews?.length ? (
-      <ul>
-        {profileData.reviews.map((review: Review) => ( // Добавлена типизация для review
-          <li key={review.id}>
-            <p><strong>Rating:</strong> {review.rating}</p>
-            <p><strong>Comment:</strong> {review.comment}</p>
-            <p><strong>Reviewer:</strong> {review.reviewer?.username || 'Anonymous'}</p>
-            <p><strong>Date:</strong> {review.created_at}</p>
-          </li>
-        ))}
-      </ul>
-    ) : (
-      <p>No reviews yet.</p>
-    )}
-    <p><strong>Reviews:</strong> <Link to={`/reviews/${profileData.id}`}>View all reviews</Link></p>
-  </div>
-)}
           </div>
-          {!isEditing && (
-            <div className="profile-buttons">
-              <button onClick={() => setIsEditing(true)} className="action-button">
-                Edit Profile
-              </button>
-              <button onClick={handleDeleteAccount} className="action-button danger">
-                Delete Account
-              </button>
-            </div>
-          )}
         </div>
+
+        {(profileData.role === 'employer' || profileData.role === 'jobseeker') && (
+          <div className="pf-card pf-card-reviews">
+            <h2 className="pf-subtitle">Reviews</h2>
+            {profileData.reviews?.length ? (
+              <ul className="pf-reviews-list">
+                {profileData.reviews.map((review: Review) => (
+                  <li key={review.id} className="pf-review">
+                    <div className="pf-review-row"><span className="pf-k">Rating</span><span className="pf-v">{review.rating}</span></div>
+                    <div className="pf-review-row"><span className="pf-k">Comment</span><span className="pf-v">{review.comment}</span></div>
+                    <div className="pf-review-row"><span className="pf-k">Reviewer</span><span className="pf-v">{review.reviewer?.username || 'Anonymous'}</span></div>
+                    <div className="pf-review-row"><span className="pf-k">Date</span><span className="pf-v">{review.created_at}</span></div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="pf-muted">No reviews yet.</div>
+            )}
+            <div className="pf-reviews-link">
+              <strong>Reviews:</strong> <Link className="pf-link" to={`/reviews/${profileData.id}`}>View all reviews</Link>
+            </div>
+          </div>
+        )}
       </div>
+
       <Footer />
       <Copyright />
     </div>

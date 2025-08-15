@@ -8169,14 +8169,11 @@ html, body { overflow-x: hidden; }
 
 
 
-
-
-
-
-
-
-
-
+.messages {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+}
 
 
 

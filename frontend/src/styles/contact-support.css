@@ -1,0 +1,111 @@
+:root {
+  --cs-accent: #4e74c8;
+  --cs-bg: #f6f8ff;
+  --cs-white: #fff;
+  --cs-text: #1b1f2a;
+  --cs-muted: #6b7280;
+  --cs-shadow: 0 10px 30px rgba(18, 33, 73, 0.12);
+  --cs-shadow-sm: 0 6px 18px rgba(18, 33, 73, 0.1);
+  --cs-radius: 10px;
+}
+
+.cs-shell {
+  max-width: 880px;
+  margin: 32px auto 56px;
+  padding: 0 16px;
+}
+
+.cs-card {
+  background: var(--cs-white);
+  border-radius: var(--cs-radius);
+  box-shadow: var(--cs-shadow);
+  padding: 28px;
+}
+
+.cs-title {
+  margin: 0 0 6px;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--cs-text);
+  letter-spacing: 0.2px;
+}
+
+.cs-subtitle {
+  margin: 0 0 18px;
+  color: var(--cs-muted);
+  font-size: 15px;
+}
+
+.cs-alert {
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 12px 0 18px;
+  font-size: 14px;
+  box-shadow: var(--cs-shadow-sm);
+}
+.cs-ok { background: #e9f7ef; color: #1c6b3c; }
+.cs-err { background: #fdecea; color: #8a231f; }
+
+.cs-form { display: grid; gap: 16px; }
+
+.cs-row { display: flex; flex-direction: column; gap: 8px; }
+
+.cs-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cs-text);
+}
+
+.cs-input, .cs-textarea {
+  width: 100%;
+  border: 1px solid #e3e6ef;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 15px;
+  outline: none;
+  transition: box-shadow .15s ease, border-color .15s ease;
+  background: #fff;
+}
+.cs-input:focus, .cs-textarea:focus {
+  border-color: var(--cs-accent);
+  box-shadow: 0 0 0 4px rgba(78,116,200, .12);
+}
+.cs-textarea { resize: vertical; }
+
+.cs-hint {
+  margin-top: 4px;
+  color: var(--cs-muted);
+  font-size: 12px;
+}
+
+/* honeypot скрыт */
+.cs-honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cs-button {
+  align-self: flex-start;
+  background: var(--cs-accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 20px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  cursor: pointer;
+  box-shadow: var(--cs-shadow-sm);
+  transition: transform .05s ease, box-shadow .15s ease, opacity .15s ease;
+}
+.cs-button:hover { transform: translateY(-1px); box-shadow: var(--cs-shadow); }
+.cs-button:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+/* адаптив */
+@media (max-width: 640px) {
+  .cs-card { padding: 20px; }
+  .cs-title { font-size: 22px; }
+}

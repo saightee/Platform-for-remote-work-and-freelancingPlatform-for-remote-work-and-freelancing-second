@@ -25,6 +25,14 @@ import sanitizeHtml from 'sanitize-html';
 import Loader from '../components/Loader';
 import ReactQuill from 'react-quill';
 
+// NEW: icons + styles
+import {
+  FaBriefcase, FaEdit, FaEye, FaCheckCircle, FaTimesCircle,
+  FaFolderOpen, FaChevronDown, FaChevronUp, FaSyncAlt, FaUser,
+  FaEnvelope, FaSearch, FaTimes, FaStar
+} from 'react-icons/fa';
+import '../styles/my-job-posts.css';
+
 const MyJobPosts: React.FC = () => {
   const { profile, isLoading: roleLoading } = useRole();
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
@@ -164,7 +172,6 @@ const MyJobPosts: React.FC = () => {
       return;
     }
 
-    // Валидация salary
     if (editingJob.salary_type !== 'negotiable') {
       if (editingJob.salary == null || editingJob.salary <= 0) {
         alert('Salary is required (>0) unless salary type is negotiable.');
@@ -264,20 +271,15 @@ const MyJobPosts: React.FC = () => {
     }
   };
 
-  const truncateDescription = (description: string, maxLength: number) => {
-    if (description.length > maxLength) {
-      return description.substring(0, maxLength) + '...';
-    }
-    return description;
-  };
-
   if (isLoading) {
     return (
       <div>
         <Header />
-        <div className="container">
-          <h2>My Job Posts</h2>
-          <Loader />
+        <div className="mjp-shell">
+          <div className="mjp-card">
+            <h1 className="mjp-title"><FaBriefcase /> My Job Posts</h1>
+            <Loader />
+          </div>
         </div>
       </div>
     );
@@ -287,10 +289,14 @@ const MyJobPosts: React.FC = () => {
     return (
       <div>
         <Header />
-        <div className="container">
-          <h2>My Job Posts</h2>
-          <p>This page is only available for employers.</p>
+        <div className="mjp-shell">
+          <div className="mjp-card">
+            <h1 className="mjp-title"><FaBriefcase /> My Job Posts</h1>
+            <p className="mjp-subtitle">This page is only available for employers.</p>
+          </div>
         </div>
+        <Footer />
+        <Copyright />
       </div>
     );
   }
@@ -298,37 +304,45 @@ const MyJobPosts: React.FC = () => {
   return (
     <div>
       <Header />
-      <div className="container my-job-posts-container">
-        <h2>My Job Posts</h2>
-        {error && <p className="error-message">{error}</p>}
+      <div className="mjp-shell">
+        <div className="mjp-header">
+          <h1 className="mjp-title"><FaBriefcase /> My Job Posts</h1>
+          <p className="mjp-subtitle">Manage your listings, review applicants, and keep posts up to date.</p>
+        </div>
+
+        {error && <div className="mjp-alert mjp-err">{error}</div>}
+
         {jobPosts.length > 0 ? (
-          <div className="my-job-grid">
+          <div className="mjp-grid">
             {jobPosts.map((post) => (
-              <div key={post.id} className="my-job-card">
+              <div key={post.id} className="mjp-card">
                 {editingJob?.id === post.id ? (
-                  <div className="my-job-edit-form">
-                    <div className="my-job-form-group">
-                      <label>Job Title:</label>
+                  <div className="mjp-edit">
+                    <div className="mjp-row">
+                      <label className="mjp-label"><FaEdit /> Job Title</label>
                       <input
+                        className="mjp-input"
                         type="text"
                         value={editingJob.title || ''}
                         onChange={(e) => editingJob && setEditingJob({ ...editingJob, title: e.target.value })}
                       />
                     </div>
 
-                    <div className="my-job-form-group">
-                      <label>Description:</label>
-                      <ReactQuill
-                        value={editingJob.description || ''}
-                        onChange={(value) => editingJob && setEditingJob({ ...editingJob, description: value })}
-                        placeholder="Enter job description"
-                        style={{ height: '200px', marginBottom: '60px' }}
-                      />
+                    <div className="mjp-row">
+                      <label className="mjp-label"><FaEdit /> Description</label>
+                      <div className="mjp-quill-wrap">
+                        <ReactQuill
+                          value={editingJob.description || ''}
+                          onChange={(value) => editingJob && setEditingJob({ ...editingJob, description: value })}
+                          placeholder="Enter job description"
+                        />
+                      </div>
                     </div>
 
-                    <div className="my-job-form-group">
-                      <label>Work Mode:</label>
+                    <div className="mjp-row">
+                      <label className="mjp-label"><FaFolderOpen /> Work Mode</label>
                       <select
+                        className="mjp-select"
                         value={editingJob.location || ''}
                         onChange={(e) => editingJob && setEditingJob({ ...editingJob, location: e.target.value })}
                       >
@@ -339,44 +353,48 @@ const MyJobPosts: React.FC = () => {
                       </select>
                     </div>
 
-                    <div className="my-job-form-group">
-                      <label>Salary:</label>
-                      <input
-                        type="number"
-                        value={editingJob?.salary_type === 'negotiable' ? '' : editingJob?.salary ?? ''}
-                        onChange={(e) =>
-                          editingJob &&
-                          setEditingJob({
-                            ...editingJob,
-                            salary: e.target.value ? Number(e.target.value) : null,
-                          })
-                        }
-                        min="0"
-                        placeholder={editingJob?.salary_type === 'negotiable' ? 'Negotiable' : 'Enter salary'}
-                        disabled={editingJob?.salary_type === 'negotiable'}
-                      />
-
-                      <select
-                        value={editingJob?.salary_type ?? 'per hour'}
-                        onChange={(e) => {
-                          if (!editingJob) return;
-                          const st = e.target.value as SalaryType;
-                          setEditingJob({
-                            ...editingJob,
-                            salary_type: st,
-                            salary: st === 'negotiable' ? null : editingJob.salary ?? null,
-                          });
-                        }}
-                      >
-                        <option value="per hour">per hour</option>
-                        <option value="per month">per month</option>
-                        <option value="negotiable">negotiable</option>
-                      </select>
+                    <div className="mjp-row">
+                      <label className="mjp-label"><FaFolderOpen /> Salary</label>
+                      <div className="mjp-salary">
+                        <input
+                          className="mjp-input"
+                          type="number"
+                          value={editingJob?.salary_type === 'negotiable' ? '' : editingJob?.salary ?? ''}
+                          onChange={(e) =>
+                            editingJob &&
+                            setEditingJob({
+                              ...editingJob,
+                              salary: e.target.value ? Number(e.target.value) : null,
+                            })
+                          }
+                          min={0}
+                          placeholder={editingJob?.salary_type === 'negotiable' ? 'Negotiable' : 'Enter salary'}
+                          disabled={editingJob?.salary_type === 'negotiable'}
+                        />
+                        <select
+                          className="mjp-select"
+                          value={editingJob?.salary_type ?? 'per hour'}
+                          onChange={(e) => {
+                            if (!editingJob) return;
+                            const st = e.target.value as SalaryType;
+                            setEditingJob({
+                              ...editingJob,
+                              salary_type: st,
+                              salary: st === 'negotiable' ? null : editingJob.salary ?? null,
+                            });
+                          }}
+                        >
+                          <option value="per hour">per hour</option>
+                          <option value="per month">per month</option>
+                          <option value="negotiable">negotiable</option>
+                        </select>
+                      </div>
                     </div>
 
-                    <div className="my-job-form-group">
-                      <label>Job Type:</label>
+                    <div className="mjp-row">
+                      <label className="mjp-label"><FaFolderOpen /> Job Type</label>
                       <select
+                        className="mjp-select"
                         value={editingJob.job_type || ''}
                         onChange={(e) => {
                           const value = e.target.value as 'Full-time' | 'Part-time' | 'Project-based' | '';
@@ -394,10 +412,12 @@ const MyJobPosts: React.FC = () => {
                       </select>
                     </div>
 
-                    <div className="my-job-form-group">
-                      <label>Category:</label>
-                      <div className="autocomplete-wrapper">
+                    <div className="mjp-row">
+                      <label className="mjp-label"><FaSearch /> Category</label>
+                      <div className="mjp-auto">
+                        <FaSearch className="mjp-auto-icon" />
                         <input
+                          className="mjp-input mjp-auto-input"
                           type="text"
                           value={skillInput}
                           onChange={(e) => setSkillInput(e.target.value)}
@@ -406,13 +426,13 @@ const MyJobPosts: React.FC = () => {
                           onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
                         />
                         {isDropdownOpen && (
-                          <ul className="autocomplete-dropdown">
+                          <ul className="mjp-dropdown">
                             {(skillInput.trim() ? filteredSkills : categories).map((category) => (
                               <React.Fragment key={category.id}>
                                 <li
-                                  className="autocomplete-item"
+                                  className="mjp-item"
                                   onMouseDown={() => {
-                                    setEditingJob({ ...editingJob, category_id: category.id });
+                                    setEditingJob({ ...editingJob!, category_id: category.id });
                                     setSkillInput(category.name);
                                     setIsDropdownOpen(false);
                                   }}
@@ -422,9 +442,9 @@ const MyJobPosts: React.FC = () => {
                                 {category.subcategories?.map((sub) => (
                                   <li
                                     key={sub.id}
-                                    className="autocomplete-item sub-category"
+                                    className="mjp-item mjp-sub"
                                     onMouseDown={() => {
-                                      setEditingJob({ ...editingJob, category_id: sub.id });
+                                      setEditingJob({ ...editingJob!, category_id: sub.id });
                                       setSkillInput(`${category.name} > ${sub.name}`);
                                       setIsDropdownOpen(false);
                                     }}
@@ -439,109 +459,121 @@ const MyJobPosts: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="my-job-action-buttons">
-                      <button onClick={() => handleSaveEdit(post.id)} className="my-job-action-button my-job-success">
-                        Save Changes
+                    <div className="mjp-actions-row">
+                      <button onClick={() => handleSaveEdit(post.id)} className="mjp-btn mjp-success">
+                        <FaCheckCircle /> Save Changes
                       </button>
-                      <button onClick={handleCancelEdit} className="my-job-action-button">
-                        Cancel
+                      <button onClick={handleCancelEdit} className="mjp-btn">
+                        <FaTimesCircle /> Cancel
                       </button>
                     </div>
                   </div>
                 ) : (
                   <>
-                    <h3>{post.title}</h3>
+                    <div className="mjp-card-head">
+                      <h3 className="mjp-card-title">{post.title}</h3>
+                      <span className={`mjp-status ${post.status === 'Active' ? 'active' : post.status === 'Closed' ? 'closed' : ''}`}>
+                        {post.status}
+                      </span>
+                    </div>
 
                     <div
-                      className="my-job-description-html"
+                      className="mjp-desc"
                       dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.description) }}
                     />
 
-                    <p>
-                      <strong>Status:</strong> {post.status}
-                    </p>
-
-                    <div className="my-job-action-buttons">
+                    <div className="mjp-actions">
                       {post.status !== 'Closed' && (
-                        <button onClick={() => handleEditJob(post)} className="my-job-action-button">
-                          Edit Job Post
+                        <button onClick={() => handleEditJob(post)} className="mjp-btn">
+                          <FaEdit /> Edit
                         </button>
                       )}
+
                       {post.status === 'Active' ? (
-                        <button onClick={() => handleClose(post.id)} className="my-job-action-button my-job-warning">
-                          Close Job Post
+                        <button onClick={() => handleClose(post.id)} className="mjp-btn mjp-warning">
+                          <FaTimesCircle /> Close
                         </button>
                       ) : (
                         post.status !== 'Closed' && (
-                          <button onClick={() => handleReopen(post.id)} className="my-job-action-button my-job-success">
-                            Reopen Job Post
+                          <button onClick={() => handleReopen(post.id)} className="mjp-btn mjp-success">
+                            <FaSyncAlt /> Reopen
                           </button>
                         )
                       )}
-                      <button onClick={() => handleViewApplications(post.id)} className="my-job-action-button my-job-success">
-                        View Applications
+
+                      <button onClick={() => handleViewApplications(post.id)} className="mjp-btn mjp-primary">
+                        {applications.jobPostId === post.id ? <FaChevronUp /> : <FaChevronDown />} Applications
                       </button>
                     </div>
 
                     {applications.jobPostId === post.id && applications.apps.length > 0 && (
-                      <div className="my-job-application-details-section">
-                        <h4>Applications:</h4>
-                        <table className="my-job-application-table">
-                          <thead>
-                            <tr>
-                              <th>Username</th>
-                              <th>Email</th>
-                              <th>Experience</th>
-                              <th>Applied On</th>
-                              <th>Status</th>
-                              <th>Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {applications.apps.map((app) => (
-                              <tr key={app.applicationId}>
-                                <td>{app.username}</td>
-                                <td>{app.email}</td>
-                                <td>{app.jobDescription || 'Not provided'}</td>
-                                <td>{formatDateInTimezone(app.appliedAt)}</td>
-                                <td>{app.status}</td>
-                                <td>
-                                  {app.status === 'Pending' && (
-                                    <>
-                                      <button
-                                        onClick={() =>
-                                          handleUpdateApplicationStatus(app.applicationId, 'Accepted', post.id)
-                                        }
-                                        className="my-job-action-button my-job-success"
-                                      >
-                                        Accept
-                                      </button>
-                                      <button
-                                        onClick={() =>
-                                          handleUpdateApplicationStatus(app.applicationId, 'Rejected', post.id)
-                                        }
-                                        className="my-job-action-button my-job-danger"
-                                      >
-                                        Reject
-                                      </button>
-                                    </>
-                                  )}
-
-                                  <button
-                                    onClick={() => setCoverLetter(app.coverLetter || 'No cover letter')}
-                                    className="my-job-action-button"
-                                  >
-                                    View Cover Letter
-                                  </button>
-
-                                  <Link to={`/public-profile/${app.userId}`}>
-                                    <button className="my-job-action-button">View Profile</button>
-                                  </Link>
-                                </td>
+                      <div className="mjp-apps">
+                        <h4 className="mjp-section-title"><FaFolderOpen /> Applications</h4>
+                        <div className="mjp-table-wrap">
+                          <table className="mjp-table">
+                            <thead>
+                              <tr>
+                                <th><FaUser /> Username</th>
+                                <th><FaEnvelope /> Email</th>
+                                <th>Experience</th>
+                                <th>Applied On</th>
+                                <th>Status</th>
+                                <th>Actions</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {applications.apps.map((app) => (
+                                <tr key={app.applicationId}>
+                                  <td>{app.username}</td>
+                                  <td>{app.email}</td>
+                                  <td>{app.jobDescription || 'Not provided'}</td>
+                                  <td>{formatDateInTimezone(app.appliedAt)}</td>
+                                  <td>{app.status}</td>
+                                  <td className="mjp-table-actions">
+                                    {app.status === 'Pending' && (
+                                      <>
+                                        <button
+                                          onClick={() =>
+                                            handleUpdateApplicationStatus(app.applicationId, 'Accepted', post.id)
+                                          }
+                                          className="mjp-btn mjp-success mjp-sm"
+                                        >
+                                          <FaCheckCircle /> Accept
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            handleUpdateApplicationStatus(app.applicationId, 'Rejected', post.id)
+                                          }
+                                          className="mjp-btn mjp-danger mjp-sm"
+                                        >
+                                          <FaTimesCircle /> Reject
+                                        </button>
+                                      </>
+                                    )}
+
+                                    <button
+                                      onClick={() => setCoverLetter(app.coverLetter || 'No cover letter')}
+                                      className="mjp-btn mjp-sm"
+                                    >
+                                      <FaEye /> Cover Letter
+                                    </button>
+
+                                    <Link to={`/public-profile/${app.userId}`}>
+                                      <button className="mjp-btn mjp-sm"><FaEye /> Profile</button>
+                                    </Link>
+
+                                    <button
+                                      className="mjp-btn mjp-sm"
+                                      onClick={() => setReviewForm({ applicationId: app.applicationId, rating: 5, comment: '' })}
+                                    >
+                                      <FaStar /> Review
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
                   </>
@@ -550,39 +582,43 @@ const MyJobPosts: React.FC = () => {
             ))}
           </div>
         ) : (
-          <p>No job posts found.</p>
+          <div className="mjp-card">
+            <p className="mjp-subtitle">No job posts found.</p>
+          </div>
         )}
       </div>
 
-      {/* Modal: Cover Letter (без императивного DOM) */}
+      {/* Modal: Cover Letter */}
       {coverLetter && (
-        <div className="modal" onClick={() => setCoverLetter(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <span className="close" onClick={() => setCoverLetter(null)}>
-              ×
-            </span>
-            <h4>Cover Letter</h4>
-            <p style={{ whiteSpace: 'pre-wrap' }}>{coverLetter}</p>
+        <div className="mjp-modal" onClick={() => setCoverLetter(null)}>
+          <div className="mjp-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="mjp-modal-close" onClick={() => setCoverLetter(null)} aria-label="Close">
+              <FaTimes />
+            </button>
+            <h4 className="mjp-modal-title"><FaEnvelope /> Cover Letter</h4>
+            <p className="mjp-modal-body" style={{ whiteSpace: 'pre-wrap' }}>{coverLetter}</p>
           </div>
         </div>
       )}
 
       {/* Modal: Review */}
       {reviewForm && (
-        <div className="modal" onClick={() => setReviewForm(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <span className="close" onClick={() => setReviewForm(null)}>
-              ×
-            </span>
-            <form onSubmit={handleCreateReview}>
-              {formError && <p className="error-message">{formError}</p>}
-              <div className="my-job-form-group">
-                <label>Rating:</label>
-                <div className="star-rating">
+        <div className="mjp-modal" onClick={() => setReviewForm(null)}>
+          <div className="mjp-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="mjp-modal-close" onClick={() => setReviewForm(null)} aria-label="Close">
+              <FaTimes />
+            </button>
+            <h4 className="mjp-modal-title"><FaStar /> Leave a Review</h4>
+            <form onSubmit={handleCreateReview} className="mjp-form" noValidate>
+              {formError && <div className="mjp-alert mjp-err">{formError}</div>}
+
+              <div className="mjp-row">
+                <label className="mjp-label">Rating</label>
+                <div className="mjp-stars">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <span
                       key={star}
-                      className={`star ${star <= reviewForm.rating ? 'filled' : ''}`}
+                      className={`mjp-star ${star <= reviewForm.rating ? 'filled' : ''}`}
                       onClick={() => setReviewForm({ ...reviewForm, rating: star })}
                     >
                       ★
@@ -590,17 +626,22 @@ const MyJobPosts: React.FC = () => {
                   ))}
                 </div>
               </div>
-              <div className="my-job-form-group">
-                <label>Comment:</label>
+
+              <div className="mjp-row">
+                <label className="mjp-label">Comment</label>
                 <textarea
+                  className="mjp-textarea"
                   value={reviewForm.comment}
                   onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
                   rows={4}
                 />
               </div>
-              <button type="submit" className="my-job-action-button my-job-success">
-                Submit Review
-              </button>
+
+              <div className="mjp-actions-row">
+                <button type="submit" className="mjp-btn mjp-success">
+                  <FaCheckCircle /> Submit Review
+                </button>
+              </div>
             </form>
           </div>
         </div>

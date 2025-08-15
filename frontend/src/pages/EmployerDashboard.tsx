@@ -20,11 +20,55 @@ const EmployerDashboard: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    try { await logout(); } catch {}
-    localStorage.removeItem('token');
-    navigate('/');
+
+
+const [unreadTotal, setUnreadTotal] = useState(0);
+
+const unreadKey = React.useMemo(
+  () => `unreads_${profile?.id || 'anon'}`,
+  [profile?.id]
+);
+
+useEffect(() => {
+  const calc = () => {
+    try {
+      const raw = localStorage.getItem(unreadKey);
+      const map = raw ? JSON.parse(raw) as Record<string, number> : {};
+      const total = Object.values(map).reduce((s, v) => s + (Number(v) || 0), 0);
+      setUnreadTotal(total);
+    } catch {
+      setUnreadTotal(0);
+    }
   };
+
+  calc(); // начальное значение
+
+  // обновления из других вкладок
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === unreadKey) calc();
+  };
+
+  // обновления из текущего таба (Messages шлёт событие)
+  const onLocal = () => calc();
+
+  window.addEventListener('storage', onStorage);
+  window.addEventListener('jobforge:unreads-updated', onLocal);
+
+  return () => {
+    window.removeEventListener('storage', onStorage);
+    window.removeEventListener('jobforge:unreads-updated', onLocal);
+  };
+}, [unreadKey]);
+
+  
+
+ const handleLogout = async () => {
+  try { await logout(); } catch {}
+  try { localStorage.removeItem(`unreads_${profile?.id || 'anon'}`); } catch {}
+  localStorage.removeItem('token');
+  navigate('/');
+};
+
 
   const closeDrawer = () => setIsOpen(false);
 
@@ -72,13 +116,18 @@ const EmployerDashboard: React.FC = () => {
           </NavLink>
 
           <NavLink to="/employer-dashboard/messages" className={({ isActive }) => `edb-nav__link ${isActive ? 'active' : ''}`}>
-            <FaComments aria-hidden className="edb-nav__ico" />
-            <span className="edb-nav__text">Messages</span>
-          </NavLink>
+  <FaComments aria-hidden className="edb-nav__ico" />
+  <span className="edb-nav__text">Messages</span>
+  {unreadTotal > 0 && (
+    <span className="nav-badge" aria-label={`${unreadTotal} unread`}>
+      {unreadTotal > 99 ? '99+' : unreadTotal}
+    </span>
+  )}
+</NavLink>
 
-          <NavLink to="/employer-dashboard/contact" className={({ isActive }) => `edb-nav__link ${isActive ? 'active' : ''}`}>
+          <NavLink to="/employer-dashboard/report-issue" className={({ isActive }) => `edb-nav__link ${isActive ? 'active' : ''}`}>
             <FaEnvelopeOpenText aria-hidden className="edb-nav__ico" />
-            <span className="edb-nav__text">Contact</span>
+            <span className="edb-nav__text">Report tech Issue</span>
           </NavLink>
         </nav>
       </aside>

@@ -442,3 +442,39 @@
   margin: 0 !important;
   padding: 0 !important;
 }
+
+
+.edb-nav__link, .jsd-nav__link { position: relative; }
+
+.nav-badge{
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: #e11d48; /* красный */
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Спрятать Copyright, который рендерится внутри вложенных страниц дашборда */
+.edb-embed .jf2-copy {
+  display: none !important;
+}
+
+/* На всякий: старые варианты классов */
+.edb-embed .copyright,
+.edb-embed .crp-wrap {
+  display: none !important;
+}
+
+/* Если когда-нибудь дублируется и футер новой версии */
+.edb-embed .jf2-footer {
+  display: none !important;
+}
