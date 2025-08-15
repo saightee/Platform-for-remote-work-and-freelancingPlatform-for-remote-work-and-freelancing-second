@@ -1995,14 +1995,18 @@
     "error": "Not Found"
   }
 
-### 36. Submit Feedback
+### 36. Submit Tech Issue Feedback
 - **Endpoint**: `POST /api/feedback`
 - **Description**: Allows authenticated jobseekers or employers to submit general feedback about the platform.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
   ```json
   {
-    "message": "Great platform, but needs more features!"
+    "category": "Bug", // One of: Bug | UI | Perfomance | Data | Other
+    "summary": "Short 1–2 sentence description",
+    "steps_to_reproduce": "1) Open ... 2) Click ... 3) Error",
+    "expected_result": "Should open profile page",
+    "actual_result": "Stays on the same page with 500"
   }
 
 - **Response (Success - 200)**: 
@@ -2010,10 +2014,14 @@
   {
     "id": "<feedbackId>",
     "user_id": "<userId>",
-    "message": "Great platform, but needs more features!",
     "role": "jobseeker",
-    "created_at": "2025-07-28T10:00:00.000Z",
-    "updated_at": "2025-07-28T10:00:00.000Z"
+    "category": "Bug",
+    "summary": "Short 1–2 sentence description",
+    "steps_to_reproduce": "1) Open ... 2) Click ... 3) Error",
+    "expected_result": "Should open profile page",
+    "actual_result": "Stays on the same page with 500",
+    "created_at": "2025-08-15T10:00:00.000Z",
+    "updated_at": "2025-08-15T10:00:00.000Z"
   }
 
 - **Response (Error - 401, if token invalid or user not jobseeker/employer)**: 
@@ -2024,7 +2032,7 @@
     "error": "Unauthorized"
   }
 
-### 37. Get Feedback (Admin)
+### 37. Get Tech Issue Feedback (Admin)
 - **Endpoint**: `GET /api/feedback`
 - **Description**: Retrieves all general feedback submissions (admin only).
 - **Headers**: `Authorization: Bearer <token>`
@@ -2034,14 +2042,18 @@
     {
       "id": "<feedbackId>",
       "user_id": "<userId>",
-      "message": "Great platform, but needs more features!",
-      "role": "jobseeker",
-      "created_at": "2025-07-28T10:00:00.000Z",
-      "updated_at": "2025-07-28T10:00:00.000Z",
+      "role": "employer",
+      "category": "UI",
+      "summary": "Button misaligned on mobile",
+      "steps_to_reproduce": "Open /jobs on iPhone SE...",
+      "expected_result": "Buttons aligned in a row",
+      "actual_result": "Buttons wrap to next line",
+      "created_at": "2025-08-15T10:00:00.000Z",
+      "updated_at": "2025-08-15T10:00:00.000Z",
       "user": {
         "id": "<userId>",
-        "username": "john_doe",
-        "email": "john@example.com"
+        "username": "employer1",
+        "email": "employer@example.com"
       }
     }
   ]
@@ -3313,26 +3325,36 @@
     "error": "Unauthorized"
   }
 
-### 77. Submit Platform Feedback
+### 77. Submit Success Story
 - **Endpoint**: `POST /api/platform-feedback`
 - **Description**: Allows authenticated jobseekers or employers to submit feedback or success stories about the platform.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
   ```json
   {
-    "rating": 4,
-    "description": "Found an amazing employer through the platform!"
+    "headline": "Landed my first remote role via Jobforge",
+    "story": "I applied to 3 roles and got 2 interviews within a week...",
+    "rating": 5,
+    "allow_publish": true,
+    "company": "Acme Inc",
+    "country": "CA"
   }
 
 - **Response (Success - 200)**:
   ```json
   {
-    "id": "<feedbackId>",
+    "id": "<id>",
     "user_id": "<userId>",
-    "rating": 4,
-    "description": "Found an amazing employer through the platform!",
-    "created_at": "2025-07-08T07:00:00.000Z",
-    "updated_at": "2025-07-08T07:00:00.000Z"
+    "role": "jobseeker",
+    "headline": "Landed my first remote role via Jobforge",
+    "story": "I applied to 3 roles and got 2 interviews within a week...",
+    "rating": 5,
+    "allowed_to_publish": true,
+    "is_public": true,
+    "company": "Acme Inc",
+    "country": "CA",
+    "created_at": "2025-08-15T10:00:00.000Z",
+    "updated_at": "2025-08-15T10:00:00.000Z"
   }
 
 - **Response (Error - 400, if rating is invalid)**:
@@ -3367,9 +3389,9 @@
     "error": "Not Found"
   }
 
-### 78. Get Platform Feedback (Public)
+### 78. Get Success Stories (Public)
 - **Endpoint**: `GET /api/platform-feedback`
-- **Description**: Retrieves a paginated list of platform feedback and success stories, accessible to all users (including unauthenticated).
+- **Description**: Retrieves a paginated list of platform feedback and success stories, accessible to all users (including unauthenticated). Returns only published (is_public=true)
 - **Query Parameters**:
     - `page` (number, optional): Page number for pagination (default: 1).
     - `limit` (number, optional): Number of items per page (default: 10).
@@ -3380,16 +3402,15 @@
     "total": 50,
     "data": [
       {
-        "id": "<feedbackId>",
-        "rating": 4,
-        "description": "Found an amazing employer through the platform!",
-        "created_at": "2025-07-08T07:00:00.000Z",
-        "updated_at": "2025-07-08T07:00:00.000Z",
-        "user": {
-          "id": "<userId>",
-          "username": "john_doe",
-          "role": "jobseeker"
-        }
+        "id": "<id>",
+        "headline": "Hired in 10 days",
+        "story": "Your platform matched me with a perfect role...",
+        "rating": 5,
+        "company": "Globex",
+        "country": "SE",
+        "created_at": "2025-08-01T12:00:00.000Z",
+        "updated_at": "2025-08-01T12:00:00.000Z",
+        "user": { "id": "<uid>", "username": "anna", "role": "jobseeker" }
       }
     ]
   }
@@ -3404,7 +3425,7 @@
 
 ### 79. Get Platform Feedback (Admin/Moderator)
 - **Endpoint**: `GET /api/admin/platform-feedback`
-- **Description**: Retrieves a paginated list of platform feedback for admin or moderator review.
+- **Description**: Returns a paginated list of all success stories and reviews (both published and unpublished) for moderation.
 - **Headers**: `Authorization: Bearer <token>`
 - **Query Parameters**:
     - `page` (number, optional): Page number for pagination (default: 1).
@@ -3413,18 +3434,24 @@
 - **Response (Success - 200)**:
   ```json
   {
-    "total": 50,
+    "total": 42,
     "data": [
       {
-        "id": "<feedbackId>",
-        "user_id": "<userId>",
-        "rating": 4,
-        "description": "Found an amazing employer through the platform!",
-        "created_at": "2025-07-08T07:00:00.000Z",
-        "updated_at": "2025-07-08T07:00:00.000Z",
+        "id": "fdb-uuid",
+        "user_id": "user-uuid",
+        "role": "jobseeker",
+        "headline": "Hired in 10 days",
+        "story": "Your platform matched me with a perfect role...",
+        "rating": 5,
+        "allowed_to_publish": true,
+        "is_public": true,
+        "company": "Globex",
+        "country": "SE",
+        "created_at": "2025-08-12T10:00:00.000Z",
+        "updated_at": "2025-08-12T10:00:00.000Z",
         "user": {
-          "id": "<userId>",
-          "username": "john_doe",
+          "id": "user-uuid",
+          "username": "anna",
           "role": "jobseeker"
         }
       }
@@ -3438,6 +3465,84 @@
     "message": "Page must be a positive integer",
     "error": "Bad Request"
   }
+
+- **Response (Error - 401, if token is invalid or user is not an admin/moderator)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only admins or moderators can access this resource",
+    "error": "Unauthorized"
+  }
+
+### 79.1 Publish Platform Feedback (Admin/Moderator)
+- **Endpoint**: `PATCH /api/admin/platform-feedback/:id/publish`
+- **Description**: Publishes the story on the site (is_public = true). Allowed only if the user has checked the consent box (allowed_to_publish = true).
+- **Headers**: `Authorization: Bearer <token>`
+- **Params**:
+    - `id` — ID записи платформенного фидбека
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "fdb-uuid",
+    "user_id": "user-uuid",
+    "role": "employer",
+    "headline": "Closed a hard role with Jobforge",
+    "story": "Posting and screening saved us days...",
+    "rating": 5,
+    "allowed_to_publish": true,
+    "is_public": true,
+    "company": "Acme Inc",
+    "country": "CA",
+    "created_at": "2025-08-10T09:00:00.000Z",
+    "updated_at": "2025-08-15T11:20:00.000Z"
+  }
+
+- **Response (400 Bad Request - no user consent to publish)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "User did not allow publishing this story",
+    "error": "Bad Request"
+  }  
+
+- **Response (Error - 401, if token is invalid or user is not an admin/moderator)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only admins or moderators can access this resource",
+    "error": "Unauthorized"
+  }
+
+### 79.2 Unpublish Platform Feedback (Admin/Moderator)
+- **Endpoint**: `PATCH /api/admin/platform-feedback/:id/unpublish`
+- **Description**: Removes publication (is_public = false).
+- **Headers**: `Authorization: Bearer <token>`
+- **Params**:
+    - `id` — ID записи платформенного фидбека
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "fdb-uuid",
+    "user_id": "user-uuid",
+    "role": "jobseeker",
+    "headline": "Got my first remote role",
+    "story": "After 2 interviews I got an offer...",
+    "rating": 4,
+    "allowed_to_publish": true,
+    "is_public": false,
+    "company": "Globex",
+    "country": "SE",
+    "created_at": "2025-08-09T08:30:00.000Z",
+    "updated_at": "2025-08-15T11:22:00.000Z"
+  }
+
+- **Response (400 Bad Request - no user consent to publish)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "User did not allow publishing this story",
+    "error": "Bad Request"
+  }  
 
 - **Response (Error - 401, if token is invalid or user is not an admin/moderator)**:
   ```json
