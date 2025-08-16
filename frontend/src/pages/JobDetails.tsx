@@ -6,7 +6,7 @@ import Copyright from '../components/Copyright';
 import { getJobPost, applyToJobPost, incrementJobView, checkJobApplicationStatus } from '../services/api';
 import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
-import { FaEye, FaBriefcase, FaDollarSign, FaMapMarkerAlt, FaCalendarAlt, FaUserCircle, FaTools, FaFolder } from 'react-icons/fa';
+import { FaEye, FaBriefcase, FaDollarSign, FaMapMarkerAlt, FaCalendarAlt, FaUserCircle, FaTools, FaFolder, FaSignInAlt, FaUserPlus } from 'react-icons/fa';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
 import sanitizeHtml from 'sanitize-html';
@@ -177,19 +177,7 @@ const backAfterReport =
             )}
             <span className="employer-name">{job.employer?.username || 'Unknown'}</span>
           </div>
-          {!profile && (
-            <p className="login-prompt">
-              Please{' '}
-              <Link to="/login" style={{ color: 'white', textDecoration: 'none' }}>
-                login
-              </Link>{' '}
-              or{' '}
-              <Link to="/register/jobseeker" style={{ color: 'white', textDecoration: 'none' }}>
-                register
-              </Link>{' '}
-              as jobseeker to apply for this job.
-            </p>
-          )}
+         
         </div>
         <div className="job-details-panel">
           <div className="job-detail-item">
@@ -212,6 +200,15 @@ const backAfterReport =
             <FaEye /> <strong>Views:</strong> {job.views || 0}
           </div>
         </div>
+{!profile && (
+<p className="login-prompt">
+  <span>Please</span>
+  <Link to="/login" className="lp-btn lp-primary"><FaSignInAlt /> Log in</Link>
+  <span>or</span>
+  <Link to="/register/jobseeker" className="lp-btn lp-outline"><FaUserPlus /> Register</Link>
+  <span>as jobseeker to apply for this job.</span>
+</p>
+)}
         <div className="job-details-content">
           <div className="job-details-info">
             <h2>Job Overview</h2>

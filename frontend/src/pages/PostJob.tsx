@@ -1,3 +1,4 @@
+// src/pages/PostJob.tsx
 import { useState, useEffect, FormEvent, useRef } from 'react';
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -12,9 +13,16 @@ import 'react-quill/dist/quill.snow.css';
 import Loader from '../components/Loader';
 import {
   FaBriefcase, FaMapMarkerAlt, FaMoneyBillWave, FaListUl,
-  FaBolt, FaRedo, FaSearch, FaTimes, FaLightbulb
+  FaBolt, FaRedo, FaSearch, FaTimes, FaLightbulb, FaInfoCircle
 } from 'react-icons/fa';
 import '../styles/post-job.css';
+
+// маленькая универсальная иконка-подсказка
+const InfoTip: React.FC<{ tip: string }> = ({ tip }) => (
+  <span className="pjx-tip" data-tip={tip} tabIndex={0} aria-label={tip}>
+    <FaInfoCircle />
+  </span>
+);
 
 const PostJob: React.FC = () => {
   const navigate = useNavigate();
@@ -41,6 +49,7 @@ const PostJob: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // исключения по странам
   const [excludedCountries, setExcludedCountries] = useState<string[]>([]);
   const [countryInput, setCountryInput] = useState('');
   const [filteredCountries, setFilteredCountries] = useState<string[]>([]);
@@ -92,6 +101,7 @@ const PostJob: React.FC = () => {
       setError('Brief description is required for generation.');
       return;
     }
+    // rate limit: 5/min
     const now = Date.now() / 1000;
     const recent = requestTimes.filter((t) => now - t < 60);
     if (recent.length >= 5) {
@@ -275,7 +285,10 @@ const PostJob: React.FC = () => {
             {/* LEFT */}
             <div className="pjx-card">
               <div className="pjx-row">
-                <label className="pjx-label"><FaBriefcase /> Job Title *</label>
+                <label className="pjx-label">
+                  <FaBriefcase /> Job Title *{' '}
+                  <InfoTip tip="Keep it short and searchable: Role — focus area/tools." />
+                </label>
                 <input
                   className="pjx-input"
                   type="text"
@@ -284,11 +297,13 @@ const PostJob: React.FC = () => {
                   placeholder="e.g., Senior Virtual Assistant (E-commerce, Amazon)"
                   required
                 />
-                <div className="pjx-hint"><FaLightbulb /> Keep it short and searchable: Role — focus area/tools.</div>
               </div>
 
               <div className="pjx-row">
-                <label className="pjx-label"><FaMapMarkerAlt /> Location Exclusions</label>
+                <label className="pjx-label">
+                  <FaMapMarkerAlt /> Location Exclusions{' '}
+                  <InfoTip tip="Add countries you don’t want to receive applications from." />
+                </label>
                 <div className="pjx-auto">
                   <FaSearch className="pjx-auto-icon" />
                   <input
@@ -312,7 +327,6 @@ const PostJob: React.FC = () => {
                     </ul>
                   )}
                 </div>
-                <div className="pjx-hint">Add locations you <b>don’t</b> want to receive applications from.</div>
 
                 {excludedCountries.length > 0 && (
                   <div className="pjx-chips">
@@ -334,7 +348,10 @@ const PostJob: React.FC = () => {
               </div>
 
               <div className="pjx-row">
-                <label className="pjx-label"><FaMapMarkerAlt /> Work Mode</label>
+                <label className="pjx-label">
+                  <FaMapMarkerAlt /> Work Mode{' '}
+                  <InfoTip tip="Shown on the job card and used in search filters." />
+                </label>
                 <select
                   className="pjx-select"
                   value={locationMode}
@@ -345,11 +362,13 @@ const PostJob: React.FC = () => {
                   <option value="On-site">On-site</option>
                   <option value="Hybrid">Hybrid</option>
                 </select>
-                <div className="pjx-hint">This appears on the job card and affects search filters.</div>
               </div>
 
               <div className="pjx-row">
-                <label className="pjx-label"><FaMoneyBillWave /> Salary</label>
+                <label className="pjx-label">
+                  <FaMoneyBillWave /> Salary{' '}
+                  <InfoTip tip="Choose a unit. Select ‘negotiable’ to hide the exact amount." />
+                </label>
                 <div className="pjx-salary">
                   <input
                     className="pjx-input"
@@ -370,11 +389,13 @@ const PostJob: React.FC = () => {
                     <option value="negotiable">negotiable</option>
                   </select>
                 </div>
-                <div className="pjx-hint">Choose a unit. Select “negotiable” to hide the exact amount.</div>
               </div>
 
               <div className="pjx-row">
-                <label className="pjx-label"><FaListUl /> Job Type</label>
+                <label className="pjx-label">
+                  <FaListUl /> Job Type{' '}
+                  <InfoTip tip="How the role is contracted — affects candidate expectations." />
+                </label>
                 <select
                   className="pjx-select"
                   value={jobType || ''}
@@ -388,11 +409,13 @@ const PostJob: React.FC = () => {
                   <option value="Part-time">Part-time</option>
                   <option value="Project-based">Project-based</option>
                 </select>
-                <div className="pjx-hint">How the role is contracted — affects candidate expectations.</div>
               </div>
 
               <div className="pjx-row">
-                <label className="pjx-label"><FaListUl /> Category</label>
+                <label className="pjx-label">
+                  <FaListUl /> Category{' '}
+                  <InfoTip tip="Pick the closest match so candidates can find your post faster." />
+                </label>
                 <div className="pjx-auto">
                   <FaSearch className="pjx-auto-icon" />
                   <input
@@ -436,7 +459,6 @@ const PostJob: React.FC = () => {
                     </ul>
                   )}
                 </div>
-                <div className="pjx-hint">Pick the closest match so candidates can find your post faster.</div>
 
                 {categoryId && (() => {
                   const skill =
@@ -467,7 +489,10 @@ const PostJob: React.FC = () => {
               </div>
 
               <div className="pjx-row">
-                <label className="pjx-label"><FaBolt /> Brief Description for AI *</label>
+                <label className="pjx-label">
+                  <FaBolt /> Brief Description for AI *{' '}
+                  <InfoTip tip="1–3 sentences: responsibilities, must-have skills, tools, seniority." />
+                </label>
                 <textarea
                   className="pjx-textarea"
                   value={aiBrief}
@@ -475,9 +500,6 @@ const PostJob: React.FC = () => {
                   placeholder="1–3 sentences: responsibilities, must-have skills, tools, seniority…"
                   rows={4}
                 />
-                <div className="pjx-hint">
-                  Example: “Handle Amazon listings, keyword research, PPC optimization, weekly reporting. Excel/Sheets required.”
-                </div>
                 <button
                   type="button"
                   onClick={() => handleGenerate()}
@@ -492,10 +514,24 @@ const PostJob: React.FC = () => {
             {/* RIGHT */}
             <div className="pjx-card">
               <div className="pjx-row">
-                <label className="pjx-label">Job Description (editable)</label>
-                <div className="pjx-hint">
-                  You can edit the generated text below or click <b>Regenerate</b> to try a different wording.
+                <div className="pjx-headrow">
+                  <label className="pjx-label">
+                    Job Description (editable){' '}
+                    <InfoTip tip="You can edit the generated text. Click Regenerate to try a different wording." />
+                  </label>
+                  <div className="pjx-head-actions">
+                    <button
+                      type="button"
+                      onClick={() => handleGenerate(true)}
+                      className="cs-button pjx-regenerate"
+                      disabled={isGenerating}
+                      title="Regenerate with AI"
+                    >
+                      <FaRedo /> Regenerate
+                    </button>
+                  </div>
                 </div>
+
                 {isGenerating ? (
                   <Loader />
                 ) : (
@@ -515,15 +551,6 @@ const PostJob: React.FC = () => {
                     />
                   </div>
                 )}
-                <button
-                  type="button"
-                  onClick={() => handleGenerate(true)}
-                  className="cs-button pjx-inline-btn"
-                  disabled={isGenerating}
-                  title="Regenerate with AI"
-                >
-                  <FaRedo style={{ marginRight: 8 }} /> Regenerate
-                </button>
               </div>
             </div>
           </div>

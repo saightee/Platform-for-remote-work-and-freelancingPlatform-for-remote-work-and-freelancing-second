@@ -50,7 +50,7 @@
 .fj-grid-2{display:grid;gap:10px;grid-template-columns:1fr 1fr}
 @media (max-width:540px){.fj-grid-2{grid-template-columns:1fr}}
 
-.fj-apply{width:100%;margin-top:6px}
+.fj-apply{width:100%;margin-top:6px; display:flex; justify-content:center;}
 
 /* autocomplete */
 .fj-autocomplete{position:relative}
@@ -69,7 +69,7 @@
 
 /* results */
 .fj-results{}
-.fj-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+.fj-grid{display:grid;grid-template-columns:repeat(1,1fr);gap:18px}
 @media (max-width:1000px){.fj-grid{grid-template-columns:1fr}}
 .fj-empty{color:var(--cs-muted);padding:18px}
 

@@ -89,3 +89,40 @@
   .msg-card { padding: 18px; }
   .msg-title { font-size: 22px; }
 }
+
+
+/* === фиксируем высоту сетки и разрешаем скролл внутри === */
+.msg-grid{
+  display:grid;
+  grid-template-columns:320px 1fr;
+  gap:16px;
+
+  /* делаем область чата высотой почти на весь экран */
+  min-height: calc(100dvh - 220px); /* подгони при желании */
+}
+
+/* сам «экран» чата должен занимать всю высоту грид-ячейки */
+.msg-window-card{
+  display:grid;
+  grid-template-rows:auto 1fr auto;
+  height:100%;
+  min-height:0;              /* ВАЖНО для корректного overflow у .msg-thread */
+}
+
+/* область сообщений — скролл только здесь */
+.msg-thread{
+  overflow-y:auto;
+  min-height:0;              /* ВАЖНО: иначе grid заставит расти блок */
+}
+
+/* увеличить самолётик на кнопке отправки */
+.msg-send-btn svg{
+  width:22px;
+  height:22px;
+}
+
+/* (по желанию) сделаем саму кнопку пошире */
+.msg-send-btn{
+  width:48px;
+  height:48px;
+}

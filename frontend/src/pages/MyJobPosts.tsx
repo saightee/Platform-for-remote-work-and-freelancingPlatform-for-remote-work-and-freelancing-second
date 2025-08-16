@@ -522,56 +522,57 @@ const MyJobPosts: React.FC = () => {
                               </tr>
                             </thead>
                             <tbody>
-                              {applications.apps.map((app) => (
-                                <tr key={app.applicationId}>
-                                  <td>{app.username}</td>
-                                  <td>{app.email}</td>
-                                  <td>{app.jobDescription || 'Not provided'}</td>
-                                  <td>{formatDateInTimezone(app.appliedAt)}</td>
-                                  <td>{app.status}</td>
-                                  <td className="mjp-table-actions">
-                                    {app.status === 'Pending' && (
-                                      <>
-                                        <button
-                                          onClick={() =>
-                                            handleUpdateApplicationStatus(app.applicationId, 'Accepted', post.id)
-                                          }
-                                          className="mjp-btn mjp-success mjp-sm"
-                                        >
-                                          <FaCheckCircle /> Accept
-                                        </button>
-                                        <button
-                                          onClick={() =>
-                                            handleUpdateApplicationStatus(app.applicationId, 'Rejected', post.id)
-                                          }
-                                          className="mjp-btn mjp-danger mjp-sm"
-                                        >
-                                          <FaTimesCircle /> Reject
-                                        </button>
-                                      </>
-                                    )}
+  {applications.apps.map((app) => (
+    <tr key={app.applicationId}>
+      <td data-label="Username">{app.username}</td>
+      <td data-label="Email">{app.email}</td>
+      <td data-label="Experience">{app.jobDescription || 'Not provided'}</td>
+      <td data-label="Applied On">{formatDateInTimezone(app.appliedAt)}</td>
+      <td data-label="Status">{app.status}</td>
+      <td data-label="Actions" className="mjp-table-actions">
+        {app.status === 'Pending' && (
+          <>
+            <button
+              onClick={() =>
+                handleUpdateApplicationStatus(app.applicationId, 'Accepted', post.id)
+              }
+              className="mjp-btn mjp-success mjp-sm"
+            >
+              <FaCheckCircle /> Accept
+            </button>
+            <button
+              onClick={() =>
+                handleUpdateApplicationStatus(app.applicationId, 'Rejected', post.id)
+              }
+              className="mjp-btn mjp-danger mjp-sm"
+            >
+              <FaTimesCircle /> Reject
+            </button>
+          </>
+        )}
 
-                                    <button
-                                      onClick={() => setCoverLetter(app.coverLetter || 'No cover letter')}
-                                      className="mjp-btn mjp-sm"
-                                    >
-                                      <FaEye /> Cover Letter
-                                    </button>
+        <button
+          onClick={() => setCoverLetter(app.coverLetter || 'No cover letter')}
+          className="mjp-btn mjp-sm"
+        >
+          <FaEye /> Cover Letter
+        </button>
 
-                                    <Link to={`/public-profile/${app.userId}`}>
-                                      <button className="mjp-btn mjp-sm"><FaEye /> Profile</button>
-                                    </Link>
+        <Link to={`/public-profile/${app.userId}`}>
+          <button className="mjp-btn mjp-sm"><FaEye /> Profile</button>
+        </Link>
 
-                                    <button
-                                      className="mjp-btn mjp-sm"
-                                      onClick={() => setReviewForm({ applicationId: app.applicationId, rating: 5, comment: '' })}
-                                    >
-                                      <FaStar /> Review
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
+        <button
+          className="mjp-btn mjp-sm"
+          onClick={() => setReviewForm({ applicationId: app.applicationId, rating: 5, comment: '' })}
+        >
+          <FaStar /> Review
+        </button>
+      </td>
+    </tr>
+  ))}
+</tbody>
+
                           </table>
                         </div>
                       </div>
