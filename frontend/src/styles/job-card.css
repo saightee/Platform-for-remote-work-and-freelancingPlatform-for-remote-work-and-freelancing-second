@@ -184,3 +184,46 @@
   .jcx-salary { font-size: 14px; }
   .jcx-btn { padding: 10px 14px; }
 }
+
+
+/* --- HOME: фикс отсечённой тени / шва между карточками --- */
+/* если у твоего контейнера есть свой класс — лучше замени селектор на него */
+.home-recent-jobs, .recent-jobs, .home-job-list, .job-home-grid {
+  overflow: visible !important;     /* не режем тени карточек */
+  /* безопасные отступы вокруг сетки, чтобы тень не упиралась в края */
+  padding-left: 8px; 
+  padding-right: 8px;
+}
+
+/* даём карточке маленький внешний отступ, тень больше не обрезается */
+.jcx-card {
+  margin: 10px 8px 18px;            /* вертикальный зазор + чуть по бокам */
+  overflow: visible;                /* на случай, если внутри будут выпирающие элементы */
+}
+
+/* --- FOOTER ВСЕГДА ОТДЕЛЬНОЙ СТРОКОЙ (и на мобилке тоже) --- */
+.jcx-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  margin-top: 14px;
+  padding-top: 8px;
+  border-top: 1px solid #eef2ff;    /* лёгкий разделитель от текста/чипов */
+  flex-wrap: nowrap;                 /* не позволяем «$3 per hour» запрыгивать к чипам */
+}
+
+.jcx-salary { white-space: nowrap; } /* чтобы валюта не рвалась по словам */
+
+/* На узких экранах уплотним чипы, но футер оставим отдельной строкой */
+@media (max-width: 640px) {
+  .jcx-card { margin: 8px 4px 16px; }
+  .jcx-meta { gap: 6px 8px; }
+  .jcx-chip, .jcx-tag { padding: 5px 8px; font-size: 12px; }
+  .jcx-footer { gap: 8px; }
+  .jcx-btn { padding: 10px 14px; }
+}
+
+/* На всякий случай фиксируем, что футер не может «вклиниться» в мета-блоки */
+.jcx-body > .jcx-footer { order: 99; }

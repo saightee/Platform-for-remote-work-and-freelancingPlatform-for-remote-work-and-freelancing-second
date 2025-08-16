@@ -42,22 +42,11 @@
 
 /* search */
 .ftl-search {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr auto auto;
-  gap: 10px;
+  display: flex;
   align-items: center;
+  gap: 10px;
 }
-.ftl-input {
-  width: 100%;
-  border: 1px solid #e3e6ef;
-  border-radius: 10px;
-  padding: 12px 14px;
-  font-size: 15px;
-  outline: none;
-  transition: box-shadow .15s ease, border-color .15s ease;
-  background: #fff;
-}
+.ftl-search .ftl-input { flex: 1 1 auto; }
 .ftl-input:focus {
   border-color: var(--cs-accent);
   box-shadow: 0 0 0 4px rgba(78,116,200,.12);
@@ -82,8 +71,7 @@
 .ftl-iconbtn {
   display: inline-grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 44px; height: 44px;
   border-radius: 10px;
   background: #f1f5ff;
   border: 1px solid #e0e7ff;
@@ -91,6 +79,9 @@
   cursor: pointer;
   transition: transform .05s ease, box-shadow .15s ease, background .15s ease;
 }
+.ftl-iconbtn__label { display: none; font-weight: 700; margin-left: 8px; }
+
+
 .ftl-iconbtn:hover { transform: translateY(-1px); box-shadow: var(--cs-shadow-sm); }
 .ftl-iconbtn.is-active { background: var(--cs-accent); color: #fff; }
 
@@ -205,10 +196,10 @@
   color: #c7d2fe;
   display: none; /* показываем, когда img нет или упал */
 }
-.ftl-avatar img[style*="display: none"] + .ftl-avatar-fallback,
+/* .ftl-avatar img[style*="display: none"] + .ftl-avatar-fallback,
 .ftl-avatar .ftl-avatar-fallback {
   display: block;
-}
+} */
 
 .ftl-body { display: grid; gap: 8px; }
 .ftl-row-head {
@@ -299,7 +290,13 @@
 @media (max-width: 640px) {
   .ftl-card { padding: 16px; }
   .ftl-headbar { grid-template-columns: 1fr; }
-  .ftl-search { grid-auto-flow: row; grid-auto-columns: unset; }
+  .ftl-search { flex-wrap: nowrap; }
+  .ftl-iconbtn {
+    width: auto; padding: 0 14px;
+    display: inline-flex; align-items: center;
+  }
+  .ftl-iconbtn__label { display: inline; }
+
   .ftl-card-item {
     grid-template-columns: 56px 1fr;
     padding: 12px;
@@ -307,4 +304,27 @@
   .ftl-avatar, .ftl-avatar-img, .ftl-avatar-fallback { width: 56px; height: 56px; }
   .ftl-cols { grid-template-columns: 1fr; }
   .ftl-title { font-size: 22px; }
+}
+
+
+.ftl-avatar { position: relative; width: 72px; height: 72px; }
+.ftl-avatar-fallback {
+  position: absolute; inset: 0;
+  width: 72px; height: 72px;
+  color: #c7d2fe; display: block;
+}
+.ftl-avatar-img {
+  position: absolute; inset: 0;
+  width: 72px; height: 72px;
+  border-radius: 50%; object-fit: cover;
+  display: none;            /* по умолчанию скрыта */
+}
+/* если есть нормальная картинка */
+.ftl-avatar.has-img .ftl-avatar-img { display: block; }
+.ftl-avatar.has-img .ftl-avatar-fallback { display: none; }
+
+@media (max-width: 640px) {
+  .ftl-avatar, .ftl-avatar-img, .ftl-avatar-fallback {
+    width: 56px; height: 56px;
+  }
 }

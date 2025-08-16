@@ -154,8 +154,8 @@ const Header: React.FC = () => {
                 </div>
               </div>
 
-              <Link to="/pricing"      onClick={closeMobileMenu} className="hm-link">Pricing</Link>
-              <Link to="/real-results" onClick={closeMobileMenu} className="hm-link">Real Results</Link>
+              <Link to="#"      onClick={closeMobileMenu} className="hm-link">Pricing</Link>
+              <Link to="#" onClick={closeMobileMenu} className="hm-link">Real Results</Link>
 
               <Link to="/role-selection" onClick={closeMobileMenu} className="hm-btn hm-btn--outline">POST A JOB</Link>
               <Link to="/find-job"      onClick={closeMobileMenu} className="hm-btn hm-btn--primary">FIND JOB</Link>

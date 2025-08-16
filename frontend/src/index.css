@@ -3478,7 +3478,11 @@ table th {
 .login-prompt {
   font-size: 16px;
   margin: 5px 0;
-  color: rgb(199, 199, 199);
+  color: #333;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .employer-info {
@@ -8179,7 +8183,28 @@ html, body { overflow-x: hidden; }
 
 
 
+.lp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  text-decoration: none;
+  border: 1px solid transparent;
+  box-shadow: 0 6px 18px rgba(18,33,73,.1);
+  transition: transform .05s ease, box-shadow .15s ease, background .15s ease, color .15s ease, border-color .15s ease;
+}
 
+.lp-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(18,33,73,.12); }
+
+.lp-primary { background: #4e74c8; color: #fff; border-color: #4e74c8; }
+.lp-outline { background: transparent; color: #4e74c8; border-color: #4e74c8; }
+
+@media (max-width: 480px) {
+  .lp-btn { padding: 10px 16px; }
+}
 
 
 

@@ -186,3 +186,68 @@
   .mjp-title { font-size: 22px; }
   .mjp-table th, .mjp-table td { padding: 10px 12px; font-size: 13px; }
 }
+
+
+
+/* улучшения таблицы на десктопе */
+.mjp-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.mjp-table { width: 100%; border-collapse: collapse; background: #fff; }
+.mjp-table th, .mjp-table td {
+  padding: 12px 14px;
+  font-size: 14px;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;     /* чтобы длинные строки не ломали вёрстку */
+}
+
+/* ====== Мобильная версия: превращаем строки в карточки ====== */
+@media (max-width: 640px) {
+  /* убираем шапку */
+  .mjp-table thead { display: none; }
+
+  /* делаем строки блочными карточками */
+  .mjp-table,
+  .mjp-table tbody,
+  .mjp-table tr,
+  .mjp-table td { display: block; width: 100%; }
+
+  .mjp-table tr {
+    border: 1px solid #eef0f6;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: var(--cs-shadow-sm);
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+
+  .mjp-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  /* слева лейбл, справа значение */
+  .mjp-table td::before {
+    content: attr(data-label);
+    flex: 0 0 44%;
+    max-width: 48%;
+    font-weight: 700;
+    color: var(--cs-muted);
+  }
+
+  /* кнопки в Actions красиво переносятся */
+  .mjp-table-actions {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  /* сделать карточки «на всю ширину» внутри паддингов */
+  .mjp-card { padding: 16px; }
+}
