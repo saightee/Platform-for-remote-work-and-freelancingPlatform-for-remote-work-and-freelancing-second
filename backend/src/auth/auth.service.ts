@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Transporter } from 'nodemailer';
 import { AdminService } from '../admin/admin.service';
 import { ConfigService } from '@nestjs/config';
+import { HttpException, HttpStatus } from '@nestjs/common';
 
 @Injectable()
 export class AuthService {
@@ -47,6 +48,22 @@ export class AuthService {
     const existingUser = await this.usersService.findByEmail(email);
     console.log('Existing User Check:', existingUser);
     if (existingUser) {
+      if (!existingUser.is_email_verified) {
+        const rlKey = `verify_resend:${existingUser.id}`;
+        const locked = await this.redisService.get(rlKey);
+        if (!locked) {
+          const token = uuidv4();
+          await this.redisService.set(`verify:${token}`, String(existingUser.id), 3600);
+          await this.redisService.set(`verify_latest:${existingUser.id}`, token, 3600);
+          await this.emailService.sendVerificationEmail(
+            existingUser.email,
+            existingUser.username,
+            token
+          );
+          await this.redisService.set(rlKey, '1', 300);
+        }
+        return { message: 'Account exists but not verified. We sent a new confirmation link.' };
+      }
       throw new BadRequestException('Email already exists');
     }
 
@@ -105,6 +122,7 @@ export class AuthService {
       const verificationToken = uuidv4();
       console.log('Сохранение токена верификации в Redis:', verificationToken);
       await this.redisService.set(`verify:${verificationToken}`, newUser.id, 3600);
+      await this.redisService.set(`verify_latest:${newUser.id}`, verificationToken, 3600);
       console.log('Отправка верификационного email:', newUser.email);
       await this.emailService.sendVerificationEmail(email, username, verificationToken);
       console.log('Email отправлен успешно');
@@ -119,11 +137,12 @@ export class AuthService {
   async verifyEmail(token: string): Promise<{ message: string; accessToken: string }> {  
       console.log(`[verifyEmail] Start verification with token: ${token}`);
       const userId = await this.redisService.get(`verify:${token}`);
-      if (!userId) {
-        console.error(`[verifyEmail] Invalid or expired token: ${token}`);
+      if (!userId) throw new BadRequestException('Invalid or expired verification token');
+
+      const latest = await this.redisService.get(`verify_latest:${userId}`);
+      if (latest && latest !== token) {
         throw new BadRequestException('Invalid or expired verification token');
       }
-      console.log(`[verifyEmail] userId found: ${userId}`);
 
       const user = await this.usersService.getUserById(userId);
       if (!user) {
@@ -147,6 +166,7 @@ export class AuthService {
       }
 
       await this.redisService.del(`verify:${token}`);
+      await this.redisService.del(`verify_latest:${userId}`);
       console.log(`[verifyEmail] Token removed from Redis: verify:${token}`);
 
       const payload = { email: user.email, sub: user.id, role: user.role };
@@ -277,5 +297,27 @@ export class AuthService {
     await this.usersService.updatePassword(userId, hashedPassword);
     await this.redisService.del(`reset:${token}`);
     return { message: 'Password reset successful' };
+  }
+
+  async resendVerificationEmail(email: string) {
+  const user = await this.usersService.findByEmail(email);
+  if (!user) return;
+
+  if (user.is_email_verified) {
+    return;
+  }
+
+  const rlKey = `verify_resend:${user.id}`;
+  const locked = await this.redisService.get(rlKey);
+  if (locked) {
+    throw new HttpException('Please wait before requesting another verification email', HttpStatus.TOO_MANY_REQUESTS);
+  }
+  await this.redisService.set(rlKey, '1', 300);
+
+  const token = uuidv4();
+  await this.redisService.set(`verify:${token}`, String(user.id), 3600);
+  await this.redisService.set(`verify_latest:${user.id}`, token, 3600);
+
+  await this.emailService.sendVerificationEmail(user.email, user.username, token);
   }
 }

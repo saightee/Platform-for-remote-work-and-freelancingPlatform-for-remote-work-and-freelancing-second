@@ -69,6 +69,24 @@
     "error": "Bad Request"
   }
 
+### 1.2 Resend Verification Email
+- **Endpoint**: `POST /api/auth/resend-verification`
+- **Description**: Sends a new email to verify the email if the account exists and has not yet been verified.
+- **Request Body:**: 
+  ```json
+  { 
+    "email": "user@example.com" 
+  }
+- **Response (Success - 200)**:
+  ```json
+  { 
+    { "message": "If the account exists and is not verified, we sent a new link." }
+  }
+
+- **Response 429 (rate limit)**:
+  ```json
+  { "statusCode": 429, "message": "Please wait before requesting another verification email", "error": "Too Many Requests" }
+
 ### 2. Login a User
 - **Endpoint**: `POST api/auth/login`
 - **Description**: Logs in a user with email and password, returns a JWT token. Users must have verified their email before logging in.
@@ -1247,7 +1265,7 @@
 - **Description**: Updates the status of a job application, accessible only to the employer who created the job post.
 - **Headers**: `Authorization: Bearer <token>`  
 - **Request Parameters**: `id`: The ID of the job application
-- **Note**: Only one application can be set to "Accepted" per job post. When an application is accepted, the job post is automatically closed (status set to "Closed").
+- **Note**: Only one application can be set to "Accepted" per job post. When an application is accepted, the job post is automatically closed (status set to "Closed"). **All other applications with status "Pending" for the same job post are automatically set to "Rejected".
 - **Request Body**:   
   ```json
   {
@@ -2246,12 +2264,12 @@
     "error": "Unauthorized"
   }
 
-- **Response (Error - 401, if verify parameter is invalid)**:
-  ```json
+- **Response (Error - 400, if verify parameter is invalid)**:
+  ```json  
   {
-    "statusCode": 401,
-    "message": "Verify parameter must be a boolean",
-    "error": "Unauthorized"
+    "statusCode": 400,
+    "message": "Invalid 'verify' parameter (must be boolean)",
+    "error": "Bad Request"
   }
 
 - **Response (Error - 404, if user not found)**:
@@ -3700,20 +3718,29 @@
   "error": "Unauthorized"
   }
 
-### 84. Generate Referral Link for Job Post
-- **Endpoint**: `POST /api/admin/job-posts/:id/generate-referral`
-- **Description**: Generates or returns existing unique referral link for a job post to track clicks and registrations.
+### 84. Create Referral Link for Job Post (Admin)
+- **Endpoint**: `POST /api/admin/job-posts/:id/referral-links`
+- **Description**: Creates a new referral link for the given job post. Multiple links per job post are allowed.
 - **Headers**: `Authorization: Bearer <token>`
+- **Body**: 
+  ```json
+  { 
+    "description": "Facebook Ads, campaign A" // optional
+  }  
 - **Response (Success - 200)**:
   ```json
   {
+    "id": "<linkId>",
     "refCode": "<uuid>",
     "fullLink": "https://yourdomain.com/ref/<uuid>",
-    "jobPostId": "<jobPostId>"
+    "jobPostId": "<jobPostId>",
+    "description": "Facebook Ads, campaign A",
+    "clicks": 0,
+    "registrations": 0
   }
 - **Error: 404 if job post not found, 401 if not admin.**
 
-### 85. Get All Referral Links
+### 85. Get All Referral Links (Admin)
 - **Endpoint**: `GET /api/admin/referral-links`
 - **Description**: Retrieves all generated referral links with details (job post, clicks, registrations, registered users). Supports filters jobId and jobTitle.
 - **Query**: jobId (optional), jobTitle (optional, partial match).
@@ -3723,17 +3750,34 @@
   [
     {
       "id": "<linkId>",
-      "ref_code": "<uuid>",
+      "refCode": "<uuid>",
+      "fullLink": "https://yourdomain.com/ref/<uuid>",
+      "jobPostId": "<jobId>",
+      "job_post": { "id": "<jobId>", "title": "Job Title" },
+      "description": "Facebook Ads, campaign A",
       "clicks": 10,
       "registrations": 5,
-      "job_post": { "id": "<jobId>", "title": "Job Title" },
-      "registrationsDetails": [
-        { "user": { "id": "<userId>", "username": "user", "email": "email@example.com", "role": "jobseeker", "created_at": "2025-07-31T00:00:00.000Z" } }
-      ],
+      "registrationsDetails": [ /* ... */ ],
       "created_at": "2025-07-31T00:00:00.000Z"
     }
   ]
 - **Error: 401 if not admin.**
+
+### 85.1 List Referral Links by Job Post (Admin)
+- **Endpoint**: `GET /api/admin/job-posts/:id/referral-links`
+- **Description**: Lists all referral links for a job post.
+
+### 85.2 Update Referral Link Description (Admin)
+- **Endpoint**: `PUT /api/admin/referral-links/:linkId`
+- **Description**: Lists all referral links for a job post.
+- **Body**: 
+  ```json
+  { 
+    "description": "YouTube Influencer X" 
+  }  
+
+### 85.3 Delete Referral Link (Admin)
+- **Endpoint**: `DELETE /api/admin/referral-links/:linkId`
 
 ### 86. Referral Redirect (Public)
 - **Endpoint**: `GET /ref/:refCode`

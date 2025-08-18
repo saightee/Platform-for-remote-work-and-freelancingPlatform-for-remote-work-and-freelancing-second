@@ -11,6 +11,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ApplicationLimitsModule } from '../application-limits/application-limits.module';
 import { ChatModule } from '../chat/chat.module';
 import { ChatGateway } from '../chat/chat.gateway';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -24,7 +25,8 @@ import { ChatGateway } from '../chat/chat.gateway';
       inject: [ConfigService],
     }),
     ApplicationLimitsModule,
-    ChatModule, 
+    ChatModule,
+    EmailModule,
   ],
   controllers: [JobApplicationsController],
   providers: [

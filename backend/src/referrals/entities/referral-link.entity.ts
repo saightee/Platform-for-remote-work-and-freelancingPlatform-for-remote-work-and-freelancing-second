@@ -16,6 +16,9 @@ export class ReferralLink {
   @Column({ default: 0 })
   registrations: number;
 
+  @Column({ type: 'text', nullable: true })
+  description?: string;
+
   @ManyToOne(() => JobPost, (jobPost) => jobPost.referralLinks, { onDelete: 'CASCADE' })
   job_post: JobPost;
 

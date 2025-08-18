@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { User } from '../users/entities/user.entity';
+import { CategoriesService } from '../categories/categories.service';
 
 @Injectable()
 export class TalentsService {
@@ -11,6 +12,7 @@ export class TalentsService {
     private jobSeekerRepository: Repository<JobSeeker>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private categoriesService: CategoriesService,
   ) {}
 
   async searchTalents(filters: {
@@ -31,9 +33,10 @@ export class TalentsService {
       .where('user.role = :role', { role: 'jobseeker' })
       .andWhere('user.status = :status', { status: 'active' });
 
-    if (filters.skills?.length) {
-      query.andWhere('skills.id IN (:...skills)', { skills: filters.skills });
-    }
+  if (filters.skills?.length) {
+    const expandedSkills = await this.categoriesService.expandCategoryIdsWithDescendants(filters.skills);
+    query.andWhere('skills.id IN (:...skills)', { skills: expandedSkills });
+  }
 
     if (filters.experience) {
       query.andWhere('jobSeeker.experience ILIKE :experience', {
