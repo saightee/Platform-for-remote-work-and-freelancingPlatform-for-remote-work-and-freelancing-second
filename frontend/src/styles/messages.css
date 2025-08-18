@@ -126,3 +126,55 @@
   width:48px;
   height:48px;
 }
+
+
+
+/* === Высота и скролл чата === */
+
+/* Карточка страницы: заголовок сверху, дальше вся сетка тянется и скроллится внутри */
+.msg-card{
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: calc(100dvh - 170px); /* подгони если нужен другой отступ под Header/Footer */
+  /* height не ставим — пусть растёт до мин-вьюпорта */
+}
+
+/* Сетка: список чатов слева + окно справа. Важно дать min-height:0 */
+.msg-grid{
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  min-height: 0; /* критично для корректного overflow у потомков */
+}
+
+/* Окно чата заполняет свою ячейку и само делит высоту на 3 зоны */
+.msg-window-card{
+  display: grid;
+  grid-template-rows: auto 1fr auto; /* header / thread / composer */
+  min-height: 0;           /* позволяем средней зоне сжиматься */
+}
+
+/* Лента сообщений — единственное место вертикального скролла */
+.msg-thread{
+  overflow-y: auto;
+  min-height: 0;           /* чтобы grid не растягивал контейнер */
+}
+
+/* По желанию: список диалогов тоже со скроллом, если длинный */
+.msg-list-card{
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Мобильная адаптация: одна колонка и те же правила min-height:0 */
+@media (max-width: 900px){
+  .msg-grid{ grid-template-columns: 1fr; }
+}
+
+/* === Увеличить «самолётик» на кнопке отправки === */
+/* react-icons рендерит SVG размером 1em => масштабируем font-size кнопки */
+.msg-send-btn{
+  width: 48px;
+  height: 48px;
+  font-size: 20px; /* увеличит SVG */
+}
