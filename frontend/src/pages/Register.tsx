@@ -64,7 +64,7 @@ const fetchCategories = async () => {
     }
   }, [skillInput, role]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   if (!role) return;
   if (password !== confirmPassword) {
@@ -74,33 +74,46 @@ const fetchCategories = async () => {
   try {
     setErrorMessage(null);
     const refCode = localStorage.getItem('referralCode');
-    console.log('[Register] Extracted refCode from localStorage:', refCode); // Дебаг
+
     const payload = {
       username,
       email,
       password,
       role,
-      skills: selectedSkills.map(s => s.id.toString()),  // id как string, если number — toString()
+      skills: selectedSkills.map(s => s.id.toString()),
       experience,
-      resume: resumeLink || undefined, // Добавлено: optional resume link
-      ref: refCode || undefined, // Добавляем ref
+      resume: resumeLink || undefined,
+      ref: refCode || undefined,
     };
-    console.log('[Register] Register payload:', payload); // Дебаг для проверки
-    await register(payload);
-    if (refCode) {
-      localStorage.removeItem('referralCode');
-      console.log('[Register] Removed referralCode from localStorage after registration');
-    }
-    navigate('/check-email');
+
+    const res = await register(payload);
+    localStorage.setItem('pendingEmail', email);
+navigate('/check-email', { state: { email } });
+    // 1) обычный success
+    // 2) success c message: 'Account exists but not verified...' (бек уже отправил письмо)
+    if (refCode) localStorage.removeItem('referralCode');
+
+    // в любом случае ведём на check-email и передаём email
+    navigate('/check-email', { state: { email } });
   } catch (error: any) {
     console.error('Register error:', error);
+    const msg = error.response?.data?.message;
+
+    if (msg?.includes('Account exists but not verified')) {
+      // на случай, если бек отдаёт это 200 ИЛИ по ошибке 4xx — ведём на check-email
+      navigate('/check-email', { state: { email } });
+      return;
+    }
+
     const errorMsg =
-      error.response?.status === 403 && error.response?.data?.message === 'Registration is not allowed from your country'
+      error.response?.status === 403 &&
+      msg === 'Registration is not allowed from your country'
         ? 'Registration is not allowed from your country.'
-        : error.response?.data?.message || 'Registration failed. Please try again.';
+        : msg || 'Registration failed. Please try again.';
     setErrorMessage(errorMsg);
   }
 };
+
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);

@@ -355,16 +355,72 @@ export const rejectJobPost = async (id: string, reason: string) => {
   return response.data;
 };
 
-export const generateReferralLink = async (id: string) => {
-  const response = await api.post<{ fullLink: string; clicks: number; registrations: number }>(`/admin/job-posts/${id}/generate-referral`);
-  return response.data;
+// Create referral link (optional description)
+export const createReferralLink = async (
+  jobPostId: string,
+  payload: { description?: string } = {}
+) => {
+  const res = await api.post<{
+    id: string;
+    refCode: string;
+    fullLink: string;
+    jobPostId: string;
+    description?: string | null;
+    clicks: number;
+    registrations: number;
+    created_at?: string;
+  }>(`/admin/job-posts/${jobPostId}/referral-links`, payload);
+  return res.data;
 };
 
-// Добавлено: функция для get referral links
-export const getReferralLinks = async (params: { jobId?: string; title?: string }) => {
-  const response = await api.get<{ id: string; jobPostId: string; refCode: string; fullLink: string; clicks: number; registrations: number; registrationsDetails: { user: { id: string; username: string; email: string; role: string; created_at: string } }[] }[]>('/admin/referral-links', { params });
-  return response.data;
+// List referral links (global) — supports filters jobId, jobTitle
+export const getReferralLinks = async (params: { jobId?: string; jobTitle?: string } = {}) => {
+  const res = await api.get<
+    {
+      id: string;
+      refCode: string;
+      fullLink: string;
+      jobPostId: string;
+      description?: string | null;
+      clicks: number;
+      registrations: number;
+      created_at?: string;
+      job_post?: { id: string; title: string };
+      registrationsDetails?: { user: { id: string; username: string; email: string; role: string; created_at: string } }[];
+    }[]
+  >('/admin/referral-links', { params });
+  return res.data;
 };
+
+// List referral links by job post
+export const getReferralLinksByJob = async (jobPostId: string) => {
+  const res = await api.get<
+    {
+      id: string;
+      refCode: string;
+      fullLink: string;
+      jobPostId: string;
+      description?: string | null;
+      clicks: number;
+      registrations: number;
+      created_at?: string;
+    }[]
+  >(`/admin/job-posts/${jobPostId}/referral-links`);
+  return res.data;
+};
+
+// Update referral link description
+export const updateReferralLink = async (linkId: string, payload: { description: string }) => {
+  const res = await api.put<{ id: string; description?: string }>(`/admin/referral-links/${linkId}`, payload);
+  return res.data;
+};
+
+// Delete referral link
+export const deleteReferralLink = async (linkId: string) => {
+  const res = await api.delete<{ message: string }>(`/admin/referral-links/${linkId}`);
+  return res.data;
+};
+
 
 // Job Posts
 export const createJobPost = async (data: Partial<JobPost>) => {
@@ -615,7 +671,17 @@ export const getUserOnlineStatus = async (id: string) => {
   return response.data;
 };
 
-export const getAllJobPosts = async (params: { status?: string; pendingReview?: string; title?: string; page?: number; limit?: number }) => {
+export const getAllJobPosts = async (params: {
+  status?: string;
+  pendingReview?: string;
+  title?: string;
+  employer_id?: string;
+  category_id?: string;
+  employer_username?: string;
+  id?: string;
+  page?: number;
+  limit?: number;
+}) => {
   const token = localStorage.getItem('token');
   const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
   const endpoint = decoded?.role === 'moderator' ? '/moderator/job-posts' : '/admin/job-posts';
@@ -625,9 +691,10 @@ export const getAllJobPosts = async (params: { status?: string; pendingReview?: 
     return response.data;
   } catch (error) {
     console.error(`Error fetching job posts from ${endpoint}:`, error);
-    throw error; // Пробрасываем ошибку для обработки в компоненте
+    throw error;
   }
 };
+
 
 export const updateJobPostAdmin = async (id: string, data: Partial<JobPost>) => {
   const response = await api.put<JobPost>(`/admin/job-posts/${id}`, data);
@@ -1061,3 +1128,13 @@ export const deleteCategory = async (id: string) => {
 
 // Убедитесь, что api экспортировано (если не было)
 export { api };
+
+
+
+
+export const resendVerification = async (email: string) => {
+  const { data } = await api.post('/api/auth/resend-verification', { email });
+  return data;
+};
+
+

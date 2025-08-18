@@ -1,0 +1,127 @@
+.ce {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--ce-bg, #ffffff);
+}
+
+@media (prefers-color-scheme: light) {
+  .ce { --ce-bg: #f7f8fa; }
+}
+
+.ce__box {
+  width: 100%;
+  max-width: 420px;
+  background: var(--ce-card, #ffffff);
+  color: var(--ce-fg, #e9edf5);
+  
+  border-radius: 10px;
+  padding: 20px 18px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+}
+
+@media (prefers-color-scheme: light) {
+  .ce__box {
+    --ce-card: #ffffff;
+    --ce-fg: #1b2430;
+    --ce-border: #e5e7eb;
+    box-shadow: 0 6px 24px rgba(0,0,0,.08);
+  }
+}
+
+.ce__title {
+  margin: 0 0 6px;
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.ce__desc {
+  margin: 0 0 16px;
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+.ce__group {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ce__label {
+  font-size: 13px;
+  opacity: 0.9;
+  color: #333;
+}
+
+.ce__input {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  font-size: 14px;
+  color: inherit;
+  background: transparent;
+  /* border: 1px solid var(--ce-input-border, #2a3242); */
+  border-radius: 10px;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+@media (prefers-color-scheme: light) {
+  .ce__input { --ce-input-border: #cfd6e4; }
+}
+
+.ce__input:focus {
+  border-color: #5382ff;
+  box-shadow: 0 0 0 3px rgba(83,130,255,.2);
+}
+
+.ce__btn {
+  margin-top: 14px;
+  width: 100%;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  background: #4e74c8;
+  color: #fff;
+  transition: transform .05s ease, filter .15s ease, opacity .15s ease;
+}
+
+.ce__btn:hover { filter: brightness(1.03); }
+.ce__btn:active { transform: translateY(1px); }
+.ce__btn:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+  filter: grayscale(.15);
+}
+
+.ce__msg {
+  margin-top: 12px;
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  line-height: 1.3;
+}
+
+.ce__msg--success {
+  background: rgba(46, 204, 113, .12);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, .3);
+}
+
+.ce__msg--error {
+  background: rgba(231, 76, 60, .12);
+  color: #e74c3c;
+  border: 1px solid rgba(231, 76, 60, .3);
+}
+
+/* Мобилка: чуть крупнее кликабельные зоны */
+@media (max-width: 420px) {
+  .ce__box { padding: 18px 14px; }
+  .ce__input, .ce__btn { height: 48px; }
+  .ce__title { font-size: 20px; }
+}
