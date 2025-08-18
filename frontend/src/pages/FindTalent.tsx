@@ -280,7 +280,7 @@ const FindTalent: React.FC = () => {
           <div className="ftl-headbar">
             <h1 className="ftl-title">Find Talent</h1>
 
-            <form className="ftl-search" onSubmit={handleSearch}>
+       <form className="ftl-search" onSubmit={handleSearch}>
   <input
     className="ftl-input"
     type="text"
@@ -290,17 +290,19 @@ const FindTalent: React.FC = () => {
   />
   <button className="ftl-btn ftl-primary" type="submit">Search</button>
 
-  {/* Кнопка Filters с иконкой и подписью (подпись видна на мобилке) */}
+  {/* mobile-only toggle */}
   <button
     className={`ftl-iconbtn ${isFilterPanelOpen ? 'is-active' : ''}`}
     type="button"
     onClick={toggleFilterPanel}
     aria-label="Toggle filters"
+    title="Filters"
   >
     <FaFilter />
     <span className="ftl-iconbtn__label">Filters</span>
   </button>
 </form>
+
           </div>
 
           {error && <div className="ftl-alert ftl-err">{error}</div>}

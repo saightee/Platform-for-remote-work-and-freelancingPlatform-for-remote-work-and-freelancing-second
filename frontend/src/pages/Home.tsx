@@ -24,6 +24,7 @@ import heroImg3 from '../assets/57130.png';
 import heroImg4 from '../assets/58136.png';
 import ReactCountryFlag from 'react-country-flag';
 
+
 const Home: React.FC = () => {
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -37,7 +38,7 @@ const Home: React.FC = () => {
     totalEmployers: 0,
   });
 
- 
+
 
   // ——— Categories carousel state
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -137,6 +138,8 @@ const handleCookieConsent = () => {
     };
     fetchData();
   }, [filters]);
+
+
 
   // Группировка категорий для карусели (5 колонок × 2 ряда = 10 карточек на слайд)
   const columns = 5;
