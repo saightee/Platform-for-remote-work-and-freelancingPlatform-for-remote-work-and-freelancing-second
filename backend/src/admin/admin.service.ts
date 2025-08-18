@@ -1028,33 +1028,75 @@ export class AdminService {
     return { message: 'Category successfully deleted' };
   }
 
-  async generateReferralLink(adminId: string, jobPostId: string) {
+  async createReferralLink(
+    adminId: string,
+    jobPostId: string,
+    description?: string,
+  ) {
     await this.checkAdminRole(adminId);
+
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
     if (!jobPost) {
       throw new NotFoundException('Job post not found');
     }
 
-    let referralLink = await this.referralLinksRepository.findOne({ where: { job_post: { id: jobPostId } } });
-    if (!referralLink) {
-      const refCode = uuidv4();
-      referralLink = this.referralLinksRepository.create({
-        ref_code: refCode,
-        job_post: jobPost,
-        created_at: new Date(),
-        updated_at: new Date(),
-      });
-      await this.referralLinksRepository.save(referralLink);
-    }
+    const refCode = uuidv4();
+    const referralLink = this.referralLinksRepository.create({
+      ref_code: refCode,
+      job_post: jobPost,
+      description: description || null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
+    await this.referralLinksRepository.save(referralLink);
 
     const baseUrl = this.configService.get<string>('BASE_URL', 'https://yourdomain.com');
     return {
+      id: referralLink.id,
       refCode: referralLink.ref_code,
       fullLink: `${baseUrl}/ref/${referralLink.ref_code}`,
       jobPostId,
+      description: referralLink.description,
       clicks: referralLink.clicks,
-      registrations: referralLink.registrations, 
+      registrations: referralLink.registrations,
     };
+  }
+
+  async listReferralLinksByJobPost(adminId: string, jobPostId: string) {
+    await this.checkAdminRole(adminId);
+    const links = await this.referralLinksRepository.find({
+      where: { job_post: { id: jobPostId } },
+      relations: ['job_post', 'registrationsDetails', 'registrationsDetails.user'],
+      order: { created_at: 'DESC' },
+    });
+    const baseUrl = this.configService.get<string>('BASE_URL', 'https://yourdomain.com');
+    return links.map(link => ({
+      id: link.id,
+      jobPostId: link.job_post?.id,
+      refCode: link.ref_code,
+      fullLink: `${baseUrl}/ref/${link.ref_code}`,
+      description: link.description || null,
+      clicks: link.clicks,
+      registrations: link.registrations,
+      registrationsDetails: link.registrationsDetails || [],
+    }));
+  }
+
+  async updateReferralLinkDescription(adminId: string, linkId: string, description: string) {
+    await this.checkAdminRole(adminId);
+    const link = await this.referralLinksRepository.findOne({ where: { id: linkId } });
+    if (!link) throw new NotFoundException('Referral link not found');
+    link.description = description;
+    await this.referralLinksRepository.save(link);
+    return { message: 'Updated', id: link.id, description: link.description };
+  }
+
+  async deleteReferralLink(adminId: string, linkId: string) {
+    await this.checkAdminRole(adminId);
+    const link = await this.referralLinksRepository.findOne({ where: { id: linkId } });
+    if (!link) throw new NotFoundException('Referral link not found');
+    await this.referralLinksRepository.delete(linkId);
+    return { message: 'Deleted' };
   }
 
   async getReferralLinks(adminId: string, filters: { jobId?: string, jobTitle?: string } = {}) {
@@ -1083,6 +1125,7 @@ export class AdminService {
           clicks: link.clicks,
           registrations: link.registrations,
           registrationsDetails: link.registrationsDetails || [],
+          description: link.description || null,
           job_post: link.job_post ? {
               id: link.job_post.id,
               title: link.job_post.title,

@@ -202,7 +202,8 @@ export class JobPostsService {
       query.andWhere('jobPost.salary <= :salary_max', { salary_max: filters.salary_max });
     }
     if (filters.category_id) {
-      query.andWhere('jobPost.category_id = :category_id', { category_id: filters.category_id });
+      const catIds = await this.categoriesService.getDescendantIdsIncludingSelf(filters.category_id);
+      query.andWhere('jobPost.category_id IN (:...catIds)', { catIds });
     }
     if (filters.required_skills && filters.required_skills.length > 0) {
       query.andWhere('jobPost.required_skills && :required_skills', { required_skills: filters.required_skills });

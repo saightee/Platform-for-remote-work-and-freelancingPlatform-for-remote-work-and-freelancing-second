@@ -928,9 +928,25 @@ export class AdminController {
     }
   }
 
-  @Post('job-posts/:id/generate-referral')
+  @Post('job-posts/:id/referral-links')
   @UseGuards(AuthGuard('jwt'), AdminGuard)
-  async generateReferralLink(
+  async createReferralLink(
+    @Param('id') jobPostId: string,
+    @Body('description') description: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.createReferralLink(adminId, jobPostId, description);
+  }
+
+  @Get('job-posts/:id/referral-links')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async listReferralLinksByJobPost(
     @Param('id') jobPostId: string,
     @Headers('authorization') authHeader: string,
   ) {
@@ -940,8 +956,38 @@ export class AdminController {
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const adminId = payload.sub;
+    return this.adminService.listReferralLinksByJobPost(adminId, jobPostId);
+  }
 
-    return this.adminService.generateReferralLink(adminId, jobPostId);
+  @Put('referral-links/:linkId')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async updateReferralLinkDescription(
+    @Param('linkId') linkId: string,
+    @Body('description') description: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.updateReferralLinkDescription(adminId, linkId, description);
+  }
+
+  @Delete('referral-links/:linkId')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async deleteReferralLink(
+    @Param('linkId') linkId: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.deleteReferralLink(adminId, linkId);
   }
 
   @Get('referral-links')

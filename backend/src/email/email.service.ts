@@ -221,4 +221,51 @@ export class EmailService {
       }
     }
   }
+
+  async sendJobSeekerAcceptedNotification(
+    toEmail: string,
+    username: string,
+    jobTitle: string,
+  ): Promise<void> {
+    const maxRetries = 3;
+    let attempt = 1;
+
+    const base = this.configService.get<string>('BASE_URL') || 'https://jobforge.net';
+    const dashboardLink = base.replace(/\/api\/?$/, '') + '/jobseeker-dashboard/my-applications';
+
+    while (attempt <= maxRetries) {
+      try {
+        console.log(`Attempt ${attempt} to send jobseeker accepted email to ${toEmail}`);
+        await axios.post(
+          'https://api.brevo.com/v3/smtp/email',
+          {
+            sender: { name: 'JobForge', email: 'support@jobforge.net' },
+            to: [{ email: toEmail, name: username }],
+            templateId: 7,
+            params: {
+              username,
+              jobTitle,
+              dashboardLink,
+            },
+          },
+          {
+            headers: {
+              'api-key': this.configService.get<string>('BREVO_API_KEY'),
+              'Content-Type': 'application/json',
+            },
+            timeout: 15000,
+          },
+        );
+        console.log(`Jobseeker accepted email sent to ${toEmail}`);
+        return;
+      } catch (error: any) {
+        console.error(`Attempt ${attempt} failed for ${toEmail}:`, error.message);
+        if (attempt === maxRetries) {
+          throw new Error(`Failed to send jobseeker accepted email after ${maxRetries} attempts: ${error.message}`);
+        }
+        attempt++;
+        await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+      }
+    }
+  }
 }

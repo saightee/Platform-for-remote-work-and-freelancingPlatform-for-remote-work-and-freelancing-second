@@ -9,6 +9,7 @@ import { ApplicationLimitsService } from '../application-limits/application-limi
 import { Server } from 'socket.io';
 import { Inject } from '@nestjs/common';
 import { ChatGateway } from '../chat/chat.gateway';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class JobApplicationsService {
@@ -23,6 +24,7 @@ export class JobApplicationsService {
     private jobSeekerRepository: Repository<JobSeeker>,
     private applicationLimitsService: ApplicationLimitsService,
     @Inject('SOCKET_IO_SERVER') private server: Server,
+    private emailService: EmailService, 
   ) {}
 
   async applyToJob(userId: string, jobPostId: string, coverLetter: string) {
@@ -161,19 +163,57 @@ export class JobApplicationsService {
       throw new UnauthorizedException('You do not have permission to update this application');
     }
 
-    if (status === 'Accepted') {
-      const acceptedCount = await this.jobApplicationsRepository.count({
+  if (status === 'Accepted') {
+    await this.jobApplicationsRepository.manager.transaction(async (trx) => {
+      const appRepo = trx.getRepository(JobApplication);
+      const postRepo = trx.getRepository(JobPost);
+    
+      const alreadyAccepted = await appRepo.findOne({
         where: { job_post_id: application.job_post_id, status: 'Accepted' },
       });
-      if (acceptedCount > 0) {
+      if (alreadyAccepted && alreadyAccepted.id !== application.id) {
         throw new BadRequestException('Only one application can be accepted per job post');
       }
+    
+      await postRepo.update({ id: application.job_post_id }, { status: 'Closed' });
+    
+      await appRepo.update({ id: application.id }, { status: 'Accepted' });
+    
+      await trx
+        .createQueryBuilder()
+        .update(JobApplication)
+        .set({ status: 'Rejected' })
+        .where('job_post_id = :jobPostId', { jobPostId: application.job_post_id })
+        .andWhere('id != :currentId', { currentId: application.id })
+        .andWhere('status = :pending', { pending: 'Pending' })
+        .execute();
+    });
+  
+    const updated = await this.jobApplicationsRepository.findOne({
+      where: { id: application.id },
+      relations: ['job_post', 'job_seeker'],
+    });
 
-      await this.jobPostsRepository.update(
-        { id: application.job_post_id },
-        { status: 'Closed' },
-      );
+    try {
+      if (updated?.job_seeker?.email && updated?.job_seeker?.username && updated?.job_post?.title) {
+        await this.emailService.sendJobSeekerAcceptedNotification(
+          updated.job_seeker.email,
+          updated.job_seeker.username,
+          updated.job_post.title,
+        );
+      } else {
+        console.warn('Insufficient data to send acceptance email', {
+          hasEmail: !!updated?.job_seeker?.email,
+          hasUsername: !!updated?.job_seeker?.username,
+          hasTitle: !!updated?.job_post?.title,
+        });
+      }
+    } catch (e) {
+      console.error('Failed to send acceptance email:', (e as Error).message);
     }
+
+    return updated;
+  }
 
     application.status = status;
     return this.jobApplicationsRepository.save(application);
