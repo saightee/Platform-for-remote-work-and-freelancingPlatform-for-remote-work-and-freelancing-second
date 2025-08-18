@@ -56,6 +56,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  padding-top: 18px;
 }
 
 .pjx-hint {
@@ -179,3 +180,44 @@
   .pjx-salary { grid-template-columns: 1fr; }
   .pjx-quill-wrap, .pjx-quill-wrap .ql-container, .pjx-quill-wrap .ql-editor { min-height: 320px; }
 }
+
+
+/* Info tip */
+.pjx-tip{
+  position:relative;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:18px;height:18px;border-radius:999px;
+  background:#eef2ff;color:var(--cs-accent);
+  font-size:12px;cursor:help;user-select:none;
+}
+.pjx-tip:hover,.pjx-tip:focus{outline:none;background:#e6edff}
+
+/* пузырь тултипа */
+.pjx-tip::after{
+  content:attr(data-tip);
+  position:absolute;left:50%;bottom:100%;
+  transform:translate(-50%,-6px);
+  background:#1b2537;color:#fff;
+  padding:8px 10px;border-radius:8px;
+  font-size:12px;line-height:1.35;white-space:normal;
+  width:min(280px,80vw);box-shadow:var(--cs-shadow-sm);
+  opacity:0;pointer-events:none;z-index:20;
+  transition:opacity .15s ease, transform .15s ease;
+}
+.pjx-tip::before{
+  content:"";position:absolute;left:50%;bottom:calc(100% - 2px);
+  transform:translateX(-50%);
+  border:6px solid transparent;border-top-color:#1b2537;
+  opacity:0;transition:opacity .15s ease;
+}
+.pjx-tip:hover::after,.pjx-tip:focus::after,
+.pjx-tip:hover::before,.pjx-tip:focus::before{opacity:1;transform:translate(-50%,-10px)}
+
+/* убираем старые подсказки под инпутами */
+.pjx-row .pjx-hint{display:none!important}
+
+/* header у редактора + кнопка справа */
+.pjx-headrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.pjx-head-actions{display:flex;align-items:center;gap:8px}
+.pjx-regenerate{display:inline-flex;align-items:center;gap:8px}
+.pjx-regenerate svg{margin:0}

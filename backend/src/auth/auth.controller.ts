@@ -197,4 +197,10 @@ export class AuthController {
     const user = await this.authService.register(registerDto, ip, fingerprint);
     return res.json(user);
   }
+
+  @Post('resend-verification')
+  async resendVerification(@Body('email') email: string) {
+    await this.authService.resendVerificationEmail(email);
+    return { message: 'If the account exists and is not verified, we sent a new link.' };
+  }
 }

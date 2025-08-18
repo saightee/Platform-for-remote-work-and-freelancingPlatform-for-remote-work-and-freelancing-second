@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Query, Body, Headers, UnauthorizedException, UseGuards, BadRequestException, Res } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Patch, Param, Query, Body, Headers, UnauthorizedException, UseGuards, BadRequestException, Res } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
@@ -796,6 +796,24 @@ export class AdminController {
     return this.adminService.getPlatformFeedback(adminId, parsedPage, parsedLimit);
   }
   
+  @Patch('platform-feedback/:id/publish')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async publishPlatformFeedback(@Param('id') id: string, @Headers('authorization') a: string) {
+    if (!a?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
+    const token = a.replace('Bearer ', '');
+    const { sub: adminId } = this.jwtService.verify(token);
+    return this.adminService.publishPlatformFeedback(adminId, id);
+  }
+
+  @Patch('platform-feedback/:id/unpublish')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async unpublishPlatformFeedback(@Param('id') id: string, @Headers('authorization') a: string) {
+    if (!a?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
+    const token = a.replace('Bearer ', '');
+    const { sub: adminId } = this.jwtService.verify(token);
+    return this.adminService.unpublishPlatformFeedback(adminId, id);
+  }
+
   @Delete('platform-feedback/:id')
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   async deletePlatformFeedback(
@@ -910,9 +928,25 @@ export class AdminController {
     }
   }
 
-  @Post('job-posts/:id/generate-referral')
+  @Post('job-posts/:id/referral-links')
   @UseGuards(AuthGuard('jwt'), AdminGuard)
-  async generateReferralLink(
+  async createReferralLink(
+    @Param('id') jobPostId: string,
+    @Body('description') description: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.createReferralLink(adminId, jobPostId, description);
+  }
+
+  @Get('job-posts/:id/referral-links')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async listReferralLinksByJobPost(
     @Param('id') jobPostId: string,
     @Headers('authorization') authHeader: string,
   ) {
@@ -922,8 +956,38 @@ export class AdminController {
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const adminId = payload.sub;
+    return this.adminService.listReferralLinksByJobPost(adminId, jobPostId);
+  }
 
-    return this.adminService.generateReferralLink(adminId, jobPostId);
+  @Put('referral-links/:linkId')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async updateReferralLinkDescription(
+    @Param('linkId') linkId: string,
+    @Body('description') description: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.updateReferralLinkDescription(adminId, linkId, description);
+  }
+
+  @Delete('referral-links/:linkId')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async deleteReferralLink(
+    @Param('linkId') linkId: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+    return this.adminService.deleteReferralLink(adminId, linkId);
   }
 
   @Get('referral-links')

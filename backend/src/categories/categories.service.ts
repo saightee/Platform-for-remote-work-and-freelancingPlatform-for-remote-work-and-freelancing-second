@@ -79,4 +79,38 @@ export class CategoriesService {
       .orderBy('category.name', 'ASC')
       .getMany();
   }
+
+  async getDescendantIdsIncludingSelf(rootId: string): Promise<string[]> {
+    const all = await this.categoriesRepository.find();
+    const childrenMap = new Map<string, string[]>();
+    for (const c of all) {
+      if (!childrenMap.has(c.parent_id || 'root')) childrenMap.set(c.parent_id || 'root', []);
+      if (c.parent_id) {
+        childrenMap.get(c.parent_id)!.push(c.id);
+      }
+    }
+
+    const result = new Set<string>([rootId]);
+    const queue: string[] = [rootId];
+    while (queue.length) {
+      const current = queue.shift()!;
+      const kids = childrenMap.get(current) || [];
+      for (const childId of kids) {
+        if (!result.has(childId)) {
+          result.add(childId);
+          queue.push(childId);
+        }
+      }
+    }
+    return Array.from(result);
+  }
+
+  async expandCategoryIdsWithDescendants(ids: string[]): Promise<string[]> {
+    const out = new Set<string>();
+    for (const id of ids) {
+      const expanded = await this.getDescendantIdsIncludingSelf(id);
+      expanded.forEach(x => out.add(x));
+    }
+    return Array.from(out);
+  }
 }

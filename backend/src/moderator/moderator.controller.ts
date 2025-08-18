@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, Body, Headers, UnauthorizedException, UseGuards, Query, BadRequestException,  } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Patch, Param, Body, Headers, UnauthorizedException, UseGuards, Query, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ModeratorService } from './moderator.service';
@@ -165,8 +165,8 @@ export class ModeratorController {
     return this.moderatorService.getJobPosts(moderatorId, filters);
   }
 
-  @Get('platform-feedback')
   @UseGuards(ModeratorGuard)
+  @Get('platform-feedback')
   async getPlatformFeedback(
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
@@ -179,6 +179,7 @@ export class ModeratorController {
     const payload = this.jwtService.verify(token);
     const moderatorId = payload.sub;
     await this.checkModeratorRole(moderatorId);
+
     const parsedPage = parseInt(page, 10);
     const parsedLimit = parseInt(limit, 10);
     if (isNaN(parsedPage) || parsedPage < 1) {
@@ -187,11 +188,45 @@ export class ModeratorController {
     if (isNaN(parsedLimit) || parsedLimit < 1) {
       throw new BadRequestException('Limit must be a positive integer');
     }
-    return this.platformFeedbackService.getPublicFeedback(parsedPage, parsedLimit);
+    return this.platformFeedbackService.getAllStoriesForModeration(parsedPage, parsedLimit);
   }
 
-  @Delete('platform-feedback/:id')
   @UseGuards(ModeratorGuard)
+  @Patch('platform-feedback/:id/publish')
+  async publishPlatformFeedback(
+    @Param('id') feedbackId: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const moderatorId = payload.sub;
+    await this.checkModeratorRole(moderatorId);
+
+    return this.platformFeedbackService.publishStory(feedbackId);
+  }
+
+  @UseGuards(ModeratorGuard)
+  @Patch('platform-feedback/:id/unpublish')
+  async unpublishPlatformFeedback(
+    @Param('id') feedbackId: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const moderatorId = payload.sub;
+    await this.checkModeratorRole(moderatorId);
+
+    return this.platformFeedbackService.unpublishStory(feedbackId);
+  }
+
+  @UseGuards(ModeratorGuard)
+  @Delete('platform-feedback/:id')
   async deletePlatformFeedback(
     @Param('id') feedbackId: string,
     @Headers('authorization') authHeader: string,
@@ -203,7 +238,6 @@ export class ModeratorController {
     const payload = this.jwtService.verify(token);
     const moderatorId = payload.sub;
     await this.checkModeratorRole(moderatorId);
-    const feedback = await this.platformFeedbackService.deleteFeedback(feedbackId);
-    return feedback;
+    return this.platformFeedbackService.deleteFeedback(feedbackId);
   }
 }

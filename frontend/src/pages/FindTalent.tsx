@@ -280,25 +280,29 @@ const FindTalent: React.FC = () => {
           <div className="ftl-headbar">
             <h1 className="ftl-title">Find Talent</h1>
 
-            <form className="ftl-search" onSubmit={handleSearch}>
-              <input
-                className="ftl-input"
-                type="text"
-                placeholder="Search by skills or keywords"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-              />
-              <button className="ftl-btn ftl-primary" type="submit">Search</button>
-              <button
-                className={`ftl-iconbtn ${isFilterPanelOpen ? 'is-active' : ''}`}
-                type="button"
-                onClick={toggleFilterPanel}
-                aria-label="Toggle filters"
-                title="Filters"
-              >
-                <FaFilter />
-              </button>
-            </form>
+       <form className="ftl-search" onSubmit={handleSearch}>
+  <input
+    className="ftl-input"
+    type="text"
+    placeholder="Search by skills or keywords"
+    value={searchInput}
+    onChange={(e) => setSearchInput(e.target.value)}
+  />
+  <button className="ftl-btn ftl-primary" type="submit">Search</button>
+
+  {/* mobile-only toggle */}
+  <button
+    className={`ftl-iconbtn ${isFilterPanelOpen ? 'is-active' : ''}`}
+    type="button"
+    onClick={toggleFilterPanel}
+    aria-label="Toggle filters"
+    title="Filters"
+  >
+    <FaFilter />
+    <span className="ftl-iconbtn__label">Filters</span>
+  </button>
+</form>
+
           </div>
 
           {error && <div className="ftl-alert ftl-err">{error}</div>}
@@ -457,23 +461,22 @@ const FindTalent: React.FC = () => {
 
                         return (
                           <article key={talent.id} className="ftl-card-item" role="article">
-                            <div className="ftl-avatar">
-                              {talent.avatar ? (
-                                <img
-                                  src={`https://jobforge.net/backend${talent.avatar}`}
-                                  alt="Talent Avatar"
-                                  onError={(e) => {
-                                    (e.currentTarget as HTMLImageElement).style.display = 'none';
-                                    const nextSibling = (e.currentTarget as any).nextSibling;
-                                    if (nextSibling instanceof HTMLElement || nextSibling instanceof SVGElement) {
-                                      (nextSibling as HTMLElement).style.display = 'block';
-                                    }
-                                  }}
-                                  className="ftl-avatar-img"
-                                />
-                              ) : null}
-                              <FaUserCircle className="ftl-avatar-fallback" />
-                            </div>
+                      <div className={`ftl-avatar ${talent.avatar ? 'has-img' : ''}`}>
+  {talent.avatar && (
+    <img
+      src={`https://jobforge.net/backend${talent.avatar}`}
+      alt="Talent Avatar"
+      className="ftl-avatar-img"
+      onError={(e) => {
+        // если картинка не загрузилась — показываемfallback
+        const box = e.currentTarget.parentElement as HTMLElement | null;
+        box?.classList.remove('has-img');
+        e.currentTarget.style.display = 'none';
+      }}
+    />
+  )}
+  <FaUserCircle className="ftl-avatar-fallback" />
+</div>
 
                             <div className="ftl-body">
                               <div className="ftl-row ftl-row-head">

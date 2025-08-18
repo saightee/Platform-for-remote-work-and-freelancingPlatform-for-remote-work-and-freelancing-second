@@ -205,10 +205,10 @@
   color: #c7d2fe;
   display: none; /* показываем, когда img нет или упал */
 }
-.ftl-avatar img[style*="display: none"] + .ftl-avatar-fallback,
+/* .ftl-avatar img[style*="display: none"] + .ftl-avatar-fallback,
 .ftl-avatar .ftl-avatar-fallback {
   display: block;
-}
+} */
 
 .ftl-body { display: grid; gap: 8px; }
 .ftl-row-head {
@@ -307,4 +307,138 @@
   .ftl-avatar, .ftl-avatar-img, .ftl-avatar-fallback { width: 56px; height: 56px; }
   .ftl-cols { grid-template-columns: 1fr; }
   .ftl-title { font-size: 22px; }
+}
+
+
+.ftl-avatar { position: relative; width: 72px; height: 72px; }
+.ftl-avatar-fallback {
+  position: absolute; inset: 0;
+  width: 72px; height: 72px;
+  color: #c7d2fe; display: block;
+}
+.ftl-avatar-img {
+  position: absolute; inset: 0;
+  width: 72px; height: 72px;
+  border-radius: 50%; object-fit: cover;
+  display: none;            /* по умолчанию скрыта */
+}
+/* если есть нормальная картинка */
+.ftl-avatar.has-img .ftl-avatar-img { display: block; }
+.ftl-avatar.has-img .ftl-avatar-fallback { display: none; }
+
+@media (max-width: 640px) {
+  .ftl-avatar, .ftl-avatar-img, .ftl-avatar-fallback {
+    width: 56px; height: 56px;
+  }
+}
+
+
+/* --- mobile/desktop поведение кнопки фильтров --- */
+@media (min-width: 1025px) {
+  .ftl-search .ftl-iconbtn { display: none; }   /* на десктопе кнопка не видна */
+}
+@media (max-width: 1024px) {
+  .ftl-iconbtn__label {
+    display: inline-block;
+    margin-left: 8px;
+    font-weight: 700;
+    font-size: 14px;
+  }
+}
+
+/* --- единый вид для ВСЕХ инпутов, включая select/number --- */
+.ftl-input,
+.ftl-form .ftl-input,
+.ftl-search .ftl-input,
+input.ftl-input[type="number"],
+select.ftl-input {
+  width: 100%;
+  border: 1px solid #e3e6ef;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 15px;
+  outline: none;
+  transition: box-shadow .15s ease, border-color .15s ease;
+  background: #fff;
+  box-sizing: border-box;
+}
+.ftl-input:focus {
+  border-color: var(--cs-accent);
+  box-shadow: 0 0 0 4px rgba(78,116,200,.12);
+}
+
+/* нативные стрелки убираем, рисуем свои — одинаково во всех браузерах */
+select.ftl-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%236b7280' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M5.5 7l4.5 5 4.5-5z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+  padding-right: 38px;
+}
+
+/* --- карточки не растягивают полотно и переносят длинные куски текста --- */
+.ftl-card,
+.ftl-list { overflow-x: hidden; }
+.ftl-card-item { 
+  overflow: hidden;
+  grid-template-columns: 72px 1fr;
+}
+.ftl-body, .ftl-col { min-width: 0; }                 /* чтобы текст не растягивал колонки */
+.ftl-line, .ftl-name, .ftl-line a { 
+  word-break: break-word; 
+  overflow-wrap: anywhere; 
+}
+
+/* мобильная сетка карточек */
+@media (max-width: 640px) {
+  .ftl-card-item { grid-template-columns: 56px 1fr; }
+  .ftl-avatar, .ftl-avatar-img, .ftl-avatar-fallback { width: 56px; height: 56px; }
+  .ftl-cols { grid-template-columns: 1fr; }
+}
+
+/* --- аватар: показываем fallback только если нет img --- */
+.ftl-avatar { position: relative; width: 72px; height: 72px; }
+.ftl-avatar-fallback {
+  position: absolute; inset: 0;
+  width: 72px; height: 72px;
+  color: #c7d2fe; display: block;
+}
+.ftl-avatar-img {
+  position: absolute; inset: 0;
+  width: 72px; height: 72px;
+  border-radius: 50%; object-fit: cover;
+  display: none;                         /* по умолчанию скрыта */
+}
+.ftl-avatar.has-img .ftl-avatar-img { display: block; }
+.ftl-avatar.has-img .ftl-avatar-fallback { display: none; }
+
+
+/* --- mobile: Filters button with icon + label in one line --- */
+@media (max-width: 1024px) {
+  .ftl-search .ftl-iconbtn {
+    display: inline-flex !important;   /* вместо inline-grid */
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: auto;                       /* не фикс 44px */
+    min-width: 44px;
+    height: 44px;
+    padding: 0 14px;                   /* место для текста */
+    white-space: nowrap;               /* не переносить "Filters" */
+  }
+
+  .ftl-iconbtn__label {
+    display: inline;                   /* показываем подпись */
+    margin-left: 0;
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 1;                    /* вертикальная центровка текста */
+  }
+
+  .ftl-search {                        /* чтобы кнопка не тянулась на всю ширину */
+    justify-items: start;
+  }
 }

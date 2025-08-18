@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Feedback } from './feedback.entity';
 import { User } from '../users/entities/user.entity';
+import { SubmitTechFeedbackDto } from './dto/submit-tech-feedback.dto';
 
 @Injectable()
 export class FeedbackService {
@@ -13,7 +14,7 @@ export class FeedbackService {
     private usersRepository: Repository<User>,
   ) {}
 
-  async submitFeedback(userId: string, message: string) {
+  async submitFeedback(userId: string, dto: SubmitTechFeedbackDto) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -24,9 +25,14 @@ export class FeedbackService {
 
     const feedback = this.feedbackRepository.create({
       user_id: userId,
-      message,
+      category: dto.category,
+      summary: dto.summary,
+      steps_to_reproduce: dto.steps_to_reproduce ?? null,
+      expected_result: dto.expected_result ?? null,
+      actual_result: dto.actual_result ?? null,
       role: user.role as 'jobseeker' | 'employer',
     });
+
     return this.feedbackRepository.save(feedback);
   }
 
@@ -35,7 +41,6 @@ export class FeedbackService {
     if (!admin || admin.role !== 'admin') {
       throw new UnauthorizedException('Only admins can view feedback');
     }
-
-    return this.feedbackRepository.find({ relations: ['user'] });
+    return this.feedbackRepository.find({ relations: ['user'], order: { created_at: 'DESC' } });
   }
 }

@@ -57,7 +57,7 @@
   max-width:1200px; margin:0 auto; padding:0 16px;
   display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
 }
-.jf2-copy__text{ margin:0; font-size:13px; letter-spacing:.2px; }
+.jf2-copy__text{ margin:0; font-size:13px; letter-spacing:.2px; color: #bdbdbd; }
 .jf2-copy__links{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .jf2-copy__links a{ color:var(--jf2-link); text-decoration:none; font-size:13px; }
 .jf2-copy__links a:hover{ color:#fff; }

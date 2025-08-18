@@ -69,6 +69,24 @@
     "error": "Bad Request"
   }
 
+### 1.2 Resend Verification Email
+- **Endpoint**: `POST /api/auth/resend-verification`
+- **Description**: Sends a new email to verify the email if the account exists and has not yet been verified.
+- **Request Body:**: 
+  ```json
+  { 
+    "email": "user@example.com" 
+  }
+- **Response (Success - 200)**:
+  ```json
+  { 
+    { "message": "If the account exists and is not verified, we sent a new link." }
+  }
+
+- **Response 429 (rate limit)**:
+  ```json
+  { "statusCode": 429, "message": "Please wait before requesting another verification email", "error": "Too Many Requests" }
+
 ### 2. Login a User
 - **Endpoint**: `POST api/auth/login`
 - **Description**: Logs in a user with email and password, returns a JWT token. Users must have verified their email before logging in.
@@ -1247,7 +1265,7 @@
 - **Description**: Updates the status of a job application, accessible only to the employer who created the job post.
 - **Headers**: `Authorization: Bearer <token>`  
 - **Request Parameters**: `id`: The ID of the job application
-- **Note**: Only one application can be set to "Accepted" per job post. When an application is accepted, the job post is automatically closed (status set to "Closed").
+- **Note**: Only one application can be set to "Accepted" per job post. When an application is accepted, the job post is automatically closed (status set to "Closed"). **All other applications with status "Pending" for the same job post are automatically set to "Rejected".
 - **Request Body**:   
   ```json
   {
@@ -1995,14 +2013,18 @@
     "error": "Not Found"
   }
 
-### 36. Submit Feedback
+### 36. Submit Tech Issue Feedback
 - **Endpoint**: `POST /api/feedback`
 - **Description**: Allows authenticated jobseekers or employers to submit general feedback about the platform.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
   ```json
   {
-    "message": "Great platform, but needs more features!"
+    "category": "Bug", // One of: Bug | UI | Perfomance | Data | Other
+    "summary": "Short 1–2 sentence description",
+    "steps_to_reproduce": "1) Open ... 2) Click ... 3) Error",
+    "expected_result": "Should open profile page",
+    "actual_result": "Stays on the same page with 500"
   }
 
 - **Response (Success - 200)**: 
@@ -2010,10 +2032,14 @@
   {
     "id": "<feedbackId>",
     "user_id": "<userId>",
-    "message": "Great platform, but needs more features!",
     "role": "jobseeker",
-    "created_at": "2025-07-28T10:00:00.000Z",
-    "updated_at": "2025-07-28T10:00:00.000Z"
+    "category": "Bug",
+    "summary": "Short 1–2 sentence description",
+    "steps_to_reproduce": "1) Open ... 2) Click ... 3) Error",
+    "expected_result": "Should open profile page",
+    "actual_result": "Stays on the same page with 500",
+    "created_at": "2025-08-15T10:00:00.000Z",
+    "updated_at": "2025-08-15T10:00:00.000Z"
   }
 
 - **Response (Error - 401, if token invalid or user not jobseeker/employer)**: 
@@ -2024,7 +2050,7 @@
     "error": "Unauthorized"
   }
 
-### 37. Get Feedback (Admin)
+### 37. Get Tech Issue Feedback (Admin)
 - **Endpoint**: `GET /api/feedback`
 - **Description**: Retrieves all general feedback submissions (admin only).
 - **Headers**: `Authorization: Bearer <token>`
@@ -2034,14 +2060,18 @@
     {
       "id": "<feedbackId>",
       "user_id": "<userId>",
-      "message": "Great platform, but needs more features!",
-      "role": "jobseeker",
-      "created_at": "2025-07-28T10:00:00.000Z",
-      "updated_at": "2025-07-28T10:00:00.000Z",
+      "role": "employer",
+      "category": "UI",
+      "summary": "Button misaligned on mobile",
+      "steps_to_reproduce": "Open /jobs on iPhone SE...",
+      "expected_result": "Buttons aligned in a row",
+      "actual_result": "Buttons wrap to next line",
+      "created_at": "2025-08-15T10:00:00.000Z",
+      "updated_at": "2025-08-15T10:00:00.000Z",
       "user": {
         "id": "<userId>",
-        "username": "john_doe",
-        "email": "john@example.com"
+        "username": "employer1",
+        "email": "employer@example.com"
       }
     }
   ]
@@ -2234,12 +2264,12 @@
     "error": "Unauthorized"
   }
 
-- **Response (Error - 401, if verify parameter is invalid)**:
-  ```json
+- **Response (Error - 400, if verify parameter is invalid)**:
+  ```json  
   {
-    "statusCode": 401,
-    "message": "Verify parameter must be a boolean",
-    "error": "Unauthorized"
+    "statusCode": 400,
+    "message": "Invalid 'verify' parameter (must be boolean)",
+    "error": "Bad Request"
   }
 
 - **Response (Error - 404, if user not found)**:
@@ -3313,26 +3343,36 @@
     "error": "Unauthorized"
   }
 
-### 77. Submit Platform Feedback
+### 77. Submit Success Story
 - **Endpoint**: `POST /api/platform-feedback`
 - **Description**: Allows authenticated jobseekers or employers to submit feedback or success stories about the platform.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
   ```json
   {
-    "rating": 4,
-    "description": "Found an amazing employer through the platform!"
+    "headline": "Landed my first remote role via Jobforge",
+    "story": "I applied to 3 roles and got 2 interviews within a week...",
+    "rating": 5,
+    "allow_publish": true,
+    "company": "Acme Inc",
+    "country": "CA"
   }
 
 - **Response (Success - 200)**:
   ```json
   {
-    "id": "<feedbackId>",
+    "id": "<id>",
     "user_id": "<userId>",
-    "rating": 4,
-    "description": "Found an amazing employer through the platform!",
-    "created_at": "2025-07-08T07:00:00.000Z",
-    "updated_at": "2025-07-08T07:00:00.000Z"
+    "role": "jobseeker",
+    "headline": "Landed my first remote role via Jobforge",
+    "story": "I applied to 3 roles and got 2 interviews within a week...",
+    "rating": 5,
+    "allowed_to_publish": true,
+    "is_public": true,
+    "company": "Acme Inc",
+    "country": "CA",
+    "created_at": "2025-08-15T10:00:00.000Z",
+    "updated_at": "2025-08-15T10:00:00.000Z"
   }
 
 - **Response (Error - 400, if rating is invalid)**:
@@ -3367,9 +3407,9 @@
     "error": "Not Found"
   }
 
-### 78. Get Platform Feedback (Public)
+### 78. Get Success Stories (Public)
 - **Endpoint**: `GET /api/platform-feedback`
-- **Description**: Retrieves a paginated list of platform feedback and success stories, accessible to all users (including unauthenticated).
+- **Description**: Retrieves a paginated list of platform feedback and success stories, accessible to all users (including unauthenticated). Returns only published (is_public=true)
 - **Query Parameters**:
     - `page` (number, optional): Page number for pagination (default: 1).
     - `limit` (number, optional): Number of items per page (default: 10).
@@ -3380,16 +3420,15 @@
     "total": 50,
     "data": [
       {
-        "id": "<feedbackId>",
-        "rating": 4,
-        "description": "Found an amazing employer through the platform!",
-        "created_at": "2025-07-08T07:00:00.000Z",
-        "updated_at": "2025-07-08T07:00:00.000Z",
-        "user": {
-          "id": "<userId>",
-          "username": "john_doe",
-          "role": "jobseeker"
-        }
+        "id": "<id>",
+        "headline": "Hired in 10 days",
+        "story": "Your platform matched me with a perfect role...",
+        "rating": 5,
+        "company": "Globex",
+        "country": "SE",
+        "created_at": "2025-08-01T12:00:00.000Z",
+        "updated_at": "2025-08-01T12:00:00.000Z",
+        "user": { "id": "<uid>", "username": "anna", "role": "jobseeker" }
       }
     ]
   }
@@ -3404,7 +3443,7 @@
 
 ### 79. Get Platform Feedback (Admin/Moderator)
 - **Endpoint**: `GET /api/admin/platform-feedback`
-- **Description**: Retrieves a paginated list of platform feedback for admin or moderator review.
+- **Description**: Returns a paginated list of all success stories and reviews (both published and unpublished) for moderation.
 - **Headers**: `Authorization: Bearer <token>`
 - **Query Parameters**:
     - `page` (number, optional): Page number for pagination (default: 1).
@@ -3413,18 +3452,24 @@
 - **Response (Success - 200)**:
   ```json
   {
-    "total": 50,
+    "total": 42,
     "data": [
       {
-        "id": "<feedbackId>",
-        "user_id": "<userId>",
-        "rating": 4,
-        "description": "Found an amazing employer through the platform!",
-        "created_at": "2025-07-08T07:00:00.000Z",
-        "updated_at": "2025-07-08T07:00:00.000Z",
+        "id": "fdb-uuid",
+        "user_id": "user-uuid",
+        "role": "jobseeker",
+        "headline": "Hired in 10 days",
+        "story": "Your platform matched me with a perfect role...",
+        "rating": 5,
+        "allowed_to_publish": true,
+        "is_public": true,
+        "company": "Globex",
+        "country": "SE",
+        "created_at": "2025-08-12T10:00:00.000Z",
+        "updated_at": "2025-08-12T10:00:00.000Z",
         "user": {
-          "id": "<userId>",
-          "username": "john_doe",
+          "id": "user-uuid",
+          "username": "anna",
           "role": "jobseeker"
         }
       }
@@ -3438,6 +3483,84 @@
     "message": "Page must be a positive integer",
     "error": "Bad Request"
   }
+
+- **Response (Error - 401, if token is invalid or user is not an admin/moderator)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only admins or moderators can access this resource",
+    "error": "Unauthorized"
+  }
+
+### 79.1 Publish Platform Feedback (Admin/Moderator)
+- **Endpoint**: `PATCH /api/admin/platform-feedback/:id/publish`
+- **Description**: Publishes the story on the site (is_public = true). Allowed only if the user has checked the consent box (allowed_to_publish = true).
+- **Headers**: `Authorization: Bearer <token>`
+- **Params**:
+    - `id` — ID записи платформенного фидбека
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "fdb-uuid",
+    "user_id": "user-uuid",
+    "role": "employer",
+    "headline": "Closed a hard role with Jobforge",
+    "story": "Posting and screening saved us days...",
+    "rating": 5,
+    "allowed_to_publish": true,
+    "is_public": true,
+    "company": "Acme Inc",
+    "country": "CA",
+    "created_at": "2025-08-10T09:00:00.000Z",
+    "updated_at": "2025-08-15T11:20:00.000Z"
+  }
+
+- **Response (400 Bad Request - no user consent to publish)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "User did not allow publishing this story",
+    "error": "Bad Request"
+  }  
+
+- **Response (Error - 401, if token is invalid or user is not an admin/moderator)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Only admins or moderators can access this resource",
+    "error": "Unauthorized"
+  }
+
+### 79.2 Unpublish Platform Feedback (Admin/Moderator)
+- **Endpoint**: `PATCH /api/admin/platform-feedback/:id/unpublish`
+- **Description**: Removes publication (is_public = false).
+- **Headers**: `Authorization: Bearer <token>`
+- **Params**:
+    - `id` — ID записи платформенного фидбека
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "fdb-uuid",
+    "user_id": "user-uuid",
+    "role": "jobseeker",
+    "headline": "Got my first remote role",
+    "story": "After 2 interviews I got an offer...",
+    "rating": 4,
+    "allowed_to_publish": true,
+    "is_public": false,
+    "company": "Globex",
+    "country": "SE",
+    "created_at": "2025-08-09T08:30:00.000Z",
+    "updated_at": "2025-08-15T11:22:00.000Z"
+  }
+
+- **Response (400 Bad Request - no user consent to publish)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "User did not allow publishing this story",
+    "error": "Bad Request"
+  }  
 
 - **Response (Error - 401, if token is invalid or user is not an admin/moderator)**:
   ```json
@@ -3595,20 +3718,29 @@
   "error": "Unauthorized"
   }
 
-### 84. Generate Referral Link for Job Post
-- **Endpoint**: `POST /api/admin/job-posts/:id/generate-referral`
-- **Description**: Generates or returns existing unique referral link for a job post to track clicks and registrations.
+### 84. Create Referral Link for Job Post (Admin)
+- **Endpoint**: `POST /api/admin/job-posts/:id/referral-links`
+- **Description**: Creates a new referral link for the given job post. Multiple links per job post are allowed.
 - **Headers**: `Authorization: Bearer <token>`
+- **Body**: 
+  ```json
+  { 
+    "description": "Facebook Ads, campaign A" // optional
+  }  
 - **Response (Success - 200)**:
   ```json
   {
+    "id": "<linkId>",
     "refCode": "<uuid>",
     "fullLink": "https://yourdomain.com/ref/<uuid>",
-    "jobPostId": "<jobPostId>"
+    "jobPostId": "<jobPostId>",
+    "description": "Facebook Ads, campaign A",
+    "clicks": 0,
+    "registrations": 0
   }
 - **Error: 404 if job post not found, 401 if not admin.**
 
-### 85. Get All Referral Links
+### 85. Get All Referral Links (Admin)
 - **Endpoint**: `GET /api/admin/referral-links`
 - **Description**: Retrieves all generated referral links with details (job post, clicks, registrations, registered users). Supports filters jobId and jobTitle.
 - **Query**: jobId (optional), jobTitle (optional, partial match).
@@ -3618,17 +3750,34 @@
   [
     {
       "id": "<linkId>",
-      "ref_code": "<uuid>",
+      "refCode": "<uuid>",
+      "fullLink": "https://yourdomain.com/ref/<uuid>",
+      "jobPostId": "<jobId>",
+      "job_post": { "id": "<jobId>", "title": "Job Title" },
+      "description": "Facebook Ads, campaign A",
       "clicks": 10,
       "registrations": 5,
-      "job_post": { "id": "<jobId>", "title": "Job Title" },
-      "registrationsDetails": [
-        { "user": { "id": "<userId>", "username": "user", "email": "email@example.com", "role": "jobseeker", "created_at": "2025-07-31T00:00:00.000Z" } }
-      ],
+      "registrationsDetails": [ /* ... */ ],
       "created_at": "2025-07-31T00:00:00.000Z"
     }
   ]
 - **Error: 401 if not admin.**
+
+### 85.1 List Referral Links by Job Post (Admin)
+- **Endpoint**: `GET /api/admin/job-posts/:id/referral-links`
+- **Description**: Lists all referral links for a job post.
+
+### 85.2 Update Referral Link Description (Admin)
+- **Endpoint**: `PUT /api/admin/referral-links/:linkId`
+- **Description**: Lists all referral links for a job post.
+- **Body**: 
+  ```json
+  { 
+    "description": "YouTube Influencer X" 
+  }  
+
+### 85.3 Delete Referral Link (Admin)
+- **Endpoint**: `DELETE /api/admin/referral-links/:linkId`
 
 ### 86. Referral Redirect (Public)
 - **Endpoint**: `GET /ref/:refCode`
