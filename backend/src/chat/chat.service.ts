@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Message } from './entities/message.entity';
 import { JobApplication } from '../job-applications/job-application.entity';
 import { User } from '../users/entities/user.entity';
+import { JobPost } from '../job-posts/job-post.entity';
 
 @Injectable()
 export class ChatService {
@@ -21,13 +22,10 @@ export class ChatService {
       where: { id: jobApplicationId },
       relations: ['job_post', 'job_seeker', 'job_post.employer'],
     });
+    if (!application) throw new NotFoundException('Job application not found');
 
-    if (!application) {
-      throw new NotFoundException('Job application not found');
-    }
-
-    if (application.status !== 'Accepted') {
-      throw new UnauthorizedException('Chat is only available for accepted applications');
+    if (!['Pending', 'Accepted'].includes(application.status)) {
+      throw new UnauthorizedException('Chat is available only for pending/accepted applications');
     }
 
     if (
@@ -132,5 +130,37 @@ export class ChatService {
     }
 
     return messages;
+  }
+
+  async broadcastToApplicants(
+    employerId: string,
+    jobPostId: string,
+    content: string,
+  ): Promise<Message[]> {
+    const jobPost = await this.jobApplicationsRepository.manager
+      .getRepository(JobPost)
+      .findOne({ where: { id: jobPostId, employer_id: employerId } });
+    if (!jobPost) throw new UnauthorizedException('You do not own this job post');
+
+    const applications = await this.jobApplicationsRepository.find({
+      where: { job_post_id: jobPostId },
+      select: ['id', 'job_seeker_id', 'status'],
+    });
+
+    const targets = applications.filter(a => ['Pending', 'Accepted'].includes(a.status));
+    if (!targets.length) return [];
+
+    const toSave = targets.map(app =>
+      this.messagesRepository.create({
+        job_application_id: app.id,
+        sender_id: employerId,
+        recipient_id: app.job_seeker_id,
+        content,
+        is_read: false,
+      }),
+    );
+
+    const saved = await this.messagesRepository.save(toSave);
+    return saved;
   }
 }

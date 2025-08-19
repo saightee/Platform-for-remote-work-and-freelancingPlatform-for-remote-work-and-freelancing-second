@@ -274,15 +274,25 @@ export class JobPostsService {
 
   async closeJobPost(userId: string, jobPostId: string) {
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: userId } });
-    if (!jobPost) {
-      throw new NotFoundException('Job post not found or you do not have permission to close it');
-    }
-    if (jobPost.status === 'Closed') {
-      throw new BadRequestException('Job post is already closed');
-    }
+    if (!jobPost) throw new NotFoundException('Job post not found or you do not have permission to close it');
+    if (jobPost.status === 'Closed') throw new BadRequestException('Job post is already closed');
 
-    jobPost.status = 'Closed';
-    return this.jobPostsRepository.save(jobPost);
+    await this.jobPostsRepository.manager.transaction(async (trx) => {
+      const postRepo = trx.getRepository(JobPost);
+      const appRepo  = trx.getRepository(JobApplication);
+
+      await postRepo.update({ id: jobPostId }, { status: 'Closed', closed_at: new Date() });
+
+      await appRepo
+        .createQueryBuilder()
+        .update(JobApplication)
+        .set({ status: 'Rejected' })
+        .where('job_post_id = :jobPostId', { jobPostId })
+        .andWhere('status != :accepted', { accepted: 'Accepted' })
+        .execute();
+    });
+
+    return this.jobPostsRepository.findOne({ where: { id: jobPostId } });
   }
 
   async incrementJobView(jobPostId: string) {

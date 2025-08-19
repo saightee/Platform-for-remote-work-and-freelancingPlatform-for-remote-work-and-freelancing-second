@@ -67,4 +67,7 @@ export class JobPost {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  closed_at?: Date;
 }

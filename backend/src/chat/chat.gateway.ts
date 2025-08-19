@@ -196,4 +196,22 @@ export class ChatGateway {
       client.emit('error', { message: error.message });
     }
   }
+
+  @SubscribeMessage('broadcastToApplicants')
+  async handleBroadcast(
+    @MessageBody() data: { jobPostId: string; content: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const employerId = client.data.userId;
+    const { jobPostId, content } = data;
+  
+    const saved = await this.chatService.broadcastToApplicants(employerId, jobPostId, content);
+  
+    for (const msg of saved) {
+      const room = `chat:${msg.job_application_id}`;
+      this.server.to(room).emit('newMessage', msg);
+    }
+  
+    return { sent: saved.length };
+  }
 }

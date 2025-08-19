@@ -163,31 +163,34 @@ export class JobApplicationsService {
       throw new UnauthorizedException('You do not have permission to update this application');
     }
 
-  if (status === 'Accepted') {
-    await this.jobApplicationsRepository.manager.transaction(async (trx) => {
-      const appRepo = trx.getRepository(JobApplication);
-      const postRepo = trx.getRepository(JobPost);
-    
-      const alreadyAccepted = await appRepo.findOne({
-        where: { job_post_id: application.job_post_id, status: 'Accepted' },
-      });
-      if (alreadyAccepted && alreadyAccepted.id !== application.id) {
-        throw new BadRequestException('Only one application can be accepted per job post');
-      }
-    
-      await postRepo.update({ id: application.job_post_id }, { status: 'Closed' });
-    
-      await appRepo.update({ id: application.id }, { status: 'Accepted' });
-    
-      await trx
-        .createQueryBuilder()
-        .update(JobApplication)
-        .set({ status: 'Rejected' })
-        .where('job_post_id = :jobPostId', { jobPostId: application.job_post_id })
-        .andWhere('id != :currentId', { currentId: application.id })
-        .andWhere('status = :pending', { pending: 'Pending' })
-        .execute();
+if (status === 'Accepted') {
+  await this.jobApplicationsRepository.manager.transaction(async (trx) => {
+    const appRepo  = trx.getRepository(JobApplication);
+    const postRepo = trx.getRepository(JobPost);
+
+    const alreadyAccepted = await appRepo.findOne({
+      where: { job_post_id: application.job_post_id, status: 'Accepted' },
     });
+    if (alreadyAccepted && alreadyAccepted.id !== application.id) {
+      throw new BadRequestException('Only one application can be accepted per job post');
+    }
+
+    await postRepo.update(
+      { id: application.job_post_id },
+      { status: 'Closed', closed_at: new Date() }
+    );
+
+    await appRepo.update({ id: application.id }, { status: 'Accepted' });
+
+    await trx
+      .createQueryBuilder()
+      .update(JobApplication)
+      .set({ status: 'Rejected' })
+      .where('job_post_id = :jobPostId', { jobPostId: application.job_post_id })
+      .andWhere('id != :currentId', { currentId: application.id })
+      .andWhere('status = :pending', { pending: 'Pending' })
+      .execute();
+  });
   
     const updated = await this.jobApplicationsRepository.findOne({
       where: { id: application.id },
