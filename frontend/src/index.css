@@ -3478,7 +3478,7 @@ table th {
 .login-prompt {
   font-size: 16px;
   margin: 5px 0;
-  color: #333;
+  color: #ffffff;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -8086,6 +8086,26 @@ html, body{ overflow-x:hidden; }
   }
 }
 
+
+.hm-mail{
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 42px; height: 36px;
+  border: 1px solid #e5e7eb; border-radius: 10px;
+  background:#fff; color:#4e74c8;
+  margin-right: 8px; text-decoration:none;
+}
+.hm-mail:hover{ background:#eef2ff; }
+
+.hm-pill{
+  position:absolute; top:-6px; right:-6px;
+  min-width:18px; height:18px; padding:0 6px;
+  border-radius:9px; background:#e11d48; color:#fff;
+  font-size:11px; line-height:18px; text-align:center;
+  pointer-events:none;
+}
+
+
 /* страховка от горизонтал. скролла */
 html, body { overflow-x: hidden; }
 
@@ -8202,7 +8222,7 @@ html, body { overflow-x: hidden; }
 .lp-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(18,33,73,.12); }
 
 .lp-primary { background: #4e74c8; color: #fff; border-color: #4e74c8; }
-.lp-outline { background: transparent; color: #4e74c8; border-color: #4e74c8; }
+.lp-outline { background: #4e74c8; color: #fff; border-color: #4e74c8; }
 
 @media (max-width: 480px) {
   .lp-btn { padding: 10px 16px; }

@@ -478,3 +478,33 @@
 .edb-embed .jf2-footer {
   display: none !important;
 }
+
+/* кликабельные KPI */
+.edb-kpi--clickable { cursor: pointer; text-decoration: none; color: inherit; }
+.edb-kpi--clickable:focus, .edb-kpi--clickable:hover { box-shadow: 0 0 0 2px rgba(0,0,0,.06) inset; }
+
+
+.edb-row--exp { border-bottom: 1px solid #ececec; }
+.edb-row__head { display: grid; grid-template-columns: 1fr 1fr 160px 120px; gap: 12px; width: 100%; background: none; border: 0; text-align: left; padding: 10px 0; cursor: pointer; }
+.edb-row__expand { padding: 8px 0 14px; }
+.edb-row__actions { display: flex; gap: 14px; flex-wrap: wrap; }
+.edb-cover { background: #fafafa; border-radius: 8px; padding: 8px 12px; }
+
+
+/* пусть футер «перекрывает» фиксированный сайдбар у нижней кромки */
+.edb-bottom{ position: relative; z-index: 60; }   /* выше сайдбара */
+.edb-sidebar{ z-index: 30; }                      /* было 35 */
+
+/* на всякий — делаем футер full-bleed на всю ширину в любом контейнере */
+.jf2-footer, .jf2-copy{
+  width: 100vw;
+  margin-left: calc(50% - 50vw);  /* «вылезти» из внутренних отступов */
+}
+
+/* выравниваем внутренний контент футера с контентной колонкой дашборда (только на десктопе) */
+@media (min-width: 1024px){
+  .edb-bottom .jf2-inner,
+  .edb-bottom .jf2-copy__inner{
+    padding-left: calc(var(--edb-sidebar-w) + 24px);
+  }
+}

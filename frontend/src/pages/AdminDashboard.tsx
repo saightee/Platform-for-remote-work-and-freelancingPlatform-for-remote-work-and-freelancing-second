@@ -276,12 +276,10 @@ const submitResolveComplaint = async () => {
 const [referralLinks, setReferralLinks] = useState<{
   id: string;
   jobPostId: string;
-  refCode: string;
   fullLink: string;
   description?: string | null;
   clicks: number;
   registrations: number;
-  created_at?: string;
   registrationsDetails?: { user: { id: string; username: string; email: string; role: string; created_at: string } }[];
   job_post?: { id: string; title: string };
 }[]>([]);
@@ -1224,6 +1222,9 @@ const handleFlagJobPost = async (id: string) => {
     }
   };
 
+  const selectedJob = jobPosts.find(post => post.id === showJobModal);
+const safeDescription = sanitizeHtml(selectedJob?.description ?? '');
+
 const handleNotifyCandidates = async (id: string) => {
   console.log('Handle Notify called for id:', id); // Добавлено: лог для диагностики клика
   setNotifyJobPostId(id);
@@ -1372,6 +1373,18 @@ const handleSetGlobalLimit = async () => {
       alert(axiosError.response?.data?.message || 'Failed to export users.');
     }
   };
+
+  // const todayStr = new Date().toDateString();
+
+const todayMnl = formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd');
+
+const todayRegs = recentRegistrations.jobseekers.filter(
+  u => formatInTimeZone(new Date(u.created_at), 'Asia/Manila', 'yyyy-MM-dd') === todayMnl
+);
+
+const todayBiz = recentRegistrations.employers.filter(
+  u => formatInTimeZone(new Date(u.created_at), 'Asia/Manila', 'yyyy-MM-dd') === todayMnl
+);
 
 if (isLoading) {
   return (
@@ -1573,63 +1586,61 @@ if (isLoading) {
               </div>
               <div className="dashboard-section">
                 <h3>Recent Registrations</h3>
-                <details>
-  <summary>Last 5 Freelancer Registrations Today (Total: {recentRegistrations.jobseekers.filter(user => new Date(user.created_at).toDateString() === new Date().toDateString()).length})</summary> {/* Обработка: фильтр по сегодняшней дате */}
-  <table className="dashboard-table">
-    <thead>
-      <tr>
-        <th>Username</th>
-        <th>Email</th>
-        <th>Created At</th>
-      </tr>
-    </thead>
-    <tbody>
-      {recentRegistrations.jobseekers
-        .filter(user => new Date(user.created_at).toDateString() === new Date().toDateString()) // Добавлено: фильтр по дате
-        .slice(0, 5) // Лимит 5
-        .map((user) => (
-          <tr key={user.id}>
-            <td>{user.username}</td>
-            <td>{user.email}</td>
-            <td>{format(new Date(user.created_at), 'PP')}</td>
-          </tr>
-        )) || (
-          <tr>
-            <td colSpan={3}>No recent freelancer registrations today.</td>
-          </tr>
+               <details>
+    <summary>
+      Last 5 Freelancer Registrations Today (Total: {todayRegs.length})
+    </summary>
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Created At</th>
+        </tr>
+      </thead>
+      <tbody>
+        {todayRegs.length === 0 ? (
+          <tr><td colSpan={3}>No recent freelancer registrations today.</td></tr>
+        ) : (
+          todayRegs.slice(0,5).map(u => (
+            <tr key={u.id}>
+              <td>{u.username}</td>
+              <td>{u.email}</td>
+              <td>{format(new Date(u.created_at), 'PP')}</td>
+            </tr>
+          ))
         )}
-    </tbody>
-  </table>
-</details>
-<details>
-  <summary>Last 5 Business Registrations Today (Total: {recentRegistrations.employers.filter(user => new Date(user.created_at).toDateString() === new Date().toDateString()).length})</summary>
-  <table className="dashboard-table">
-    <thead>
-      <tr>
-        <th>Username</th>
-        <th>Email</th>
-        <th>Created At</th>
-      </tr>
-    </thead>
-    <tbody>
-      {recentRegistrations.employers
-        .filter(user => new Date(user.created_at).toDateString() === new Date().toDateString()) // Добавлено: фильтр по дате
-        .slice(0, 5) // Лимит 5
-        .map((user) => (
-          <tr key={user.id}>
-            <td>{user.username}</td>
-            <td>{user.email}</td>
-            <td>{format(new Date(user.created_at), 'PP')}</td>
-          </tr>
-        )) || (
-          <tr>
-            <td colSpan={3}>No recent business registrations today.</td>
-          </tr>
+      </tbody>
+    </table>
+  </details>
+ <details>
+    <summary>
+      Last 5 Business Registrations Today (Total: {todayBiz.length})
+    </summary>
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Created At</th>
+        </tr>
+      </thead>
+      <tbody>
+        {todayBiz.length === 0 ? (
+          <tr><td colSpan={3}>No recent business registrations today.</td></tr>
+        ) : (
+          todayBiz.slice(0,5).map(u => (
+            <tr key={u.id}>
+              <td>{u.username}</td>
+              <td>{u.email}</td>
+              <td>{format(new Date(u.created_at), 'PP')}</td>
+            </tr>
+          ))
         )}
-    </tbody>
-  </table>
-</details>
-              </div>
+      </tbody>
+    </table>
+  </details>
+</div>
 <div className="dashboard-section">
   <h3>Job Postings with Applications</h3>
   <table className="dashboard-table">
@@ -1694,10 +1705,6 @@ if (isLoading) {
     Export to CSV
   </button>
   {fetchErrors.getAllUsers && <p className="error-message">{fetchErrors.getAllUsers}</p>}
-  {(() => {
-    console.log('Rendering users:', sortedUsers);
-    return null;
-  })()}
   
   {/* Добавлено: search bar */}
   <div className="search-bar" style={{ marginBottom: '10px' }}>
@@ -2001,7 +2008,10 @@ setUserPage(1);
           <span className="close" onClick={() => setShowJobModal(null)}>×</span>
           <h3>Job Post Details</h3>
           <p><strong>Title:</strong> {jobPosts.find(post => post.id === showJobModal)?.title}</p>
-          <p><strong>Description:</strong> <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(jobPosts.find(post => post.id === showJobModal)?.description || '') }} /></p>
+          <p><strong>Description:</strong></p>
+<div
+  dangerouslySetInnerHTML={{ __html: safeDescription }}
+/>
           {jobPosts.find(post => post.id === showJobModal)?.pending_review && (
             <button onClick={() => {
               handleApproveJobPost(showJobModal);
@@ -2404,7 +2414,10 @@ setUserPage(1);
           <span className="close" onClick={() => setShowJobModal(null)}>×</span>
           <h3>Job Post Details</h3>
           <p><strong>Title:</strong> {jobPosts.find(post => post.id === showJobModal)?.title}</p>
-          <p><strong>Description:</strong> <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(jobPosts.find(post => post.id === showJobModal)?.description || '') }} /></p>
+         <p><strong>Description:</strong></p>
+<div
+  dangerouslySetInnerHTML={{ __html: safeDescription }}
+/>
           {jobPosts.find(post => post.id === showJobModal)?.pending_review && (
             <button onClick={() => {
               handleApproveJobPost(showJobModal);
@@ -2860,10 +2873,8 @@ setUserPage(1);
               <tr>
                 <th>Description</th>
                 <th>Full Link</th>
-                <th>RefCode</th>
                 <th>Clicks</th>
                 <th>Registrations</th>
-                <th>CreatedAt</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -2883,20 +2894,8 @@ setUserPage(1);
                         <FaCopy /> Copy
                       </button>
                     </td>
-                    <td>
-                      {link.refCode}
-                      <button
-                        onClick={() => navigator.clipboard.writeText(link.refCode)}
-                        className="action-button"
-                        title="Copy code"
-                        style={{ marginLeft: 8 }}
-                      >
-                        <FaCopy /> Copy
-                      </button>
-                    </td>
                     <td>{link.clicks}</td>
                     <td>{link.registrations}</td>
-                    <td>{link.created_at ? format(new Date(link.created_at), 'PPpp') : '—'}</td>
                     <td>
                       <button className="action-button" onClick={() => handleEditReferral(link.id, link.description || '')}>Edit</button>
                       <button className="action-button danger" onClick={() => handleDeleteReferral(link.id)}>Delete</button>
@@ -2912,7 +2911,7 @@ setUserPage(1);
 
                   {expandedReferral === link.id && (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={5}>
                         <details open>
                           <summary>Registrations Details</summary>
                           <table>
