@@ -3483,6 +3483,8 @@ table th {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  display: flex;
+  justify-content: center;
 }
 
 .employer-info {

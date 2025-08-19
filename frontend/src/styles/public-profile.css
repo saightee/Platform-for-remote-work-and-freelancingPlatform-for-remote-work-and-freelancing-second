@@ -15,7 +15,7 @@
 .ppx-meta-head{display:flex;gap:10px;align-items:center;}
 .ppx-views,.ppx-role-badge{display:inline-flex;gap:6px;align-items:center;background:#eef2ff;border:1px solid #dfe6ff;color:#31417d;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px}
 
-.ppx-grid{display:grid;grid-template-columns:320px 1fr;gap:18px;}
+.ppx-grid{display:grid;grid-template-columns:420px 1fr;gap:18px;}
 .ppx-card{background:var(--cs-white);border-radius:var(--cs-radius);box-shadow:var(--cs-shadow);padding:18px;}
 
 .ppx-left{text-align:left}

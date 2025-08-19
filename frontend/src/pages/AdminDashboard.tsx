@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, Fragment } from 'react';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz'; // Для времени по Маниле
 import { FaHome, FaSignOutAlt, FaUser, FaSearch, FaArrowUp, FaArrowDown, FaFilePdf, FaLink, FaCopy } from 'react-icons/fa'; // Иконки
@@ -22,11 +22,11 @@ import {
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
-  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, generateReferralLink, getReferralLinks, api// Добавляем logout из api
+  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, api, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,
+  // Добавляем logout из api
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile } from '@types';
 import { AxiosError } from 'axios';
-import { useCallback } from 'react';
 // import {
 //   mockUsers, mockJobPosts, mockJobPostsWithApps, mockReviews, mockFeedback,
 //   mockBlockedCountries, mockCategories, mockAnalytics, mockRegistrationStats,
@@ -78,7 +78,7 @@ interface EnrichedComplaint extends Complaint {
 
 
 const AdminDashboard: React.FC = () => {
-  const { currentRole } = useRole();
+  const { currentRole, socket } = useRole();
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [showDocumentModal, setShowDocumentModal] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -96,8 +96,9 @@ const AdminDashboard: React.FC = () => {
   const [newCountryCode, setNewCountryCode] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [showJobModal, setShowJobModal] = useState<string | null>(null);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newParentCategoryId, setNewParentCategoryId] = useState<string>('');
+  const [newMainCategoryName, setNewMainCategoryName] = useState('');
+const [newSubCategoryName, setNewSubCategoryName] = useState('');
+const [newParentCategoryId, setNewParentCategoryId] = useState<string>('');
   const [pendingReviewFilter, setPendingReviewFilter] = useState<'All' | 'true' | 'false'>('All');
   const [issues, setIssues] = useState<Feedback[]>([]);
   const [growthPage, setGrowthPage] = useState(1);
@@ -201,6 +202,7 @@ const [referralFilterJobTitle, setReferralFilterJobTitle] = useState(''); // Д�
 const [expandedReferral, setExpandedReferral] = useState<string | null>(null); // Добавлено: для expandable registrations
 const [showReferralModal, setShowReferralModal] = useState<{ fullLink: string; clicks: number; registrations: number } | null>(null); // Добавлено: модалка для new link
 const [enrichedComplaints, setEnrichedComplaints] = useState<EnrichedComplaint[]>([]);
+const [resolveModal, setResolveModal] = useState<{ id: string; status: 'Resolved' | 'Rejected'; comment: string } | null>(null);
 
   const navigate = useNavigate();
 
@@ -213,29 +215,146 @@ const handleSort = (column: 'id' | 'applicationCount' | 'created_at') => {
   }
 };
 
-const [referralLinks, setReferralLinks] = useState<{ 
-  id: string; 
-  jobPostId: string; 
-  refCode: string; // camelCase как в ошибке
-  fullLink: string; 
-  clicks: number; 
-  registrations: number; 
-  registrationsDetails: { user: { id: string; username: string; email: string; role: string; created_at: string } }[]; 
-  job_post?: { id: string; title: string }; // optional, если backend не всегда возвращает
- }[]>([]);
 
-const handleGenerateReferral = async (id: string) => {
+
+
+const [showEmailStatsModal, setShowEmailStatsModal] = useState<{
+  jobPostId: string;
+  loading: boolean;
+  data: {
+    sent: number;
+    opened: number;
+    clicked: number;
+    details: {
+      email: string;
+      username: string;
+      opened: boolean;
+      clicked: boolean;
+      sent_at: string;
+      opened_at: string | null;
+      clicked_at: string | null;
+      job_post_id?: string;
+    }[];
+  } | null;
+} | null>(null);
+
+
+const openEmailStats = async (jobPostId: string) => {
+  setShowEmailStatsModal({ jobPostId, loading: true, data: null });
   try {
-    const data = await generateReferralLink(id);
-    setShowReferralModal({ fullLink: data.fullLink, clicks: data.clicks, registrations: data.registrations }); // Открываем модалку
-    const updatedLinks = await getReferralLinks({});
-    setReferralLinks(updatedLinks || []);
-  } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>;
-    console.error('Error generating referral:', axiosError);
-    alert(axiosError.response?.data?.message || 'Failed to generate referral link.');
+    const data = await getEmailStatsForJob(jobPostId);
+    setShowEmailStatsModal({
+      jobPostId,
+      loading: false,
+      data: {
+        ...data,
+        details: data.details.map(d => ({ ...d, job_post_id: jobPostId }))
+      }
+    });
+  } catch (e) {
+    alert('Failed to load email stats');
+    setShowEmailStatsModal(null);
   }
 };
+
+
+const submitResolveComplaint = async () => {
+  if (!resolveModal) return;
+  try {
+    await resolveComplaint(resolveModal.id, { status: resolveModal.status, comment: resolveModal.comment || undefined });
+    const updatedComplaints = await getComplaints();
+    setComplaints(updatedComplaints || []);
+    setResolveModal(null);
+    alert('Complaint resolved successfully!');
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error resolving complaint:', axiosError);
+    alert(axiosError.response?.data?.message || 'Failed to resolve complaint.');
+  }
+};
+
+const [referralLinks, setReferralLinks] = useState<{
+  id: string;
+  jobPostId: string;
+  refCode: string;
+  fullLink: string;
+  description?: string | null;
+  clicks: number;
+  registrations: number;
+  created_at?: string;
+  registrationsDetails?: { user: { id: string; username: string; email: string; role: string; created_at: string } }[];
+  job_post?: { id: string; title: string };
+}[]>([]);
+
+const [createReferralForJobId, setCreateReferralForJobId] = useState<string | null>(null);
+const [newReferralDescription, setNewReferralDescription] = useState<string>('');
+
+const openCreateReferralModal = (jobId: string) => {
+  setCreateReferralForJobId(jobId);
+  setNewReferralDescription('');
+};
+
+const submitCreateReferral = async () => {
+  if (!createReferralForJobId) return;
+  try {
+    const payload = newReferralDescription.trim() ? { description: newReferralDescription.trim() } : {};
+    const data = await createReferralLink(createReferralForJobId, payload);
+    setShowReferralModal({
+      fullLink: data.fullLink,
+      clicks: data.clicks,
+      registrations: data.registrations,
+    });
+    // Обновляем список (с учётом фильтров страницы)
+    const updated = await getReferralLinks({});
+    setReferralLinks(updated || []);
+    setCreateReferralForJobId(null);
+    setNewReferralDescription('');
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error creating referral:', axiosError);
+    alert(axiosError.response?.data?.message || 'Failed to create referral link.');
+  }
+};
+
+// Редактирование описания
+const handleEditReferral = async (linkId: string, current?: string | null) => {
+  const next = window.prompt('Edit description (optional):', current || '');
+  if (next === null) return;
+  try {
+    await updateReferralLink(linkId, { description: next });
+    const updated = await getReferralLinks({ jobId: referralFilterJobId.trim() || undefined, jobTitle: referralFilterJobTitle.trim() || undefined });
+    setReferralLinks(updated || []);
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error updating referral:', axiosError);
+    alert(axiosError.response?.data?.message || 'Failed to update referral link.');
+  }
+};
+
+// Удаление ссылки
+const handleDeleteReferral = async (linkId: string) => {
+  if (!window.confirm('Delete this referral link?')) return;
+  try {
+    await deleteReferralLink(linkId);
+    const updated = await getReferralLinks({ jobId: referralFilterJobId.trim() || undefined, jobTitle: referralFilterJobTitle.trim() || undefined });
+    setReferralLinks(updated || []);
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error deleting referral:', axiosError);
+    alert(axiosError.response?.data?.message || 'Failed to delete referral link.');
+  }
+};
+
+// «Всегда новая» — вместо переиспользования
+const handleReferralForPost = (id: string) => {
+  openCreateReferralModal(id);
+};
+
+
+
+
+
+
 
 useEffect(() => {
   const enrichComplaints = async () => {
@@ -357,18 +476,7 @@ const handleStoriesSort = (column: 'created_at') => {
   }
 };
 
-const handleGenerateAffiliateLink = async (id: string) => {
-  try {
-    const response = await api.post<{ fullLink: string }>(`/admin/job-posts/${id}/generate-referral`);
-    alert(`Tracking Link generated: ${response.data.fullLink}`);
-    // Опционально: скопировать в clipboard
-    navigator.clipboard.writeText(response.data.fullLink);
-  } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>;
-    console.error('Error generating affiliate link:', axiosError);
-    alert(axiosError.response?.data?.message || 'Failed to generate link.');
-  }
-};
+
 
 const sortedStories = [...stories].sort((a, b) => {
   if (!storiesSortColumn) return 0;
@@ -534,8 +642,20 @@ if (params.id) {
 
 
 useEffect(() => {
-  fetchUsers(); // Без params, как раньше
+  fetchUsers(); // initial
 }, [fetchUsers]);
+
+useEffect(() => {
+  // при клике Next/Previous тянем новую страницу с текущими фильтрами поиска
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(searchQuery);
+  const params: { page: number; limit: number; username?: string; email?: string; id?: string } = { page: userPage, limit: userLimit };
+  if (isUuid) params.id = searchQuery;
+  else if (searchQuery.includes('@')) params.email = searchQuery;
+  else if (searchQuery) params.username = searchQuery;
+
+  fetchUsers(params);
+}, [userPage]);
+
 
 
 // useEffect(() => {
@@ -548,7 +668,26 @@ useEffect(() => {
 
 
 
+useEffect(() => {
+  if (!socket) return;
 
+  const onJobPostsChanged = () => fetchJobPosts();
+  const onComplaintsChanged = async () => setComplaints(await getComplaints() || []);
+  const onReferralChanged = async () => setReferralLinks(await getReferralLinks({}) || []);
+  const onUsersChanged = () => fetchUsers({ page: userPage, limit: userLimit });
+
+  socket.on('jobPostUpdated', onJobPostsChanged);
+  socket.on('complaintResolved', onComplaintsChanged);
+  socket.on('referralLinkCreated', onReferralChanged);
+  socket.on('userUpdated', onUsersChanged);
+
+  return () => {
+    socket.off('jobPostUpdated', onJobPostsChanged);
+    socket.off('complaintResolved', onComplaintsChanged);
+    socket.off('referralLinkCreated', onReferralChanged);
+    socket.off('userUpdated', onUsersChanged);
+  };
+}, [socket, fetchJobPosts, fetchUsers, userPage, userLimit]);
 
 
 // Для остальных данных
@@ -648,15 +787,35 @@ useEffect(() => {
     const results = await Promise.allSettled(requests);
     const errors: { [key: string]: string } = {};
 
-    const endpoints = [
-      'getAllJobPosts', 'getAllReviews', 'getFeedback',
-      'getBlockedCountries', 'getCategories', 'getAnalytics', 'getRegistrationStats',
-      'freelancerSignupsToday', 'freelancerSignupsYesterday', 'freelancerSignupsWeek', 'freelancerSignupsMonth',
-      'businessSignupsToday', 'businessSignupsYesterday', 'businessSignupsWeek', 'businessSignupsMonth',
-      'getTopEmployers', 'getTopJobseekers', 'getTopJobseekersByViews', 'getTopEmployersByPosts',
-      'getGrowthTrends', 'getComplaints', 'getGlobalApplicationLimit', 'getOnlineUsers',
-      'getRecentRegistrations', 'getJobPostsWithApplications',
-    ];
+const endpoints = [
+  'getAllJobPosts',
+  'getAllReviews',
+  'getFeedback',
+  'getPlatformFeedback',   // ← добавили
+  'getBlockedCountries',
+  'getCategories',
+  'getAnalytics',
+  'getRegistrationStats',
+  'freelancerSignupsToday',
+  'freelancerSignupsYesterday',
+  'freelancerSignupsWeek',
+  'freelancerSignupsMonth',
+  'businessSignupsToday',
+  'businessSignupsYesterday',
+  'businessSignupsWeek',
+  'businessSignupsMonth',
+  'getTopEmployers',
+  'getTopJobseekers',
+  'getTopJobseekersByViews',
+  'getTopEmployersByPosts',
+  'getGrowthTrends',
+  'getComplaints',
+  'getGlobalApplicationLimit',
+  'getOnlineUsers',
+  'getRecentRegistrations',
+  'getJobPostsWithApplications',
+];
+
 
     for (const [index, result] of results.entries()) {
       if (result.status === 'fulfilled') {
@@ -681,6 +840,7 @@ case 0:
             setIssues(value as Feedback[] || []);
             break;
             case 3: setStories(value as { id: string; user_id: string; rating: number; description: string; created_at: string; updated_at: string; user: { id: string; username: string; role: string } }[] || []);
+            break;
           case 4:
             setBlockedCountries(value as BlockedCountry[] || []);
             break;
@@ -968,16 +1128,17 @@ const handleUnblockUser = async (id: string, username: string) => {
     }
   };
 
-  const handleCreateCategory = async (parentId?: string) => { 
-  if (!newCategoryName.trim()) {
+const handleCreateCategory = async (name: string, parentId?: string) => {
+  if (!name.trim()) {
     alert('Category name cannot be empty.');
     return;
   }
   try {
-    await createCategory({ name: newCategoryName, parentId });
-    const updatedCategories = await getAdminCategories(); // Изменил на getAdminCategories, как в fetchOtherData
+    await createCategory({ name, parentId });
+    const updatedCategories = await getAdminCategories();
     setCategories(updatedCategories || []);
-    setNewCategoryName('');
+    setNewMainCategoryName('');
+    setNewSubCategoryName('');
     setNewParentCategoryId('');
     alert('Category created successfully!');
   } catch (error) {
@@ -1105,24 +1266,7 @@ const handleNotifySubmit = async () => {
     }
   };
 
-  const handleResolveComplaint = async (id: string) => {
-    const status = prompt('Enter status (Resolved or Rejected):');
-    const comment = prompt('Enter resolution comment (optional):');
-    if (!status || !['Resolved', 'Rejected'].includes(status)) {
-      alert('Invalid status. Must be Resolved or Rejected.');
-      return;
-    }
-    try {
-      await resolveComplaint(id, { status: status as 'Resolved' | 'Rejected', comment: comment || undefined });
-      const updatedComplaints = await getComplaints();
-      setComplaints(updatedComplaints || []);
-      alert('Complaint resolved successfully!');
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error resolving complaint:', axiosError);
-      alert(axiosError.response?.data?.message || 'Failed to resolve complaint.');
-    }
-  };
+
 
 const handleViewJobApplications = async (jobPostId: string) => {
   try {
@@ -1493,14 +1637,13 @@ if (isLoading) {
   <tr>
     <th>Username</th>
     <th>Title</th>
-    <th>Category</th> {/* Added */}
+    <th>Category</th>
     <th onClick={() => handleSort('applicationCount')} style={{ cursor: 'pointer' }}>
       Applications {sortColumn === 'applicationCount' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
     </th>
     <th onClick={() => handleSort('created_at')} style={{ cursor: 'pointer' }}>
       Created At {sortColumn === 'created_at' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
     </th>
-    <th>Affiliate/Tracking Link</th>
   </tr>
 </thead>
 <tbody>
@@ -1508,19 +1651,17 @@ if (isLoading) {
     <tr key={post.id}>
       <td>{post.username || 'N/A'}</td>
       <td>{post.title}</td>
-      <td>{typeof post.category === 'string' ? post.category : post.category?.name || 'N/A'}</td> {/* Обработка: string или object.name */}
+      <td>{typeof post.category === 'string' ? post.category : post.category?.name || 'N/A'}</td>
       <td>{post.applicationCount}</td>
       <td>{format(new Date(post.created_at), 'PP')}</td>
-      <td>
-        <button onClick={() => handleGenerateAffiliateLink(post.id)} className="action-button">Generate Link</button> 
-      </td> 
     </tr>
   )) : (
     <tr>
-      <td colSpan={6}>No job postings with applications found.</td> {/* Изменено: colSpan +1 */}
+      <td colSpan={5}>No job postings with applications found.</td>
     </tr>
   )}
 </tbody>
+
   </table>
   <div className="pagination">
     <button
@@ -1704,25 +1845,37 @@ setUserPage(1);
         onChange={(e) => setSearchQuery(e.target.value)}
       />
 <button onClick={() => {
-  const query = searchQuery.trim(); // Добавлено: trim для чистоты
-  if (!query) return; // Добавлено: игнор если пусто
-  const params: { page: number; title?: string; employer_id?: string; employer_username?: string; id?: string; category_id?: string } = { page: 1 }; // Изменено: убрали employer_email (нет в docs), добавили id, category_id
-  if (query.includes('@')) {
-    alert('Search by email is not supported. Use username or ID.'); // Добавлено: alert, т.к. нет employer_email
-    return;
-  } else if (query.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
-    params.employer_id = query; // employer_id для uuid
-    params.id = query; // Также id для job post, backend handle
-    params.category_id = query; // Если uuid категории, но редко — backend ignore если не match
+  const query = searchQuery.trim();
+  if (!query) return;
+
+  const params: {
+    page: number;
+    status?: string;
+    pendingReview?: string;
+    title?: string;
+    employer_id?: string;
+    category_id?: string;
+    employer_username?: string;
+    id?: string;
+    limit?: number;
+  } = { page: 1, limit: jobPostLimit };
+
+  // UUID → это ID поста (а не employer_id/category_id)
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(query);
+  if (isUuid) {
+    params.id = query;
   } else {
-    params.title = query; // По title
-    params.employer_username = query; // По employer_username (partial match по docs)
+    params.title = query;
+    params.employer_username = query;
   }
+
+  // отправляем на backend, а локальные селекторы статуса/ревью работают как client-side фильтр, как и раньше
   fetchJobPosts(params);
   setJobPostPage(1);
 }} className="action-button">
   <FaSearch />
 </button>
+
     </div>
     <div className="form-group">
       <label>Filter by Status:</label>
@@ -1799,7 +1952,9 @@ setUserPage(1);
                 <button onClick={() => setShowJobModal(post.id)} className="action-button">
                   View Job
                 </button>
-                <button onClick={() => handleGenerateReferral(post.id)} className="action-button">Generate Referral</button> 
+ <button onClick={() => handleReferralForPost(post.id)} className="action-button">
+  Generate Referral
+</button>
               </td>
               <td>
 <span 
@@ -1810,7 +1965,7 @@ setUserPage(1);
 <button onClick={() => handleNotifyCandidates(post.id)} className="action-button success" style={{ cursor: 'pointer' }}>
   Notify Seekers
 </button>
-<button onClick={() => navigate('/admin/email-notifications', { state: { jobPostId: post.id } })} className="action-button">
+<button onClick={() => openEmailStats(post.id)} className="action-button">
   View Details
 </button>
                
@@ -2045,25 +2200,25 @@ setUserPage(1);
   <h4>Categories</h4>
   
   {/* Добавлено: 2 формы для main и sub */}
-  <div className="form-group">
+<div className="form-group">
   <h5>Create Main Category</h5>
   <input
     type="text"
-    value={newCategoryName}
-    onChange={(e) => setNewCategoryName(e.target.value)}
+    value={newMainCategoryName}
+    onChange={(e) => setNewMainCategoryName(e.target.value)}
     placeholder="Enter main category name"
   />
-<button onClick={() => handleCreateCategory(undefined)} className="action-button">
-  Create Main
-</button>
+  <button onClick={() => handleCreateCategory(newMainCategoryName)} className="action-button">
+    Create Main
+  </button>
 </div>
 
 <div className="form-group">
   <h5>Create Subcategory</h5>
   <input
     type="text"
-    value={newCategoryName}
-    onChange={(e) => setNewCategoryName(e.target.value)}
+    value={newSubCategoryName}
+    onChange={(e) => setNewSubCategoryName(e.target.value)}
     placeholder="Enter subcategory name"
   />
   <select
@@ -2072,18 +2227,15 @@ setUserPage(1);
     className="category-select"
   >
     <option value="">Select parent category</option>
-    {categories
-      .filter((category) => !category.parent_id)
-      .map((category) => (
-        <option key={category.id} value={category.id}>
-          {category.name}
-        </option>
-      ))}
+    {categories.filter((c) => !c.parent_id).map((c) => (
+      <option key={c.id} value={c.id}>{c.name}</option>
+    ))}
   </select>
-<button onClick={() => handleCreateCategory(newParentCategoryId)} className="action-button"> 
-  Create Sub
-</button>
+  <button onClick={() => handleCreateCategory(newSubCategoryName, newParentCategoryId)} className="action-button"> 
+    Create Sub
+  </button>
 </div>
+
 
 {fetchErrors.getCategories && <p className="error-message">{fetchErrors.getCategories}</p>}
 <div className="category-tree">
@@ -2205,14 +2357,14 @@ setUserPage(1);
   <td>{complaint.resolution_comment ? `${complaint.resolution_comment} (by ${complaint.resolver?.username || 'Unknown'})` : 'N/A'}</td> 
   <td>{format(new Date(complaint.created_at), 'PP')}</td> 
   <td>
-    {complaint.status === 'Pending' && (
-      <button
-        onClick={() => handleResolveComplaint(complaint.id)}
-        className="action-button"
-      >
-        Resolve
-      </button>
-    )}
+{complaint.status === 'Pending' && (
+  <button
+    onClick={() => setResolveModal({ id: complaint.id, status: 'Resolved', comment: '' })}
+    className="action-button"
+  >
+    Resolve
+  </button>
+)}
     {complaint.job_post_id && (
       <button onClick={() => setShowJobModal(complaint.job_post_id || null)} className="action-button">View Job</button>
     )}
@@ -2649,7 +2801,6 @@ setUserPage(1);
   </div>
 )}
 
-
 {activeTab === 'Referral Links' && (
   <div>
     <h4>Referral Links</h4>
@@ -2661,85 +2812,262 @@ setUserPage(1);
       <label>Filter by Job Title:</label>
       <input value={referralFilterJobTitle} onChange={(e) => setReferralFilterJobTitle(e.target.value)} />
     </div>
-<button onClick={async () => {
-  const data = await getReferralLinks({ jobId: referralFilterJobId.trim() || undefined, title: referralFilterJobTitle.trim() || undefined }); // Изменено: title вместо jobTitle, trim+undefined если пусто
-  console.log('Referral Links data:', data);
-  setReferralLinks(data || []);
-}} className="action-button">
-  Search
-</button>
-    <table className="dashboard-table">
-      <thead>
-        <tr>
-          <th>Job Title</th> 
-          <th>Ref Code</th>
-          <th>Full Link</th>
-          <th>Clicks</th>
-          <th>Registrations</th>
-        </tr>
-      </thead>
-      <tbody>
-        {referralLinks.length > 0 ? referralLinks.map((link) => (
-          <>
-<tr key={link.id} onClick={() => setExpandedReferral(expandedReferral === link.id ? null : link.id)} style={{ cursor: 'pointer' }}>
-  <td>{link.job_post?.title || 'N/A'}</td>
-  <td>{link.refCode}</td> 
-  <td>{link.fullLink}</td>
-  <td>{link.clicks}</td>
-  <td>{link.registrations}</td>
-</tr>
-            {expandedReferral === link.id && (
+    <button
+      onClick={async () => {
+        const data = await getReferralLinks({
+          jobId: referralFilterJobId.trim() || undefined,
+          jobTitle: referralFilterJobTitle.trim() || undefined, // <-- правильное имя фильтра
+        });
+        console.log('Referral Links data:', data);
+        setReferralLinks(data || []);
+      }}
+      className="action-button"
+    >
+      Search
+    </button>
+
+    {(() => {
+      // Группируем по вакансии
+      const groups: Record<string, { title: string; links: typeof referralLinks }> = {};
+      referralLinks.forEach((link) => {
+        const jId = link.job_post?.id || link.jobPostId;
+        const title = link.job_post?.title || 'N/A';
+        if (!groups[jId]) groups[jId] = { title, links: [] as any };
+        groups[jId].links.push(link);
+      });
+      const jobIds = Object.keys(groups);
+
+      if (jobIds.length === 0) {
+        return (
+          <table className="dashboard-table">
+            <tbody>
               <tr>
-                <td colSpan={5}>
-                  <details open>
-                    <summary>Registrations Details</summary>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>User ID</th>
-                          <th>Username</th>
-                          <th>Email</th>
-                          <th>Role</th>
-                          <th>Created At</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {link.registrationsDetails?.map((reg, i) => ( // Добавь ? для optional
-                          <tr key={i}>
-                            <td>{reg.user.id}</td>
-                            <td>{reg.user.username}</td>
-                            <td>{reg.user.email}</td>
-                            <td>{reg.user.role}</td>
-                            <td>{format(new Date(reg.user.created_at), 'PP')}</td>
-                          </tr>
-                        )) || (
-                          <tr>
-                            <td colSpan={5}>No registrations.</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </details>
-                </td>
+                <td>No referral links found.</td>
               </tr>
-            )}
-          </>
-        )) : (
-          <tr>
-            <td colSpan={5}>No referral links found.</td>
-          </tr>
-        )}
-      </tbody>
-    </table>
+            </tbody>
+          </table>
+        );
+      }
+
+      return jobIds.map((jid) => (
+        <div key={jid} style={{ marginTop: 16, border: '1px solid #eee', borderRadius: 6, padding: 12 }}>
+          <div className="table-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h5 style={{ margin: 0 }}>Job: {groups[jid].title}</h5>
+            <button className="action-button success" onClick={() => openCreateReferralModal(jid)}>+ New referral link</button>
+          </div>
+          <table className="dashboard-table" style={{ marginTop: 8 }}>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Full Link</th>
+                <th>RefCode</th>
+                <th>Clicks</th>
+                <th>Registrations</th>
+                <th>CreatedAt</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups[jid].links.map((link) => (
+                <Fragment key={link.id}>
+                  <tr>
+                    <td>{link.description || <i>—</i>}</td>
+                    <td>
+                      {link.fullLink}
+                      <button
+                        onClick={() => navigator.clipboard.writeText(link.fullLink)}
+                        className="action-button"
+                        title="Copy link"
+                        style={{ marginLeft: 8 }}
+                      >
+                        <FaCopy /> Copy
+                      </button>
+                    </td>
+                    <td>
+                      {link.refCode}
+                      <button
+                        onClick={() => navigator.clipboard.writeText(link.refCode)}
+                        className="action-button"
+                        title="Copy code"
+                        style={{ marginLeft: 8 }}
+                      >
+                        <FaCopy /> Copy
+                      </button>
+                    </td>
+                    <td>{link.clicks}</td>
+                    <td>{link.registrations}</td>
+                    <td>{link.created_at ? format(new Date(link.created_at), 'PPpp') : '—'}</td>
+                    <td>
+                      <button className="action-button" onClick={() => handleEditReferral(link.id, link.description || '')}>Edit</button>
+                      <button className="action-button danger" onClick={() => handleDeleteReferral(link.id)}>Delete</button>
+                      <button
+                        onClick={() => setExpandedReferral(expandedReferral === link.id ? null : link.id)}
+                        className="action-button"
+                        style={{ marginLeft: 8 }}
+                      >
+                        {expandedReferral === link.id ? 'Hide details' : 'View regs'}
+                      </button>
+                    </td>
+                  </tr>
+
+                  {expandedReferral === link.id && (
+                    <tr>
+                      <td colSpan={7}>
+                        <details open>
+                          <summary>Registrations Details</summary>
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>User ID</th>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Created At</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {link.registrationsDetails?.length
+                                ? link.registrationsDetails.map((reg, i) => (
+                                    <tr key={i}>
+                                      <td>{reg.user.id}</td>
+                                      <td>{reg.user.username}</td>
+                                      <td>{reg.user.email}</td>
+                                      <td>{reg.user.role}</td>
+                                      <td>{format(new Date(reg.user.created_at), 'PP')}</td>
+                                    </tr>
+                                  ))
+                                : (
+                                  <tr>
+                                    <td colSpan={5}>No registrations.</td>
+                                  </tr>
+                                )}
+                            </tbody>
+                          </table>
+                        </details>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ));
+    })()}
   </div>
 )}
 
+
+
+{showEmailStatsModal && (
+  <div className="modal">
+    <div className="modal-content">
+      <span className="close" onClick={() => setShowEmailStatsModal(null)}>×</span>
+      <h3>Email Notifications — Job Post ID: {showEmailStatsModal.jobPostId}</h3>
+      {showEmailStatsModal.loading ? (
+        <p>Loading...</p>
+      ) : (
+        <>
+          <p><strong>Sent:</strong> {showEmailStatsModal.data?.sent}</p>
+          <p><strong>Opened:</strong> {showEmailStatsModal.data?.opened}</p>
+          <p><strong>Clicked:</strong> {showEmailStatsModal.data?.clicked}</p>
+          <table className="dashboard-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Username</th>
+                <th>Opened</th>
+                <th>Clicked</th>
+                <th>Sent At</th>
+                <th>Opened At</th>
+                <th>Clicked At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {showEmailStatsModal.data?.details?.length
+                ? showEmailStatsModal.data.details.map((d, i) => (
+                    <tr key={i}>
+                      <td>{d.email}</td>
+                      <td>{d.username}</td>
+                      <td>{d.opened ? 'Yes' : 'No'}</td>
+                      <td>{d.clicked ? 'Yes' : 'No'}</td>
+                      <td>{format(new Date(d.sent_at), 'PPpp')}</td>
+                      <td>{d.opened_at ? format(new Date(d.opened_at), 'PPpp') : 'N/A'}</td>
+                      <td>{d.clicked_at ? format(new Date(d.clicked_at), 'PPpp') : 'N/A'}</td>
+                    </tr>
+                  ))
+                : (
+                  <tr><td colSpan={7}>No notifications found.</td></tr>
+                )
+              }
+            </tbody>
+          </table>
+        </>
+      )}
+    </div>
+  </div>
+)}
+
+
+{resolveModal && (
+  <div className="modal">
+    <div className="modal-content">
+      <span className="close" onClick={() => setResolveModal(null)}>×</span>
+      <h3>Resolve Complaint</h3>
+      <div className="form-group">
+        <label>Status:</label>
+        <select
+          value={resolveModal.status}
+          onChange={(e) => setResolveModal({ ...resolveModal, status: e.target.value as 'Resolved' | 'Rejected' })}
+        >
+          <option value="Resolved">Resolved</option>
+          <option value="Rejected">Rejected</option>
+        </select>
+      </div>
+      <div className="form-group">
+        <label>Comment (optional):</label>
+        <textarea
+          value={resolveModal.comment}
+          onChange={(e) => setResolveModal({ ...resolveModal, comment: e.target.value })}
+          placeholder="Add resolution comment..."
+          rows={4}
+        />
+      </div>
+      <div className="modal-actions">
+        <button onClick={submitResolveComplaint} className="action-button success">Save</button>
+        <button onClick={() => setResolveModal(null)} className="action-button">Cancel</button>
+      </div>
+    </div>
+  </div>
+)}
+
+{createReferralForJobId && (
+  <div className="modal">
+    <div className="modal-content">
+      <span className="close" onClick={() => setCreateReferralForJobId(null)}>×</span>
+      <h3>New Referral Link</h3>
+      <div className="form-group">
+        <label>Description (optional):</label>
+        <input
+          type="text"
+          value={newReferralDescription}
+          onChange={(e) => setNewReferralDescription(e.target.value)}
+          placeholder="e.g., Facebook Ads — Campaign A"
+        />
+      </div>
+      <div className="modal-actions">
+        <button onClick={submitCreateReferral} className="action-button success">Create</button>
+        <button onClick={() => setCreateReferralForJobId(null)} className="action-button">Cancel</button>
+      </div>
+    </div>
+  </div>
+)}
 
 {showReferralModal && (
   <div className="modal">
     <div className="modal-content">
       <span className="close" onClick={() => setShowReferralModal(null)}>×</span>
-      <h3>Referral Link Details</h3>
+      <h3>Referral Link Created</h3>
       <p><strong>Full Link:</strong> {showReferralModal.fullLink}</p>
       <button onClick={() => navigator.clipboard.writeText(showReferralModal.fullLink)} className="action-button"><FaCopy /> Copy Link</button>
       <p><strong>Clicks:</strong> {showReferralModal.clicks}</p>
@@ -2747,7 +3075,6 @@ setUserPage(1);
     </div>
   </div>
 )}
-
         {activeTab === 'Settings' && (
   <div>
     <h4>Settings</h4>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { login } from '../services/api';
+import { login, resendVerification } from '../services/api';
 import { useRole } from '../context/RoleContext';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
@@ -17,6 +17,8 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const { profile, currentRole, refreshProfile } = useRole();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+const [cooldown, setCooldown] = useState(0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,12 +37,14 @@ const Login: React.FC = () => {
       console.log('Token stored:', response.accessToken);
       await refreshProfile();
       setIsAuthenticated(true);
-    } catch (error: any) {
-      console.error('Login error:', error);
-      const errorMsg = error.response?.data?.message || 'Login failed. Please try again.';
-      console.log('Error details:', error.response?.data);
-      setErrorMessage(errorMsg);
-    } finally {
+   } catch (error: any) {
+ const msg = error.response?.data?.message || '';
+  if (error.response?.status === 401 && /confirm your email/i.test(msg)) {
+    navigate('/check-email', { state: { email } });
+    return;
+  }
+  setErrorMessage(msg || 'Login failed. Please try again.');
+} finally {
       setIsRefreshing(false);
     }
   };
@@ -62,6 +66,30 @@ const Login: React.FC = () => {
     setShowPassword(!showPassword);
   };
 
+  useEffect(() => {
+  if (!cooldown) return;
+  const id = setInterval(() => setCooldown(s => s > 0 ? s - 1 : 0), 1000);
+  return () => clearInterval(id);
+}, [cooldown]);
+
+const onResendFromLogin = async () => {
+  if (!unverifiedEmail) return;
+  try {
+    await resendVerification(unverifiedEmail);
+    // нейтральный тост
+    alert('If the account exists and is not verified, we sent a new link.');
+    setCooldown(300);
+  } catch (e: any) {
+    if (e?.response?.status === 429) {
+      const retry = parseInt(e.response.headers?.['retry-after'] || '', 10);
+      setCooldown(Number.isFinite(retry) ? retry : 300);
+      alert('Please wait before requesting another verification email.');
+    } else {
+      alert(e?.response?.data?.message || 'Failed to resend verification email.');
+    }
+  }
+};
+
   return (
     <div className="login-container">
       <div className="login-box">
@@ -70,26 +98,33 @@ const Login: React.FC = () => {
 <form onSubmit={handleSubmit} className="login-form">
   <div className="login-form-group">
     <label>Email</label>
-    <input
-      type="email"
-      value={email}
-      onChange={(e) => setEmail(e.target.value)}
-      placeholder="Enter your email"
-      autoComplete="email"
-      required
-    />
+  <input
+  type="email"
+  id="login-email"
+  name="email"
+  value={email}
+  onChange={(e) => setEmail(e.target.value)}
+  placeholder="Enter your email"
+  autoComplete="username"
+  inputMode="email"
+  autoCapitalize="none"
+  spellCheck={false}
+  required
+/>
   </div>
   <div className="login-form-group login-password-container">
     <label>Password</label>
     <div className="login-password-input-wrapper">
-      <input
-        type={showPassword ? 'text' : 'password'}
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Enter your password"
-        autoComplete="current-password"
-        required
-      />
+ <input
+  type={showPassword ? 'text' : 'password'}
+  id="login-password"
+  name="password"
+  value={password}
+  onChange={(e) => setPassword(e.target.value)}
+  placeholder="Enter your password"
+  autoComplete="current-password"
+  required
+/>
       <span className="login-password-toggle-icon" onClick={togglePasswordVisibility}>
         {showPassword ? <FaEyeSlash /> : <FaEye />}
       </span>
@@ -117,6 +152,19 @@ const Login: React.FC = () => {
     </p>
   </div>
 </form>
+
+{unverifiedEmail && (
+  <div className="banner warning" style={{ marginTop: 12 }}>
+    Please confirm your email before logging in.
+    <button
+      onClick={onResendFromLogin}
+      disabled={cooldown > 0}
+      style={{ marginLeft: 8 }}
+    >
+      {cooldown ? `Resend in ${Math.floor(cooldown/60)}:${(cooldown%60).toString().padStart(2,'0')}` : 'Resend email'}
+    </button>
+  </div>
+)}
       </div>
     </div>
   );

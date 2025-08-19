@@ -9,6 +9,31 @@ interface JobCardProps {
   variant?: 'home' | 'find-jobs';
 }
 
+const renderSalary = (j: JobPost): string => {
+  const st = String(j.salary_type ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, ' ');
+
+  if (st === 'negotiable') return 'Negotiable';
+
+  const num = j.salary != null ? Number(j.salary) : NaN;
+  if (Number.isFinite(num) && num > 0) {
+    const unit =
+      st === 'per hour' ? '/ hour' :
+      st === 'per month' ? '/ month' :
+      '';
+    const currency =
+      (j as any).currency ||
+      (j as any).salary_currency ||
+      '$';
+    return `${currency}${num} ${unit}`.trim();
+  }
+
+  return 'Not specified';
+};
+
+
 const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
   const truncateDescription = (description: string, maxLength: number) => {
     const cleanDescription = sanitizeHtml(description, {
@@ -62,7 +87,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
 
         <div className="jc-footer">
           <span className="jc-salary">
-            {job.salary !== null ? `$${job.salary} ${job.salary_type || 'per hour'}` : 'Not specified'}
+           {renderSalary(job)}
           </span>
           <Link to={`/jobs/${job.id}`}>
             <button className="jc-btn jc-btn--primary" type="button">View Details</button>
@@ -120,7 +145,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
 
         <div className="jc-footer">
           <span className="jc-salary">
-            {job.salary !== null ? `$${job.salary} ${job.salary_type || 'per hour'}` : 'Not specified'}
+            {renderSalary(job)}
           </span>
           <Link to={`/jobs/${job.id}`}>
             <button className="jc-btn jc-btn--primary" type="button">View Details</button>
