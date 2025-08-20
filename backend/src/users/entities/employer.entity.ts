@@ -20,6 +20,9 @@ export class Employer {
   referral_link?: string;
 
   @Column({ nullable: true })
+  referred_by_user_id?: string;
+
+  @Column({ nullable: true })
   timezone?: string;
 
   @Column({ nullable: true })

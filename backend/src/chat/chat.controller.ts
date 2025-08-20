@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Headers, UnauthorizedException, UseGuards, Query, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Headers, UnauthorizedException, UseGuards, Query, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtService } from '@nestjs/jwt';
 import { ChatService } from './chat.service';
@@ -36,5 +36,26 @@ export class ChatController {
     }
 
     return this.chatService.getChatHistoryForUser(userId, jobApplicationId, parsedPage, parsedLimit);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('broadcast/:jobPostId')
+  async broadcastToApplicants(
+    @Headers('authorization') authHeader: string,
+    @Param('jobPostId') jobPostId: string,
+    @Body('content') content: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    if (!content || !content.trim()) {
+      throw new BadRequestException('Content is required');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+  
+    const saved = await this.chatService.broadcastToApplicants(userId, jobPostId, content);
+    return { sent: saved.length };
   }
 }

@@ -41,6 +41,12 @@ export class JobSeeker {
 
   @Column({ default: 0 })
   profile_views: number;
+  
+  @Column({ nullable: true })
+  referral_link?: string;
+
+  @Column({ nullable: true })
+  referred_by_user_id?: string;
 
   @CreateDateColumn()
   created_at: Date;
