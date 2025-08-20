@@ -87,34 +87,41 @@ export class JobPostsService {
     return savedJobPost;
   }
   
-  async updateJobPost(userId: string, jobPostId: string, updates: { 
-    title?: string; 
-    description?: string; 
-    location?: string; 
-    salary?: number; 
-    status?: 'Active' | 'Draft' | 'Closed'; 
-    category_id?: string; 
-    aiBrief?: string;
-    job_type?: 'Full-time' | 'Part-time' | 'Project-based';
-    salary_type?: 'per hour' | 'per month' | 'negotiable';
-    excluded_locations?: string[];  
-  }) {
+  async updateJobPost(
+    userId: string,
+    jobPostId: string,
+    updates: {
+      title?: string;
+      description?: string;
+      location?: string;
+      salary?: number;
+      status?: 'Active' | 'Draft' | 'Closed';
+      category_id?: string;
+      aiBrief?: string;
+      job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+      salary_type?: 'per hour' | 'per month' | 'negotiable';
+      excluded_locations?: string[];
+    },
+  ) {
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: userId } });
     if (!jobPost) {
       throw new NotFoundException('Job post not found or you do not have permission to update it');
     }
-  
+
     if (updates.category_id) {
       await this.categoriesService.getCategoryById(updates.category_id);
     }
 
-  const effectiveSalaryType = updates.salary_type ?? jobPost.salary_type;
-    
-  if (effectiveSalaryType === 'negotiable') {
-    jobPost.salary = null;
-  } else if (updates.salary === undefined && jobPost.salary === null) {
-    throw new BadRequestException('Salary is required unless salary_type is negotiable');
-  }
+    if (updates.status === 'Closed') {
+      throw new BadRequestException('Use Close Job endpoint to close a job post');
+    }
+
+    const effectiveSalaryType = updates.salary_type ?? jobPost.salary_type;
+    if (effectiveSalaryType === 'negotiable') {
+      jobPost.salary = null;
+    } else if (updates.salary === undefined && jobPost.salary === null) {
+      throw new BadRequestException('Salary is required unless salary_type is negotiable');
+    }
 
     if (updates.aiBrief) {
       updates.description = await this.generateDescription({
@@ -126,7 +133,7 @@ export class JobPostsService {
         job_type: updates.job_type || jobPost.job_type,
       });
     }
-  
+
     if (updates.title) jobPost.title = updates.title;
     if (updates.description) jobPost.description = updates.description;
     if (updates.location) jobPost.location = updates.location;
@@ -134,9 +141,9 @@ export class JobPostsService {
     if (updates.status) jobPost.status = updates.status;
     if (updates.category_id) jobPost.category_id = updates.category_id;
     if (updates.job_type) jobPost.job_type = updates.job_type;
-    if (updates.salary_type) jobPost.salary_type = updates.salary_type;  
-    if (updates.excluded_locations) jobPost.excluded_locations = updates.excluded_locations;  
-  
+    if (updates.salary_type) jobPost.salary_type = updates.salary_type;
+    if (updates.excluded_locations) jobPost.excluded_locations = updates.excluded_locations;
+
     return this.jobPostsRepository.save(jobPost);
   }
 
