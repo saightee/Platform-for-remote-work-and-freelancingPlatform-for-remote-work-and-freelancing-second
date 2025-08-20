@@ -100,10 +100,7 @@ useEffect(() => {
             <span className="edb-nav__text">Overview</span>
           </NavLink>
 
-          <NavLink to="/employer-dashboard/profile" className={({ isActive }) => `edb-nav__link ${isActive ? 'active' : ''}`}>
-            <FaUserCog aria-hidden className="edb-nav__ico" />
-            <span className="edb-nav__text">Profile</span>
-          </NavLink>
+          
 
           <NavLink to="/employer-dashboard/my-job-posts" className={({ isActive }) => `edb-nav__link ${isActive ? 'active' : ''}`}>
             <FaListUl aria-hidden className="edb-nav__ico" />
@@ -128,6 +125,11 @@ useEffect(() => {
           <NavLink to="/employer-dashboard/report-issue" className={({ isActive }) => `edb-nav__link ${isActive ? 'active' : ''}`}>
             <FaEnvelopeOpenText aria-hidden className="edb-nav__ico" />
             <span className="edb-nav__text">Report tech Issue</span>
+          </NavLink>
+
+          <NavLink to="/employer-dashboard/profile" className={({ isActive }) => `edb-nav__link ${isActive ? 'active' : ''}`}>
+            <FaUserCog aria-hidden className="edb-nav__ico" />
+            <span className="edb-nav__text">Profile</span>
           </NavLink>
         </nav>
       </aside>

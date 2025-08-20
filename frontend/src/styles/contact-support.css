@@ -109,3 +109,15 @@
   .cs-card { padding: 20px; }
   .cs-title { font-size: 22px; }
 }
+
+
+/* contact-support.css */
+.cs-honeypot{
+  position:absolute !important;
+  left:-10000px !important;
+  top:auto !important;
+  width:1px !important;
+  height:1px !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}

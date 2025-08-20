@@ -13,6 +13,8 @@ export default function CheckEmail() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+
+
   useEffect(() => {
     if (!cooldown) return;
     const id = setInterval(() => setCooldown((s) => (s > 0 ? s - 1 : 0)), 1000);

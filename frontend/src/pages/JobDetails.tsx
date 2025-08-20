@@ -176,6 +176,15 @@ const backAfterReport =
               <FaUserCircle className="employer-avatar" />
             )}
             <span className="employer-name">{job.employer?.username || 'Unknown'}</span>
+            {!profile && (
+<p className="login-prompt">
+  <span>Please</span>
+  <Link to="/login" className="lp-btn lp-primary"><FaSignInAlt /> Log in</Link>
+  <span>or</span>
+  <Link to="/register/jobseeker" className="lp-btn lp-outline"><FaUserPlus /> Register</Link>
+  <span>as jobseeker to apply for this job.</span>
+</p>
+)}
           </div>
          
         </div>
@@ -200,17 +209,29 @@ const backAfterReport =
             <FaEye /> <strong>Views:</strong> {job.views || 0}
           </div>
         </div>
-{!profile && (
-<p className="login-prompt">
-  <span>Please</span>
-  <Link to="/login" className="lp-btn lp-primary"><FaSignInAlt /> Log in</Link>
-  <span>or</span>
-  <Link to="/register/jobseeker" className="lp-btn lp-outline"><FaUserPlus /> Register</Link>
-  <span>as jobseeker to apply for this job.</span>
-</p>
-)}
         <div className="job-details-content">
           <div className="job-details-info">
+            
+             {!profile && job.status === 'Active' && (
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0 16px' }}>
+        <button
+          onClick={() => navigate('/register/jobseeker')}
+          className="action-button"
+          style={{
+            fontSize: '20px',
+            padding: '16px 32px',
+            borderRadius: '10px',
+            minWidth: '280px',
+            height: '56px',
+            lineHeight: '24px'
+          }}
+         aria-label="Register to apply for this job"
+        >
+          Register to Apply for Job
+        </button>
+      </div>
+    )}
+
             <h2>Job Overview</h2>
             <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(job.description) }} />
             {job.required_skills && job.required_skills.length > 0 && (

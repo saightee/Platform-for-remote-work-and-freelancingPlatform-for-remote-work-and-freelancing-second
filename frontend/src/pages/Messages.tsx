@@ -1,12 +1,20 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { useRole } from '../context/RoleContext';
-import { getMyApplications, getMyJobPosts, getApplicationsForJobPost, getChatHistory, createReview } from '../services/api';
+import {
+  getMyApplications,
+  getMyJobPosts,
+  getApplicationsForJobPost,
+  getChatHistory,
+  createReview,
+  broadcastToApplicants,
+} from '../services/api';
 import { JobApplication, JobPost, JobApplicationDetails } from '@types';
 import { format } from 'date-fns';
-import { FaComments, FaPaperPlane, FaStar } from 'react-icons/fa';
+import { FaComments, FaPaperPlane, FaStar, FaUsers } from 'react-icons/fa';
 import '../styles/messages.css';
 
 interface Message {
@@ -20,46 +28,49 @@ interface Message {
 }
 
 const Messages: React.FC = () => {
+  const location = useLocation() as any;
+  const preselectJobPostId = location?.state?.jobPostId as string | null;
+  const preselectApplicationId = location?.state?.applicationId as string | null;
+
   const { profile, currentRole, socket, socketStatus, setSocketStatus } = useRole();
+
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [jobPostApplications, setJobPostApplications] = useState<{ [jobPostId: string]: JobApplicationDetails[] }>({});
-  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+
+  const [activeJobId, setActiveJobId] = useState<string | null>(preselectJobPostId || null);
+
+  const [selectedChat, setSelectedChat] = useState<string | null>(preselectApplicationId || null);
   const [messages, setMessages] = useState<{ [jobApplicationId: string]: Message[] }>({});
   const [newMessage, setNewMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [unreadCounts, setUnreadCounts] = useState<{ [jobApplicationId: string]: number }>({});
   const [isTyping, setIsTyping] = useState<{ [jobApplicationId: string]: boolean }>({});
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [broadcastText, setBroadcastText] = useState('');
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const joinedSet = useRef<Set<string>>(new Set());
   const joinQueue = useRef<string[]>([]);
   const [reviewForm, setReviewForm] = useState<{ applicationId: string; rating: number; comment: string } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // хелпер: время последнего сообщения по чату
+const getLastTs = (chatId: string) => {
+  const list = messages[chatId];
+  if (!list || !list.length) return 0;
+  return new Date(list[list.length - 1].created_at).getTime();
+};
+
+
+
   const currentMessages = useMemo(() => selectedChat ? messages[selectedChat] : [], [selectedChat, messages]);
   const currentTyping = useMemo(() => selectedChat ? isTyping[selectedChat] : false, [selectedChat, isTyping]);
 
   type Timer = ReturnType<typeof setTimeout>;
   const typingTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
-  const joinChats = () => {
-    let ids: string[] = [];
-    if (currentRole === 'jobseeker') {
-      ids = applications.map(a => a.id);
-    } else if (currentRole === 'employer') {
-      ids = Object.values(jobPostApplications).flat().map(a => a.applicationId);
-    }
-
-    ids.forEach(id => {
-      if (joinedSet.current.has(id)) return;
-      if (socket?.connected) {
-        socket.emit('joinChat', { jobApplicationId: id });
-        joinedSet.current.add(id);
-      } else {
-        joinQueue.current.push(id);
-      }
-    });
-  };
 
   useEffect(() => {
     return () => {
@@ -72,18 +83,22 @@ const Messages: React.FC = () => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
+
         if (currentRole === 'jobseeker') {
           const apps = await getMyApplications();
+          // у джобсикера чаты только поAccepted (как раньше)
           setApplications(apps.filter((app) => app.status === 'Accepted'));
         } else if (currentRole === 'employer') {
           const posts = await getMyJobPosts();
           setJobPosts(posts);
           const appsArrays = await Promise.all(posts.map(post => getApplicationsForJobPost(post.id)));
           const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
-          posts.forEach((post, index) => {
-            appsMap[post.id] = appsArrays[index].filter((app) => app.status === 'Accepted');
-          });
+          // ВАЖНО: берем все отклики (Pending/Accepted/Rejected), чтобы можно было писать Pending
+          posts.forEach((post, index) => { appsMap[post.id] = appsArrays[index]; });
           setJobPostApplications(appsMap);
+
+          if (!activeJobId && posts[0]) setActiveJobId(posts[0].id);
+          if (preselectApplicationId) setSelectedChat(preselectApplicationId);
         }
       } catch (error) {
         console.error('Error fetching applications:', error);
@@ -93,11 +108,17 @@ const Messages: React.FC = () => {
       }
     };
 
-    if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole) && socket) {
+    if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole)) {
       fetchData();
     }
-  }, [profile, currentRole, socket]);
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, currentRole]);
+  const scrollToBottom = useCallback((smooth: boolean = false) => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: smooth ? 'smooth' : 'auto',
+      block: 'end',
+    });
+  }, []);
   const unreadKey = useMemo(() => `unreads_${profile?.id || 'anon'}`, [profile?.id]);
 
   useEffect(() => {
@@ -117,6 +138,7 @@ const Messages: React.FC = () => {
     } catch {}
   }, [unreadKey, unreadCounts]);
 
+  // socket events (ЛЕНИВО — подписываемся на комнату только при открытии конкретного чата)
   useEffect(() => {
     if (!socket || !profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) {
       setUnreadCounts({});
@@ -167,7 +189,6 @@ const Messages: React.FC = () => {
     });
 
     type MessagesReadPayload = { data: Message[] } | Message[];
-
     socket.on('messagesRead', (payload: MessagesReadPayload) => {
       const list: Message[] = Array.isArray(payload) ? payload : (payload?.data || []);
       if (!list.length) return;
@@ -192,20 +213,6 @@ const Messages: React.FC = () => {
       } else {
         joinQueue.current.push(data.jobApplicationId);
       }
-      try {
-        if (currentRole === 'jobseeker') {
-          const apps = await getMyApplications();
-          setApplications(apps.filter(app => app.status === 'Accepted'));
-        } else if (currentRole === 'employer') {
-          const posts = await getMyJobPosts();
-          const appsArrays = await Promise.all(posts.map(post => getApplicationsForJobPost(post.id)));
-          const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
-          posts.forEach((post, index) => { appsMap[post.id] = appsArrays[index].filter(app => app.status === 'Accepted'); });
-          setJobPostApplications(appsMap);
-        }
-      } catch (err) {
-        console.error('Error refreshing applications after chat initialization:', err);
-      }
     });
 
     socket.on('connect_error', (err) => {
@@ -219,15 +226,13 @@ const Messages: React.FC = () => {
 
     socket.on('connect', () => {
       setError(null);
-      joinChats();
+      // только догоняем join для тех, кого пытались открыть до коннекта
       joinQueue.current.forEach(id => {
         socket.emit('joinChat', { jobApplicationId: id });
         joinedSet.current.add(id);
       });
       joinQueue.current = [];
     });
-
-    joinChats();
 
     return () => {
       socket.off('chatHistory');
@@ -239,14 +244,9 @@ const Messages: React.FC = () => {
       socket.off('connect');
       joinedSet.current.clear();
     };
-  }, [profile, currentRole, socket, applications, jobPostApplications, selectedChat]);
+  }, [profile, currentRole, socket, selectedChat, setSocketStatus, scrollToBottom]);
 
-  const scrollToBottom = useCallback((smooth: boolean = false) => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: smooth ? 'smooth' : 'auto',
-      block: 'end',
-    });
-  }, []);
+
 
   useEffect(() => {
     scrollToBottom(false);
@@ -353,23 +353,52 @@ const Messages: React.FC = () => {
     return 'Unknown';
   };
 
-  const getChatList = () => {
-    if (currentRole === 'jobseeker') {
-      return applications.map((app) => ({
-        id: app.id,
-        title: app.job_post?.title || 'Unknown Job',
-        partner: getChatPartner(app.id),
-        unreadCount: unreadCounts[app.id] || 0,
-      }));
-    } else if (currentRole === 'employer') {
-      return Object.values(jobPostApplications).flat().map(app => ({
+const getChatList = () => {
+  if (currentRole === 'employer') {
+    const list = activeJobId ? (jobPostApplications[activeJobId] || []) : [];
+    return list
+      .map(app => ({
         id: app.applicationId,
         title: jobPosts.find(post => post.id === app.job_post_id)?.title || 'Unknown Job',
         partner: app.username,
-        unreadCount: unreadCounts[app.applicationId] || 0
-      }));
+        status: app.status,
+        unreadCount: unreadCounts[app.applicationId] || 0,
+        coverLetter: app.coverLetter,
+        userId: app.userId,
+      }))
+      .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));  // 👈 свежие сверху
+  }
+
+  // jobseeker
+  return applications
+    .map(app => ({
+      id: app.id,
+      title: app.job_post?.title || 'Unknown Job',
+      partner: getChatPartner(app.id),
+      unreadCount: unreadCounts[app.id] || 0,
+    }))
+    .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));    // 👈 свежие сверху
+};
+
+
+  const chatList = getChatList();
+
+  const currentApp = useMemo(() => {
+    if (!selectedChat) return null;
+    return Object.values(jobPostApplications).flat().find(a => a.applicationId === selectedChat) || null;
+  }, [jobPostApplications, selectedChat]);
+
+  const handleBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeJobId || !broadcastText.trim()) return;
+    try {
+      const res = await broadcastToApplicants(activeJobId, broadcastText.trim());
+      alert(`Sent: ${res.sent}`);
+      setBroadcastOpen(false);
+      setBroadcastText('');
+    } catch (err:any) {
+      alert(err.response?.data?.message || 'Failed to send broadcast.');
     }
-    return [];
   };
 
   if (isLoading) return (
@@ -384,7 +413,7 @@ const Messages: React.FC = () => {
     </div>
   );
 
-  if (getChatList().length === 0 && !isLoading) return (
+  if (chatList.length === 0 && !isLoading) return (
     <div>
       <Header />
       <div className="msg-shell">
@@ -427,13 +456,39 @@ const Messages: React.FC = () => {
             {error && <div className="msg-alert msg-err">{error}</div>}
           </div>
 
+          {/* NEW: Tabs of jobs + broadcast for employers */}
+          {currentRole === 'employer' && jobPosts.length > 0 && (
+            <div className="msg-jobs">
+              <div className="msg-jobs-tabs">
+                {jobPosts.map(job => (
+                  <button
+                    key={job.id}
+                    className={`msg-job-tab ${activeJobId === job.id ? 'is-active' : ''}`}
+                    onClick={() => setActiveJobId(job.id)}
+                    title={job.title}
+                  >
+                    {job.title}
+                  </button>
+                ))}
+              </div>
+              <button
+                className="msg-broadcast"
+                onClick={() => setBroadcastOpen(true)}
+                disabled={!activeJobId}
+                title="Send a message to all applicants of this job"
+              >
+                <FaUsers /> Send message to all applicants
+              </button>
+            </div>
+          )}
+
           <div className="msg-grid">
             {/* left: chat list */}
             <aside className="msg-list-card">
               <h3 className="msg-list-title">Chats</h3>
-              {getChatList().length > 0 ? (
+              {chatList.length > 0 ? (
                 <ul className="msg-list">
-                  {getChatList().map((chat) => (
+                  {chatList.map((chat) => (
                     <li
                       key={chat.id}
                       className={`msg-list-item ${selectedChat === chat.id ? 'is-active' : ''} ${chat.unreadCount > 0 ? 'has-unread' : ''}`}
@@ -466,41 +521,36 @@ const Messages: React.FC = () => {
 
             {/* right: chat window */}
             <section className="msg-window-card">
-              {reviewForm && (
+
+              {/* Broadcast modal */}
+              {broadcastOpen && (
                 <div className="msg-modal">
                   <div className="msg-modal-content">
-                    <button className="msg-modal-close" onClick={() => setReviewForm(null)}>×</button>
-                    <form onSubmit={handleCreateReview} className="msg-review-form">
-                      {formError && <div className="msg-alert msg-err">{formError}</div>}
-
+                    <button className="msg-modal-close" onClick={() => setBroadcastOpen(false)}>×</button>
+                    <form onSubmit={handleBroadcast} className="msg-review-form">
                       <div className="msg-row">
-                        <label className="msg-label">Rating</label>
-                        <div className="msg-stars">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <span
-                              key={star}
-                              className={`msg-star ${reviewForm.rating >= star ? 'is-filled' : ''}`}
-                              onClick={() => setReviewForm({ ...reviewForm, rating: star })}
-                            >
-                              ★
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="msg-row">
-                        <label className="msg-label">Comment</label>
+                        <label className="msg-label">Message to all applicants</label>
                         <textarea
                           className="msg-textarea"
-                          value={reviewForm.comment}
-                          onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+                          value={broadcastText}
+                          onChange={(e) => setBroadcastText(e.target.value)}
                           rows={4}
-                          placeholder="Share your feedback"
+                          placeholder="Type your message once — it will be sent to all applicants of this job"
                         />
                       </div>
-
-                      <button type="submit" className="msg-btn">Submit review</button>
+                      <button type="submit" className="msg-btn"><FaPaperPlane /> Send</button>
                     </form>
+                  </div>
+                </div>
+              )}
+
+              {/* Cover Letter modal */}
+              {coverPreview && (
+                <div className="msg-modal">
+                  <div className="msg-modal-content">
+                    <button className="msg-modal-close" onClick={() => setCoverPreview(null)}>×</button>
+                    <h4 className="msg-title">Cover Letter</h4>
+                    <p style={{ whiteSpace: 'pre-wrap' }}>{coverPreview}</p>
                   </div>
                 </div>
               )}
@@ -509,6 +559,16 @@ const Messages: React.FC = () => {
                 <>
                   <div className="msg-window-head">
                     <h3 className="msg-chat-title">Chat with <span>{getChatPartner(selectedChat)}</span></h3>
+
+                    {/* NEW: quick actions */}
+                    {currentApp && (
+                      <div className="msg-head-actions">
+                        <Link to={`/public-profile/${currentApp.userId}`} className="msg-mini-btn">View Profile</Link>
+                        {currentApp.coverLetter && (
+                          <button className="msg-mini-btn" onClick={() => setCoverPreview(currentApp.coverLetter!)}>Cover Letter</button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="msg-thread">
@@ -524,7 +584,7 @@ const Messages: React.FC = () => {
                         </div>
                       </div>
                     ))}
-                    {isTyping[selectedChat] && (
+                    {currentTyping && (
                       <div className="msg-typing"> {getChatPartner(selectedChat)} is typing…</div>
                     )}
                     <div ref={messagesEndRef} />

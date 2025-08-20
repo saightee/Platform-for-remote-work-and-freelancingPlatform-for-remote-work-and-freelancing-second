@@ -219,6 +219,19 @@ const newSocket = initializeWebSocket(
   }  
 );
 
+
+
+newSocket.on('newMessage', (m: Message) => {
+  // инкрементим только если сообщение адресовано мне и помечено как непрочитанное
+  if (profile && m.recipient_id === profile.id && !m.is_read) {
+    const key = `unreads_${profile.id}`;
+    let map: Record<string, number> = {};
+    try { map = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
+    map[m.job_application_id] = (map[m.job_application_id] || 0) + 1;
+    localStorage.setItem(key, JSON.stringify(map));
+    window.dispatchEvent(new Event('jobforge:unreads-updated'));
+  }
+});
       
 
       newSocket.on('connect', () => {

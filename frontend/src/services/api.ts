@@ -23,17 +23,12 @@ export async function contactSupport(payload: {
   email: string;
   message: string;
   captchaToken?: string;
-  website?: string; // honeypot
+  website?: string;
 }) {
-  const res = await fetch('/api/contact', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw { response: { data, status: res.status } };
+  const { data } = await api.post('/contact', payload); // baseURL уже /api
   return data;
 }
+
 
 
 interface WebSocketError {
@@ -414,6 +409,12 @@ export const updateReferralLink = async (linkId: string, payload: { description:
   const res = await api.put<{ id: string; description?: string }>(`/admin/referral-links/${linkId}`, payload);
   return res.data;
 };
+
+export const broadcastToApplicants = async (jobPostId: string, content: string) => {
+  const res = await api.post<{ sent: number }>(`/chat/broadcast/${jobPostId}`, { content });
+  return res.data;
+};
+
 
 // Delete referral link
 export const deleteReferralLink = async (linkId: string) => {
@@ -1133,8 +1134,7 @@ export { api };
 
 
 export const resendVerification = async (email: string) => {
-  const { data } = await api.post('/api/auth/resend-verification', { email });
+  const { data } = await api.post('/auth/resend-verification', { email });
   return data;
 };
-
 
