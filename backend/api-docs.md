@@ -1488,30 +1488,35 @@
 
 ### 22. Get All Users (Admin)
 - **Endpoint**: `GET /api/admin/users`
-- **Description**: Retrieves all users with optional filters by username, email, id, createdAfter, role, and status (admin only).
+- **Description**: Получает список пользователей с фильтрами и пагинацией (только для админа). Поиск по `username`, `email`, `id` работает как OR (достаточно совпадения любого из полей).
 - **Headers**: `Authorization: Bearer <token>`
 - **Query Parameters**:
-  - `username` (string, optional): Filter by username (partial match, case-insensitive).
-  - `email` (string, optional): Filter by email (partial match, case-insensitive).
-  - `id` (string, optional): Filter by user ID.
-  - `createdAfter` (string, optional): Filter users created after this date (format: YYYY-MM-DD).
-  - `role` (string, optional): Filter by role ("employer", "jobseeker", "admin", "moderator").
-  - `status` (string, optional): Filter by status ("active", "blocked").
-- **Note**: Search parameters (username, email, id) work as OR — matches if at least one condition is true.
-- **Example Request**: `/api/admin/users?username=test&email=example.com&id=123&createdAfter=2025-01-01&role=jobseeker&status=active`
-- **Response (Success - 200)**: 
+  - `username` (string, optional): Фильтр по username (partial, case-insensitive).
+  - `email` (string, optional): Фильтр по email (partial, case-insensitive).
+  - `id` (string, optional): Фильтр по user ID (точное совпадение).
+  - `createdAfter` (string, optional): Пользователи, созданные после даты (формат: YYYY-MM-DD).
+  - `role` (string, optional): "employer" | "jobseeker" | "admin" | "moderator".
+  - `status` (string, optional): "active" | "blocked".
+  - `page` (number, optional): Номер страницы (default: 1).
+  - `limit` (number, optional): Кол-во элементов на странице (default: 10).
+- **Example Request**:  
+  `/api/admin/users?username=test&email=example.com&id=123&createdAfter=2025-01-01&role=jobseeker&status=active&page=1&limit=10`
+- **Response (Success - 200)**:
   ```json
-  [
-    {
-      "id": "<userId>",
-      "email": "test@example.com",
-      "username": "test",
-      "role": "jobseeker",
-      "status": "active",
-      "created_at": "2025-05-13T18:00:00.000Z",
-      "updated_at": "2025-05-13T18:00:00.000Z"
-    }
-  ]
+  {
+    "total": 42,
+    "data": [
+      {
+        "id": "<userId>",
+        "email": "test@example.com",
+        "username": "test",
+        "role": "jobseeker",
+        "status": "active",
+        "created_at": "2025-05-13T18:00:00.000Z",
+        "updated_at": "2025-05-13T18:00:00.000Z"
+      }
+    ]
+  }
 
 - **Response (Error - 401, if token is invalid or missing)**: 
   ```json
