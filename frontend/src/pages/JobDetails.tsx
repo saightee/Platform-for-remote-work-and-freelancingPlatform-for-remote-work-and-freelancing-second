@@ -20,7 +20,7 @@ const JobDetails: React.FC = () => {
   const [job, setJob] = useState<JobPost | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hasApplied, setHasApplied] = useState<boolean>(false);
+  const [hasApplied, setHasApplied] = useState<boolean | null>(null);
   const [coverLetter, setCoverLetter] = useState('');
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const viewed = useRef(false); // Добавлено для предотвращения double increment
@@ -65,17 +65,12 @@ const JobDetails: React.FC = () => {
     fetchJob();
   }, [id, profile]);
 
-  const handleApply = async () => {
-    if (!profile) {
-      navigate('/login');
-      return;
-    }
-    if (profile.role !== 'jobseeker') {
-      setError('Only job seekers can apply for jobs.');
-      return;
-    }
-    setIsApplyModalOpen(true);
-  };
+const handleApply = async () => {
+  if (hasApplied) return; // уже откликался — ничего не делаем
+  if (!profile) { navigate('/login'); return; }
+  if (profile.role !== 'jobseeker') { setError('Only job seekers can apply for jobs.'); return; }
+  setIsApplyModalOpen(true);
+};
 
   const submitApply = async () => {
     if (!coverLetter.trim()) {
@@ -176,17 +171,17 @@ const backAfterReport =
               <FaUserCircle className="employer-avatar" />
             )}
             <span className="employer-name">{job.employer?.username || 'Unknown'}</span>
-            {!profile && (
-<p className="login-prompt">
+
+          </div>
+                     {!profile && (
+<div><p className="login-prompt">
   <span>Please</span>
   <Link to="/login" className="lp-btn lp-primary"><FaSignInAlt /> Log in</Link>
   <span>or</span>
   <Link to="/register/jobseeker" className="lp-btn lp-outline"><FaUserPlus /> Register</Link>
   <span>as jobseeker to apply for this job.</span>
-</p>
+</p></div>
 )}
-          </div>
-         
         </div>
         <div className="job-details-panel">
           <div className="job-detail-item">
@@ -218,12 +213,12 @@ const backAfterReport =
           onClick={() => navigate('/register/jobseeker')}
           className="action-button"
           style={{
-            fontSize: '20px',
-            padding: '16px 32px',
+            fontSize: '15px',
+            padding: '4px 12px',
             borderRadius: '10px',
-            minWidth: '280px',
-            height: '56px',
-            lineHeight: '24px'
+            minWidth: '223px',
+            height: '47px',
+            lineHeight: '20px'
           }}
          aria-label="Register to apply for this job"
         >
@@ -246,31 +241,33 @@ const backAfterReport =
               </div>
             )}
           </div>
-          <div className="job-details-actions">
-            {profile?.role === 'jobseeker' && job.status === 'Active' ? (
-              hasApplied ? (
-                <p className="already-applied">Already Applied</p>
-              ) : (
-                <button onClick={handleApply} className="action-button">
-                  Apply Now
-                </button>
-              )
-            ) : !profile ? (
-              <button onClick={() => navigate('/login')} className="action-button">
-                Login to Apply
-              </button>
-            ) : null}
-{profile && profile.id !== job.employer?.id && (
-  <Link
-    to={`/complaint?type=job_post&id=${job.id}&return=${encodeURIComponent(backAfterReport)}`}
-    className="report-link"
-  >
-    Report Job Post
-  </Link>
-)}
+<div className="job-details-actions">
+  {profile?.role === 'jobseeker' && job.status === 'Active' ? (
+    hasApplied === true ? (
+      <div className="jd-applied-pill" role="status" aria-live="polite">
+        You’ve already applied to this job
+      </div>
+    ) : hasApplied === false ? (
+      <button onClick={handleApply} className="action-button">
+        Apply Now
+      </button>
+    ) : null /* пока статус неизвестен — ничего не показываем, чтобы не мигало */
+  ) : !profile ? (
+    <button onClick={() => navigate('/login')} className="action-button">
+      Login to Apply
+    </button>
+  ) : null}
 
+  {profile && profile.id !== job.employer?.id && (
+    <Link
+      to={`/complaint?type=job_post&id=${job.id}&return=${encodeURIComponent(backAfterReport)}`}
+      className="report-link"
+    >
+      Report Job Post
+    </Link>
+  )}
+</div>
 
-          </div>
         </div>
         {isApplyModalOpen && (
           <div className="modal">

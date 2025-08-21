@@ -131,7 +131,7 @@ const toggleRow = (id: string) => setExpandedRows(p => ({ ...p, [id]: !p[id] }))
         <div className="edb-panel">
           <div className="edb-panel__head">
             <h3>Recent applications</h3>
-            <Link to="/employer-dashboard/my-job-posts?tab=all" className="edb-link">View all</Link>
+            {/* <Link to="/employer-dashboard/my-job-posts?tab=all" className="edb-link">View all</Link> */}
           </div>
 
           {recentApps.length ? (

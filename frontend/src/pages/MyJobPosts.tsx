@@ -1,3 +1,4 @@
+// src/pages/MyJobPosts.tsx
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import React from 'react';
@@ -219,20 +220,34 @@ const MyJobPosts: React.FC = () => {
     setEditingJob(null);
   };
 
+  // ✅ Accept => автоматически Reject всех остальных по этой вакансии
   const handleUpdateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected', jobPostId: string) => {
     try {
-      const updatedApplication = await updateApplicationStatus(applicationId, status);
-      console.log('Application updated:', updatedApplication);
+      await updateApplicationStatus(applicationId, status);
+
+      if (status === 'Accepted') {
+        // Reject всех остальных, кто ещё не Accepted
+        const current = await getApplicationsForJobPost(jobPostId);
+        const others = (current || []).filter(a => a.applicationId !== applicationId && a.status !== 'Rejected');
+
+        // последовательно, чтобы не спамить (кол-во обычно небольшое)
+        for (const a of others) {
+          if (a.status !== 'Accepted') {
+            try {
+              await updateApplicationStatus(a.applicationId, 'Rejected');
+            } catch (e) {
+              console.warn('Failed to auto-reject', a.applicationId, e);
+            }
+          }
+        }
+        alert('Application accepted. Others have been rejected automatically.');
+        if (socket) socket.emit('joinChat', { jobApplicationId: applicationId });
+      } else {
+        alert('Application rejected.');
+      }
+
       const updatedApps = await getApplicationsForJobPost(jobPostId);
       setApplications({ jobPostId, apps: updatedApps || [] });
-      if (status === 'Accepted') {
-        alert('Application accepted successfully! Chat initialized.');
-        if (socket) {
-          socket.emit('joinChat', { jobApplicationId: applicationId });
-        }
-      } else {
-        alert('Application rejected successfully.');
-      }
     } catch (error: unknown) {
       const err = error as AxiosError<{ message?: string }>;
       console.error(`Error updating application ${applicationId} to ${status}:`, err);
@@ -365,10 +380,20 @@ const MyJobPosts: React.FC = () => {
             {filteredPosts.map((post) => {
               const closedAt = (post as any).closed_at as string | undefined;
 
+              // функции для отображения заявок
+              const rawApps =
+                applications.jobPostId === post.id ? applications.apps : [];
+              const hasAccepted = rawApps.some(a => a.status === 'Accepted');
+              const visibleApps =
+                post.status === 'Closed' || hasAccepted
+                  ? rawApps.filter(a => a.status === 'Accepted')
+                  : rawApps;
+
               return (
                 <div key={post.id} className="mjp-card">
                   {editingJob?.id === post.id ? (
                     <div className="mjp-edit">
+                      {/* ... (редактор вакансии без изменений) ... */}
                       <div className="mjp-row">
                         <label className="mjp-label"><FaEdit /> Job Title</label>
                         <input
@@ -584,7 +609,7 @@ const MyJobPosts: React.FC = () => {
                         </>
                       )}
 
-                      {applications.jobPostId === post.id && applications.apps.length > 0 && (
+                      {applications.jobPostId === post.id && visibleApps.length > 0 && (
                         <div className="mjp-apps">
                           <h4 className="mjp-section-title"><FaFolderOpen /> Applications</h4>
                           <div className="mjp-table-wrap">
@@ -600,7 +625,7 @@ const MyJobPosts: React.FC = () => {
                                 </tr>
                               </thead>
                               <tbody>
-                                {applications.apps.map((app) => (
+                                {visibleApps.map((app) => (
                                   <tr key={app.applicationId}>
                                     <td data-label="Username">{app.username}</td>
                                     <td data-label="Email">{app.email}</td>
@@ -609,8 +634,8 @@ const MyJobPosts: React.FC = () => {
                                     <td data-label="Status">{app.status}</td>
                                     <td data-label="Actions" className="mjp-table-actions">
 
-                                      {/* HIDDEN: Accept / Reject (оставили в коде, но не показываем) */}
-                                      {false && app.status === 'Pending' && (
+                                      {/* ✅ Accept / Reject только у Pending */}
+                                      {app.status === 'Pending' && (
                                         <>
                                           <button
                                             onClick={() =>
@@ -651,6 +676,18 @@ const MyJobPosts: React.FC = () => {
                                       >
                                         <FaComments /> Chat
                                       </button>
+
+                                      {/* ✅ Review только для Accepted */}
+                                      {app.status === 'Accepted' && (
+                                        <button
+                                          className="mjp-btn mjp-sm"
+                                          onClick={() =>
+                                            setReviewForm({ applicationId: app.applicationId, rating: 5, comment: '' })
+                                          }
+                                        >
+                                          <FaStar /> Review
+                                        </button>
+                                      )}
                                     </td>
                                   </tr>
                                 ))}

@@ -47,9 +47,9 @@ button {
   font-weight: 700;
 }
 
-button:hover {
+/* button:hover {
   background-color: #2980b9;
-}
+} */
 
 .container {
   max-width: 1200px;
@@ -3419,6 +3419,29 @@ table th {
   padding-bottom: 40px;
 }
 
+/* Плашка "уже откликались" */
+.jd-applied-pill{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-width:223px;
+  height:47px;
+  padding:0 16px;
+  border-radius:10px;
+  font-weight:700;
+  text-align:center;
+  background:#f1f4ff;
+  border:1px solid #e0e7ff;
+  color:#2d3a6b;
+  box-shadow:0 6px 18px rgba(18,33,73,.1);
+}
+
+/* Если хочешь, чтобы вела себя как кнопка-сосед (по отступам) */
+.job-details-actions .jd-applied-pill{
+  margin:0 auto;
+}
+
+
 .container .job-details-container {
   max-width: 1200px;
   width: 100%;
@@ -3484,7 +3507,7 @@ table th {
   align-items: center;
   gap: 8px;
   display: flex;
-  justify-content: center;
+  justify-content: left;
 }
 
 .employer-info {
@@ -5399,6 +5422,7 @@ header nav.mobile-menu-open .find-job {
 
   .login-prompt {
     font-size: 13px;
+    margin-top: 16px;
   }
 
   .employer-avatar {
@@ -8225,7 +8249,7 @@ html, body { overflow-x: hidden; }
 .lp-outline { background: #4e74c8; color: #fff; border-color: #4e74c8; }
 
 @media (max-width: 480px) {
-  .lp-btn { padding: 10px 16px; }
+  .lp-btn { padding: 6px 11px; }
 }
 
 

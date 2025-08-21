@@ -102,6 +102,8 @@ const [newParentCategoryId, setNewParentCategoryId] = useState<string>('');
   const [pendingReviewFilter, setPendingReviewFilter] = useState<'All' | 'true' | 'false'>('All');
   const [issues, setIssues] = useState<Feedback[]>([]);
   const [growthPage, setGrowthPage] = useState(1);
+const [autoRefresh, setAutoRefresh] = useState(false);
+
 const [growthLimit] = useState(10); // Лимит на страницу
 const [stories, setStories] = useState<{ id: string; user_id: string; rating: number; description: string; created_at: string; updated_at: string; user: { id: string; username: string; role: string } }[]>([]);
   const [analytics, setAnalytics] = useState<{
@@ -436,6 +438,11 @@ const sortedUsers = [...users].sort((a, b) => {
   return 0;
 });
 
+const paginatedUsersUI = React.useMemo(
+  () => sortedUsers.slice((userPage - 1) * userLimit, userPage * userLimit),
+  [sortedUsers, userPage, userLimit]
+);
+
 const paginatedJobPostsWithApps = sortedJobPostsWithApps.slice(
   (jobPostsWithAppsPage - 1) * jobPostsWithAppsLimit,
   jobPostsWithAppsPage * jobPostsWithAppsLimit
@@ -610,10 +617,10 @@ if (params.id) {
     console.log('Fetching users with params:', queryParams); // Лог для диагностики
     const userResponse = await getAllUsers(queryParams);
     console.log('Raw getAllUsers response:', userResponse);
-    const userData = Array.isArray(userResponse) ? userResponse : userResponse?.data || [];
+    const { data: userData = [], total } = userResponse || {};
     console.log('Extracted userData:', userData);
     setUsers(userData);
-    setUserTotal(userResponse.total || userData.length); // Устанавливаем total для пагинации
+    setUserTotal(typeof total === 'number' ? total : userData.length);
     console.log('Users set in state:', userData);
       
       // Добавлено: запрос онлайн-статусов для всех юзеров
@@ -1267,6 +1274,29 @@ const handleNotifySubmit = async () => {
     }
   };
 
+useEffect(() => {
+  if (!autoRefresh) return;
+
+  let stop = false;
+  const tick = async () => {
+    try {
+      const [online, recents] = await Promise.all([
+        getOnlineUsers(),
+        getRecentRegistrations({ limit: 5 }),
+      ]);
+      if (stop) return;
+      setOnlineUsers(online || null);
+      setRecentRegistrations(recents || { jobseekers: [], employers: [] });
+    } catch (e) {
+      /* тихо игнорим, чтобы не спамить */
+    }
+  };
+
+  // старт сразу и затем каждые 15 сек
+  tick();
+  const id = setInterval(tick, 15000);
+  return () => { stop = true; clearInterval(id); };
+}, [autoRefresh]);
 
 
 const handleViewJobApplications = async (jobPostId: string) => {
@@ -1521,6 +1551,13 @@ if (isLoading) {
               <div className="dashboard-section">
   <div className="table-header">
     <h3>Business Overview</h3>
+    <button
+  className={`action-button ${autoRefresh ? 'success' : ''}`}
+  onClick={() => setAutoRefresh(v => !v)}
+>
+  {autoRefresh ? 'Auto-refresh: ON' : 'Auto-refresh: OFF'}
+</button>
+
        <button className="action-button refresh-button" onClick={handleRefresh}>refresh</button>
   </div>
   <table className="dashboard-table">
@@ -1751,21 +1788,17 @@ setUserPage(1);
     </tr>
   </thead>
   <tbody>
-    {sortedUsers.length > 0 ? sortedUsers.map((user) => (
-      <tr key={user.id}>
-        <td>{user.id}</td>
-        <td>{user.username}</td>
-        <td>{user.email}</td>
-        <td>{user.role}</td>
-        <td>{user.status === 'blocked' ? 'Blocked' : 'Active'}</td>
-        <td>
-          {onlineStatuses[user.id] ? 'Online' : 'Offline'}
-        </td>
-        <td>
-          <button onClick={() => handleViewRiskScore(user.id)} className="action-button">
-            View Risk
-          </button>
-        </td>
+  {paginatedUsersUI.length > 0 ? paginatedUsersUI.map((user) => (
+    <tr key={user.id}>
+      <td>{user.id}</td>
+      <td>{user.username}</td>
+      <td>{user.email}</td>
+      <td>{user.role}</td>
+      <td>{user.status === 'blocked' ? 'Blocked' : 'Active'}</td>
+      <td>{onlineStatuses[user.id] ? 'Online' : 'Offline'}</td>
+      <td>
+        <button onClick={() => handleViewRiskScore(user.id)} className="action-button">View Risk</button>
+      </td>
         <td>
           <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
             Delete
