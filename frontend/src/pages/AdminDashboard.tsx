@@ -438,10 +438,7 @@ const sortedUsers = [...users].sort((a, b) => {
   return 0;
 });
 
-const paginatedUsersUI = React.useMemo(
-  () => sortedUsers.slice((userPage - 1) * userLimit, userPage * userLimit),
-  [sortedUsers, userPage, userLimit]
-);
+const usersToRender = sortedUsers;
 
 const paginatedJobPostsWithApps = sortedJobPostsWithApps.slice(
   (jobPostsWithAppsPage - 1) * jobPostsWithAppsLimit,
@@ -502,25 +499,34 @@ const sortedComplaints = [...enrichedComplaints] // Изменено: enrichedCo
     return 0;
   });
 
-const fetchJobPosts = useCallback(async (params: { page?: number; title?: string; employer_id?: string; employer_username?: string; id?: string; category_id?: string; status?: string; pendingReview?: string } = {}) => { // Изменено: добавили supported id, category_id; убрали employer_email
+const fetchJobPosts = useCallback(async (params: {
+  page?: number; limit?: number;
+  title?: string; employer_id?: string; employer_username?: string;
+  id?: string; category_id?: string; status?: string; pendingReview?: string;
+} = {}) => {
   try {
     setIsLoading(true);
-    setFetchErrors((prev) => ({ ...prev, getAllJobPosts: '' }));
-    const response = await getAllJobPosts(params);
+    setFetchErrors(prev => ({ ...prev, getAllJobPosts: '' }));
+    const q = {
+      page: params.page ?? jobPostPage,
+      limit: params.limit ?? jobPostLimit,
+      title: params.title,
+      employer_id: params.employer_id,
+      employer_username: params.employer_username,
+      id: params.id,
+      category_id: params.category_id,
+      status: params.status,
+      pendingReview: params.pendingReview,
+    };
+    const response = await getAllJobPosts(q);
     setJobPosts(response.data || []);
-  } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>;
-    console.error('Error fetching job posts:', axiosError);
-    if (axiosError.response?.status === 401) { // Добавлено: handle 401 специально (token invalid?)
-      alert('Session expired. Please log in again.');
-      localStorage.removeItem('token');
-      navigate('/login');
-    }
-    setFetchErrors((prev) => ({ ...prev, getAllJobPosts: axiosError.response?.data?.message || 'Failed to load job posts.' }));
+  } catch (err) {
+    const axiosError = err as AxiosError<{ message?: string }>;
+    setFetchErrors(prev => ({ ...prev, getAllJobPosts: axiosError.response?.data?.message || 'Failed to load job posts.' }));
   } finally {
     setIsLoading(false);
   }
-}, [navigate]); // Добавлено: navigate в deps
+}, [jobPostPage, jobPostLimit, navigate]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -590,7 +596,21 @@ useEffect(() => {
 
 // Для пользователей
 
-  const fetchUsers = useCallback(async (params: { page?: number; limit?: number; username?: string; email?: string; id?: string } = {}) => {
+
+const buildUserSearch = (page = userPage) => {
+  const q: any = { page, limit: userLimit };
+  const s = searchQuery.trim();
+  if (!s) return q;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s)) q.id = s;
+  else if (s.includes('@')) q.email = s;
+  else q.username = s;
+  return q;
+};
+
+  const fetchUsers = useCallback(async (params: {
+  page?: number; limit?: number; username?: string; email?: string; id?: string;
+  createdAfter?: string; role?: 'employer'|'jobseeker'|'admin'|'moderator';
+  status?: 'active'|'blocked'; } = {}) => {
   if (!currentRole || currentRole !== 'admin') {
     setError('This page is only available for admins.');
     setIsLoading(false);
@@ -601,26 +621,21 @@ useEffect(() => {
     setIsLoading(true);
     setFetchErrors((prev) => ({ ...prev, getAllUsers: '' }));
     const effectivePage = params.page || userPage;
-const queryParams: { page: number; limit: number; username?: string; email?: string; id?: string } = {
-  page: effectivePage,
-  limit: userLimit,
-};
-if (params.username) {
-  queryParams.username = params.username;
-}
-if (params.email) {
-  queryParams.email = params.email;
-}
-if (params.id) {
-  queryParams.id = params.id; // Добавь
-}
-    console.log('Fetching users with params:', queryParams); // Лог для диагностики
-    const userResponse = await getAllUsers(queryParams);
-    console.log('Raw getAllUsers response:', userResponse);
-    const { data: userData = [], total } = userResponse || {};
-    console.log('Extracted userData:', userData);
-    setUsers(userData);
-    setUserTotal(typeof total === 'number' ? total : userData.length);
+const queryParams: any = {
+    page: params.page ?? userPage,
+    limit: params.limit ?? userLimit,
+  };
+  if (params.username) queryParams.username = params.username;
+  if (params.email) queryParams.email = params.email;
+  if (params.id) queryParams.id = params.id;
+  if (params.createdAfter) queryParams.createdAfter = params.createdAfter;
+  if (params.role) queryParams.role = params.role;
+  if (params.status) queryParams.status = params.status;
+
+  const userResponse = await getAllUsers(queryParams);
+  const { data: userData = [], total = 0 } = userResponse || {};
+  setUsers(userData);
+  setUserTotal(total);
     console.log('Users set in state:', userData);
       
       // Добавлено: запрос онлайн-статусов для всех юзеров
@@ -646,20 +661,11 @@ if (params.id) {
   }, [currentRole, userPage, userLimit]);
 
 
-useEffect(() => {
-  fetchUsers(); // initial
-}, [fetchUsers]);
+
 
 useEffect(() => {
-  // при клике Next/Previous тянем новую страницу с текущими фильтрами поиска
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(searchQuery);
-  const params: { page: number; limit: number; username?: string; email?: string; id?: string } = { page: userPage, limit: userLimit };
-  if (isUuid) params.id = searchQuery;
-  else if (searchQuery.includes('@')) params.email = searchQuery;
-  else if (searchQuery) params.username = searchQuery;
-
-  fetchUsers(params);
-}, [userPage]);
+  fetchUsers(buildUserSearch(userPage));
+}, [userPage, userLimit, searchQuery, fetchUsers]);
 
 
 
@@ -959,9 +965,14 @@ case 25:
 useEffect(() => {
   if (currentRole === 'admin') {
     fetchOtherData();
+  }
+}, [currentRole]);
+
+useEffect(() => {
+  if (currentRole === 'admin') {
     fetchJobPosts();
   }
-}, [currentRole, jobPostPage]);
+}, [currentRole, jobPostPage, fetchJobPosts]);
 
 // Функция handleRefresh
 const handleRefresh = async () => {
@@ -1072,7 +1083,7 @@ const handleVerifyIdentity = async (id: string, verify: boolean) => {
   try {
     await verifyIdentity(id, verify);
     alert(`Identity ${verify ? 'verified' : 'rejected'} successfully!`);
-    await fetchUsers({ username: searchQuery, email: searchQuery }); // Reuse fetchUsers with current searchQuery (resets page to 1 if search)
+    await fetchUsers(buildUserSearch());
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
     console.error('Error verifying identity:', axiosError);
@@ -1425,8 +1436,8 @@ if (isLoading) {
           <span className="greeting">Welcome, <span className="username-bold">{username}</span></span> 
           <Link to="/" className="nav-link"><FaHome /> Home</Link>
           <button className="action-button" onClick={handleLogout}><FaSignOutAlt /> Logout</button>
-          <div className="user-count employers"><FaUser /> {onlineEmployers ?? 'N/A'}</div>
-          <div className="user-count freelancers"><FaUser /> {onlineFreelancers ?? 'N/A'}</div>
+          <div className="user-count employers"><FaUser /> {onlineUsers?.employers ?? 'N/A'}</div>
+<div className="user-count freelancers"><FaUser /> {onlineUsers?.jobseekers ?? 'N/A'}</div>
           <div className="date-time">
            <span>{formatInTimeZone(currentTime, 'Asia/Manila', 'MMM dd')}</span>  {formatInTimeZone(currentTime, 'Asia/Manila', 'HH:mm')}
           </div>
@@ -1456,8 +1467,8 @@ if (isLoading) {
           <span className="greeting">Welcome, <span className="username-bold">{username}</span></span>
           <Link to="/" className="nav-link"><FaHome /> Home</Link>
           <button className="action-button-admin" onClick={handleLogout}><FaSignOutAlt /> Logout</button>
-          <div className="user-count employers"><FaUser /> {onlineEmployers ?? 'N/A'}</div>
-          <div className="user-count freelancers"><FaUser /> {onlineFreelancers ?? 'N/A'}</div>
+          <div className="user-count employers"><FaUser /> {onlineUsers?.employers ?? 'N/A'}</div>
+<div className="user-count freelancers"><FaUser /> {onlineUsers?.jobseekers ?? 'N/A'}</div>
           <div className="date-time">
            <span>{formatInTimeZone(currentTime, 'Asia/Manila', 'MMM dd')}</span>  {formatInTimeZone(currentTime, 'Asia/Manila', 'HH:mm')}
           </div>
@@ -1488,8 +1499,8 @@ if (isLoading) {
         <span className="greeting">Welcome, <span className="username-bold">{username}</span></span>
         <Link to="/" className="nav-link"><FaHome /> Home</Link>
         <div className="action-button-admin" onClick={handleLogout}><FaSignOutAlt /> Logout</div>
-        <div className="user-count employers"><FaUser /> {onlineEmployers ?? 'N/A'}</div>
-        <div className="user-count freelancers"><FaUser /> {onlineFreelancers ?? 'N/A'}</div>
+      <div className="user-count employers"><FaUser /> {onlineUsers?.employers ?? 'N/A'}</div>
+<div className="user-count freelancers"><FaUser /> {onlineUsers?.jobseekers ?? 'N/A'}</div>
         <div className="date-time">
           <span>{formatInTimeZone(currentTime, 'Asia/Manila', 'MMM dd')}</span> {formatInTimeZone(currentTime, 'Asia/Manila', 'HH:mm')}
         </div>
@@ -1751,20 +1762,16 @@ if (isLoading) {
       value={searchQuery}
       onChange={(e) => setSearchQuery(e.target.value)}
     />
- <button onClick={() => {
-  const params: { page: number; username?: string; email?: string; id?: string } = { page: 1 };
-if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(searchQuery)) {
-  params.id = searchQuery; // Поиск по ID
-} else if (searchQuery.includes('@')) {
-  params.email = searchQuery;
-} else {
-  params.username = searchQuery;
-}
-fetchUsers(params);
-setUserPage(1);
-}} className="action-button">
+<button
+  onClick={() => {
+    setUserPage(1);
+    fetchUsers(buildUserSearch(1));
+  }}
+  className="action-button"
+>
   <FaSearch />
 </button>
+
   </div>
   
   
@@ -1788,7 +1795,7 @@ setUserPage(1);
     </tr>
   </thead>
   <tbody>
-  {paginatedUsersUI.length > 0 ? paginatedUsersUI.map((user) => (
+  {usersToRender.length > 0 ? usersToRender.map((user) => (
     <tr key={user.id}>
       <td>{user.id}</td>
       <td>{user.username}</td>
@@ -1888,28 +1895,17 @@ setUserPage(1);
   const query = searchQuery.trim();
   if (!query) return;
 
-  const params: {
-    page: number;
-    status?: string;
-    pendingReview?: string;
-    title?: string;
-    employer_id?: string;
-    category_id?: string;
-    employer_username?: string;
-    id?: string;
-    limit?: number;
-  } = { page: 1, limit: jobPostLimit };
-
-  // UUID → это ID поста (а не employer_id/category_id)
+  const params: any = { page: 1, limit: jobPostLimit };
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(query);
+
   if (isUuid) {
-    params.id = query;
+    params.id = query;                                  // ищем по ID поста
+  } else if (/^[a-z0-9_.-]+$/i.test(query)) {
+    params.employer_username = query;                   // похоже на username — ищем по нему
   } else {
-    params.title = query;
-    params.employer_username = query;
+    params.title = query;                               // иначе — как по заголовку
   }
 
-  // отправляем на backend, а локальные селекторы статуса/ревью работают как client-side фильтр, как и раньше
   fetchJobPosts(params);
   setJobPostPage(1);
 }} className="action-button">

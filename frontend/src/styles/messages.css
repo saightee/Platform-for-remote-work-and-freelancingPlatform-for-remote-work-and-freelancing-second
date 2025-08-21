@@ -19,7 +19,7 @@
   box-shadow: var(--cs-shadow);
   padding: 24px;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
   height: calc(100dvh - 170px); /* подгони при необходимости */
 }
 

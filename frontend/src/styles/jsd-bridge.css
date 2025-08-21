@@ -250,7 +250,7 @@
 }
 
 /* правки вложенных страниц (не ломая их) */
-.jsd-content .container{ max-width:1200px; margin:0 auto; padding:16px; }
+.jsd-content .container{ max-width:1200px; margin:0 auto; padding:10px; }
 .jsd-content .section, .jsd-content .page, .jsd-content .paper, .jsd-content .card{ margin-top:0; }
 
 /* ещё раз «жёстко» выпилим дубль футеров внутри outlet */
