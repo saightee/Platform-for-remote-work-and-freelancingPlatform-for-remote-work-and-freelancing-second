@@ -89,14 +89,26 @@ export class AdminService {
     }
   }
 
-  async getUsers(adminId: string, filters: { username?: string; email?: string; id?: string; createdAfter?: string; role?: 'employer' | 'jobseeker' | 'admin' | 'moderator'; status?: 'active' |  'blocked' }) {
+  async getUsers(
+    adminId: string,
+    filters: {
+      username?: string;
+      email?: string;
+      id?: string;
+      createdAfter?: string;
+      role?: 'employer' | 'jobseeker' | 'admin' | 'moderator';
+      status?: 'active' | 'blocked';
+      page?: number;
+      limit?: number;
+    }
+  ) {
     await this.checkAdminRole(adminId);
 
     const query = this.usersRepository.createQueryBuilder('user');
 
     let hasSearch = false;
     if (filters.username || filters.email || filters.id) {
-      const conditions = [];
+      const conditions: string[] = [];
       if (filters.username) {
         conditions.push('user.username ILIKE :username');
       }
@@ -104,7 +116,7 @@ export class AdminService {
         conditions.push('user.email ILIKE :email');
       }
       if (filters.id) {
-        conditions.push('user.id = :id');  
+        conditions.push('user.id = :id');
       }
       if (conditions.length > 0) {
         query.andWhere(`(${conditions.join(' OR ')})`);
@@ -132,7 +144,21 @@ export class AdminService {
     if (filters.id) params.id = filters.id;
     if (hasSearch) query.setParameters(params);
 
-    return query.getMany();
+    const total = await query.getCount();
+
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+    const skip = (page - 1) * limit;
+    query.skip(skip).take(limit);
+
+    query.orderBy('user.created_at', 'DESC');
+
+    const users = await query.getMany();
+
+    return {
+      total,
+      data: users,
+    };
   }
 
   async getUserById(adminId: string, userId: string) {
