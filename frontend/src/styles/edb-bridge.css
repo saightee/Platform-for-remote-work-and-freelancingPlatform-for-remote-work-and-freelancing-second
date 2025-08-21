@@ -47,6 +47,8 @@
    border-radius:12px;
   border:1px solid var(--edb-border); background:#fff; color:var(--edb-text);
   cursor:pointer;
+  font-weight: bold;  
+  font-size: 20px;
 }
 @media (min-width:1024px){ .edb-topbar__burger{ display:none; } }
 
@@ -121,7 +123,7 @@
 /* основной контент (где Outlet) */
 .edb-content{
   max-width:1200px; width:100%;
-  margin:0 auto; padding:16px;
+  margin:0 auto; padding:2px;
 }
 
 /* фикс «большой пустой верх» — убираем margin у первого узла и типичных заголовков */
@@ -419,10 +421,10 @@
 
   /* порядок элементов для двух рядов */
   .edb-shell .edb-topbar__burger{ order:1; }
-  .edb-shell .edb-topbar__logo  { order:2; font-size:18px; margin-left:6px; }
-  .edb-shell .edb-topbar__greet { order:4; flex:1 1 auto; min-width:0; font-size:12px; }
+  .edb-shell .edb-topbar__logo  { order:2; font-size:22px; margin-left:6px; }
+  .edb-shell .edb-topbar__greet { order:4; flex:1 1 auto; min-width:0; font-size:14px; padding-left: 5px; }
   .edb-shell .edb-topbar__cta   { order:5; padding:8px 10px; font-size:13px; }
-  .edb-shell .edb-topbar__logout{ order:6; padding:8px 10px; font-size:13px; margin-left:8px; }
+  .edb-shell .edb-topbar__logout{ order:6; padding:8px 10px; font-size:15px; margin-left:8px; }
 
   /* чуть компактнее кнопки */
   .edb-shell .edb-topbar__cta,
@@ -547,3 +549,62 @@
 }
 .edb-cover > summary::-webkit-details-marker{ display:none; }
 .edb-cover p{ margin:10px 0 0; white-space:pre-wrap; color:var(--edb-text); }
+
+
+/* ====== Tablet (до 900px): карточка в 2 строки ====== */
+@media (max-width: 900px){
+  /* прячем шапку таблицы и делаем карточки плотнее */
+  .edb-thead{ display:none; }
+  .edb-row{ padding:12px 14px; }
+
+  /* 1-я строка: Applicant — Status
+     2-я строка: Job       — Applied */
+  .edb-row__head{
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "app status"
+      "job date";
+    align-items:start;
+    gap:6px 10px;
+  }
+  .edb-row__head > :nth-child(1){            /* Applicant */
+    grid-area: app;
+    font-weight:700;
+    min-width:0; overflow:hidden; text-overflow:ellipsis;
+  }
+  .edb-row__head > :nth-child(2){            /* Job */
+    grid-area: job;
+    min-width:0; white-space:normal; color:var(--edb-text-dim);
+  }
+  .edb-row__head > :nth-child(3){            /* Status */
+    grid-area: status;
+    justify-self:end;
+  }
+  .edb-row__head > :nth-child(4){            /* Applied */
+    grid-area: date;
+    justify-self:end; white-space:nowrap;
+    font-size:13px; color:var(--edb-text-dim);
+  }
+
+  /* компактнее бейджи */
+  .edb-badge{ font-size:12px; padding:5px 8px; }
+}
+
+/* ====== Mobile (до 560px): всё в одну колонку ====== */
+@media (max-width: 560px){
+  .edb-row__head{
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "app"
+      "job"
+      "status"
+      "date";
+    gap:6px;
+  }
+  .edb-row__head > :nth-child(3){            /* Status */
+    justify-self:start;
+  }
+  .edb-row__head > :nth-child(4){            /* Applied */
+    justify-self:start; font-size:12px;
+  }
+}

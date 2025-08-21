@@ -156,7 +156,8 @@ const [stories, setStories] = useState<{ id: string; user_id: string; rating: nu
   const [onlineStatuses, setOnlineStatuses] = useState<{ [key: string]: boolean }>({});
   const [fetchErrors, setFetchErrors] = useState<{ [key: string]: string }>({});
 const [userPage, setUserPage] = useState(1);
-const [userLimit] = useState(10);
+const [userLimit] = useState(30);
+const [isUsersLoading, setIsUsersLoading] = useState(false);
 const [jobPostPage, setJobPostPage] = useState(1);
 const [jobPostLimit] = useState(10);
 const [jobPostsWithAppsPage, setJobPostsWithAppsPage] = useState(1);
@@ -613,14 +614,14 @@ const buildUserSearch = (page = userPage) => {
   status?: 'active'|'blocked'; } = {}) => {
   if (!currentRole || currentRole !== 'admin') {
     setError('This page is only available for admins.');
-    setIsLoading(false);
+    setIsUsersLoading(false);
     return;
   }
 
   try {
-    setIsLoading(true);
+    setIsUsersLoading(true);
     setFetchErrors((prev) => ({ ...prev, getAllUsers: '' }));
-    const effectivePage = params.page || userPage;
+    
 const queryParams: any = {
     page: params.page ?? userPage,
     limit: params.limit ?? userLimit,
@@ -639,33 +640,31 @@ const queryParams: any = {
     console.log('Users set in state:', userData);
       
       // Добавлено: запрос онлайн-статусов для всех юзеров
-      const statusPromises = userData.map((user) => getUserOnlineStatus(user.id).catch(() => ({ isOnline: false })));
-      const statuses = await Promise.all(statusPromises);
-      const statusMap = userData.reduce((acc, user, index) => {
-        acc[user.id] = statuses[index].isOnline;
-        return acc;
-      }, {} as { [key: string]: boolean });
-      setOnlineStatuses(statusMap);
-      
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error fetching users:', axiosError.response?.data?.message || axiosError.message);
-      setFetchErrors((prev) => ({
-        ...prev,
-        getAllUsers: axiosError.response?.data?.message || 'Failed to load users data',
-      }));
-      setError('Some data failed to load. Check errors below.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentRole, userPage, userLimit]);
+     const statuses = await Promise.all(
+      userData.map(u => getUserOnlineStatus(u.id).catch(() => ({ isOnline:false })))
+    );
+    setOnlineStatuses(userData.reduce((acc, u, i) => {
+      acc[u.id] = statuses[i].isOnline; return acc;
+    }, {} as Record<string, boolean>));
+
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    setFetchErrors(prev => ({
+      ...prev,
+      getAllUsers: axiosError.response?.data?.message || 'Failed to load users data',
+    }));
+    setError('Some data failed to load. Check errors below.');
+  } finally {
+    setIsUsersLoading(false);                       // ← локально
+  }
+}, [currentRole, userPage, userLimit]);
 
 
 
 
 useEffect(() => {
   fetchUsers(buildUserSearch(userPage));
-}, [userPage, userLimit, searchQuery, fetchUsers]);
+}, [userPage, userLimit, fetchUsers]);
 
 
 
@@ -1026,8 +1025,11 @@ const handleRefresh = async () => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
         await deleteUser(id);
-        setUsers(users.filter((user) => user.id !== id));
+        if (users.length === 1 && userPage > 1) {
+        setUserPage(userPage - 1);
         alert('User deleted successfully!');
+        } else {
+  await fetchUsers(buildUserSearch(userPage)); }
       } catch (error) {
         const axiosError = error as AxiosError<{ message?: string }>;
         console.error('Error deleting user:', axiosError);
@@ -1096,7 +1098,7 @@ const handleVerifyIdentity = async (id: string, verify: boolean) => {
     try {
       await blockUser(id);
       alert('User blocked successfully!');
-      fetchUsers({ username: searchQuery, email: searchQuery, page: userPage }); // Перезагружаем с текущим поиском и страницей
+     await fetchUsers(buildUserSearch(userPage));
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       console.error('Error blocking user:', axiosError);
@@ -1110,7 +1112,7 @@ const handleUnblockUser = async (id: string, username: string) => {
     try {
       await unblockUser(id);
       alert('User unblocked successfully!');
-      fetchUsers({ username: searchQuery, email: searchQuery, page: userPage }); // Перезагружаем с текущим поиском и страницей
+      await fetchUsers(buildUserSearch(userPage));
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       console.error('Error unblocking user:', axiosError);
@@ -1289,24 +1291,73 @@ useEffect(() => {
   if (!autoRefresh) return;
 
   let stop = false;
-  const tick = async () => {
+  let slowBusy = false;
+
+  const today = () => format(new Date(), 'yyyy-MM-dd');
+  const yesterday = () => format(subDays(new Date(), 1), 'yyyy-MM-dd');
+  const weekRange = () => ({
+    start: format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+    end: format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+  });
+  const monthRange = () => ({
+    start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+    end: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
+  });
+
+  // быстрый тик: онлайн, последние регистрации, и TODAY для Business Overview
+  const fetchFast = async () => {
     try {
-      const [online, recents] = await Promise.all([
+      const [online, recents, jsToday, bizToday] = await Promise.all([
         getOnlineUsers(),
         getRecentRegistrations({ limit: 5 }),
+        getGeographicDistribution({ role: 'jobseeker', startDate: today(), endDate: today() }),
+        getGeographicDistribution({ role: 'employer',  startDate: today(), endDate: today() }),
       ]);
       if (stop) return;
       setOnlineUsers(online || null);
       setRecentRegistrations(recents || { jobseekers: [], employers: [] });
-    } catch (e) {
-      /* тихо игнорим, чтобы не спамить */
-    }
+      setFreelancerSignupsToday(jsToday || []);
+      setBusinessSignupsToday(bizToday || []);
+    } catch { /* тихо игнорим */ }
   };
 
-  // старт сразу и затем каждые 15 сек
-  tick();
-  const id = setInterval(tick, 15000);
-  return () => { stop = true; clearInterval(id); };
+  // медленный тик: Yesterday / Week / Month для Business Overview
+  const fetchSlow = async () => {
+    if (slowBusy) return;
+    slowBusy = true;
+    try {
+      const y = yesterday();
+      const { start: ws, end: we } = weekRange();
+      const { start: ms, end: me } = monthRange();
+
+      const [jsY, jsW, jsM, bizY, bizW, bizM] = await Promise.all([
+        getGeographicDistribution({ role: 'jobseeker', startDate: y,  endDate: y }),
+        getGeographicDistribution({ role: 'jobseeker', startDate: ws, endDate: we }),
+        getGeographicDistribution({ role: 'jobseeker', startDate: ms, endDate: me }),
+        getGeographicDistribution({ role: 'employer',  startDate: y,  endDate: y }),
+        getGeographicDistribution({ role: 'employer',  startDate: ws, endDate: we }),
+        getGeographicDistribution({ role: 'employer',  startDate: ms, endDate: me }),
+      ]);
+
+      if (stop) return;
+      setFreelancerSignupsYesterday(jsY || []);
+      setFreelancerSignupsWeek(jsW || []);
+      setFreelancerSignupsMonth(jsM || []);
+      setBusinessSignupsYesterday(bizY || []);
+      setBusinessSignupsWeek(bizW || []);
+      setBusinessSignupsMonth(bizM || []);
+    } catch { /* тихо игнорим */ }
+    finally { slowBusy = false; }
+  };
+
+  // стартовые вызовы
+  fetchFast();
+  fetchSlow();
+
+  const fastId = setInterval(fetchFast, 15000);   // каждые 15 сек
+  const slowId = setInterval(fetchSlow, 120000);  // каждые 2 мин
+
+  return () => { stop = true; clearInterval(fastId); clearInterval(slowId); };
 }, [autoRefresh]);
 
 
@@ -1569,7 +1620,7 @@ if (isLoading) {
   {autoRefresh ? 'Auto-refresh: ON' : 'Auto-refresh: OFF'}
 </button>
 
-       <button className="action-button refresh-button" onClick={handleRefresh}>refresh</button>
+       {/* <button className="action-button refresh-button" onClick={handleRefresh}>refresh</button> */}
   </div>
   <table className="dashboard-table">
     <thead>
@@ -1755,24 +1806,28 @@ if (isLoading) {
   {fetchErrors.getAllUsers && <p className="error-message">{fetchErrors.getAllUsers}</p>}
   
   {/* Добавлено: search bar */}
-  <div className="search-bar" style={{ marginBottom: '10px' }}>
-    <input
-      type="text"
-      placeholder="Search by username or email"
-      value={searchQuery}
-      onChange={(e) => setSearchQuery(e.target.value)}
-    />
-<button
-  onClick={() => {
-    setUserPage(1);
-    fetchUsers(buildUserSearch(1));
-  }}
-  className="action-button"
->
-  <FaSearch />
-</button>
-
-  </div>
+  <div className="search_users" style={{ marginBottom: '10px' }}>
+  <input
+    type="text"
+    placeholder="Search by username or email"
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter') {
+        setUserPage(1);
+        // fetchUsers(buildUserSearch(1));
+      }
+    }}
+  />
+  <button
+    type="button"                               // ← на всякий
+    onClick={() => { setUserPage(1); }}
+    className="action-button"
+    disabled={isUsersLoading}
+  >
+    <FaSearch />
+  </button>
+</div>
   
   
    <table className="dashboard-table">
@@ -1884,7 +1939,7 @@ if (isLoading) {
  {activeTab === 'Job Posts' && (
   <div>
     <h4>Job Posts</h4>
-    <div className="search-bar" style={{ marginBottom: '10px' }}>
+    <div className="search_users" style={{ marginBottom: '10px' }}>
       <input
         type="text"
         placeholder="Search by title or employer username/email"

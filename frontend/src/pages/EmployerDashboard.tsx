@@ -75,6 +75,7 @@ useEffect(() => {
   return (
     <div className="edb-shell">
       <header className="edb-topbar">
+        
         <button
           className="edb-topbar__burger"
           aria-label={isOpen ? 'Close menu' : 'Open menu'}
@@ -83,6 +84,7 @@ useEffect(() => {
         >☰</button>
 
         <a href="/" className="edb-topbar__logo" onClick={closeDrawer}>Jobforge_</a>
+        
         <div className="edb-topbar__spacer" />
         <Link to="/find-talent" className="edb-topbar__cta">Find Talent</Link>
         <div className="edb-topbar__greet">

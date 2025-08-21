@@ -5,7 +5,7 @@
   --ch-muted:#6b7280;
   --ch-card-shadow:0 10px 30px rgba(18,33,73,0.12);
   --ch-card-shadow-sm:0 6px 18px rgba(18,33,73,0.10);
-  --ch-radius:12px;
+  --ch-radius:10px;
   --ch-border:#e9edfa;
 }
 
@@ -195,12 +195,12 @@
 .ch-dd > summary{
   list-style:none;
   height:36px; line-height:36px;
-  padding:0 42px 0 14px;
+  padding:0 36px 0 14px;
   border:1px solid #dfe6ff;
-  border-radius:999px;
+  border-radius:10px;
   background:#fff;
   color:var(--ch-text);
-  font-size:14px; font-weight:700;
+  font-size:13px; font-weight:700;
   box-shadow:0 6px 16px rgba(18,33,73,.08);
   cursor:pointer; user-select:none;
 }
@@ -251,3 +251,47 @@
 @media (hover:none){
   .ch-chatlist__item:hover{ transform:none; }
 }
+
+
+/* === Mobile optimizations for chat width & bubbles === */
+@media (max-width:640px){
+  /* убираем внешние отступы-контейнер, делаем карточку во всю ширину */
+  .ch-shell{ padding:0; margin:0; }
+  .ch-card{ padding:12px; border-radius:-1; }
+
+  /* растягиваем сам чат «в край» */
+  .ch-chat{ 
+    margin:0 -12px;         /* компенсируем padding карточки, чтобы чат стал шире */
+    border-left:0; 
+    border-right:0; 
+    border-radius:0; 
+    min-height:calc(100dvh - 160px); /* больше вертикали */
+  }
+
+  /* чуть компактнее внутри */
+  .ch-chat__head{ padding:10px 12px; }
+  .ch-thread{ padding:10px 12px; gap:6px; }
+  .ch-composer{ padding:10px; gap:6px; }
+  .ch-send{ width:42px; height:42px; }
+
+  /* «облака» компактнее */
+  .ch-bubble{ 
+    padding:10px 12px; 
+    border-radius:10px; 
+    /* max-width можно оставить 78%, если хочешь шире — поставь 84–88% */
+    /* max-width:84%; */
+  }
+  .ch-bubble__text{ font-size:14px; }
+  .ch-bubble__meta{ font-size:10.5px; }
+}
+
+
+/* вложенные группы в выпадающем меню */
+.ch-dd-sub { margin:2px 0; }
+.ch-dd-sub > summary{
+  list-style:none; cursor:pointer;
+  padding:8px 10px; border-radius:8px; font-weight:700; font-size:14px;
+}
+.ch-dd-sub[open] > summary{ background:#f7f9ff; }
+.ch-dd-sub > summary::-webkit-details-marker{ display:none; }
+.ch-dd-sub ul{ margin:6px 0 4px; padding-left:0; display:grid; gap:6px; }

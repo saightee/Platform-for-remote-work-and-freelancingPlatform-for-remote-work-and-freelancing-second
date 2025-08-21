@@ -1,5 +1,5 @@
 // src/context/RoleContext.tsx
-import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect} from 'react';
 import {
   getProfile,
   initializeWebSocket,
@@ -106,7 +106,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // }, []);
 
   const fetchProfile = async () => {
-    const as = getAsParam();
+    // const as = getAsParam();
     const token = localStorage.getItem('token');
 
     // dev-имперсонация — сеть не трогаем
@@ -242,7 +242,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     void init();
-  }, [profile]);
+  }, [profile, socket]);
 
   return (
     <RoleContext.Provider
