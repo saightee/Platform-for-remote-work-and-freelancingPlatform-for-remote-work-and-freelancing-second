@@ -62,10 +62,11 @@
   font-size: 14px;
   color: inherit;
   background: transparent;
-  /* border: 1px solid var(--ce-input-border, #2a3242); */
+  border: 1px solid var(--ce-input-border, #2a3242);
   border-radius: 10px;
   outline: none;
   transition: border-color .15s ease, box-shadow .15s ease;
+  color: #333;
 }
 
 @media (prefers-color-scheme: light) {

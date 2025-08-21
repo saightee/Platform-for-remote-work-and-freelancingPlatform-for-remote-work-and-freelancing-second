@@ -66,7 +66,7 @@
   font-weight:800;cursor:pointer;transition:box-shadow .15s ease,transform .05s ease,opacity .15s ease}
 .ppx-outline{background:#fff;color:var(--cs-accent)}
 .ppx-btn:hover{transform:translateY(-1px);box-shadow:var(--cs-shadow-sm)}
-.ppx-report{margin-top:12px;width:100%}
+.ppx-report{margin-top:12px;width:100%; font-size: 14px; border: none; color: #cb0f0f; font-weight: 400; display: flex; justify-content: normal;}
 
 /* alerts */
 .ppx-alert{padding:12px 14px;border-radius:10px;box-shadow:var(--cs-shadow-sm)}

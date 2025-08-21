@@ -1,3 +1,4 @@
+// src/pages/Messages.tsx
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
@@ -11,10 +12,12 @@ import {
   getChatHistory,
   createReview,
   broadcastToApplicants,
+  closeJobPost,
+  updateApplicationStatus,
 } from '../services/api';
 import { JobApplication, JobPost, JobApplicationDetails } from '@types';
 import { format } from 'date-fns';
-import { FaComments, FaPaperPlane, FaStar, FaUsers } from 'react-icons/fa';
+import { FaComments, FaPaperPlane, FaUsers } from 'react-icons/fa';
 import '../styles/messages.css';
 
 interface Message {
@@ -39,8 +42,8 @@ const Messages: React.FC = () => {
   const [jobPostApplications, setJobPostApplications] = useState<{ [jobPostId: string]: JobApplicationDetails[] }>({});
 
   const [activeJobId, setActiveJobId] = useState<string | null>(preselectJobPostId || null);
-
   const [selectedChat, setSelectedChat] = useState<string | null>(preselectApplicationId || null);
+
   const [messages, setMessages] = useState<{ [jobApplicationId: string]: Message[] }>({});
   const [newMessage, setNewMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -51,26 +54,35 @@ const Messages: React.FC = () => {
   const [broadcastText, setBroadcastText] = useState('');
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const joinedSet = useRef<Set<string>>(new Set());
-  const joinQueue = useRef<string[]>([]);
   const [reviewForm, setReviewForm] = useState<{ applicationId: string; rating: number; comment: string } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // хелпер: время последнего сообщения по чату
-const getLastTs = (chatId: string) => {
-  const list = messages[chatId];
-  if (!list || !list.length) return 0;
-  return new Date(list[list.length - 1].created_at).getTime();
-};
-
-
-
-  const currentMessages = useMemo(() => selectedChat ? messages[selectedChat] : [], [selectedChat, messages]);
-  const currentTyping = useMemo(() => selectedChat ? isTyping[selectedChat] : false, [selectedChat, isTyping]);
-
-  type Timer = ReturnType<typeof setTimeout>;
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const joinedSet = useRef<Set<string>>(new Set());
+  const joinQueue = useRef<string[]>([]);
   const typingTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  // helpers
+  const getLastTs = (chatId: string) => {
+    const list = messages[chatId];
+    if (!list || !list.length) return 0;
+    return new Date(list[list.length - 1].created_at).getTime();
+  };
+
+  const isActiveJob = (p: JobPost) => {
+    const s = (p.status || '').toLowerCase();
+    // считаем НЕактивными любые "closed/archived/inactive"
+    return !(s.includes('closed') || s.includes('archiv') || s.includes('inactive'));
+  };
+
+  const currentMessages = useMemo(
+    () => (selectedChat ? messages[selectedChat] : []),
+    [selectedChat, messages]
+  );
+  const currentTyping = useMemo(
+    () => (selectedChat ? isTyping[selectedChat] : false),
+    [selectedChat, isTyping]
+  );
 
   useEffect(() => {
     return () => {
@@ -79,6 +91,7 @@ const getLastTs = (chatId: string) => {
     };
   }, []);
 
+  // загрузка данных
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -86,22 +99,24 @@ const getLastTs = (chatId: string) => {
 
         if (currentRole === 'jobseeker') {
           const apps = await getMyApplications();
-          // у джобсикера чаты только поAccepted (как раньше)
-          setApplications(apps.filter((app) => app.status === 'Accepted'));
+          setApplications(apps.filter((a) => a.status === 'Accepted'));
         } else if (currentRole === 'employer') {
           const posts = await getMyJobPosts();
-          setJobPosts(posts);
-          const appsArrays = await Promise.all(posts.map(post => getApplicationsForJobPost(post.id)));
+          const active = posts.filter(isActiveJob);
+          setJobPosts(active);
+
+          const appsArrays = await Promise.all(active.map((post) => getApplicationsForJobPost(post.id)));
           const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
-          // ВАЖНО: берем все отклики (Pending/Accepted/Rejected), чтобы можно было писать Pending
-          posts.forEach((post, index) => { appsMap[post.id] = appsArrays[index]; });
+          active.forEach((post, index) => {
+            appsMap[post.id] = appsArrays[index];
+          });
           setJobPostApplications(appsMap);
 
-          if (!activeJobId && posts[0]) setActiveJobId(posts[0].id);
+          if (!activeJobId && active[0]) setActiveJobId(active[0].id);
           if (preselectApplicationId) setSelectedChat(preselectApplicationId);
         }
-      } catch (error) {
-        console.error('Error fetching applications:', error);
+      } catch (e) {
+        console.error('Error fetching applications:', e);
         setError('Failed to load applications.');
       } finally {
         setIsLoading(false);
@@ -113,12 +128,19 @@ const getLastTs = (chatId: string) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, currentRole]);
+
+  // при смене выбранной вакансии — снимаем выделение чата
+  useEffect(() => {
+    setSelectedChat(null);
+  }, [activeJobId]);
+
   const scrollToBottom = useCallback((smooth: boolean = false) => {
     messagesEndRef.current?.scrollIntoView({
       behavior: smooth ? 'smooth' : 'auto',
       block: 'end',
     });
   }, []);
+
   const unreadKey = useMemo(() => `unreads_${profile?.id || 'anon'}`, [profile?.id]);
 
   useEffect(() => {
@@ -138,7 +160,7 @@ const getLastTs = (chatId: string) => {
     } catch {}
   }, [unreadKey, unreadCounts]);
 
-  // socket events (ЛЕНИВО — подписываемся на комнату только при открытии конкретного чата)
+  // socket events
   useEffect(() => {
     if (!socket || !profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) {
       setUnreadCounts({});
@@ -151,15 +173,15 @@ const getLastTs = (chatId: string) => {
         const jobApplicationId = history[0].job_application_id;
         setMessages((prev) => ({
           ...prev,
-          [jobApplicationId]: history.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+          [jobApplicationId]: history.sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          ),
         }));
         const unread = history.filter((msg) => msg.recipient_id === profile.id && !msg.is_read).length;
         setUnreadCounts((prevCounts) => ({
           ...prevCounts,
           [jobApplicationId]: selectedChat === jobApplicationId ? 0 : unread,
         }));
-      } else {
-        console.warn('Received empty or undefined chat history');
       }
     });
 
@@ -190,7 +212,7 @@ const getLastTs = (chatId: string) => {
 
     type MessagesReadPayload = { data: Message[] } | Message[];
     socket.on('messagesRead', (payload: MessagesReadPayload) => {
-      const list: Message[] = Array.isArray(payload) ? payload : (payload?.data || []);
+      const list: Message[] = Array.isArray(payload) ? payload : payload?.data || [];
       if (!list.length) return;
 
       const jobId = list[0].job_application_id;
@@ -226,8 +248,7 @@ const getLastTs = (chatId: string) => {
 
     socket.on('connect', () => {
       setError(null);
-      // только догоняем join для тех, кого пытались открыть до коннекта
-      joinQueue.current.forEach(id => {
+      joinQueue.current.forEach((id) => {
         socket.emit('joinChat', { jobApplicationId: id });
         joinedSet.current.add(id);
       });
@@ -245,8 +266,6 @@ const getLastTs = (chatId: string) => {
       joinedSet.current.clear();
     };
   }, [profile, currentRole, socket, selectedChat, setSocketStatus, scrollToBottom]);
-
-
 
   useEffect(() => {
     scrollToBottom(false);
@@ -269,7 +288,42 @@ const getLastTs = (chatId: string) => {
     setNewMessage('');
   };
 
+  const chatList = useMemo(() => {
+    if (currentRole === 'employer') {
+      const list = activeJobId ? jobPostApplications[activeJobId] || [] : [];
+      return list
+        .filter((app) => app.status === 'Pending' || app.status === 'Accepted') // только Pending/Accepted
+        .map((app) => ({
+          id: app.applicationId,
+          title: jobPosts.find((p) => p.id === app.job_post_id)?.title || 'Unknown Job',
+          partner: app.username,
+          status: app.status,
+          unreadCount: unreadCounts[app.applicationId] || 0,
+          coverLetter: app.coverLetter,
+          userId: app.userId,
+          job_post_id: app.job_post_id,
+        }))
+        .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));
+    }
+
+    // jobseeker — только Accepted приходят из API выше
+    return applications
+      .map((app) => ({
+        id: app.id,
+        title: app.job_post?.title || 'Unknown Job',
+        partner: app.job_post?.employer?.username || 'Unknown',
+        unreadCount: unreadCounts[app.id] || 0,
+      }))
+      .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));
+  }, [activeJobId, applications, jobPostApplications, jobPosts, unreadCounts, currentRole, messages]);
+
   const handleSelectChat = (jobApplicationId: string) => {
+    const exists = chatList.some((c) => c.id === jobApplicationId);
+    if (!exists) {
+      setSelectedChat(null);
+      return;
+    }
+
     setSelectedChat(jobApplicationId);
     setUnreadCounts((prev) => ({ ...prev, [jobApplicationId]: 0 }));
 
@@ -297,6 +351,42 @@ const getLastTs = (chatId: string) => {
       .catch(() => setError('Failed to load chat history.'));
   };
 
+  // текущая заявка (для быстрых действий)
+  const currentApp = useMemo(() => {
+    if (!selectedChat) return null;
+    return Object.values(jobPostApplications).flat().find((a) => a.applicationId === selectedChat) || null;
+  }, [jobPostApplications, selectedChat]);
+
+  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!socket || !selectedChat) return;
+
+    const content = e.target.value;
+    setNewMessage(content);
+
+    socket.emit('typing', { jobApplicationId: selectedChat, isTyping: true });
+
+    if (typingTimeoutRef.current[selectedChat]) {
+      clearTimeout(typingTimeoutRef.current[selectedChat]);
+    }
+
+    typingTimeoutRef.current[selectedChat] = setTimeout(() => {
+      socket.emit('typing', { jobApplicationId: selectedChat, isTyping: false });
+    }, 3000);
+  };
+
+  const handleBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeJobId || !broadcastText.trim()) return;
+    try {
+      const res = await broadcastToApplicants(activeJobId, broadcastText.trim());
+      alert(`Sent: ${res.sent}`);
+      setBroadcastOpen(false);
+      setBroadcastText('');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to send broadcast.');
+    }
+  };
+
   const handleCreateReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reviewForm) return;
@@ -317,115 +407,26 @@ const getLastTs = (chatId: string) => {
       });
       alert('Review submitted successfully!');
       setReviewForm(null);
-    } catch (error: any) {
-      setFormError(error.response?.data?.message || 'Failed to submit review.');
+    } catch (err: any) {
+      setFormError(err.response?.data?.message || 'Failed to submit review.');
     }
   };
 
-  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!socket || !selectedChat) return;
-
-    const content = e.target.value;
-    setNewMessage(content);
-
-    socket.emit('typing', { jobApplicationId: selectedChat, isTyping: true });
-
-    if (typingTimeoutRef.current[selectedChat]) {
-      clearTimeout(typingTimeoutRef.current[selectedChat]);
-    }
-
-    typingTimeoutRef.current[selectedChat] = setTimeout(() => {
-      socket.emit('typing', { jobApplicationId: selectedChat, isTyping: false });
-    }, 3000);
-  };
-
-  const getChatPartner = (jobApplicationId: string) => {
-    if (currentRole === 'jobseeker') {
-      const app = applications.find((a) => a.id === jobApplicationId);
-      if (app?.job_post?.employer_id) {
-        return app.job_post.employer?.username || 'Unknown';
-      }
-      return 'Unknown';
-    } else if (currentRole === 'employer') {
-      const app = Object.values(jobPostApplications).flat().find(a => a.applicationId === jobApplicationId);
-      return app?.username || 'Unknown';
-    }
-    return 'Unknown';
-  };
-
-const getChatList = () => {
-  if (currentRole === 'employer') {
-    const list = activeJobId ? (jobPostApplications[activeJobId] || []) : [];
-    return list
-      .map(app => ({
-        id: app.applicationId,
-        title: jobPosts.find(post => post.id === app.job_post_id)?.title || 'Unknown Job',
-        partner: app.username,
-        status: app.status,
-        unreadCount: unreadCounts[app.applicationId] || 0,
-        coverLetter: app.coverLetter,
-        userId: app.userId,
-      }))
-      .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));  // 👈 свежие сверху
+  if (isLoading) {
+    return (
+      <div>
+        <Header />
+        <div className="msg-shell">
+          <div className="msg-card">
+            <h1 className="msg-title">
+              <FaComments />&nbsp;Messages
+            </h1>
+            <p className="msg-subtitle">Loading chats…</p>
+          </div>
+        </div>
+      </div>
+    );
   }
-
-  // jobseeker
-  return applications
-    .map(app => ({
-      id: app.id,
-      title: app.job_post?.title || 'Unknown Job',
-      partner: getChatPartner(app.id),
-      unreadCount: unreadCounts[app.id] || 0,
-    }))
-    .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));    // 👈 свежие сверху
-};
-
-
-  const chatList = getChatList();
-
-  const currentApp = useMemo(() => {
-    if (!selectedChat) return null;
-    return Object.values(jobPostApplications).flat().find(a => a.applicationId === selectedChat) || null;
-  }, [jobPostApplications, selectedChat]);
-
-  const handleBroadcast = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeJobId || !broadcastText.trim()) return;
-    try {
-      const res = await broadcastToApplicants(activeJobId, broadcastText.trim());
-      alert(`Sent: ${res.sent}`);
-      setBroadcastOpen(false);
-      setBroadcastText('');
-    } catch (err:any) {
-      alert(err.response?.data?.message || 'Failed to send broadcast.');
-    }
-  };
-
-  if (isLoading) return (
-    <div>
-      <Header />
-      <div className="msg-shell">
-        <div className="msg-card">
-          <h1 className="msg-title"><FaComments />&nbsp;Messages</h1>
-          <p className="msg-subtitle">Loading chats…</p>
-        </div>
-      </div>
-    </div>
-  );
-
-  if (chatList.length === 0 && !isLoading) return (
-    <div>
-      <Header />
-      <div className="msg-shell">
-        <div className="msg-card">
-          <h1 className="msg-title"><FaComments />&nbsp;Messages</h1>
-          <div className="msg-alert msg-err">There are no available chats.</div>
-        </div>
-      </div>
-      <Footer />
-      <Copyright />
-    </div>
-  );
 
   if (!profile || !['jobseeker', 'employer'].includes(currentRole || '')) {
     return (
@@ -433,7 +434,9 @@ const getChatList = () => {
         <Header />
         <div className="msg-shell">
           <div className="msg-card">
-            <h1 className="msg-title"><FaComments />&nbsp;Messages</h1>
+            <h1 className="msg-title">
+              <FaComments />&nbsp;Messages
+            </h1>
             <div className="msg-alert msg-err">This page is only available for jobseekers and employers.</div>
           </div>
         </div>
@@ -449,18 +452,18 @@ const getChatList = () => {
       <div className="msg-shell">
         <div className="msg-card">
           <div className="msg-headrow">
-            <h1 className="msg-title"><FaComments />&nbsp;Messages</h1>
-            {socketStatus === 'reconnecting' && (
-              <div className="msg-alert msg-err">Reconnecting to chat server…</div>
-            )}
+            <h1 className="msg-title">
+              <FaComments />&nbsp;Messages
+            </h1>
+            {socketStatus === 'reconnecting' && <div className="msg-alert msg-err">Reconnecting to chat server…</div>}
             {error && <div className="msg-alert msg-err">{error}</div>}
           </div>
 
-          {/* NEW: Tabs of jobs + broadcast for employers */}
+          {/* Tabs + массовая рассылка + закрыть работу (только активные) */}
           {currentRole === 'employer' && jobPosts.length > 0 && (
             <div className="msg-jobs">
               <div className="msg-jobs-tabs">
-                {jobPosts.map(job => (
+                {jobPosts.map((job) => (
                   <button
                     key={job.id}
                     className={`msg-job-tab ${activeJobId === job.id ? 'is-active' : ''}`}
@@ -471,19 +474,48 @@ const getChatList = () => {
                   </button>
                 ))}
               </div>
-              <button
-                className="msg-broadcast"
-                onClick={() => setBroadcastOpen(true)}
-                disabled={!activeJobId}
-                title="Send a message to all applicants of this job"
-              >
-                <FaUsers /> Send message to all applicants
-              </button>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  className="msg-broadcast"
+                  onClick={() => setBroadcastOpen(true)}
+                  disabled={!activeJobId}
+                  title="Send a message to all applicants of this job"
+                >
+                  <FaUsers /> Send message to all applicants
+                </button>
+                <button
+                  className="msg-broadcast"
+                  onClick={async () => {
+                    if (!activeJobId) return;
+                    if (!confirm('Close this job? It will stop receiving applications.')) return;
+                    try {
+                      await closeJobPost(activeJobId);
+                      // убрать вакансию из активных
+                      setJobPosts((prev) => prev.filter((p) => p.id !== activeJobId));
+                      setJobPostApplications((prev) => {
+                        const copy = { ...prev };
+                        delete copy[activeJobId];
+                        return copy;
+                      });
+                      // выбрать следующую активную
+                      const next = jobPosts.filter((p) => p.id !== activeJobId).filter(isActiveJob)[0];
+                      setActiveJobId(next?.id || null);
+                      setSelectedChat(null);
+                    } catch (e: any) {
+                      alert(e?.response?.data?.message || 'Failed to close the job.');
+                    }
+                  }}
+                  title="Close this job"
+                >
+                  Close job
+                </button>
+              </div>
             </div>
           )}
 
           <div className="msg-grid">
-            {/* left: chat list */}
+            {/* список чатов */}
             <aside className="msg-list-card">
               <h3 className="msg-list-title">Chats</h3>
               {chatList.length > 0 ? (
@@ -491,8 +523,11 @@ const getChatList = () => {
                   {chatList.map((chat) => (
                     <li
                       key={chat.id}
-                      className={`msg-list-item ${selectedChat === chat.id ? 'is-active' : ''} ${chat.unreadCount > 0 ? 'has-unread' : ''}`}
+                      className={`msg-list-item ${selectedChat === chat.id ? 'is-active' : ''} ${
+                        chat.unreadCount > 0 ? 'has-unread' : ''
+                      }`}
                       onClick={() => handleSelectChat(chat.id)}
+                      title={chat.partner}
                     >
                       <div className="msg-list-meta">
                         <div className="msg-list-title-row">
@@ -501,32 +536,23 @@ const getChatList = () => {
                         </div>
                         <div className="msg-list-partner">{chat.partner}</div>
                       </div>
-
-                      {(currentRole === 'employer' || currentRole === 'jobseeker') && (
-                        <button
-                          className="msg-mini-btn"
-                          onClick={(e) => { e.stopPropagation(); setReviewForm({ applicationId: chat.id, rating: 5, comment: '' }); }}
-                          title="Leave review"
-                        >
-                          <FaStar />
-                        </button>
-                      )}
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="msg-muted">No active chats found.</p>
+                <p className="msg-muted">No chats for this job yet.</p>
               )}
             </aside>
 
-            {/* right: chat window */}
+            {/* окно чата */}
             <section className="msg-window-card">
-
               {/* Broadcast modal */}
               {broadcastOpen && (
                 <div className="msg-modal">
                   <div className="msg-modal-content">
-                    <button className="msg-modal-close" onClick={() => setBroadcastOpen(false)}>×</button>
+                    <button className="msg-modal-close" onClick={() => setBroadcastOpen(false)}>
+                      ×
+                    </button>
                     <form onSubmit={handleBroadcast} className="msg-review-form">
                       <div className="msg-row">
                         <label className="msg-label">Message to all applicants</label>
@@ -538,7 +564,9 @@ const getChatList = () => {
                           placeholder="Type your message once — it will be sent to all applicants of this job"
                         />
                       </div>
-                      <button type="submit" className="msg-btn"><FaPaperPlane /> Send</button>
+                      <button type="submit" className="msg-btn">
+                        <FaPaperPlane /> Send
+                      </button>
                     </form>
                   </div>
                 </div>
@@ -548,9 +576,51 @@ const getChatList = () => {
               {coverPreview && (
                 <div className="msg-modal">
                   <div className="msg-modal-content">
-                    <button className="msg-modal-close" onClick={() => setCoverPreview(null)}>×</button>
+                    <button className="msg-modal-close" onClick={() => setCoverPreview(null)}>
+                      ×
+                    </button>
                     <h4 className="msg-title">Cover Letter</h4>
                     <p style={{ whiteSpace: 'pre-wrap' }}>{coverPreview}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Review modal */}
+              {reviewForm && (
+                <div className="msg-modal">
+                  <div className="msg-modal-content">
+                    <button className="msg-modal-close" onClick={() => setReviewForm(null)}>
+                      ×
+                    </button>
+                    <form onSubmit={handleCreateReview} className="msg-review-form">
+                      <div className="msg-row">
+                        <label className="msg-label">Rating (1–5)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={5}
+                          value={reviewForm.rating}
+                          onChange={(e) =>
+                            setReviewForm((f) => (f ? { ...f, rating: Number(e.target.value) } : f))
+                          }
+                          className="msg-input"
+                        />
+                      </div>
+                      <div className="msg-row">
+                        <label className="msg-label">Comment</label>
+                        <textarea
+                          className="msg-textarea"
+                          value={reviewForm.comment}
+                          onChange={(e) => setReviewForm((f) => (f ? { ...f, comment: e.target.value } : f))}
+                          rows={4}
+                          placeholder="Share your experience working with this person"
+                        />
+                      </div>
+                      {formError && <div className="msg-alert msg-err">{formError}</div>}
+                      <button type="submit" className="msg-btn">
+                        Submit review
+                      </button>
+                    </form>
                   </div>
                 </div>
               )}
@@ -558,15 +628,87 @@ const getChatList = () => {
               {selectedChat ? (
                 <>
                   <div className="msg-window-head">
-                    <h3 className="msg-chat-title">Chat with <span>{getChatPartner(selectedChat)}</span></h3>
+                    <h3 className="msg-chat-title">
+                      Chat with <span>
+                        {currentRole === 'employer'
+                          ? chatList.find((c) => c.id === selectedChat)?.partner || 'Unknown'
+                          : applications.find((a) => a.id === selectedChat)?.job_post?.employer?.username ||
+                            'Unknown'}
+                      </span>
+                    </h3>
 
-                    {/* NEW: quick actions */}
+                    {/* Quick actions */}
                     {currentApp && (
                       <div className="msg-head-actions">
-                        <Link to={`/public-profile/${currentApp.userId}`} className="msg-mini-btn">View Profile</Link>
+                        <Link to={`/public-profile/${currentApp.userId}`} className="msg-mini-btn">
+                          View Profile
+                        </Link>
                         {currentApp.coverLetter && (
-                          <button className="msg-mini-btn" onClick={() => setCoverPreview(currentApp.coverLetter!)}>Cover Letter</button>
+                          <button className="msg-mini-btn" onClick={() => setCoverPreview(currentApp.coverLetter!)}>
+                            Cover Letter
+                          </button>
                         )}
+
+                        {currentRole === 'employer' && currentApp.status === 'Pending' && (
+                          <>
+                            <button
+                              className="msg-mini-btn"
+                              onClick={async () => {
+                                try {
+                                  await updateApplicationStatus(currentApp.applicationId, 'Accepted');
+                                 setJobPostApplications((prev) => {
+  const arr = prev[currentApp.job_post_id] ?? [];
+  const updated: JobApplicationDetails[] = arr.map((a) =>
+    a.applicationId === currentApp.applicationId
+      ? { ...a, status: 'Accepted' as JobApplicationDetails['status'] }
+      : a
+  );
+  return { ...prev, [currentApp.job_post_id]: updated };
+});
+                                } catch (e: any) {
+                                  alert(e?.response?.data?.message || 'Failed to accept.');
+                                }
+                              }}
+                            >
+                              Accept
+                            </button>
+                            <button
+                              className="msg-mini-btn"
+                              onClick={async () => {
+                                if (!confirm('Reject this applicant? This will remove the chat.')) return;
+                                try {
+                                  await updateApplicationStatus(currentApp.applicationId, 'Rejected');
+                                  // удалить чат из списка и закрыть окно
+                setJobPostApplications((prev) => {
+  const arr = prev[currentApp.job_post_id] ?? [];
+  const updated: JobApplicationDetails[] = arr
+    .map((a) =>
+      a.applicationId === currentApp.applicationId
+        ? { ...a, status: 'Rejected' as JobApplicationDetails['status'] }
+        : a
+    )
+    .filter((a) => a.status !== 'Rejected');
+  return { ...prev, [currentApp.job_post_id]: updated };
+});
+setSelectedChat(null);
+                                } catch (e: any) {
+                                  alert(e?.response?.data?.message || 'Failed to reject.');
+                                }
+                              }}
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+
+                        <button
+                          className="msg-mini-btn"
+                          onClick={() =>
+                            setReviewForm({ applicationId: currentApp.applicationId, rating: 5, comment: '' })
+                          }
+                        >
+                          Leave review
+                        </button>
                       </div>
                     )}
                   </div>
@@ -580,31 +722,37 @@ const getChatList = () => {
                         <div className="msg-bubble-text">{msg.content}</div>
                         <div className="msg-bubble-meta">
                           <span>{format(new Date(msg.created_at), 'PPpp')}</span>
-                          <span className={`msg-read ${msg.is_read ? 'is-read' : ''}`}>{msg.is_read ? 'Read' : 'Unread'}</span>
+                          <span className={`msg-read ${msg.is_read ? 'is-read' : ''}`}>
+                            {msg.is_read ? 'Read' : 'Unread'}
+                          </span>
                         </div>
                       </div>
                     ))}
-                    {currentTyping && (
-                      <div className="msg-typing"> {getChatPartner(selectedChat)} is typing…</div>
-                    )}
+                    {currentTyping && <div className="msg-typing">Typing…</div>}
                     <div ref={messagesEndRef} />
                   </div>
 
-                  <form onSubmit={handleSendMessage} className="msg-composer">
+                  <form
+                    onSubmit={handleSendMessage}
+                    className={`msg-composer ${!selectedChat ? 'is-disabled' : ''}`}
+                  >
                     <input
                       type="text"
                       className="msg-input"
                       value={newMessage}
                       onChange={handleTyping}
-                      placeholder="Type a message…"
+                      placeholder={selectedChat ? 'Type a message…' : 'No chat selected'}
+                      disabled={!selectedChat}
                     />
-                    <button type="submit" className="msg-send-btn" title="Send">
+                    <button type="submit" className="msg-send-btn" title="Send" disabled={!selectedChat}>
                       <FaPaperPlane />
                     </button>
                   </form>
                 </>
               ) : (
-                <p className="msg-muted">Select a chat to start messaging.</p>
+                <div className="msg-thread">
+                  <p className="msg-muted">Select a chat in the list or wait for new applicants.</p>
+                </div>
               )}
             </section>
           </div>

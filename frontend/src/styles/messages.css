@@ -42,11 +42,38 @@
 }
 
 /* Chat list */
-.msg-list-card { border: 1px solid #e9edfa; border-radius: var(--cs-radius); padding: 14px; background: #fff; box-shadow: var(--cs-shadow-sm); min-height: 0; overflow: auto; }
+.msg-list-card {
+  border: 1px solid #e9edfa;
+  border-radius: var(--cs-radius);
+  padding: 14px;
+  background: #fff;
+  box-shadow: var(--cs-shadow-sm);
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto 1fr; /* title + scroll area */
+  overflow: hidden;             /* скролл будет у списка, не у всей карточки */
+}
 .msg-list-title { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: var(--cs-text); }
-.msg-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.msg-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+
+  /* важно для прокрутки внутри колонки */
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;      /* как у .msg-thread */
+  overscroll-behavior: contain;  /* чтобы колесо не «пробивало» родителя */
+}
+
 .msg-list-item { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 10px; border: 1px solid #e9edfa; border-radius: 10px; cursor: pointer; transition: box-shadow .15s ease, transform .05s ease, border-color .15s ease; }
-.msg-list-item:hover { box-shadow: var(--cs-shadow-sm); transform: translateY(-1px); border-color: #dfe6ff; }
+.msg-list-item:hover{
+  transform:translateY(-1px);
+  border-color:#dfe6ff;
+  
+}
 .msg-list-item.is-active { border-color: var(--cs-accent); box-shadow: 0 0 0 3px rgba(78,116,200,.12); }
 .msg-list-item.has-unread { background: #f7f9ff; }
 .msg-list-meta { display: grid; gap: 4px; }
@@ -56,7 +83,8 @@
 .msg-unread { background: var(--cs-accent); color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 999px; }
 
 .msg-mini-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; border-radius: 8px; background: #f1f4ff; color: var(--cs-accent); cursor: pointer; }
-.msg-mini-btn:hover { background: #e5ecff; }
+.msg-mini-btn:hover { box-shadow: var(--cs-shadow-sm);
+  transform: translateY(-1px); }
 
 /* фикс видимости иконки в списке чатов */
 .msg-list .msg-mini-btn { font-size: 16px; line-height: 1; }
@@ -136,4 +164,37 @@
 @media (max-width: 640px) {
   .msg-card { padding: 18px; }
   .msg-title { font-size: 22px; }
+}
+
+
+.msg-card{ color:var(--cs-text); }
+.msg-card .msg-chat-title,
+.msg-card .msg-bubble-text,
+.msg-card .msg-list-job,
+.msg-card .msg-list-partner{ color:inherit; }
+
+
+.msg-composer.is-disabled .msg-input{ opacity:.6; cursor:not-allowed; }
+.msg-composer.is-disabled .msg-send-btn{ opacity:.5; cursor:not-allowed; }
+
+
+/* общий вид скроллбара для окна чата и списка чатов */
+.msg-thread::-webkit-scrollbar,
+.msg-list::-webkit-scrollbar { width: 10px; }
+
+.msg-thread::-webkit-scrollbar-thumb,
+.msg-list::-webkit-scrollbar-thumb {
+  background: #dfe6ff;
+  border-radius: 10px;
+  border: 2px solid #f6f8ff;
+}
+
+.msg-thread::-webkit-scrollbar-track,
+.msg-list::-webkit-scrollbar-track { background: transparent; }
+
+/* Firefox */
+.msg-thread,
+.msg-list {
+  scrollbar-width: thin;
+  scrollbar-color: #dfe6ff transparent;
 }

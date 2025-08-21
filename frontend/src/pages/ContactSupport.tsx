@@ -1,11 +1,14 @@
+// src/pages/ContactSupport.tsx
 import React, { useMemo, useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { contactSupport, getProfile } from '../services/api'; // ← добавили getProfile
-import ReCAPTCHA from 'react-google-recaptcha';               // ← добавили
+import { contactSupport, getProfile } from '../services/api';
+import Turnstile from '../components/Turnstile';          // 👈 заменили
 import '../styles/contact-support.css';
+
+const SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY; // 👈
 
 const ContactSupport: React.FC = () => {
   const location = useLocation();
@@ -17,24 +20,28 @@ const ContactSupport: React.FC = () => {
   );
 
   const [form, setForm] = useState({ name: '', email: '', message: '', website: '' });
-  const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined); // ← теперь реальный токен
+  const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [isAuthed, setIsAuthed] = useState(false);         // 👈 авторизован ли юзер
 
-  // ⬇️ автозаполнение для авторизованных
+  // автозаполнение для авторизованных
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
     (async () => {
       try {
         const p = await getProfile();
+        setIsAuthed(true);                                  // 👈 гость/не гость
         setForm(f => ({
           ...f,
-           name: p.username || f.name, 
-           email: (p as any).email || f.email,
+          name: p.username || f.name,
+          email: (p as any).email || f.email,
         }));
-      } catch {}
+      } catch {
+        setIsAuthed(false);
+      }
     })();
   }, []);
 
@@ -52,8 +59,8 @@ const ContactSupport: React.FC = () => {
     if (msg.length < 10 || msg.length > 2000) return 'Message must be 10–2000 characters';
     if (/https?:\/\/|www\.|<[^>]*>/.test(msg)) return 'Links and HTML are not allowed';
     if (form.website && form.website.trim() !== '') return 'Forbidden'; // honeypot
-    // Если ключ капчи задан, требуем токен
-    if (import.meta.env.VITE_RECAPTCHA_SITE_KEY && !captchaToken) return 'Please complete the CAPTCHA';
+    // Требуем капчу только для гостей и только если site key задан
+    if (!isAuthed && SITE_KEY && !captchaToken) return 'Please complete the CAPTCHA';
     return null;
   };
 
@@ -69,8 +76,8 @@ const ContactSupport: React.FC = () => {
         name: form.name.trim(),
         email: form.email.trim(),
         message: form.message.trim(),
-        captchaToken,          // ← отправляем токен
-        website: '',           // ← принудительно пусто (honeypot)
+        captchaToken: !isAuthed ? captchaToken : undefined,   // 👈 гость — отправляем
+        website: '',                                          // honeypot
       });
       setOk('Your message has been sent. We’ll get back to you soon.');
       setForm({ name: '', email: '', message: '', website: '' });
@@ -154,12 +161,15 @@ const ContactSupport: React.FC = () => {
               aria-hidden="true"
             />
 
-            {/* reCAPTCHA (checkbox) */}
-            {import.meta.env.VITE_RECAPTCHA_SITE_KEY && (
+            {/* Turnstile — показываем только гостям и только если есть site key */}
+            {!isAuthed && SITE_KEY && (
               <div style={{ margin: '8px 0 16px' }}>
-                <ReCAPTCHA
-                  sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY as string}
-                  onChange={(t) => setCaptchaToken(t || undefined)}
+                <Turnstile
+                  siteKey={SITE_KEY}
+                  onVerify={(t) => setCaptchaToken(t)}
+                  onExpire={() => setCaptchaToken(undefined)}
+                  onError={() => setCaptchaToken(undefined)}
+                  theme="auto"
                 />
               </div>
             )}

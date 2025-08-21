@@ -255,3 +255,47 @@
   .pf-kv-row { grid-template-columns: 1fr; }
   .pf-review-row { grid-template-columns: 1fr; }
 }
+
+
+/* Username inline edit */
+.pf-username-row .pf-inline-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pf-inline-value { color: var(--cs-text); }
+
+.pf-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e3e6ef;
+  background: #fff;
+  color: #333;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: var(--cs-shadow-sm);
+}
+
+.pf-icon-btn:hover { box-shadow: var(--cs-shadow); transform: translateY(-1px); }
+
+.pf-icon-btn.pf-danger { color: #8a231f; }
+.pf-icon-btn.pf-ok { color: #1c6b3c; }
+
+
+/* Inline edit username */
+.pf-username-row { display: grid; gap: 8px; }
+.pf-inline-edit { display: flex; align-items: center; gap: 8px; }
+.pf-inline-value { color: var(--cs-text); font-weight: 700; }
+
+.pf-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border: 1px solid #e3e6ef; border-radius: 8px;
+  background: #fff; color: var(--cs-text); cursor: pointer;
+}
+.pf-icon-btn svg { width: 16px; height: 16px; }
+.pf-icon-btn.pf-ok    { color: #1c6b3c; border-color: #cfe9da; }
+.pf-icon-btn.pf-danger{ color: #8a231f; border-color: #f3c7c3; }

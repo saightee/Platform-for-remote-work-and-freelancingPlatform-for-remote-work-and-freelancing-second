@@ -254,7 +254,7 @@
 
 
 .mjp-tabs { display:flex; gap:8px; margin:12px 0 18px; flex-wrap:wrap; }
-.mjp-tab { border:1px solid #e5e7eb; padding:8px 12px; border-radius:10px; background:#fff; cursor:pointer; }
-.mjp-tab.is-active { background:#f5f7ff; border-color:#c7d2fe; }
+.mjp-tab { border:1px solid #e5e7eb; padding:8px 12px; border-radius:10px; background:#fff; cursor:pointer; color: #333; }
+.mjp-tab.is-active { background:#f5f7ff; border-color:#c7d2fe; color: #333;}
 .mjp-meta { display:flex; gap:16px; color:#6b7280; font-size:13px; margin:4px 0 10px; }
 .mjp-actions--top { gap:8px; flex-wrap:wrap; }
