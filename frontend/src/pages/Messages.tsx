@@ -1,6 +1,5 @@
-// src/pages/Messages.tsx
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
@@ -30,37 +29,72 @@ interface Message {
   is_read: boolean;
 }
 
+/** DEV helpers */
+const isDev = typeof import.meta !== 'undefined' ? import.meta.env.DEV : false;
+const getAsParam = () => {
+  try {
+    return new URLSearchParams(window.location.search).get('as') as
+      | 'jobseeker'
+      | 'employer'
+      | null;
+  } catch {
+    return null;
+  }
+};
+const isDevDemoId = (id?: string) => !!id && id.startsWith('dev-');
+
 const Messages: React.FC = () => {
+  const navigate = useNavigate();
   const location = useLocation() as any;
   const preselectJobPostId = location?.state?.jobPostId as string | null;
   const preselectApplicationId = location?.state?.applicationId as string | null;
 
-  const { profile, currentRole, socket, socketStatus, setSocketStatus } = useRole();
+  const { profile, currentRole, socket, socketStatus, setSocketStatus } =
+    useRole();
 
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
-  const [jobPostApplications, setJobPostApplications] = useState<{ [jobPostId: string]: JobApplicationDetails[] }>({});
+  const [jobPostApplications, setJobPostApplications] = useState<{
+    [jobPostId: string]: JobApplicationDetails[];
+  }>({});
 
-  const [activeJobId, setActiveJobId] = useState<string | null>(preselectJobPostId || null);
-  const [selectedChat, setSelectedChat] = useState<string | null>(preselectApplicationId || null);
+  const [activeJobId, setActiveJobId] = useState<string | null>(
+    preselectJobPostId || null
+  );
+  const [selectedChat, setSelectedChat] = useState<string | null>(
+    preselectApplicationId || null
+  );
 
-  const [messages, setMessages] = useState<{ [jobApplicationId: string]: Message[] }>({});
+  const [messages, setMessages] = useState<{
+    [jobApplicationId: string]: Message[];
+  }>({});
   const [newMessage, setNewMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [unreadCounts, setUnreadCounts] = useState<{ [jobApplicationId: string]: number }>({});
-  const [isTyping, setIsTyping] = useState<{ [jobApplicationId: string]: boolean }>({});
+  const [unreadCounts, setUnreadCounts] = useState<{
+    [jobApplicationId: string]: number;
+  }>({});
+  const [isTyping, setIsTyping] = useState<{
+    [jobApplicationId: string]: boolean;
+  }>({});
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [broadcastText, setBroadcastText] = useState('');
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
-  const [reviewForm, setReviewForm] = useState<{ applicationId: string; rating: number; comment: string } | null>(null);
+  const [reviewForm, setReviewForm] = useState<{
+    applicationId: string;
+    rating: number;
+    comment: string;
+  } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const joinedSet = useRef<Set<string>>(new Set());
   const joinQueue = useRef<string[]>([]);
-  const typingTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const typingTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout>>>(
+    {}
+  );
+  const devSeededRef = useRef(false);
 
   // helpers
   const getLastTs = (chatId: string) => {
@@ -97,15 +131,18 @@ const Messages: React.FC = () => {
         setIsLoading(true);
 
         if (currentRole === 'jobseeker') {
-  const apps = await getMyApplications();
-  setApplications(apps.filter(a => a.status === 'Accepted' || a.status === 'Pending'));
-
+          const apps = await getMyApplications();
+          setApplications(
+            apps.filter((a) => ['Pending', 'Accepted'].includes(a.status as any))
+          );
         } else if (currentRole === 'employer') {
           const posts = await getMyJobPosts();
           const active = posts.filter(isActiveJob);
           setJobPosts(active);
 
-          const appsArrays = await Promise.all(active.map((post) => getApplicationsForJobPost(post.id)));
+          const appsArrays = await Promise.all(
+            active.map((post) => getApplicationsForJobPost(post.id))
+          );
           const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
           active.forEach((post, index) => {
             appsMap[post.id] = appsArrays[index];
@@ -129,6 +166,110 @@ const Messages: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, currentRole]);
 
+  // DEV SEED
+  // useEffect(() => {
+  //   if (!isDev || devSeededRef.current) return;
+  //   const as = getAsParam();
+  //   if (!as) return;
+
+  //   const hasAnyChats =
+  //     (as === 'jobseeker' && applications.length > 0) ||
+  //     (as === 'employer' &&
+  //       (jobPosts.length > 0 || Object.keys(jobPostApplications).length > 0));
+
+  //   if (hasAnyChats) return;
+
+  //   const now = Date.now();
+  //   if (as === 'jobseeker') {
+  //     const demoAppId = 'dev-app-1';
+  //     const demoEmployerId = 'dev-employer';
+  //     const demo: JobApplication = {
+  //       id: demoAppId,
+  //       status: 'Pending' as any,
+  //       job_post_id: 'dev-job-1' as any,
+  //       job_post: {
+  //         id: 'dev-job-1' as any,
+  //         title: 'Demo Job (Pending)',
+  //         employer: { id: demoEmployerId as any, username: 'Demo Employer' } as any,
+  //       } as any,
+  //     } as any;
+
+  //     setApplications([demo]);
+  //     setSelectedChat(demoAppId);
+
+  //     const demoMsgs: Message[] = [
+  //       {
+  //         id: 'dev-m1',
+  //         job_application_id: demoAppId,
+  //         sender_id: demoEmployerId,
+  //         recipient_id: profile?.id || 'dev-user',
+  //         content: 'Hi! This is a demo conversation. (Pending)',
+  //         created_at: new Date(now - 8 * 60 * 1000).toISOString(),
+  //         is_read: true,
+  //       },
+  //       {
+  //         id: 'dev-m2',
+  //         job_application_id: demoAppId,
+  //         sender_id: profile?.id || 'dev-user',
+  //         recipient_id: demoEmployerId,
+  //         content: 'Great, I can see the chat UI 👍',
+  //         created_at: new Date(now - 5 * 60 * 1000).toISOString(),
+  //         is_read: true,
+  //       },
+  //     ];
+  //     setMessages((p) => ({ ...p, [demoAppId]: demoMsgs }));
+  //     setUnreadCounts((p) => ({ ...p, [demoAppId]: 0 }));
+  //   }
+
+  //   if (as === 'employer') {
+  //     const demoJob: JobPost = {
+  //       id: 'dev-job-1' as any,
+  //       title: 'Demo Job (Active)',
+  //       status: 'Active' as any,
+  //     } as any;
+
+  //     const demoApplication: JobApplicationDetails = {
+  //       applicationId: 'dev-app-2',
+  //       job_post_id: demoJob.id,
+  //       username: 'Jane Demo',
+  //       userId: 'dev-js-1' as any,
+  //       status: 'Pending',
+  //       coverLetter: 'Hello! This is a demo cover letter.',
+  //       appliedAt: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
+  //     } as any;
+
+  //     setJobPosts([demoJob]);
+  //     setJobPostApplications({ [demoJob.id]: [demoApplication] });
+  //     setActiveJobId(demoJob.id);
+  //     setSelectedChat(demoApplication.applicationId);
+
+  //     const demoMsgs: Message[] = [
+  //       {
+  //         id: 'dev-m3',
+  //         job_application_id: demoApplication.applicationId,
+  //         sender_id: demoApplication.userId,
+  //         recipient_id: profile?.id || 'dev-employer',
+  //         content: 'Hi! I am interested in this job.',
+  //         created_at: new Date(now - 15 * 60 * 1000).toISOString(),
+  //         is_read: true,
+  //       },
+  //       {
+  //         id: 'dev-m4',
+  //         job_application_id: demoApplication.applicationId,
+  //         sender_id: profile?.id || 'dev-employer',
+  //         recipient_id: demoApplication.userId,
+  //         content: 'Thanks for reaching out! Let’s chat here.',
+  //         created_at: new Date(now - 10 * 60 * 1000).toISOString(),
+  //         is_read: true,
+  //       },
+  //     ];
+  //     setMessages((p) => ({ ...p, [demoApplication.applicationId]: demoMsgs }));
+  //     setUnreadCounts((p) => ({ ...p, [demoApplication.applicationId]: 0 }));
+  //   }
+
+  //   devSeededRef.current = true;
+  // }, [applications.length, jobPosts.length, jobPostApplications, profile]);
+
   // при смене выбранной вакансии — снимаем выделение чата
   useEffect(() => {
     setSelectedChat(null);
@@ -141,7 +282,10 @@ const Messages: React.FC = () => {
     });
   }, []);
 
-  const unreadKey = useMemo(() => `unreads_${profile?.id || 'anon'}`, [profile?.id]);
+  const unreadKey = useMemo(
+    () => `unreads_${profile?.id || 'anon'}`,
+    [profile?.id]
+  );
 
   useEffect(() => {
     try {
@@ -162,7 +306,12 @@ const Messages: React.FC = () => {
 
   // socket events
   useEffect(() => {
-    if (!socket || !profile || !currentRole || !['jobseeker', 'employer'].includes(currentRole)) {
+    if (
+      !socket ||
+      !profile ||
+      !currentRole ||
+      !['jobseeker', 'employer'].includes(currentRole)
+    ) {
       setUnreadCounts({});
       setIsTyping({});
       return;
@@ -174,10 +323,14 @@ const Messages: React.FC = () => {
         setMessages((prev) => ({
           ...prev,
           [jobApplicationId]: history.sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            (a, b) =>
+              new Date(a.created_at).getTime() -
+              new Date(b.created_at).getTime()
           ),
         }));
-        const unread = history.filter((msg) => msg.recipient_id === profile.id && !msg.is_read).length;
+        const unread = history.filter(
+          (msg) => msg.recipient_id === profile.id && !msg.is_read
+        ).length;
         setUnreadCounts((prevCounts) => ({
           ...prevCounts,
           [jobApplicationId]: selectedChat === jobApplicationId ? 0 : unread,
@@ -188,27 +341,39 @@ const Messages: React.FC = () => {
     socket.on('newMessage', (message: Message) => {
       setMessages((prev) => ({
         ...prev,
-        [message.job_application_id]: [...(prev[message.job_application_id] || []), message],
+        [message.job_application_id]: [
+          ...(prev[message.job_application_id] || []),
+          message,
+        ],
       }));
 
       const inOpenedChat = selectedChat === message.job_application_id;
 
       if (inOpenedChat) {
-        socket.emit('markMessagesAsRead', { jobApplicationId: message.job_application_id });
+        socket.emit('markMessagesAsRead', {
+          jobApplicationId: message.job_application_id,
+        });
         scrollToBottom(true);
       } else if (message.recipient_id === profile.id && !message.is_read) {
         setUnreadCounts((prev) => ({
           ...prev,
-          [message.job_application_id]: (prev[message.job_application_id] || 0) + 1,
+          [message.job_application_id]:
+            (prev[message.job_application_id] || 0) + 1,
         }));
       }
     });
 
-    socket.on('typing', (data: { userId: string; jobApplicationId: string; isTyping: boolean }) => {
-      if (data.userId !== profile.id) {
-        setIsTyping((prev) => ({ ...prev, [data.jobApplicationId]: data.isTyping }));
+    socket.on(
+      'typing',
+      (data: { userId: string; jobApplicationId: string; isTyping: boolean }) => {
+        if (data.userId !== profile.id) {
+          setIsTyping((prev) => ({
+            ...prev,
+            [data.jobApplicationId]: data.isTyping,
+          }));
+        }
       }
-    });
+    );
 
     type MessagesReadPayload = { data: Message[] } | Message[];
     socket.on('messagesRead', (payload: MessagesReadPayload) => {
@@ -220,7 +385,9 @@ const Messages: React.FC = () => {
       setMessages((prev) => {
         const prevList = prev[jobId] || [];
         const updates = new Map(list.map((m) => [m.id, m]));
-        const nextList = prevList.map((m) => (updates.has(m.id) ? { ...m, ...updates.get(m.id)! } : m));
+        const nextList = prevList.map((m) =>
+          updates.has(m.id) ? { ...m, ...updates.get(m.id)! } : m
+        );
         return { ...prev, [jobId]: nextList };
       });
 
@@ -238,7 +405,6 @@ const Messages: React.FC = () => {
     });
 
     socket.on('connect_error', (err) => {
-      console.error('WebSocket connection error:', err.message);
       setSocketStatus('reconnecting');
       if (err.message.includes('401')) {
         localStorage.removeItem('token');
@@ -273,7 +439,31 @@ const Messages: React.FC = () => {
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!socket || !selectedChat || !newMessage.trim()) return;
+    if (!selectedChat || !newMessage.trim()) return;
+
+    // dev-локал
+    // if (isDev && isDevDemoId(selectedChat)) {
+    //   const myId = profile?.id || 'dev-user';
+    //   const now = new Date().toISOString();
+    //   const msg: Message = {
+    //     id: 'dev-' + Math.random().toString(36).slice(2),
+    //     job_application_id: selectedChat,
+    //     sender_id: myId,
+    //     recipient_id: 'dev-other',
+    //     content: newMessage.trim(),
+    //     created_at: now,
+    //     is_read: true,
+    //   };
+    //   setMessages((p) => ({
+    //     ...p,
+    //     [selectedChat]: [...(p[selectedChat] || []), msg],
+    //   }));
+    //   setNewMessage('');
+    //   scrollToBottom(true);
+    //   return;
+    // }
+
+    if (!socket) return;
 
     if (typingTimeoutRef.current[selectedChat]) {
       clearTimeout(typingTimeoutRef.current[selectedChat]);
@@ -295,7 +485,9 @@ const Messages: React.FC = () => {
         .filter((app) => app.status === 'Pending' || app.status === 'Accepted')
         .map((app) => ({
           id: app.applicationId,
-          title: jobPosts.find((p) => p.id === app.job_post_id)?.title || 'Unknown Job',
+          title:
+            jobPosts.find((p) => p.id === app.job_post_id)?.title ||
+            'Unknown Job',
           partner: app.username,
           status: app.status,
           unreadCount: unreadCounts[app.applicationId] || 0,
@@ -316,8 +508,51 @@ const Messages: React.FC = () => {
       .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));
   }, [activeJobId, applications, jobPostApplications, jobPosts, unreadCounts, currentRole, messages]);
 
+  // все чаты — для верхнего пикера
+  const allChats = useMemo(() => {
+    if (currentRole === 'employer') {
+      return Object.values(jobPostApplications)
+        .flat()
+        .map((app) => ({
+          id: app.applicationId,
+          label: `${
+            jobPosts.find((p) => p.id === app.job_post_id)?.title || 'Job'
+          } — ${app.username}`,
+          job_post_id: app.job_post_id,
+        }))
+        .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));
+    }
+    // jobseeker
+    return applications
+      .map((app) => ({
+        id: app.id,
+        label: `${app.job_post?.title || 'Job'} — ${
+          app.job_post?.employer?.username || 'Employer'
+        }`,
+      }))
+      .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));
+  }, [jobPostApplications, jobPosts, applications, currentRole, messages]);
+
+  const selectedLabel = useMemo(() => {
+    const pool =
+      currentRole === 'employer'
+        ? Object.values(jobPostApplications).flat().map((a) => ({
+            id: a.applicationId,
+            label: `${
+              jobPosts.find((p) => p.id === a.job_post_id)?.title || 'Job'
+            } — ${a.username}`,
+          }))
+        : applications.map((a) => ({
+            id: a.id,
+            label: `${a.job_post?.title || 'Job'} — ${
+              a.job_post?.employer?.username || 'Employer'
+            }`,
+          }));
+    return pool.find((x) => x.id === selectedChat)?.label || 'Chats…';
+  }, [currentRole, jobPostApplications, jobPosts, applications, selectedChat]);
+
   const handleSelectChat = (jobApplicationId: string) => {
-    const exists = chatList.some((c) => c.id === jobApplicationId);
+    const exists = [...chatList, ...allChats].some((c: any) => c.id === jobApplicationId);
     if (!exists) {
       setSelectedChat(null);
       return;
@@ -325,6 +560,9 @@ const Messages: React.FC = () => {
 
     setSelectedChat(jobApplicationId);
     setUnreadCounts((prev) => ({ ...prev, [jobApplicationId]: 0 }));
+
+    // dev
+    // if (isDev && isDevDemoId(jobApplicationId)) return;
 
     if (socket?.connected) {
       if (!joinedSet.current.has(jobApplicationId)) {
@@ -342,7 +580,9 @@ const Messages: React.FC = () => {
         setMessages((prev) => ({
           ...prev,
           [jobApplicationId]: history.data.sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            (a, b) =>
+              new Date(a.created_at).getTime() -
+              new Date(b.created_at).getTime()
           ),
         }));
         setUnreadCounts((prev) => ({ ...prev, [jobApplicationId]: 0 }));
@@ -350,17 +590,24 @@ const Messages: React.FC = () => {
       .catch(() => setError('Failed to load chat history.'));
   };
 
-  // текущая заявка (для быстрых действий)
+  // текущая заявка (для действий работодателя)
   const currentApp = useMemo(() => {
     if (!selectedChat) return null;
-    return Object.values(jobPostApplications).flat().find((a) => a.applicationId === selectedChat) || null;
+    return (
+      Object.values(jobPostApplications)
+        .flat()
+        .find((a) => a.applicationId === selectedChat) || null
+    );
   }, [jobPostApplications, selectedChat]);
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!socket || !selectedChat) return;
+    if (!selectedChat) return;
 
     const content = e.target.value;
     setNewMessage(content);
+
+    if (isDev && isDevDemoId(selectedChat)) return;
+    if (!socket) return;
 
     socket.emit('typing', { jobApplicationId: selectedChat, isTyping: true });
 
@@ -382,32 +629,7 @@ const Messages: React.FC = () => {
       setBroadcastOpen(false);
       setBroadcastText('');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to send broadcast.');
-    }
-  };
-
-  const handleCreateReview = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reviewForm) return;
-    if (reviewForm.rating < 1 || reviewForm.rating > 5) {
-      setFormError('Rating must be between 1 and 5.');
-      return;
-    }
-    if (!reviewForm.comment.trim()) {
-      setFormError('Comment cannot be empty.');
-      return;
-    }
-    try {
-      setFormError(null);
-      await createReview({
-        job_application_id: reviewForm.applicationId,
-        rating: reviewForm.rating,
-        comment: reviewForm.comment,
-      });
-      alert('Review submitted successfully!');
-      setReviewForm(null);
-    } catch (err: any) {
-      setFormError(err.response?.data?.message || 'Failed to submit review.');
+      alert(err?.response?.data?.message || 'Failed to send broadcast.');
     }
   };
 
@@ -418,7 +640,8 @@ const Messages: React.FC = () => {
         <div className="ch-shell">
           <div className="ch-card">
             <h1 className="ch-title">
-              <FaComments />&nbsp;Messages
+              <FaComments />
+              &nbsp;Messages
             </h1>
             <p className="ch-subtitle">Loading chats…</p>
           </div>
@@ -434,9 +657,12 @@ const Messages: React.FC = () => {
         <div className="ch-shell">
           <div className="ch-card">
             <h1 className="ch-title">
-              <FaComments />&nbsp;Messages
+              <FaComments />
+              &nbsp;Messages
             </h1>
-            <div className="ch-alert ch-alert--err">This page is only available for jobseekers and employers.</div>
+            <div className="ch-alert ch-alert--err">
+              This page is only available for jobseekers and employers.
+            </div>
           </div>
         </div>
         <Footer />
@@ -452,68 +678,45 @@ const Messages: React.FC = () => {
         <div className="ch-card">
           <div className="ch-headrow">
             <h1 className="ch-title">
-              <FaComments />&nbsp;Messages
+              <FaComments />
+              &nbsp;Messages
             </h1>
             {socketStatus === 'reconnecting' && (
-              <div className="ch-alert ch-alert--err">Reconnecting to chat server…</div>
+              <div className="ch-alert ch-alert--err">
+                Reconnecting to chat server…
+              </div>
             )}
             {error && <div className="ch-alert ch-alert--err">{error}</div>}
           </div>
 
-          {/* Tabs + массовая рассылка + закрыть работу (только активные) */}
-          {currentRole === 'employer' && jobPosts.length > 0 && (
-            <div className="ch-jobs">
-              <div className="ch-jobs__tabs">
-                {jobPosts.map((job) => (
-                  <button
-                    key={job.id}
-                    className={`ch-jobs__tab ${activeJobId === job.id ? 'is-active' : ''}`}
-                    onClick={() => setActiveJobId(job.id)}
-                    title={job.title}
-                  >
-                    {job.title}
-                  </button>
-                ))}
+          {/* Top bar: единый выбор чата */}
+          <div className="ch-topbar">
+            <details className="ch-dd">
+              <summary>{selectedLabel}</summary>
+              <div className="ch-dd__menu">
+                <ul className="ch-dd__ul">
+                  {allChats.map((c: any) => (
+                    <li key={c.id}>
+                      <button
+                        className="ch-dd__item"
+                        onClick={() => {
+                          if ((c as any).job_post_id)
+                            setActiveJobId((c as any).job_post_id);
+                          handleSelectChat(c.id);
+                          (document.activeElement as HTMLElement)?.blur();
+                        }}
+                      >
+                        <span>{c.label}</span>
+                        {!!unreadCounts[c.id] && (
+                          <span className="ch-dd__badge">{unreadCounts[c.id]}</span>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               </div>
-
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  className="ch-broadcast"
-                  onClick={() => setBroadcastOpen(true)}
-                  disabled={!activeJobId}
-                  title="Send a message to all applicants of this job"
-                >
-                  <FaUsers /> Send message to all applicants
-                </button>
-                <button
-                  className="ch-broadcast"
-                  onClick={async () => {
-                    if (!activeJobId) return;
-                    if (!confirm('Close this job? It will stop receiving applications.')) return;
-                    try {
-                      await closeJobPost(activeJobId);
-                      // убрать вакансию из активных
-                      setJobPosts((prev) => prev.filter((p) => p.id !== activeJobId));
-                      setJobPostApplications((prev) => {
-                        const copy = { ...prev };
-                        delete copy[activeJobId];
-                        return copy;
-                      });
-                      // выбрать следующую активную
-                      const next = jobPosts.filter((p) => p.id !== activeJobId).filter(isActiveJob)[0];
-                      setActiveJobId(next?.id || null);
-                      setSelectedChat(null);
-                    } catch (e: any) {
-                      alert(e?.response?.data?.message || 'Failed to close the job.');
-                    }
-                  }}
-                  title="Close this job"
-                >
-                  Close job
-                </button>
-              </div>
-            </div>
-          )}
+            </details>
+          </div>
 
           <div className="ch-layout">
             {/* список чатов */}
@@ -524,16 +727,20 @@ const Messages: React.FC = () => {
                   {chatList.map((chat) => (
                     <li
                       key={chat.id}
-                      className={`ch-chatlist__item ${selectedChat === chat.id ? 'is-active' : ''} ${
-                        chat.unreadCount > 0 ? 'has-unread' : ''
-                      }`}
+                      className={`ch-chatlist__item ${
+                        selectedChat === chat.id ? 'is-active' : ''
+                      } ${chat.unreadCount > 0 ? 'has-unread' : ''}`}
                       onClick={() => handleSelectChat(chat.id)}
                       title={chat.partner}
                     >
                       <div className="ch-chatlist__meta">
                         <div className="ch-chatlist__row">
                           <strong className="ch-chatlist__job">{chat.title}</strong>
-                          {chat.unreadCount > 0 && <span className="ch-chatlist__badge">{chat.unreadCount}</span>}
+                          {chat.unreadCount > 0 && (
+                            <span className="ch-chatlist__badge">
+                              {chat.unreadCount}
+                            </span>
+                          )}
                         </div>
                         <div className="ch-chatlist__partner">{chat.partner}</div>
                       </div>
@@ -551,7 +758,10 @@ const Messages: React.FC = () => {
               {broadcastOpen && (
                 <div className="ch-modal">
                   <div className="ch-modal__content">
-                    <button className="ch-modal__close" onClick={() => setBroadcastOpen(false)}>
+                    <button
+                      className="ch-modal__close"
+                      onClick={() => setBroadcastOpen(false)}
+                    >
                       ×
                     </button>
                     <form onSubmit={handleBroadcast} className="ch-form">
@@ -577,10 +787,15 @@ const Messages: React.FC = () => {
               {coverPreview && (
                 <div className="ch-modal">
                   <div className="ch-modal__content">
-                    <button className="ch-modal__close" onClick={() => setCoverPreview(null)}>
+                    <button
+                      className="ch-modal__close"
+                      onClick={() => setCoverPreview(null)}
+                    >
                       ×
                     </button>
-                    <h4 className="ch-title" style={{ fontSize: 18, marginBottom: 8 }}>Cover Letter</h4>
+                    <h4 className="ch-title" style={{ fontSize: 18, marginBottom: 8 }}>
+                      Cover Letter
+                    </h4>
                     <p style={{ whiteSpace: 'pre-wrap' }}>{coverPreview}</p>
                   </div>
                 </div>
@@ -590,10 +805,41 @@ const Messages: React.FC = () => {
               {reviewForm && (
                 <div className="ch-modal">
                   <div className="ch-modal__content">
-                    <button className="ch-modal__close" onClick={() => setReviewForm(null)}>
+                    <button
+                      className="ch-modal__close"
+                      onClick={() => setReviewForm(null)}
+                    >
                       ×
                     </button>
-                    <form onSubmit={handleCreateReview} className="ch-form">
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!reviewForm) return;
+                        if (reviewForm.rating < 1 || reviewForm.rating > 5) {
+                          setFormError('Rating must be between 1 and 5.');
+                          return;
+                        }
+                        if (!reviewForm.comment.trim()) {
+                          setFormError('Comment cannot be empty.');
+                          return;
+                        }
+                        try {
+                          setFormError(null);
+                          await createReview({
+                            job_application_id: reviewForm.applicationId,
+                            rating: reviewForm.rating,
+                            comment: reviewForm.comment,
+                          });
+                          alert('Review submitted successfully!');
+                          setReviewForm(null);
+                        } catch (err: any) {
+                          setFormError(
+                            err?.response?.data?.message || 'Failed to submit review.'
+                          );
+                        }
+                      }}
+                      className="ch-form"
+                    >
                       <div className="ch-form__row">
                         <label className="ch-label">Rating (1–5)</label>
                         <input
@@ -602,7 +848,9 @@ const Messages: React.FC = () => {
                           max={5}
                           value={reviewForm.rating}
                           onChange={(e) =>
-                            setReviewForm((f) => (f ? { ...f, rating: Number(e.target.value) } : f))
+                            setReviewForm((f) =>
+                              f ? { ...f, rating: Number(e.target.value) } : f
+                            )
                           }
                           className="ch-input"
                         />
@@ -612,12 +860,18 @@ const Messages: React.FC = () => {
                         <textarea
                           className="ch-textarea"
                           value={reviewForm.comment}
-                          onChange={(e) => setReviewForm((f) => (f ? { ...f, comment: e.target.value } : f))}
+                          onChange={(e) =>
+                            setReviewForm((f) =>
+                              f ? { ...f, comment: e.target.value } : f
+                            )
+                          }
                           rows={4}
                           placeholder="Share your experience working with this person"
                         />
                       </div>
-                      {formError && <div className="ch-alert ch-alert--err">{formError}</div>}
+                      {formError && (
+                        <div className="ch-alert ch-alert--err">{formError}</div>
+                      )}
                       <button type="submit" className="ch-btn">
                         Submit review
                       </button>
@@ -633,84 +887,143 @@ const Messages: React.FC = () => {
                       Chat with{' '}
                       <span>
                         {currentRole === 'employer'
-                          ? chatList.find((c) => c.id === selectedChat)?.partner || 'Unknown'
-                          : applications.find((a) => a.id === selectedChat)?.job_post?.employer?.username ||
-                            'Unknown'}
+                          ? chatList.find((c) => c.id === selectedChat)?.partner ||
+                            'Unknown'
+                          : applications.find((a) => a.id === selectedChat)?.job_post
+                              ?.employer?.username || 'Unknown'}
                       </span>
                     </h3>
 
-                    {/* Quick actions */}
-                    {currentApp && (
-                      <div className="ch-chat__actions">
-                        <Link to={`/public-profile/${currentApp.userId}`} className="ch-miniBtn">
-                          View Profile
-                        </Link>
-                        {currentApp.coverLetter && (
-                          <button className="ch-miniBtn" onClick={() => setCoverPreview(currentApp.coverLetter!)}>
-                            Cover Letter
-                          </button>
-                        )}
-
-                        {currentRole === 'employer' && currentApp.status === 'Pending' && (
-                          <>
-                            <button
-                              className="ch-miniBtn"
-                              onClick={async () => {
-                                try {
-                                  await updateApplicationStatus(currentApp.applicationId, 'Accepted');
-                                  setJobPostApplications((prev) => {
-                                    const arr = prev[currentApp.job_post_id] ?? [];
-                                    const updated: JobApplicationDetails[] = arr.map((a) =>
-                                      a.applicationId === currentApp.applicationId
-                                        ? { ...a, status: 'Accepted' as JobApplicationDetails['status'] }
-                                        : a
-                                    );
-                                    return { ...prev, [currentApp.job_post_id]: updated };
-                                  });
-                                } catch (e: any) {
-                                  alert(e?.response?.data?.message || 'Failed to accept.');
-                                }
-                              }}
-                            >
-                              Accept
-                            </button>
-                            <button
-                              className="ch-miniBtn"
-                              onClick={async () => {
-                                if (!confirm('Reject this applicant? This will remove the chat.')) return;
-                                try {
-                                  await updateApplicationStatus(currentApp.applicationId, 'Rejected');
-                                  // удалить чат из списка и закрыть окно
-                                  setJobPostApplications((prev) => {
-                                    const arr = prev[currentApp.job_post_id] ?? [];
-                                    const updated: JobApplicationDetails[] = arr
-                                      .map((a) =>
-                                        a.applicationId === currentApp.applicationId
-                                          ? { ...a, status: 'Rejected' as JobApplicationDetails['status'] }
-                                          : a
-                                      )
-                                      .filter((a) => a.status !== 'Rejected');
-                                    return { ...prev, [currentApp.job_post_id]: updated };
-                                  });
-                                  setSelectedChat(null);
-                                } catch (e: any) {
-                                  alert(e?.response?.data?.message || 'Failed to reject.');
-                                }
-                              }}
-                            >
-                              Reject
-                            </button>
-                          </>
-                        )}
-
-                        <button
-                          className="ch-miniBtn"
-                          onClick={() =>
-                            setReviewForm({ applicationId: currentApp.applicationId, rating: 5, comment: '' })
-                          }
-                        >
-                          Leave review
-                        </button>
+                    {/* Actions dropdown (всегда вниз) */}
+                    {currentRole === 'employer' && currentApp && (
+                      <div className="ch-actions">
+                        <details className="ch-dd ch-dd--right">
+                          <summary>Actions…</summary>
+                          <div className="ch-dd__menu">
+                            <ul className="ch-dd__ul">
+                              <li>
+                                <button
+                                  className="ch-dd__item"
+                                  onClick={() =>
+                                    navigate(`/public-profile/${currentApp.userId}`)
+                                  }
+                                >
+                                  View profile
+                                </button>
+                              </li>
+                              {currentApp.coverLetter && (
+                                <li>
+                                  <button
+                                    className="ch-dd__item"
+                                    onClick={() =>
+                                      setCoverPreview(currentApp.coverLetter!)
+                                    }
+                                  >
+                                    Cover letter
+                                  </button>
+                                </li>
+                              )}
+                              {currentApp.status === 'Pending' && (
+                                <>
+                                  <li>
+                                    <button
+                                      className="ch-dd__item"
+                                      onClick={async () => {
+                                        try {
+                                          await updateApplicationStatus(
+                                            currentApp.applicationId,
+                                            'Accepted'
+                                          );
+                                          setJobPostApplications((prev) => {
+                                            const arr =
+                                              prev[currentApp.job_post_id] ?? [];
+                                            const updated = arr.map((a) =>
+                                              a.applicationId ===
+                                              currentApp.applicationId
+                                                ? { ...a, status: 'Accepted' as any }
+                                                : a
+                                            );
+                                            return {
+                                              ...prev,
+                                              [currentApp.job_post_id]: updated,
+                                            };
+                                          });
+                                        } catch (e: any) {
+                                          alert(
+                                            e?.response?.data?.message ||
+                                              'Failed to accept.'
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      Accept
+                                    </button>
+                                  </li>
+                                  <li>
+                                    <button
+                                      className="ch-dd__item"
+                                      onClick={async () => {
+                                        if (
+                                          !confirm(
+                                            'Reject this applicant? This will remove the chat.'
+                                          )
+                                        )
+                                          return;
+                                        try {
+                                          await updateApplicationStatus(
+                                            currentApp.applicationId,
+                                            'Rejected'
+                                          );
+                                          setJobPostApplications((prev) => {
+                                            const arr =
+                                              prev[currentApp.job_post_id] ?? [];
+                                            const updated = arr
+                                              .map((a) =>
+                                                a.applicationId ===
+                                                currentApp.applicationId
+                                                  ? {
+                                                      ...a,
+                                                      status: 'Rejected' as any,
+                                                    }
+                                                  : a
+                                              )
+                                              .filter((a) => a.status !== 'Rejected');
+                                            return {
+                                              ...prev,
+                                              [currentApp.job_post_id]: updated,
+                                            };
+                                          });
+                                          setSelectedChat(null);
+                                        } catch (e: any) {
+                                          alert(
+                                            e?.response?.data?.message ||
+                                              'Failed to reject.'
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      Reject
+                                    </button>
+                                  </li>
+                                </>
+                              )}
+                              <li>
+                                <button
+                                  className="ch-dd__item"
+                                  onClick={() =>
+                                    setReviewForm({
+                                      applicationId: currentApp.applicationId,
+                                      rating: 5,
+                                      comment: '',
+                                    })
+                                  }
+                                >
+                                  Leave review
+                                </button>
+                              </li>
+                            </ul>
+                          </div>
+                        </details>
                       </div>
                     )}
                   </div>
@@ -719,7 +1032,11 @@ const Messages: React.FC = () => {
                     {(messages[selectedChat] || []).map((msg) => (
                       <div
                         key={msg.id}
-                        className={`ch-bubble ${msg.sender_id === profile.id ? 'ch-bubble--me' : 'ch-bubble--them'}`}
+                        className={`ch-bubble ${
+                          msg.sender_id === profile.id
+                            ? 'ch-bubble--me'
+                            : 'ch-bubble--them'
+                        }`}
                       >
                         <div className="ch-bubble__text">{msg.content}</div>
                         <div className="ch-bubble__meta">
@@ -734,7 +1051,10 @@ const Messages: React.FC = () => {
                     <div ref={messagesEndRef} />
                   </div>
 
-                  <form onSubmit={handleSendMessage} className={`ch-composer ${!selectedChat ? 'is-disabled' : ''}`}>
+                  <form
+                    onSubmit={handleSendMessage}
+                    className={`ch-composer ${!selectedChat ? 'is-disabled' : ''}`}
+                  >
                     <input
                       type="text"
                       className="ch-input"
@@ -743,14 +1063,21 @@ const Messages: React.FC = () => {
                       placeholder={selectedChat ? 'Type a message…' : 'No chat selected'}
                       disabled={!selectedChat}
                     />
-                    <button type="submit" className="ch-send" title="Send" disabled={!selectedChat}>
+                    <button
+                      type="submit"
+                      className="ch-send"
+                      title="Send"
+                      disabled={!selectedChat}
+                    >
                       <FaPaperPlane />
                     </button>
                   </form>
                 </>
               ) : (
                 <div className="ch-thread">
-                  <p className="ch-muted">Select a chat in the list or wait for new applicants.</p>
+                  <p className="ch-muted">
+                    Select a chat in the list or pick one from “Chats…”.
+                  </p>
                 </div>
               )}
             </section>

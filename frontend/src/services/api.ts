@@ -593,16 +593,41 @@ export const submitComplaint = async (data: ComplaintData) => {
 };
 
 // Admin Endpoints
-export const getAllUsers = async (params: { username?: string; email?: string; createdAfter?: string; page?: number; limit?: number }) => {
-  const response = await api.get<PaginatedResponse<User>>('/admin/users', {
+// export const getAllUsers = async (params: { username?: string; email?: string; createdAfter?: string; page?: number; limit?: number }) => {
+//   const response = await api.get<PaginatedResponse<User>>('/admin/users', {
+//     params,
+//     headers: {
+//       'Cache-Control': 'no-cache',
+//     },
+//   });
+//   console.log('getAllUsers response:', response.data); // Лог ответа
+//   return response.data;
+// };
+
+
+// services/api.ts
+export const getAllUsers = async (params: {
+  username?: string;
+  email?: string;
+  id?: string; // точное совпадение
+  createdAfter?: string; // YYYY-MM-DD
+  role?: 'employer' | 'jobseeker' | 'admin' | 'moderator';
+  status?: 'active' | 'blocked';
+  page?: number;  // default: 1
+  limit?: number; // default: 10
+}) => {
+  const { data } = await api.get<PaginatedResponse<User>>('/admin/users', {
     params,
-    headers: {
-      'Cache-Control': 'no-cache',
-    },
   });
-  console.log('getAllUsers response:', response.data); // Лог ответа
-  return response.data;
+
+  if (import.meta?.env?.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('getAllUsers response:', data);
+  }
+
+  return data; // { total, data: User[] }
 };
+
 
 export const getJobApplicationById = async (applicationId: string) => {
   console.log(`Fetching job application with ID: ${applicationId}`);
