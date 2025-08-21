@@ -18,7 +18,7 @@ import {
 import { JobApplication, JobPost, JobApplicationDetails } from '@types';
 import { format } from 'date-fns';
 import { FaComments, FaPaperPlane, FaUsers } from 'react-icons/fa';
-import '../styles/messages.css';
+import '../styles/chat-hub.css';
 
 interface Message {
   id: string;
@@ -71,7 +71,6 @@ const Messages: React.FC = () => {
 
   const isActiveJob = (p: JobPost) => {
     const s = (p.status || '').toLowerCase();
-    // считаем НЕактивными любые "closed/archived/inactive"
     return !(s.includes('closed') || s.includes('archiv') || s.includes('inactive'));
   };
 
@@ -98,8 +97,9 @@ const Messages: React.FC = () => {
         setIsLoading(true);
 
         if (currentRole === 'jobseeker') {
-          const apps = await getMyApplications();
-          setApplications(apps.filter((a) => a.status === 'Accepted'));
+  const apps = await getMyApplications();
+  setApplications(apps.filter(a => a.status === 'Accepted' || a.status === 'Pending'));
+
         } else if (currentRole === 'employer') {
           const posts = await getMyJobPosts();
           const active = posts.filter(isActiveJob);
@@ -292,7 +292,7 @@ const Messages: React.FC = () => {
     if (currentRole === 'employer') {
       const list = activeJobId ? jobPostApplications[activeJobId] || [] : [];
       return list
-        .filter((app) => app.status === 'Pending' || app.status === 'Accepted') // только Pending/Accepted
+        .filter((app) => app.status === 'Pending' || app.status === 'Accepted')
         .map((app) => ({
           id: app.applicationId,
           title: jobPosts.find((p) => p.id === app.job_post_id)?.title || 'Unknown Job',
@@ -306,7 +306,6 @@ const Messages: React.FC = () => {
         .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));
     }
 
-    // jobseeker — только Accepted приходят из API выше
     return applications
       .map((app) => ({
         id: app.id,
@@ -416,12 +415,12 @@ const Messages: React.FC = () => {
     return (
       <div>
         <Header />
-        <div className="msg-shell">
-          <div className="msg-card">
-            <h1 className="msg-title">
+        <div className="ch-shell">
+          <div className="ch-card">
+            <h1 className="ch-title">
               <FaComments />&nbsp;Messages
             </h1>
-            <p className="msg-subtitle">Loading chats…</p>
+            <p className="ch-subtitle">Loading chats…</p>
           </div>
         </div>
       </div>
@@ -432,12 +431,12 @@ const Messages: React.FC = () => {
     return (
       <div>
         <Header />
-        <div className="msg-shell">
-          <div className="msg-card">
-            <h1 className="msg-title">
+        <div className="ch-shell">
+          <div className="ch-card">
+            <h1 className="ch-title">
               <FaComments />&nbsp;Messages
             </h1>
-            <div className="msg-alert msg-err">This page is only available for jobseekers and employers.</div>
+            <div className="ch-alert ch-alert--err">This page is only available for jobseekers and employers.</div>
           </div>
         </div>
         <Footer />
@@ -449,24 +448,26 @@ const Messages: React.FC = () => {
   return (
     <div>
       <Header />
-      <div className="msg-shell">
-        <div className="msg-card">
-          <div className="msg-headrow">
-            <h1 className="msg-title">
+      <div className="ch-shell">
+        <div className="ch-card">
+          <div className="ch-headrow">
+            <h1 className="ch-title">
               <FaComments />&nbsp;Messages
             </h1>
-            {socketStatus === 'reconnecting' && <div className="msg-alert msg-err">Reconnecting to chat server…</div>}
-            {error && <div className="msg-alert msg-err">{error}</div>}
+            {socketStatus === 'reconnecting' && (
+              <div className="ch-alert ch-alert--err">Reconnecting to chat server…</div>
+            )}
+            {error && <div className="ch-alert ch-alert--err">{error}</div>}
           </div>
 
           {/* Tabs + массовая рассылка + закрыть работу (только активные) */}
           {currentRole === 'employer' && jobPosts.length > 0 && (
-            <div className="msg-jobs">
-              <div className="msg-jobs-tabs">
+            <div className="ch-jobs">
+              <div className="ch-jobs__tabs">
                 {jobPosts.map((job) => (
                   <button
                     key={job.id}
-                    className={`msg-job-tab ${activeJobId === job.id ? 'is-active' : ''}`}
+                    className={`ch-jobs__tab ${activeJobId === job.id ? 'is-active' : ''}`}
                     onClick={() => setActiveJobId(job.id)}
                     title={job.title}
                   >
@@ -477,7 +478,7 @@ const Messages: React.FC = () => {
 
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
-                  className="msg-broadcast"
+                  className="ch-broadcast"
                   onClick={() => setBroadcastOpen(true)}
                   disabled={!activeJobId}
                   title="Send a message to all applicants of this job"
@@ -485,7 +486,7 @@ const Messages: React.FC = () => {
                   <FaUsers /> Send message to all applicants
                 </button>
                 <button
-                  className="msg-broadcast"
+                  className="ch-broadcast"
                   onClick={async () => {
                     if (!activeJobId) return;
                     if (!confirm('Close this job? It will stop receiving applications.')) return;
@@ -514,57 +515,57 @@ const Messages: React.FC = () => {
             </div>
           )}
 
-          <div className="msg-grid">
+          <div className="ch-layout">
             {/* список чатов */}
-            <aside className="msg-list-card">
-              <h3 className="msg-list-title">Chats</h3>
+            <aside className="ch-sidebar">
+              <h3 className="ch-sidebar__title">Chats</h3>
               {chatList.length > 0 ? (
-                <ul className="msg-list">
+                <ul className="ch-chatlist">
                   {chatList.map((chat) => (
                     <li
                       key={chat.id}
-                      className={`msg-list-item ${selectedChat === chat.id ? 'is-active' : ''} ${
+                      className={`ch-chatlist__item ${selectedChat === chat.id ? 'is-active' : ''} ${
                         chat.unreadCount > 0 ? 'has-unread' : ''
                       }`}
                       onClick={() => handleSelectChat(chat.id)}
                       title={chat.partner}
                     >
-                      <div className="msg-list-meta">
-                        <div className="msg-list-title-row">
-                          <strong className="msg-list-job">{chat.title}</strong>
-                          {chat.unreadCount > 0 && <span className="msg-unread">{chat.unreadCount}</span>}
+                      <div className="ch-chatlist__meta">
+                        <div className="ch-chatlist__row">
+                          <strong className="ch-chatlist__job">{chat.title}</strong>
+                          {chat.unreadCount > 0 && <span className="ch-chatlist__badge">{chat.unreadCount}</span>}
                         </div>
-                        <div className="msg-list-partner">{chat.partner}</div>
+                        <div className="ch-chatlist__partner">{chat.partner}</div>
                       </div>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="msg-muted">No chats for this job yet.</p>
+                <p className="ch-muted">No chats for this job yet.</p>
               )}
             </aside>
 
             {/* окно чата */}
-            <section className="msg-window-card">
+            <section className="ch-chat">
               {/* Broadcast modal */}
               {broadcastOpen && (
-                <div className="msg-modal">
-                  <div className="msg-modal-content">
-                    <button className="msg-modal-close" onClick={() => setBroadcastOpen(false)}>
+                <div className="ch-modal">
+                  <div className="ch-modal__content">
+                    <button className="ch-modal__close" onClick={() => setBroadcastOpen(false)}>
                       ×
                     </button>
-                    <form onSubmit={handleBroadcast} className="msg-review-form">
-                      <div className="msg-row">
-                        <label className="msg-label">Message to all applicants</label>
+                    <form onSubmit={handleBroadcast} className="ch-form">
+                      <div className="ch-form__row">
+                        <label className="ch-label">Message to all applicants</label>
                         <textarea
-                          className="msg-textarea"
+                          className="ch-textarea"
                           value={broadcastText}
                           onChange={(e) => setBroadcastText(e.target.value)}
                           rows={4}
                           placeholder="Type your message once — it will be sent to all applicants of this job"
                         />
                       </div>
-                      <button type="submit" className="msg-btn">
+                      <button type="submit" className="ch-btn">
                         <FaPaperPlane /> Send
                       </button>
                     </form>
@@ -574,12 +575,12 @@ const Messages: React.FC = () => {
 
               {/* Cover Letter modal */}
               {coverPreview && (
-                <div className="msg-modal">
-                  <div className="msg-modal-content">
-                    <button className="msg-modal-close" onClick={() => setCoverPreview(null)}>
+                <div className="ch-modal">
+                  <div className="ch-modal__content">
+                    <button className="ch-modal__close" onClick={() => setCoverPreview(null)}>
                       ×
                     </button>
-                    <h4 className="msg-title">Cover Letter</h4>
+                    <h4 className="ch-title" style={{ fontSize: 18, marginBottom: 8 }}>Cover Letter</h4>
                     <p style={{ whiteSpace: 'pre-wrap' }}>{coverPreview}</p>
                   </div>
                 </div>
@@ -587,14 +588,14 @@ const Messages: React.FC = () => {
 
               {/* Review modal */}
               {reviewForm && (
-                <div className="msg-modal">
-                  <div className="msg-modal-content">
-                    <button className="msg-modal-close" onClick={() => setReviewForm(null)}>
+                <div className="ch-modal">
+                  <div className="ch-modal__content">
+                    <button className="ch-modal__close" onClick={() => setReviewForm(null)}>
                       ×
                     </button>
-                    <form onSubmit={handleCreateReview} className="msg-review-form">
-                      <div className="msg-row">
-                        <label className="msg-label">Rating (1–5)</label>
+                    <form onSubmit={handleCreateReview} className="ch-form">
+                      <div className="ch-form__row">
+                        <label className="ch-label">Rating (1–5)</label>
                         <input
                           type="number"
                           min={1}
@@ -603,21 +604,21 @@ const Messages: React.FC = () => {
                           onChange={(e) =>
                             setReviewForm((f) => (f ? { ...f, rating: Number(e.target.value) } : f))
                           }
-                          className="msg-input"
+                          className="ch-input"
                         />
                       </div>
-                      <div className="msg-row">
-                        <label className="msg-label">Comment</label>
+                      <div className="ch-form__row">
+                        <label className="ch-label">Comment</label>
                         <textarea
-                          className="msg-textarea"
+                          className="ch-textarea"
                           value={reviewForm.comment}
                           onChange={(e) => setReviewForm((f) => (f ? { ...f, comment: e.target.value } : f))}
                           rows={4}
                           placeholder="Share your experience working with this person"
                         />
                       </div>
-                      {formError && <div className="msg-alert msg-err">{formError}</div>}
-                      <button type="submit" className="msg-btn">
+                      {formError && <div className="ch-alert ch-alert--err">{formError}</div>}
+                      <button type="submit" className="ch-btn">
                         Submit review
                       </button>
                     </form>
@@ -627,9 +628,10 @@ const Messages: React.FC = () => {
 
               {selectedChat ? (
                 <>
-                  <div className="msg-window-head">
-                    <h3 className="msg-chat-title">
-                      Chat with <span>
+                  <div className="ch-chat__head">
+                    <h3 className="ch-chat__title">
+                      Chat with{' '}
+                      <span>
                         {currentRole === 'employer'
                           ? chatList.find((c) => c.id === selectedChat)?.partner || 'Unknown'
                           : applications.find((a) => a.id === selectedChat)?.job_post?.employer?.username ||
@@ -639,12 +641,12 @@ const Messages: React.FC = () => {
 
                     {/* Quick actions */}
                     {currentApp && (
-                      <div className="msg-head-actions">
-                        <Link to={`/public-profile/${currentApp.userId}`} className="msg-mini-btn">
+                      <div className="ch-chat__actions">
+                        <Link to={`/public-profile/${currentApp.userId}`} className="ch-miniBtn">
                           View Profile
                         </Link>
                         {currentApp.coverLetter && (
-                          <button className="msg-mini-btn" onClick={() => setCoverPreview(currentApp.coverLetter!)}>
+                          <button className="ch-miniBtn" onClick={() => setCoverPreview(currentApp.coverLetter!)}>
                             Cover Letter
                           </button>
                         )}
@@ -652,19 +654,19 @@ const Messages: React.FC = () => {
                         {currentRole === 'employer' && currentApp.status === 'Pending' && (
                           <>
                             <button
-                              className="msg-mini-btn"
+                              className="ch-miniBtn"
                               onClick={async () => {
                                 try {
                                   await updateApplicationStatus(currentApp.applicationId, 'Accepted');
-                                 setJobPostApplications((prev) => {
-  const arr = prev[currentApp.job_post_id] ?? [];
-  const updated: JobApplicationDetails[] = arr.map((a) =>
-    a.applicationId === currentApp.applicationId
-      ? { ...a, status: 'Accepted' as JobApplicationDetails['status'] }
-      : a
-  );
-  return { ...prev, [currentApp.job_post_id]: updated };
-});
+                                  setJobPostApplications((prev) => {
+                                    const arr = prev[currentApp.job_post_id] ?? [];
+                                    const updated: JobApplicationDetails[] = arr.map((a) =>
+                                      a.applicationId === currentApp.applicationId
+                                        ? { ...a, status: 'Accepted' as JobApplicationDetails['status'] }
+                                        : a
+                                    );
+                                    return { ...prev, [currentApp.job_post_id]: updated };
+                                  });
                                 } catch (e: any) {
                                   alert(e?.response?.data?.message || 'Failed to accept.');
                                 }
@@ -673,24 +675,24 @@ const Messages: React.FC = () => {
                               Accept
                             </button>
                             <button
-                              className="msg-mini-btn"
+                              className="ch-miniBtn"
                               onClick={async () => {
                                 if (!confirm('Reject this applicant? This will remove the chat.')) return;
                                 try {
                                   await updateApplicationStatus(currentApp.applicationId, 'Rejected');
                                   // удалить чат из списка и закрыть окно
-                setJobPostApplications((prev) => {
-  const arr = prev[currentApp.job_post_id] ?? [];
-  const updated: JobApplicationDetails[] = arr
-    .map((a) =>
-      a.applicationId === currentApp.applicationId
-        ? { ...a, status: 'Rejected' as JobApplicationDetails['status'] }
-        : a
-    )
-    .filter((a) => a.status !== 'Rejected');
-  return { ...prev, [currentApp.job_post_id]: updated };
-});
-setSelectedChat(null);
+                                  setJobPostApplications((prev) => {
+                                    const arr = prev[currentApp.job_post_id] ?? [];
+                                    const updated: JobApplicationDetails[] = arr
+                                      .map((a) =>
+                                        a.applicationId === currentApp.applicationId
+                                          ? { ...a, status: 'Rejected' as JobApplicationDetails['status'] }
+                                          : a
+                                      )
+                                      .filter((a) => a.status !== 'Rejected');
+                                    return { ...prev, [currentApp.job_post_id]: updated };
+                                  });
+                                  setSelectedChat(null);
                                 } catch (e: any) {
                                   alert(e?.response?.data?.message || 'Failed to reject.');
                                 }
@@ -702,7 +704,7 @@ setSelectedChat(null);
                         )}
 
                         <button
-                          className="msg-mini-btn"
+                          className="ch-miniBtn"
                           onClick={() =>
                             setReviewForm({ applicationId: currentApp.applicationId, rating: 5, comment: '' })
                           }
@@ -713,45 +715,42 @@ setSelectedChat(null);
                     )}
                   </div>
 
-                  <div className="msg-thread">
+                  <div className="ch-thread">
                     {(messages[selectedChat] || []).map((msg) => (
                       <div
                         key={msg.id}
-                        className={`msg-bubble ${msg.sender_id === profile.id ? 'from-me' : 'from-them'}`}
+                        className={`ch-bubble ${msg.sender_id === profile.id ? 'ch-bubble--me' : 'ch-bubble--them'}`}
                       >
-                        <div className="msg-bubble-text">{msg.content}</div>
-                        <div className="msg-bubble-meta">
+                        <div className="ch-bubble__text">{msg.content}</div>
+                        <div className="ch-bubble__meta">
                           <span>{format(new Date(msg.created_at), 'PPpp')}</span>
-                          <span className={`msg-read ${msg.is_read ? 'is-read' : ''}`}>
+                          <span className={`ch-read ${msg.is_read ? 'is-read' : ''}`}>
                             {msg.is_read ? 'Read' : 'Unread'}
                           </span>
                         </div>
                       </div>
                     ))}
-                    {currentTyping && <div className="msg-typing">Typing…</div>}
+                    {currentTyping && <div className="ch-typing">Typing…</div>}
                     <div ref={messagesEndRef} />
                   </div>
 
-                  <form
-                    onSubmit={handleSendMessage}
-                    className={`msg-composer ${!selectedChat ? 'is-disabled' : ''}`}
-                  >
+                  <form onSubmit={handleSendMessage} className={`ch-composer ${!selectedChat ? 'is-disabled' : ''}`}>
                     <input
                       type="text"
-                      className="msg-input"
+                      className="ch-input"
                       value={newMessage}
                       onChange={handleTyping}
                       placeholder={selectedChat ? 'Type a message…' : 'No chat selected'}
                       disabled={!selectedChat}
                     />
-                    <button type="submit" className="msg-send-btn" title="Send" disabled={!selectedChat}>
+                    <button type="submit" className="ch-send" title="Send" disabled={!selectedChat}>
                       <FaPaperPlane />
                     </button>
                   </form>
                 </>
               ) : (
-                <div className="msg-thread">
-                  <p className="msg-muted">Select a chat in the list or wait for new applicants.</p>
+                <div className="ch-thread">
+                  <p className="ch-muted">Select a chat in the list or wait for new applicants.</p>
                 </div>
               )}
             </section>

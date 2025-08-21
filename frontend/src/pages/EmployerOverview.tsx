@@ -40,8 +40,8 @@ const EmployerOverview: React.FC = () => {
     return Number.isNaN(t) ? 0 : t;
   };
 
-  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
-const toggleRow = (id: string) => setExpandedRows(p => ({ ...p, [id]: !p[id] }));
+//   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+// const toggleRow = (id: string) => setExpandedRows(p => ({ ...p, [id]: !p[id] }));
 
   const recentApps = useMemo(() => {
     const arr = [...apps].sort((a, b) => timeFromApplied(b) - timeFromApplied(a));
@@ -142,41 +142,22 @@ const toggleRow = (id: string) => setExpandedRows(p => ({ ...p, [id]: !p[id] }))
                 <div>Status</div>
                 <div>Applied</div>
               </div>
-              <div className="edb-tbody">
-  {recentApps.map(a => {
-    const open = !!expandedRows[a.applicationId];
-    return (
-      <div key={a.applicationId} className={`edb-row edb-row--exp ${open ? 'is-open' : ''}`}>
-        <button className="edb-row__head" onClick={() => toggleRow(a.applicationId)}>
-          <div>{a.username || '—'}</div>
-          <div>{findTitle(a.job_post_id)}</div>
-          <div>
-            <span className={`edb-badge edb-badge--${(a.status || 'Pending').toLowerCase()}`}>
-              {statusIcon(a.status)}
-              <span className="edb-badge__text">{a.status}</span>
-            </span>
-          </div>
-          <div>{a.appliedAt ? new Date(a.appliedAt).toLocaleDateString() : '—'}</div>
-        </button>
-
-        {open && (
-          <div className="edb-row__expand">
-            <div className="edb-row__actions">
-              <Link
-                to="/employer-dashboard/messages"
-                state={{ jobPostId: a.job_post_id, applicationId: a.applicationId }}
-                className="edb-link"
-              >
-                Open chat
-              </Link>
-              <Link to={`/public-profile/${a.userId}`} className="edb-link">Profile</Link>
-              {!!a.coverLetter && <details className="edb-cover"><summary>Cover letter</summary><p>{a.coverLetter}</p></details>}
-            </div>
-          </div>
-        )}
+            <div className="edb-tbody">
+  {recentApps.map(a => (
+    <div key={a.applicationId} className="edb-row">
+      <div className="edb-row__head">
+        <div>{a.username || '—'}</div>
+        <div>{findTitle(a.job_post_id)}</div>
+        <div>
+          <span className={`edb-badge edb-badge--${(a.status || 'Pending').toLowerCase()}`}>
+            {statusIcon(a.status)}
+            <span className="edb-badge__text">{a.status}</span>
+          </span>
+        </div>
+        <div>{a.appliedAt ? new Date(a.appliedAt).toLocaleDateString() : '—'}</div>
       </div>
-    );
-  })}
+    </div>
+  ))}
 </div>
 
             </div>

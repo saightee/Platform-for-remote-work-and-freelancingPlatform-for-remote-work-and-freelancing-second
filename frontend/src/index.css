@@ -35,7 +35,7 @@ p {
   color: #888;
   font-style: italic;
 }
-button {
+/* button {
   background-color: #3498db;
   color: white;
   border: none;
@@ -45,7 +45,7 @@ button {
   transition: background-color 0.3s;
   font-family: 'Roboto', sans-serif;
   font-weight: 700;
-}
+} */
 
 /* button:hover {
   background-color: #2980b9;

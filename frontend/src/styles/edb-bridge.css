@@ -155,7 +155,7 @@
 .edb-kpi__value{ font-size:28px; font-weight:800; letter-spacing:.4px; }
 
 .edb-panels{ display:grid; gap:var(--edb-gap); grid-template-columns:1fr; }
-@media (min-width:1024px){ .edb-panels{ grid-template-columns:1fr 1fr; } }
+@media (min-width:1024px){ .edb-panels{ grid-template-columns:1fr; } }
 
 .edb-panel{
   background:#fff; border:1px solid var(--edb-border);
@@ -495,19 +495,6 @@
 .edb-kpi--clickable:focus, .edb-kpi--clickable:hover { box-shadow: 0 0 0 2px rgba(0,0,0,.06) inset; }
 
 
-.edb-row--exp { border-bottom: 1px solid #ececec; }
-.edb-row__head{
-  display:grid;
-  grid-template-columns:1.2fr 1.4fr .9fr .8fr;
-  gap:8px;
-  width:100%;
-  background:none;
-  border:0;
-  text-align:left;
-  padding:12px 0;
-  cursor:pointer;
-  color:#333;
-}
 
 
 .edb-row__expand{ padding:8px 0 14px; }
