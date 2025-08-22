@@ -221,40 +221,30 @@ const MyJobPosts: React.FC = () => {
   };
 
   // ✅ Accept => автоматически Reject всех остальных по этой вакансии
-  const handleUpdateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected', jobPostId: string) => {
-    try {
-      await updateApplicationStatus(applicationId, status);
+const handleUpdateApplicationStatus = async (
+  applicationId: string,
+  status: 'Accepted' | 'Rejected',
+  jobPostId: string
+) => {
+  try {
+    await updateApplicationStatus(applicationId, status);
 
-      if (status === 'Accepted') {
-        // Reject всех остальных, кто ещё не Accepted
-        const current = await getApplicationsForJobPost(jobPostId);
-        const others = (current || []).filter(a => a.applicationId !== applicationId && a.status !== 'Rejected');
-
-        // последовательно, чтобы не спамить (кол-во обычно небольшое)
-        for (const a of others) {
-          if (a.status !== 'Accepted') {
-            try {
-              await updateApplicationStatus(a.applicationId, 'Rejected');
-            } catch (e) {
-              console.warn('Failed to auto-reject', a.applicationId, e);
-            }
-          }
-        }
-        alert('Application accepted. Others have been rejected automatically.');
-        if (socket) socket.emit('joinChat', { jobApplicationId: applicationId });
-      } else {
-        alert('Application rejected.');
-      }
-
-      const updatedApps = await getApplicationsForJobPost(jobPostId);
-      setApplications({ jobPostId, apps: updatedApps || [] });
-    } catch (error: unknown) {
-      const err = error as AxiosError<{ message?: string }>;
-      console.error(`Error updating application ${applicationId} to ${status}:`, err);
-      const errorMsg = err.response?.data?.message || `Failed to ${status.toLowerCase()} application.`;
-      alert(errorMsg);
+    if (status === 'Accepted') {
+      alert('Application accepted.');
+      if (socket) socket.emit('joinChat', { jobApplicationId: applicationId });
+    } else {
+      alert('Application rejected.');
     }
-  };
+
+    const updatedApps = await getApplicationsForJobPost(jobPostId);
+    setApplications({ jobPostId, apps: updatedApps || [] });
+  } catch (error: unknown) {
+    const err = error as AxiosError<{ message?: string }>;
+    console.error(`Error updating application ${applicationId} to ${status}:`, err);
+    const errorMsg = err.response?.data?.message || `Failed to ${status.toLowerCase()} application.`;
+    alert(errorMsg);
+  }
+};
 
   const handleCreateReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -383,11 +373,11 @@ const MyJobPosts: React.FC = () => {
               // функции для отображения заявок
               const rawApps =
                 applications.jobPostId === post.id ? applications.apps : [];
-              const hasAccepted = rawApps.some(a => a.status === 'Accepted');
+              // const hasAccepted = rawApps.some(a => a.status === 'Accepted');
               const visibleApps =
-                post.status === 'Closed' || hasAccepted
-                  ? rawApps.filter(a => a.status === 'Accepted')
-                  : rawApps;
+  post.status === 'Closed'
+    ? rawApps.filter(a => a.status === 'Accepted')
+    : rawApps;
 
               return (
                 <div key={post.id} className="mjp-card">
