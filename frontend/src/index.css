@@ -7926,7 +7926,7 @@ html, body{ overflow-x: clip; }
 .hm-btn--primary{ background:var(--hm-primary); border-color:var(--hm-primary); color:#fff; }
 .hm-btn--outline{ background:#fff; color:var(--hm-primary); border-color:var(--hm-primary); }
 .hm-btn--outline:hover{ background:#ffffff; }
-.hm-btn--ghost{ color:#fff; border:1.5px solid var(--hm-border); }
+.hm-btn--ghost{ color:#333; border:1.5px solid var(--hm-border); }
 
 
 .hm-divider{ width:1px; height:18px; background:var(--hm-border); margin:0 4px; }
