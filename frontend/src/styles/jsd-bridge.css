@@ -49,7 +49,8 @@
   display:grid; place-items:center;
    border-radius:12px;
   border:1px solid var(--jsd-border); background:#fff; color:var(--jsd-text);
-  cursor:pointer;
+  cursor:pointer;     font-weight: bold;
+    font-size: 20px;
 }
 @media (min-width:1024px){ .jsd-topbar__burger{ display:none; } }
 
@@ -135,7 +136,7 @@
 
 .jsd-content{
   max-width:1200px; width:100%;
-  margin:0 auto; padding:16px;
+  margin:0 auto; padding:2px;
 }
 
 /* убираем верхние зазоры у первого видимого */
@@ -277,8 +278,8 @@
 
   /* порядок элементов */
   .jsd-topbar__burger{ order: 1; }
-  .jsd-topbar__logo  { order: 2; font-size: 18px; margin-left: 6px; }
-  .jsd-topbar__greet { order: 4; flex: 1 1 auto; min-width: 0; font-size: 12px; }
+  .jsd-topbar__logo  { order: 2; font-size: 22px; margin-left: 6px; }
+  .jsd-topbar__greet { order: 4; flex: 1 1 auto; min-width: 0; font-size: 14px; }
 
   /* CTA Find Job (подстраховка по разным классам/разметке) */
   .jsd-topbar__cta,
@@ -293,7 +294,7 @@
   .jsd-topbar__logout{
     order: 6;
     padding: 8px 10px;
-    font-size: 13px;
+    font-size: 15px;
     margin-left: 8px;
     border-radius: 10px;
   }
