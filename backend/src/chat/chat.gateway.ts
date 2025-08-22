@@ -56,27 +56,22 @@ export class ChatGateway {
     try {
       const raw = client.handshake.auth?.token;
       const token = raw?.replace(/^Bearer\s+/i, '');
-      if (!token) {
-        throw new UnauthorizedException('Token is required');
-      }
-
+      if (!token) throw new UnauthorizedException('Token is required');
+    
+      // Секрет берётся из JwtModule (env), без ручного указания
       const payload = this.jwtService.verify(token);
-
+    
       client.data.userId = payload.sub;
       client.data.role = payload.role;
       client.data.joinedRooms = new Set<string>();
-
+    
       await this.redisService.set(`socket:${payload.sub}`, client.id, 3600);
-
+    
       const userRoom = `user:${client.data.userId}`;
       client.join(userRoom);
-      console.log(`User ${client.data.userId} joined personal room ${userRoom}`);
+      console.log(`User ${client.data.userId} joined ${userRoom}`);
     } catch (err: any) {
-      const msg =
-        err?.name === 'TokenExpiredError'
-          ? 'Token expired'
-          : err?.message || 'Unauthorized';
-      console.error(`WebSocket connection error: ${msg}`);
+      const msg = err?.name === 'TokenExpiredError' ? 'Token expired' : err?.message || 'Unauthorized';
       client.emit('error', { message: msg });
       client.disconnect();
     }
@@ -140,16 +135,9 @@ export class ChatGateway {
   ) {
     const { jobApplicationId, content } = data;
     const senderId = client.data.userId;
-    console.log(
-      `SendMessage attempt: userId=${senderId}, jobApplicationId=${jobApplicationId}, content="${content}"`
-    );
 
     try {
-      const message = await this.chatService.createMessage(
-        senderId,
-        jobApplicationId,
-        content
-      );
+      const message = await this.chatService.createMessage(senderId, jobApplicationId, content);
 
       const chatRoom = `chat:${jobApplicationId}`;
       const recipientRoom = `user:${message.recipient_id}`;
@@ -157,14 +145,8 @@ export class ChatGateway {
       this.server.to(chatRoom).emit('newMessage', message);
       this.server.to(recipientRoom).except(chatRoom).emit('newMessage', message);
 
-      console.log(
-        `Message delivered: chatRoom=${chatRoom}, recipientRoom=${recipientRoom}, sender=${senderId}`
-      );
       return message;
     } catch (error: any) {
-      console.error(
-        `SendMessage error for user ${senderId}: ${error.message}`
-      );
       client.emit('error', { message: error.message });
     }
   }
@@ -220,21 +202,17 @@ export class ChatGateway {
   ) {
     const employerId = client.data.userId;
     const { jobPostId, content } = data;
-
-    const saved = await this.chatService.broadcastToApplicants(
-      employerId,
-      jobPostId,
-      content
-    );
-
+  
+    const saved = await this.chatService.broadcastToApplicants(employerId, jobPostId, content);
+  
     for (const msg of saved) {
       const chatRoom = `chat:${msg.job_application_id}`;
       const recipientRoom = `user:${msg.recipient_id}`;
-
+    
       this.server.to(chatRoom).emit('newMessage', msg);
       this.server.to(recipientRoom).except(chatRoom).emit('newMessage', msg);
     }
-
+  
     return { sent: saved.length };
   }
 }
