@@ -974,10 +974,23 @@ export const searchTalents = async (params: {
   return response.data;
 };
 
+// export const checkJobApplicationStatus = async (job_post_id: string) => {
+//   const response = await api.get<{ hasApplied: boolean }>(`/job-applications/check/${job_post_id}`);
+//   return response.data;
+// };
+
+// services/api.ts
 export const checkJobApplicationStatus = async (job_post_id: string) => {
-  const response = await api.get<{ hasApplied: boolean }>(`/job-applications/check/${job_post_id}`);
-  return response.data;
+  try {
+    const { data } = await api.get<{ hasApplied: boolean }>(`/job-applications/check/${job_post_id}`);
+    return data;
+  } catch (e: any) {
+    if (e?.response?.status === 404) return { hasApplied: false };
+    throw e;
+  }
 };
+
+
 
 export const sendApplicationNotification = async (applicationId: string, status: 'Accepted' | 'Rejected') => {
   const response = await api.post(`/job-applications/${applicationId}/notify`, { status });

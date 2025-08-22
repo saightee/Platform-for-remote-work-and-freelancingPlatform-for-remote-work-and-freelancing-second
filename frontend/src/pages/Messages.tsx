@@ -103,6 +103,20 @@ const Messages: React.FC = () => {
     .forEach(d => d.removeAttribute('open'));
 }, []);
 
+const joinAllMyChats = useCallback((ids: string[]) => {
+  if (!socket) return;
+  ids.forEach((id) => {
+    if (joinedSet.current.has(id)) return;
+    if (socket.connected) {
+      socket.emit('joinChat', { jobApplicationId: id });
+      joinedSet.current.add(id);
+    } else {
+      joinQueue.current.push(id);
+    }
+  });
+}, [socket]);
+
+
 useEffect(() => {
   const onDocClick = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -159,6 +173,7 @@ useEffect(() => {
           setApplications(
             apps.filter((a) => ['Pending', 'Accepted'].includes(a.status as any))
           );
+          joinAllMyChats(apps.map(a => a.id));
         } else if (currentRole === 'employer') {
           const posts = await getMyJobPosts();
           const active = posts.filter(isActiveJob);
@@ -172,7 +187,8 @@ useEffect(() => {
             appsMap[post.id] = appsArrays[index];
           });
           setJobPostApplications(appsMap);
-
+const allAppIds = appsArrays.flat().map(a => a.applicationId);
+joinAllMyChats(allAppIds);
           if (!activeJobId && active[0]) setActiveJobId(active[0].id);
           if (preselectApplicationId) setSelectedChat(preselectApplicationId);
         }

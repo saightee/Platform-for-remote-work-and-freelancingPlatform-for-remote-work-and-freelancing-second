@@ -39,6 +39,7 @@ const JobDetails: React.FC = () => {
         if (id) {
           setLoading(true);
           setError(null);
+          setHasApplied(null);
           const jobData = await getJobPost(id);
           setJob(jobData);
           if (!viewed.current) {
@@ -50,10 +51,16 @@ const JobDetails: React.FC = () => {
               console.error('Error incrementing job view:', viewError);
             }
           }
-          if (profile?.role === 'jobseeker') {
-            const applicationStatus = await checkJobApplicationStatus(id);
-            setHasApplied(applicationStatus.hasApplied);
-          }
+         if (profile?.role === 'jobseeker') {
+  try {
+    const applicationStatus = await checkJobApplicationStatus(id);
+    setHasApplied(applicationStatus.hasApplied);
+  } catch (e) {
+    console.warn('check status failed → assume not applied', e);
+    // если проверка упала (например, 404), не ломаем UI — показываем кнопку Apply
+    setHasApplied(false);
+  }
+}
         }
       } catch (err: any) {
         console.error('Error fetching job:', err);
@@ -72,23 +79,32 @@ const handleApply = async () => {
   setIsApplyModalOpen(true);
 };
 
-  const submitApply = async () => {
-    if (!coverLetter.trim()) {
-      setError('Cover letter is required.');
+const submitApply = async () => {
+  if (!coverLetter.trim()) {
+    setError('Cover letter is required.');
+    return;
+  }
+  try {
+    if (id) {
+      await applyToJobPost(id, coverLetter);
+      setHasApplied(true);
+      setIsApplyModalOpen(false);
+      navigate('/my-applications');
+    }
+  } catch (err: any) {
+    console.error('Error applying to job:', err);
+    const msg: string = err?.response?.data?.message || '';
+
+    // если бек говорит, что уже откликались — не считаем это фатальной ошибкой
+    if ((err?.response?.status === 400 || err?.response?.status === 409) && /already applied/i.test(msg)) {
+      setHasApplied(true);
+      setIsApplyModalOpen(false);
       return;
     }
-    try {
-      if (id) {
-        await applyToJobPost(id, coverLetter);
-        setHasApplied(true);
-        setIsApplyModalOpen(false);
-        navigate('/my-applications');
-      }
-    } catch (err: any) {
-      console.error('Error applying to job:', err);
-      setError(err.response?.data?.message || 'Failed to apply. Please try again.');
-    }
-  };
+
+    setError(msg || 'Failed to apply. Please try again.');
+  }
+};
 
   const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
     if (!dateString) return 'Not specified';

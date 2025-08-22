@@ -7919,7 +7919,7 @@ html, body{ overflow-x: clip; }
 .hm-btn{
   text-decoration: none;
   border-radius:10px; padding:8px 14px; font-weight:700; font-size:14px;
-  border:2px solid transparent; cursor:pointer; line-height:1;
+  border:2px solid transparent; cursor:pointer; line-height:1; color: #333;
   /* transition:background-color .2s, color .2s, border-color .2s, transform .15s; */
 }
 .hm-btn:active{ transform:translateY(1px); }
