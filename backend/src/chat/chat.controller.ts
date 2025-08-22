@@ -2,12 +2,14 @@ import { Controller, Get, Post, Body, Param, Headers, UnauthorizedException, Use
 import { AuthGuard } from '@nestjs/passport';
 import { JwtService } from '@nestjs/jwt';
 import { ChatService } from './chat.service';
+import { ChatGateway } from './chat.gateway';
 
 @Controller('chat')
 export class ChatController {
   constructor(
     private chatService: ChatService,
     private jwtService: JwtService,
+    private chatGateway: ChatGateway,
   ) {}
 
   @UseGuards(AuthGuard('jwt'))
@@ -51,11 +53,21 @@ export class ChatController {
     if (!content || !content.trim()) {
       throw new BadRequestException('Content is required');
     }
+
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const userId = payload.sub;
-  
+
     const saved = await this.chatService.broadcastToApplicants(userId, jobPostId, content);
+
+    for (const msg of saved) {
+      const chatRoom = `chat:${msg.job_application_id}`;
+      const recipientRoom = `user:${msg.recipient_id}`;
+
+      this.chatGateway.server.to(chatRoom).emit('newMessage', msg);
+      this.chatGateway.server.to(recipientRoom).except(chatRoom).emit('newMessage', msg);
+    }
+
     return { sent: saved.length };
   }
 }
