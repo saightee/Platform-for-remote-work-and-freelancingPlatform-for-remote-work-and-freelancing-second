@@ -1382,6 +1382,13 @@ const handleViewJobApplications = async (jobPostId: string) => {
   }
 };
 
+const triggerUserSearch = () => {
+  const q = buildUserSearch(1); // соберёт id/email/username + page=1
+  fetchUsers(q);                // явно шлём запрос
+  if (userPage !== 1) setUserPage(1); // чтобы пагинация вернулась на первую
+};
+
+
   const handleViewChatHistory = async (jobApplicationId: string, page: number = 1) => {
   try {
     setError(null);
@@ -1806,28 +1813,30 @@ if (isLoading) {
   {fetchErrors.getAllUsers && <p className="error-message">{fetchErrors.getAllUsers}</p>}
   
   {/* Добавлено: search bar */}
-  <div className="search_users" style={{ marginBottom: '10px' }}>
+<div className="search_users" style={{ marginBottom: '10px' }}>
   <input
     type="text"
-    placeholder="Search by username or email"
+    placeholder="Search by username, email or ID"
     value={searchQuery}
     onChange={(e) => setSearchQuery(e.target.value)}
     onKeyDown={(e) => {
       if (e.key === 'Enter') {
-        setUserPage(1);
-        // fetchUsers(buildUserSearch(1));
+        e.preventDefault();
+        triggerUserSearch();
       }
     }}
   />
   <button
-    type="button"                               // ← на всякий
-    onClick={() => { setUserPage(1); }}
+    type="button"
+    onClick={triggerUserSearch}
     className="action-button"
     disabled={isUsersLoading}
+    aria-label="Search users"
   >
     <FaSearch />
   </button>
 </div>
+
   
   
    <table className="dashboard-table">
