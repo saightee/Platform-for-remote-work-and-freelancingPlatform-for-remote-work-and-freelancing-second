@@ -524,7 +524,7 @@ const PostJob: React.FC = () => {
                       type="button"
                       onClick={() => handleGenerate(true)}
                       className="cs-button pjx-regenerate"
-                      disabled={isGenerating}
+                      disabled={isSubmitting || isGenerating}
                       title="Regenerate with AI"
                     >
                       <FaRedo /> Regenerate

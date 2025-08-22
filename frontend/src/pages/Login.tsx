@@ -37,10 +37,13 @@ const [cooldown, setCooldown] = useState(0);
       console.log('Token stored:', response.accessToken);
       await refreshProfile();
       setIsAuthenticated(true);
-   } catch (error: any) {
- const msg = error.response?.data?.message || '';
+} catch (error: any) {
+  const msg = error.response?.data?.message || '';
   if (error.response?.status === 401 && /confirm your email/i.test(msg)) {
-    navigate('/check-email', { state: { email } });
+    // раньше было: navigate('/check-email', { state: { email } });
+    setUnverifiedEmail(email);                       // <-- показываем баннер
+    localStorage.setItem('pendingEmail', email);     // <-- пригодится для callback'а
+    setErrorMessage('Please confirm your email before logging in.');
     return;
   }
   setErrorMessage(msg || 'Login failed. Please try again.');
@@ -49,18 +52,48 @@ const [cooldown, setCooldown] = useState(0);
     }
   };
 
+  // useEffect(() => {
+  //   console.log('Login useEffect, isAuthenticated:', isAuthenticated, 'profile:', profile, 'currentRole:', currentRole);
+  //   if (isAuthenticated && currentRole) {
+  //     if (currentRole === 'admin') {
+  //       navigate('/admin');
+  //     } else if (currentRole === 'moderator') {
+  //       navigate('/moderator');
+  //     } else {
+  //       navigate('/');
+  //     }
+  //   }
+  // }, [isAuthenticated, currentRole, navigate]);
+
   useEffect(() => {
-    console.log('Login useEffect, isAuthenticated:', isAuthenticated, 'profile:', profile, 'currentRole:', currentRole);
-    if (isAuthenticated && currentRole) {
-      if (currentRole === 'admin') {
-        navigate('/admin');
-      } else if (currentRole === 'moderator') {
-        navigate('/moderator');
-      } else {
-        navigate('/');
-      }
-    }
-  }, [isAuthenticated, currentRole, navigate]);
+  console.log(
+    'Login useEffect, isAuthenticated:',
+    isAuthenticated,
+    'profile:', profile,
+    'currentRole:', currentRole
+  );
+
+  if (!isAuthenticated) return;
+
+  // подстрахуемся, если currentRole ещё не проставлен
+  const role = currentRole || profile?.role;
+  if (!role) return;
+
+  const go = (path: string) => navigate(path, { replace: true });
+
+  if (role === 'admin') {
+    go('/admin');
+  } else if (role === 'moderator') {
+    go('/moderator');
+  } else if (role === 'employer') {
+    go('/employer-dashboard');       // <-- сюда отправляем работодателя
+  } else if (role === 'jobseeker') {
+    go('/jobseeker-dashboard');      // опционально: дашборд соискателя
+  } else {
+    go('/');
+  }
+}, [isAuthenticated, currentRole, profile?.role, navigate]);
+
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -140,17 +173,23 @@ const onResendFromLogin = async () => {
     <label htmlFor="login-remember-me">Remember Me</label>
   </div>
   <button type="submit" className="login-button">Sign In</button>
-  <div className="login-form-links">
-    <p>
-      Forgotten your password? <Link to="/forgot-password">Reset</Link>
-    </p>
-    <p>
-      Don’t have an account? <Link to="/role-selection">Register</Link>
-    </p>
-    <p>
-      <Link to="/">Go to Home</Link>
-    </p>
-  </div>
+<div className="login-form-links">
+  <p>
+    Forgotten your password? <Link to="/forgot-password">Reset</Link>
+  </p>
+  <p>
+    Don’t have an account? <Link to="/role-selection">Register</Link>
+  </p>
+  <p>
+    Didn’t get the verification email?{' '}
+    <Link to="/check-email" state={{ email }}>
+      Resend verification
+    </Link>
+  </p>
+  <p>
+    <Link to="/">Go to Home</Link>
+  </p>
+</div>
 </form>
 
 {unverifiedEmail && (

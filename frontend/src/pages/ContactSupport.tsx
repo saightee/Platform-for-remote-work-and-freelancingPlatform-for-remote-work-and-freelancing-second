@@ -1,23 +1,49 @@
-import React, { useMemo, useState } from 'react';
+// src/pages/ContactSupport.tsx
+import React, { useMemo, useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { contactSupport } from '../services/api';
+import { contactSupport, getProfile } from '../services/api';
+import Turnstile from '../components/Turnstile';          // 👈 заменили
 import '../styles/contact-support.css';
+
+const SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY; // 👈
 
 const ContactSupport: React.FC = () => {
   const location = useLocation();
   const embedded = useMemo(
-    () => location.pathname.startsWith('/employer-dashboard') || location.pathname.startsWith('/jobseeker-dashboard'),
+    () =>
+      location.pathname.startsWith('/employer-dashboard') ||
+      location.pathname.startsWith('/jobseeker-dashboard'),
     [location.pathname]
   );
 
-  const [form, setForm] = useState({ name: '', email: '', message: '', website: '' }); // website — honeypot
-  const [captchaToken] = useState<string | undefined>(undefined); // при необходимости интегрируешь рекапчу сюда
+  const [form, setForm] = useState({ name: '', email: '', message: '', website: '' });
+  const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [ok, setOk] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [isAuthed, setIsAuthed] = useState(false);         // 👈 авторизован ли юзер
+
+  // автозаполнение для авторизованных
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    (async () => {
+      try {
+        const p = await getProfile();
+        setIsAuthed(true);                                  // 👈 гость/не гость
+        setForm(f => ({
+          ...f,
+          name: p.username || f.name,
+          email: (p as any).email || f.email,
+        }));
+      } catch {
+        setIsAuthed(false);
+      }
+    })();
+  }, []);
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -33,8 +59,10 @@ const ContactSupport: React.FC = () => {
     if (msg.length < 10 || msg.length > 2000) return 'Message must be 10–2000 characters';
     if (/https?:\/\/|www\.|<[^>]*>/.test(msg)) return 'Links and HTML are not allowed';
     if (form.website && form.website.trim() !== '') return 'Forbidden'; // honeypot
+    // Требуем капчу только для гостей и только если site key задан
+    if (!isAuthed && SITE_KEY && !captchaToken) return 'Please complete the CAPTCHA';
     return null;
-    };
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,16 +76,17 @@ const ContactSupport: React.FC = () => {
         name: form.name.trim(),
         email: form.email.trim(),
         message: form.message.trim(),
-        captchaToken,
-        website: form.website, // останется пустым (honeypot)
+        captchaToken: !isAuthed ? captchaToken : undefined,   // 👈 гость — отправляем
+        website: '',                                          // honeypot
       });
       setOk('Your message has been sent. We’ll get back to you soon.');
       setForm({ name: '', email: '', message: '', website: '' });
+      setCaptchaToken(undefined);
     } catch (e: any) {
       const msg =
-        e?.response?.status === 429 ? 'Too many requests. Please try again later.'
-        : e?.response?.status === 403 ? 'Captcha or honeypot failed.'
-        : e?.response?.data?.message || 'Failed to send message.';
+        e?.response?.status === 429 ? 'Too many requests. Please try again later.' :
+        e?.response?.status === 403 ? 'Captcha or honeypot failed.' :
+        e?.response?.data?.message || 'Failed to send message.';
       setErr(msg);
     } finally {
       setSubmitting(false);
@@ -121,7 +150,7 @@ const ContactSupport: React.FC = () => {
               <div className="cs-hint">No links or HTML allowed.</div>
             </div>
 
-            {/* Honeypot (скрытое поле) */}
+            {/* Honeypot — скрыто */}
             <input
               name="website"
               value={form.website}
@@ -129,10 +158,21 @@ const ContactSupport: React.FC = () => {
               className="cs-honeypot"
               autoComplete="off"
               tabIndex={-1}
+              aria-hidden="true"
             />
 
-            {/* CAPTCHA: при необходимости вставишь компонент и писать setCaptchaToken(...) */}
-            {/* <ReCAPTCHA sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY} onChange={setCaptchaToken} /> */}
+            {/* Turnstile — показываем только гостям и только если есть site key */}
+            {!isAuthed && SITE_KEY && (
+              <div style={{ margin: '8px 0 16px' }}>
+                <Turnstile
+                  siteKey={SITE_KEY}
+                  onVerify={(t) => setCaptchaToken(t)}
+                  onExpire={() => setCaptchaToken(undefined)}
+                  onError={() => setCaptchaToken(undefined)}
+                  theme="auto"
+                />
+              </div>
+            )}
 
             <button className="cs-button" type="submit" disabled={submitting}>
               {submitting ? 'Sending…' : 'Send message'}

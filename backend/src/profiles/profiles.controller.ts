@@ -56,19 +56,20 @@ export class ProfilesController {
   @UseGuards(AuthGuard('jwt'))
   async updateProfile(
     @Headers('authorization') authHeader: string,
-    @Body() body: { 
-      role?: string; 
-      skillIds?: string[]; 
-      experience?: string; 
+    @Body() body: {
+      role?: string;
+      username?: string;
+      skillIds?: string[];
+      experience?: string;
       description?: string;
-      portfolio?: string; 
+      portfolio?: string;
       video_intro?: string;
-      resume?: string; 
-      timezone?: string; 
-      currency?: string; 
-      company_name?: string; 
-      company_info?: string; 
-      referral_link?: string 
+      resume?: string;
+      timezone?: string;
+      currency?: string;
+      company_name?: string;
+      company_info?: string;
+      referral_link?: string;
     },
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

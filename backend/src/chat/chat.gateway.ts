@@ -54,29 +54,25 @@ export class ChatGateway {
 
   async handleConnection(client: Socket) {
     try {
-      const token = client.handshake.auth.token?.replace('Bearer ', '');
-      console.log(`WebSocket connection attempt, namespace: ${client.nsp.name}, token: ${token ? '[present]' : 'missing'}, transport: ${client.conn.transport.name}, clientIP: ${client.handshake.address}`);
-      if (!token) {
-        throw new UnauthorizedException('Token is required');
-      }
-      const payload = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_SECRET', 'mySuperSecretKey123!@#ForLocalDev2025'),
-      });
-      console.log(`WebSocket connected: userId=${payload.sub}, role=${payload.role}, socketId=${client.id}`);
-      
-      const oldSocketId = await this.redisService.get(`socket:${payload.sub}`);
-      if (oldSocketId && oldSocketId !== client.id) {
-        console.log(`Removing old socket for userId=${payload.sub}, oldSocketId=${oldSocketId}`);
-        await this.redisService.del(`socket:${payload.sub}`);
-      }
-
+      const raw = client.handshake.auth?.token;
+      const token = raw?.replace(/^Bearer\s+/i, '');
+      if (!token) throw new UnauthorizedException('Token is required');
+    
+      // Секрет берётся из JwtModule (env), без ручного указания
+      const payload = this.jwtService.verify(token);
+    
       client.data.userId = payload.sub;
       client.data.role = payload.role;
-      client.data.joinedRooms = new Set<string>(); 
+      client.data.joinedRooms = new Set<string>();
+    
       await this.redisService.set(`socket:${payload.sub}`, client.id, 3600);
-    } catch (error) {
-      console.error(`WebSocket connection error: ${error.message}, namespace: ${client.nsp.name}, clientIP: ${client.handshake.address}`);
-      client.emit('error', { message: error.message });
+    
+      const userRoom = `user:${client.data.userId}`;
+      client.join(userRoom);
+      console.log(`User ${client.data.userId} joined ${userRoom}`);
+    } catch (err: any) {
+      const msg = err?.name === 'TokenExpiredError' ? 'Token expired' : err?.message || 'Unauthorized';
+      client.emit('error', { message: msg });
       client.disconnect();
     }
   }
@@ -139,16 +135,18 @@ export class ChatGateway {
   ) {
     const { jobApplicationId, content } = data;
     const senderId = client.data.userId;
-    console.log(`SendMessage attempt: userId=${senderId}, jobApplicationId=${jobApplicationId}, content="${content}"`);
 
     try {
       const message = await this.chatService.createMessage(senderId, jobApplicationId, content);
-      const room = `chat:${jobApplicationId}`;
-      this.server.to(room).emit('newMessage', message);
-      console.log(`Message sent to room ${room} by user ${senderId}`);
+
+      const chatRoom = `chat:${jobApplicationId}`;
+      const recipientRoom = `user:${message.recipient_id}`;
+
+      this.server.to(chatRoom).emit('newMessage', message);
+      this.server.to(recipientRoom).except(chatRoom).emit('newMessage', message);
+
       return message;
-    } catch (error) {
-      console.error(`SendMessage error for user ${senderId}: ${error.message}`);
+    } catch (error: any) {
       client.emit('error', { message: error.message });
     }
   }
@@ -195,5 +193,26 @@ export class ChatGateway {
       console.error(`Typing event error for user ${userId}: ${error.message}`);
       client.emit('error', { message: error.message });
     }
+  }
+
+  @SubscribeMessage('broadcastToApplicants')
+  async handleBroadcast(
+    @MessageBody() data: { jobPostId: string; content: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const employerId = client.data.userId;
+    const { jobPostId, content } = data;
+  
+    const saved = await this.chatService.broadcastToApplicants(employerId, jobPostId, content);
+  
+    for (const msg of saved) {
+      const chatRoom = `chat:${msg.job_application_id}`;
+      const recipientRoom = `user:${msg.recipient_id}`;
+    
+      this.server.to(chatRoom).emit('newMessage', msg);
+      this.server.to(recipientRoom).except(chatRoom).emit('newMessage', msg);
+    }
+  
+    return { sent: saved.length };
   }
 }

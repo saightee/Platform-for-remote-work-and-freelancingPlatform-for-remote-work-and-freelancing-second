@@ -7,6 +7,7 @@ import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
 import { formatDateInTimezone } from '../utils/dateUtils';
 import Loader from '../components/Loader';
+import { Link } from 'react-router-dom'; // 👈 добавлено
 import {
   FaBriefcase,
   FaClock,
@@ -85,6 +86,31 @@ const MyApplications: React.FC = () => {
     }
   };
 
+  const badge = (status?: string) => {
+    if (status === 'Accepted') return <span className="ma-badge ma-accepted"><FaCheckCircle /> Accepted</span>;
+    if (status === 'Rejected') return <span className="ma-badge ma-rejected"><FaTimesCircle /> Rejected</span>;
+    return <span className="ma-badge ma-pending"><FaClock /> Pending</span>;
+  };
+
+ const isJobClosed = (app: JobApplication) => {
+  const jp = (app as any).job_post as {
+    status?: string;
+    is_closed?: boolean;
+    closed?: boolean;
+    isActive?: boolean;
+  } | undefined;
+
+  if (!jp) return false;
+
+  // явные флаги
+  if (jp.is_closed === true || jp.closed === true) return true;
+  if (jp.isActive === false) return true;
+
+  // строковый статус
+  const s = (jp.status || '').toString().toLowerCase();
+  return s.includes('closed') || s.includes('archiv') || s.includes('inactive');
+};
+
   if (isLoading) {
     return (
       <div>
@@ -112,12 +138,6 @@ const MyApplications: React.FC = () => {
       </div>
     );
   }
-
-  const badge = (status?: string) => {
-    if (status === 'Accepted') return <span className="ma-badge ma-accepted"><FaCheckCircle /> Accepted</span>;
-    if (status === 'Rejected') return <span className="ma-badge ma-rejected"><FaTimesCircle /> Rejected</span>;
-    return <span className="ma-badge ma-pending"><FaClock /> Pending</span>;
-  };
 
   return (
     <div>
@@ -152,6 +172,16 @@ const MyApplications: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* 👇 Кнопка просмотра джоб-поста */}
+                  {app.job_post?.id && (
+                    <div className="ma-actions-row">
+                      {/* при необходимости поменяй путь на тот, что у тебя для страницы джоба */}
+                      <Link className="ma-btn ma-secondary" to={`/jobs/${app.job_post!.id}`}>
+                        View Job Post
+                      </Link>
+                    </div>
+                  )}
+
                   {app.status === 'Accepted' && (
                     <div className="ma-note ma-ok">
                       <strong>Congratulations!</strong> Your application has been accepted.
@@ -174,7 +204,9 @@ const MyApplications: React.FC = () => {
 
                   {app.status === 'Rejected' && (
                     <div className="ma-note ma-warn">
-                      Unfortunately, your application was rejected.
+                      {isJobClosed(app)
+                        ? 'This job post was closed, so your application can no longer be considered.'
+                        : 'Unfortunately, your application was rejected.'}
                     </div>
                   )}
                 </div>
@@ -190,7 +222,7 @@ const MyApplications: React.FC = () => {
         </div>
       </div>
 
-      {/* Review Modal (оставил логику как в исходнике, только классы) */}
+      {/* Review Modal (оставил твою логику) */}
       {isReviewModalOpen && reviewForm && (
         <div
           className="ma-modal"

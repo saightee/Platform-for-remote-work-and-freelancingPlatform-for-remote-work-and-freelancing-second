@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useRole } from '../context/RoleContext';
 import { logout } from '../services/api';
-import { FaBars, FaTimes, FaChevronDown } from 'react-icons/fa';
+import { FaBars, FaTimes, FaChevronDown, FaEnvelope } from 'react-icons/fa';
 
 const Header: React.FC = () => {
   const { profile, isLoading, currentRole } = useRole();
@@ -20,6 +20,30 @@ const Header: React.FC = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDropdownOpen,   setIsDropdownOpen]   = useState(false);
+
+  const [unreadTotal, setUnreadTotal] = useState(0);
+const unreadKey = useMemo(() => `unreads_${profile?.id || 'anon'}`, [profile?.id]);
+
+
+useEffect(() => {
+  const calc = () => {
+    try {
+      const raw = localStorage.getItem(unreadKey);
+      const map = raw ? (JSON.parse(raw) as Record<string, number>) : {};
+      const total = Object.values(map).reduce((s, v) => s + (Number(v) || 0), 0);
+      setUnreadTotal(total);
+    } catch { setUnreadTotal(0); }
+  };
+  calc();
+  const onStorage = (e: StorageEvent) => { if (e.key === unreadKey) calc(); };
+  const onLocal = () => calc();
+  window.addEventListener('storage', onStorage);
+  window.addEventListener('jobforge:unreads-updated', onLocal);
+  return () => {
+    window.removeEventListener('storage', onStorage);
+    window.removeEventListener('jobforge:unreads-updated', onLocal);
+  };
+}, [unreadKey]);
 
   useEffect(() => { setIsMobileMenuOpen(false); setIsDropdownOpen(false); }, [location.pathname]);
 
@@ -85,6 +109,17 @@ const Header: React.FC = () => {
               {/* ==== EMPLOYER & JOBSEEKER — минимальный хедер на всех страницах ==== */}
               {(isEmployer || isJobseeker) && (
                 <>
+
+                     <Link
+      to={`/${isEmployer ? 'employer' : 'jobseeker'}-dashboard/messages`}
+      onClick={closeMobileMenu}
+      className="hm-mail"
+      aria-label="Messages"
+      title="Messages"
+    >
+      <FaEnvelope />
+      {unreadTotal > 0 && <span className="hm-pill">{unreadTotal > 99 ? '99+' : unreadTotal}</span>}
+    </Link>
                   <Link
                     to={`/${isEmployer ? 'employer' : 'jobseeker'}-dashboard`}
                     onClick={closeMobileMenu}

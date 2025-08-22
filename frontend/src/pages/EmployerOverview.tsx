@@ -40,6 +40,9 @@ const EmployerOverview: React.FC = () => {
     return Number.isNaN(t) ? 0 : t;
   };
 
+//   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+// const toggleRow = (id: string) => setExpandedRows(p => ({ ...p, [id]: !p[id] }));
+
   const recentApps = useMemo(() => {
     const arr = [...apps].sort((a, b) => timeFromApplied(b) - timeFromApplied(a));
     return arr.slice(0, 6);
@@ -72,28 +75,32 @@ const EmployerOverview: React.FC = () => {
 
       {/* KPI */}
       <div className="edb-kpis">
-        <div className="edb-kpi">
-          <div className="edb-kpi__label">
-            <FaPlayCircle aria-hidden className="edb-kpi__ico" />
-            Active posts
-          </div>
-          <div className="edb-kpi__value">{activeCount}</div>
-        </div>
-        <div className="edb-kpi">
-          <div className="edb-kpi__label">
-            <FaStopCircle aria-hidden className="edb-kpi__ico" />
-            Closed posts
-          </div>
-          <div className="edb-kpi__value">{closedCount}</div>
-        </div>
-        <div className="edb-kpi">
-          <div className="edb-kpi__label">
-            <FaInbox aria-hidden className="edb-kpi__ico" />
-            Total applications
-          </div>
-          <div className="edb-kpi__value">{totalApps}</div>
-        </div>
-      </div>
+
+  <Link to="/employer-dashboard/my-job-posts?tab=active" className="edb-kpi edb-kpi--clickable">
+    <div className="edb-kpi__label">
+      <FaPlayCircle aria-hidden className="edb-kpi__ico" />
+      Active posts
+    </div>
+    <div className="edb-kpi__value">{activeCount}</div>
+  </Link>
+
+  <Link to="/employer-dashboard/my-job-posts?tab=closed" className="edb-kpi edb-kpi--clickable">
+    <div className="edb-kpi__label">
+      <FaStopCircle aria-hidden className="edb-kpi__ico" />
+      Closed posts
+    </div>
+    <div className="edb-kpi__value">{closedCount}</div>
+  </Link>
+
+  <Link to="/employer-dashboard/my-job-posts?tab=all" className="edb-kpi edb-kpi--clickable">
+    <div className="edb-kpi__label">
+      <FaInbox aria-hidden className="edb-kpi__ico" />
+      Total applications
+    </div>
+    <div className="edb-kpi__value">{totalApps}</div>
+  </Link>
+
+</div>
 
       {/* Panels */}
       <div className="edb-panels">
@@ -124,7 +131,7 @@ const EmployerOverview: React.FC = () => {
         <div className="edb-panel">
           <div className="edb-panel__head">
             <h3>Recent applications</h3>
-            <Link to="/employer-dashboard/my-job-posts" className="edb-link">View all</Link>
+            {/* <Link to="/employer-dashboard/my-job-posts?tab=all" className="edb-link">View all</Link> */}
           </div>
 
           {recentApps.length ? (
@@ -135,21 +142,24 @@ const EmployerOverview: React.FC = () => {
                 <div>Status</div>
                 <div>Applied</div>
               </div>
-              <div className="edb-tbody">
-                {recentApps.map(a => (
-                  <div className="edb-row" key={a.applicationId}>
-                    <div>{a.username || '—'}</div>
-                    <div>{findTitle(a.job_post_id)}</div>
-                    <div>
-                      <span className={`edb-badge edb-badge--${(a.status || 'Pending').toLowerCase()}`}>
-                        {statusIcon(a.status)}
-                        <span className="edb-badge__text">{a.status}</span>
-                      </span>
-                    </div>
-                    <div>{a.appliedAt ? new Date(a.appliedAt).toLocaleDateString() : '—'}</div>
-                  </div>
-                ))}
-              </div>
+            <div className="edb-tbody">
+  {recentApps.map(a => (
+    <div key={a.applicationId} className="edb-row">
+      <div className="edb-row__head">
+        <div>{a.username || '—'}</div>
+        <div>{findTitle(a.job_post_id)}</div>
+        <div>
+          <span className={`edb-badge edb-badge--${(a.status || 'Pending').toLowerCase()}`}>
+            {statusIcon(a.status)}
+            <span className="edb-badge__text">{a.status}</span>
+          </span>
+        </div>
+        <div>{a.appliedAt ? new Date(a.appliedAt).toLocaleDateString() : '—'}</div>
+      </div>
+    </div>
+  ))}
+</div>
+
             </div>
           ) : (
             <div className="edb-empty">No applications yet.</div>

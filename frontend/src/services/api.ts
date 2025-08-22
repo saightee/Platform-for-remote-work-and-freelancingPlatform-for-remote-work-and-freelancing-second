@@ -23,17 +23,12 @@ export async function contactSupport(payload: {
   email: string;
   message: string;
   captchaToken?: string;
-  website?: string; // honeypot
+  website?: string;
 }) {
-  const res = await fetch('/api/contact', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw { response: { data, status: res.status } };
+  const { data } = await api.post('/contact', payload); // baseURL уже /api
   return data;
 }
+
 
 
 interface WebSocketError {
@@ -415,6 +410,12 @@ export const updateReferralLink = async (linkId: string, payload: { description:
   return res.data;
 };
 
+export const broadcastToApplicants = async (jobPostId: string, content: string) => {
+  const res = await api.post<{ sent: number }>(`/chat/broadcast/${jobPostId}`, { content });
+  return res.data;
+};
+
+
 // Delete referral link
 export const deleteReferralLink = async (linkId: string) => {
   const res = await api.delete<{ message: string }>(`/admin/referral-links/${linkId}`);
@@ -592,16 +593,41 @@ export const submitComplaint = async (data: ComplaintData) => {
 };
 
 // Admin Endpoints
-export const getAllUsers = async (params: { username?: string; email?: string; createdAfter?: string; page?: number; limit?: number }) => {
-  const response = await api.get<PaginatedResponse<User>>('/admin/users', {
+// export const getAllUsers = async (params: { username?: string; email?: string; createdAfter?: string; page?: number; limit?: number }) => {
+//   const response = await api.get<PaginatedResponse<User>>('/admin/users', {
+//     params,
+//     headers: {
+//       'Cache-Control': 'no-cache',
+//     },
+//   });
+//   console.log('getAllUsers response:', response.data); // Лог ответа
+//   return response.data;
+// };
+
+
+// services/api.ts
+export const getAllUsers = async (params: {
+  username?: string;
+  email?: string;
+  id?: string; // точное совпадение
+  createdAfter?: string; // YYYY-MM-DD
+  role?: 'employer' | 'jobseeker' | 'admin' | 'moderator';
+  status?: 'active' | 'blocked';
+  page?: number;  // default: 1
+  limit?: number; // default: 10
+}) => {
+  const { data } = await api.get<PaginatedResponse<User>>('/admin/users', {
     params,
-    headers: {
-      'Cache-Control': 'no-cache',
-    },
   });
-  console.log('getAllUsers response:', response.data); // Лог ответа
-  return response.data;
+
+  if (import.meta?.env?.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('getAllUsers response:', data);
+  }
+
+  return data; // { total, data: User[] }
 };
+
 
 export const getJobApplicationById = async (applicationId: string) => {
   console.log(`Fetching job application with ID: ${applicationId}`);
@@ -948,10 +974,23 @@ export const searchTalents = async (params: {
   return response.data;
 };
 
+// export const checkJobApplicationStatus = async (job_post_id: string) => {
+//   const response = await api.get<{ hasApplied: boolean }>(`/job-applications/check/${job_post_id}`);
+//   return response.data;
+// };
+
+// services/api.ts
 export const checkJobApplicationStatus = async (job_post_id: string) => {
-  const response = await api.get<{ hasApplied: boolean }>(`/job-applications/check/${job_post_id}`);
-  return response.data;
+  try {
+    const { data } = await api.get<{ hasApplied: boolean }>(`/job-applications/check/${job_post_id}`);
+    return data;
+  } catch (e: any) {
+    if (e?.response?.status === 404) return { hasApplied: false };
+    throw e;
+  }
 };
+
+
 
 export const sendApplicationNotification = async (applicationId: string, status: 'Accepted' | 'Rejected') => {
   const response = await api.post(`/job-applications/${applicationId}/notify`, { status });
@@ -1133,8 +1172,7 @@ export { api };
 
 
 export const resendVerification = async (email: string) => {
-  const { data } = await api.post('/api/auth/resend-verification', { email });
+  const { data } = await api.post('/auth/resend-verification', { email });
   return data;
 };
-
 

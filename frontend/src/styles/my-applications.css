@@ -77,3 +77,8 @@
 .ma-btn{background:var(--cs-accent);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:700;box-shadow:var(--cs-shadow-sm);cursor:pointer}
 .ma-btn:hover{transform:translateY(-1px);box-shadow:var(--cs-shadow)}
 .ma-btn.ma-success{background:#2ea36a}
+
+/* actions row + secondary button for link */
+.ma-actions-row{display:flex;gap:8px;margin-top:10px}
+.ma-btn.ma-secondary{background:#eef2ff;color:#2d3a6b}
+

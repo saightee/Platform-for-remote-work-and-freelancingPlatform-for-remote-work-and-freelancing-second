@@ -1,7 +1,14 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { getProfile, initializeWebSocket, getMyApplications, getMyJobPosts, getApplicationsForJobPost } from '../services/api';
+// src/context/RoleContext.tsx
+import { createContext, useContext, useState, useEffect} from 'react';
+import {
+  getProfile,
+  initializeWebSocket,
+  getMyApplications,
+  getMyJobPosts,
+  getApplicationsForJobPost,
+} from '../services/api';
 import { Profile } from '@types';
-import { Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import { jwtDecode } from 'jwt-decode';
 
 interface Message {
@@ -27,7 +34,7 @@ interface RoleContextType {
   refreshProfile: () => Promise<void>;
   socket: Socket | null;
   socketStatus: 'connected' | 'disconnected' | 'reconnecting';
-  setSocketStatus: (status: 'connected' | 'disconnected' | 'reconnecting') => void; // Добавлено
+  setSocketStatus: (s: 'connected' | 'disconnected' | 'reconnecting') => void;
 }
 
 interface DecodedToken {
@@ -40,6 +47,20 @@ interface DecodedToken {
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
+// helpers (без хуков — можно держать вне компонента)
+const isDev = typeof import.meta !== 'undefined' ? import.meta.env.DEV : false;
+
+const getAsParam = () => {
+  try {
+    return new URLSearchParams(window.location.search).get('as') as
+      | 'jobseeker'
+      | 'employer'
+      | null;
+  } catch {
+    return null;
+  }
+};
+
 export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentRole, setCurrentRole] = useState<'employer' | 'jobseeker' | 'admin' | 'moderator' | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -48,236 +69,202 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [socket, setSocket] = useState<Socket | null>(null);
   const [socketStatus, setSocketStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('disconnected');
 
-  const fetchProfile = async () => {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    console.log('No token found, clearing profile.');
-    setIsLoading(false);
-    setProfile(null);
-    setCurrentRole(null);
-    setSocket(null);
-    setSocketStatus('disconnected');
-    return;
-  }
+  // DEV-имперсонация: если dev + ?as=... и нет токена — подставляем фейкового пользователя
+  // useEffect(() => {
+  //   const as = getAsParam();
+  //   const hasToken = !!localStorage.getItem('token');
+  //   if (isDev && as && !hasToken) {
+  //     const fake: Profile = {
+  //       id: `dev-${as}`,
+  //       email: `${as}@dev.local`,
+  //       role: as,
+  //       username: as === 'employer' ? 'Dev Employer' : 'Dev Jobseeker',
+  //     } as any;
 
-  try {
-    const decoded: DecodedToken = jwtDecode(token);
-    console.log('Decoded token:', decoded);
-    setCurrentRole(decoded.role);
-    if (['admin', 'moderator'].includes(decoded.role)) {
-      console.log(`${decoded.role} role detected, skipping profile fetch.`);
-      setProfile(null);
+  //     setProfile(fake);
+  //     setCurrentRole(as);
+  //     setIsLoading(false);
+  //     setSocket(null);
+  //     setSocketStatus('disconnected');
+  //   }
+  // }, []);
+
+  // мок сокет в dev без токена — чтобы UI не падал
+  // const mockSocket = useMemo(() => {
+  //   const as = getAsParam();
+  //   const hasToken = !!localStorage.getItem('token');
+  //   if (!(isDev && as && !hasToken)) return null;
+
+  //   return {
+  //     connected: false,
+  //     on: () => {},
+  //     off: () => {},
+  //     emit: () => {},
+  //     disconnect: () => {},
+  //     io: { engine: { transport: { name: 'mock' } } },
+  //   } as unknown as Socket;
+  // }, []);
+
+  const fetchProfile = async () => {
+    // const as = getAsParam();
+    const token = localStorage.getItem('token');
+
+    // dev-имперсонация — сеть не трогаем
+    // if (isDev && as && !token) {
+    //   return;
+    // }
+
+    if (!token) {
       setIsLoading(false);
+      setProfile(null);
+      setCurrentRole(null);
       setSocket(null);
       setSocketStatus('disconnected');
       return;
     }
-    setIsLoading(true);
-    setError(null);
-    const profileData = await getProfile();
-    console.log('Profile fetched:', profileData);
-    setProfile(profileData);
-    setCurrentRole(profileData.role || decoded.role); // Используем роль из профиля или токена
-  } catch (error: any) {
-    console.error('Error fetching profile in RoleContext:', error);
-    if (error.response?.status === 401 || error.response?.status === 404) {
-      console.error('Unauthorized or profile not found. Token:', token);
-      const decoded: DecodedToken = jwtDecode(token);
-      setCurrentRole(decoded.role); // Сохраняем роль из токена
-      setError('Profile not found. Please complete your registration.');
-      setProfile(null);
-      // Не сбрасываем currentRole, чтобы навигация работала
-    } else {
-      console.error('Token decode or profile fetch error:', error.message);
-      setError('Invalid token or failed to load profile. Please log in again.');
-      setProfile(null);
-      setCurrentRole(null);
-      localStorage.removeItem('token');
-    }
-  } finally {
-    setIsLoading(false);
-  }
-};
 
-  const refreshProfile = async () => {
-    await fetchProfile();
-  };
-
- useEffect(() => {
-  fetchProfile();
-
-  return () => {
-    if (socket) {
-      socket.disconnect();
-      setSocket(null);
-      setSocketStatus('disconnected');
-    }
-  };
-}, []);
-
-// useEffect(() => {
-//   if (!profile || !['jobseeker', 'employer'].includes(profile.role) || socket) {
-//     return;
-//   }
-
-//   const initializeSocket = async () => {
-//     try {
-//       let hasApplications = false;
-//       if (profile.role === 'jobseeker') {
-//         const apps = await getMyApplications();
-//         hasApplications = apps.some(app => app.status === 'Accepted');
-//       } else if (profile.role === 'employer') {
-//         const posts = await getMyJobPosts();
-//         const appsPromises = posts.map(post => getApplicationsForJobPost(post.id));
-//         const appsArrays = await Promise.all(appsPromises);
-//         hasApplications = appsArrays.flat().some(app => app.status === 'Accepted');
-//       }
-
-//       if (!hasApplications) {
-//         console.log('No accepted applications, skipping WebSocket initialization.');
-//         return;
-//       }
-
-//       const newSocket = initializeWebSocket(
-//         () => {}, // Пустой обработчик
-//         (error: WebSocketError) => {
-//           console.error('WebSocket error in RoleContext:', error);
-//           setSocketStatus('disconnected');
-//           setError(error.message || 'WebSocket error occurred.');
-//         }
-//       );
-
-//       newSocket.on('connect', () => {
-//         console.log('WebSocket connected in RoleContext, transport:', newSocket.io.engine.transport.name);
-//         setSocketStatus('connected');
-//       });
-
-//       newSocket.on('connect_error', (err) => {
-//         console.error('WebSocket connection error in RoleContext:', err.message);
-//         setSocketStatus('reconnecting');
-//         setError('Failed to connect to real-time updates. Retrying...');
-//       });
-
-//       newSocket.on('disconnect', () => {
-//         console.log('WebSocket disconnected in RoleContext');
-//         setSocketStatus('disconnected');
-//       });
-
-//       setSocket(newSocket);
-
-//       return () => {
-//         newSocket.off('connect');
-//         newSocket.off('connect_error');
-//         newSocket.off('disconnect');
-//         newSocket.disconnect();
-//         setSocket(null);
-//         setSocketStatus('disconnected');
-//       };
-//     } catch (err) {
-//       console.error('Error checking applications for WebSocket:', err);
-//     }
-//   };
-
-//   initializeSocket();
-// }, [profile]);
-
-useEffect(() => {
-  if (!profile || !['jobseeker', 'employer'].includes(profile.role) || socket) {
-    return;
-  }
-
-  const initializeSocket = async () => {
     try {
-      let hasApplications = false;
-      if (profile.role === 'jobseeker') {
-        const apps = await getMyApplications();
-        hasApplications = apps.some(app => app.status === 'Accepted');
-      } else if (profile.role === 'employer') {
-        const posts = await getMyJobPosts();
-        const appsPromises = posts.map(post => getApplicationsForJobPost(post.id));
-        const appsArrays = await Promise.all(appsPromises);
-        hasApplications = appsArrays.flat().some(app => app.status === 'Accepted');
-      }
+      const decoded = jwtDecode<DecodedToken>(token);
+      setCurrentRole(decoded.role);
 
-      if (!hasApplications) {
-        console.log('No accepted applications, skipping WebSocket initialization.');
-        return;
-      }
-
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.error('No token for WebSocket auth.');
-        return;
-      }
-
-const newSocket = initializeWebSocket(  
-  () => {},   
-  (error: WebSocketError) => {  
-    console.error('WebSocket error in RoleContext:', error);  
-    setSocketStatus('disconnected');  
-    setError(error.message || 'WebSocket error occurred.');  
-  }  
-);
-
-      
-
-      newSocket.on('connect', () => {
-        console.log('WebSocket connected in RoleContext, transport:', newSocket.io.engine.transport.name);
-        setSocketStatus('connected');
-      });
-
-      newSocket.on('connect_error', (err) => {
-        console.error('WebSocket connection error in RoleContext:', err.message);
-        setSocketStatus('reconnecting');
-        setError('Failed to connect to real-time updates. Retrying...');
-        // Добавлено: reconnect with new token if 401
-        if (err.message.includes('401')) {
-          localStorage.removeItem('token');
-          window.location.href = '/login';
-        }
-      });
-
-      newSocket.on('disconnect', () => {
-        console.log('WebSocket disconnected in RoleContext');
-        setSocketStatus('disconnected');
-      });
-
-      setSocket(newSocket);
-
-      return () => {
-        newSocket.off('connect');
-        newSocket.off('connect_error');
-        newSocket.off('disconnect');
-        newSocket.disconnect();
+      if (decoded.role === 'admin' || decoded.role === 'moderator') {
+        setProfile(null);
+        setIsLoading(false);
         setSocket(null);
         setSocketStatus('disconnected');
-      };
-    } catch (err) {
-      console.error('Error checking applications for WebSocket:', err);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      const profileData = await getProfile();
+      setProfile(profileData);
+      setCurrentRole((profileData as any)?.role || decoded.role);
+    } catch (err: any) {
+      if (err?.response?.status === 401 || err?.response?.status === 404) {
+        try {
+          const decoded = jwtDecode<DecodedToken>(token);
+          setCurrentRole(decoded.role);
+          setError('Profile not found. Please complete your registration.');
+          setProfile(null);
+        } catch {
+          setError('Invalid token.');
+          setProfile(null);
+          setCurrentRole(null);
+          localStorage.removeItem('token');
+        }
+      } else {
+        setError('Invalid token or failed to load profile. Please log in again.');
+        setProfile(null);
+        setCurrentRole(null);
+        localStorage.removeItem('token');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  initializeSocket();
-}, [profile]);
+  useEffect(() => {
+    fetchProfile();
 
-return (
-  <RoleContext.Provider value={{ currentRole, profile, isLoading, error, refreshProfile, socket, socketStatus, setSocketStatus }}>
-    {children}
-  </RoleContext.Provider>
-);
+    return () => {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+        setSocketStatus('disconnected');
+      }
+    };
+  }, []);
+
+  // инициализация realtime; учитываем Pending и Accepted
+  useEffect(() => {
+    const as = getAsParam();
+    const token = localStorage.getItem('token');
+    const impersonated = isDev && as && !token;
+    if (impersonated) return;
+
+    if (!profile || !['jobseeker', 'employer'].includes(profile.role as any) || socket) {
+      return;
+    }
+
+    const init = async () => {
+      try {
+        let hasApplications = false;
+
+        if (profile.role === 'jobseeker') {
+          const apps = await getMyApplications();
+          hasApplications = apps.some(a => a.status === 'Pending' || a.status === 'Accepted'); // ✅
+        } else if (profile.role === 'employer') {
+          const posts = await getMyJobPosts();
+          const arrays = await Promise.all(posts.map(p => getApplicationsForJobPost(p.id)));
+          hasApplications = arrays.flat().some(a => a.status === 'Pending' || a.status === 'Accepted'); // ✅
+        }
+
+        if (!hasApplications) return;
+
+        const newSocket = initializeWebSocket(
+          () => {},
+          (error: WebSocketError) => {
+            setSocketStatus('disconnected');
+            setError(error.message || 'WebSocket error occurred.');
+          }
+        );
+
+        newSocket.on('newMessage', (m: Message) => {
+          if (profile && m.recipient_id === profile.id && !m.is_read) {
+            const key = `unreads_${profile.id}`;
+            let map: Record<string, number> = {};
+            try {
+              map = JSON.parse(localStorage.getItem(key) || '{}');
+            } catch {}
+            map[m.job_application_id] = (map[m.job_application_id] || 0) + 1;
+            localStorage.setItem(key, JSON.stringify(map));
+            window.dispatchEvent(new Event('jobforge:unreads-updated'));
+          }
+        });
+
+        newSocket.on('connect', () => setSocketStatus('connected'));
+        newSocket.on('disconnect', () => setSocketStatus('disconnected'));
+        newSocket.on('connect_error', (err: any) => {
+          setSocketStatus('reconnecting');
+          setError('Failed to connect to real-time updates. Retrying...');
+          if (typeof err?.message === 'string' && err.message.includes('401')) {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+          }
+        });
+
+        setSocket(newSocket);
+      } catch {
+        // no-op
+      }
+    };
+
+    void init();
+  }, [profile, socket]);
+
+  return (
+    <RoleContext.Provider
+      value={{
+        currentRole,
+        profile,
+        isLoading,
+        error,
+        refreshProfile: fetchProfile,
+        // socket: socket ?? mockSocket,
+        socket: socket,
+        socketStatus,
+        setSocketStatus,
+      }}
+    >
+      {children}
+    </RoleContext.Provider>
+  );
 };
 
 export const useRole = () => {
   const context = useContext(RoleContext);
-  if (!context) {
-    throw new Error('useRole must be used within a RoleProvider');
-  }
+  if (!context) throw new Error('useRole must be used within a RoleProvider');
   return context;
 };
-
-// В src/context/RoleContext.tsx
-// export const useRole = () => ({
-//   currentRole: 'admin', // Мок для локальной разработки
-//   profile: null,
-//   refreshProfile: () => Promise.resolve(),
-// });

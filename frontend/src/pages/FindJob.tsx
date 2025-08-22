@@ -182,28 +182,35 @@ const FindJob: React.FC = () => {
     setSearchParams(nextParams, { replace: true });
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSearch = (e: React.FormEvent) => {
+  e.preventDefault();
 
-    const cleanedCategoryId = skillInput.trim() ? tempSearchState.category_id : '';
+  const cleanedCategoryId = skillInput.trim() ? tempSearchState.category_id : '';
+  // если в сайдбаре введено — берём его; иначе берём верхний инпут
+  const titleToUse = (tempSearchState.title || '').trim() || searchInput.trim();
 
-    setSearchState((prev) => ({
-      ...prev,
-      ...tempSearchState,
-      title: searchInput,
-      category_id: cleanedCategoryId,
-      salary_min: tempSearchState.salary_type === 'negotiable' ? undefined : tempSearchState.salary_min,
-      salary_max: tempSearchState.salary_type === 'negotiable' ? undefined : tempSearchState.salary_max,
-      page: 1,
-    }));
+  setSearchState((prev) => ({
+    ...prev,
+    ...tempSearchState,
+    title: titleToUse,
+    category_id: cleanedCategoryId,
+    salary_min: tempSearchState.salary_type === 'negotiable' ? undefined : tempSearchState.salary_min,
+    salary_max: tempSearchState.salary_type === 'negotiable' ? undefined : tempSearchState.salary_max,
+    page: 1,
+  }));
 
-    const nextParams: Record<string, string> = {};
-    if (searchInput.trim()) nextParams.title = searchInput.trim();
-    if (cleanedCategoryId) nextParams.category_id = cleanedCategoryId;
-    setSearchParams(nextParams, { replace: true });
+  // синхроним верхний инпут и временное состояние
+  setSearchInput(titleToUse);
+  setTempSearchState((s) => ({ ...s, title: titleToUse }));
 
-    setIsFilterPanelOpen(false);
-  };
+ const nextParams: Record<string, string> = {};
+const currentTitle = (tempSearchState.title || searchInput).trim();
+if (currentTitle) nextParams.title = currentTitle;
+setSearchParams(nextParams, { replace: true });
+
+  setIsFilterPanelOpen(false);
+};
+
 
   const handlePageChange = (newPage: number) => {
     setSearchState((prev) => ({ ...prev, page: newPage }));

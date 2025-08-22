@@ -35,7 +35,7 @@ p {
   color: #888;
   font-style: italic;
 }
-button {
+/* button {
   background-color: #3498db;
   color: white;
   border: none;
@@ -45,11 +45,11 @@ button {
   transition: background-color 0.3s;
   font-family: 'Roboto', sans-serif;
   font-weight: 700;
-}
+} */
 
-button:hover {
+/* button:hover {
   background-color: #2980b9;
-}
+} */
 
 .container {
   max-width: 1200px;
@@ -3419,6 +3419,29 @@ table th {
   padding-bottom: 40px;
 }
 
+/* Плашка "уже откликались" */
+.jd-applied-pill{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-width:223px;
+  height:47px;
+  padding:0 16px;
+  border-radius:10px;
+  font-weight:700;
+  text-align:center;
+  background:#f1f4ff;
+  border:1px solid #e0e7ff;
+  color:#2d3a6b;
+  box-shadow:0 6px 18px rgba(18,33,73,.1);
+}
+
+/* Если хочешь, чтобы вела себя как кнопка-сосед (по отступам) */
+.job-details-actions .jd-applied-pill{
+  margin:0 auto;
+}
+
+
 .container .job-details-container {
   max-width: 1200px;
   width: 100%;
@@ -3478,13 +3501,13 @@ table th {
 .login-prompt {
   font-size: 16px;
   margin: 5px 0;
-  color: #333;
+  color: #ffffff;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   display: flex;
-  justify-content: center;
+  justify-content: left;
 }
 
 .employer-info {
@@ -5399,6 +5422,7 @@ header nav.mobile-menu-open .find-job {
 
   .login-prompt {
     font-size: 13px;
+    margin-top: 16px;
   }
 
   .employer-avatar {
@@ -7895,16 +7919,15 @@ html, body{ overflow-x: clip; }
 .hm-btn{
   text-decoration: none;
   border-radius:10px; padding:8px 14px; font-weight:700; font-size:14px;
-  border:2px solid transparent; cursor:pointer; line-height:1;
-  transition:background-color .2s, color .2s, border-color .2s, transform .15s;
+  border:2px solid transparent; cursor:pointer; line-height:1; color: #333;
+  /* transition:background-color .2s, color .2s, border-color .2s, transform .15s; */
 }
 .hm-btn:active{ transform:translateY(1px); }
 .hm-btn--primary{ background:var(--hm-primary); border-color:var(--hm-primary); color:#fff; }
-.hm-btn--primary:hover{ background:var(--hm-primary-600); border-color:var(--hm-primary-600); }
 .hm-btn--outline{ background:#fff; color:var(--hm-primary); border-color:var(--hm-primary); }
-.hm-btn--outline:hover{ background:#f0f5ff; }
-.hm-btn--ghost{ background:#fff; color:var(--hm-text); border:1.5px solid var(--hm-border); }
-.hm-btn--ghost:hover{ border-color:#cfd8ea; color:var(--hm-primary); }
+.hm-btn--outline:hover{ background:#ffffff; }
+.hm-btn--ghost{ color:#333; border:1.5px solid var(--hm-border); }
+
 
 .hm-divider{ width:1px; height:18px; background:var(--hm-border); margin:0 4px; }
 
@@ -8086,6 +8109,26 @@ html, body{ overflow-x:hidden; }
   }
 }
 
+
+.hm-mail{
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 42px; height: 36px;
+  border: 1px solid #e5e7eb; border-radius: 10px;
+  background:#fff; color:#4e74c8;
+  margin-right: 8px; text-decoration:none;
+}
+.hm-mail:hover{ background:#eef2ff; }
+
+.hm-pill{
+  position:absolute; top:-6px; right:-6px;
+  min-width:18px; height:18px; padding:0 6px;
+  border-radius:9px; background:#e11d48; color:#fff;
+  font-size:11px; line-height:18px; text-align:center;
+  pointer-events:none;
+}
+
+
 /* страховка от горизонтал. скролла */
 html, body { overflow-x: hidden; }
 
@@ -8202,17 +8245,29 @@ html, body { overflow-x: hidden; }
 .lp-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(18,33,73,.12); }
 
 .lp-primary { background: #4e74c8; color: #fff; border-color: #4e74c8; }
-.lp-outline { background: transparent; color: #4e74c8; border-color: #4e74c8; }
+.lp-outline { background: #4e74c8; color: #fff; border-color: #4e74c8; }
 
 @media (max-width: 480px) {
-  .lp-btn { padding: 10px 16px; }
+  .lp-btn { padding: 6px 11px; }
 }
 
 
+.search_users { 
+  display: flex; 
+  align-items: center; 
+  gap: 10px;          /* вместо margin-right у input */
+}
 
 
-
-
+.search_users input {
+  padding: 8px 10px;
+    border-radius: 5px;
+    border: 1px solid #333;
+    width: 300px;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 10px 0;
+}
 
 
 

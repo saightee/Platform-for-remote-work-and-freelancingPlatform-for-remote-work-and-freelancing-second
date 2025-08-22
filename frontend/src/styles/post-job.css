@@ -187,8 +187,8 @@
   position:relative;
   display:inline-flex;align-items:center;justify-content:center;
   width:18px;height:18px;border-radius:999px;
-  background:#eef2ff;color:var(--cs-accent);
-  font-size:12px;cursor:help;user-select:none;
+  background:#eef2ff;color:#6f82ab;
+  font-size:10px;cursor:help;user-select:none;
 }
 .pjx-tip:hover,.pjx-tip:focus{outline:none;background:#e6edff}
 

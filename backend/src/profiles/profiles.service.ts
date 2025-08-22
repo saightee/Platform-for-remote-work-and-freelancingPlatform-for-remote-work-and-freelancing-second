@@ -91,6 +91,21 @@ export class ProfilesService {
       throw new UnauthorizedException('User role mismatch');
     }
 
+    if (Object.prototype.hasOwnProperty.call(updateData, 'username')) {
+      if (typeof updateData.username !== 'string') {
+        throw new BadRequestException('Username must be a string');
+      }
+      const newUsername = updateData.username.trim();
+      if (!newUsername) {
+        throw new BadRequestException('Username cannot be empty');
+      }
+      if (newUsername.length > 100) {
+        throw new BadRequestException('Username is too long (max 100)');
+      }
+      user.username = newUsername;
+      await this.usersRepository.save(user);
+    }
+
     if (user.role === 'jobseeker') {
       const jobSeeker = await this.jobSeekerRepository.findOne({
         where: { user_id: userId },
@@ -99,10 +114,10 @@ export class ProfilesService {
       if (!jobSeeker) {
         throw new NotFoundException('JobSeeker profile not found');
       }
+
       if (updateData.resume) {
         jobSeeker.resume = updateData.resume;
       }
-
       if (updateData.skillIds && Array.isArray(updateData.skillIds)) {
         const skills = await this.categoriesRepository.find({
           where: { id: In(updateData.skillIds) },
@@ -130,6 +145,7 @@ export class ProfilesService {
 
       await this.jobSeekerRepository.save(jobSeeker);
       return this.getProfile(userId, true);
+
     } else if (user.role === 'employer') {
       const employer = await this.employerRepository.findOne({ where: { user_id: userId } });
       if (!employer) {
@@ -154,6 +170,7 @@ export class ProfilesService {
 
       await this.employerRepository.save(employer);
       return this.getProfile(userId, true);
+
     } else {
       throw new UnauthorizedException('User role not supported');
     }

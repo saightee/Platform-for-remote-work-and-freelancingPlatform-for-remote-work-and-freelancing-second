@@ -1,0 +1,297 @@
+:root{
+  --ch-accent:#4e74c8;
+  --ch-bg:#ffffff;
+  --ch-text:#1b1f2a;
+  --ch-muted:#6b7280;
+  --ch-card-shadow:0 10px 30px rgba(18,33,73,0.12);
+  --ch-card-shadow-sm:0 6px 18px rgba(18,33,73,0.10);
+  --ch-radius:10px;
+  --ch-border:#e9edfa;
+}
+
+/* контейнер страницы */
+.ch-shell{ max-width:1100px; margin:10px -32px; padding:0 16px; }
+
+/* белая карточка-обёртка на всю высоту вьюпорта */
+.ch-card{
+  background:var(--ch-bg);
+  border-radius:var(--ch-radius);
+  box-shadow:var(--ch-card-shadow);
+  padding:24px;
+  display:grid;
+  grid-template-rows:auto auto 1fr;
+  height:calc(100dvh - 170px);
+  color:var(--ch-text);
+}
+
+.ch-headrow{ display:grid; gap:12px; margin-bottom:16px; }
+.ch-title{ margin:0 0 4px; font-size:26px; font-weight:800; display:flex; align-items:center; gap:8px; }
+.ch-subtitle{ margin:0; color:var(--ch-muted); }
+
+/* уведомления */
+.ch-alert{ border-radius:10px; padding:10px 12px; font-size:14px; box-shadow:var(--ch-card-shadow-sm); }
+.ch-alert--err{ background:#fdecea; color:#8a231f; }
+.ch-alert--ok{ background:#e9f7ef; color:#1c6b3c; }
+
+/* двухколоночная сетка: слева список, справа чат */
+.ch-layout{
+  display:grid;
+  grid-template-columns:300px 1fr;
+  gap:16px;
+  height:100%;
+  min-height:0;
+}
+
+/* СЛЕВА — список чатов */
+.ch-sidebar{
+  border:1px solid var(--ch-border);
+  border-radius:var(--ch-radius);
+  padding:14px;
+  background:#fff;
+  box-shadow:var(--ch-card-shadow-sm);
+  display:grid;
+  grid-template-rows:auto auto 1fr;
+  overflow:hidden;
+  min-height:0;
+}
+.ch-sidebar__title{ margin:0 0 8px; font-size:16px; font-weight:700; color:var(--ch-text); }
+
+.ch-chatlist{
+  list-style:none; padding:0; margin:0;
+  display:grid; gap:8px;
+  min-height:0;
+  overflow-y:auto;
+  scrollbar-gutter:stable;
+  overscroll-behavior:contain;
+}
+
+.ch-chatlist__item{
+  display:grid; grid-template-columns:1fr auto; gap:10px;
+  padding:10px; border:1px solid var(--ch-border);
+  border-radius:10px; cursor:pointer;
+  transition: box-shadow .15s ease, transform .05s ease, border-color .15s ease, background .15s ease;
+  background:#fff;
+}
+.ch-chatlist__item:hover{ transform:translateY(-1px); border-color:#dfe6ff; }
+.ch-chatlist__item.is-active{ border-color:var(--ch-accent); box-shadow:0 0 0 3px rgba(78,116,200,.12); }
+.ch-chatlist__item.has-unread{ background:#f7f9ff; }
+
+.ch-chatlist__meta{ display:grid; gap:4px; }
+.ch-chatlist__row{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.ch-chatlist__job{ color:var(--ch-text); font-weight:700; }
+.ch-chatlist__partner{ font-size:13px; color:var(--ch-muted); }
+.ch-chatlist__badge{
+  background:var(--ch-accent); color:#fff; font-size:12px;
+  padding:2px 6px; border-radius:999px;
+}
+
+/* СПРАВА — карточка чата */
+.ch-chat{
+  border:1px solid var(--ch-border);
+  border-radius:var(--ch-radius);
+  background:#fff;
+  box-shadow:var(--ch-card-shadow-sm);
+  display:grid;
+  grid-template-rows:auto 1fr auto;
+  min-height:0;
+}
+.ch-chat__head{
+  padding:14px 16px; border-bottom:1px solid #eef1ff;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap; display: flex; justify-content: space-between;
+}
+.ch-chat__title{ margin:0; font-size:16px; color:var(--ch-text); }
+.ch-chat__title span{ font-weight:700; }
+
+/* лента сообщений (скролл) */
+.ch-thread{
+  padding:12px 16px;
+  display:flex; flex-direction:column;
+  gap:8px;
+  overflow-y:auto;
+  min-height:0;
+  scrollbar-gutter:stable;
+}
+.ch-thread > * { margin:0; }
+
+/* сообщения-баблы */
+.ch-bubble{
+  max-width:78%;
+  padding:14px 14px;
+  border-radius:12px;
+  box-shadow:var(--ch-card-shadow-sm);
+  border:1px solid #e9edfa;
+  background:#f7f9ff;
+  line-height:1.35;
+}
+.ch-bubble--me{ margin-left:auto; background:#eaf1ff; border-color:#d9e5ff; }
+.ch-bubble--them{ margin-right:auto; background:#f7f9ff; border-color:#ebf0ff; }
+.ch-bubble__text{ white-space:pre-wrap; color:var(--ch-text); font-size:15px; padding-bottom:6px; }
+.ch-bubble__meta{ margin-top:4px; display:flex; gap:8px; font-size:11px; color:var(--ch-muted); }
+
+.ch-read.is-read{ color:#1c6b3c; }
+.ch-typing{ font-size:13px; color:var(--ch-muted); }
+
+/* композер */
+.ch-composer{
+  display:grid; grid-template-columns:1fr auto; gap:8px;
+  padding:12px; border-top:1px solid #eef1ff;
+}
+.ch-input{
+  width:100%; border:1px solid #e3e6ef; border-radius:10px;
+  padding:12px 14px; font-size:15px; outline:none;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+.ch-input:focus{ border-color:var(--ch-accent); box-shadow:0 0 0 4px rgba(78,116,200,.12); }
+
+.ch-send{
+  width:48px; height:48px; border:none; border-radius:10px;
+  background:var(--ch-accent); color:#fff; box-shadow:var(--ch-card-shadow-sm);
+  cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
+  font-size:20px;
+}
+.ch-send:hover{ box-shadow:var(--ch-card-shadow); transform:translateY(-1px); }
+
+.ch-composer.is-disabled .ch-input{ opacity:.6; cursor:not-allowed; }
+.ch-composer.is-disabled .ch-send{ opacity:.5; cursor:not-allowed; }
+
+/* muted текст */
+.ch-muted{ color:var(--ch-muted); padding-left:30px; }
+
+/* модалки */
+.ch-modal{ position:fixed; inset:0; background:rgba(9,13,28,.35); display:grid; place-items:center; padding:16px; z-index:50; }
+.ch-modal__content{ width:100%; max-width:520px; background:#fff; border-radius:12px; padding:18px; box-shadow:var(--ch-card-shadow); position:relative; }
+.ch-modal__close{ position:absolute; top:10px; right:12px; background:#fff; border:none; font-size:24px; line-height:1; cursor:pointer; color:#333; }
+
+.ch-form{ display:grid; gap:14px; }
+.ch-form__row{ display:grid; gap:8px; }
+.ch-label{ font-size:14px; font-weight:600; color:var(--ch-text); }
+.ch-textarea{
+  width:100%; border:1px solid #e3e6ef; border-radius:10px;
+  padding:10px 12px; font-size:15px; outline:none; resize:vertical;
+}
+.ch-textarea:focus{ border-color:var(--ch-accent); box-shadow:0 0 0 4px rgba(78,116,200,.12); }
+.ch-btn{
+  align-self:start; background:var(--ch-accent); color:#fff; border:none;
+  border-radius:10px; padding:10px 16px; font-weight:700; cursor:pointer;
+  box-shadow:var(--ch-card-shadow-sm);
+}
+.ch-btn:hover{ box-shadow:var(--ch-card-shadow); transform:translateY(-1px); }
+
+/* верхняя панель и фикс теней */
+.ch-topbar{ margin:8px 0 12px; position:relative; z-index:5; overflow:visible; }
+.ch-jobs{ overflow:visible; }
+
+/* скроллбары */
+.ch-thread::-webkit-scrollbar,
+.ch-chatlist::-webkit-scrollbar{ width:10px; }
+.ch-thread::-webkit-scrollbar-thumb,
+.ch-chatlist::-webkit-scrollbar-thumb{ background:#dfe6ff; border-radius:10px; border:2px solid #f6f8ff; }
+.ch-thread::-webkit-scrollbar-track,
+.ch-chatlist::-webkit-scrollbar-track{ background:transparent; }
+.ch-thread, .ch-chatlist{ scrollbar-width:thin; scrollbar-color:#dfe6ff transparent; }
+
+/* кастомные dropdown'ы (всегда вниз) */
+.ch-dd{ position:relative; display:inline-block; }
+.ch-dd > summary{
+  list-style:none;
+  height:36px; line-height:36px;
+  padding:0 36px 0 14px;
+  border:1px solid #dfe6ff;
+  border-radius:10px;
+  background:#fff;
+  color:var(--ch-text);
+  font-size:13px; font-weight:700;
+  box-shadow:0 6px 16px rgba(18,33,73,.08);
+  cursor:pointer; user-select:none;
+}
+.ch-dd > summary::-webkit-details-marker{ display:none; }
+.ch-dd > summary:after{
+  content:"";
+  position:absolute; right:14px; top:50%; transform:translateY(-50%);
+  width:0;height:0;
+  border-left:6px solid transparent; border-right:6px solid transparent; border-top:6px solid #8aa0d8;
+}
+.ch-dd[open] > summary{ box-shadow:0 8px 20px rgba(18,33,73,.12); }
+.ch-dd__menu{
+  position:absolute; left:0; top:calc(100% + 6px);
+  width:min(78vw, 420px);
+  max-height:320px; overflow:auto;
+  background:#fff; border:1px solid #e9edfa; border-radius:12px;
+  box-shadow:0 16px 40px rgba(18,33,73,.18);
+  padding:6px; z-index:50;
+}
+.ch-dd--right .ch-dd__menu{ right:0; left:auto; }
+.ch-dd__ul{ list-style:none; margin:0; padding:0; }
+.ch-dd__item{
+  width:100%; text-align:left;
+  display:flex; justify-content:space-between; align-items:center;
+  gap:10px; padding:10px 12px;
+  border-radius:10px; border:none; background:transparent; cursor:pointer;
+  font-size:14px; font-weight:600; color:var(--ch-text);
+}
+.ch-dd__item:hover{ background:#f7f9ff; }
+.ch-dd__badge{
+  background:var(--ch-accent); color:#fff; font-size:12px;
+  padding:2px 8px; border-radius:999px;
+}
+
+/* адаптив */
+@media (max-width:900px){
+  .ch-layout{ grid-template-columns:1fr; }
+  .ch-sidebar{ order:2; }
+  .ch-chat{ order:1; min-height:420px; }
+}
+@media (max-width:640px){
+  .ch-shell{ margin:10px 0; padding:0 12px; }
+  .ch-card{ padding:18px; height:auto; min-height:calc(100dvh - 120px); }
+  .ch-title{ font-size:22px; }
+}
+
+/* тач-устройства — убираем прыжок, чтобы бордеры не «рвались» */
+@media (hover:none){
+  .ch-chatlist__item:hover{ transform:none; }
+}
+
+
+/* === Mobile optimizations for chat width & bubbles === */
+@media (max-width:640px){
+  /* убираем внешние отступы-контейнер, делаем карточку во всю ширину */
+  .ch-shell{ padding:0; margin:0; }
+  .ch-card{ padding:12px; border-radius:-1; }
+
+  /* растягиваем сам чат «в край» */
+  .ch-chat{ 
+    margin:0 -12px;         /* компенсируем padding карточки, чтобы чат стал шире */
+    border-left:0; 
+    border-right:0; 
+    border-radius:0; 
+    min-height:calc(100dvh - 160px); /* больше вертикали */
+  }
+
+  /* чуть компактнее внутри */
+  .ch-chat__head{ padding:10px 12px; }
+  .ch-thread{ padding:10px 12px; gap:6px; }
+  .ch-composer{ padding:10px; gap:6px; }
+  .ch-send{ width:42px; height:42px; }
+
+  /* «облака» компактнее */
+  .ch-bubble{ 
+    padding:10px 12px; 
+    border-radius:10px; 
+    /* max-width можно оставить 78%, если хочешь шире — поставь 84–88% */
+    /* max-width:84%; */
+  }
+  .ch-bubble__text{ font-size:14px; }
+  .ch-bubble__meta{ font-size:10.5px; }
+}
+
+
+/* вложенные группы в выпадающем меню */
+.ch-dd-sub { margin:2px 0; }
+.ch-dd-sub > summary{
+  list-style:none; cursor:pointer;
+  padding:8px 10px; border-radius:8px; font-weight:700; font-size:14px;
+}
+.ch-dd-sub[open] > summary{ background:#f7f9ff; }
+.ch-dd-sub > summary::-webkit-details-marker{ display:none; }
+.ch-dd-sub ul{ margin:6px 0 4px; padding-left:0; display:grid; gap:6px; }

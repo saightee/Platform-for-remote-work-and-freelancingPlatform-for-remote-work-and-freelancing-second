@@ -102,6 +102,8 @@ const [newParentCategoryId, setNewParentCategoryId] = useState<string>('');
   const [pendingReviewFilter, setPendingReviewFilter] = useState<'All' | 'true' | 'false'>('All');
   const [issues, setIssues] = useState<Feedback[]>([]);
   const [growthPage, setGrowthPage] = useState(1);
+const [autoRefresh, setAutoRefresh] = useState(false);
+
 const [growthLimit] = useState(10); // Лимит на страницу
 const [stories, setStories] = useState<{ id: string; user_id: string; rating: number; description: string; created_at: string; updated_at: string; user: { id: string; username: string; role: string } }[]>([]);
   const [analytics, setAnalytics] = useState<{
@@ -154,7 +156,8 @@ const [stories, setStories] = useState<{ id: string; user_id: string; rating: nu
   const [onlineStatuses, setOnlineStatuses] = useState<{ [key: string]: boolean }>({});
   const [fetchErrors, setFetchErrors] = useState<{ [key: string]: string }>({});
 const [userPage, setUserPage] = useState(1);
-const [userLimit] = useState(10);
+const [userLimit] = useState(30);
+const [isUsersLoading, setIsUsersLoading] = useState(false);
 const [jobPostPage, setJobPostPage] = useState(1);
 const [jobPostLimit] = useState(10);
 const [jobPostsWithAppsPage, setJobPostsWithAppsPage] = useState(1);
@@ -276,12 +279,10 @@ const submitResolveComplaint = async () => {
 const [referralLinks, setReferralLinks] = useState<{
   id: string;
   jobPostId: string;
-  refCode: string;
   fullLink: string;
   description?: string | null;
   clicks: number;
   registrations: number;
-  created_at?: string;
   registrationsDetails?: { user: { id: string; username: string; email: string; role: string; created_at: string } }[];
   job_post?: { id: string; title: string };
 }[]>([]);
@@ -438,6 +439,8 @@ const sortedUsers = [...users].sort((a, b) => {
   return 0;
 });
 
+const usersToRender = sortedUsers;
+
 const paginatedJobPostsWithApps = sortedJobPostsWithApps.slice(
   (jobPostsWithAppsPage - 1) * jobPostsWithAppsLimit,
   jobPostsWithAppsPage * jobPostsWithAppsLimit
@@ -497,25 +500,34 @@ const sortedComplaints = [...enrichedComplaints] // Изменено: enrichedCo
     return 0;
   });
 
-const fetchJobPosts = useCallback(async (params: { page?: number; title?: string; employer_id?: string; employer_username?: string; id?: string; category_id?: string; status?: string; pendingReview?: string } = {}) => { // Изменено: добавили supported id, category_id; убрали employer_email
+const fetchJobPosts = useCallback(async (params: {
+  page?: number; limit?: number;
+  title?: string; employer_id?: string; employer_username?: string;
+  id?: string; category_id?: string; status?: string; pendingReview?: string;
+} = {}) => {
   try {
     setIsLoading(true);
-    setFetchErrors((prev) => ({ ...prev, getAllJobPosts: '' }));
-    const response = await getAllJobPosts(params);
+    setFetchErrors(prev => ({ ...prev, getAllJobPosts: '' }));
+    const q = {
+      page: params.page ?? jobPostPage,
+      limit: params.limit ?? jobPostLimit,
+      title: params.title,
+      employer_id: params.employer_id,
+      employer_username: params.employer_username,
+      id: params.id,
+      category_id: params.category_id,
+      status: params.status,
+      pendingReview: params.pendingReview,
+    };
+    const response = await getAllJobPosts(q);
     setJobPosts(response.data || []);
-  } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>;
-    console.error('Error fetching job posts:', axiosError);
-    if (axiosError.response?.status === 401) { // Добавлено: handle 401 специально (token invalid?)
-      alert('Session expired. Please log in again.');
-      localStorage.removeItem('token');
-      navigate('/login');
-    }
-    setFetchErrors((prev) => ({ ...prev, getAllJobPosts: axiosError.response?.data?.message || 'Failed to load job posts.' }));
+  } catch (err) {
+    const axiosError = err as AxiosError<{ message?: string }>;
+    setFetchErrors(prev => ({ ...prev, getAllJobPosts: axiosError.response?.data?.message || 'Failed to load job posts.' }));
   } finally {
     setIsLoading(false);
   }
-}, [navigate]); // Добавлено: navigate в deps
+}, [jobPostPage, jobPostLimit, navigate]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -585,76 +597,74 @@ useEffect(() => {
 
 // Для пользователей
 
-  const fetchUsers = useCallback(async (params: { page?: number; limit?: number; username?: string; email?: string; id?: string } = {}) => {
+
+const buildUserSearch = (page = userPage) => {
+  const q: any = { page, limit: userLimit };
+  const s = searchQuery.trim();
+  if (!s) return q;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s)) q.id = s;
+  else if (s.includes('@')) q.email = s;
+  else q.username = s;
+  return q;
+};
+
+  const fetchUsers = useCallback(async (params: {
+  page?: number; limit?: number; username?: string; email?: string; id?: string;
+  createdAfter?: string; role?: 'employer'|'jobseeker'|'admin'|'moderator';
+  status?: 'active'|'blocked'; } = {}) => {
   if (!currentRole || currentRole !== 'admin') {
     setError('This page is only available for admins.');
-    setIsLoading(false);
+    setIsUsersLoading(false);
     return;
   }
 
   try {
-    setIsLoading(true);
+    setIsUsersLoading(true);
     setFetchErrors((prev) => ({ ...prev, getAllUsers: '' }));
-    const effectivePage = params.page || userPage;
-const queryParams: { page: number; limit: number; username?: string; email?: string; id?: string } = {
-  page: effectivePage,
-  limit: userLimit,
-};
-if (params.username) {
-  queryParams.username = params.username;
-}
-if (params.email) {
-  queryParams.email = params.email;
-}
-if (params.id) {
-  queryParams.id = params.id; // Добавь
-}
-    console.log('Fetching users with params:', queryParams); // Лог для диагностики
-    const userResponse = await getAllUsers(queryParams);
-    console.log('Raw getAllUsers response:', userResponse);
-    const userData = Array.isArray(userResponse) ? userResponse : userResponse?.data || [];
-    console.log('Extracted userData:', userData);
-    setUsers(userData);
-    setUserTotal(userResponse.total || userData.length); // Устанавливаем total для пагинации
+    
+const queryParams: any = {
+    page: params.page ?? userPage,
+    limit: params.limit ?? userLimit,
+  };
+  if (params.username) queryParams.username = params.username;
+  if (params.email) queryParams.email = params.email;
+  if (params.id) queryParams.id = params.id;
+  if (params.createdAfter) queryParams.createdAfter = params.createdAfter;
+  if (params.role) queryParams.role = params.role;
+  if (params.status) queryParams.status = params.status;
+
+  const userResponse = await getAllUsers(queryParams);
+  const { data: userData = [], total = 0 } = userResponse || {};
+  setUsers(userData);
+  setUserTotal(total);
     console.log('Users set in state:', userData);
       
       // Добавлено: запрос онлайн-статусов для всех юзеров
-      const statusPromises = userData.map((user) => getUserOnlineStatus(user.id).catch(() => ({ isOnline: false })));
-      const statuses = await Promise.all(statusPromises);
-      const statusMap = userData.reduce((acc, user, index) => {
-        acc[user.id] = statuses[index].isOnline;
-        return acc;
-      }, {} as { [key: string]: boolean });
-      setOnlineStatuses(statusMap);
-      
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error fetching users:', axiosError.response?.data?.message || axiosError.message);
-      setFetchErrors((prev) => ({
-        ...prev,
-        getAllUsers: axiosError.response?.data?.message || 'Failed to load users data',
-      }));
-      setError('Some data failed to load. Check errors below.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentRole, userPage, userLimit]);
+     const statuses = await Promise.all(
+      userData.map(u => getUserOnlineStatus(u.id).catch(() => ({ isOnline:false })))
+    );
+    setOnlineStatuses(userData.reduce((acc, u, i) => {
+      acc[u.id] = statuses[i].isOnline; return acc;
+    }, {} as Record<string, boolean>));
+
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    setFetchErrors(prev => ({
+      ...prev,
+      getAllUsers: axiosError.response?.data?.message || 'Failed to load users data',
+    }));
+    setError('Some data failed to load. Check errors below.');
+  } finally {
+    setIsUsersLoading(false);                       // ← локально
+  }
+}, [currentRole, userPage, userLimit]);
+
+
 
 
 useEffect(() => {
-  fetchUsers(); // initial
-}, [fetchUsers]);
-
-useEffect(() => {
-  // при клике Next/Previous тянем новую страницу с текущими фильтрами поиска
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(searchQuery);
-  const params: { page: number; limit: number; username?: string; email?: string; id?: string } = { page: userPage, limit: userLimit };
-  if (isUuid) params.id = searchQuery;
-  else if (searchQuery.includes('@')) params.email = searchQuery;
-  else if (searchQuery) params.username = searchQuery;
-
-  fetchUsers(params);
-}, [userPage]);
+  fetchUsers(buildUserSearch(userPage));
+}, [userPage, userLimit, fetchUsers]);
 
 
 
@@ -954,9 +964,14 @@ case 25:
 useEffect(() => {
   if (currentRole === 'admin') {
     fetchOtherData();
+  }
+}, [currentRole]);
+
+useEffect(() => {
+  if (currentRole === 'admin') {
     fetchJobPosts();
   }
-}, [currentRole, jobPostPage]);
+}, [currentRole, jobPostPage, fetchJobPosts]);
 
 // Функция handleRefresh
 const handleRefresh = async () => {
@@ -1010,8 +1025,11 @@ const handleRefresh = async () => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
         await deleteUser(id);
-        setUsers(users.filter((user) => user.id !== id));
+        if (users.length === 1 && userPage > 1) {
+        setUserPage(userPage - 1);
         alert('User deleted successfully!');
+        } else {
+  await fetchUsers(buildUserSearch(userPage)); }
       } catch (error) {
         const axiosError = error as AxiosError<{ message?: string }>;
         console.error('Error deleting user:', axiosError);
@@ -1067,7 +1085,7 @@ const handleVerifyIdentity = async (id: string, verify: boolean) => {
   try {
     await verifyIdentity(id, verify);
     alert(`Identity ${verify ? 'verified' : 'rejected'} successfully!`);
-    await fetchUsers({ username: searchQuery, email: searchQuery }); // Reuse fetchUsers with current searchQuery (resets page to 1 if search)
+    await fetchUsers(buildUserSearch());
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
     console.error('Error verifying identity:', axiosError);
@@ -1080,7 +1098,7 @@ const handleVerifyIdentity = async (id: string, verify: boolean) => {
     try {
       await blockUser(id);
       alert('User blocked successfully!');
-      fetchUsers({ username: searchQuery, email: searchQuery, page: userPage }); // Перезагружаем с текущим поиском и страницей
+     await fetchUsers(buildUserSearch(userPage));
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       console.error('Error blocking user:', axiosError);
@@ -1094,7 +1112,7 @@ const handleUnblockUser = async (id: string, username: string) => {
     try {
       await unblockUser(id);
       alert('User unblocked successfully!');
-      fetchUsers({ username: searchQuery, email: searchQuery, page: userPage }); // Перезагружаем с текущим поиском и страницей
+      await fetchUsers(buildUserSearch(userPage));
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       console.error('Error unblocking user:', axiosError);
@@ -1224,6 +1242,9 @@ const handleFlagJobPost = async (id: string) => {
     }
   };
 
+  const selectedJob = jobPosts.find(post => post.id === showJobModal);
+const safeDescription = sanitizeHtml(selectedJob?.description ?? '');
+
 const handleNotifyCandidates = async (id: string) => {
   console.log('Handle Notify called for id:', id); // Добавлено: лог для диагностики клика
   setNotifyJobPostId(id);
@@ -1266,6 +1287,78 @@ const handleNotifySubmit = async () => {
     }
   };
 
+useEffect(() => {
+  if (!autoRefresh) return;
+
+  let stop = false;
+  let slowBusy = false;
+
+  const today = () => format(new Date(), 'yyyy-MM-dd');
+  const yesterday = () => format(subDays(new Date(), 1), 'yyyy-MM-dd');
+  const weekRange = () => ({
+    start: format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+    end: format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+  });
+  const monthRange = () => ({
+    start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+    end: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
+  });
+
+  // быстрый тик: онлайн, последние регистрации, и TODAY для Business Overview
+  const fetchFast = async () => {
+    try {
+      const [online, recents, jsToday, bizToday] = await Promise.all([
+        getOnlineUsers(),
+        getRecentRegistrations({ limit: 5 }),
+        getGeographicDistribution({ role: 'jobseeker', startDate: today(), endDate: today() }),
+        getGeographicDistribution({ role: 'employer',  startDate: today(), endDate: today() }),
+      ]);
+      if (stop) return;
+      setOnlineUsers(online || null);
+      setRecentRegistrations(recents || { jobseekers: [], employers: [] });
+      setFreelancerSignupsToday(jsToday || []);
+      setBusinessSignupsToday(bizToday || []);
+    } catch { /* тихо игнорим */ }
+  };
+
+  // медленный тик: Yesterday / Week / Month для Business Overview
+  const fetchSlow = async () => {
+    if (slowBusy) return;
+    slowBusy = true;
+    try {
+      const y = yesterday();
+      const { start: ws, end: we } = weekRange();
+      const { start: ms, end: me } = monthRange();
+
+      const [jsY, jsW, jsM, bizY, bizW, bizM] = await Promise.all([
+        getGeographicDistribution({ role: 'jobseeker', startDate: y,  endDate: y }),
+        getGeographicDistribution({ role: 'jobseeker', startDate: ws, endDate: we }),
+        getGeographicDistribution({ role: 'jobseeker', startDate: ms, endDate: me }),
+        getGeographicDistribution({ role: 'employer',  startDate: y,  endDate: y }),
+        getGeographicDistribution({ role: 'employer',  startDate: ws, endDate: we }),
+        getGeographicDistribution({ role: 'employer',  startDate: ms, endDate: me }),
+      ]);
+
+      if (stop) return;
+      setFreelancerSignupsYesterday(jsY || []);
+      setFreelancerSignupsWeek(jsW || []);
+      setFreelancerSignupsMonth(jsM || []);
+      setBusinessSignupsYesterday(bizY || []);
+      setBusinessSignupsWeek(bizW || []);
+      setBusinessSignupsMonth(bizM || []);
+    } catch { /* тихо игнорим */ }
+    finally { slowBusy = false; }
+  };
+
+  // стартовые вызовы
+  fetchFast();
+  fetchSlow();
+
+  const fastId = setInterval(fetchFast, 15000);   // каждые 15 сек
+  const slowId = setInterval(fetchSlow, 120000);  // каждые 2 мин
+
+  return () => { stop = true; clearInterval(fastId); clearInterval(slowId); };
+}, [autoRefresh]);
 
 
 const handleViewJobApplications = async (jobPostId: string) => {
@@ -1288,6 +1381,13 @@ const handleViewJobApplications = async (jobPostId: string) => {
     setError(axiosError.response?.data?.message || 'Failed to fetch job applications.');
   }
 };
+
+const triggerUserSearch = () => {
+  const q = buildUserSearch(1); // соберёт id/email/username + page=1
+  fetchUsers(q);                // явно шлём запрос
+  if (userPage !== 1) setUserPage(1); // чтобы пагинация вернулась на первую
+};
+
 
   const handleViewChatHistory = async (jobApplicationId: string, page: number = 1) => {
   try {
@@ -1373,6 +1473,18 @@ const handleSetGlobalLimit = async () => {
     }
   };
 
+  // const todayStr = new Date().toDateString();
+
+const todayMnl = formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd');
+
+const todayRegs = recentRegistrations.jobseekers.filter(
+  u => formatInTimeZone(new Date(u.created_at), 'Asia/Manila', 'yyyy-MM-dd') === todayMnl
+);
+
+const todayBiz = recentRegistrations.employers.filter(
+  u => formatInTimeZone(new Date(u.created_at), 'Asia/Manila', 'yyyy-MM-dd') === todayMnl
+);
+
 if (isLoading) {
   return (
     <div>
@@ -1382,8 +1494,8 @@ if (isLoading) {
           <span className="greeting">Welcome, <span className="username-bold">{username}</span></span> 
           <Link to="/" className="nav-link"><FaHome /> Home</Link>
           <button className="action-button" onClick={handleLogout}><FaSignOutAlt /> Logout</button>
-          <div className="user-count employers"><FaUser /> {onlineEmployers ?? 'N/A'}</div>
-          <div className="user-count freelancers"><FaUser /> {onlineFreelancers ?? 'N/A'}</div>
+          <div className="user-count employers"><FaUser /> {onlineUsers?.employers ?? 'N/A'}</div>
+<div className="user-count freelancers"><FaUser /> {onlineUsers?.jobseekers ?? 'N/A'}</div>
           <div className="date-time">
            <span>{formatInTimeZone(currentTime, 'Asia/Manila', 'MMM dd')}</span>  {formatInTimeZone(currentTime, 'Asia/Manila', 'HH:mm')}
           </div>
@@ -1413,8 +1525,8 @@ if (isLoading) {
           <span className="greeting">Welcome, <span className="username-bold">{username}</span></span>
           <Link to="/" className="nav-link"><FaHome /> Home</Link>
           <button className="action-button-admin" onClick={handleLogout}><FaSignOutAlt /> Logout</button>
-          <div className="user-count employers"><FaUser /> {onlineEmployers ?? 'N/A'}</div>
-          <div className="user-count freelancers"><FaUser /> {onlineFreelancers ?? 'N/A'}</div>
+          <div className="user-count employers"><FaUser /> {onlineUsers?.employers ?? 'N/A'}</div>
+<div className="user-count freelancers"><FaUser /> {onlineUsers?.jobseekers ?? 'N/A'}</div>
           <div className="date-time">
            <span>{formatInTimeZone(currentTime, 'Asia/Manila', 'MMM dd')}</span>  {formatInTimeZone(currentTime, 'Asia/Manila', 'HH:mm')}
           </div>
@@ -1445,8 +1557,8 @@ if (isLoading) {
         <span className="greeting">Welcome, <span className="username-bold">{username}</span></span>
         <Link to="/" className="nav-link"><FaHome /> Home</Link>
         <div className="action-button-admin" onClick={handleLogout}><FaSignOutAlt /> Logout</div>
-        <div className="user-count employers"><FaUser /> {onlineEmployers ?? 'N/A'}</div>
-        <div className="user-count freelancers"><FaUser /> {onlineFreelancers ?? 'N/A'}</div>
+      <div className="user-count employers"><FaUser /> {onlineUsers?.employers ?? 'N/A'}</div>
+<div className="user-count freelancers"><FaUser /> {onlineUsers?.jobseekers ?? 'N/A'}</div>
         <div className="date-time">
           <span>{formatInTimeZone(currentTime, 'Asia/Manila', 'MMM dd')}</span> {formatInTimeZone(currentTime, 'Asia/Manila', 'HH:mm')}
         </div>
@@ -1508,7 +1620,14 @@ if (isLoading) {
               <div className="dashboard-section">
   <div className="table-header">
     <h3>Business Overview</h3>
-       <button className="action-button refresh-button" onClick={handleRefresh}>refresh</button>
+    <button
+  className={`action-button ${autoRefresh ? 'success' : ''}`}
+  onClick={() => setAutoRefresh(v => !v)}
+>
+  {autoRefresh ? 'Auto-refresh: ON' : 'Auto-refresh: OFF'}
+</button>
+
+       {/* <button className="action-button refresh-button" onClick={handleRefresh}>refresh</button> */}
   </div>
   <table className="dashboard-table">
     <thead>
@@ -1573,63 +1692,61 @@ if (isLoading) {
               </div>
               <div className="dashboard-section">
                 <h3>Recent Registrations</h3>
-                <details>
-  <summary>Last 5 Freelancer Registrations Today (Total: {recentRegistrations.jobseekers.filter(user => new Date(user.created_at).toDateString() === new Date().toDateString()).length})</summary> {/* Обработка: фильтр по сегодняшней дате */}
-  <table className="dashboard-table">
-    <thead>
-      <tr>
-        <th>Username</th>
-        <th>Email</th>
-        <th>Created At</th>
-      </tr>
-    </thead>
-    <tbody>
-      {recentRegistrations.jobseekers
-        .filter(user => new Date(user.created_at).toDateString() === new Date().toDateString()) // Добавлено: фильтр по дате
-        .slice(0, 5) // Лимит 5
-        .map((user) => (
-          <tr key={user.id}>
-            <td>{user.username}</td>
-            <td>{user.email}</td>
-            <td>{format(new Date(user.created_at), 'PP')}</td>
-          </tr>
-        )) || (
-          <tr>
-            <td colSpan={3}>No recent freelancer registrations today.</td>
-          </tr>
+               <details>
+    <summary>
+      Last 5 Freelancer Registrations Today (Total: {todayRegs.length})
+    </summary>
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Created At</th>
+        </tr>
+      </thead>
+      <tbody>
+        {todayRegs.length === 0 ? (
+          <tr><td colSpan={3}>No recent freelancer registrations today.</td></tr>
+        ) : (
+          todayRegs.slice(0,5).map(u => (
+            <tr key={u.id}>
+              <td>{u.username}</td>
+              <td>{u.email}</td>
+              <td>{format(new Date(u.created_at), 'PP')}</td>
+            </tr>
+          ))
         )}
-    </tbody>
-  </table>
-</details>
-<details>
-  <summary>Last 5 Business Registrations Today (Total: {recentRegistrations.employers.filter(user => new Date(user.created_at).toDateString() === new Date().toDateString()).length})</summary>
-  <table className="dashboard-table">
-    <thead>
-      <tr>
-        <th>Username</th>
-        <th>Email</th>
-        <th>Created At</th>
-      </tr>
-    </thead>
-    <tbody>
-      {recentRegistrations.employers
-        .filter(user => new Date(user.created_at).toDateString() === new Date().toDateString()) // Добавлено: фильтр по дате
-        .slice(0, 5) // Лимит 5
-        .map((user) => (
-          <tr key={user.id}>
-            <td>{user.username}</td>
-            <td>{user.email}</td>
-            <td>{format(new Date(user.created_at), 'PP')}</td>
-          </tr>
-        )) || (
-          <tr>
-            <td colSpan={3}>No recent business registrations today.</td>
-          </tr>
+      </tbody>
+    </table>
+  </details>
+ <details>
+    <summary>
+      Last 5 Business Registrations Today (Total: {todayBiz.length})
+    </summary>
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Created At</th>
+        </tr>
+      </thead>
+      <tbody>
+        {todayBiz.length === 0 ? (
+          <tr><td colSpan={3}>No recent business registrations today.</td></tr>
+        ) : (
+          todayBiz.slice(0,5).map(u => (
+            <tr key={u.id}>
+              <td>{u.username}</td>
+              <td>{u.email}</td>
+              <td>{format(new Date(u.created_at), 'PP')}</td>
+            </tr>
+          ))
         )}
-    </tbody>
-  </table>
-</details>
-              </div>
+      </tbody>
+    </table>
+  </details>
+</div>
 <div className="dashboard-section">
   <h3>Job Postings with Applications</h3>
   <table className="dashboard-table">
@@ -1694,34 +1811,32 @@ if (isLoading) {
     Export to CSV
   </button>
   {fetchErrors.getAllUsers && <p className="error-message">{fetchErrors.getAllUsers}</p>}
-  {(() => {
-    console.log('Rendering users:', sortedUsers);
-    return null;
-  })()}
   
   {/* Добавлено: search bar */}
-  <div className="search-bar" style={{ marginBottom: '10px' }}>
-    <input
-      type="text"
-      placeholder="Search by username or email"
-      value={searchQuery}
-      onChange={(e) => setSearchQuery(e.target.value)}
-    />
- <button onClick={() => {
-  const params: { page: number; username?: string; email?: string; id?: string } = { page: 1 };
-if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(searchQuery)) {
-  params.id = searchQuery; // Поиск по ID
-} else if (searchQuery.includes('@')) {
-  params.email = searchQuery;
-} else {
-  params.username = searchQuery;
-}
-fetchUsers(params);
-setUserPage(1);
-}} className="action-button">
-  <FaSearch />
-</button>
-  </div>
+<div className="search_users" style={{ marginBottom: '10px' }}>
+  <input
+    type="text"
+    placeholder="Search by username, email or ID"
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        triggerUserSearch();
+      }
+    }}
+  />
+  <button
+    type="button"
+    onClick={triggerUserSearch}
+    className="action-button"
+    disabled={isUsersLoading}
+    aria-label="Search users"
+  >
+    <FaSearch />
+  </button>
+</div>
+
   
   
    <table className="dashboard-table">
@@ -1744,21 +1859,17 @@ setUserPage(1);
     </tr>
   </thead>
   <tbody>
-    {sortedUsers.length > 0 ? sortedUsers.map((user) => (
-      <tr key={user.id}>
-        <td>{user.id}</td>
-        <td>{user.username}</td>
-        <td>{user.email}</td>
-        <td>{user.role}</td>
-        <td>{user.status === 'blocked' ? 'Blocked' : 'Active'}</td>
-        <td>
-          {onlineStatuses[user.id] ? 'Online' : 'Offline'}
-        </td>
-        <td>
-          <button onClick={() => handleViewRiskScore(user.id)} className="action-button">
-            View Risk
-          </button>
-        </td>
+  {usersToRender.length > 0 ? usersToRender.map((user) => (
+    <tr key={user.id}>
+      <td>{user.id}</td>
+      <td>{user.username}</td>
+      <td>{user.email}</td>
+      <td>{user.role}</td>
+      <td>{user.status === 'blocked' ? 'Blocked' : 'Active'}</td>
+      <td>{onlineStatuses[user.id] ? 'Online' : 'Offline'}</td>
+      <td>
+        <button onClick={() => handleViewRiskScore(user.id)} className="action-button">View Risk</button>
+      </td>
         <td>
           <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
             Delete
@@ -1837,7 +1948,7 @@ setUserPage(1);
  {activeTab === 'Job Posts' && (
   <div>
     <h4>Job Posts</h4>
-    <div className="search-bar" style={{ marginBottom: '10px' }}>
+    <div className="search_users" style={{ marginBottom: '10px' }}>
       <input
         type="text"
         placeholder="Search by title or employer username/email"
@@ -1848,28 +1959,17 @@ setUserPage(1);
   const query = searchQuery.trim();
   if (!query) return;
 
-  const params: {
-    page: number;
-    status?: string;
-    pendingReview?: string;
-    title?: string;
-    employer_id?: string;
-    category_id?: string;
-    employer_username?: string;
-    id?: string;
-    limit?: number;
-  } = { page: 1, limit: jobPostLimit };
-
-  // UUID → это ID поста (а не employer_id/category_id)
+  const params: any = { page: 1, limit: jobPostLimit };
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(query);
+
   if (isUuid) {
-    params.id = query;
+    params.id = query;                                  // ищем по ID поста
+  } else if (/^[a-z0-9_.-]+$/i.test(query)) {
+    params.employer_username = query;                   // похоже на username — ищем по нему
   } else {
-    params.title = query;
-    params.employer_username = query;
+    params.title = query;                               // иначе — как по заголовку
   }
 
-  // отправляем на backend, а локальные селекторы статуса/ревью работают как client-side фильтр, как и раньше
   fetchJobPosts(params);
   setJobPostPage(1);
 }} className="action-button">
@@ -2001,7 +2101,10 @@ setUserPage(1);
           <span className="close" onClick={() => setShowJobModal(null)}>×</span>
           <h3>Job Post Details</h3>
           <p><strong>Title:</strong> {jobPosts.find(post => post.id === showJobModal)?.title}</p>
-          <p><strong>Description:</strong> <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(jobPosts.find(post => post.id === showJobModal)?.description || '') }} /></p>
+          <p><strong>Description:</strong></p>
+<div
+  dangerouslySetInnerHTML={{ __html: safeDescription }}
+/>
           {jobPosts.find(post => post.id === showJobModal)?.pending_review && (
             <button onClick={() => {
               handleApproveJobPost(showJobModal);
@@ -2404,7 +2507,10 @@ setUserPage(1);
           <span className="close" onClick={() => setShowJobModal(null)}>×</span>
           <h3>Job Post Details</h3>
           <p><strong>Title:</strong> {jobPosts.find(post => post.id === showJobModal)?.title}</p>
-          <p><strong>Description:</strong> <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(jobPosts.find(post => post.id === showJobModal)?.description || '') }} /></p>
+         <p><strong>Description:</strong></p>
+<div
+  dangerouslySetInnerHTML={{ __html: safeDescription }}
+/>
           {jobPosts.find(post => post.id === showJobModal)?.pending_review && (
             <button onClick={() => {
               handleApproveJobPost(showJobModal);
@@ -2860,10 +2966,8 @@ setUserPage(1);
               <tr>
                 <th>Description</th>
                 <th>Full Link</th>
-                <th>RefCode</th>
                 <th>Clicks</th>
                 <th>Registrations</th>
-                <th>CreatedAt</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -2883,20 +2987,8 @@ setUserPage(1);
                         <FaCopy /> Copy
                       </button>
                     </td>
-                    <td>
-                      {link.refCode}
-                      <button
-                        onClick={() => navigator.clipboard.writeText(link.refCode)}
-                        className="action-button"
-                        title="Copy code"
-                        style={{ marginLeft: 8 }}
-                      >
-                        <FaCopy /> Copy
-                      </button>
-                    </td>
                     <td>{link.clicks}</td>
                     <td>{link.registrations}</td>
-                    <td>{link.created_at ? format(new Date(link.created_at), 'PPpp') : '—'}</td>
                     <td>
                       <button className="action-button" onClick={() => handleEditReferral(link.id, link.description || '')}>Edit</button>
                       <button className="action-button danger" onClick={() => handleDeleteReferral(link.id)}>Delete</button>
@@ -2912,7 +3004,7 @@ setUserPage(1);
 
                   {expandedReferral === link.id && (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={5}>
                         <details open>
                           <summary>Registrations Details</summary>
                           <table>

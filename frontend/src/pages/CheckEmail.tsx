@@ -13,6 +13,8 @@ export default function CheckEmail() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+
+
   useEffect(() => {
     if (!cooldown) return;
     const id = setInterval(() => setCooldown((s) => (s > 0 ? s - 1 : 0)), 1000);
@@ -34,7 +36,7 @@ export default function CheckEmail() {
     }
     try {
       await resendVerification(email.trim());
-      setMsg('If the account exists and is not verified, we sent a new link.');
+      setMsg('If needed, we’ve sent a new verification link to this email.');
       setCooldown(DEFAULT_COOLDOWN);
     } catch (e: any) {
       if (e?.response?.status === 429) {

@@ -7,7 +7,7 @@ import Copyright from '../components/Copyright';
 import {
   getProfile,
   updateProfile,
-  uploadIdentityDocument, // оставил импорт, даже если не используется — функционал не трогаю
+  uploadIdentityDocument,
   deleteAccount,
   getCategories,
   searchCategories,
@@ -16,10 +16,12 @@ import {
 } from '../services/api';
 import { Profile, Category, JobSeekerProfile, EmployerProfile, Review } from '@types';
 import { useRole } from '../context/RoleContext';
-import { FaUserCircle, FaFilePdf } from 'react-icons/fa';
+import { FaUserCircle, FaFilePdf, FaPen, FaCheck, FaTimes } from 'react-icons/fa';
 import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
-import '../styles/profile-page.css'; // 👈 новый стиль
+import '../styles/profile-page.css';
+
+const USERNAME_RGX = /^[a-zA-Z0-9_.-]{3,20}$/; // простая валидация
 
 const ProfilePage: React.FC = () => {
   const { profile, refreshProfile } = useRole();
@@ -30,6 +32,11 @@ const ProfilePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
+
+  // username inline edit
+  const [usernameEditMode, setUsernameEditMode] = useState(false);
+  const [usernameDraft, setUsernameDraft] = useState('');
+
   const navigate = useNavigate();
 
   // --- skills autocomplete
@@ -49,7 +56,7 @@ const ProfilePage: React.FC = () => {
   const timezones = Intl.supportedValuesOf('timeZone').sort();
   const currencies = ['USD', 'EUR', 'GBP', 'JPY'];
 
-  // ------- categories load (alphabetical, recursive)
+  // ------- categories load
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -109,6 +116,7 @@ const ProfilePage: React.FC = () => {
         const [pData, cats] = await Promise.all([getProfile(), getCategories()]);
         setProfileData(pData);
         setCategories(cats || []);
+        setUsernameDraft(pData.username || '');
         if (pData.role === 'jobseeker') {
           setSelectedSkillIds((pData as JobSeekerProfile).skills?.map((s: Category) => s.id) || []);
         }
@@ -122,6 +130,7 @@ const ProfilePage: React.FC = () => {
 
     if (profile) {
       setProfileData(profile);
+      setUsernameDraft(profile.username || '');
       fetchData();
     } else {
       fetchData();
@@ -132,12 +141,21 @@ const ProfilePage: React.FC = () => {
   const handleUpdateProfile = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (!profileData) return;
+
+    // если юзер оставил поле открытым — берём драфт
+    const usernameToSave = (usernameEditMode ? usernameDraft.trim() : (profileData.username || '')).trim();
+
+    if (usernameToSave && !USERNAME_RGX.test(usernameToSave)) {
+      setFormError('Username must be 3-20 chars and contain only letters, numbers, ".", "-", "_".');
+      return;
+    }
+
     try {
       setFormError(null);
 
       if (profileData.role === 'jobseeker') {
         const payload = {
-          username: profileData.username,
+          username: usernameToSave,
           email: profileData.email,
           timezone: profileData.timezone,
           currency: profileData.currency,
@@ -150,9 +168,10 @@ const ProfilePage: React.FC = () => {
         };
         const updated = await updateProfile(payload);
         setProfileData(updated);
+        setUsernameDraft(updated.username || usernameToSave);
       } else if (profileData.role === 'employer') {
         const payload: Partial<EmployerProfile> = {
-          username: profileData.username,
+          username: usernameToSave,
           email: profileData.email,
           timezone: profileData.timezone,
           currency: profileData.currency,
@@ -162,17 +181,20 @@ const ProfilePage: React.FC = () => {
         };
         const updated = await updateProfile(payload);
         setProfileData(updated);
+        setUsernameDraft(updated.username || usernameToSave);
       } else {
         const payload: Partial<Profile> = {
-          username: profileData.username,
+          username: usernameToSave,
           email: profileData.email,
           timezone: profileData.timezone,
           currency: profileData.currency,
         };
         const updated = await updateProfile(payload);
         setProfileData(updated);
+        setUsernameDraft(updated.username || usernameToSave);
       }
 
+      setUsernameEditMode(false);
       setIsEditing(false);
       await refreshProfile();
     } catch (e: any) {
@@ -209,6 +231,12 @@ const ProfilePage: React.FC = () => {
       console.error('Error uploading avatar:', e);
     }
   };
+
+  function canShowReviews(
+  p: Profile
+): p is (EmployerProfile | JobSeekerProfile) & { reviews?: Review[] } {
+  return p.role === 'employer' || p.role === 'jobseeker';
+}
 
   // ------- delete account
   const handleDeleteAccount = async () => {
@@ -279,7 +307,6 @@ const ProfilePage: React.FC = () => {
                     if (file) {
                       setAvatarFile(file);
                       if (!isEditing) {
-                        // авто-аплоад если не в режиме редактирования
                         uploadAvatarFile(file);
                       }
                     }
@@ -302,6 +329,64 @@ const ProfilePage: React.FC = () => {
                   </div>
                 ) : (
                   <>
+                    {/* Username inline edit with small icon */}
+                    <div className="pf-row pf-username-row">
+                      <label className="pf-label">Username</label>
+
+                      {!usernameEditMode ? (
+                        <div className="pf-inline-edit">
+                          <span className="pf-inline-value">{profileData.username || '—'}</span>
+                          <button
+                            type="button"
+                            className="pf-icon-btn"
+                            title="Edit username"
+                            onClick={() => {
+                              setUsernameDraft(profileData.username || '');
+                              setUsernameEditMode(true);
+                            }}
+                          >
+                            <FaPen />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="pf-inline-edit">
+                          <input
+                            className="pf-input"
+                            type="text"
+                            value={usernameDraft}
+                            onChange={(e) => setUsernameDraft(e.target.value)}
+                            placeholder="Choose a username"
+                          />
+                          <button
+                            type="button"
+                            className="pf-icon-btn pf-ok"
+                            title="Save username"
+                            onClick={() => {
+                              if (usernameDraft && !USERNAME_RGX.test(usernameDraft.trim())) {
+                                setFormError('Username must be 3-20 chars and contain only letters, numbers, \".\", \"-\", \"_\".');
+                                return;
+                              }
+                              setProfileData({ ...profileData, username: usernameDraft.trim() });
+                              setUsernameEditMode(false);
+                            }}
+                          >
+                            <FaCheck />
+                          </button>
+                          <button
+                            type="button"
+                            className="pf-icon-btn pf-danger"
+                            title="Cancel"
+                            onClick={() => {
+                              setUsernameDraft(profileData.username || '');
+                              setUsernameEditMode(false);
+                            }}
+                          >
+                            <FaTimes />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="pf-row">
                       <label className="pf-label">Timezone</label>
                       <select
@@ -410,7 +495,6 @@ const ProfilePage: React.FC = () => {
                           )}
                         </span>
                       </div>
-
                     </div>
                   ) : (
                     <>
@@ -616,35 +700,54 @@ const ProfilePage: React.FC = () => {
               {isEditing && (
                 <div className="pf-actions-bottom">
                   <button className="pf-button" onClick={handleUpdateProfile}>Save Profile</button>
-                  <button className="pf-button pf-secondary" onClick={() => setIsEditing(false)}>Cancel</button>
+                  <button className="pf-button pf-secondary" onClick={() => { setIsEditing(false); setUsernameEditMode(false); setUsernameDraft(profileData.username || ''); }}>
+                    Cancel
+                  </button>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {(profileData.role === 'employer' || profileData.role === 'jobseeker') && (
-          <div className="pf-card pf-card-reviews">
-            <h2 className="pf-subtitle">Reviews</h2>
-            {profileData.reviews?.length ? (
-              <ul className="pf-reviews-list">
-                {profileData.reviews.map((review: Review) => (
-                  <li key={review.id} className="pf-review">
-                    <div className="pf-review-row"><span className="pf-k">Rating</span><span className="pf-v">{review.rating}</span></div>
-                    <div className="pf-review-row"><span className="pf-k">Comment</span><span className="pf-v">{review.comment}</span></div>
-                    <div className="pf-review-row"><span className="pf-k">Reviewer</span><span className="pf-v">{review.reviewer?.username || 'Anonymous'}</span></div>
-                    <div className="pf-review-row"><span className="pf-k">Date</span><span className="pf-v">{review.created_at}</span></div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="pf-muted">No reviews yet.</div>
-            )}
-            <div className="pf-reviews-link">
-              <strong>Reviews:</strong> <Link className="pf-link" to={`/reviews/${profileData.id}`}>View all reviews</Link>
+       {profileData && canShowReviews(profileData) && (
+  <div className="pf-card pf-card-reviews">
+    <h2 className="pf-subtitle">Reviews</h2>
+
+    {(profileData.reviews?.length ?? 0) > 0 ? (
+      <ul className="pf-reviews-list">
+        {profileData.reviews!.map((review: Review) => (
+          <li key={review.id} className="pf-review">
+            <div className="pf-review-row">
+              <span className="pf-k">Rating</span>
+              <span className="pf-v">{review.rating}</span>
             </div>
-          </div>
-        )}
+            <div className="pf-review-row">
+              <span className="pf-k">Comment</span>
+              <span className="pf-v">{review.comment}</span>
+            </div>
+            <div className="pf-review-row">
+              <span className="pf-k">Reviewer</span>
+              <span className="pf-v">{review.reviewer?.username || 'Anonymous'}</span>
+            </div>
+            <div className="pf-review-row">
+              <span className="pf-k">Date</span>
+              <span className="pf-v">{review.created_at}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <div className="pf-muted">No reviews yet.</div>
+    )}
+
+    <div className="pf-reviews-link">
+      <strong>Reviews:</strong>{' '}
+      <Link className="pf-link" to={`/reviews/${profileData.id}`}>
+        View all reviews
+      </Link>
+    </div>
+  </div>
+)}
       </div>
 
       <Footer />

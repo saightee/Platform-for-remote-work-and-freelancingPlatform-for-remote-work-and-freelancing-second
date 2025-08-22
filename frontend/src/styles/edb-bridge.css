@@ -47,6 +47,8 @@
    border-radius:12px;
   border:1px solid var(--edb-border); background:#fff; color:var(--edb-text);
   cursor:pointer;
+  font-weight: bold;  
+  font-size: 20px;
 }
 @media (min-width:1024px){ .edb-topbar__burger{ display:none; } }
 
@@ -55,8 +57,8 @@
   text-decoration:none; font-weight:800; font-size:22px;
   color:var(--edb-accent); padding:0; margin-left:2px;
 }
-.edb-topbar__logo:hover,
-.edb-topbar__logo:focus{ color:var(--edb-accent); outline:none; }
+/* .edb-topbar__logo:hover,
+.edb-topbar__logo:focus{ color:var(--edb-accent); outline:none; } */
 
 .edb-topbar__spacer{ flex:1; }
 .edb-topbar__greet{ color:var(--edb-text-dim); font-size:14px; white-space:nowrap; }
@@ -101,7 +103,7 @@
   border:1px solid var(--edb-border); background:#fff;
   transition:background .2s ease, border-color .2s ease, box-shadow .2s ease;
 }
-.edb-nav__link:hover{ background:var(--edb-surface-2); }
+.edb-nav__link:hover{ background:#fff; box-shadow:0 0 0 2px rgba(0,0,0,.04) inset; }
 .edb-nav__link.active{
   border-color:var(--edb-accent);
   box-shadow:0 0 0 3px rgba(78,116,200,.12);
@@ -121,7 +123,7 @@
 /* основной контент (где Outlet) */
 .edb-content{
   max-width:1200px; width:100%;
-  margin:0 auto; padding:16px;
+  margin:0 auto; padding:2px;
 }
 
 /* фикс «большой пустой верх» — убираем margin у первого узла и типичных заголовков */
@@ -155,7 +157,7 @@
 .edb-kpi__value{ font-size:28px; font-weight:800; letter-spacing:.4px; }
 
 .edb-panels{ display:grid; gap:var(--edb-gap); grid-template-columns:1fr; }
-@media (min-width:1024px){ .edb-panels{ grid-template-columns:1fr 1fr; } }
+@media (min-width:1024px){ .edb-panels{ grid-template-columns:1fr; } }
 
 .edb-panel{
   background:#fff; border:1px solid var(--edb-border);
@@ -175,13 +177,24 @@
   border:1px solid var(--edb-border); background:#fff; color:var(--edb-text);
   text-decoration:none; font-weight:600;
 }
-.edb-action:hover{ background:var(--edb-surface-2); }
+.edb-action:hover{ background:#fff; box-shadow:0 0 0 2px rgba(0,0,0,.04) inset; }
 
 /* таблица заявок */
 .edb-table{ width:100%; display:grid; gap:8px; }
-.edb-thead, .edb-row{
-  display:grid; grid-template-columns:1.2fr 1.4fr .9fr .8fr; gap:8px; align-items:center;
+.edb-thead{
+  display:grid;
+  grid-template-columns:1.2fr 1.4fr .9fr .8fr;
+  gap:8px;
+  align-items:center;
 }
+
+.edb-row{
+  padding:0 12px;
+  border-radius:12px;
+  background:#fff;
+  border:1px solid var(--edb-border);
+}
+
 .edb-thead{
   font-size:12px; color:var(--edb-text-dim);
   text-transform:uppercase; letter-spacing:.08em;
@@ -408,10 +421,10 @@
 
   /* порядок элементов для двух рядов */
   .edb-shell .edb-topbar__burger{ order:1; }
-  .edb-shell .edb-topbar__logo  { order:2; font-size:18px; margin-left:6px; }
-  .edb-shell .edb-topbar__greet { order:4; flex:1 1 auto; min-width:0; font-size:12px; }
+  .edb-shell .edb-topbar__logo  { order:2; font-size:22px; margin-left:6px; }
+  .edb-shell .edb-topbar__greet { order:4; flex:1 1 auto; min-width:0; font-size:14px; padding-left: 5px; }
   .edb-shell .edb-topbar__cta   { order:5; padding:8px 10px; font-size:13px; }
-  .edb-shell .edb-topbar__logout{ order:6; padding:8px 10px; font-size:13px; margin-left:8px; }
+  .edb-shell .edb-topbar__logout{ order:6; padding:8px 10px; font-size:15px; margin-left:8px; }
 
   /* чуть компактнее кнопки */
   .edb-shell .edb-topbar__cta,
@@ -477,4 +490,121 @@
 /* Если когда-нибудь дублируется и футер новой версии */
 .edb-embed .jf2-footer {
   display: none !important;
+}
+
+/* кликабельные KPI */
+.edb-kpi--clickable { cursor: pointer; text-decoration: none; color: inherit; }
+.edb-kpi--clickable:focus, .edb-kpi--clickable:hover { box-shadow: 0 0 0 2px rgba(0,0,0,.06) inset; }
+
+
+.edb-row--exp { border-bottom: 1px solid #ececec; }
+.edb-row__head{
+  display:grid;
+  grid-template-columns:1.2fr 1.4fr .9fr .8fr;
+  gap:8px;
+  width:100%;
+  background:none;
+  border:0;
+  text-align:left;
+  padding:12px 0;
+  cursor:pointer;
+  color:#333;
+}
+
+
+.edb-row__expand{ padding:8px 0 14px; }
+.edb-row__actions { display: flex; gap: 14px; flex-wrap: wrap; }
+.edb-cover { background: #fafafa; border-radius: 8px; padding: 8px 12px; }
+
+
+/* пусть футер «перекрывает» фиксированный сайдбар у нижней кромки */
+.edb-bottom{ position: relative; z-index: 60; }   /* выше сайдбара */
+.edb-sidebar{ z-index: 30; }                      /* было 35 */
+
+/* на всякий — делаем футер full-bleed на всю ширину в любом контейнере */
+.jf2-footer, .jf2-copy{
+  width: 100vw;
+  margin-left: calc(50% - 50vw);  /* «вылезти» из внутренних отступов */
+}
+
+/* выравниваем внутренний контент футера с контентной колонкой дашборда (только на десктопе) */
+@media (min-width: 1024px){
+  .edb-bottom .jf2-inner,
+  .edb-bottom .jf2-copy__inner{
+    padding-left: calc(var(--edb-sidebar-w) + 24px);
+  }
+}
+
+
+.edb-row__actions{ display:flex; gap:14px; flex-wrap:wrap; }
+.edb-link{ color:var(--edb-accent); text-decoration:none; font-weight:600; }
+.edb-link:hover{ text-decoration:underline; }
+
+.edb-cover{ background:#fafafa; border-radius:8px; padding:8px 12px; }
+.edb-cover > summary{
+  list-style:none; cursor:pointer; user-select:none;
+  display:inline-flex; align-items:center; gap:8px;
+  padding:6px 10px; border-radius:8px;
+  background:#eef2ff; border:1px solid #c7d2fe; color:#2b3a67;
+}
+.edb-cover > summary::-webkit-details-marker{ display:none; }
+.edb-cover p{ margin:10px 0 0; white-space:pre-wrap; color:var(--edb-text); }
+
+
+/* ====== Tablet (до 900px): карточка в 2 строки ====== */
+@media (max-width: 900px){
+  /* прячем шапку таблицы и делаем карточки плотнее */
+  .edb-thead{ display:none; }
+  .edb-row{ padding:12px 14px; }
+
+  /* 1-я строка: Applicant — Status
+     2-я строка: Job       — Applied */
+  .edb-row__head{
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "app status"
+      "job date";
+    align-items:start;
+    gap:6px 10px;
+  }
+  .edb-row__head > :nth-child(1){            /* Applicant */
+    grid-area: app;
+    font-weight:700;
+    min-width:0; overflow:hidden; text-overflow:ellipsis;
+  }
+  .edb-row__head > :nth-child(2){            /* Job */
+    grid-area: job;
+    min-width:0; white-space:normal; color:var(--edb-text-dim);
+  }
+  .edb-row__head > :nth-child(3){            /* Status */
+    grid-area: status;
+    justify-self:end;
+  }
+  .edb-row__head > :nth-child(4){            /* Applied */
+    grid-area: date;
+    justify-self:end; white-space:nowrap;
+    font-size:13px; color:var(--edb-text-dim);
+  }
+
+  /* компактнее бейджи */
+  .edb-badge{ font-size:12px; padding:5px 8px; }
+}
+
+/* ====== Mobile (до 560px): всё в одну колонку ====== */
+@media (max-width: 560px){
+  .edb-row__head{
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "app"
+      "job"
+      "status"
+      "date";
+    gap:6px;
+  }
+  .edb-row__head > :nth-child(3){            /* Status */
+    justify-self:start;
+  }
+  .edb-row__head > :nth-child(4){            /* Applied */
+    justify-self:start; font-size:12px;
+  }
 }

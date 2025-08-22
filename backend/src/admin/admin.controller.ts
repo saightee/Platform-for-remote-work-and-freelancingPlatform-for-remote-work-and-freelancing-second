@@ -53,6 +53,8 @@ export class AdminController {
     @Query('createdAfter') createdAfter: string,
     @Query('role') role: 'employer' | 'jobseeker' | 'admin' | 'moderator',
     @Query('status') status: 'active' | 'blocked',
+    @Query('page') page: string,
+    @Query('limit') limit: string,
     @Headers('authorization') authHeader: string,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -61,21 +63,41 @@ export class AdminController {
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const userIdAdmin = payload.sub;
-
-  const filters: { username?: string; email?: string; id?: string; createdAfter?: string; role?: 'employer' | 'jobseeker' | 'admin' | 'moderator'; status?: 'active' | 'blocked' } = {};
-  if (username) filters.username = username;
-  if (email) filters.email = email;
-  if (id) filters.id = id;
-  if (createdAfter) {
-    filters.createdAfter = createdAfter;
-  }
-  if (role) {
-    filters.role = role;
-  }
-  if (status) {
-    filters.status = status;
-  }
-
+  
+    const filters: {
+      username?: string;
+      email?: string;
+      id?: string;
+      createdAfter?: string;
+      role?: 'employer' | 'jobseeker' | 'admin' | 'moderator';
+      status?: 'active' | 'blocked';
+      page?: number;
+      limit?: number;
+    } = {};
+  
+    if (username) filters.username = username;
+    if (email) filters.email = email;
+    if (id) filters.id = id;
+    if (createdAfter) filters.createdAfter = createdAfter;
+    if (role) filters.role = role;
+    if (status) filters.status = status;
+  
+    if (page) {
+      const parsedPage = parseInt(page, 10);
+      if (isNaN(parsedPage) || parsedPage < 1) {
+        throw new BadRequestException('Page must be a positive integer');
+      }
+      filters.page = parsedPage;
+    }
+  
+    if (limit) {
+      const parsedLimit = parseInt(limit, 10);
+      if (isNaN(parsedLimit) || parsedLimit < 1) {
+        throw new BadRequestException('Limit must be a positive integer');
+      }
+      filters.limit = parsedLimit;
+    }
+  
     return this.adminService.getUsers(userIdAdmin, filters);
   }
 
