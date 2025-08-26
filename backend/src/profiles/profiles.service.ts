@@ -52,6 +52,7 @@ export class ProfilesService {
         currency: jobSeeker.currency,
         average_rating: jobSeeker.average_rating,
         profile_views: jobSeeker.profile_views,
+        job_search_status: (jobSeeker as any).job_search_status,
         reviews,
         avatar: user.avatar,
         identity_verified: user.identity_verified,
@@ -141,6 +142,14 @@ export class ProfilesService {
       }
       if (updateData.currency) {
         jobSeeker.currency = updateData.currency;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(updateData, 'job_search_status')) {
+        const allowed = ['actively_looking', 'open_to_offers', 'hired'] as const;
+        if (!allowed.includes(updateData.job_search_status)) {
+          throw new BadRequestException('job_search_status must be one of: actively_looking | open_to_offers | hired');
+        }
+        (jobSeeker as any).job_search_status = updateData.job_search_status;
       }
 
       await this.jobSeekerRepository.save(jobSeeker);

@@ -285,6 +285,7 @@
     "timezone": "Europe/Moscow",
     "currency": "USD",
     "average_rating": 4.5,
+    "job_search_status": "open_to_offers",
     "avatar": "https://example.com/avatar.jpg",
     "identity_verified": true,
     "reviews": [
@@ -374,6 +375,7 @@
     "timezone": "Europe/Moscow",
     "currency": "USD",
     "average_rating": 4.5,
+    "job_search_status": "open_to_offers",
     "avatar": "https://example.com/avatar.jpg",
     "identity_verified": true,
     "reviews": [
@@ -470,6 +472,7 @@
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://newportfolio.com",
     "video_intro": "https://newvideo.com",
+    "job_search_status": "actively_looking", // Optional
     "resume": "https://example.com/resume.pdf", // Optional, link to resume (for file use upload-resume)
     "timezone": "America/New_York",
     "currency": "EUR"
@@ -989,7 +992,9 @@
   ```json
   {
     "job_post_id": "<jobPostId>",
-    "cover_letter": "Your cover letter text here"
+    "cover_letter": "Your cover letter text here",
+    "full_name": "Jane Mary Doe",
+    "referred_by": "Alex Petrov / john@company.com"
   }
 - **Response (Success - 200)**:
   ```json
@@ -998,8 +1003,11 @@
     "job_post_id": "<jobPostId>",
     "job_seeker_id": "<userId>",
     "status": "Pending",
-    "created_at": "2025-05-13T18:00:00.000Z",
-    "updated_at": "2025-05-13T18:00:00.000Z"
+    "cover_letter": "Your cover letter text here",
+    "full_name": "Jane Mary Doe",
+    "referred_by": "Alex Petrov / john@company.com",
+    "created_at": "2025-08-26T08:00:00.000Z",
+    "updated_at": "2025-08-26T08:00:00.000Z"
   }
 - **Response (Error - 400, if daily limit reached)**:
   ```json
@@ -1178,6 +1186,8 @@
       "email": "jobseeker107@example.com",
       "jobDescription": "Experienced web developer with 5 years in React.",
       "coverLetter": "I am excited to apply for this position...",
+      "fullName": "Jane Mary Doe",
+      "referredBy": "Alex Petrov",
       "appliedAt": "2025-05-15T06:12:00.000Z",
       "status": "Pending",
       "job_post_id": "<jobPostId>"
@@ -2741,6 +2751,7 @@
   - `limit` (number, optional): Number of items per page (default: 10).
   - `sort_by` (string, optional): Field to sort by ("average_rating" or "profile_views", default: "average_rating").
   - `sort_order` (string, optional): Sort order ("ASC" or "DESC", default: "DESC").
+  - `job_search_status` — "actively_looking" | "open_to_offers" | "hired"
 - **Example Request**: `/api/talents?skills=<skillId>&experience=3 years&description=React&rating=4&timezone=America/New_York&page=1&limit=10&sort_by=average_rating&sort_order=DESC`
 - **Response (Success - 200)**:
   ```json
@@ -2765,6 +2776,7 @@
         "timezone": "America/New_York",
         "currency": "USD",
         "average_rating": 4.5,
+        "job_search_status": "open_to_offers",
         "profile_views": 100,
         "identity_verified": true,
         "avatar": "/uploads/avatars/<filename>"

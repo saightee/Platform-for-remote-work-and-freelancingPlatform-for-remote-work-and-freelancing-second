@@ -21,6 +21,7 @@ export class TalentsService {
     description?: string;
     rating?: number;
     timezone?: string;
+    job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
     page?: number;
     limit?: number;
     sort_by?: 'average_rating' | 'profile_views';
@@ -33,10 +34,10 @@ export class TalentsService {
       .where('user.role = :role', { role: 'jobseeker' })
       .andWhere('user.status = :status', { status: 'active' });
 
-  if (filters.skills?.length) {
-    const expandedSkills = await this.categoriesService.expandCategoryIdsWithDescendants(filters.skills);
-    query.andWhere('skills.id IN (:...skills)', { skills: expandedSkills });
-  }
+    if (filters.skills?.length) {
+      const expandedSkills = await this.categoriesService.expandCategoryIdsWithDescendants(filters.skills);
+      query.andWhere('skills.id IN (:...skills)', { skills: expandedSkills });
+    }
 
     if (filters.experience) {
       query.andWhere('jobSeeker.experience ILIKE :experience', {
@@ -50,7 +51,7 @@ export class TalentsService {
       });
     }
 
-    if (filters.rating) {
+    if (filters.rating !== undefined) {
       query.andWhere('jobSeeker.average_rating >= :rating', {
         rating: filters.rating,
       });
@@ -60,6 +61,10 @@ export class TalentsService {
       query.andWhere('jobSeeker.timezone = :timezone', {
         timezone: filters.timezone,
       });
+    }
+
+    if (filters.job_search_status) {
+      query.andWhere('jobSeeker.job_search_status = :js', { js: filters.job_search_status });
     }
 
     const total = await query.getCount();
@@ -84,7 +89,7 @@ export class TalentsService {
         skills: jobSeeker.skills.map((cat) => ({
           id: cat.id,
           name: cat.name,
-          parent_id: cat.parent_id,
+          parent_id: (cat as any).parent_id,
         })),
         experience: jobSeeker.experience,
         description: jobSeeker.description,
@@ -94,6 +99,7 @@ export class TalentsService {
         currency: jobSeeker.currency,
         average_rating: jobSeeker.average_rating,
         profile_views: jobSeeker.profile_views,
+        job_search_status: (jobSeeker as any).job_search_status,
         identity_verified: jobSeeker.user.identity_verified,
         avatar: jobSeeker.user.avatar,
       })),

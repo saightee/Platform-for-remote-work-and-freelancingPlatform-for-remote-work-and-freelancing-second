@@ -17,6 +17,12 @@ export class JobApplication {
   @Column({ type: 'text', nullable: true })
   cover_letter: string;
 
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  full_name?: string;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  referred_by?: string;
+
   @Column()
   job_seeker_id: string;
 

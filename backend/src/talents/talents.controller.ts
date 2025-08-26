@@ -13,6 +13,7 @@ export class TalentsController {
     @Query('description') description: string,
     @Query('rating') rating: string,
     @Query('timezone') timezone: string,
+    @Query('job_search_status') job_search_status: 'actively_looking' | 'open_to_offers' | 'hired',
     @Query('page') page: string,
     @Query('limit') limit: string,
     @Query('sort_by') sort_by: 'average_rating' | 'profile_views',
@@ -24,6 +25,7 @@ export class TalentsController {
       description?: string;
       rating?: number;
       timezone?: string;
+      job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
       page?: number;
       limit?: number;
       sort_by?: 'average_rating' | 'profile_views';
@@ -35,13 +37,10 @@ export class TalentsController {
       ...(Array.isArray(skillsBracket) ? skillsBracket : skillsBracket ? [skillsBracket] : []),
     ];
     if (collected.length) filters.skills = collected;
-    
-    if (experience) {
-      filters.experience = experience;
-    }
-    if (description) {
-      filters.description = description;
-    }
+
+    if (experience) filters.experience = experience;
+    if (description) filters.description = description;
+
     if (rating) {
       const parsedRating = parseFloat(rating);
       if (isNaN(parsedRating) || parsedRating < 0 || parsedRating > 5) {
@@ -49,9 +48,17 @@ export class TalentsController {
       }
       filters.rating = parsedRating;
     }
-    if (timezone) {
-      filters.timezone = timezone;
+
+    if (timezone) filters.timezone = timezone;
+
+    if (job_search_status) {
+      const allowed = ['actively_looking', 'open_to_offers', 'hired'];
+      if (!allowed.includes(job_search_status)) {
+        throw new BadRequestException('job_search_status must be: actively_looking | open_to_offers | hired');
+      }
+      filters.job_search_status = job_search_status;
     }
+
     if (page) {
       const parsedPage = parseInt(page, 10);
       if (isNaN(parsedPage) || parsedPage < 1) {

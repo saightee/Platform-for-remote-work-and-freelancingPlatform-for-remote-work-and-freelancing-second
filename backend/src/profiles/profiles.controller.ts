@@ -70,6 +70,7 @@ export class ProfilesController {
       company_name?: string;
       company_info?: string;
       referral_link?: string;
+      job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
     },
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

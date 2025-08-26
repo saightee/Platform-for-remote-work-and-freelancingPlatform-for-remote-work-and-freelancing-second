@@ -21,6 +21,9 @@ export class JobSeeker {
   @Column('text', { nullable: true })
   description?: string;
 
+  @Column({ type: 'varchar', default: 'open_to_offers' })
+  job_search_status: 'actively_looking' | 'open_to_offers' | 'hired';
+
   @Column({ nullable: true })
   portfolio?: string;
 

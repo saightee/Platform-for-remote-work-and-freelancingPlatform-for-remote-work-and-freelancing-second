@@ -16,6 +16,8 @@ export class JobApplicationsController {
       @Headers('authorization') authHeader: string,
       @Body('job_post_id') jobPostId: string,
       @Body('cover_letter') coverLetter: string,
+      @Body('full_name') fullName?: string,
+      @Body('referred_by') referredBy?: string,
     ) {
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         throw new UnauthorizedException('Invalid token');
@@ -23,7 +25,8 @@ export class JobApplicationsController {
       const token = authHeader.replace('Bearer ', '');
       const payload = this.jwtService.verify(token);
       const userId = payload.sub;
-      return this.jobApplicationsService.applyToJob(userId, jobPostId, coverLetter);
+
+      return this.jobApplicationsService.applyToJob(userId, jobPostId, coverLetter, fullName, referredBy);
     }
 
   @UseGuards(AuthGuard('jwt'))
