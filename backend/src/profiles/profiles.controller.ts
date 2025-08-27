@@ -71,6 +71,7 @@ export class ProfilesController {
       company_info?: string;
       referral_link?: string;
       job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
+      expected_salary?: number;
     },
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

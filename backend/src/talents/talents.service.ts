@@ -22,6 +22,8 @@ export class TalentsService {
     rating?: number;
     timezone?: string;
     job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
+    expected_salary_min?: number;
+    expected_salary_max?: number;
     page?: number;
     limit?: number;
     sort_by?: 'average_rating' | 'profile_views';
@@ -40,31 +42,30 @@ export class TalentsService {
     }
 
     if (filters.experience) {
-      query.andWhere('jobSeeker.experience ILIKE :experience', {
-        experience: `%${filters.experience}%`,
-      });
+      query.andWhere('jobSeeker.experience ILIKE :experience', { experience: `%${filters.experience}%` });
     }
 
     if (filters.description) {
-      query.andWhere('jobSeeker.description ILIKE :description', {
-        description: `%${filters.description}%`,
-      });
+      query.andWhere('jobSeeker.description ILIKE :description', { description: `%${filters.description}%` });
     }
 
     if (filters.rating !== undefined) {
-      query.andWhere('jobSeeker.average_rating >= :rating', {
-        rating: filters.rating,
-      });
+      query.andWhere('jobSeeker.average_rating >= :rating', { rating: filters.rating });
     }
 
     if (filters.timezone) {
-      query.andWhere('jobSeeker.timezone = :timezone', {
-        timezone: filters.timezone,
-      });
+      query.andWhere('jobSeeker.timezone = :timezone', { timezone: filters.timezone });
     }
 
     if (filters.job_search_status) {
       query.andWhere('jobSeeker.job_search_status = :js', { js: filters.job_search_status });
+    }
+
+    if (filters.expected_salary_min !== undefined) {
+      query.andWhere('jobSeeker.expected_salary >= :es_min', { es_min: filters.expected_salary_min });
+    }
+    if (filters.expected_salary_max !== undefined) {
+      query.andWhere('jobSeeker.expected_salary <= :es_max', { es_max: filters.expected_salary_max });
     }
 
     const total = await query.getCount();
@@ -97,6 +98,7 @@ export class TalentsService {
         video_intro: jobSeeker.video_intro,
         timezone: jobSeeker.timezone,
         currency: jobSeeker.currency,
+        expected_salary: (jobSeeker as any).expected_salary ?? null,
         average_rating: jobSeeker.average_rating,
         profile_views: jobSeeker.profile_views,
         job_search_status: (jobSeeker as any).job_search_status,

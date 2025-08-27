@@ -284,6 +284,7 @@
     "referral_link": "https://example.com/ref/test",
     "timezone": "Europe/Moscow",
     "currency": "USD",
+    "expected_salary": 4500.00,
     "average_rating": 4.5,
     "job_search_status": "open_to_offers",
     "avatar": "https://example.com/avatar.jpg",
@@ -475,7 +476,8 @@
     "job_search_status": "actively_looking", // Optional
     "resume": "https://example.com/resume.pdf", // Optional, link to resume (for file use upload-resume)
     "timezone": "America/New_York",
-    "currency": "EUR"
+    "currency": "EUR",
+    "expected_salary": 4500.00
   }
 
 - **Response (Success - 200): Returns the updated profile (same format as GET /api/profile)**
@@ -2752,6 +2754,8 @@
   - `sort_by` (string, optional): Field to sort by ("average_rating" or "profile_views", default: "average_rating").
   - `sort_order` (string, optional): Sort order ("ASC" or "DESC", default: "DESC").
   - `job_search_status` — "actively_looking" | "open_to_offers" | "hired"
+  - `expected_salary_min` — неотрицательное число.
+  - `expected_salary_max` — неотрицательное число.
 - **Example Request**: `/api/talents?skills=<skillId>&experience=3 years&description=React&rating=4&timezone=America/New_York&page=1&limit=10&sort_by=average_rating&sort_order=DESC`
 - **Response (Success - 200)**:
   ```json
@@ -2775,6 +2779,7 @@
         "video_intro": "https://video.com",
         "timezone": "America/New_York",
         "currency": "USD",
+        "expected_salary": 3500.00,
         "average_rating": 4.5,
         "job_search_status": "open_to_offers",
         "profile_views": 100,

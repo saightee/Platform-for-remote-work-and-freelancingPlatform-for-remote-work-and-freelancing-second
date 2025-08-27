@@ -36,6 +36,9 @@ export class JobSeeker {
   @Column({ nullable: true })
   timezone?: string;
 
+  @Column({ type: 'numeric', nullable: true, precision: 12, scale: 2 })
+  expected_salary?: number;
+  
   @Column({ nullable: true })
   currency?: string;
 

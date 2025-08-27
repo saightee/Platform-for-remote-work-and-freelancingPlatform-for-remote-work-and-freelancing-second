@@ -14,6 +14,8 @@ export class TalentsController {
     @Query('rating') rating: string,
     @Query('timezone') timezone: string,
     @Query('job_search_status') job_search_status: 'actively_looking' | 'open_to_offers' | 'hired',
+    @Query('expected_salary_min') expected_salary_min: string,
+    @Query('expected_salary_max') expected_salary_max: string,
     @Query('page') page: string,
     @Query('limit') limit: string,
     @Query('sort_by') sort_by: 'average_rating' | 'profile_views',
@@ -26,6 +28,8 @@ export class TalentsController {
       rating?: number;
       timezone?: string;
       job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
+      expected_salary_min?: number;
+      expected_salary_max?: number;
       page?: number;
       limit?: number;
       sort_by?: 'average_rating' | 'profile_views';
@@ -57,6 +61,17 @@ export class TalentsController {
         throw new BadRequestException('job_search_status must be: actively_looking | open_to_offers | hired');
       }
       filters.job_search_status = job_search_status;
+    }
+
+    if (expected_salary_min !== undefined) {
+      const v = parseFloat(expected_salary_min);
+      if (!isNaN(v) && v >= 0) filters.expected_salary_min = v;
+      else if (expected_salary_min) throw new BadRequestException('expected_salary_min must be a non-negative number');
+    }
+    if (expected_salary_max !== undefined) {
+      const v = parseFloat(expected_salary_max);
+      if (!isNaN(v) && v >= 0) filters.expected_salary_max = v;
+      else if (expected_salary_max) throw new BadRequestException('expected_salary_max must be a non-negative number');
     }
 
     if (page) {
