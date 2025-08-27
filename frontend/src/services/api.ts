@@ -534,6 +534,16 @@ export const applyToJobPost = async (job_post_id: string, cover_letter: string) 
   return response.data;
 };
 
+export const applyToJobPostExtended = async (payload: {
+  job_post_id: string;
+  cover_letter: string;
+  full_name?: string;
+  referred_by?: string;
+}) => {
+  const response = await api.post<JobApplication>('/job-applications', payload);
+  return response.data;
+};
+
 export const getMyApplications = async () => {
   const token = localStorage.getItem('token');
   const decoded: DecodedToken | null = token ? jwtDecode(token) : null;
@@ -965,6 +975,11 @@ export const searchTalents = async (params: {
   timezone?: string;
   skill_id?: string;
   salary_type?: string;
+  /** NEW: expected salary filters (no currency conversion) */
+  expected_salary_min?: number;
+  expected_salary_max?: number;
+  /** NEW: job search status filter */
+  job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
   page?: number;
   limit?: number;
   sort_by?: string;
@@ -973,6 +988,7 @@ export const searchTalents = async (params: {
   const response = await api.get<PaginatedResponse<JobSeekerProfile>>('/talents', { params });
   return response.data;
 };
+
 
 // export const checkJobApplicationStatus = async (job_post_id: string) => {
 //   const response = await api.get<{ hasApplied: boolean }>(`/job-applications/check/${job_post_id}`);

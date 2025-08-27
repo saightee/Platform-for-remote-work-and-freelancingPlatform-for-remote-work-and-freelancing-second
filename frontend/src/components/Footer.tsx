@@ -21,7 +21,7 @@ const Footer: React.FC = () => {
         <div className="jf2-grid jf2-grid--5">
           {/* BRAND / ABOUT (1-я колонка) */}
           <div className="jf2-col jf2-col--brand">
-            <div className="jf2-logo">Jobforge_</div>
+            <a className="jf2-logo">Jobforge_</a>
             <p className="jf2-desc">
               The leading platform for connecting businesses with professional
               virtual assistants worldwide.

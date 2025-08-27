@@ -6802,14 +6802,68 @@ header nav.mobile-menu-open .find-job {
 /* ====== Section ====== */
 .ts-wrap {
   background: var(--ts-bg);
-  clip-path: polygon(0 6%, 100% 0, 100% 100%, 0 100%);
+  /* clip-path: polygon(0 6%, 100% 0, 100% 100%, 0 100%); */
   padding: 80px 16px;
   overflow: hidden;            /* важно для мобилки — скрывает «подглядывание» */
 }
+
+
+
+.ts-wrap.ts--dots::before{
+  content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; clip-path:inherit;
+
+  /* точки + плавный переход в белый */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23ffffff' fill-opacity='0.65'/%3E%3C/svg%3E") top center / 8px 8px repeat,
+    linear-gradient(to bottom, rgba(255,255,255,0) 50%, #fff 100%);
+  background-blend-mode: lighten, normal;
+
+  /* усиливаем эффект к низу */
+  mask-image: linear-gradient(to bottom, transparent 0, black 45%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 45%, black 100%);
+  opacity:.9;
+}
+
+
+
 .ts-inner { max-width: 1200px; margin: 0 auto; }
 .ts-head { text-align: center; margin-bottom: 28px; }
 .ts-title { font-size: 2rem; line-height: 1.2; color: var(--ts-text); margin: 0 0 8px; }
 .ts-subtitle { font-size: 1rem; color: var(--ts-muted); margin: 0 auto; max-width: 760px; }
+
+
+/* секция создаёт контекст */
+.ts-wrap { position: relative; }
+
+/* ВЕСЬ контент (текст, карточки, картинки) поверх точек */
+.ts-inner { position: relative; z-index: 1; }
+
+/* точки — над фоном секции, но под контентом */
+.ts-wrap.ts--dots::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;              /* ВАЖНО: не -1 */
+  pointer-events:none;
+  /* если раньше было clip-path: inherit; можно убрать/оставить — не критично */
+  /* clip-path: inherit; */
+  background:
+    /* твой «дизер» */
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0)    0  2px,
+      rgba(255,255,255,0.65) 2px 4px
+    ),
+    /* при желании — плавное выцветание вниз */
+    linear-gradient(to bottom, rgba(255,255,255,0) 55%, rgba(255,255,255,0.96) 100%);
+  background-blend-mode: lighten, normal;
+
+  /* усилить эффект к низу (опционально) */
+  mask-image: linear-gradient(to bottom, transparent 0, black 40%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 40%, black 100%);
+}
+
+/* фон секции остаётся обычным background у .ts-wrap (var(--ts-bg) и т.п.) */
 
 /* ====== Grid / Desktop-Tablet ====== */
 .ts-grid { display: grid; gap: 18px; }
@@ -7239,7 +7293,7 @@ header nav.mobile-menu-open .find-job {
   min-height: 650px;
   background: 
     linear-gradient(65deg, #f0f8ff 0%, #8893ab 100%); /* Красивый градиент от белого к светло-синему */
-  clip-path: polygon(0 0, 100% 0, 100% 90%, 0 100%); /* Косая линия снизу (slant) */
+  clip-path: polygon(0 0, 100% 0, 100% 90%, 0 100%); 
 }
 
 .hb-inner {
@@ -7326,6 +7380,13 @@ header nav.mobile-menu-open .find-job {
   z-index: 2;
 }
 
+.hb-img--three {
+  bottom: -8%;
+  left: 14%;
+  width: 44%;
+  z-index: 2;
+}
+
 /* ====== Tablet adjustments ====== */
 
 @media (max-width: 1360px) {
@@ -7365,6 +7426,130 @@ header nav.mobile-menu-open .find-job {
   .hb-title { font-size: 30px; }
   .hb-stats { gap: 20px; }
   .hb-num { font-size: 20px; }
+}
+
+
+
+/* ===== HERO background (LIGHT MESH, палитра #4e74c8 / #8c97ae / #ffffff) ===== */
+.hb-hero {
+  position: relative;
+  padding: 64px 24px;
+  min-height: 650px;
+  /* статичный mesh на светлом фоне — хорошо читается с твоими тёмными текстами */
+/* background:
+
+  radial-gradient(48% 62% at 18% 22%, rgba(78,116,200,0.45) 0%, rgba(78,116,200,0) 62%),
+  radial-gradient(46% 56% at 82% 30%, rgba(140,151,174,0.42) 0%, rgba(140,151,174,0) 70%),
+  radial-gradient(60% 70% at 60% 80%, rgba(78,116,200,0.22) 0%, rgba(78,116,200,0) 74%),
+  #b8c2d7;
+  clip-path: polygon(0 0, 100% 0, 100% 90%, 0 100%);  */
+}
+
+/* лёгкое "зерно" для глубины (не влияет на контент) */
+.hb-hero::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  opacity:.06;
+  mix-blend-mode:overlay;
+  background: repeating-conic-gradient(from 0deg, rgba(0,0,0,.03) 0 2px, rgba(255,255,255,.03) 2px 4px);
+  clip-path: inherit; /* чтобы совпадал со скошенной нижней гранью */
+}
+/* добавь класс hb-hero--pixels на блок хедера */
+.hb-hero.hb-hero--pixels::before{
+  content:""; position:absolute; inset:0; z-index:0; pointer-events:none; clip-path: inherit;
+
+  /* Полосатая «пиксельная» сетка сверху белого градиента */
+  background:
+    /* маска плотности — прозрачная сверху, белеет к низу */
+    linear-gradient(to bottom, rgba(255,255,255,0) 55%, rgba(255,255,255,0.96) 100%),
+    /* «пиксели» — тонкие белые штрихи, шаг можно менять */
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0) 0 2px,
+      rgba(255,255,255,0.65) 2px 4px
+    );
+  background-blend-mode: normal, lighten; /* штрихи подсветят только фон */
+  /* ограничим эффект нижней частью */
+  mask-image: linear-gradient(to bottom, transparent 0, black 40%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 40%, black 100%);
+}
+
+
+.hb-hero.hb-hero--dots::before{
+  content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; clip-path:inherit;
+
+  /* точки + плавный переход в белый */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23ffffff' fill-opacity='0.65'/%3E%3C/svg%3E") top center / 8px 8px repeat,
+    linear-gradient(to bottom, rgba(255,255,255,0) 50%, #fff 100%);
+  background-blend-mode: lighten, normal;
+
+  /* усиливаем эффект к низу */
+  mask-image: linear-gradient(to bottom, transparent 0, black 45%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 45%, black 100%);
+  opacity:.9;
+}
+
+
+
+/* ===== Right media (две карточки — аккуратный «стек») ===== */
+.hb-right { position: relative; }
+.hb-media {
+  position: relative;
+  width: 100%;
+  height: 420px; /* как у тебя было */
+}
+
+/* базовый вид карточек: мягкая обводка и свечение в тон палитры */
+.hb-img {
+  position: absolute;
+  display: block;
+  border-radius: 18px;
+  /* заменяем фиолетовый outline на палитру сайта */
+  outline: none;
+  border: 1px solid rgba(78,116,200,0.25);        /* #4e74c8 */
+  box-shadow:
+    0 16px 32px rgba(0,0,0,.16),
+    0 6px 24px rgba(78,116,200,.15);              /* лёгкое «свечение» */
+  background: #fff;
+  overflow: hidden;
+}
+
+/* верхняя карточка — чуть наклонена влево */
+.hb-img--one {
+  top: 0;
+  right: 10%;
+  width: 72%;
+  z-index: 1;
+  transform: rotate(-3deg);
+}
+
+/* нижняя карточка — наклон вправо и слегка выглядывает снизу */
+.hb-img--two {
+  bottom: -8%;
+  left: 14%;
+  width: 64%;
+  z-index: 2;
+  transform: rotate(4deg);
+}
+
+/* ====== Tablet adjustments (оставляем твою сетку, корректируем только позиции/размеры) ====== */
+@media (max-width: 1360px) {
+  .hb-media { height: 360px; }
+  .hb-img--one { right: 8%; width: 74%; }
+  .hb-img--two { left: 12%; width: 66%; bottom: -6%; }
+}
+
+@media (max-width: 1280px) {
+  .hb-img--one { right: 8%; width: 74%; }
+  .hb-img--two { left: 14%; width: 62%; }
+}
+
+/* ====== Hide media on tablet & mobile (как было) ====== */
+@media (max-width: 1024px) {
+  .hb-right { display: none; }
 }
 
 

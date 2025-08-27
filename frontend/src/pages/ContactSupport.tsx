@@ -1,14 +1,15 @@
-// src/pages/ContactSupport.tsx
 import React, { useMemo, useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { contactSupport, getProfile } from '../services/api';
-import Turnstile from '../components/Turnstile';          // 👈 заменили
+import Turnstile from '../components/Turnstile';
 import '../styles/contact-support.css';
 
-const SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY; // 👈
+// гарантируем строковый тип и убираем undefined/null
+const SITE_KEY: string = String(import.meta.env.VITE_TURNSTILE_SITE_KEY ?? '').trim();
+
 
 const ContactSupport: React.FC = () => {
   const location = useLocation();

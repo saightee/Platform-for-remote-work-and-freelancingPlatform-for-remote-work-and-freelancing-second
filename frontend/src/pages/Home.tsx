@@ -239,7 +239,7 @@ const handleCookieConsent = () => {
       <Header />
 
       {/* Hero Section */}
-      <div className="hb-hero">
+      <div className="hb-hero hb-hero--dots">
         <div className="hb-inner">
           <div className="hb-left">
             <h1 className="hb-title">
@@ -285,6 +285,7 @@ const handleCookieConsent = () => {
             <div className="hb-media">
               <img src={heroImg1} alt="" className="hb-img hb-img--one" />
               <img src={heroImg2} alt="" className="hb-img hb-img--two" />
+           
             </div>
           </div>
         </div>

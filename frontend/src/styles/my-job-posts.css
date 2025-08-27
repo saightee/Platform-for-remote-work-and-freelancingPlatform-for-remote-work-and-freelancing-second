@@ -201,7 +201,7 @@
   font-size: 14px;
   text-align: left;
   vertical-align: top;
-  word-break: break-word;     /* чтобы длинные строки не ломали вёрстку */
+  word-break: normal;       /* чтобы длинные строки не ломали вёрстку */
 }
 
 /* ====== Мобильная версия: превращаем строки в карточки ====== */
@@ -258,3 +258,39 @@
 .mjp-tab.is-active { background:#f5f7ff; border-color:#c7d2fe; color: #333;}
 .mjp-meta { display:flex; gap:16px; color:#6b7280; font-size:13px; margin:4px 0 10px; }
 .mjp-actions--top { gap:8px; flex-wrap:wrap; }
+
+.mjp-table td.col-email,
+.mjp-table td.col-exp {
+  overflow-wrap: anywhere;
+}
+
+
+/* ===== DESKTOP колонки ===== */
+@media (min-width: 641px) {
+  /* заголовки не переносятся */
+  .mjp-table thead th { white-space: nowrap; }
+
+  /* пользователь/почта дают базовую ширину */
+  .mjp-table th.col-user   { min-width: 160px; }
+  .mjp-table th.col-email  { min-width: 220px; }
+
+  /* эти заголовки — в одну строку */
+  .mjp-table th.col-exp     { min-width: 140px; }
+  .mjp-table th.col-applied { min-width: 130px; }
+  .mjp-table th.col-status  { min-width: 110px; }
+
+  /* сами значения для Applied/Status тоже без разрывов */
+  .mjp-table td.col-applied,
+  .mjp-table td.col-status { white-space: nowrap; }
+
+  /* Actions: ужимаем колонку, пусть кнопки переносятся на новые строки */
+  .mjp-table th.col-actions,
+  .mjp-table td.col-actions { width: 1%; } /* “сжимающийся” столбец */
+}
+
+/* Кнопки уже имеют wrap, но на всякий случай усилим */
+.mjp-table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
