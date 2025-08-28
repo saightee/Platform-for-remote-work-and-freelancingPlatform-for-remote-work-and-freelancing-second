@@ -186,7 +186,7 @@ const ProfilePage: React.FC = () => {
 
         // спец-тост на статус (400 обрабатываем в catch ниже)
         if (payload.job_search_status) {
-          alert('Статус обновлён');
+          alert('The changes are saved');
         }
       } else if (profileData.role === 'employer') {
         const payload: Partial<EmployerProfile> = {
@@ -219,7 +219,7 @@ const ProfilePage: React.FC = () => {
     } catch (e: any) {
       console.error('Error updating profile:', e);
       if (e?.response?.status === 400 && profileData.role === 'jobseeker') {
-        setFormError('Недопустимое значение статуса');
+        setFormError('Invalid value');
       } else {
         setFormError(e?.response?.data?.message || 'Failed to update profile.');
       }
