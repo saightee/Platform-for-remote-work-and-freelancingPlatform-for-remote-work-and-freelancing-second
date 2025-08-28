@@ -294,3 +294,29 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+
+
+
+/* dropdown в колонке Actions */
+.mjp-dd { position: relative; display: inline-block; }
+.mjp-dd__trigger { white-space: nowrap; }
+.mjp-dd[open] .mjp-dd__trigger { filter: brightness(0.96); }
+
+.mjp-dd__menu {
+  position: absolute; right: 0; top: calc(100% + 6px);
+  min-width: 220px; background: #fff; border: 1px solid #e3e6ef;
+  border-radius: 10px; box-shadow: var(--cs-shadow-sm);
+  padding: 6px; z-index: 5;
+}
+.mjp-dd__item {
+  width: 100%; text-align: left; background: transparent; border: none;
+  border-radius: 8px; padding: 10px 12px; font-size: 14px; cursor: pointer; color: #111827;
+}
+.mjp-dd__item:hover { background: #f6f8ff; }
+.mjp-dd__item.as-link { display: block; text-decoration: none; }
+.mjp-dd__sep { border: 0; height: 1px; background: #eef0f6; margin: 6px 0; }
+
+/* сжимаем колонку на десктопе */
+@media (min-width: 641px) {
+  .mjp-table th.col-actions, .mjp-table td.col-actions { width: 1%; white-space: nowrap; }
+}
