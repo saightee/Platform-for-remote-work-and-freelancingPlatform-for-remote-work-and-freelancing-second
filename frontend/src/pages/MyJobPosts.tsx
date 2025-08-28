@@ -1,22 +1,23 @@
 // src/pages/MyJobPosts.tsx
-import { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import React from 'react';
+import { createPortal } from 'react-dom';
+
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import {
-  getMyJobPosts,
-  updateJobPost,
   closeJobPost,
+  createReview,
   getApplicationsForJobPost,
   getCategories,
-  updateApplicationStatus,
+  getMyJobPosts,
   initializeWebSocket,
-  createReview,
   searchCategories,
+  updateApplicationStatus,
+  updateJobPost,
 } from '../services/api';
-import { JobPost, Category, JobApplicationDetails, SalaryType } from '@types';
+import { Category, JobApplicationDetails, JobPost, SalaryType } from '@types';
 import { useRole } from '../context/RoleContext';
 import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
@@ -26,12 +27,12 @@ import sanitizeHtml from 'sanitize-html';
 import Loader from '../components/Loader';
 import ReactQuill from 'react-quill';
 
-// icons + styles
 import {
   FaBriefcase, FaEdit, FaEye, FaCheckCircle, FaTimesCircle,
   FaFolderOpen, FaChevronDown, FaChevronUp, FaSyncAlt, FaUser,
   FaEnvelope, FaSearch, FaTimes, FaStar, FaComments
 } from 'react-icons/fa';
+
 import '../styles/my-job-posts.css';
 
 const MyJobPosts: React.FC = () => {
@@ -40,10 +41,7 @@ const MyJobPosts: React.FC = () => {
 
   const { profile, isLoading: roleLoading } = useRole();
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
-  const [applications, setApplications] = useState<{
-    jobPostId: string;
-    apps: JobApplicationDetails[];
-  }>({ jobPostId: '', apps: [] });
+  const [applications, setApplications] = useState<{ jobPostId: string; apps: JobApplicationDetails[]; }>({ jobPostId: '', apps: [] });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -55,11 +53,7 @@ const MyJobPosts: React.FC = () => {
   const [skillInput, setSkillInput] = useState('');
   const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [appDetails, setAppDetails] = useState<{
-    fullName?: string | null;
-    referredBy?: string | null;
-    coverLetter: string;
-  } | null>(null);
+  const [appDetails, setAppDetails] = useState<{ fullName?: string | null; referredBy?: string | null; coverLetter: string; } | null>(null);
 
   type ConfirmState =
     | { kind: 'invite'; app: JobApplicationDetails; postId: string; note: string }
@@ -69,17 +63,16 @@ const MyJobPosts: React.FC = () => {
 
   const [confirm, setConfirm] = useState<ConfirmState>(null);
 
-  // NEW: tabs + collapsed cards
+  // Tabs + collapses
   const initialTab = (searchParams.get('tab') as 'active' | 'closed' | 'all') || 'active';
   const [tab, setTab] = useState<'active' | 'closed' | 'all'>(initialTab);
   const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
 
-  // NEW: контролируем открытое меню "Other options"
+  // Контроль выпадающего меню "Other options"
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
 
-  useEffect(() => {
-    setTab(initialTab);
-  }, [initialTab]);
+  useEffect(() => { setTab(initialTab); }, [initialTab]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -89,7 +82,6 @@ const MyJobPosts: React.FC = () => {
         setIsLoading(false);
         return;
       }
-
       try {
         setIsLoading(true);
         const [posts, categoriesData] = await Promise.all([getMyJobPosts(), getCategories()]);
@@ -102,9 +94,7 @@ const MyJobPosts: React.FC = () => {
         setIsLoading(false);
       }
     };
-    if (!roleLoading) {
-      fetchData();
-    }
+    if (!roleLoading) fetchData();
   }, [profile, roleLoading]);
 
   useEffect(() => {
@@ -118,11 +108,10 @@ const MyJobPosts: React.FC = () => {
       newSocket.emit('joinChat', { jobApplicationId });
     });
 
-    return () => {
-      newSocket.disconnect();
-    };
+    return () => { newSocket.disconnect(); };
   }, []);
 
+  // Поиск категорий (autocomplete)
   useEffect(() => {
     const search = async () => {
       if (skillInput.trim()) {
@@ -139,11 +128,25 @@ const MyJobPosts: React.FC = () => {
     return () => clearTimeout(debounce);
   }, [skillInput]);
 
-  // закрывать меню по клику вне
+  // Закрытие меню по клику вне + при скролле/resize
   useEffect(() => {
-    const onDocDown = () => setOpenMenuId(null);
+    const onDocDown = (e: PointerEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest('.mjp-menu') || t.closest('.mjp-more')) return; // клики внутри — игнор
+      setOpenMenuId(null);
+      setMenuPos(null);
+    };
+    const onScroll = () => { setOpenMenuId(null); setMenuPos(null); };
+    const onResize = () => { setOpenMenuId(null); setMenuPos(null); };
+
     document.addEventListener('pointerdown', onDocDown);
-    return () => document.removeEventListener('pointerdown', onDocDown);
+    window.addEventListener('scroll', onScroll, true);  // true — ловим скролл во вложенных контейнерах
+    window.addEventListener('resize', onResize);
+    return () => {
+      document.removeEventListener('pointerdown', onDocDown);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
+    };
   }, []);
 
   const handleUpdate = async (id: string, updatedData: Partial<JobPost>) => {
@@ -196,9 +199,7 @@ const MyJobPosts: React.FC = () => {
     }
   };
 
-  const handleEditJob = (job: JobPost) => {
-    setEditingJob({ ...job });
-  };
+  const handleEditJob = (job: JobPost) => setEditingJob({ ...job });
 
   const handleSaveEdit = async (id: string) => {
     if (!editingJob) return;
@@ -206,7 +207,6 @@ const MyJobPosts: React.FC = () => {
       alert('Job title and description are required.');
       return;
     }
-
     if (editingJob.salary_type !== 'negotiable') {
       if (editingJob.salary == null || editingJob.salary <= 0) {
         alert('Salary is required (>0) unless salary type is negotiable.');
@@ -229,7 +229,6 @@ const MyJobPosts: React.FC = () => {
         job_type: editingJob.job_type ?? null,
         category_id: editingJob.category_id || undefined,
       };
-
       await handleUpdate(id, payload);
       setEditingJob(null);
     } catch (err: any) {
@@ -238,9 +237,7 @@ const MyJobPosts: React.FC = () => {
     }
   };
 
-  const handleCancelEdit = () => {
-    setEditingJob(null);
-  };
+  const handleCancelEdit = () => setEditingJob(null);
 
   const handleCreateReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -284,14 +281,12 @@ const MyJobPosts: React.FC = () => {
     }
   };
 
-  // --- NEW: sorting, filtering, tabs ---
+  // sorting / filtering / tabs
   const activeCount = jobPosts.filter(p => p.status === 'Active').length;
   const closedCount = jobPosts.filter(p => p.status === 'Closed').length;
-
   const sorted = [...jobPosts].sort(
     (a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
   );
-
   const filteredPosts = sorted.filter(p => {
     if (tab === 'active') return p.status === 'Active';
     if (tab === 'closed') return p.status === 'Closed';
@@ -337,24 +332,15 @@ const MyJobPosts: React.FC = () => {
           <p className="mjp-subtitle">Manage your listings, review applicants, and keep posts up to date.</p>
         </div>
 
-        {/* NEW: Tabs */}
+        {/* Tabs */}
         <div className="mjp-tabs">
-          <button
-            className={`mjp-tab ${tab === 'active' ? 'is-active' : ''}`}
-            onClick={() => setSearchParams({ tab: 'active' })}
-          >
+          <button className={`mjp-tab ${tab === 'active' ? 'is-active' : ''}`} onClick={() => setSearchParams({ tab: 'active' })}>
             Active ({activeCount})
           </button>
-          <button
-            className={`mjp-tab ${tab === 'closed' ? 'is-active' : ''}`}
-            onClick={() => setSearchParams({ tab: 'closed' })}
-          >
+          <button className={`mjp-tab ${tab === 'closed' ? 'is-active' : ''}`} onClick={() => setSearchParams({ tab: 'closed' })}>
             Closed ({closedCount})
           </button>
-          <button
-            className={`mjp-tab ${tab === 'all' ? 'is-active' : ''}`}
-            onClick={() => setSearchParams({ tab: 'all' })}
-          >
+          <button className={`mjp-tab ${tab === 'all' ? 'is-active' : ''}`} onClick={() => setSearchParams({ tab: 'all' })}>
             All ({jobPosts.length})
           </button>
         </div>
@@ -365,15 +351,8 @@ const MyJobPosts: React.FC = () => {
           <div className="mjp-grid">
             {filteredPosts.map((post) => {
               const closedAt = (post as any).closed_at as string | undefined;
-
-              // заявки по текущему посту
-              const rawApps =
-                applications.jobPostId === post.id ? applications.apps : [];
-
-              const visibleApps =
-                post.status === 'Closed'
-                  ? rawApps.filter(a => a.status === 'Accepted')
-                  : rawApps;
+              const rawApps = applications.jobPostId === post.id ? applications.apps : [];
+              const visibleApps = post.status === 'Closed' ? rawApps.filter(a => a.status === 'Accepted') : rawApps;
 
               return (
                 <div key={post.id} className="mjp-card">
@@ -539,14 +518,12 @@ const MyJobPosts: React.FC = () => {
                         </span>
                       </div>
 
-                      {/* NEW: posted/closed dates */}
                       <div className="mjp-meta">
                         <span>Posted: {formatDateInTimezone(post.created_at)}</span>
                         {closedAt && <span>Closed: {formatDateInTimezone(closedAt)}</span>}
                       </div>
 
                       <div className="mjp-actions mjp-actions--top">
-                        {/* NEW: go to Messages page for this job */}
                         <button
                           className="mjp-btn mjp-primary"
                           onClick={() => navigate('/employer-dashboard/messages', { state: { jobPostId: post.id } })}
@@ -554,10 +531,7 @@ const MyJobPosts: React.FC = () => {
                           <FaComments /> Start chat with applicants
                         </button>
 
-                        <button
-                          onClick={() => setOpenCards(o => ({ ...o, [post.id]: !o[post.id] }))}
-                          className="mjp-btn"
-                        >
+                        <button className="mjp-btn" onClick={() => setOpenCards(o => ({ ...o, [post.id]: !o[post.id] }))}>
                           {openCards[post.id] ? <><FaChevronUp /> Collapse</> : <><FaChevronDown /> Expand</>}
                         </button>
 
@@ -582,11 +556,7 @@ const MyJobPosts: React.FC = () => {
 
                       {openCards[post.id] && (
                         <>
-                          <div
-                            className="mjp-desc"
-                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.description) }}
-                          />
-
+                          <div className="mjp-desc" dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.description) }} />
                           <div className="mjp-actions">
                             <button onClick={() => handleViewApplications(post.id)} className="mjp-btn mjp-primary">
                               {applications.jobPostId === post.id ? <FaChevronUp /> : <FaChevronDown />} Applications
@@ -619,97 +589,103 @@ const MyJobPosts: React.FC = () => {
                                     <td className="col-applied" data-label="Applied On">{formatDateInTimezone(app.appliedAt)}</td>
                                     <td className="col-status" data-label="Status">{app.status}</td>
 
-                                    {/* ACTIONS: одна кнопка + выпадающее меню */}
                                     <td className="col-actions" data-label="Actions">
-                                      <div
-                                        className="mjp-more"
-                                        onClick={(e) => e.stopPropagation()} // чтобы клик по меню не схлопывал карточку
-                                      >
+                                      <div className="mjp-more">
                                         <button
                                           className="mjp-btn mjp-sm"
-                                          onClick={() =>
-                                            setOpenMenuId(openMenuId === app.applicationId ? null : app.applicationId)
-                                          }
+                                          onClick={(e) => {
+                                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                            const MENU_W = 240;
+                                            const left = Math.max(8, Math.min(rect.right - MENU_W, window.innerWidth - MENU_W - 8));
+                                            const top = rect.bottom + 6;
+                                            setMenuPos({ top, left });
+                                            setOpenMenuId(openMenuId === app.applicationId ? null : app.applicationId);
+                                          }}
                                         >
                                           Other options
                                         </button>
+                                      </div>
 
-                                        {openMenuId === app.applicationId && (
-                                          <div className="mjp-menu" role="menu" onClick={(e) => e.stopPropagation()}>
-                                            {app.status === 'Pending' && (
-                                              <>
-                                                <button
-                                                  className="mjp-menu-item"
-                                                  onClick={() => {
-                                                    setConfirm({ kind: 'invite', app, postId: post.id, note: '' });
-                                                    setOpenMenuId(null);
-                                                  }}
-                                                >
-                                                  <FaCheckCircle /> Invite to interview
-                                                </button>
-
-                                                <button
-                                                  className="mjp-menu-item"
-                                                  onClick={() => {
-                                                    setConfirm({ kind: 'reject', app, postId: post.id });
-                                                    setOpenMenuId(null);
-                                                  }}
-                                                >
-                                                  <FaTimesCircle /> Reject
-                                                </button>
-                                              </>
-                                            )}
-
-                                            <button
-                                              className="mjp-menu-item"
-                                              onClick={() => {
-                                                const d = (app as any).details || {};
-                                                setAppDetails({
-                                                  fullName: d.fullName ?? (app as any).fullName ?? null,
-                                                  referredBy: d.referredBy ?? (app as any).referredBy ?? null,
-                                                  coverLetter: (d.coverLetter ?? app.coverLetter) || 'No cover letter',
-                                                });
-                                                setOpenMenuId(null);
-                                              }}
-                                            >
-                                              <FaEye /> View details
-                                            </button>
-
-                                            <Link
-                                              to={`/public-profile/${app.userId}`}
-                                              onClick={() => setOpenMenuId(null)}
-                                              className="mjp-menu-item"
-                                              style={{ textDecoration: 'none' }}
-                                            >
-                                              <FaEye /> Profile
-                                            </Link>
-
-                                            <button
-                                              className="mjp-menu-item"
-                                              onClick={() => {
-                                                navigate('/employer-dashboard/messages', {
-                                                  state: { jobPostId: post.id, applicationId: app.applicationId }
-                                                });
-                                                setOpenMenuId(null);
-                                              }}
-                                            >
-                                              <FaComments /> Chat
-                                            </button>
-
-                                            {app.status === 'Accepted' && (
+                                      {/* Портал с меню */}
+                                      {openMenuId === app.applicationId && menuPos && createPortal(
+                                        <div
+                                          className="mjp-menu"
+                                          role="menu"
+                                          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, minWidth: 240, zIndex: 4000 }}
+                                        >
+                                          {app.status === 'Pending' && (
+                                            <>
                                               <button
                                                 className="mjp-menu-item"
                                                 onClick={() => {
-                                                  setReviewForm({ applicationId: app.applicationId, rating: 5, comment: '' });
-                                                  setOpenMenuId(null);
+                                                  setConfirm({ kind: 'invite', app, postId: post.id, note: '' });
+                                                  setOpenMenuId(null); setMenuPos(null);
                                                 }}
                                               >
-                                                <FaStar /> Leave a review
+                                                <FaCheckCircle /> Invite to interview
                                               </button>
-                                            )}
-                                          </div>
-                                        )}
-                                      </div>
+                                              <button
+                                                className="mjp-menu-item"
+                                                onClick={() => {
+                                                  setConfirm({ kind: 'reject', app, postId: post.id });
+                                                  setOpenMenuId(null); setMenuPos(null);
+                                                }}
+                                              >
+                                                <FaTimesCircle /> Reject
+                                              </button>
+                                            </>
+                                          )}
+
+                                          <button
+                                            className="mjp-menu-item"
+                                            onClick={() => {
+                                              const d = (app as any).details || {};
+                                              setAppDetails({
+                                                fullName: d.fullName ?? (app as any).fullName ?? null,
+                                                referredBy: d.referredBy ?? (app as any).referredBy ?? null,
+                                                coverLetter: (d.coverLetter ?? app.coverLetter) || 'No cover letter',
+                                              });
+                                              setOpenMenuId(null); setMenuPos(null);
+                                            }}
+                                          >
+                                            <FaEye /> View details
+                                          </button>
+
+                                          <Link
+                                            to={`/public-profile/${app.userId}`}
+                                            onClick={() => { setOpenMenuId(null); setMenuPos(null); }}
+                                            className="mjp-menu-item"
+                                            style={{ textDecoration: 'none' }}
+                                          >
+                                            <FaEye /> Profile
+                                          </Link>
+
+                                          <button
+                                            className="mjp-menu-item"
+                                            onClick={() => {
+                                              navigate('/employer-dashboard/messages', {
+                                                state: { jobPostId: post.id, applicationId: app.applicationId }
+                                              });
+                                              setOpenMenuId(null); setMenuPos(null);
+                                            }}
+                                          >
+                                            <FaComments /> Chat
+                                          </button>
+
+                                          {app.status === 'Accepted' && (
+                                            <button
+                                              className="mjp-menu-item"
+                                              onClick={() => {
+                                                setReviewForm({ applicationId: app.applicationId, rating: 5, comment: '' });
+                                                setOpenMenuId(null); setMenuPos(null);
+                                              }}
+                                            >
+                                              <FaStar /> Leave a review
+                                            </button>
+                                          )}
+                                        </div>,
+                                        document.body
+                                      )}
                                     </td>
                                   </tr>
                                 ))}
