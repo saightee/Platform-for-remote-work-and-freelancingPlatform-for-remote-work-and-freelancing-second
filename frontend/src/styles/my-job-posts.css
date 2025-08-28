@@ -359,3 +359,20 @@
   color: #111827;
 }
 .mjp-menu-item:hover { background: #f9fbff; }
+
+
+/* dropdown via portal: не растягиваем вправо и ограничим ширину */
+.mjp-menu{
+  right: auto !important;     /* ключевой фикс */
+  width: max-content;
+  max-width: calc(100vw - 16px); /* на всякий — чтобы точно не выпирало */
+}
+
+
+.mjp-btn[disabled] {
+  opacity: .6;
+  cursor: not-allowed;
+  transform: none;         /* чтобы не “прыгала” при hover */
+  box-shadow: none;
+  pointer-events: none;    /* защита от очень быстрых дабл-кликов */
+}
