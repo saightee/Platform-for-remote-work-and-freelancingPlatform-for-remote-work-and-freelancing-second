@@ -27,7 +27,13 @@ export class JobApplicationsService {
     private emailService: EmailService, 
   ) {}
 
-  async applyToJob(userId: string, jobPostId: string, coverLetter: string) {
+  async applyToJob(
+    userId: string,
+    jobPostId: string,
+    coverLetter: string,
+    fullName?: string,
+    referredBy?: string,
+  ) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -60,11 +66,17 @@ export class JobApplicationsService {
       throw new BadRequestException(message || 'Cannot apply to this job post');
     }
 
+    if (!coverLetter || !coverLetter.trim()) {
+      throw new BadRequestException('Cover letter is required');
+    }
+
     const application = this.jobApplicationsRepository.create({
       job_post_id: jobPostId,
       job_seeker_id: userId,
       status: 'Pending',
-      cover_letter: coverLetter,
+      cover_letter: coverLetter.trim(),
+      full_name: fullName?.trim() || null,
+      referred_by: referredBy?.trim() || null,
     });
     const savedApplication = await this.jobApplicationsRepository.save(application);
 
@@ -93,7 +105,7 @@ export class JobApplicationsService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-  
+
     if (['admin', 'moderator'].includes(user.role)) {
       const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
       if (!jobPost) {
@@ -108,38 +120,38 @@ export class JobApplicationsService {
         throw new NotFoundException('Job post not found or you do not have permission to view its applications');
       }
     }
-  
+
     const applications = await this.jobApplicationsRepository.find({
       where: { job_post_id: jobPostId },
       relations: ['job_seeker'],
     });
-  
-    console.log('Applications:', JSON.stringify(applications, null, 2));
-  
+
     const result = await Promise.all(
       applications.map(async (app) => {
         const jobSeeker = await this.jobSeekerRepository.findOne({
           where: { user_id: app.job_seeker_id },
         });
         const userData = app.job_seeker;
-        if (!userData) {
-          console.warn(`No user data for job_seeker_id ${app.job_seeker_id}`);
-          return null;
-        }
+        if (!userData) return null;
+
         return {
           applicationId: app.id,
           userId: userData.id,
           username: userData.username,
           email: userData.email,
           jobDescription: jobSeeker?.experience || '',
-          coverLetter: app.cover_letter,
+          details: {
+            fullName: app.full_name || null,
+            referredBy: app.referred_by || null,
+            coverLetter: app.cover_letter || '',
+          },
           appliedAt: app.created_at.toISOString(),
           status: app.status,
           job_post_id: app.job_post_id,
         };
       }),
     );
-    return result.filter(item => item !== null);
+    return result.filter(Boolean);
   }
 
   async updateApplicationStatus(

@@ -50,17 +50,17 @@ export class ProfilesService {
         resume: jobSeeker.resume,
         timezone: jobSeeker.timezone,
         currency: jobSeeker.currency,
+        expected_salary: (jobSeeker as any).expected_salary ?? null,
         average_rating: jobSeeker.average_rating,
         profile_views: jobSeeker.profile_views,
+        job_search_status: (jobSeeker as any).job_search_status,
         reviews,
         avatar: user.avatar,
         identity_verified: user.identity_verified,
       };
     } else if (user.role === 'employer') {
       const employer = await this.employerRepository.findOne({ where: { user_id: userId } });
-      if (!employer) {
-        throw new NotFoundException('Employer profile not found');
-      }
+      if (!employer) throw new NotFoundException('Employer profile not found');
       return {
         id: user.id,
         role: user.role,
@@ -83,9 +83,7 @@ export class ProfilesService {
 
   async updateProfile(userId: string, updateData: any) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    if (!user) throw new NotFoundException('User not found');
 
     if (updateData.role && updateData.role !== user.role) {
       throw new UnauthorizedException('User role mismatch');
@@ -96,12 +94,8 @@ export class ProfilesService {
         throw new BadRequestException('Username must be a string');
       }
       const newUsername = updateData.username.trim();
-      if (!newUsername) {
-        throw new BadRequestException('Username cannot be empty');
-      }
-      if (newUsername.length > 100) {
-        throw new BadRequestException('Username is too long (max 100)');
-      }
+      if (!newUsername) throw new BadRequestException('Username cannot be empty');
+      if (newUsername.length > 100) throw new BadRequestException('Username is too long (max 100)');
       user.username = newUsername;
       await this.usersRepository.save(user);
     }
@@ -111,69 +105,55 @@ export class ProfilesService {
         where: { user_id: userId },
         relations: ['skills'],
       });
-      if (!jobSeeker) {
-        throw new NotFoundException('JobSeeker profile not found');
-      }
+      if (!jobSeeker) throw new NotFoundException('JobSeeker profile not found');
 
-      if (updateData.resume) {
-        jobSeeker.resume = updateData.resume;
-      }
+      if (updateData.resume) jobSeeker.resume = updateData.resume;
       if (updateData.skillIds && Array.isArray(updateData.skillIds)) {
-        const skills = await this.categoriesRepository.find({
-          where: { id: In(updateData.skillIds) },
-        });
+        const skills = await this.categoriesRepository.find({ where: { id: In(updateData.skillIds) } });
         jobSeeker.skills = skills;
       }
-      if (updateData.experience) {
-        jobSeeker.experience = updateData.experience;
+      if (updateData.experience) jobSeeker.experience = updateData.experience;
+      if (updateData.description) jobSeeker.description = updateData.description;
+      if (updateData.portfolio) jobSeeker.portfolio = updateData.portfolio;
+      if (updateData.video_intro) jobSeeker.video_intro = updateData.video_intro;
+      if (updateData.timezone) jobSeeker.timezone = updateData.timezone;
+      if (updateData.currency) jobSeeker.currency = updateData.currency;
+
+      if (Object.prototype.hasOwnProperty.call(updateData, 'job_search_status')) {
+        const allowed = ['actively_looking', 'open_to_offers', 'hired'] as const;
+        if (!allowed.includes(updateData.job_search_status)) {
+          throw new BadRequestException('job_search_status must be one of: actively_looking | open_to_offers | hired');
+        }
+        (jobSeeker as any).job_search_status = updateData.job_search_status;
       }
-      if (updateData.description) {
-        jobSeeker.description = updateData.description;
-      }
-      if (updateData.portfolio) {
-        jobSeeker.portfolio = updateData.portfolio;
-      }
-      if (updateData.video_intro) {
-        jobSeeker.video_intro = updateData.video_intro;
-      }
-      if (updateData.timezone) {
-        jobSeeker.timezone = updateData.timezone;
-      }
-      if (updateData.currency) {
-        jobSeeker.currency = updateData.currency;
+
+      if (Object.prototype.hasOwnProperty.call(updateData, 'expected_salary')) {
+        const v = Number(updateData.expected_salary);
+        if (Number.isNaN(v) || v < 0) {
+          throw new BadRequestException('expected_salary must be a non-negative number');
+        }
+        (jobSeeker as any).expected_salary = v;
       }
 
       await this.jobSeekerRepository.save(jobSeeker);
       return this.getProfile(userId, true);
+    }
 
-    } else if (user.role === 'employer') {
+    if (user.role === 'employer') {
       const employer = await this.employerRepository.findOne({ where: { user_id: userId } });
-      if (!employer) {
-        throw new NotFoundException('Employer profile not found');
-      }
+      if (!employer) throw new NotFoundException('Employer profile not found');
 
-      if (updateData.company_name) {
-        employer.company_name = updateData.company_name;
-      }
-      if (updateData.company_info) {
-        employer.company_info = updateData.company_info;
-      }
-      if (updateData.referral_link) {
-        employer.referral_link = updateData.referral_link;
-      }
-      if (updateData.timezone) {
-        employer.timezone = updateData.timezone;
-      }
-      if (updateData.currency) {
-        employer.currency = updateData.currency;
-      }
+      if (updateData.company_name) employer.company_name = updateData.company_name;
+      if (updateData.company_info) employer.company_info = updateData.company_info;
+      if (updateData.referral_link) employer.referral_link = updateData.referral_link;
+      if (updateData.timezone) employer.timezone = updateData.timezone;
+      if (updateData.currency) employer.currency = updateData.currency;
 
       await this.employerRepository.save(employer);
       return this.getProfile(userId, true);
-
-    } else {
-      throw new UnauthorizedException('User role not supported');
     }
+
+    throw new UnauthorizedException('User role not supported');
   }
 
   async uploadAvatar(userId: string, avatarUrl: string) {
