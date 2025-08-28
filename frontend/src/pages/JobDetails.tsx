@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getJobPost, applyToJobPost, incrementJobView, checkJobApplicationStatus } from '../services/api';
+import { getJobPost, applyToJobPost, incrementJobView, checkJobApplicationStatus, applyToJobPostExtended } from '../services/api';
 import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import { FaEye, FaBriefcase, FaDollarSign, FaMapMarkerAlt, FaCalendarAlt, FaUserCircle, FaTools, FaFolder, FaSignInAlt, FaUserPlus } from 'react-icons/fa';
@@ -11,6 +11,8 @@ import { format, zonedTimeToUtc } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
 import sanitizeHtml from 'sanitize-html';
 import Loader from '../components/Loader';
+
+
 
 const JobDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,7 +24,10 @@ const JobDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [hasApplied, setHasApplied] = useState<boolean | null>(null);
   const [coverLetter, setCoverLetter] = useState('');
-  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+const [fullName, setFullName] = useState<string>('');        // NEW
+const [referredBy, setReferredBy] = useState<string>('');    // NEW
+const [applyError, setApplyError] = useState<string | null>(null); // NEW (ошибки модалки)
+const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const viewed = useRef(false); // Добавлено для предотвращения double increment
 
   useEffect(() => {
@@ -80,13 +85,20 @@ const handleApply = async () => {
 };
 
 const submitApply = async () => {
+  // локальная валидация модалки
   if (!coverLetter.trim()) {
-    setError('Cover letter is required.');
+    setApplyError('Cover letter is required.');
     return;
   }
+
   try {
     if (id) {
-      await applyToJobPost(id, coverLetter);
+      await applyToJobPostExtended({
+        job_post_id: id,
+        cover_letter: coverLetter,
+        full_name: fullName.trim() ? fullName.trim() : undefined,
+        referred_by: referredBy.trim() ? referredBy.trim() : undefined,
+      });
       setHasApplied(true);
       setIsApplyModalOpen(false);
       navigate('/my-applications');
@@ -95,14 +107,13 @@ const submitApply = async () => {
     console.error('Error applying to job:', err);
     const msg: string = err?.response?.data?.message || '';
 
-    // если бек говорит, что уже откликались — не считаем это фатальной ошибкой
     if ((err?.response?.status === 400 || err?.response?.status === 409) && /already applied/i.test(msg)) {
       setHasApplied(true);
       setIsApplyModalOpen(false);
       return;
     }
 
-    setError(msg || 'Failed to apply. Please try again.');
+    setApplyError(msg || 'Failed to apply. Please try again.');
   }
 };
 
@@ -285,24 +296,60 @@ const backAfterReport =
 </div>
 
         </div>
-        {isApplyModalOpen && (
-          <div className="modal">
-            <div className="modal-content">
-              <span className="close" onClick={() => setIsApplyModalOpen(false)}>×</span>
-              <h3>Apply with Cover Letter</h3>
-              <textarea
-                value={coverLetter}
-                onChange={(e) => setCoverLetter(e.target.value)}
-                placeholder="Write your cover letter here..."
-                rows={6}
-              />
-              <p>Your resume from profile will be attached automatically.</p>
-              <button onClick={submitApply} className="action-button">
-                Submit Application
-              </button>
-            </div>
-          </div>
-        )}
+{isApplyModalOpen && (
+  <div className="modal">
+    <div className="modal-content">
+      <span className="close" onClick={() => setIsApplyModalOpen(false)}>×</span>
+      <h3>Apply</h3>
+
+      {applyError && (
+        <div className="alert alert-error" role="alert" style={{ marginBottom: 12 }}>
+          {applyError}
+        </div>
+      )}
+
+      {/* Full Name (optional) */}
+      <label className="modal-label" htmlFor="fullName">Full Name (optional)</label>
+      <input
+        id="fullName"
+        type="text"
+        className="modal-input"
+        value={fullName}
+        onChange={(e) => setFullName(e.target.value)}
+        placeholder="Your full name"
+      />
+
+      {/* Referred By (optional) */}
+      <label className="modal-label" htmlFor="referredBy">Referred By (optional)</label>
+      <input
+        id="referredBy"
+        type="text"
+        className="modal-input"
+        value={referredBy}
+        onChange={(e) => setReferredBy(e.target.value)}
+        placeholder="The name/email of the person who recommended you"
+      />
+
+      {/* Cover Letter (required) */}
+      <label className="modal-label" htmlFor="coverLetter">Cover Letter *</label>
+      <textarea
+        id="coverLetter"
+        value={coverLetter}
+        onChange={(e) => setCoverLetter(e.target.value)}
+        placeholder="Write your cover letter here..."
+        rows={6}
+        required
+      />
+
+      <p style={{ marginTop: 8 }}>Your resume from profile will be attached automatically.</p>
+
+      <button onClick={submitApply} className="action-button" style={{ marginTop: 12 }}>
+        Submit Application
+      </button>
+    </div>
+  </div>
+)}
+
       </div>
       <Footer />
       <Copyright />

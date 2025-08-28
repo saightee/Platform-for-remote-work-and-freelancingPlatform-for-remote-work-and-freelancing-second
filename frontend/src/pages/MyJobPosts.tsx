@@ -55,7 +55,19 @@ const MyJobPosts: React.FC = () => {
   const [skillInput, setSkillInput] = useState('');
   const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [coverLetter, setCoverLetter] = useState<string | null>(null);
+  const [appDetails, setAppDetails] = useState<{
+  fullName?: string | null;
+  referredBy?: string | null;
+  coverLetter: string;
+} | null>(null);
+
+type ConfirmState =
+  | { kind: 'invite'; app: JobApplicationDetails; postId: string; note: string }
+  | { kind: 'reject'; app: JobApplicationDetails; postId: string }
+  | { kind: 'close'; postId: string }
+  | null;
+
+const [confirm, setConfirm] = useState<ConfirmState>(null);
 
   // NEW: tabs + collapsed cards
   const initialTab = (searchParams.get('tab') as 'active' | 'closed' | 'all') || 'active';
@@ -565,10 +577,10 @@ const handleUpdateApplicationStatus = async (
                           {openCards[post.id] ? <><FaChevronUp /> Collapse</> : <><FaChevronDown /> Expand</>}
                         </button>
 
-                        {post.status === 'Active' ? (
-                          <button onClick={() => handleClose(post.id)} className="mjp-btn mjp-warning">
-                            <FaTimesCircle /> Close
-                          </button>
+                       {post.status === 'Active' ? (
+  <button onClick={() => setConfirm({ kind: 'close', postId: post.id })} className="mjp-btn mjp-warning">
+    <FaTimesCircle /> Close
+  </button>
                         ) : (
                           post.status !== 'Closed' && (
                             <button onClick={() => handleReopen(post.id)} className="mjp-btn mjp-success">
@@ -604,54 +616,59 @@ const handleUpdateApplicationStatus = async (
                           <h4 className="mjp-section-title"><FaFolderOpen /> Applications</h4>
                           <div className="mjp-table-wrap">
                             <table className="mjp-table">
-                              <thead>
-                                <tr>
-                                  <th><FaUser /> Username</th>
-                                  <th><FaEnvelope /> Email</th>
-                                  <th>Experience</th>
-                                  <th>Applied On</th>
-                                  <th>Status</th>
-                                  <th>Actions</th>
-                                </tr>
-                              </thead>
+                          <thead>
+  <tr>
+    <th className="col-user"><FaUser /> Username</th>
+    <th className="col-email"><FaEnvelope /> Email</th>
+    <th className="col-exp">Experience</th>
+    <th className="col-applied">Applied On</th>
+    <th className="col-status">Status</th>
+    <th className="col-actions">Actions</th>
+  </tr>
+</thead>
                               <tbody>
                                 {visibleApps.map((app) => (
                                   <tr key={app.applicationId}>
-                                    <td data-label="Username">{app.username}</td>
-                                    <td data-label="Email">{app.email}</td>
-                                    <td data-label="Experience">{app.jobDescription || 'Not provided'}</td>
-                                    <td data-label="Applied On">{formatDateInTimezone(app.appliedAt)}</td>
-                                    <td data-label="Status">{app.status}</td>
-                                    <td data-label="Actions" className="mjp-table-actions">
+                                    <td className="col-user" data-label="Username">{app.username}</td>
+      <td className="col-email" data-label="Email">{app.email}</td>
+      <td className="col-exp" data-label="Experience">{app.jobDescription || 'Not provided'}</td>
+      <td className="col-applied" data-label="Applied On">{formatDateInTimezone(app.appliedAt)}</td>
+      <td className="col-status" data-label="Status">{app.status}</td>
+      <td className="col-actions mjp-table-actions" data-label="Actions">
 
-                                      {/* ✅ Accept / Reject только у Pending */}
                                       {app.status === 'Pending' && (
-                                        <>
-                                          <button
-                                            onClick={() =>
-                                              handleUpdateApplicationStatus(app.applicationId, 'Accepted', post.id)
-                                            }
-                                            className="mjp-btn mjp-success mjp-sm"
-                                          >
-                                            <FaCheckCircle /> Accept
-                                          </button>
-                                          <button
-                                            onClick={() =>
-                                              handleUpdateApplicationStatus(app.applicationId, 'Rejected', post.id)
-                                            }
-                                            className="mjp-btn mjp-danger mjp-sm"
-                                          >
-                                            <FaTimesCircle /> Reject
-                                          </button>
-                                        </>
-                                      )}
+  <>
+    <button
+      onClick={() => setConfirm({ kind: 'invite', app, postId: post.id, note: '' })}
+      className="mjp-btn mjp-success mjp-sm"
+      title="Move this candidate to the next interview stage"
+    >
+      <FaCheckCircle /> Invite to interview
+    </button>
 
-                                      <button
-                                        onClick={() => setCoverLetter(app.coverLetter || 'No cover letter')}
-                                        className="mjp-btn mjp-sm"
-                                      >
-                                        <FaEye /> Cover Letter
-                                      </button>
+    <button
+      onClick={() => setConfirm({ kind: 'reject', app, postId: post.id })}
+      className="mjp-btn mjp-danger mjp-sm"
+      title="Reject this applicant"
+    >
+      <FaTimesCircle /> Reject
+    </button>
+  </>
+)}
+
+                                     <button
+  onClick={() => {
+    const d = (app as any).details || {};
+    setAppDetails({
+      fullName: d.fullName ?? (app as any).fullName ?? null,
+      referredBy: d.referredBy ?? (app as any).referredBy ?? null,
+      coverLetter: (d.coverLetter ?? app.coverLetter) || 'No cover letter',
+    });
+  }}
+  className="mjp-btn mjp-sm"
+>
+  <FaEye /> View Details
+</button>
 
                                       <Link to={`/public-profile/${app.userId}`}>
                                         <button className="mjp-btn mjp-sm"><FaEye /> Profile</button>
@@ -699,18 +716,36 @@ const handleUpdateApplicationStatus = async (
         )}
       </div>
 
-      {/* Modal: Cover Letter */}
-      {coverLetter && (
-        <div className="mjp-modal" onClick={() => setCoverLetter(null)}>
-          <div className="mjp-modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="mjp-modal-close" onClick={() => setCoverLetter(null)} aria-label="Close">
-              <FaTimes />
-            </button>
-            <h4 className="mjp-modal-title"><FaEnvelope /> Cover Letter</h4>
-            <p className="mjp-modal-body" style={{ whiteSpace: 'pre-wrap' }}>{coverLetter}</p>
-          </div>
+{appDetails && (
+  <div className="mjp-modal" onClick={() => setAppDetails(null)}>
+    <div className="mjp-modal-content" onClick={(e) => e.stopPropagation()}>
+      <button className="mjp-modal-close" onClick={() => setAppDetails(null)} aria-label="Close">
+        <FaTimes />
+      </button>
+      <h4 className="mjp-modal-title"><FaEnvelope /> Application Details</h4>
+
+      {appDetails.fullName ? (
+        <div className="mjp-modal-row">
+          <strong>Full Name:</strong> <span>{appDetails.fullName}</span>
         </div>
-      )}
+      ) : null}
+
+      {appDetails.referredBy ? (
+        <div className="mjp-modal-row">
+          <strong>Referred By:</strong> <span>{appDetails.referredBy}</span>
+        </div>
+      ) : null}
+
+      <div className="mjp-modal-row">
+        <strong>Cover Letter:</strong>
+        <p className="mjp-modal-body" style={{ whiteSpace: 'pre-wrap', marginTop: 6 }}>
+          {appDetails.coverLetter}
+        </p>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* Modal: Review (без изменений визуально) */}
       {reviewForm && (
@@ -757,6 +792,121 @@ const handleUpdateApplicationStatus = async (
           </div>
         </div>
       )}
+
+      {confirm && (
+  <div className="mjp-modal" onClick={() => setConfirm(null)}>
+    <div className="mjp-modal-content" onClick={(e) => e.stopPropagation()}>
+      <button className="mjp-modal-close" onClick={() => setConfirm(null)} aria-label="Close">
+        <FaTimes />
+      </button>
+
+      {confirm.kind === 'invite' && (
+        <>
+          <h4 className="mjp-modal-title"><FaCheckCircle /> Invite to Interview</h4>
+          <p className="mjp-subtitle">
+            Are you sure you want to move <strong>{confirm.app.username}</strong> to the next interview stage?
+          </p>
+
+          <div className="mjp-row">
+            <label className="mjp-label">Optional note to the candidate</label>
+            <textarea
+              className="mjp-textarea"
+              rows={4}
+              placeholder="This note will be sent in chat together with the invite (optional)"
+              value={confirm.note}
+              onChange={(e) =>
+                setConfirm((c) => (c && c.kind === 'invite' ? { ...c, note: e.target.value } : c))
+              }
+            />
+          </div>
+
+          <div className="mjp-actions-row">
+            <button
+              className="mjp-btn mjp-success"
+              onClick={async () => {
+                try {
+                  await updateApplicationStatus(confirm.app.applicationId, 'Accepted');
+                  // опционально отправим заметку в чат
+                  if (confirm.note.trim() && socket) {
+                    socket.emit('sendMessage', {
+                      jobApplicationId: confirm.app.applicationId,
+                      content: `You are invited to the interview. ${confirm.note.trim()}`,
+                    });
+                  }
+                  // перезагрузим список заявок
+                  const updated = await getApplicationsForJobPost(confirm.postId);
+                  setApplications({ jobPostId: confirm.postId, apps: updated || [] });
+                } catch (err: any) {
+                  alert(err?.response?.data?.message || 'Failed to invite.');
+                } finally {
+                  setConfirm(null);
+                }
+              }}
+            >
+              Invite to interview
+            </button>
+            <button className="mjp-btn" onClick={() => setConfirm(null)}>Cancel</button>
+          </div>
+        </>
+      )}
+
+      {confirm.kind === 'reject' && (
+        <>
+          <h4 className="mjp-modal-title"><FaTimesCircle /> Reject applicant</h4>
+          <p className="mjp-subtitle">
+            Are you sure you want to reject <strong>{confirm.app.username}</strong>? This will remove the chat.
+          </p>
+          <div className="mjp-actions-row">
+            <button
+              className="mjp-btn mjp-danger"
+              onClick={async () => {
+                try {
+                  await updateApplicationStatus(confirm.app.applicationId, 'Rejected');
+                  const updated = await getApplicationsForJobPost(confirm.postId);
+                  setApplications({ jobPostId: confirm.postId, apps: updated || [] });
+                } catch (err: any) {
+                  alert(err?.response?.data?.message || 'Failed to reject.');
+                } finally {
+                  setConfirm(null);
+                }
+              }}
+            >
+              Reject
+            </button>
+            <button className="mjp-btn" onClick={() => setConfirm(null)}>Cancel</button>
+          </div>
+        </>
+      )}
+
+      {confirm.kind === 'close' && (
+        <>
+          <h4 className="mjp-modal-title"><FaTimesCircle /> Close job</h4>
+          <p className="mjp-subtitle">
+            Are you sure you want to close this job post? Applicants will no longer be able to message you.
+          </p>
+          <div className="mjp-actions-row">
+            <button
+              className="mjp-btn mjp-warning"
+              onClick={async () => {
+                try {
+                  const updatedPost = await closeJobPost(confirm.postId);
+                  setJobPosts((prev) => prev.map((p) => (p.id === confirm.postId ? updatedPost : p)));
+                } catch (err: any) {
+                  alert(err?.response?.data?.message || 'Failed to close job post.');
+                } finally {
+                  setConfirm(null);
+                }
+              }}
+            >
+              Close job
+            </button>
+            <button className="mjp-btn" onClick={() => setConfirm(null)}>Cancel</button>
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+)}
 
       <Footer />
       <Copyright />

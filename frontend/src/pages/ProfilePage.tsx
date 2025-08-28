@@ -7,7 +7,6 @@ import Copyright from '../components/Copyright';
 import {
   getProfile,
   updateProfile,
-  uploadIdentityDocument,
   deleteAccount,
   getCategories,
   searchCategories,
@@ -32,6 +31,7 @@ const ProfilePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false); // loader for Save
 
   // username inline edit
   const [usernameEditMode, setUsernameEditMode] = useState(false);
@@ -142,33 +142,52 @@ const ProfilePage: React.FC = () => {
     e.preventDefault();
     if (!profileData) return;
 
-    // если юзер оставил поле открытым — берём драфт
     const usernameToSave = (usernameEditMode ? usernameDraft.trim() : (profileData.username || '')).trim();
-
     if (usernameToSave && !USERNAME_RGX.test(usernameToSave)) {
       setFormError('Username must be 3-20 chars and contain only letters, numbers, ".", "-", "_".');
       return;
     }
 
-    try {
-      setFormError(null);
+    setFormError(null);
+    setIsSaving(true); // общий лоадер на кнопку
 
+    try {
       if (profileData.role === 'jobseeker') {
+        // validate salary
+        const salaryRaw = (profileData as any).expected_salary;
+        let expectedSalaryNum: number | undefined = undefined;
+        if (salaryRaw !== '' && salaryRaw != null) {
+          const parsed = Number(salaryRaw);
+          if (!Number.isFinite(parsed) || parsed < 0) {
+            setFormError('Expected salary must be a non-negative number');
+            return;
+          }
+          expectedSalaryNum = Math.round(parsed * 100) / 100;
+        }
+
         const payload = {
           username: usernameToSave,
           email: profileData.email,
           timezone: profileData.timezone,
           currency: profileData.currency,
-          skillIds: profileData.skills?.map(s => s.id) || [],
+          expected_salary: expectedSalaryNum,
+          job_search_status: (profileData as any).job_search_status || 'open_to_offers',
+          skillIds: (profileData as any).skills?.map((s: Category) => s.id) || [],
           experience: (profileData as JobSeekerProfile).experience,
           description: (profileData as JobSeekerProfile).description,
           portfolio: (profileData as JobSeekerProfile).portfolio,
           video_intro: (profileData as JobSeekerProfile).video_intro,
           resume: (profileData as JobSeekerProfile).resume,
         };
+
         const updated = await updateProfile(payload);
         setProfileData(updated);
         setUsernameDraft(updated.username || usernameToSave);
+
+        // спец-тост на статус (400 обрабатываем в catch ниже)
+        if (payload.job_search_status) {
+          alert('Статус обновлён');
+        }
       } else if (profileData.role === 'employer') {
         const payload: Partial<EmployerProfile> = {
           username: usernameToSave,
@@ -199,7 +218,13 @@ const ProfilePage: React.FC = () => {
       await refreshProfile();
     } catch (e: any) {
       console.error('Error updating profile:', e);
-      setFormError(e?.response?.data?.message || 'Failed to update profile.');
+      if (e?.response?.status === 400 && profileData.role === 'jobseeker') {
+        setFormError('Недопустимое значение статуса');
+      } else {
+        setFormError(e?.response?.data?.message || 'Failed to update profile.');
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -233,10 +258,10 @@ const ProfilePage: React.FC = () => {
   };
 
   function canShowReviews(
-  p: Profile
-): p is (EmployerProfile | JobSeekerProfile) & { reviews?: Review[] } {
-  return p.role === 'employer' || p.role === 'jobseeker';
-}
+    p: Profile
+  ): p is (EmployerProfile | JobSeekerProfile) & { reviews?: Review[] } {
+    return p.role === 'employer' || p.role === 'jobseeker';
+  }
 
   // ------- delete account
   const handleDeleteAccount = async () => {
@@ -326,6 +351,17 @@ const ProfilePage: React.FC = () => {
                     <div className="pf-kv-row"><span className="pf-k">Username</span><span className="pf-v">{profileData.username}</span></div>
                     <div className="pf-kv-row"><span className="pf-k">Timezone</span><span className="pf-v">{profileData.timezone || 'Not specified'}</span></div>
                     <div className="pf-kv-row"><span className="pf-k">Currency</span><span className="pf-v">{profileData.currency || 'Not specified'}</span></div>
+                    {/* NEW: visible only if set and not zero */}
+                    {(profileData as any).expected_salary != null &&
+                      (profileData as any).expected_salary !== '' &&
+                      Number((profileData as any).expected_salary) !== 0 && (
+                        <div className="pf-kv-row">
+                          <span className="pf-k">Expected salary</span>
+                          <span className="pf-v">
+                            {(profileData as any).expected_salary} {profileData.currency || ''}
+                          </span>
+                        </div>
+                      )}
                   </div>
                 ) : (
                   <>
@@ -363,10 +399,10 @@ const ProfilePage: React.FC = () => {
                             title="Save username"
                             onClick={() => {
                               if (usernameDraft && !USERNAME_RGX.test(usernameDraft.trim())) {
-                                setFormError('Username must be 3-20 chars and contain only letters, numbers, \".\", \"-\", \"_\".');
+                                setFormError('Username must be 3-20 chars and contain only letters, numbers, ".", "-", "_".');
                                 return;
                               }
-                              setProfileData({ ...profileData, username: usernameDraft.trim() });
+                              setProfileData({ ...(profileData as any), username: usernameDraft.trim() } as any);
                               setUsernameEditMode(false);
                             }}
                           >
@@ -391,24 +427,53 @@ const ProfilePage: React.FC = () => {
                       <label className="pf-label">Timezone</label>
                       <select
                         value={profileData.timezone || ''}
-                        onChange={(e) => setProfileData({ ...profileData, timezone: e.target.value })}
+                        onChange={(e) => setProfileData({ ...(profileData as any), timezone: e.target.value } as any)}
                         className="pf-select"
                       >
                         <option value="" disabled>Select timezone</option>
                         {timezones.map(tz => <option key={tz} value={tz}>{tz}</option>)}
                       </select>
                     </div>
-                    <div className="pf-row">
-                      <label className="pf-label">Currency</label>
-                      <select
-                        value={profileData.currency || ''}
-                        onChange={(e) => setProfileData({ ...profileData, currency: e.target.value })}
-                        className="pf-select"
-                      >
-                        <option value="" disabled>Select currency</option>
-                        {currencies.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
+
+                    {/* Currency + Expected salary side-by-side */}
+                    <div className="pf-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <label className="pf-label">Currency</label>
+                        <select
+                          value={profileData.currency || ''}
+                          onChange={(e) => setProfileData({ ...(profileData as any), currency: e.target.value } as any)}
+                          className="pf-select"
+                        >
+                          <option value="" disabled>Select currency</option>
+                          {currencies.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="pf-label">Expected salary</label>
+                        <input
+                          className="pf-input"
+                          type="number"
+                          step="0.01"                 
+                          min="0"
+                          inputMode="decimal"
+                          placeholder="e.g., 4000"
+                          value={(profileData as any).expected_salary ?? ''}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            // allow empty to clear
+                            if (raw === '') {
+                              setProfileData({ ...(profileData as any), expected_salary: '' } as any);
+                              return;
+                            }
+                            setProfileData({ ...(profileData as any), expected_salary: raw } as any);
+                          }}
+                        />
+                      </div>
                     </div>
+                    <p className="pf-help" style={{ marginTop: 6 }}>
+                      Enter your expected salary amount. Currency is selected above. No automatic currency conversion is applied.
+                    </p>
                   </>
                 )}
               </div>
@@ -432,7 +497,7 @@ const ProfilePage: React.FC = () => {
                           className="pf-input"
                           type="text"
                           value={(profileData as EmployerProfile).company_name || ''}
-                          onChange={(e) => setProfileData({ ...profileData, company_name: e.target.value })}
+                          onChange={(e) => setProfileData({ ...(profileData as any), company_name: e.target.value } as any)}
                           placeholder="Enter company name"
                         />
                       </div>
@@ -442,7 +507,7 @@ const ProfilePage: React.FC = () => {
                           className="pf-textarea"
                           rows={4}
                           value={(profileData as EmployerProfile).company_info || ''}
-                          onChange={(e) => setProfileData({ ...profileData, company_info: e.target.value })}
+                          onChange={(e) => setProfileData({ ...(profileData as any), company_info: e.target.value } as any)}
                           placeholder="Enter company information"
                         />
                       </div>
@@ -452,7 +517,7 @@ const ProfilePage: React.FC = () => {
                           className="pf-input"
                           type="text"
                           value={(profileData as EmployerProfile).referral_link || ''}
-                          onChange={(e) => setProfileData({ ...profileData, referral_link: e.target.value })}
+                          onChange={(e) => setProfileData({ ...(profileData as any), referral_link: e.target.value } as any)}
                           placeholder="Enter referral link"
                         />
                       </div>
@@ -465,6 +530,24 @@ const ProfilePage: React.FC = () => {
                 <div className="pf-section">
                   {!isEditing ? (
                     <div className="pf-kv pf-kv-vertical">
+                      {/* Job status row */}
+                      <div className="pf-kv-row">
+                        <span className="pf-k">Job status</span>
+                        <span className="pf-v">
+                          {(() => {
+                            const v = (profileData as any).job_search_status || 'open_to_offers';
+                            const label =
+                              v === 'actively_looking' ? 'Actively looking' :
+                              v === 'hired' ? 'Hired' :
+                              'Open to offers';
+                            const color =
+                              v === 'actively_looking' ? '#14804a' : // success
+                              v === 'hired' ? '#6b7280' :            // neutral
+                              '#2563eb';                               // info
+                            return <span style={{ padding: '2px 8px', borderRadius: 999, background: `${color}20`, color }}>{label}</span>;
+                          })()}
+                        </span>
+                      </div>
                       <div className="pf-kv-row"><span className="pf-k">Skills</span><span className="pf-v">{(profileData as JobSeekerProfile).skills?.map(s => s.name).join(', ') || 'Not specified'}</span></div>
                       <div className="pf-kv-row"><span className="pf-k">Experience</span><span className="pf-v">{(profileData as JobSeekerProfile).experience || 'Not specified'}</span></div>
                       <div className="pf-kv-row"><span className="pf-k">Description</span><span className="pf-v">{(profileData as JobSeekerProfile).description || 'Not specified'}</span></div>
@@ -529,9 +612,9 @@ const ProfilePage: React.FC = () => {
                                         };
                                         setSelectedSkillIds([...selectedSkillIds, cat.id]);
                                         setProfileData({
-                                          ...profileData,
-                                          skills: [...(profileData.skills || []), newSkill],
-                                        });
+                                          ...(profileData as any),
+                                          skills: ([...(((profileData as JobSeekerProfile).skills) || []), newSkill]),
+                                        } as any);
                                       }
                                       setSkillInput('');
                                       setIsDropdownOpen(false);
@@ -556,9 +639,9 @@ const ProfilePage: React.FC = () => {
                                           };
                                           setSelectedSkillIds([...selectedSkillIds, sub.id]);
                                           setProfileData({
-                                            ...profileData,
-                                            skills: [...(profileData.skills || []), newSkill],
-                                          });
+                                            ...(profileData as any),
+                                            skills: ([...(((profileData as JobSeekerProfile).skills) || []), newSkill]),
+                                          } as any);
                                         }
                                         setSkillInput('');
                                         setIsDropdownOpen(false);
@@ -574,7 +657,7 @@ const ProfilePage: React.FC = () => {
                         </div>
 
                         <div className="pf-tags">
-                          {profileData.skills?.map(skill => (
+                          {(profileData as JobSeekerProfile).skills?.map(skill => (
                             <span key={skill.id} className="pf-tag">
                               {skill.parent_id
                                 ? `${categories.find(c => c.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`
@@ -582,9 +665,9 @@ const ProfilePage: React.FC = () => {
                               <span
                                 className="pf-tag-x"
                                 onClick={() => {
-                                  const updatedSkills = profileData.skills?.filter(s => s.id !== skill.id) || [];
+                                  const updatedSkills = (profileData as JobSeekerProfile).skills?.filter(s => s.id !== skill.id) || [];
                                   const updatedIds = selectedSkillIds.filter(id => id !== skill.id);
-                                  setProfileData({ ...profileData, skills: updatedSkills });
+                                  setProfileData({ ...(profileData as any), skills: updatedSkills } as any);
                                   setSelectedSkillIds(updatedIds);
                                 }}
                               >
@@ -595,13 +678,28 @@ const ProfilePage: React.FC = () => {
                         </div>
                       </div>
 
+                      <div className="pf-row">
+                        <label className="pf-label">Job status</label>
+                        <select
+                          className="pf-select"
+                          value={(profileData as any).job_search_status || 'open_to_offers'}
+                          onChange={(e) =>
+                            setProfileData({ ...(profileData as any), job_search_status: e.target.value } as any)
+                          }
+                        >
+                          <option value="actively_looking">Actively looking</option>
+                          <option value="open_to_offers">Open to offers</option>
+                          <option value="hired">Hired</option>
+                        </select>
+                      </div>
+
                       {/* Experience */}
                       <div className="pf-row">
                         <label className="pf-label">Experience</label>
                         <select
                           className="pf-select"
                           value={(profileData as JobSeekerProfile).experience || ''}
-                          onChange={(e) => setProfileData({ ...profileData, experience: e.target.value })}
+                          onChange={(e) => setProfileData({ ...(profileData as any), experience: e.target.value } as any)}
                         >
                           <option value="" disabled>Select experience level</option>
                           <option value="Less than 1 year">Less than 1 year</option>
@@ -619,7 +717,7 @@ const ProfilePage: React.FC = () => {
                           className="pf-textarea"
                           rows={4}
                           value={(profileData as JobSeekerProfile).description || ''}
-                          onChange={(e) => setProfileData({ ...profileData, description: e.target.value })}
+                          onChange={(e) => setProfileData({ ...(profileData as any), description: e.target.value } as any)}
                           placeholder="Tell a bit about yourself…"
                         />
                       </div>
@@ -631,7 +729,7 @@ const ProfilePage: React.FC = () => {
                           className="pf-input"
                           type="text"
                           value={(profileData as JobSeekerProfile).portfolio || ''}
-                          onChange={(e) => setProfileData({ ...profileData, portfolio: e.target.value })}
+                          onChange={(e) => setProfileData({ ...(profileData as any), portfolio: e.target.value } as any)}
                           placeholder="Enter portfolio URL"
                         />
                       </div>
@@ -643,7 +741,7 @@ const ProfilePage: React.FC = () => {
                           className="pf-input"
                           type="text"
                           value={(profileData as JobSeekerProfile).video_intro || ''}
-                          onChange={(e) => setProfileData({ ...profileData, video_intro: e.target.value })}
+                          onChange={(e) => setProfileData({ ...(profileData as any), video_intro: e.target.value } as any)}
                           placeholder="Enter video URL"
                         />
                       </div>
@@ -655,7 +753,7 @@ const ProfilePage: React.FC = () => {
                           className="pf-input"
                           type="url"
                           value={(profileData as JobSeekerProfile).resume || ''}
-                          onChange={(e) => setProfileData({ ...profileData, resume: e.target.value })}
+                          onChange={(e) => setProfileData({ ...(profileData as any), resume: e.target.value } as any)}
                           placeholder="https://example.com/resume.pdf"
                         />
                       </div>
@@ -699,8 +797,20 @@ const ProfilePage: React.FC = () => {
 
               {isEditing && (
                 <div className="pf-actions-bottom">
-                  <button className="pf-button" onClick={handleUpdateProfile}>Save Profile</button>
-                  <button className="pf-button pf-secondary" onClick={() => { setIsEditing(false); setUsernameEditMode(false); setUsernameDraft(profileData.username || ''); }}>
+                  <button className="pf-button" onClick={handleUpdateProfile} disabled={isSaving}>
+                    {isSaving ? 'Saving…' : 'Save Profile'}
+                  </button>
+                  <button
+                    className="pf-button pf-secondary"
+                    onClick={() => {
+                      if (!isSaving) {
+                        setIsEditing(false);
+                        setUsernameEditMode(false);
+                        setUsernameDraft(profileData.username || '');
+                      }
+                    }}
+                    disabled={isSaving}
+                  >
                     Cancel
                   </button>
                 </div>
@@ -709,45 +819,45 @@ const ProfilePage: React.FC = () => {
           </div>
         </div>
 
-       {profileData && canShowReviews(profileData) && (
-  <div className="pf-card pf-card-reviews">
-    <h2 className="pf-subtitle">Reviews</h2>
+        {profileData && canShowReviews(profileData) && (
+          <div className="pf-card pf-card-reviews">
+            <h2 className="pf-subtitle">Reviews</h2>
 
-    {(profileData.reviews?.length ?? 0) > 0 ? (
-      <ul className="pf-reviews-list">
-        {profileData.reviews!.map((review: Review) => (
-          <li key={review.id} className="pf-review">
-            <div className="pf-review-row">
-              <span className="pf-k">Rating</span>
-              <span className="pf-v">{review.rating}</span>
-            </div>
-            <div className="pf-review-row">
-              <span className="pf-k">Comment</span>
-              <span className="pf-v">{review.comment}</span>
-            </div>
-            <div className="pf-review-row">
-              <span className="pf-k">Reviewer</span>
-              <span className="pf-v">{review.reviewer?.username || 'Anonymous'}</span>
-            </div>
-            <div className="pf-review-row">
-              <span className="pf-k">Date</span>
-              <span className="pf-v">{review.created_at}</span>
-            </div>
-          </li>
-        ))}
-      </ul>
-    ) : (
-      <div className="pf-muted">No reviews yet.</div>
-    )}
+            {(profileData.reviews?.length ?? 0) > 0 ? (
+              <ul className="pf-reviews-list">
+                {profileData.reviews!.map((review: Review) => (
+                  <li key={review.id} className="pf-review">
+                    <div className="pf-review-row">
+                      <span className="pf-k">Rating</span>
+                      <span className="pf-v">{review.rating}</span>
+                    </div>
+                    <div className="pf-review-row">
+                      <span className="pf-k">Comment</span>
+                      <span className="pf-v">{review.comment}</span>
+                    </div>
+                    <div className="pf-review-row">
+                      <span className="pf-k">Reviewer</span>
+                      <span className="pf-v">{review.reviewer?.username || 'Anonymous'}</span>
+                    </div>
+                    <div className="pf-review-row">
+                      <span className="pf-k">Date</span>
+                      <span className="pf-v">{review.created_at}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="pf-muted">No reviews yet.</div>
+            )}
 
-    <div className="pf-reviews-link">
-      <strong>Reviews:</strong>{' '}
-      <Link className="pf-link" to={`/reviews/${profileData.id}`}>
-        View all reviews
-      </Link>
-    </div>
-  </div>
-)}
+            <div className="pf-reviews-link">
+              <strong>Reviews:</strong>{' '}
+              <Link className="pf-link" to={`/reviews/${profileData.id}`}>
+                View all reviews
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
 
       <Footer />

@@ -8,7 +8,7 @@ import { JobSeekerProfile, Review, Category } from '@types';
 import { useRole } from '../context/RoleContext';
 import {
   FaUserCircle, FaEnvelope, FaGlobe, FaClock, FaStar, FaRegStar,
-  FaBriefcase, FaLink, FaVideo, FaFilePdf, FaEye, FaShieldAlt
+  FaBriefcase, FaLink, FaVideo, FaFilePdf, FaEye, FaShieldAlt, FaDollarSign
 } from 'react-icons/fa';
 import Loader from '../components/Loader';
 import '../styles/public-profile.css';
@@ -108,16 +108,48 @@ const PublicProfile: React.FC = () => {
                 <span className="ppx-kv-label">Timezone</span>
                 <span className="ppx-kv-value">{profile.timezone || 'Not specified'}</span>
               </li>
-              <li>
-                <span className="ppx-kv-icon"><FaClock /></span>
-                <span className="ppx-kv-label">Currency</span>
-                <span className="ppx-kv-value">{profile.currency || 'Not specified'}</span>
-              </li>
-              <li>
-                <span className="ppx-kv-icon"><FaBriefcase /></span>
-                <span className="ppx-kv-label">Experience</span>
-                <span className="ppx-kv-value">{profile.experience || 'Not specified'}</span>
-              </li>
+              {profile.role === 'jobseeker' && (
+  <li>
+    <span className="ppx-kv-icon"><FaBriefcase /></span>
+    <span className="ppx-kv-label">Job status</span>
+    <span className="ppx-kv-value">
+      {(() => {
+        const v = (profile as any).job_search_status || 'open_to_offers';
+        const label =
+          v === 'actively_looking' ? 'Actively looking' :
+          v === 'hired' ? 'Hired' :
+          'Open to offers';
+        const color =
+          v === 'actively_looking' ? '#14804a' :
+          v === 'hired' ? '#6b7280' :
+          '#2563eb';
+        return <span style={{ padding: '2px 8px', borderRadius: 999, background: `${color}20`, color }}>{label}</span>;
+      })()}
+    </span>
+  </li>
+)}
+        <li>
+  <span className="ppx-kv-icon"><FaClock /></span>
+  <span className="ppx-kv-label">Currency</span>
+  <span className="ppx-kv-value">{profile.currency || 'Not specified'}</span>
+</li>
+
+{/* NEW: Expected salary (show only if provided) */}
+{(profile as any).expected_salary != null && (profile as any).expected_salary !== '' && (
+  <li>
+    <span className="ppx-kv-icon"><FaDollarSign /></span>
+    <span className="ppx-kv-label">Expected salary</span>
+    <span className="ppx-kv-value">
+      {(profile as any).expected_salary} {profile.currency || ''}
+    </span>
+  </li>
+)}
+
+<li>
+  <span className="ppx-kv-icon"><FaBriefcase /></span>
+  <span className="ppx-kv-label">Experience</span>
+  <span className="ppx-kv-value">{profile.experience || 'Not specified'}</span>
+</li>
 
               <li>
                 <span className="ppx-kv-icon"><FaLink /></span>

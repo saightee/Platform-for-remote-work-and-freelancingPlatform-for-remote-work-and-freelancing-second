@@ -295,3 +295,24 @@
 .ch-dd-sub[open] > summary{ background:#f7f9ff; }
 .ch-dd-sub > summary::-webkit-details-marker{ display:none; }
 .ch-dd-sub ul{ margin:6px 0 4px; padding-left:0; display:grid; gap:6px; }
+
+
+.ch-chatlist__item.is-accepted {
+  background: #ecfdf5;
+  border: 2px solid #a7f3d0;
+}
+.ch-chatlist__item.is-accepted.is-active {
+  border: 2px solid #a9bbe3;
+  background: #e8eef9;
+
+}
+
+.ch-chip {
+  display:inline-block;
+  font-size:12px;
+  padding:2px 6px;
+  border-radius:999px;
+  border:1px solid rgba(16,185,129,.6);
+  background:#ecfdf5;
+  margin-left:6px;
+}

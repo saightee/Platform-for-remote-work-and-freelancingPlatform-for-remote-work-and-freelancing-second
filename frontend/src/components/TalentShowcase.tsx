@@ -206,7 +206,7 @@ const TalentShowcase: React.FC<TalentShowcaseProps> = ({
   };
 
   return (
-    <section className="ts-wrap">
+    <section className="ts-wrap ts--dots">
       <div className="ts-inner">
      <div className="ts-head">
   <div className="ts-headbar">
