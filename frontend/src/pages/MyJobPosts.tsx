@@ -634,68 +634,76 @@ const handleUpdateApplicationStatus = async (
       <td className="col-exp" data-label="Experience">{app.jobDescription || 'Not provided'}</td>
       <td className="col-applied" data-label="Applied On">{formatDateInTimezone(app.appliedAt)}</td>
       <td className="col-status" data-label="Status">{app.status}</td>
-      <td className="col-actions mjp-table-actions" data-label="Actions">
+     <td className="col-actions" data-label="Actions">
+  <details className="mjp-dd">
+    <summary className="mjp-btn mjp-sm mjp-dd__trigger">Other options</summary>
+    <div className="mjp-dd__menu">
+      {app.status === 'Pending' && (
+        <>
+          <button
+            className="mjp-dd__item"
+            onClick={() =>
+              setConfirm({ kind: 'invite', app, postId: post.id, note: '' })
+            }
+          >
+            Invite to interview
+          </button>
+          <button
+            className="mjp-dd__item"
+            onClick={() => setConfirm({ kind: 'reject', app, postId: post.id })}
+          >
+            Reject
+          </button>
+          <hr className="mjp-dd__sep" />
+        </>
+      )}
 
-                                      {app.status === 'Pending' && (
-  <>
-    <button
-      onClick={() => setConfirm({ kind: 'invite', app, postId: post.id, note: '' })}
-      className="mjp-btn mjp-success mjp-sm"
-      title="Move this candidate to the next interview stage"
-    >
-      <FaCheckCircle /> Invite to interview
-    </button>
+      <button
+        className="mjp-dd__item"
+        onClick={() => {
+          const d = (app as any).details || {};
+          setAppDetails({
+            fullName: d.fullName ?? (app as any).fullName ?? null,
+            referredBy: d.referredBy ?? (app as any).referredBy ?? null,
+            coverLetter: (d.coverLetter ?? app.coverLetter) || 'No cover letter',
+          });
+        }}
+      >
+        View details
+      </button>
 
-    <button
-      onClick={() => setConfirm({ kind: 'reject', app, postId: post.id })}
-      className="mjp-btn mjp-danger mjp-sm"
-      title="Reject this applicant"
-    >
-      <FaTimesCircle /> Reject
-    </button>
-  </>
-)}
+      <Link to={`/public-profile/${app.userId}`} className="mjp-dd__item as-link">
+        👤 Profile
+      </Link>
 
-                                     <button
-  onClick={() => {
-    const d = (app as any).details || {};
-    setAppDetails({
-      fullName: d.fullName ?? (app as any).fullName ?? null,
-      referredBy: d.referredBy ?? (app as any).referredBy ?? null,
-      coverLetter: (d.coverLetter ?? app.coverLetter) || 'No cover letter',
-    });
-  }}
-  className="mjp-btn mjp-sm"
->
-  <FaEye /> View Details
-</button>
+      <button
+        className="mjp-dd__item"
+        onClick={() =>
+          navigate('/employer-dashboard/messages', {
+            state: { jobPostId: post.id, applicationId: app.applicationId },
+          })
+        }
+      >
+        Chat
+      </button>
 
-                                      <Link to={`/public-profile/${app.userId}`}>
-                                        <button className="mjp-btn mjp-sm"><FaEye /> Profile</button>
-                                      </Link>
+      {app.status === 'Accepted' && (
+        <>
+          <hr className="mjp-dd__sep" />
+          <button
+            className="mjp-dd__item"
+            onClick={() =>
+              setReviewForm({ applicationId: app.applicationId, rating: 5, comment: '' })
+            }
+          >
+            Leave a review
+          </button>
+        </>
+      )}
+    </div>
+  </details>
+</td>
 
-                                      {/* NEW: перейти в чат по этой заявке */}
-                                      <button
-                                        className="mjp-btn mjp-sm"
-                                        onClick={() => navigate('/employer-dashboard/messages', {
-                                          state: { jobPostId: post.id, applicationId: app.applicationId }
-                                        })}
-                                      >
-                                        <FaComments /> Chat
-                                      </button>
-
-                                      {/* ✅ Review только для Accepted */}
-                                      {app.status === 'Accepted' && (
-                                        <button
-                                          className="mjp-btn mjp-sm"
-                                          onClick={() =>
-                                            setReviewForm({ applicationId: app.applicationId, rating: 5, comment: '' })
-                                          }
-                                        >
-                                          <FaStar /> Review
-                                        </button>
-                                      )}
-                                    </td>
                                   </tr>
                                 ))}
                               </tbody>
