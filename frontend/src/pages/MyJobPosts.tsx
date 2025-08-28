@@ -54,6 +54,7 @@ const MyJobPosts: React.FC = () => {
   const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [appDetails, setAppDetails] = useState<{ fullName?: string | null; referredBy?: string | null; coverLetter: string; } | null>(null);
+  const [actionSubmitting, setActionSubmitting] = useState(false);
 
   type ConfirmState =
     | { kind: 'invite'; app: JobApplicationDetails; postId: string; note: string }
@@ -611,7 +612,7 @@ const MyJobPosts: React.FC = () => {
                                         <div
                                           className="mjp-menu"
                                           role="menu"
-                                          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, minWidth: 240, zIndex: 4000 }}
+                                          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, minWidth: 240, zIndex: 4000, right: 'auto' }}
                                         >
                                           {app.status === 'Pending' && (
                                             <>
@@ -813,28 +814,38 @@ const MyJobPosts: React.FC = () => {
                 </div>
 
                 <div className="mjp-actions-row">
-                  <button
-                    className="mjp-btn mjp-success"
-                    onClick={async () => {
-                      try {
-                        await updateApplicationStatus(confirm.app.applicationId, 'Accepted');
-                        if (confirm.note.trim() && socket) {
-                          socket.emit('sendMessage', {
-                            jobApplicationId: confirm.app.applicationId,
-                            content: `You are invited to the interview. ${confirm.note.trim()}`,
-                          });
-                        }
-                        const updated = await getApplicationsForJobPost(confirm.postId);
-                        setApplications({ jobPostId: confirm.postId, apps: updated || [] });
-                      } catch (err: any) {
-                        alert(err?.response?.data?.message || 'Failed to invite.');
-                      } finally {
-                        setConfirm(null);
-                      }
-                    }}
-                  >
-                    Invite to interview
-                  </button>
+           <button
+  className="mjp-btn mjp-success"
+  onClick={async () => {
+    if (actionSubmitting || confirm.kind !== 'invite') return; // защита от дабл-кликов
+    try {
+      setActionSubmitting(true);
+
+      await updateApplicationStatus(confirm.app.applicationId, 'Accepted');
+
+      // отправляем сообщение ТОЛЬКО один раз, после успешного обновления статуса
+      const note = (confirm.note || '').trim();
+      if (note && socket) {
+        socket.emit('sendMessage', {
+          jobApplicationId: confirm.app.applicationId,
+          content: `You are invited to the interview. ${note}`,
+        });
+      }
+
+      const updated = await getApplicationsForJobPost(confirm.postId);
+      setApplications({ jobPostId: confirm.postId, apps: updated || [] });
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to invite.');
+    } finally {
+      setActionSubmitting(false);
+      setConfirm(null);
+    }
+  }}
+  disabled={actionSubmitting}
+  aria-busy={actionSubmitting}
+>
+  {actionSubmitting ? 'Inviting…' : 'Invite to interview'}
+</button>
                   <button className="mjp-btn" onClick={() => setConfirm(null)}>Cancel</button>
                 </div>
               </>
@@ -847,22 +858,27 @@ const MyJobPosts: React.FC = () => {
                   Are you sure you want to reject <strong>{confirm.app.username}</strong>? This will remove the chat.
                 </p>
                 <div className="mjp-actions-row">
-                  <button
-                    className="mjp-btn mjp-danger"
-                    onClick={async () => {
-                      try {
-                        await updateApplicationStatus(confirm.app.applicationId, 'Rejected');
-                        const updated = await getApplicationsForJobPost(confirm.postId);
-                        setApplications({ jobPostId: confirm.postId, apps: updated || [] });
-                      } catch (err: any) {
-                        alert(err?.response?.data?.message || 'Failed to reject.');
-                      } finally {
-                        setConfirm(null);
-                      }
-                    }}
-                  >
-                    Reject
-                  </button>
+                 <button
+  className="mjp-btn mjp-danger"
+  onClick={async () => {
+    if (actionSubmitting || confirm.kind !== 'reject') return;
+    try {
+      setActionSubmitting(true);
+      await updateApplicationStatus(confirm.app.applicationId, 'Rejected');
+      const updated = await getApplicationsForJobPost(confirm.postId);
+      setApplications({ jobPostId: confirm.postId, apps: updated || [] });
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to reject.');
+    } finally {
+      setActionSubmitting(false);
+      setConfirm(null);
+    }
+  }}
+  disabled={actionSubmitting}
+  aria-busy={actionSubmitting}
+>
+  Reject
+</button>
                   <button className="mjp-btn" onClick={() => setConfirm(null)}>Cancel</button>
                 </div>
               </>
