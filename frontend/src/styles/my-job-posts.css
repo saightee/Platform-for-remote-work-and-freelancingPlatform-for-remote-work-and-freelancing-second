@@ -129,7 +129,8 @@
   margin: 6px 0 10px; font-size: 16px; font-weight: 800; color: var(--cs-text);
   display: flex; align-items: center; gap: 8px;
 }
-.mjp-table-wrap { width: 100%; overflow: auto; border-radius: 10px; border: 1px solid #e3e6ef; }
+.mjp-table-wrap { width: 100%; overflow-x: auto;
+  overflow-y: visible; border-radius: 10px; border: 1px solid #e3e6ef; }
 .mjp-table { width: 100%; border-collapse: collapse; background: #fff; }
 .mjp-table th, .mjp-table td { padding: 12px 14px; font-size: 14px; text-align: left; }
 .mjp-table thead th { background: #f6f8ff; color: #333; font-weight: 800; }
@@ -191,8 +192,9 @@
 
 /* улучшения таблицы на десктопе */
 .mjp-table-wrap {
-  width: 100%;
+ width: 100%;
   overflow-x: auto;
+  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
 }
 .mjp-table { width: 100%; border-collapse: collapse; background: #fff; }
@@ -320,3 +322,40 @@
 @media (min-width: 641px) {
   .mjp-table th.col-actions, .mjp-table td.col-actions { width: 1%; white-space: nowrap; }
 }
+
+
+.mjp-more {
+  position: relative;            /* якорь для абсолютного меню */
+  display: inline-block;
+}
+
+
+/* само меню */
+.mjp-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 2000;                 /* выше таблицы/карточки */
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid #e3e6ef;
+  border-radius: 12px;
+  box-shadow: var(--cs-shadow);
+  padding: 6px;
+}
+
+/* пункт меню */
+.mjp-menu-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #111827;
+}
+.mjp-menu-item:hover { background: #f9fbff; }

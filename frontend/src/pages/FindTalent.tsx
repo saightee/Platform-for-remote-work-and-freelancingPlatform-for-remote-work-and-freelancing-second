@@ -10,6 +10,15 @@ import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
 import '../styles/find-talent.css';
 
+function useDebouncedValue<T>(value: T, delay = 400) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
 interface TalentResponse {
   total: number;
   data: Profile[];
@@ -71,8 +80,7 @@ const [filters, setFilters] = useState<{
 
   const allCats = useMemo(() => flattenCats(categories), [categories]);
 
-  // Автоподбор ID категорий из глобальной строки поиска
-  const autoSkillIds = useMemo(() => {
+    const autoSkillIds = useMemo(() => {
     const q = norm(searchInput);
     if (!q || q.length < 2) return [];
 
@@ -86,6 +94,13 @@ const [filters, setFilters] = useState<{
 
     return Array.from(new Set(partial));
   }, [searchInput, allCats]);
+
+  const debouncedFilters = useDebouncedValue(filters, 400);
+const autoSkillsKey = useMemo(() => autoSkillIds.join(','), [autoSkillIds]); // стабильный ключ
+const debouncedAutoSkillsKey = useDebouncedValue(autoSkillsKey, 400);
+
+
+
 
   useEffect(() => {
     if (!selectedSkillId || !categories.length) return;
@@ -114,89 +129,94 @@ const [filters, setFilters] = useState<{
   // Подгрузка талантов / соискателей
   const reqSeq = useRef(0);
   const firstRunRef = useRef(true);
-  useEffect(() => {
-    const seq = ++reqSeq.current;
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+ useEffect(() => {
+  const seq = ++reqSeq.current;
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        const useAutoSkills = !selectedSkillId && autoSkillIds.length > 0;
-        const effectiveDescription =
-          (selectedSkillId || useAutoSkills) ? undefined : (filters.description || undefined);
+      // auto skills берём из задебаунсенного ключа
+      const autoIds = debouncedAutoSkillsKey ? debouncedAutoSkillsKey.split(',').filter(Boolean) : [];
+      const useAutoSkills = !selectedSkillId && autoIds.length > 0;
 
-const response = await (searchType === 'talents'
-  ? searchTalents({
-      experience: filters.experience || undefined,
-      rating: filters.rating,
-      skills: selectedSkillId ? [selectedSkillId] : (useAutoSkills ? autoSkillIds : undefined),
-      description: effectiveDescription,
-      expected_salary_min: filters.expected_salary_min,
-      expected_salary_max: filters.expected_salary_max,
-      job_search_status: filters.job_search_status, // NEW
-      page: filters.page,
-      limit: filters.limit,
-    })
-          : searchJobseekers({
-              username: filters.username || undefined,
-              page: filters.page,
-              limit: filters.limit,
-            }));
+      const effectiveDescription =
+        (selectedSkillId || useAutoSkills)
+          ? undefined
+          : (debouncedFilters.description || undefined);
+
+      const response = await (searchType === 'talents'
+        ? searchTalents({
+            experience: debouncedFilters.experience || undefined,
+            rating: debouncedFilters.rating,
+            skills: selectedSkillId ? [selectedSkillId] : (useAutoSkills ? autoIds : undefined),
+            description: effectiveDescription,
+            expected_salary_min: debouncedFilters.expected_salary_min,
+            expected_salary_max: debouncedFilters.expected_salary_max,
+            job_search_status: debouncedFilters.job_search_status,
+            page: debouncedFilters.page,
+            limit: debouncedFilters.limit,
+          })
+        : searchJobseekers({
+            username: debouncedFilters.username || undefined,
+            page: debouncedFilters.page,
+            limit: debouncedFilters.limit,
+          }));
 
         let talentData: Profile[] = [];
-        let totalCount = 0;
-
-        if (response && typeof response === 'object' && 'total' in response && 'data' in response && Array.isArray((response as TalentResponse).data)) {
-          const r = response as TalentResponse;
-          talentData = r.data;
-          totalCount = r.total;
-        } else if (Array.isArray(response)) {
-          talentData = response as Profile[];
-          totalCount = (response as Profile[]).length;
-        } else {
-          console.error('Invalid response format:', response);
-          if (seq !== reqSeq.current) return;
-          setError('Invalid data format received from server. Please try again.');
-          setTalents([]);
-          setTotal(0);
-          return;
-        }
-
+      let totalCount = 0;
+      if (response && typeof response === 'object' && 'total' in response && 'data' in response && Array.isArray((response as any).data)) {
+        const r = response as TalentResponse;
+        talentData = r.data;
+        totalCount = r.total;
+      } else if (Array.isArray(response)) {
+        talentData = response as Profile[];
+        totalCount = (response as Profile[]).length;
+      } else {
         if (seq !== reqSeq.current) return;
-        setTalents(talentData);
-        setTotal(totalCount);
-      } catch (err) {
-        const axiosError = err as AxiosError<{ message?: string }>;
-        console.error('Error fetching data:', axiosError);
-        if (seq === reqSeq.current) {
-          if (axiosError.response?.status === 401) {
-            setError('Unauthorized access. Please log in again.');
-            navigate('/login');
-          } else {
-            setError(axiosError.response?.data?.message || 'Failed to load talents. Please try again.');
-          }
-        }
-      } finally {
-        if (seq === reqSeq.current) setIsLoading(false);
+        setError('Invalid data format received from server. Please try again.');
+        setTalents([]);
+        setTotal(0);
+        return;
       }
-    };
-    fetchData();
-  }, [filters, searchType, selectedSkillId, autoSkillIds, navigate]);
 
-  useEffect(() => {
-    if (firstRunRef.current) { firstRunRef.current = false; return; }
+      if (seq !== reqSeq.current) return;
+      setTalents(talentData);
+      setTotal(totalCount);
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message?: string }>;
+      if (seq === reqSeq.current) {
+        if (axiosError.response?.status === 401) {
+          setError('Unauthorized access. Please log in again.');
+          navigate('/login');
+        } else {
+          setError(axiosError.response?.data?.message || 'Failed to load talents. Please try again.');
+        }
+      }
+    } finally {
+      if (seq === reqSeq.current) setIsLoading(false);
+    }
+  };
+  fetchData();
+  // навигатор стабилен — в зависимостях не нужен
+}, [debouncedFilters, searchType, selectedSkillId, debouncedAutoSkillsKey]);
 
-    const t = setTimeout(() => {
-      const useAutoSkills = !selectedSkillId && autoSkillIds.length > 0;
-      setFilters(prev => ({
-        ...prev,
-        description: useAutoSkills || selectedSkillId ? undefined : searchInput,
-        page: 1,
-      }));
-    }, 500);
+useEffect(() => {
+  if (firstRunRef.current) { firstRunRef.current = false; return; }
 
-    return () => clearTimeout(t);
-  }, [searchInput, selectedSkillId, autoSkillIds]);
+  const t = setTimeout(() => {
+    const useAutoSkills = !selectedSkillId && autoSkillIds.length > 0;
+    const nextDesc = (useAutoSkills || selectedSkillId) ? undefined : searchInput;
+    setFilters(prev => {
+      // если фактическое значение не меняется — не триггерим повторный запрос
+      if (prev.description === nextDesc) return prev;
+      return { ...prev, description: nextDesc, page: 1 };
+    });
+  }, 400);
+
+  return () => clearTimeout(t);
+}, [searchInput, selectedSkillId, autoSkillIds]);
+
 
   // автокомплит категорий
   useEffect(() => {
@@ -258,9 +278,10 @@ setSearchParams(nextParams);
     setIsFilterPanelOpen(false);
   };
 
-  const handlePageChange = (newPage: number) => {
-    setFilters((prev) => ({ ...prev, page: newPage }));
-  };
+const handlePageChange = (newPage: number) => {
+  setFilters(prev => (prev.page === newPage ? prev : { ...prev, page: newPage }));
+};
+
 
   const toggleFilterPanel = () => setIsFilterPanelOpen((prev) => !prev);
 
