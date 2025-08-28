@@ -46,6 +46,9 @@ import EmployerOverview from './pages/EmployerOverview';
 import JobseekerDashboard from './pages/JobseekerDashboard';
 import JobseekerOverview from './pages/JobseekerOverview';
 import ContactSupport from './pages/ContactSupport';
+import PromoLatamFreelancer from './pages/promoLatamFreelancer';
+import PromoPhilippinoFreelancer from './pages/promoPhilippinoFreelancer';
+
 
 
 const App: React.FC = () => {
@@ -60,6 +63,8 @@ const App: React.FC = () => {
           <Route path="/register/:role" element={<Register />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/role-selection" element={<RoleSelection />} />
+          <Route path="/latam-freelancer" element={<PromoLatamFreelancer />} />
+          <Route path="/philippino-freelancer" element={<PromoPhilippinoFreelancer />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/contact-support" element={<ContactSupport />} />
            <Route path="/report-issue" element={<ReportIssue />} />

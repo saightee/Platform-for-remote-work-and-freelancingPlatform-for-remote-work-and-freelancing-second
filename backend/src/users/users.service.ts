@@ -43,11 +43,14 @@ export class UsersService {
         user_id: savedUser.id,
         timezone: additionalData.timezone || 'UTC',
         currency: additionalData.currency || 'USD',
+        ...(additionalData.job_search_status
+          ? { job_search_status: additionalData.job_search_status }
+          : { job_search_status: 'open_to_offers' }),
       };
       jobSeekerEntity.resume = additionalData.resume || null;
       jobSeekerEntity.experience = additionalData.experience || null;
       if (additionalData.skills && Array.isArray(additionalData.skills)) {
-        jobSeekerEntity.skills = await this.categoriesRepository.findByIds(additionalData.skills); 
+        jobSeekerEntity.skills = await this.categoriesRepository.findByIds(additionalData.skills);
       } else {
         jobSeekerEntity.skills = [];
       }
@@ -55,6 +58,7 @@ export class UsersService {
       const jobSeeker = this.jobSeekerRepository.create(jobSeekerEntity);
       await this.jobSeekerRepository.save(jobSeeker);
       console.log('JobSeeker profile created:', jobSeeker);
+
     } else if (userData.role === 'employer') {
       const employerEntity: DeepPartial<Employer> = {
         user_id: savedUser.id,
@@ -67,6 +71,7 @@ export class UsersService {
       const employer = this.employerRepository.create(employerEntity);
       await this.employerRepository.save(employer);
       console.log('Employer profile created:', employer);
+
     } else if (userData.role === 'admin' || userData.role === 'moderator') {
       console.log(`${userData.role} user created:`, savedUser);
     }
@@ -74,7 +79,11 @@ export class UsersService {
     return savedUser;
   }
 
-  async updateUser(userId: string, role: 'employer' | 'jobseeker' | 'admin' | 'moderator', additionalData: any) {
+  async updateUser(
+    userId: string,
+    role: 'employer' | 'jobseeker' | 'admin' | 'moderator',
+    additionalData: any
+  ) {
     console.log(`[UsersService] Обновление пользователя: userId=${userId}, role=${role}, data=${JSON.stringify(additionalData)}`);
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
@@ -82,30 +91,14 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    if (additionalData.is_email_verified !== undefined) {
-      user.is_email_verified = additionalData.is_email_verified;
-    }
-    if (role) {
-      user.role = role;
-    }
-    if (additionalData.username) {
-      user.username = additionalData.username;
-    }
-    if (additionalData.email) {
-      user.email = additionalData.email;
-    }
-    if (additionalData.country) {
-      user.country = additionalData.country;
-    }
-    if (additionalData.avatar) {
-      user.avatar = additionalData.avatar;
-    }
-    if (additionalData.status) {
-      user.status = additionalData.status;
-    }
-    if (additionalData.risk_score !== undefined) {
-      user.risk_score = additionalData.risk_score;
-    }
+    if (additionalData.is_email_verified !== undefined) user.is_email_verified = additionalData.is_email_verified;
+    if (role) user.role = role;
+    if (additionalData.username) user.username = additionalData.username;
+    if (additionalData.email) user.email = additionalData.email;
+    if (additionalData.country) user.country = additionalData.country;
+    if (additionalData.avatar) user.avatar = additionalData.avatar;
+    if (additionalData.status) user.status = additionalData.status;
+    if (additionalData.risk_score !== undefined) user.risk_score = additionalData.risk_score;
 
     try {
       const updatedUser = await this.usersRepository.save(user);
@@ -120,32 +113,26 @@ export class UsersService {
       if (!jobSeeker) {
         jobSeeker = this.jobSeekerRepository.create({ user_id: userId });
       }
-      if (additionalData.skills) {
-        jobSeeker.skills = additionalData.skills;
+      if (additionalData.skills) jobSeeker.skills = additionalData.skills;
+      if (additionalData.experience) jobSeeker.experience = additionalData.experience;
+      if (additionalData.description) jobSeeker.description = additionalData.description;
+      if (additionalData.portfolio) jobSeeker.portfolio = additionalData.portfolio;
+      if (additionalData.video_intro) jobSeeker.video_intro = additionalData.video_intro;
+      if (additionalData.timezone) jobSeeker.timezone = additionalData.timezone;
+      if (additionalData.currency) jobSeeker.currency = additionalData.currency;
+      if (additionalData.resume) jobSeeker.resume = additionalData.resume;
+
+      if (Object.prototype.hasOwnProperty.call(additionalData, 'job_search_status')) {
+        const allowed = ['actively_looking', 'open_to_offers', 'hired'] as const;
+        if (!allowed.includes(additionalData.job_search_status)) {
+          throw new BadRequestException('job_search_status must be one of: actively_looking | open_to_offers | hired');
+        }
+        (jobSeeker as any).job_search_status = additionalData.job_search_status;
       }
-      if (additionalData.experience) {
-        jobSeeker.experience = additionalData.experience;
-      }
-      if (additionalData.description) {
-        jobSeeker.description = additionalData.description;
-      }
-      if (additionalData.portfolio) {
-        jobSeeker.portfolio = additionalData.portfolio;
-      }
-      if (additionalData.video_intro) {
-        jobSeeker.video_intro = additionalData.video_intro;
-      }
-      if (additionalData.timezone) {
-        jobSeeker.timezone = additionalData.timezone;
-      }
-      if (additionalData.currency) {
-        jobSeeker.currency = additionalData.currency;
-      }
-      if (additionalData.resume) {
-        jobSeeker.resume = additionalData.resume;
-      }
+
       await this.jobSeekerRepository.save(jobSeeker);
       console.log(`[UsersService] JobSeeker profile updated: ${JSON.stringify(jobSeeker)}`);
+
     } else if (role === 'employer') {
       const employerEntity: DeepPartial<Employer> = {
         user_id: userId,

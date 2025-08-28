@@ -3,14 +3,16 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getJobPost, applyToJobPost, incrementJobView, checkJobApplicationStatus } from '../services/api';
+import { getJobPost, applyToJobPost, incrementJobView, checkJobApplicationStatus, applyToJobPostExtended } from '../services/api';
 import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import { FaEye, FaBriefcase, FaDollarSign, FaMapMarkerAlt, FaCalendarAlt, FaUserCircle, FaTools, FaFolder, FaSignInAlt, FaUserPlus } from 'react-icons/fa';
-import { format, zonedTimeToUtc } from 'date-fns-tz';
+import { format, utcToZonedTime } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
 import sanitizeHtml from 'sanitize-html';
 import Loader from '../components/Loader';
+
+
 
 const JobDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,7 +24,10 @@ const JobDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [hasApplied, setHasApplied] = useState<boolean | null>(null);
   const [coverLetter, setCoverLetter] = useState('');
-  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+const [fullName, setFullName] = useState<string>('');        // NEW
+const [referredBy, setReferredBy] = useState<string>('');    // NEW
+const [applyError, setApplyError] = useState<string | null>(null); // NEW (ошибки модалки)
+const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const viewed = useRef(false); // Добавлено для предотвращения double increment
 
   useEffect(() => {
@@ -73,20 +78,40 @@ const JobDetails: React.FC = () => {
   }, [id, profile]);
 
 const handleApply = async () => {
-  if (hasApplied) return; // уже откликался — ничего не делаем
+  if (hasApplied) return;
   if (!profile) { navigate('/login'); return; }
   if (profile.role !== 'jobseeker') { setError('Only job seekers can apply for jobs.'); return; }
+
+  // reset перед открытием
+  setApplyError(null);
+  setFullName('');
+  setReferredBy('');
+  setCoverLetter('');
   setIsApplyModalOpen(true);
 };
 
+useEffect(() => {
+  if (!isApplyModalOpen) return;
+  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsApplyModalOpen(false); };
+  window.addEventListener('keydown', onKey);
+  return () => window.removeEventListener('keydown', onKey);
+}, [isApplyModalOpen]);
+
 const submitApply = async () => {
+  // локальная валидация модалки
   if (!coverLetter.trim()) {
-    setError('Cover letter is required.');
+    setApplyError('Cover letter is required.');
     return;
   }
+
   try {
     if (id) {
-      await applyToJobPost(id, coverLetter);
+      await applyToJobPostExtended({
+        job_post_id: id,
+        cover_letter: coverLetter,
+        full_name: fullName.trim() ? fullName.trim() : undefined,
+        referred_by: referredBy.trim() ? referredBy.trim() : undefined,
+      });
       setHasApplied(true);
       setIsApplyModalOpen(false);
       navigate('/my-applications');
@@ -95,31 +120,27 @@ const submitApply = async () => {
     console.error('Error applying to job:', err);
     const msg: string = err?.response?.data?.message || '';
 
-    // если бек говорит, что уже откликались — не считаем это фатальной ошибкой
     if ((err?.response?.status === 400 || err?.response?.status === 409) && /already applied/i.test(msg)) {
       setHasApplied(true);
       setIsApplyModalOpen(false);
       return;
     }
 
-    setError(msg || 'Failed to apply. Please try again.');
+    setApplyError(msg || 'Failed to apply. Please try again.');
   }
 };
 
-  const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
-    if (!dateString) return 'Not specified';
-    try {
-      const date = parseISO(dateString);
-      if (timezone) {
-        const zonedDate = zonedTimeToUtc(date, timezone);
-        return format(zonedDate, 'PPpp', { timeZone: timezone });
-      }
-      return format(date, 'PPpp');
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'Invalid date';
-    }
-  };
+const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
+  if (!dateString) return 'Not specified';
+  try {
+    const date = parseISO(dateString);
+    const d = timezone ? utcToZonedTime(date, timezone) : date;
+    return format(d, 'PPpp', { timeZone: timezone });
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Invalid date';
+  }
+};
 
   const goBackToSearch: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
     e.preventDefault();
@@ -285,24 +306,89 @@ const backAfterReport =
 </div>
 
         </div>
-        {isApplyModalOpen && (
-          <div className="modal">
-            <div className="modal-content">
-              <span className="close" onClick={() => setIsApplyModalOpen(false)}>×</span>
-              <h3>Apply with Cover Letter</h3>
-              <textarea
-                value={coverLetter}
-                onChange={(e) => setCoverLetter(e.target.value)}
-                placeholder="Write your cover letter here..."
-                rows={6}
-              />
-              <p>Your resume from profile will be attached automatically.</p>
-              <button onClick={submitApply} className="action-button">
-                Submit Application
-              </button>
-            </div>
-          </div>
-        )}
+{isApplyModalOpen && (
+  <div
+    className="modal"
+    onClick={(e) => {
+      // клик по «подложке» закрывает модалку
+      if (e.target === e.currentTarget) setIsApplyModalOpen(false);
+    }}
+  >
+    <div
+      className="modal-content"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="applyTitle"
+      onClick={(e) => e.stopPropagation()} // не даём всплывать клику по контенту
+    >
+      <button className="close" onClick={() => setIsApplyModalOpen(false)} aria-label="Close">×</button>
+      <h3 id="applyTitle">Apply</h3>
+
+      {applyError && (
+        <div className="alert alert-error" role="alert" style={{ marginBottom: 12 }}>
+          {applyError}
+        </div>
+      )}
+
+      <form
+        className="apply-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submitApply();
+        }}
+        noValidate
+      >
+        {/* Full Name (optional) */}
+        <div className="apply-row">
+          <label className="apply-label" htmlFor="fullName">Full Name (optional)</label>
+     <input
+  id="fullName"
+  type="text"
+  className="apply-input"
+  value={fullName}
+  onChange={(e) => { setFullName(e.target.value); if (applyError) setApplyError(null); }}
+  placeholder="Your full name"
+/>
+        </div>
+
+        {/* Referred By (optional) */}
+        <div className="apply-row">
+          <label className="apply-label" htmlFor="referredBy">Referred By (optional)</label>
+          <input
+            id="referredBy"
+            type="text"
+            className="apply-input"
+            value={referredBy}
+            onChange={(e) => setReferredBy(e.target.value)}
+            placeholder="The name/email of the person who recommended you"
+          />
+        </div>
+
+        {/* Cover Letter (required) */}
+        <div className="apply-row">
+          <label className="apply-label" htmlFor="coverLetter">Cover Letter *</label>
+          <textarea
+            id="coverLetter"
+            className="apply-textarea"
+            rows={6}
+            value={coverLetter}
+            onChange={(e) => setCoverLetter(e.target.value)}
+            placeholder="Write your cover letter here…"
+            required
+          />
+        </div>
+
+        <p className="apply-help">Your resume from profile will be attached automatically.</p>
+
+        <div className="apply-actions">
+          <button type="submit" className="apply-btn">
+            Submit Application
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
       </div>
       <Footer />
       <Copyright />

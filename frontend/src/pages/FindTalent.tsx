@@ -10,6 +10,15 @@ import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
 import '../styles/find-talent.css';
 
+function useDebouncedValue<T>(value: T, delay = 400) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
 interface TalentResponse {
   total: number;
   data: Profile[];
@@ -18,21 +27,36 @@ interface TalentResponse {
 const FindTalent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(searchParams.get('description') || '');
-  const [filters, setFilters] = useState<{
-    username: string;
-    experience: string;
-    rating?: number;
-    page: number;
-    limit: number;
-    description?: string;
-  }>({
-    username: searchParams.get('username') || '',
-    experience: '',
-    rating: undefined,
-    page: 1,
-    limit: 10,
-    description: searchParams.get('description') || '',
-  });
+const [filters, setFilters] = useState<{
+  username: string;
+  experience: string;
+  rating?: number;
+  expected_salary_min?: number;
+  expected_salary_max?: number;
+  job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired'; // NEW
+  page: number;
+  limit: number;
+  description?: string;
+}>({
+  username: searchParams.get('username') || '',
+  experience: '',
+  rating: undefined,
+  expected_salary_min: searchParams.get('expected_salary_min')
+    ? Number(searchParams.get('expected_salary_min'))
+    : undefined,
+  expected_salary_max: searchParams.get('expected_salary_max')
+    ? Number(searchParams.get('expected_salary_max'))
+    : undefined,
+  job_search_status: ((): any => {
+    const v = searchParams.get('job_search_status');
+    return v === 'actively_looking' || v === 'open_to_offers' || v === 'hired' ? v : undefined;
+  })(),
+  page: 1,
+  limit: 10,
+  description: searchParams.get('description') || '',
+});
+
+
 
   const flattenCats = (cats: Category[]): Category[] =>
     cats.flatMap(c => [c, ...(c.subcategories ? flattenCats(c.subcategories) : [])]);
@@ -56,8 +80,7 @@ const FindTalent: React.FC = () => {
 
   const allCats = useMemo(() => flattenCats(categories), [categories]);
 
-  // Автоподбор ID категорий из глобальной строки поиска
-  const autoSkillIds = useMemo(() => {
+    const autoSkillIds = useMemo(() => {
     const q = norm(searchInput);
     if (!q || q.length < 2) return [];
 
@@ -71,6 +94,13 @@ const FindTalent: React.FC = () => {
 
     return Array.from(new Set(partial));
   }, [searchInput, allCats]);
+
+  const debouncedFilters = useDebouncedValue(filters, 400);
+const autoSkillsKey = useMemo(() => autoSkillIds.join(','), [autoSkillIds]); // стабильный ключ
+const debouncedAutoSkillsKey = useDebouncedValue(autoSkillsKey, 400);
+
+
+
 
   useEffect(() => {
     if (!selectedSkillId || !categories.length) return;
@@ -99,88 +129,94 @@ const FindTalent: React.FC = () => {
   // Подгрузка талантов / соискателей
   const reqSeq = useRef(0);
   const firstRunRef = useRef(true);
-  useEffect(() => {
-    const seq = ++reqSeq.current;
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+ useEffect(() => {
+  const seq = ++reqSeq.current;
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        const useAutoSkills = !selectedSkillId && autoSkillIds.length > 0;
-        const effectiveDescription =
-          (selectedSkillId || useAutoSkills) ? undefined : (filters.description || undefined);
+      // auto skills берём из задебаунсенного ключа
+      const autoIds = debouncedAutoSkillsKey ? debouncedAutoSkillsKey.split(',').filter(Boolean) : [];
+      const useAutoSkills = !selectedSkillId && autoIds.length > 0;
 
-        const response = await (searchType === 'talents'
-          ? searchTalents({
-              experience: filters.experience || undefined,
-              rating: filters.rating,
-              skills: selectedSkillId
-                ? [selectedSkillId]
-                : (useAutoSkills ? autoSkillIds : undefined),
-              description: effectiveDescription,
-              page: filters.page,
-              limit: filters.limit,
-            })
-          : searchJobseekers({
-              username: filters.username || undefined,
-              page: filters.page,
-              limit: filters.limit,
-            }));
+      const effectiveDescription =
+        (selectedSkillId || useAutoSkills)
+          ? undefined
+          : (debouncedFilters.description || undefined);
+
+      const response = await (searchType === 'talents'
+        ? searchTalents({
+            experience: debouncedFilters.experience || undefined,
+            rating: debouncedFilters.rating,
+            skills: selectedSkillId ? [selectedSkillId] : (useAutoSkills ? autoIds : undefined),
+            description: effectiveDescription,
+            expected_salary_min: debouncedFilters.expected_salary_min,
+            expected_salary_max: debouncedFilters.expected_salary_max,
+            job_search_status: debouncedFilters.job_search_status,
+            page: debouncedFilters.page,
+            limit: debouncedFilters.limit,
+          })
+        : searchJobseekers({
+            username: debouncedFilters.username || undefined,
+            page: debouncedFilters.page,
+            limit: debouncedFilters.limit,
+          }));
 
         let talentData: Profile[] = [];
-        let totalCount = 0;
-
-        if (response && typeof response === 'object' && 'total' in response && 'data' in response && Array.isArray((response as TalentResponse).data)) {
-          const r = response as TalentResponse;
-          talentData = r.data;
-          totalCount = r.total;
-        } else if (Array.isArray(response)) {
-          talentData = response as Profile[];
-          totalCount = (response as Profile[]).length;
-        } else {
-          console.error('Invalid response format:', response);
-          if (seq !== reqSeq.current) return;
-          setError('Invalid data format received from server. Please try again.');
-          setTalents([]);
-          setTotal(0);
-          return;
-        }
-
+      let totalCount = 0;
+      if (response && typeof response === 'object' && 'total' in response && 'data' in response && Array.isArray((response as any).data)) {
+        const r = response as TalentResponse;
+        talentData = r.data;
+        totalCount = r.total;
+      } else if (Array.isArray(response)) {
+        talentData = response as Profile[];
+        totalCount = (response as Profile[]).length;
+      } else {
         if (seq !== reqSeq.current) return;
-        setTalents(talentData);
-        setTotal(totalCount);
-      } catch (err) {
-        const axiosError = err as AxiosError<{ message?: string }>;
-        console.error('Error fetching data:', axiosError);
-        if (seq === reqSeq.current) {
-          if (axiosError.response?.status === 401) {
-            setError('Unauthorized access. Please log in again.');
-            navigate('/login');
-          } else {
-            setError(axiosError.response?.data?.message || 'Failed to load talents. Please try again.');
-          }
-        }
-      } finally {
-        if (seq === reqSeq.current) setIsLoading(false);
+        setError('Invalid data format received from server. Please try again.');
+        setTalents([]);
+        setTotal(0);
+        return;
       }
-    };
-    fetchData();
-  }, [filters, searchType, selectedSkillId, autoSkillIds, navigate]);
 
-  useEffect(() => {
-    if (firstRunRef.current) { firstRunRef.current = false; return; }
+      if (seq !== reqSeq.current) return;
+      setTalents(talentData);
+      setTotal(totalCount);
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message?: string }>;
+      if (seq === reqSeq.current) {
+        if (axiosError.response?.status === 401) {
+          setError('Unauthorized access. Please log in again.');
+          navigate('/login');
+        } else {
+          setError(axiosError.response?.data?.message || 'Failed to load talents. Please try again.');
+        }
+      }
+    } finally {
+      if (seq === reqSeq.current) setIsLoading(false);
+    }
+  };
+  fetchData();
+  // навигатор стабилен — в зависимостях не нужен
+}, [debouncedFilters, searchType, selectedSkillId, debouncedAutoSkillsKey]);
 
-    const t = setTimeout(() => {
-      const useAutoSkills = !selectedSkillId && autoSkillIds.length > 0;
-      setFilters(prev => ({
-        ...prev,
-        description: useAutoSkills || selectedSkillId ? undefined : searchInput,
-        page: 1,
-      }));
-    }, 500);
+useEffect(() => {
+  if (firstRunRef.current) { firstRunRef.current = false; return; }
 
-    return () => clearTimeout(t);
-  }, [searchInput, selectedSkillId, autoSkillIds]);
+  const t = setTimeout(() => {
+    const useAutoSkills = !selectedSkillId && autoSkillIds.length > 0;
+    const nextDesc = (useAutoSkills || selectedSkillId) ? undefined : searchInput;
+    setFilters(prev => {
+      // если фактическое значение не меняется — не триггерим повторный запрос
+      if (prev.description === nextDesc) return prev;
+      return { ...prev, description: nextDesc, page: 1 };
+    });
+  }, 400);
+
+  return () => clearTimeout(t);
+}, [searchInput, selectedSkillId, autoSkillIds]);
+
 
   // автокомплит категорий
   useEffect(() => {
@@ -218,23 +254,34 @@ const FindTalent: React.FC = () => {
       page: 1,
     }));
 
-    const nextParams: Record<string, string> = {};
-    if (selectedSkillId) {
-      nextParams.category_id = selectedSkillId;
-    } else if (useAutoSkills && autoSkillIds.length === 1) {
-      nextParams.category_id = autoSkillIds[0];
-    }
-    if (!useAutoSkills && !selectedSkillId && searchInput.trim()) {
-      nextParams.description = searchInput.trim();
-    }
+const nextParams: Record<string, string> = {};
+if (selectedSkillId) {
+  nextParams.category_id = selectedSkillId;
+} else if (useAutoSkills && autoSkillIds.length === 1) {
+  nextParams.category_id = autoSkillIds[0];
+}
+if (!useAutoSkills && !selectedSkillId && searchInput.trim()) {
+  nextParams.description = searchInput.trim();
+}
+if (filters.expected_salary_min != null && !Number.isNaN(filters.expected_salary_min)) {
+  nextParams.expected_salary_min = String(filters.expected_salary_min);
+}
+if (filters.expected_salary_max != null && !Number.isNaN(filters.expected_salary_max)) {
+  nextParams.expected_salary_max = String(filters.expected_salary_max);
+}
+if (filters.job_search_status) {
+  nextParams.job_search_status = filters.job_search_status;
+}
 
-    setSearchParams(nextParams);
+setSearchParams(nextParams);
+
     setIsFilterPanelOpen(false);
   };
 
-  const handlePageChange = (newPage: number) => {
-    setFilters((prev) => ({ ...prev, page: newPage }));
-  };
+const handlePageChange = (newPage: number) => {
+  setFilters(prev => (prev.page === newPage ? prev : { ...prev, page: newPage }));
+};
+
 
   const toggleFilterPanel = () => setIsFilterPanelOpen((prev) => !prev);
 
@@ -359,6 +406,61 @@ const FindTalent: React.FC = () => {
                     placeholder="Enter rating (0-5)"
                   />
                 </div>
+<div className="ftl-row">
+  <label className="ftl-label">Job status</label>
+  <select
+    className="ftl-input"
+    value={filters.job_search_status ?? ''}
+    onChange={(e) => setFilters({
+      ...filters,
+      job_search_status: (e.target.value || undefined) as any,
+      page: 1
+    })}
+  >
+    <option value="">All</option>
+    <option value="actively_looking">Actively looking</option>
+    <option value="open_to_offers">Open to offers</option>
+    <option value="hired">Hired</option>
+  </select>
+</div>
+                <div className="ftl-row">
+  <label className="ftl-label">Salary From</label>
+  <input
+    className="ftl-input"
+    type="number"
+    step="0.01"
+    min="0"
+    placeholder="e.g., 3000"
+    value={filters.expected_salary_min ?? ''}
+    onChange={(e) => {
+      const v = e.target.value;
+      setFilters(prev => ({
+        ...prev,
+        expected_salary_min: v === '' ? undefined : Number(v),
+        page: 1,
+      }));
+    }}
+  />
+</div>
+<div className="ftl-row">
+  <label className="ftl-label">Salary To</label>
+  <input
+    className="ftl-input"
+    type="number"
+    step="0.01"
+    min="0"
+    placeholder="e.g., 5000"
+    value={filters.expected_salary_max ?? ''}
+    onChange={(e) => {
+      const v = e.target.value;
+      setFilters(prev => ({
+        ...prev,
+        expected_salary_max: v === '' ? undefined : Number(v),
+        page: 1,
+      }));
+    }}
+  />
+</div>
 
                 <div className="ftl-row">
                   <label className="ftl-label">Category/Skill</label>
@@ -481,6 +583,13 @@ const FindTalent: React.FC = () => {
                             <div className="ftl-body">
                               <div className="ftl-row ftl-row-head">
                                 <h3 className="ftl-name">{talent.username}</h3>
+                                  {(() => {
+    const v = (talent as any).job_search_status;
+    if (!v) return null;
+    const label = v === 'actively_looking' ? 'Actively looking' : v === 'hired' ? 'Hired' : 'Open to offers';
+    const color = v === 'actively_looking' ? '#14804a' : v === 'hired' ? '#6b7280' : '#2563eb';
+    return <span style={{ marginLeft: 6, padding: '5px 8px', borderRadius: 999, background: `${color}20`, color, fontSize: 12, fontWeight: 'bold',  }}>{label}</span>;
+  })()}
                                 {typeof rating === 'number' && (
                                   <span className="ftl-stars" aria-label={`rating ${rating}/5`}>
                                     {Array.from({ length: 5 }, (_, i) => (
@@ -514,6 +623,12 @@ const FindTalent: React.FC = () => {
                                     <strong>Description:</strong>{' '}
                                     {description ? truncateDescription(description, 120) : 'Not specified'}
                                   </p>
+                                  {(talent as any).expected_salary != null && (talent as any).expected_salary !== '' && (
+  <p className="ftl-line">
+    <strong>Expected salary:</strong>{' '}
+    {(talent as any).expected_salary} {(talent as any).currency || ''}
+  </p>
+)}
                                   <p className="ftl-line">
                                     <strong>Resume:</strong>{' '}
                                     {(talent as any).resume ? (

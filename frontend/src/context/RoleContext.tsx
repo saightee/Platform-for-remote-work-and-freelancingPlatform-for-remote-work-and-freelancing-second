@@ -1,5 +1,5 @@
 // src/context/RoleContext.tsx
-import { createContext, useContext, useState, useEffect} from 'react';
+import { createContext, useContext, useState, useEffect, useRef} from 'react';
 import {
   getProfile,
   initializeWebSocket,
@@ -68,6 +68,9 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [socketStatus, setSocketStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('disconnected');
+   const notifAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastPlayRef = useRef(0);
+  const activeChatRef = useRef<string | null>(null);
 
   // DEV-имперсонация: если dev + ?as=... и нет токена — подставляем фейкового пользователя
   // useEffect(() => {
@@ -222,6 +225,7 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem(key, JSON.stringify(map));
             window.dispatchEvent(new Event('jobforge:unreads-updated'));
           }
+          playNewMessageSound(m);
         });
 
         newSocket.on('connect', () => setSocketStatus('connected'));
@@ -243,6 +247,85 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     void init();
   }, [profile, socket]);
+
+    // NEW: подготовка аудио и «разблокировка» автоплея
+  useEffect(() => {
+    // безопасно для Vite/webpack: формируем правильный URL ассета из src/
+    const soundUrl = new URL('../assets/sounds/ring_message.mp3', import.meta.url).href;
+    const a = new Audio(soundUrl);
+    a.preload = 'auto';
+    notifAudioRef.current = a;
+
+    const unlock = () => {
+      // будим аудио на iOS: один «нулевой» плей по юзер-gesture
+      a.muted = true;
+      a.play().catch(() => {}).finally(() => {
+        a.pause();
+        a.currentTime = 0;
+        a.muted = false;
+      });
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+
+    window.addEventListener('click', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    window.addEventListener('touchstart', unlock, { once: true });
+
+    return () => {
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+  }, []);
+
+  useEffect(() => {
+  const onSelected = (e: Event) => {
+    const id = (e as CustomEvent<string | null>).detail ?? null;
+    activeChatRef.current = id;
+  };
+  // касты для TS, чтобы не ругался на кастомное событие
+  window.addEventListener('jobforge:selected-chat-changed' as any, onSelected as any);
+  return () => window.removeEventListener('jobforge:selected-chat-changed' as any, onSelected as any);
+}, []);
+
+    // NEW: воспроизведение с троттлингом и игнором своих сообщений
+const playNewMessageSound = (msg: Message) => {
+  const a = notifAudioRef.current;
+  if (!a) return;
+
+  // свои сообщения — молчим
+  if (profile && msg.sender_id === profile.id) return;
+
+  // НОВОЕ: если вкладка активна и открыт именно этот чат — не играем звук
+  if (document.hasFocus() && activeChatRef.current === msg.job_application_id) return;
+
+  // троттлинг
+  const now = Date.now();
+  if (now - lastPlayRef.current < 1000) return;
+  lastPlayRef.current = now;
+
+  try {
+    a.currentTime = 0;
+    void a.play();
+  } catch {}
+};
+
+// useEffect(() => {
+//   const onSel = (e: Event) => {
+//     // CustomEvent<string|null>
+//     const ce = e as CustomEvent<string | null>;
+//     selectedChatIdRef.current = ce.detail ?? null;
+//   };
+//   window.addEventListener('jobforge:selected-chat-changed', onSel as EventListener);
+//   return () => {
+//     window.removeEventListener('jobforge:selected-chat-changed', onSel as EventListener);
+//   };
+// }, []);
+
+
+
 
   return (
     <RoleContext.Provider

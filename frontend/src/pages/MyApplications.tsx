@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { getMyApplications, createReview } from '../services/api';
@@ -7,7 +7,7 @@ import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
 import { formatDateInTimezone } from '../utils/dateUtils';
 import Loader from '../components/Loader';
-import { Link } from 'react-router-dom'; // 👈 добавлено
+import { Link } from 'react-router-dom';
 import {
   FaBriefcase,
   FaClock,
@@ -18,6 +18,8 @@ import {
 } from 'react-icons/fa';
 import '../styles/my-applications.css';
 
+type TabKey = 'all' | 'pending' | 'accepted' | 'closed';
+
 const MyApplications: React.FC = () => {
   const { profile } = useRole();
   const [applications, setApplications] = useState<JobApplication[]>([]);
@@ -27,6 +29,9 @@ const MyApplications: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [leftReviews, setLeftReviews] = useState<{ [appId: string]: { rating: number; comment: string } }>({});
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+
+  // NEW: текущий таб
+  const [tab, setTab] = useState<TabKey>('all');
 
   useEffect(() => {
     const fetchApplications = async () => {
@@ -92,24 +97,45 @@ const MyApplications: React.FC = () => {
     return <span className="ma-badge ma-pending"><FaClock /> Pending</span>;
   };
 
- const isJobClosed = (app: JobApplication) => {
-  const jp = (app as any).job_post as {
-    status?: string;
-    is_closed?: boolean;
-    closed?: boolean;
-    isActive?: boolean;
-  } | undefined;
+  // Есть ли у заявки закрытый джоб-пост
+  const isJobClosed = (app: JobApplication) => {
+    const jp = (app as any).job_post as {
+      status?: string;
+      is_closed?: boolean;
+      closed?: boolean;
+      isActive?: boolean;
+    } | undefined;
 
-  if (!jp) return false;
+    if (!jp) return false;
+    if (jp.is_closed === true || jp.closed === true) return true;
+    if (jp.isActive === false) return true;
 
-  // явные флаги
-  if (jp.is_closed === true || jp.closed === true) return true;
-  if (jp.isActive === false) return true;
+    const s = (jp.status || '').toString().toLowerCase();
+    return s.includes('closed') || s.includes('archiv') || s.includes('inactive');
+  };
 
-  // строковый статус
-  const s = (jp.status || '').toString().toLowerCase();
-  return s.includes('closed') || s.includes('archiv') || s.includes('inactive');
-};
+  // NEW: счётчики для табов
+  const counts = useMemo(() => {
+    const pending = applications.filter(a => a.status === 'Pending').length;
+    const accepted = applications.filter(a => a.status === 'Accepted').length;
+    const closed = applications.filter(a => isJobClosed(a)).length;
+    const all = applications.length;
+    return { all, pending, accepted, closed };
+  }, [applications]);
+
+  // NEW: отфильтрованный список
+  const filteredApps = useMemo(() => {
+    switch (tab) {
+      case 'pending':
+        return applications.filter(a => a.status === 'Pending');
+      case 'accepted':
+        return applications.filter(a => a.status === 'Accepted');
+      case 'closed':
+        return applications.filter(a => isJobClosed(a));
+      default:
+        return applications;
+    }
+  }, [tab, applications]);
 
   if (isLoading) {
     return (
@@ -149,9 +175,37 @@ const MyApplications: React.FC = () => {
 
           {error && <div className="ma-alert ma-err">{error}</div>}
 
-          {applications.length > 0 ? (
+          {/* NEW: табы-фильтры */}
+          <div className="ma-tabs">
+            <button
+              className={`ma-tab ${tab === 'all' ? 'is-active' : ''}`}
+              onClick={() => setTab('all')}
+            >
+              All ({counts.all})
+            </button>
+            <button
+              className={`ma-tab ${tab === 'pending' ? 'is-active' : ''}`}
+              onClick={() => setTab('pending')}
+            >
+              Pending ({counts.pending})
+            </button>
+            <button
+              className={`ma-tab ${tab === 'accepted' ? 'is-active' : ''}`}
+              onClick={() => setTab('accepted')}
+            >
+              Accepted ({counts.accepted})
+            </button>
+            <button
+              className={`ma-tab ${tab === 'closed' ? 'is-active' : ''}`}
+              onClick={() => setTab('closed')}
+            >
+              Closed ({counts.closed})
+            </button>
+          </div>
+
+          {filteredApps.length > 0 ? (
             <div className="ma-grid">
-              {applications.map((app) => (
+              {filteredApps.map((app) => (
                 <div key={app.id} className="ma-item">
                   <div className="ma-item-head">
                     <h3 className="ma-item-title">{app.job_post?.title || 'Unknown Job'}</h3>
@@ -172,10 +226,8 @@ const MyApplications: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* 👇 Кнопка просмотра джоб-поста */}
                   {app.job_post?.id && (
                     <div className="ma-actions-row">
-                      {/* при необходимости поменяй путь на тот, что у тебя для страницы джоба */}
                       <Link className="ma-btn ma-secondary" to={`/jobs/${app.job_post!.id}`}>
                         View Job Post
                       </Link>

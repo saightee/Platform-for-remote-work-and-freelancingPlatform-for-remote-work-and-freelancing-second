@@ -129,7 +129,8 @@
   margin: 6px 0 10px; font-size: 16px; font-weight: 800; color: var(--cs-text);
   display: flex; align-items: center; gap: 8px;
 }
-.mjp-table-wrap { width: 100%; overflow: auto; border-radius: 10px; border: 1px solid #e3e6ef; }
+.mjp-table-wrap { width: 100%; overflow-x: auto;
+  overflow-y: visible; border-radius: 10px; border: 1px solid #e3e6ef; }
 .mjp-table { width: 100%; border-collapse: collapse; background: #fff; }
 .mjp-table th, .mjp-table td { padding: 12px 14px; font-size: 14px; text-align: left; }
 .mjp-table thead th { background: #f6f8ff; color: #333; font-weight: 800; }
@@ -191,8 +192,9 @@
 
 /* улучшения таблицы на десктопе */
 .mjp-table-wrap {
-  width: 100%;
+ width: 100%;
   overflow-x: auto;
+  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
 }
 .mjp-table { width: 100%; border-collapse: collapse; background: #fff; }
@@ -201,7 +203,7 @@
   font-size: 14px;
   text-align: left;
   vertical-align: top;
-  word-break: break-word;     /* чтобы длинные строки не ломали вёрстку */
+  word-break: normal;       /* чтобы длинные строки не ломали вёрстку */
 }
 
 /* ====== Мобильная версия: превращаем строки в карточки ====== */
@@ -258,3 +260,119 @@
 .mjp-tab.is-active { background:#f5f7ff; border-color:#c7d2fe; color: #333;}
 .mjp-meta { display:flex; gap:16px; color:#6b7280; font-size:13px; margin:4px 0 10px; }
 .mjp-actions--top { gap:8px; flex-wrap:wrap; }
+
+.mjp-table td.col-email,
+.mjp-table td.col-exp {
+  overflow-wrap: anywhere;
+}
+
+
+/* ===== DESKTOP колонки ===== */
+@media (min-width: 641px) {
+  /* заголовки не переносятся */
+  .mjp-table thead th { white-space: nowrap; }
+
+  /* пользователь/почта дают базовую ширину */
+  .mjp-table th.col-user   { min-width: 160px; }
+  .mjp-table th.col-email  { min-width: 220px; }
+
+  /* эти заголовки — в одну строку */
+  .mjp-table th.col-exp     { min-width: 140px; }
+  .mjp-table th.col-applied { min-width: 130px; }
+  .mjp-table th.col-status  { min-width: 110px; }
+
+  /* сами значения для Applied/Status тоже без разрывов */
+  .mjp-table td.col-applied,
+  .mjp-table td.col-status { white-space: nowrap; }
+
+  /* Actions: ужимаем колонку, пусть кнопки переносятся на новые строки */
+  .mjp-table th.col-actions,
+  .mjp-table td.col-actions { width: 1%; } /* “сжимающийся” столбец */
+}
+
+/* Кнопки уже имеют wrap, но на всякий случай усилим */
+.mjp-table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+
+
+/* dropdown в колонке Actions */
+.mjp-dd { position: relative; display: inline-block; }
+.mjp-dd__trigger { white-space: nowrap; }
+.mjp-dd[open] .mjp-dd__trigger { filter: brightness(0.96); }
+
+.mjp-dd__menu {
+  position: absolute; right: 0; top: calc(100% + 6px);
+  min-width: 220px; background: #fff; border: 1px solid #e3e6ef;
+  border-radius: 10px; box-shadow: var(--cs-shadow-sm);
+  padding: 6px; z-index: 5;
+}
+.mjp-dd__item {
+  width: 100%; text-align: left; background: transparent; border: none;
+  border-radius: 8px; padding: 10px 12px; font-size: 14px; cursor: pointer; color: #111827;
+}
+.mjp-dd__item:hover { background: #f6f8ff; }
+.mjp-dd__item.as-link { display: block; text-decoration: none; }
+.mjp-dd__sep { border: 0; height: 1px; background: #eef0f6; margin: 6px 0; }
+
+/* сжимаем колонку на десктопе */
+@media (min-width: 641px) {
+  .mjp-table th.col-actions, .mjp-table td.col-actions { width: 1%; white-space: nowrap; }
+}
+
+
+.mjp-more {
+  position: relative;            /* якорь для абсолютного меню */
+  display: inline-block;
+}
+
+
+/* само меню */
+.mjp-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 2000;                 /* выше таблицы/карточки */
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid #e3e6ef;
+  border-radius: 12px;
+  box-shadow: var(--cs-shadow);
+  padding: 6px;
+}
+
+/* пункт меню */
+.mjp-menu-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #111827;
+}
+.mjp-menu-item:hover { background: #f9fbff; }
+
+
+/* dropdown via portal: не растягиваем вправо и ограничим ширину */
+.mjp-menu{
+  right: auto !important;     /* ключевой фикс */
+  width: max-content;
+  max-width: calc(100vw - 16px); /* на всякий — чтобы точно не выпирало */
+}
+
+
+.mjp-btn[disabled] {
+  opacity: .6;
+  cursor: not-allowed;
+  transform: none;         /* чтобы не “прыгала” при hover */
+  box-shadow: none;
+  pointer-events: none;    /* защита от очень быстрых дабл-кликов */
+}

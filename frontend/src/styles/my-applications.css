@@ -82,3 +82,11 @@
 .ma-actions-row{display:flex;gap:8px;margin-top:10px}
 .ma-btn.ma-secondary{background:#eef2ff;color:#2d3a6b}
 
+.ma-tabs { display:flex; gap:8px; margin:12px 0 20px; }
+.ma-tab {
+  padding:6px 12px; border-radius:10px; background:#eef2ff; border:none;
+  font-weight:600; cursor:pointer; color: #333;
+}
+.ma-tab.is-active { background:#3b82f6; color:#fff; }
+
+
