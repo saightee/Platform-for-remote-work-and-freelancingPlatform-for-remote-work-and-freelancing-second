@@ -62,7 +62,7 @@ const Footer: React.FC = () => {
               aria-expanded={open.vas}
               aria-controls="jf2-vas"
             >
-              <span className="jf2-title-text">For VAs</span>
+              <span className="jf2-title-text">For Jobseekers</span>
               <span className="jf2-chevron" aria-hidden="true">
                 {open.vas ? <FaChevronUp /> : <FaChevronDown />}
               </span>
@@ -73,7 +73,7 @@ const Footer: React.FC = () => {
               aria-label="For VAs"
             >
               <Link to="/find-job">Find Jobs</Link>
-              <Link to="#">Profile Tips</Link>
+              <Link to="/profile-tips">Profile Tips</Link>
               <Link to="/skill-test">Skill Tests</Link>
               <Link to="#">Success Stories</Link>
             </nav>

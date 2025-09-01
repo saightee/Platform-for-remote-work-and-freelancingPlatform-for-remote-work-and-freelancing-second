@@ -25,7 +25,7 @@
 /* Карточка */
 .stx-card {
   max-width: 1100px;
-  margin: 0 auto;
+  margin: 0px auto 20px;
   background: var(--stx-card);
   border: 1px solid var(--stx-border);
   border-radius: 16px;

@@ -9,6 +9,7 @@ import { FaUserCircle, FaFilter } from 'react-icons/fa';
 import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
 import '../styles/find-talent.css';
+import { Helmet } from 'react-helmet-async';
 
 function useDebouncedValue<T>(value: T, delay = 400) {
   const [debounced, setDebounced] = useState(value);
@@ -199,23 +200,26 @@ const debouncedAutoSkillsKey = useDebouncedValue(autoSkillsKey, 400);
   };
   fetchData();
   // навигатор стабилен — в зависимостях не нужен
-}, [debouncedFilters, searchType, selectedSkillId, debouncedAutoSkillsKey]);
+}, [debouncedFilters, searchType, debouncedAutoSkillsKey]);
 
 useEffect(() => {
   if (firstRunRef.current) { firstRunRef.current = false; return; }
 
   const t = setTimeout(() => {
-    const useAutoSkills = !selectedSkillId && autoSkillIds.length > 0;
-    const nextDesc = (useAutoSkills || selectedSkillId) ? undefined : searchInput;
-    setFilters(prev => {
-      // если фактическое значение не меняется — не триггерим повторный запрос
-      if (prev.description === nextDesc) return prev;
-      return { ...prev, description: nextDesc, page: 1 };
-    });
+    
+    if (selectedSkillId) return;
+
+    const useAutoSkills = autoSkillIds.length > 0;
+    const nextDesc = useAutoSkills ? undefined : (searchInput || undefined);
+
+    setFilters(prev =>
+      prev.description === nextDesc ? prev : { ...prev, description: nextDesc, page: 1 }
+    );
   }, 400);
 
   return () => clearTimeout(t);
 }, [searchInput, selectedSkillId, autoSkillIds]);
+
 
 
   // автокомплит категорий
@@ -243,40 +247,30 @@ useEffect(() => {
     return () => clearTimeout(d);
   }, [skillInput]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSearch = (e: React.FormEvent) => {
+  e.preventDefault();
 
-    const useAutoSkills = !selectedSkillId && autoSkillIds.length > 0;
+  const useAutoSkills = !selectedSkillId && autoSkillIds.length > 0;
+  const nextDesc = useAutoSkills || selectedSkillId ? undefined : (searchInput || undefined);
 
-    setFilters(prev => ({
-      ...prev,
-      description: useAutoSkills || selectedSkillId ? undefined : searchInput,
-      page: 1,
-    }));
+  setFilters(prev =>
+    prev.description === nextDesc && prev.page === 1
+      ? prev
+      : { ...prev, description: nextDesc, page: 1 }
+  );
 
-const nextParams: Record<string, string> = {};
-if (selectedSkillId) {
-  nextParams.category_id = selectedSkillId;
-} else if (useAutoSkills && autoSkillIds.length === 1) {
-  nextParams.category_id = autoSkillIds[0];
-}
-if (!useAutoSkills && !selectedSkillId && searchInput.trim()) {
-  nextParams.description = searchInput.trim();
-}
-if (filters.expected_salary_min != null && !Number.isNaN(filters.expected_salary_min)) {
-  nextParams.expected_salary_min = String(filters.expected_salary_min);
-}
-if (filters.expected_salary_max != null && !Number.isNaN(filters.expected_salary_max)) {
-  nextParams.expected_salary_max = String(filters.expected_salary_max);
-}
-if (filters.job_search_status) {
-  nextParams.job_search_status = filters.job_search_status;
-}
+  const nextParams: Record<string, string> = {};
+  if (selectedSkillId) nextParams.category_id = selectedSkillId;
+  else if (useAutoSkills && autoSkillIds.length === 1) nextParams.category_id = autoSkillIds[0];
+  if (!useAutoSkills && !selectedSkillId && searchInput.trim()) nextParams.description = searchInput.trim();
+  if (filters.expected_salary_min != null && !Number.isNaN(filters.expected_salary_min)) nextParams.expected_salary_min = String(filters.expected_salary_min);
+  if (filters.expected_salary_max != null && !Number.isNaN(filters.expected_salary_max)) nextParams.expected_salary_max = String(filters.expected_salary_max);
+  if (filters.job_search_status) nextParams.job_search_status = filters.job_search_status;
 
-setSearchParams(nextParams);
+  setSearchParams(nextParams, { replace: true }); // чтобы не засорять историю
+  setIsFilterPanelOpen(false);
+};
 
-    setIsFilterPanelOpen(false);
-  };
 
 const handlePageChange = (newPage: number) => {
   setFilters(prev => (prev.page === newPage ? prev : { ...prev, page: newPage }));
@@ -315,6 +309,12 @@ const handlePageChange = (newPage: number) => {
 
   return (
     <div>
+      <Helmet>
+  <title>Hire Remote Talent | Jobforge</title>
+  <meta name="description" content="Post a job and reach vetted remote talent worldwide." />
+  <link rel="canonical" href="https://jobforge.net/find-talent" />
+</Helmet>
+
       <Header />
 
       {/* overlay-лоадер в едином стиле */}
@@ -480,15 +480,15 @@ const handlePageChange = (newPage: number) => {
                           <Fragment key={cat.id}>
                             <li
                               className="ftl-autocomplete-item"
-                              onMouseDown={() => {
-                                const displayName = cat.parent_id
-                                  ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}`
-                                  : cat.name;
-                                setSelectedSkillId(cat.id);
-                                setSkillInput(displayName);
-                                setIsDropdownOpen(false);
-                                setFilters(prev => ({ ...prev, page: 1 }));
-                              }}
+                            onMouseDown={() => {
+                            const displayName = cat.parent_id
+                              ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}`
+                              : cat.name;
+                            setSelectedSkillId(cat.id);
+                            setSkillInput(displayName);
+                            setIsDropdownOpen(false);
+                            setFilters(prev => ({ ...prev, description: undefined, page: 1 }));
+                          }}
                             >
                               {cat.parent_id
                                 ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}`
@@ -498,12 +498,12 @@ const handlePageChange = (newPage: number) => {
                               <li
                                 key={sub.id}
                                 className="ftl-autocomplete-item ftl-sub"
-                                onMouseDown={() => {
-                                  setSelectedSkillId(sub.id);
-                                  setSkillInput(`${cat.name} > ${sub.name}`);
-                                  setIsDropdownOpen(false);
-                                  setFilters(prev => ({ ...prev, page: 1 }));
-                                }}
+                               onMouseDown={() => {
+                                setSelectedSkillId(sub.id);
+                                setSkillInput(`${cat.name} > ${sub.name}`);
+                                setIsDropdownOpen(false);
+                                setFilters(prev => ({ ...prev, description: undefined, page: 1 }));
+                              }}
                               >
                                 {`${cat.name} > ${sub.name}`}
                               </li>
@@ -521,11 +521,15 @@ const handlePageChange = (newPage: number) => {
                         <button
                           type="button"
                           className="ftl-tag-x"
-                          onClick={() => {
-                            setSelectedSkillId('');
-                            setSkillInput('');
-                            setFilters(prev => ({ ...prev, page: 1 }));
-                          }}
+                         onClick={() => {
+                          setSelectedSkillId('');
+                          setSkillInput('');
+                          setFilters(prev => ({
+                            ...prev,
+                            description: searchInput ? searchInput : undefined,
+                            page: 1,
+                          }));
+                        }}
                           aria-label="Remove category"
                           title="Remove"
                         >
@@ -587,7 +591,7 @@ const handlePageChange = (newPage: number) => {
     const v = (talent as any).job_search_status;
     if (!v) return null;
     const label = v === 'actively_looking' ? 'Actively looking' : v === 'hired' ? 'Hired' : 'Open to offers';
-    const color = v === 'actively_looking' ? '#14804a' : v === 'hired' ? '#6b7280' : '#2563eb';
+    const color = v === 'actively_looking' ? '#14804a' : v === 'hired' ? '#6b7280' : '#4e74c8';
     return <span style={{ marginLeft: 6, padding: '5px 8px', borderRadius: 999, background: `${color}20`, color, fontSize: 12, fontWeight: 'bold',  }}>{label}</span>;
   })()}
                                 {typeof rating === 'number' && (
