@@ -16,10 +16,18 @@ import {
 } from 'react-icons/fa';
 import '../styles/promo-latam.css';
 import heroImgGirl from '../assets/6863216.png';
+import { Helmet } from 'react-helmet-async';
 
 const PromoLatamFreelancer: React.FC = () => {
   return (
     <div className="plf-root">
+      <Helmet>
+  <title>LATAM freelancers: Remote jobs with USD pay | Jobforge_</title>
+  <meta name="description" content="Find well-paid remote projects from LATAM. Apply fast and chat directly with employers on Jobforge_" />
+  <link rel="canonical" href="https://jobforge.net/latam-freelancer/" />
+  <meta property="og:url" content="https://jobforge.net/latam-freelancer/" />
+</Helmet>
+
       {/* <Header /> */}
 
       {/* HERO with grid: 2/3 text, 1/3 image */}

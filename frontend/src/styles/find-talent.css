@@ -77,7 +77,7 @@
 .ftl-btn:hover { transform: translateY(-1px); box-shadow: var(--cs-shadow); }
 .ftl-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
 .ftl-primary { background: var(--cs-accent); color: #fff; border-color: var(--cs-accent); }
-.ftl-outline { background: #fff; color: var(--cs-accent); }
+.ftl-outline { background: #4e74c8; color: white; }
 
 .ftl-iconbtn {
   display: inline-grid;

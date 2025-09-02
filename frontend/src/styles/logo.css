@@ -1,0 +1,84 @@
+/* ===== Base ===== */
+.jf-logo{
+  --jf-primary:#4e74c8;
+  --jf-accent:#ff4d97;
+  --jf-deep:#2d3a6b;
+  --jf-glow:0 6px 18px rgba(78,116,200,.25);
+  --jf-glow-strong:0 10px 28px rgba(78,116,200,.35);
+  display:inline-flex; align-items:center; gap:10px;
+  text-decoration:none; line-height:1; white-space:nowrap;
+}
+.jf-logo span{ font-weight:900; letter-spacing:.2px }
+
+/* ========= V1. Gradient wordmark + pill underscore ========= */
+.jf-logo--v1 span{
+  font-size:28px;
+  background:linear-gradient(90deg,#4e74c8,#7b8cff,#ff4d97);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.jf-logo--v1 em{
+  display:inline-block; width:34px; height:8px; border-radius:10px;
+  background:linear-gradient(90deg,#4e74c8,#ff4d97);
+  box-shadow:var(--jf-glow);
+}
+
+/* ========= V2. Spark underscore (пилюля со «звездой») ========= */
+.jf-logo--v2 span{
+  font-size:28px; color:#3654a8;
+  background:linear-gradient(90deg,#3654a8,#4e74c8); -webkit-background-clip:text; color:transparent;
+}
+.jf-logo--v2 em{
+  position:relative; display:inline-block; width:34px; height:8px; border-radius:12px;
+  background:linear-gradient(90deg,#4e74c8,#7ea1ff);
+  box-shadow:var(--jf-glow);
+}
+.jf-logo--v2 em::after{
+  content:""; position:absolute; right:-7px; top:-7px; width:12px; height:12px;
+  background:linear-gradient(180deg,#ffd166,#ff9f1c);
+  clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%); /* ромб/искра */
+  filter:drop-shadow(0 2px 6px rgba(255,161,22,.35));
+}
+
+/* ========= V3. Badge + wordmark (квадрат с JF) ========= */
+.jf-logo--badge{ gap:12px; }
+.jf-logo__badge{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:36px; height:36px; border-radius:12px;
+  background:linear-gradient(135deg,#4e74c8,#8b5cf6);
+  color:#fff; font-weight:900; font-size:16px; letter-spacing:.6px;
+  box-shadow:var(--jf-glow-strong);
+}
+.jf-logo--badge span{
+  font-size:24px; color:#24324f;
+}
+
+/* ========= V4. Brackets [ Jobforge_ ] ========= */
+.jf-logo--bracket{ gap:8px; }
+.jf-logo--bracket::before,
+.jf-logo--bracket::after{
+  content:""; width:12px; height:22px; border-radius:3px;
+  border:2px solid #cfe0ff;
+}
+.jf-logo--bracket::before{ border-right:none; }
+.jf-logo--bracket::after{ border-left:none; }
+.jf-logo--bracket span{
+  font-size:26px; color:#1f2a44;
+}
+.jf-logo--bracket em{
+  display:inline-block; width:28px; height:6px; border-radius:999px;
+  background:#4e74c8;
+}
+
+/* ========= V5. Anvil (наковальня) + Jobforge_ ========= */
+.jf-logo--anvil{ gap:10px; }
+.jf-logo__icon{ width:34px; height:22px; display:block; }
+.jf-logo--anvil span{ font-size:24px; color:#21304f; }
+.jf-logo--anvil em{
+  display:inline-block; width:26px; height:6px; border-radius:8px; background:#4e74c8;
+}
+
+/* Небольшая адаптация размера для очень узких экранов */
+@media (max-width:420px){
+  .jf-logo span{ font-size:22px !important; }
+  .jf-logo em{ transform:scale(.9); }
+}

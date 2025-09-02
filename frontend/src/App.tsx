@@ -48,11 +48,13 @@ import JobseekerOverview from './pages/JobseekerOverview';
 import ContactSupport from './pages/ContactSupport';
 import PromoLatamFreelancer from './pages/promoLatamFreelancer';
 import PromoPhilippinoFreelancer from './pages/promoPhilippinoFreelancer';
+import { HelmetProvider } from 'react-helmet-async';
 
 
 
 const App: React.FC = () => {
   return (
+    <HelmetProvider>
     <RoleProvider>
       <Router>
         {/* <ErrorBoundary fallback={<div>Error loading app</div>}></ErrorBoundary> */}
@@ -121,6 +123,7 @@ const App: React.FC = () => {
         </Routes>
       </Router>
     </RoleProvider>
+    </HelmetProvider>
   );
 };
 

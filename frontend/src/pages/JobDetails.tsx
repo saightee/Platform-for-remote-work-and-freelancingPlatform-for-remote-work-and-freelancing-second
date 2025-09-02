@@ -11,6 +11,8 @@ import { format, utcToZonedTime } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
 import sanitizeHtml from 'sanitize-html';
 import Loader from '../components/Loader';
+import { Helmet } from 'react-helmet-async';
+
 
 
 
@@ -174,6 +176,65 @@ const renderSalary = (j: JobPost): string => {
   return 'Not specified';
 };
 
+// локальный доп. тип — НЕ меняем глобальный JobPost
+type JobExtras = {
+  company_name?: string;
+  companyName?: string;
+  expires_at?: string;
+};
+
+const cleanedDesc = sanitizeHtml(job.description || '', { allowedTags: [], allowedAttributes: {} });
+const salary = job.salary ?? null;
+
+const unitMap: Record<string, "HOUR" | "MONTH" | "YEAR"> = {
+  "per hour": "HOUR",
+  "per month": "MONTH"
+};
+
+// пересечение типов: у объекта теперь опционально есть нужные поля
+const j = job as typeof job & JobExtras;
+
+const companyName =
+  j.company_name ??
+  j.companyName ??
+  'Jobforge Employer';
+
+const validThrough = j.expires_at;
+
+// формируем JSON-LD без undefined-полей
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "JobPosting",
+  "title": job.title,
+  "description": cleanedDesc,
+  "datePosted": job.created_at,
+  "employmentType": job.job_type || "CONTRACTOR",
+  "jobLocationType": job.location === "Remote" ? "TELECOMMUTE" : "ON_SITE",
+  ...(job.location === "Remote"
+    ? { "applicantLocationRequirements": [{ "@type": "Country", "name": "Remote" }] }
+    : {}),
+  "hiringOrganization": {
+    "@type": "Organization",
+    "name": companyName,
+    "sameAs": "https://jobforge.net/"
+  },
+  ...(validThrough ? { "validThrough": validThrough } : {}),
+  ...(salary
+    ? {
+        "baseSalary": {
+          "@type": "MonetaryAmount",
+          "currency": "USD",
+          "value": {
+            "@type": "QuantitativeValue",
+            "value": salary,
+            "unitText": unitMap[job.salary_type || "per month"] || "MONTH"
+          }
+        }
+      }
+    : {})
+};
+
+
 
 const backAfterReport =
   profile?.role === 'employer'
@@ -185,6 +246,24 @@ const backAfterReport =
 
   return (
     <div>
+      <Helmet>
+  <title>{job.title} | Jobforge</title>
+  <meta name="description" content={cleanedDesc.slice(0, 160)} />
+  <link rel="canonical" href={`https://jobforge.net/jobs/${job.id}`} />
+  <meta property="og:title" content={`${job.title} | Jobforge`} />
+  <meta property="og:description" content={cleanedDesc.slice(0, 160)} />
+  <meta property="og:url" content={`https://jobforge.net/jobs/${job.id}`} />
+  <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+  <script type="application/ld+json">{JSON.stringify({
+    "@context":"https://schema.org",
+    "@type":"BreadcrumbList",
+    "itemListElement":[
+      {"@type":"ListItem","position":1,"name":"Jobs","item":"https://jobforge.net/find-job"},
+      {"@type":"ListItem","position":2,"name":job.title,"item":`https://jobforge.net/jobs/${job.id}`}
+    ]
+  })}</script>
+</Helmet>
+
       <Header />
       <div className="container job-details-container">
         <div className="job-details-header">

@@ -227,3 +227,66 @@
 
 /* На всякий случай фиксируем, что футер не может «вклиниться» в мета-блоки */
 .jcx-body > .jcx-footer { order: 99; }
+
+
+/* list variant tweaks */
+.jcx-card--list .jcx-body { padding-top: 2px; }
+
+/* ===================== FIND JOBS ONLY ===================== */
+/* Делаем карточку гридом: 64px под аватар + контент справа */
+.job-card-find-jobs.jc-card {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* Аватар остаётся в первой колонке */
+.job-card-find-jobs .jc-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Внутренности .jc-body «растворяем», чтобы дочерние блоки
+   могли сами занимать нужные колонки родительского грида */
+.job-card-find-jobs .jc-body {
+  display: contents;
+}
+
+/* Эти блоки остаются СПРАВА от аватара (во 2-й колонке) */
+.job-card-find-jobs .jc-row--title,
+.job-card-find-jobs .jc-meta,
+.job-card-find-jobs .jc-location,
+.job-card-find-jobs .jc-category,
+.job-card-find-jobs .jc-tags {
+  grid-column: 2;
+}
+
+/* А описание и футер растягиваем на ОБЕ колонки —
+   визуально «заезжают» под аватар слева */
+.job-card-find-jobs .jc-desc,
+.job-card-find-jobs .jc-footer {
+  grid-column: 1 / -1;
+}
+
+/* Чтоб футер красиво отделялся строкой (если нужно) */
+.job-card-find-jobs .jc-footer {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #eef2ff;
+}
+
+/* На узких экранах можно ужать колонку аватара */
+@media (max-width: 720px) {
+  .job-card-find-jobs.jc-card {
+    grid-template-columns: 48px 1fr;
+    gap: 12px;
+  }
+  .job-card-find-jobs .jc-avatar { width: 48px; height: 48px; }
+}
+/* =================== /FIND JOBS ONLY END =================== */
+
+/* home variant tweaks */
+.jcx-card--home .jcx-footer { margin-top: 12px; }

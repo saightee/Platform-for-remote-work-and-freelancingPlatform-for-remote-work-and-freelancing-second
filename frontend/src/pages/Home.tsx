@@ -23,6 +23,7 @@ import heroImg2 from '../assets/2147839972.jpg';
 import heroImg3 from '../assets/57130.png';
 import heroImg4 from '../assets/58136.png';
 import ReactCountryFlag from 'react-country-flag';
+import { Helmet } from 'react-helmet-async';
 
 
 const Home: React.FC = () => {
@@ -236,6 +237,18 @@ const handleCookieConsent = () => {
 
   return (
     <div>
+      <Helmet>
+  <title>Jobforge — The Simplest Path to Connect Talent and Opportunities</title>
+  <meta
+    name="description"
+    content="Join a growing community of candidates and employers. Create a standout profile, apply with one click, and chat directly."
+  />
+  <link rel="canonical" href="https://jobforge.net/" />
+  <meta property="og:title" content="Jobforge — Remote Work & Global Hiring" />
+  <meta property="og:description" content="Find remote jobs or hire global talent today." />
+  <meta property="og:url" content="https://jobforge.net/" />
+</Helmet>
+
       <Header />
 
       {/* Hero Section */}

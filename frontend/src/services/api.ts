@@ -1,3 +1,5 @@
+
+
 import axios, { AxiosResponse, AxiosError } from 'axios';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { io, Socket } from 'socket.io-client';
@@ -7,6 +9,10 @@ import {
   BlockedCountry, LoginCredentials, RegisterCredentials, PaginatedResponse,
   JobSeekerProfile, JobApplicationDetails, Message,
 } from '@types';
+
+
+
+
 
 interface WebSocketMessage {
   id: string;
