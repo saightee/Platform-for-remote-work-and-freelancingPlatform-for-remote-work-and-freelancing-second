@@ -1525,6 +1525,7 @@
         "role": "jobseeker",
         "status": "active",
         "created_at": "2025-05-13T18:00:00.000Z",
+        "last_seen_at": "2025-09-03T10:17:42.000Z",
         "updated_at": "2025-05-13T18:00:00.000Z"
       }
     ]
@@ -1560,6 +1561,7 @@
     "role": "employer",
     "provider": null,
     "created_at": "2025-05-13T18:00:00.000Z",
+    "last_seen_at": "2025-09-03T10:17:42.000Z",
     "updated_at": "2025-05-13T18:00:00.000Z"
   }
 

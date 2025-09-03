@@ -104,61 +104,57 @@ export class AdminService {
   ) {
     await this.checkAdminRole(adminId);
 
-    const query = this.usersRepository.createQueryBuilder('user');
+    const qb = this.usersRepository
+      .createQueryBuilder('user')
+      .select([
+        'user.id',
+        'user.email',
+        'user.username',
+        'user.role',
+        'user.status',
+        'user.risk_score',
+        'user.created_at',
+        'user.last_seen_at',
+      ]);
 
     let hasSearch = false;
-    if (filters.username || filters.email || filters.id) {
-      const conditions: string[] = [];
-      if (filters.username) {
-        conditions.push('user.username ILIKE :username');
-      }
-      if (filters.email) {
-        conditions.push('user.email ILIKE :email');
-      }
-      if (filters.id) {
-        conditions.push('user.id = :id');
-      }
-      if (conditions.length > 0) {
-        query.andWhere(`(${conditions.join(' OR ')})`);
-        hasSearch = true;
-      }
+    const conditions: string[] = [];
+    if (filters.username) conditions.push('user.username ILIKE :username');
+    if (filters.email)    conditions.push('user.email ILIKE :email');
+    if (filters.id)       conditions.push('user.id = :id');
+    if (conditions.length) {
+      qb.andWhere(`(${conditions.join(' OR ')})`);
+      hasSearch = true;
     }
 
-    if (filters.role) {
-      query.andWhere('user.role = :role', { role: filters.role });
-    }
-    if (filters.status) {
-      query.andWhere('user.status = :status', { status: filters.status });
-    }
+    if (filters.role)   qb.andWhere('user.role = :role', { role: filters.role });
+    if (filters.status) qb.andWhere('user.status = :status', { status: filters.status });
+
     if (filters.createdAfter) {
       const createdAfterDate = new Date(filters.createdAfter);
       if (isNaN(createdAfterDate.getTime())) {
         throw new BadRequestException('Invalid createdAfter date format');
       }
-      query.andWhere('user.created_at >= :createdAfter', { createdAfter: createdAfterDate });
+      qb.andWhere('user.created_at >= :createdAfter', { createdAfter: createdAfterDate });
     }
 
     const params: any = {};
     if (filters.username) params.username = `%${filters.username}%`;
-    if (filters.email) params.email = `%${filters.email}%`;
-    if (filters.id) params.id = filters.id;
-    if (hasSearch) query.setParameters(params);
+    if (filters.email)    params.email    = `%${filters.email}%`;
+    if (filters.id)       params.id       = filters.id;
+    if (hasSearch) qb.setParameters(params);
 
-    const total = await query.getCount();
-
-    const page = filters.page || 1;
+    const total = await qb.getCount();
+    const page  = filters.page  || 1;
     const limit = filters.limit || 10;
-    const skip = (page - 1) * limit;
-    query.skip(skip).take(limit);
+    const skip  = (page - 1) * limit;
 
-    query.orderBy('user.created_at', 'DESC');
+    qb.orderBy('user.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
 
-    const users = await query.getMany();
-
-    return {
-      total,
-      data: users,
-    };
+    const data = await qb.getMany();
+    return { total, data };
   }
 
   async getUserById(adminId: string, userId: string) {

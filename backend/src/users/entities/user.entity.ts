@@ -51,6 +51,12 @@ export class User {
   @CreateDateColumn()
   created_at: Date;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  last_login_at: Date | null;
+  
+  @Column({ type: 'timestamptz', nullable: true })
+  last_seen_at: Date | null;
+
   @UpdateDateColumn()
   updated_at: Date;
 }

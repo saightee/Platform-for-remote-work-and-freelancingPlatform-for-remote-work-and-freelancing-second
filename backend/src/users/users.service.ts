@@ -17,6 +17,7 @@ export class UsersService {
     private employerRepository: Repository<Employer>,
     @InjectRepository(Category) 
     private categoriesRepository: Repository<Category>,
+    @InjectRepository(User) private readonly usersRepo: Repository<User>,
   ) {}
 
   async create(
@@ -77,6 +78,14 @@ export class UsersService {
     }
 
     return savedUser;
+  }
+
+  async setLastLoginAt(userId: string): Promise<void> {
+    await this.usersRepository.update(userId, { last_login_at: () => 'CURRENT_TIMESTAMP' });
+  }
+
+  async touchLastSeen(userId: string): Promise<void> {
+    await this.usersRepository.update(userId, { last_seen_at: () => 'CURRENT_TIMESTAMP' });
   }
 
   async updateUser(
