@@ -28,4 +28,34 @@ export class SettingsService {
     }
     await this.settingsRepository.save(setting);
   }
+
+  private CHAT_KEY = 'chat_notifications';
+
+  async getChatNotificationSettings() {
+    const row = await this.settingsRepository.findOne({ where: { key: this.CHAT_KEY } });
+    const defaults = {
+      enabled: true,
+      onEmployerMessage: {
+        immediate: true,
+        delayedIfUnread: { enabled: true, minutes: 60 },
+        onlyFirstMessageInThread: false,
+      },
+      throttle: { perChatCount: 2, perMinutes: 60 },
+    };
+    if (!row) return defaults;
+    try {
+      const parsed = JSON.parse(row.value);
+      return { ...defaults, ...parsed };
+    } catch {
+      return defaults;
+    }
+  }
+
+  async setChatNotificationSettings(value: any) {
+    const row = await this.settingsRepository.findOne({ where: { key: this.CHAT_KEY } });
+    const toSave = row
+      ? { ...row, value: JSON.stringify(value ?? {}) }
+      : this.settingsRepository.create({ key: this.CHAT_KEY, value: JSON.stringify(value ?? {}) });
+    await this.settingsRepository.save(toSave);
+  }
 }

@@ -3956,3 +3956,51 @@
 - **Response (202 Accepted)**:
   ```json
   { "message": "Message accepted" }
+
+### 91. Get Chat Notification Settings (Admin)
+- **Endpoint:** `GET /api/admin/settings/chat-notifications`
+- **Description:** Returns global chat email-notification settings (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  ```json
+  {
+    "enabled": true,
+    "onEmployerMessage": {
+      "immediate": true,
+      "delayedIfUnread": { "enabled": true, "minutes": 60 },
+      "onlyFirstMessageInThread": false
+    },
+    "throttle": { "perChatCount": 2, "perMinutes": 60 }
+  }
+
+- **Response 401**:
+  ```json
+  { "statusCode": 401, "message": "Unauthorized", "error": "Unauthorized" }
+
+### 92. Update Chat Notification Settings (Admin)
+- **Endpoint:** `POST /api/admin/settings/chat-notifications`
+- **Description:** Updates global chat email-notification settings (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body:**:
+  ```json
+  {
+    "enabled": true,
+    "onEmployerMessage": {
+      "immediate": true,
+      "delayedIfUnread": { "enabled": true, "minutes": 60 },
+      "onlyFirstMessageInThread": false
+    },
+    "throttle": { "perChatCount": 2, "perMinutes": 60 }
+  }
+
+- **Response (200)**:
+  ```json
+  {
+    "message": "Chat notification settings updated",
+    "settings": { ...same as you sent... }
+  }
+- **Notes**:
+  - `immediate`: send right away when employer writes to jobseeker.
+  - `delayedIfUnread`: also send if still unread after minutes.
+  - `onlyFirstMessageInThread`: if true, notify only on the first message in a given chat thread.
+  - `throttle`: не чаще X раз в N минут для одного чата и получателя (anti-spam).

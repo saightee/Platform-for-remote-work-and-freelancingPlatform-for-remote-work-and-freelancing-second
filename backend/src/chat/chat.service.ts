@@ -5,6 +5,7 @@ import { Message } from './entities/message.entity';
 import { JobApplication } from '../job-applications/job-application.entity';
 import { User } from '../users/entities/user.entity';
 import { JobPost } from '../job-posts/job-post.entity';
+import { ChatNotificationsService } from './chat-notifications.service';
 
 @Injectable()
 export class ChatService {
@@ -15,6 +16,7 @@ export class ChatService {
     private jobApplicationsRepository: Repository<JobApplication>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    private readonly chatNotifications: ChatNotificationsService,
   ) {}
 
   async hasChatAccess(userId: string, jobApplicationId: string): Promise<JobApplication> {
@@ -41,9 +43,8 @@ export class ChatService {
   async createMessage(senderId: string, jobApplicationId: string, content: string): Promise<Message> {
     const application = await this.jobApplicationsRepository.findOne({
       where: { id: jobApplicationId },
-      relations: ['job_post', 'job_seeker', 'job_post.employer'],
+      relations: ['job_post', 'job_seeker', 'job_post.employer', 'job_post.employer.user'],
     });
-
     if (!application) {
       throw new NotFoundException('Job application not found');
     }
@@ -61,7 +62,11 @@ export class ChatService {
       is_read: false,
     });
 
-    return this.messagesRepository.save(message);
+    const saved = await this.messagesRepository.save(message);
+
+    this.chatNotifications.onNewMessage(saved, application).catch(() => {});
+
+    return saved;
   }
 
   async getChatHistory(jobApplicationId: string): Promise<Message[]> {

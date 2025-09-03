@@ -1030,4 +1030,44 @@ export class AdminController {
       return this.adminService.getReferralLinks(adminId, filters);
   }
 
+  @Get('settings/chat-notifications')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async getChatNotifications(
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    return this.settingsService.getChatNotificationSettings();
+  }
+
+  @Post('settings/chat-notifications')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async setChatNotifications(
+    @Body() body: any,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+
+    const normalized = {
+      enabled: Boolean(body?.enabled),
+      onEmployerMessage: {
+        immediate: Boolean(body?.onEmployerMessage?.immediate),
+        delayedIfUnread: {
+          enabled: Boolean(body?.onEmployerMessage?.delayedIfUnread?.enabled),
+          minutes: Math.max(1, Number(body?.onEmployerMessage?.delayedIfUnread?.minutes ?? 60)),
+        },
+        onlyFirstMessageInThread: Boolean(body?.onEmployerMessage?.onlyFirstMessageInThread),
+      },
+      throttle: {
+        perChatCount: Math.max(1, Number(body?.throttle?.perChatCount ?? 2)),
+        perMinutes: Math.max(1, Number(body?.throttle?.perMinutes ?? 60)),
+      },
+    };
+
+    await this.settingsService.setChatNotificationSettings(normalized);
+    return { message: 'Chat notification settings updated', settings: normalized };
+  }
 }
