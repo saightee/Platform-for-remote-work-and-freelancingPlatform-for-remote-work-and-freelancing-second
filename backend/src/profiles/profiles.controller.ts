@@ -67,11 +67,11 @@ export class ProfilesController {
       resume?: string;
       timezone?: string;
       currency?: string;
-      company_name?: string;
-      company_info?: string;
-      referral_link?: string;
       job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
       expected_salary?: number;
+      linkedin?: string | null;
+      instagram?: string | null;
+      facebook?: string | null;
     },
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

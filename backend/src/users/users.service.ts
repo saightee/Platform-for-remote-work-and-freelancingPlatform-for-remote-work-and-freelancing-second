@@ -47,9 +47,14 @@ export class UsersService {
         ...(additionalData.job_search_status
           ? { job_search_status: additionalData.job_search_status }
           : { job_search_status: 'open_to_offers' }),
+        linkedin: additionalData.linkedin || null,
+        instagram: additionalData.instagram || null,
+        facebook: additionalData.facebook || null,
+        description: additionalData.description || null,
       };
       jobSeekerEntity.resume = additionalData.resume || null;
       jobSeekerEntity.experience = additionalData.experience || null;
+
       if (additionalData.skills && Array.isArray(additionalData.skills)) {
         jobSeekerEntity.skills = await this.categoriesRepository.findByIds(additionalData.skills);
       } else {

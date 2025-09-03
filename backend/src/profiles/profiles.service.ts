@@ -54,6 +54,9 @@ export class ProfilesService {
         average_rating: jobSeeker.average_rating,
         profile_views: jobSeeker.profile_views,
         job_search_status: (jobSeeker as any).job_search_status,
+        linkedin: jobSeeker.linkedin,
+        instagram: jobSeeker.instagram,
+        facebook: jobSeeker.facebook,
         reviews,
         avatar: user.avatar,
         identity_verified: user.identity_verified,
@@ -113,7 +116,13 @@ export class ProfilesService {
         jobSeeker.skills = skills;
       }
       if (updateData.experience) jobSeeker.experience = updateData.experience;
-      if (updateData.description) jobSeeker.description = updateData.description;
+
+      if (Object.prototype.hasOwnProperty.call(updateData, 'description')) {
+        const d = String(updateData.description || '');
+        const limited = d.trim().split(/\s+/).slice(0, 150).join(' ');
+        jobSeeker.description = limited || null;
+      }
+
       if (updateData.portfolio) jobSeeker.portfolio = updateData.portfolio;
       if (updateData.video_intro) jobSeeker.video_intro = updateData.video_intro;
       if (updateData.timezone) jobSeeker.timezone = updateData.timezone;
@@ -134,6 +143,10 @@ export class ProfilesService {
         }
         (jobSeeker as any).expected_salary = v;
       }
+
+      if (Object.prototype.hasOwnProperty.call(updateData, 'linkedin')) jobSeeker.linkedin = updateData.linkedin || null;
+      if (Object.prototype.hasOwnProperty.call(updateData, 'instagram')) jobSeeker.instagram = updateData.instagram || null;
+      if (Object.prototype.hasOwnProperty.call(updateData, 'facebook')) jobSeeker.facebook = updateData.facebook || null;
 
       await this.jobSeekerRepository.save(jobSeeker);
       return this.getProfile(userId, true);

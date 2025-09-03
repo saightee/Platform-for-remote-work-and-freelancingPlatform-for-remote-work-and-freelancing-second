@@ -90,26 +90,49 @@ export class AuthService {
       is_email_verified: role === 'admin' || role === 'moderator',
       referral_source: refCode || null,
     };
-    const additionalData: { timezone: string; currency: string; skills?: string[]; experience?: string; resume?: string } = {
+
+    const additionalData: {
+      timezone: string;
+      currency: string;
+      skills?: string[];
+      experience?: string;
+      resume?: string;
+      // только для jobseeker:
+      linkedin?: string | null;
+      instagram?: string | null;
+      facebook?: string | null;
+      description?: string | null;
+    } = {
       timezone: 'UTC',
       currency: 'USD',
     };
 
-    if (role === 'jobseeker' && 'skills' in dto && 'experience' in dto && 'resume' in dto) {
-      additionalData.skills = dto.skills || [];
-      additionalData.experience = dto.experience;
-      additionalData.resume = dto.resume || null;
+    if (role === 'jobseeker') {
+      const r = dto as RegisterDto;
+      if (r.skills) additionalData.skills = r.skills;
+      if (r.experience) additionalData.experience = r.experience;
+      if (r.resume) additionalData.resume = r.resume || null;
+
+      additionalData.linkedin = r.linkedin || null;
+      additionalData.instagram = r.instagram || null;
+      additionalData.facebook = r.facebook || null;
+
+      if (r.description) {
+        const words = r.description.trim().split(/\s+/).slice(0, 150);
+        additionalData.description = words.join(' ');
+      }
     }
 
     const newUser = await this.usersService.create(userData, additionalData);
     console.log('New User Created:', newUser);
+
     if (refCode) {
-        try {
-            await this.adminService.incrementRegistration(refCode, newUser.id);
-            console.log(`[AuthService] Incremented registration for refCode: ${refCode}, userId: ${newUser.id}`);
-        } catch (error) {
-            console.error(`[AuthService] Failed to increment registration for refCode ${refCode}:`, error);
-        }
+      try {
+        await this.adminService.incrementRegistration(refCode, newUser.id);
+        console.log(`[AuthService] Incremented registration for refCode: ${refCode}, userId: ${newUser.id}`);
+      } catch (error) {
+        console.error(`[AuthService] Failed to increment registration for refCode ${refCode}:`, error);
+      }
     }
 
     if (role === 'admin' || role === 'moderator') {

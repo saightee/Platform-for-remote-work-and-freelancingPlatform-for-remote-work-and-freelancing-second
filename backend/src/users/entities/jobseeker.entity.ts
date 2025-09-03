@@ -17,9 +17,18 @@ export class JobSeeker {
 
   @Column({ nullable: true })
   experience?: string;
-  
+
   @Column('text', { nullable: true })
   description?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  linkedin?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  instagram?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  facebook?: string;
 
   @Column({ type: 'varchar', default: 'open_to_offers' })
   job_search_status: 'actively_looking' | 'open_to_offers' | 'hired';
@@ -38,7 +47,7 @@ export class JobSeeker {
 
   @Column({ type: 'numeric', nullable: true, precision: 12, scale: 2 })
   expected_salary?: number;
-  
+
   @Column({ nullable: true })
   currency?: string;
 
@@ -47,7 +56,7 @@ export class JobSeeker {
 
   @Column({ default: 0 })
   profile_views: number;
-  
+
   @Column({ nullable: true })
   referral_link?: string;
 

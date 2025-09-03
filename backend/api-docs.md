@@ -18,6 +18,10 @@
     "password": "password",
     "username": "test",
     "role": "jobseeker",
+      "linkedin": "https://www.linkedin.com/in/username",  // Optional
+    "instagram": "https://www.instagram.com/username",  // Optional
+    "facebook": "https://www.facebook.com/username",  // Optional
+    "description": "Кратко о себе до 50 слов",  // Optional
     "skills": ["<categoryId1>", "<categoryId2>"],  // Optional, array of category IDs
     "experience": "3 years",  // Optional
     "resume": "https://example.com/resume.pdf" // Optional, link to resume Для файла используй /profile/upload-resume после рега
@@ -319,6 +323,9 @@
       }
     ],
     "experience": "2 years",
+    "linkedin": "https://www.linkedin.com/in/username",
+    "instagram": "https://www.instagram.com/username",
+    "facebook": "https://www.facebook.com/username",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
     "video_intro": "https://video.com",
@@ -409,6 +416,9 @@
       }
     ],
     "experience": "2 years",
+    "linkedin": "https://www.linkedin.com/in/username",
+    "instagram": "https://www.instagram.com/username",
+    "facebook": "https://www.facebook.com/username",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
     "video_intro": "https://video.com",
@@ -470,6 +480,9 @@
     "role": "jobseeker",
     "skillIds": ["<skillId1>", "<skillId2>"],
     "experience": "3 years",
+    "linkedin": "https://www.linkedin.com/in/username",
+    "instagram": "https://www.instagram.com/username",
+    "facebook": "https://www.facebook.com/username",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://newportfolio.com",
     "video_intro": "https://newvideo.com",
