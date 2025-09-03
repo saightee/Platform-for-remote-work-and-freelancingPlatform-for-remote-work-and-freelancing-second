@@ -47,7 +47,8 @@ const Footer: React.FC = () => {
               className={`jf2-links ${open.employers ? 'is-open' : ''}`}
               aria-label="For Employers"
             >
-              <Link to="/how-it-works/employer-faq">How to Hire</Link>
+              {/* <Link to="/how-it-works/employer-faq">How to Hire</Link> */}
+              <Link to="#">How to Hire</Link>
               <Link to="#">Pricing Plans</Link>
               <Link to="#">Client Stories</Link>
             </nav>
@@ -73,8 +74,8 @@ const Footer: React.FC = () => {
               aria-label="For VAs"
             >
               <Link to="/find-job">Find Jobs</Link>
-              <Link to="/profile-tips">Profile Tips</Link>
-              <Link to="/skill-test">Skill Tests</Link>
+              <Link to="#">Profile Tips</Link>
+              <Link to="#">Skill Tests</Link>
               <Link to="#">Success Stories</Link>
             </nav>
           </div>
