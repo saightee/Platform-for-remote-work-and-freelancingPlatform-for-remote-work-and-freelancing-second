@@ -2164,7 +2164,6 @@ z-index: 1000;
 }
 
 .modal_notify {
-  display: block; /* Убедитесь, что visible при showNotifyModal=true */
   position: fixed;
   z-index: 1;
   left: 0;
@@ -2173,6 +2172,9 @@ z-index: 1000;
   height: 100%;
   overflow: auto;
   background-color: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .modal-content {
@@ -2335,7 +2337,7 @@ table th {
 .login-form button {
   width: 100%;
   padding: 12px;
-  background-color: #3498db;
+  background-color: #4e74c8;
   color: white;
   border: none;
   border-radius: 6px;
@@ -2562,7 +2564,7 @@ table th {
 .role-button {
   padding: 15px;
   font-size: 18px;
-  background-color: #3498db;
+  background-color: #4e74c8;
   color: white;
   border: none;
   border-radius: 5px;

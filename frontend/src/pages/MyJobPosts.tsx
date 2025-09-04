@@ -55,7 +55,7 @@ const MyJobPosts: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [appDetails, setAppDetails] = useState<{ fullName?: string | null; referredBy?: string | null; coverLetter: string; } | null>(null);
   const [actionSubmitting, setActionSubmitting] = useState(false);
-
+  const [applicantCounts, setApplicantCounts] = useState<Record<string, number | undefined>>({});
   type ConfirmState =
     | { kind: 'invite'; app: JobApplicationDetails; postId: string; note: string }
     | { kind: 'reject'; app: JobApplicationDetails; postId: string }
@@ -97,6 +97,35 @@ const MyJobPosts: React.FC = () => {
     };
     if (!roleLoading) fetchData();
   }, [profile, roleLoading]);
+
+  // Подтягиваем counts для карточек (без деталей), когда список постов загрузился
+useEffect(() => {
+  if (!jobPosts.length) return;
+
+  const idsToFetch = jobPosts.map(p => p.id).filter(id => !(id in applicantCounts));
+  if (!idsToFetch.length) return;
+
+  let cancelled = false;
+  (async () => {
+    const results = await Promise.allSettled(
+      idsToFetch.map(async (id) => {
+        const apps = await getApplicationsForJobPost(id);
+        return { id, n: (apps || []).length };
+      })
+    );
+    if (cancelled) return;
+    setApplicantCounts(prev => {
+      const next = { ...prev };
+      for (const r of results) if (r.status === 'fulfilled') next[r.value.id] = r.value.n;
+      return next;
+    });
+  })();
+
+  return () => { cancelled = true; };
+}, [jobPosts, applicantCounts]);
+
+
+
 
   useEffect(() => {
     const newSocket = initializeWebSocket(
@@ -183,22 +212,26 @@ const MyJobPosts: React.FC = () => {
     }
   };
 
-  const handleViewApplications = async (jobPostId: string) => {
-    try {
-      if (selectedJobPostId === jobPostId) {
-        setSelectedJobPostId('');
-        setApplications({ jobPostId: '', apps: [] });
-      } else {
-        setSelectedJobPostId(jobPostId);
-        const apps = await getApplicationsForJobPost(jobPostId);
-        setApplications({ jobPostId, apps: apps || [] });
-      }
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error fetching applications:', axiosError);
-      setError(axiosError.response?.data?.message || 'Failed to load applications.');
+const handleViewApplications = async (jobPostId: string) => {
+  try {
+    if (selectedJobPostId === jobPostId) {
+      setSelectedJobPostId('');
+      setApplications({ jobPostId: '', apps: [] });
+    } else {
+      setSelectedJobPostId(jobPostId);
+      const apps = await getApplicationsForJobPost(jobPostId);
+      setApplications({ jobPostId, apps: apps || [] });
+      // обновляем бейдж Applicants на карточке
+      setApplicantCounts(prev => ({ ...prev, [jobPostId]: (apps || []).length }));
     }
-  };
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error fetching applications:', axiosError);
+    setError(axiosError.response?.data?.message || 'Failed to load applications.');
+  }
+};
+
+
 
   const handleEditJob = (job: JobPost) => setEditingJob({ ...job });
 
@@ -519,10 +552,20 @@ const MyJobPosts: React.FC = () => {
                         </span>
                       </div>
 
-                      <div className="mjp-meta">
-                        <span>Posted: {formatDateInTimezone(post.created_at)}</span>
-                        {closedAt && <span>Closed: {formatDateInTimezone(closedAt)}</span>}
-                      </div>
+                     <div className="mjp-meta">
+  <span>Posted: {formatDateInTimezone(post.created_at)}</span>
+  {closedAt && <span>Closed: {formatDateInTimezone(closedAt)}</span>}
+
+  <span
+    className="mjp-badge"
+    title="Applicants"
+    aria-label={`Applicants: ${applicantCounts[post.id] ?? 'loading'}`}
+  >
+    <FaUser />
+    <span className="mjp-badge-label">Applicants:</span>
+    {typeof applicantCounts[post.id] === 'number' ? applicantCounts[post.id] : '—'}
+  </span>
+</div>
 
                       <div className="mjp-actions mjp-actions--top">
                         <button
@@ -834,6 +877,7 @@ const MyJobPosts: React.FC = () => {
 
       const updated = await getApplicationsForJobPost(confirm.postId);
       setApplications({ jobPostId: confirm.postId, apps: updated || [] });
+       setApplicantCounts(prev => ({ ...prev, [confirm.postId]: (updated || []).length }));
     } catch (err: any) {
       alert(err?.response?.data?.message || 'Failed to invite.');
     } finally {
@@ -867,6 +911,7 @@ const MyJobPosts: React.FC = () => {
       await updateApplicationStatus(confirm.app.applicationId, 'Rejected');
       const updated = await getApplicationsForJobPost(confirm.postId);
       setApplications({ jobPostId: confirm.postId, apps: updated || [] });
+       setApplicantCounts(prev => ({ ...prev, [confirm.postId]: (updated || []).length }));
     } catch (err: any) {
       alert(err?.response?.data?.message || 'Failed to reject.');
     } finally {

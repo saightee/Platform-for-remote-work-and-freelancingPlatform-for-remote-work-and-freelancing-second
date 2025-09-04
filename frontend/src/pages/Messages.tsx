@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
@@ -34,11 +34,11 @@ type ChatListItem = {
   title: string;
   partner: string;
   unreadCount: number;
-  status?: 'Pending' | 'Accepted' | 'Rejected' | string; // опционально
-  // опциональные поля, которые иногда кладёте в employer-ветке:
+  status?: 'Pending' | 'Accepted' | 'Rejected' | string;
   coverLetter?: string | null;
   userId?: string;
   job_post_id?: string;
+  appliedAt?: string; 
 };
 
 /** DEV helpers */
@@ -541,41 +541,56 @@ if (
     setNewMessage('');
   };
 
-  const chatList = useMemo(() => {
-    if (currentRole === 'employer') {
-      const list = activeJobId ? jobPostApplications[activeJobId] || [] : [];
-      return list
-        .filter((app) => app.status === 'Pending' || app.status === 'Accepted')
-        .map((app) => ({
-          id: app.applicationId,
-          title:
-            jobPosts.find((p) => p.id === app.job_post_id)?.title ||
-            'Unknown Job',
-          partner: app.username,
-          status: app.status,
-          unreadCount: unreadCounts[app.applicationId] || 0,
-          coverLetter: app.coverLetter,
-          userId: app.userId,
-          job_post_id: app.job_post_id,
-        }))
-        .sort((a, b) => {
-    const byAccepted =
-      (b.status === 'Accepted' ? 1 : 0) - (a.status === 'Accepted' ? 1 : 0);
-    if (byAccepted !== 0) return byAccepted;
-    return getLastTs(b.id) - getLastTs(a.id);
-  });
-    }
+const chatList = useMemo<ChatListItem[]>(() => {
+  if (currentRole === 'employer') {
+    // важно: явно типизируем список, чтобы не терять поля applicationId/appliedAt
+    const list: JobApplicationDetails[] = activeJobId
+      ? (jobPostApplications[activeJobId] || [])
+      : [];
 
-    return applications
-      .map((app) => ({
-        id: app.id,
-        title: app.job_post?.title || 'Unknown Job',
-        partner: app.job_post?.employer?.username || 'Unknown',
-        unreadCount: unreadCounts[app.id] || 0,
-        status: app.status,  
+    return list
+      // ← тут была лишняя закрывающая скобка — из-за неё ругался useMemo
+      .filter(app => app.status === 'Pending' || app.status === 'Accepted')
+      .map((app): ChatListItem => ({
+        id: app.applicationId,
+        title: jobPosts.find(p => p.id === app.job_post_id)?.title || 'Unknown Job',
+        partner: app.username,
+        status: app.status,
+        unreadCount: unreadCounts[app.applicationId] ?? 0,
+        coverLetter: app.coverLetter ?? null,
+        userId: app.userId,
+        job_post_id: app.job_post_id,
+        appliedAt: app.appliedAt,
       }))
-      .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));
-  }, [activeJobId, applications, jobPostApplications, jobPosts, unreadCounts, currentRole, messages]);
+      .sort((a, b) => {
+        const byAccepted =
+          (b.status === 'Accepted' ? 1 : 0) - (a.status === 'Accepted' ? 1 : 0);
+        if (byAccepted !== 0) return byAccepted;
+        return getLastTs(b.id) - getLastTs(a.id);
+      });
+  }
+
+  // jobseeker
+  return applications
+    .map((app): ChatListItem => ({
+      id: app.id,
+      title: app.job_post?.title || 'Unknown Job',
+      partner: app.job_post?.employer?.username || 'Unknown',
+      unreadCount: unreadCounts[app.id] ?? 0,
+      status: app.status,
+      // userId / appliedAt опциональны — их тут нет, и это ок
+    }))
+    .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));
+}, [
+  activeJobId,
+  jobPostApplications,
+  unreadCounts,
+  jobPosts,
+  applications,
+  currentRole,
+  messages,
+]);
+
 
   // все чаты — для верхнего пикера
   const allChats = useMemo(() => {
@@ -884,28 +899,46 @@ useEffect(() => {
               {chatList.length > 0 ? (
                 <ul className="ch-chatlist">
                   {chatList.map((chat) => (
-                    <li
-                      key={chat.id}
-                      className={`ch-chatlist__item ${selectedChat === chat.id ? 'is-active' : ''}
-              ${chat.unreadCount > 0 ? 'has-unread' : ''}
-              ${chat.status === 'Accepted' ? 'is-accepted' : ''}`}
-                      
-                      onClick={() => handleSelectChat(chat.id)}
-                      title={chat.partner}
-                    >
-                      <div className="ch-chatlist__meta">
-                        <div className="ch-chatlist__row">
-                          <strong className="ch-chatlist__job">{chat.title}</strong>
-                          {chat.status === 'Accepted' && <span className="ch-chip">Interview</span>}
-                          {chat.unreadCount > 0 && (
-                            <span className="ch-chatlist__badge">
-                              {chat.unreadCount}
-                            </span>
-                          )}
-                        </div>
-                        <div className="ch-chatlist__partner">{chat.partner}</div>
-                      </div>
-                    </li>
+                  <li
+  key={chat.id}
+  className={`ch-chatlist__item ${selectedChat === chat.id ? 'is-active' : ''}
+    ${chat.unreadCount > 0 ? 'has-unread' : ''}
+    ${chat.status === 'Accepted' ? 'is-accepted' : ''}`}
+  onClick={() => handleSelectChat(chat.id)}
+  title={chat.partner}
+>
+  <div className="ch-chatlist__meta">
+    <div className="ch-chatlist__row">
+      {/* Имя как ссылка на публичный профиль; останавливаем всплытие */}
+      {currentRole === 'employer' && chat.userId ? (
+        <Link
+          to={`/public-profile/${chat.userId}`}
+          onClick={(e) => e.stopPropagation()}
+          className="ch-link"
+          title={`Open ${chat.partner}'s profile`}
+        >
+          {chat.partner}
+        </Link>
+      ) : (
+        <span className="ch-chatlist__partner">{chat.partner}</span>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {chat.status === 'Accepted' && <span className="ch-chip">Interview</span>}
+        {chat.unreadCount > 0 && (
+          <span className="ch-chatlist__badge">{chat.unreadCount}</span>
+        )}
+      </div>
+    </div>
+
+    {chat.appliedAt && (
+      <div className="ch-chatlist__applied" title="Application submitted">
+        Applied: {format(new Date(chat.appliedAt), 'PPpp')}
+      </div>
+    )}
+  </div>
+</li>
+
                   ))}
                 </ul>
               ) : (
@@ -1066,15 +1099,21 @@ useEffect(() => {
                 <>
                   <div className="ch-chat__head">
                     <h3 className="ch-chat__title">
-                      Chat with{' '}
-                      <span>
-                        {currentRole === 'employer'
-                          ? chatList.find((c) => c.id === selectedChat)?.partner ||
-                            'Unknown'
-                          : applications.find((a) => a.id === selectedChat)?.job_post
-                              ?.employer?.username || 'Unknown'}
-                      </span>
-                    </h3>
+  Chat with{' '}
+  {currentRole === 'employer' && currentApp ? (
+    <Link
+      to={`/public-profile/${currentApp.userId}`}
+      className="ch-link"
+      title="Open applicant profile"
+    >
+      {currentApp.username}
+    </Link>
+  ) : (
+    <span>
+      {applications.find((a) => a.id === selectedChat)?.job_post?.employer?.username || 'Unknown'}
+    </span>
+  )}
+</h3>
 
                 {currentRole === 'employer' && currentApp && (
   <div className="ch-actions">

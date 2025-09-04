@@ -298,3 +298,13 @@ interface EnrichedComplaint extends Complaint { // Изменено: extends Com
   targetUsername: string;
 }
 
+
+export interface ChatNotificationsSettings {
+  enabled: boolean;
+  onEmployerMessage: {
+    immediate: boolean;
+    delayedIfUnread: { enabled: boolean; minutes: number }; // 1..10080
+    onlyFirstMessageInThread: boolean;
+  };
+  throttle: { perChatCount: number; perMinutes: number };   // count 1..100, minutes 1..10080
+}

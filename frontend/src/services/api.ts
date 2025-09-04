@@ -11,9 +11,6 @@ import {
 } from '@types';
 
 
-
-
-
 interface WebSocketMessage {
   id: string;
   job_application_id: string;
@@ -1169,13 +1166,13 @@ export const deleteCategory = async (id: string) => {
   return response.data;
 };
 
-export const publishPlatformFeedback = async (id: string): Promise<PlatformFeedbackAdminItem> => {
-  const { data } = await api.post(`/admin/platform-feedback/${id}/publish`);
+export const publishPlatformFeedback = async (id: string) => {
+  const { data } = await api.patch<PlatformFeedbackAdminItem>(`/admin/platform-feedback/${id}/publish`);
   return data;
 };
 
-export const unpublishPlatformFeedback = async (id: string): Promise<PlatformFeedbackAdminItem> => {
-  const { data } = await api.post(`/admin/platform-feedback/${id}/unpublish`);
+export const unpublishPlatformFeedback = async (id: string) => {
+  const { data } = await api.patch<PlatformFeedbackAdminItem>(`/admin/platform-feedback/${id}/unpublish`);
   return data;
 };
 
@@ -1190,3 +1187,28 @@ export const resendVerification = async (email: string) => {
   return data;
 };
 
+// services/api.ts
+import { ChatNotificationsSettings } from '@types';
+
+export const getChatNotificationSettings = async (): Promise<ChatNotificationsSettings> => {
+  const { data } = await api.get('/api/admin/settings/chat-notifications');
+  return data;
+};
+
+export const updateChatNotificationSettings = async (
+  payload: Partial<ChatNotificationsSettings>
+): Promise<ChatNotificationsSettings> => {
+  const { data } = await api.post('/api/admin/settings/chat-notifications', payload);
+  return data;
+};
+
+export const notifyReferralApplicants = (
+  jobPostId: string,
+  payload: {
+    limit: number;
+    orderBy: 'beginning' | 'end' | 'random';
+    titleContains?: string;       // опциональный фильтр по ключевому слову в названии прошлых вакансий
+    categoryId?: string;          // если бэк будет поддерживать матчинг по категории
+  }
+) => api.post(`/admin/job-posts/${jobPostId}/notify-referral-applicants`, payload)
+       .then(r => r.data);

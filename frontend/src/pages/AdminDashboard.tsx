@@ -21,11 +21,11 @@ import {
   blockUser, unblockUser, getUserRiskScore, exportUsersToCSV, getUserOnlineStatus,
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
-  resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
-  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, api, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, 
+  resolveComplaint, getChatHistory, notifyCandidates, notifyReferralApplicants, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
+  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, api, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, getChatNotificationSettings, updateChatNotificationSettings,
   // Добавляем logout из api
 } from '../services/api';
-import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList } from '@types';
+import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings } from '@types';
 import { AxiosError } from 'axios';
 // import {
 //   mockUsers, mockJobPosts, mockJobPostsWithApps, mockReviews, mockFeedback,
@@ -103,6 +103,8 @@ const [newParentCategoryId, setNewParentCategoryId] = useState<string>('');
   const [issues, setIssues] = useState<Feedback[]>([]);
   const [growthPage, setGrowthPage] = useState(1);
 const [autoRefresh, setAutoRefresh] = useState(false);
+const [notifyAudience, setNotifyAudience] = useState<'all' | 'referral'>('all');
+const [notifyTitleFilter, setNotifyTitleFilter] = useState<string>(''); // опционально
 
 const [growthLimit] = useState(10); // Лимит на страницу
 const [stories, setStories] = useState<PlatformFeedbackAdminItem[]>([]);
@@ -124,6 +126,11 @@ const [stories, setStories] = useState<PlatformFeedbackAdminItem[]>([]);
   const [topJobseekers, setTopJobseekers] = useState<{ job_seeker_id: string; username: string; application_count: number }[]>([]);
   const [topJobseekersByViews, setTopJobseekersByViews] = useState<{ userId: string; username: string; email: string; profileViews: number }[]>([]);
   const [topEmployersByPosts, setTopEmployersByPosts] = useState<{ userId: string; username: string; email: string; jobCount: number }[]>([]);
+const [chatNotif, setChatNotif] = useState<ChatNotificationsSettings | null>(null);
+const [chatNotifLoading, setChatNotifLoading] = useState(false);
+const [chatNotifSaving, setChatNotifSaving] = useState(false);
+const [chatNotifWarning, setChatNotifWarning] = useState<string | null>(null);
+
   const [growthTrends, setGrowthTrends] = useState<{
     registrations: { period: string; count: number }[];
     jobPosts: { period: string; count: number }[];
@@ -197,11 +204,13 @@ const [username, setUsername] = useState<string>('Admin');
   const [onlineFreelancers, setOnlineFreelancers] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [storyDetails, setStoryDetails] = useState<PlatformFeedbackAdminItem | null>(null);
+
 
   const [showProfileModal, setShowProfileModal] = useState<string | null>(null); // Добавлено: state для модалки Profile
 const [selectedProfile, setSelectedProfile] = useState<JobSeekerProfile | null>(null);
 const renderDateCell = (iso?: string | null) => {
-  if (!iso) return '— / Never';
+  if (!iso) return 'no info';
   const d = new Date(iso);
   const full = format(d, 'PP p'); // локальный формат проекта
   const human = formatDistanceToNow(d, { addSuffix: true }); // “5 minutes ago”
@@ -361,7 +370,57 @@ const handleReferralForPost = (id: string) => {
 
 
 
+// helpers
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+const updateCN = (updater: (p: ChatNotificationsSettings) => ChatNotificationsSettings) =>
+  setChatNotif(prev => (prev ? updater(prev) : prev));
 
+const loadChatNotif = async () => {
+  setChatNotifLoading(true);
+  try {
+    const data = await getChatNotificationSettings();
+    setChatNotif(normalizeCN(data));
+  } catch (e) {
+    setFetchErrors(prev => ({ ...prev, chatNotif: 'Failed to load chat notification settings.' }));
+    setChatNotif(normalizeCN({}));
+  } finally {
+    setChatNotifLoading(false);
+  }
+};
+
+useEffect(() => {
+  if (activeTab === 'Settings') loadChatNotif();
+}, [activeTab]);
+
+useEffect(() => {
+  if (!chatNotif) return;
+  if (
+    chatNotif.enabled &&
+    !chatNotif.onEmployerMessage.immediate &&
+    !chatNotif.onEmployerMessage.delayedIfUnread.enabled
+  ) {
+    setChatNotifWarning('Warning: nothing will be sent with current settings.');
+  } else {
+    setChatNotifWarning(null);
+  }
+}, [chatNotif]);
+
+// save handler
+const saveChatNotif = async () => {
+  if (!chatNotif) return;
+  setChatNotifSaving(true);
+  try {
+    // можно отправлять полный объект — бэку ок; частичный тоже поддерживается
+    const saved = await updateChatNotificationSettings(chatNotif);
+    setChatNotif(saved);
+    alert('Chat notification settings saved.');
+  } catch (e: any) {
+    const msg = e?.response?.data?.message || 'Failed to save chat notifications.';
+    alert(msg);
+  } finally {
+    setChatNotifSaving(false);
+  }
+};
 
 
 useEffect(() => {
@@ -381,6 +440,24 @@ useEffect(() => {
   };
   enrichComplaints();
 }, [complaints]);
+
+useEffect(() => {
+  if (currentRole !== 'admin') return;
+  (async () => {
+    try {
+      const stats = await getRegistrationStats({
+        startDate: '2023-01-01',
+        endDate: new Date().toISOString().split('T')[0],
+        interval: selectedInterval,
+      });
+      setRegistrationStats(stats || []);
+      setFetchErrors(prev => ({ ...prev, getRegistrationStats: '' }));
+    } catch {
+      setFetchErrors(prev => ({ ...prev, getRegistrationStats: 'Failed to load registration stats.' }));
+    }
+  })();
+}, [selectedInterval, currentRole]);
+
 
 useEffect(() => {
   if (showProfileModal) {
@@ -534,7 +611,7 @@ const fetchJobPosts = useCallback(async (params: {
   } finally {
     setIsLoading(false);
   }
-}, [jobPostPage, jobPostLimit, navigate]);
+}, [jobPostPage, jobPostLimit]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -811,7 +888,7 @@ const endpoints = [
   'getFeedback',
   'getPlatformFeedback',   // ← добавили
   'getBlockedCountries',
-  'getCategories',
+  'getAdminCategories',
   'getAnalytics',
   'getRegistrationStats',
   'freelancerSignupsToday',
@@ -928,26 +1005,46 @@ case 22:
           case 24:
             setRecentRegistrations(value as RecentRegistrations || { jobseekers: [], employers: [] });
             break;
-case 25:
-  const jobPostsWithApps = (value as JobPostWithApplications[]).map(post => ({
+
+
+case 25: {
+  const postsWithApps = (value as JobPostWithApplications[]).map((post) => ({
     ...post,
     username: post.employer?.username || 'N/A',
-    category: typeof post.category === 'string' ? post.category : post.category?.name || 'N/A',
+    category:
+      typeof post.category === 'string'
+        ? post.category
+        : post.category?.name || 'N/A',
   }));
-  setJobPostsWithApps(jobPostsWithApps);
-  console.log('Job Posts with Applications:', JSON.stringify(jobPostsWithApps, null, 2));
-  // Добавлено: fetch stats for each post
-  const statsPromises = jobPostsWithApps.map(post => getEmailStatsForJob(post.id).catch(() => ({ sent: 0, opened: 0, clicked: 0 })));
-  const statsResults = await Promise.all(statsPromises);
-  const statsMap = jobPostsWithApps.reduce((acc: { [key: string]: { sent: number; opened: number; clicked: number } }, post, i) => {
+
+  setJobPostsWithApps(postsWithApps);
+
+  // fetch stats for each post
+  const statsPromises = postsWithApps.map((post) =>
+    getEmailStatsForJob(post.id).catch(() => ({
+      sent: 0,
+      opened: 0,
+      clicked: 0,
+    }))
+  );
+
+  const statsResults: Array<{ sent: number; opened: number; clicked: number }> =
+    await Promise.all(statsPromises);
+
+  const statsMap = postsWithApps.reduce<
+    Record<string, { sent: number; opened: number; clicked: number }>
+  >((acc, post, i) => {
     acc[post.id] = statsResults[i];
     return acc;
   }, {});
+
   setNotificationStats(statsMap);
-  // Добавлено: fetch referral links
+
+  // referral links
   const referralData = await getReferralLinks({});
   setReferralLinks(referralData || []);
   break;
+}
         }
       } else {
         const axiosError = result.reason as AxiosError<{ message?: string }>;
@@ -1118,6 +1215,26 @@ const handleVerifyIdentity = async (id: string, verify: boolean) => {
   }
 };
 
+const normalizeCN = (raw: any): ChatNotificationsSettings => ({
+  enabled: !!raw?.enabled,
+  onEmployerMessage: {
+    immediate: !!raw?.onEmployerMessage?.immediate,
+    delayedIfUnread: {
+      enabled: !!raw?.onEmployerMessage?.delayedIfUnread?.enabled,
+      minutes: clamp(
+        Number(raw?.onEmployerMessage?.delayedIfUnread?.minutes) || 60,
+        1, 10080
+      ),
+    },
+    onlyFirstMessageInThread: !!raw?.onEmployerMessage?.onlyFirstMessageInThread,
+  },
+  throttle: {
+    perChatCount: clamp(Number(raw?.throttle?.perChatCount) || 1, 1, 100),
+    perMinutes: clamp(Number(raw?.throttle?.perMinutes) || 60, 1, 10080),
+  },
+});
+
+
 const handleUnblockUser = async (id: string, username: string) => {
   if (window.confirm(`Are you sure you want to unblock ${username}?`)) {
     try {
@@ -1257,32 +1374,47 @@ const handleFlagJobPost = async (id: string) => {
 const safeDescription = sanitizeHtml(selectedJob?.description ?? '');
 
 const handleNotifyCandidates = async (id: string) => {
-  console.log('Handle Notify called for id:', id); // Добавлено: лог для диагностики клика
+  
   setNotifyJobPostId(id);
+  setNotifyAudience('all');
+  setNotifyTitleFilter('');
   setShowNotifyModal(true);
   console.log('State should update to true'); // Добавлено: лог после setState
 };
 
 const handleNotifySubmit = async () => {
-  if (!notifyLimit || isNaN(parseInt(notifyLimit)) || parseInt(notifyLimit) < 1) {
+  const n = parseInt(notifyLimit, 10);
+  if (!n || n < 1) {
     alert('Please enter a valid number of candidates.');
     return;
   }
+
   try {
-    const response = await notifyCandidates(notifyJobPostId, {
-      limit: parseInt(notifyLimit),
-      orderBy: notifyOrderBy,
-    });
-    alert(`Notified ${response.sent} of ${response.total} candidates for job post ${response.jobPostId}`);
+    let res;
+    if (notifyAudience === 'referral') {
+      res = await notifyReferralApplicants(notifyJobPostId, {
+        limit: n,
+        orderBy: notifyOrderBy,
+        titleContains: notifyTitleFilter.trim() || undefined, // опционально для примера с "Social Media"
+        // categoryId: selectedJobCategoryId, // если решишь подставлять категорию текущей вакансии
+      });
+    } else {
+      res = await notifyCandidates(notifyJobPostId, { limit: n, orderBy: notifyOrderBy });
+    }
+
+    alert(`Notified ${res.sent} of ${res.total} candidates for job post ${res.jobPostId}`);
     setShowNotifyModal(false);
     setNotifyLimit('10');
     setNotifyOrderBy('beginning');
-  } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>;
-    console.error('Error notifying candidates:', axiosError);
-    alert(axiosError.response?.data?.message || 'Failed to notify candidates.');
+    setNotifyAudience('all');
+    setNotifyTitleFilter('');
+  } catch (error: any) {
+    const msg = error?.response?.data?.message || 'Failed to notify candidates.';
+    console.error('Error notifying candidates:', error);
+    alert(msg);
   }
 };
+
 
   const handleDeleteReview = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this review?')) {
@@ -2110,46 +2242,51 @@ if (isLoading) {
         Next
       </button>
     </div>
-    {showJobModal && jobPosts.find(post => post.id === showJobModal) && (
-      <div className="modal">
-        <div className="modal-content">
-          <span className="close" onClick={() => setShowJobModal(null)}>×</span>
-          <h3>Job Post Details</h3>
-          <p><strong>Title:</strong> {jobPosts.find(post => post.id === showJobModal)?.title}</p>
-          <p><strong>Description:</strong></p>
-<div
-  dangerouslySetInnerHTML={{ __html: safeDescription }}
-/>
-          {jobPosts.find(post => post.id === showJobModal)?.pending_review && (
-            <button onClick={() => {
-              handleApproveJobPost(showJobModal);
-              setShowJobModal(null);
-            }} className="action-button success">
-              Approve
-            </button>
-          )}
-        </div>
-      </div>
-    )}
-    {showProfileModal && selectedProfile && ( 
-  <div className="modal">
-    <div className="modal-content">
-      <span className="close" onClick={() => setShowProfileModal(null)}>×</span>
-      <h3>Profile Details</h3>
-      <p><strong>Username:</strong> {selectedProfile.username}</p>
-      <p><strong>Email:</strong> {selectedProfile.email || 'N/A'}</p>
-      <p><strong>Skills:</strong> {selectedProfile.skills?.map(skill => skill.name).join(', ') || 'N/A'}</p>
-      <p><strong>Experience:</strong> {selectedProfile.experience || 'N/A'}</p>
-      <p><strong>Average Rating:</strong> {selectedProfile.average_rating}</p>
-      <p><strong>Reviews:</strong> {selectedProfile.reviews.length > 0 ? selectedProfile.reviews.map(review => review.comment).join('; ') : 'No reviews'}</p>
-    </div>
-  </div>
-  )}
+
   {showNotifyModal && (
   <div className="modal_notify">
     <div className="modal-content">
         <h3>Notify Candidates for Job Post ID: {notifyJobPostId}</h3>
+        <fieldset className="form-group">
+  <legend>Audience</legend>
+  <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', marginRight: 16 }}>
+    <input
+      type="radio"
+      value="all"
+      checked={notifyAudience === 'all'}
+      onChange={() => setNotifyAudience('all')}
+    />
+    All Applicants (current behavior)
+  </label>
+
+  <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+    <input
+      type="radio"
+      value="referral"
+      checked={notifyAudience === 'referral'}
+      onChange={() => setNotifyAudience('referral')}
+    />
+    Applicants who applied via referral links
+  </label>
+</fieldset>
+
+{notifyAudience === 'referral' && (
+  <div className="form-group">
+    <label>Title keyword (optional):</label>
+    <input
+      type="text"
+      value={notifyTitleFilter}
+      onChange={(e) => setNotifyTitleFilter(e.target.value)}
+      placeholder="e.g., Social Media"
+    />
+    <small className="form-note">
+      Emails will go to past referral applicants of jobs whose title matches this keyword
+      (or adjust on backend to match by category).
+    </small>
+  </div>
+)}
         <div className="form-group">
+
           <label>Number of candidates to notify:</label>
           <input
             type="number"
@@ -2179,6 +2316,8 @@ if (isLoading) {
               setShowNotifyModal(false);
               setNotifyLimit('10');
               setNotifyOrderBy('beginning');
+              setNotifyAudience('all');
+              setNotifyTitleFilter('');
             }}
             className="action-button"
           >
@@ -2303,60 +2442,69 @@ if (isLoading) {
         <td>{story.user?.username || 'Unknown'}</td>
         <td>{format(new Date(story.created_at), 'PP')}</td>
         <td style={{ display: 'flex', gap: 8 }}>
-          {/* Публиковать/Скрывать — ОДНА кнопка, и только если пользователь дал согласие */}
-          {story.allowed_to_publish ? (
-            story.is_public ? (
-              <button
-                onClick={async () => {
-                  try {
-                    const updated = await unpublishPlatformFeedback(story.id);
-                    setStories(prev => prev.map(s => s.id === story.id ? { ...s, ...updated } : s));
-                  } catch (error) {
-                    const axiosError = error as AxiosError<{ message?: string }>;
-                    alert(axiosError.response?.data?.message || 'Failed to unpublish.');
-                  }
-                }}
-                className="action-button warning"
-              >
-                Unpublish
-              </button>
-            ) : (
-              <button
-                onClick={async () => {
-                  try {
-                    const updated = await publishPlatformFeedback(story.id);
-                    setStories(prev => prev.map(s => s.id === story.id ? { ...s, ...updated } : s));
-                  } catch (error) {
-                    const axiosError = error as AxiosError<{ message?: string }>;
-                    alert(axiosError.response?.data?.message || 'Failed to publish.');
-                  }
-                }}
-                className="action-button success"
-              >
-                Publish
-              </button>
-            )
-          ) : null}
+  {/* NEW: Details — открывает модалку с полным текстом истории */}
+  <button
+    onClick={() => setStoryDetails(story)}
+    className="action-button"
+  >
+    Details
+  </button>
 
-          <button
-            onClick={async () => {
-              if (window.confirm('Are you sure you want to delete this story?')) {
-                try {
-                  await deletePlatformFeedback(story.id);
-                  setStories(stories.filter((item) => item.id !== story.id));
-                  alert('Story deleted successfully!');
-                } catch (error) {
-                  const axiosError = error as AxiosError<{ message?: string }>;
-                  console.error('Error deleting story:', axiosError);
-                  alert(axiosError.response?.data?.message || 'Failed to delete story.');
-                }
-              }
-            }}
-            className="action-button danger"
-          >
-            Delete
-          </button>
-        </td>
+  {/* Публиковать/Скрывать — ОДНА кнопка, и только если пользователь дал согласие */}
+  {story.allowed_to_publish ? (
+    story.is_public ? (
+      <button
+        onClick={async () => {
+          try {
+            const updated = await unpublishPlatformFeedback(story.id);
+            setStories(prev => prev.map(s => s.id === story.id ? { ...s, ...updated } : s));
+          } catch (error) {
+            const axiosError = error as AxiosError<{ message?: string }>;
+            alert(axiosError.response?.data?.message || 'Failed to unpublish.');
+          }
+        }}
+        className="action-button warning"
+      >
+        Unpublish
+      </button>
+    ) : (
+      <button
+        onClick={async () => {
+          try {
+            const updated = await publishPlatformFeedback(story.id);
+            setStories(prev => prev.map(s => s.id === story.id ? { ...s, ...updated } : s));
+          } catch (error) {
+            const axiosError = error as AxiosError<{ message?: string }>;
+            alert(axiosError.response?.data?.message || 'Failed to publish.');
+          }
+        }}
+        className="action-button success"
+      >
+        Publish
+      </button>
+    )
+  ) : null}
+
+  <button
+    onClick={async () => {
+      if (window.confirm('Are you sure you want to delete this story?')) {
+        try {
+          await deletePlatformFeedback(story.id);
+          setStories(stories.filter((item) => item.id !== story.id));
+          alert('Story deleted successfully!');
+        } catch (error) {
+          const axiosError = error as AxiosError<{ message?: string }>;
+          console.error('Error deleting story:', axiosError);
+          alert(axiosError.response?.data?.message || 'Failed to delete story.');
+        }
+      }
+    }}
+    className="action-button danger"
+  >
+    Delete
+  </button>
+</td>
+
       </tr>
     )) : (
       <tr>
@@ -2708,9 +2856,9 @@ if (isLoading) {
     )}
     <h4>Registration Stats</h4>
                      <div className="interval-tabs">
-  <button className={selectedInterval === 'day' ? 'active' : ''} onClick={() => { setSelectedInterval('day'); handleRefresh(); }}>Day</button>
-  <button className={selectedInterval === 'week' ? 'active' : ''} onClick={() => { setSelectedInterval('week'); handleRefresh(); }}>Week</button>
-  <button className={selectedInterval === 'month' ? 'active' : ''} onClick={() => { setSelectedInterval('month'); handleRefresh(); }}>Month</button>
+  <button className={selectedInterval === 'day' ? 'active' : ''} onClick={() => setSelectedInterval('day')}>Day</button>
+  <button className={selectedInterval === 'week' ? 'active' : ''} onClick={() => setSelectedInterval('week')}>Week</button>
+  <button className={selectedInterval === 'month' ? 'active' : ''} onClick={() => setSelectedInterval('month')}>Month</button>
 </div>
     {fetchErrors.getRegistrationStats && <p className="error-message">{fetchErrors.getRegistrationStats}</p>}
     {registrationStats.length > 0 && (
@@ -3170,6 +3318,98 @@ if (isLoading) {
   </div>
 )}
 
+{storyDetails && (
+  <div className="modal" onClick={() => setStoryDetails(null)}>
+    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <span className="close" onClick={() => setStoryDetails(null)}>×</span>
+      <h3>Success Story Details</h3>
+
+      <div className="form-group">
+        <label><strong>Headline:</strong></label>
+        <div>{storyDetails.headline}</div>
+      </div>
+
+      <div className="form-group">
+        <label><strong>User:</strong></label>
+        <div>{storyDetails.user?.username || storyDetails.user_id}</div>
+      </div>
+
+      <div className="form-group">
+        <label><strong>Rating:</strong></label>
+        <div>{storyDetails.rating} / 5</div>
+      </div>
+
+      <div className="form-group">
+        <label><strong>Company:</strong></label>
+        <div>{storyDetails.company || '—'}</div>
+      </div>
+
+      <div className="form-group">
+        <label><strong>Country:</strong></label>
+        <div>{storyDetails.country || '—'}</div>
+      </div>
+
+      <div className="form-group">
+        <label><strong>Created:</strong></label>
+        <div>{format(new Date(storyDetails.created_at), 'PPpp')}</div>
+      </div>
+
+      <div className="form-group">
+        <label><strong>Updated:</strong></label>
+        <div>{format(new Date(storyDetails.updated_at), 'PPpp')}</div>
+      </div>
+
+      <hr />
+
+      <div className="form-group">
+        <label><strong>Story:</strong></label>
+        {/* текст хранится как plain; рендерим безопасно как текст */}
+        <div style={{ whiteSpace: 'pre-wrap' }}>{storyDetails.story}</div>
+      </div>
+
+      <div className="modal-actions" style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <button className="action-button" onClick={() => setStoryDetails(null)}>Close</button>
+
+        {/* Дублируем действие публикации прямо из модалки (необязательно, можно удалить этот блок) */}
+        {storyDetails.allowed_to_publish && (
+          storyDetails.is_public ? (
+            <button
+              className="action-button warning"
+              onClick={async () => {
+                try {
+                  const updated = await unpublishPlatformFeedback(storyDetails.id);
+                  setStories(prev => prev.map(s => s.id === storyDetails.id ? { ...s, ...updated } : s));
+                  setStoryDetails({ ...storyDetails, ...updated });
+                } catch (error) {
+                  const axiosError = error as AxiosError<{ message?: string }>;
+                  alert(axiosError.response?.data?.message || 'Failed to unpublish.');
+                }
+              }}
+            >
+              Unpublish
+            </button>
+          ) : (
+            <button
+              className="action-button success"
+              onClick={async () => {
+                try {
+                  const updated = await publishPlatformFeedback(storyDetails.id);
+                  setStories(prev => prev.map(s => s.id === storyDetails.id ? { ...s, ...updated } : s));
+                  setStoryDetails({ ...storyDetails, ...updated });
+                } catch (error) {
+                  const axiosError = error as AxiosError<{ message?: string }>;
+                  alert(axiosError.response?.data?.message || 'Failed to publish.');
+                }
+              }}
+            >
+              Publish
+            </button>
+          )
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
 {resolveModal && (
   <div className="modal">
@@ -3237,19 +3477,193 @@ if (isLoading) {
     </div>
   </div>
 )}
-        {activeTab === 'Settings' && (
+{activeTab === 'Settings' && (
   <div>
     <h4>Settings</h4>
+
+    {/* --- Global Application Limit (как было) --- */}
     <div className="dashboard-section">
       <h3>Global Application Limit</h3>
       {fetchErrors.getGlobalApplicationLimit && <p className="error-message">{fetchErrors.getGlobalApplicationLimit}</p>}
       <p>Current Limit: {globalLimit !== null ? globalLimit : 'Not set'}</p>
-      <button onClick={handleSetGlobalLimit} className="action-button">
-        Set Global Limit
-      </button>
+      <button onClick={handleSetGlobalLimit} className="action-button">Set Global Limit</button>
+    </div>
+
+    {/* --- Chat Notifications --- */}
+    <div className="dashboard-section">
+      <h3>Chat Notifications (Employer → Jobseeker)</h3>
+
+      {fetchErrors.chatNotif && <p className="error-message">{fetchErrors.chatNotif}</p>}
+      {chatNotifLoading && <p>Loading…</p>}
+
+      {chatNotif && (
+        <>
+          {/* master toggle */}
+          <div className="form-group">
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="checkbox"
+                checked={chatNotif.enabled}
+                onChange={(e) =>
+                  updateCN(p => ({ ...p, enabled: e.target.checked }))
+                }
+              />
+              Enable notifications
+            </label>
+          </div>
+
+          {/* On employer message */}
+          <fieldset
+            className="form-group"
+            style={{ opacity: chatNotif.enabled ? 1 : 0.6 }}
+            disabled={!chatNotif.enabled}
+          >
+            <legend>On employer message</legend>
+
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="checkbox"
+                checked={chatNotif.onEmployerMessage.immediate}
+                onChange={(e) =>
+                  updateCN(p => ({
+                    ...p,
+                    onEmployerMessage: {
+                      ...p.onEmployerMessage,
+                      immediate: e.target.checked,
+                    },
+                  }))
+                }
+              />
+              Send immediately
+            </label>
+
+            <div style={{ marginTop: 8 }}>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={chatNotif.onEmployerMessage.delayedIfUnread.enabled}
+                  onChange={(e) =>
+                    updateCN(p => ({
+                      ...p,
+                      onEmployerMessage: {
+                        ...p.onEmployerMessage,
+                        delayedIfUnread: {
+                          ...p.onEmployerMessage.delayedIfUnread,
+                          enabled: e.target.checked,
+                        },
+                      },
+                    }))
+                  }
+                />
+                Delayed reminder if unread
+              </label>
+
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
+                <span>Minutes:</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={10080}
+                  value={chatNotif.onEmployerMessage.delayedIfUnread.minutes}
+                  disabled={
+                    !chatNotif.enabled ||
+                    !chatNotif.onEmployerMessage.delayedIfUnread.enabled
+                  }
+                  onChange={(e) => {
+                    const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 10080);
+                    updateCN(p => ({
+                      ...p,
+                      onEmployerMessage: {
+                        ...p.onEmployerMessage,
+                        delayedIfUnread: { ...p.onEmployerMessage.delayedIfUnread, minutes: n },
+                      },
+                    }));
+                  }}
+                  style={{ width: 100 }}
+                />
+              </div>
+
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={chatNotif.onEmployerMessage.onlyFirstMessageInThread}
+                  onChange={(e) =>
+                    updateCN(p => ({
+                      ...p,
+                      onEmployerMessage: {
+                        ...p.onEmployerMessage,
+                        onlyFirstMessageInThread: e.target.checked,
+                      },
+                    }))
+                  }
+                />
+                Only first message in thread
+              </label>
+            </div>
+          </fieldset>
+
+          {/* Throttle */}
+          <fieldset
+            className="form-group"
+            style={{ opacity: chatNotif.enabled ? 1 : 0.6 }}
+            disabled={!chatNotif.enabled}
+          >
+            <legend>Throttle (per chat)</legend>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+              <label>
+                Count:
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={chatNotif.throttle.perChatCount}
+                  onChange={(e) => {
+                    const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 100);
+                    updateCN(p => ({ ...p, throttle: { ...p.throttle, perChatCount: n } }));
+                  }}
+                  style={{ width: 100, marginLeft: 8 }}
+                />
+              </label>
+              <label>
+                Per minutes:
+                <input
+                  type="number"
+                  min={1}
+                  max={10080}
+                  value={chatNotif.throttle.perMinutes}
+                  onChange={(e) => {
+                    const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 10080);
+                    updateCN(p => ({ ...p, throttle: { ...p.throttle, perMinutes: n } }));
+                  }}
+                  style={{ width: 120, marginLeft: 8 }}
+                />
+              </label>
+            </div>
+            <p className="form-note" style={{ marginTop: 6 }}>
+              Counts both immediate and delayed emails per single chat.
+            </p>
+          </fieldset>
+
+          {chatNotifWarning && (
+            <p className="error-message" role="alert" aria-live="polite" style={{ marginTop: 6 }}>
+              {chatNotifWarning}
+            </p>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button className="action-button success" onClick={saveChatNotif} disabled={chatNotifSaving}>
+              {chatNotifSaving ? 'Saving…' : 'Save'}
+            </button>
+            <button className="action-button" onClick={loadChatNotif} disabled={chatNotifLoading || chatNotifSaving}>
+              Reset
+            </button>
+          </div>
+        </>
+      )}
     </div>
   </div>
 )}
+
 
 {showDocumentModal && (
         <div className="modal" onClick={() => setShowDocumentModal(null)}>
