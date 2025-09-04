@@ -1,8 +1,8 @@
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class SubmitTechFeedbackDto {
-  @IsIn(['Bug', 'UI', 'Perfomance', 'Data', 'Other'])
-  category: 'Bug' | 'UI' | 'Perfomance' | 'Data' | 'Other';
+  @IsIn(['Bug', 'UI', 'Performance', 'Data', 'Other'])
+  category: 'Bug' | 'UI' | 'Performance' | 'Data' | 'Other';
 
   @IsString()
   @MaxLength(500)
