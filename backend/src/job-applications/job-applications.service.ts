@@ -10,6 +10,7 @@ import { Server } from 'socket.io';
 import { Inject } from '@nestjs/common';
 import { ChatGateway } from '../chat/chat.gateway';
 import { EmailService } from '../email/email.service';
+import { ReferralLink } from '../referrals/entities/referral-link.entity';
 
 @Injectable()
 export class JobApplicationsService {
@@ -20,6 +21,7 @@ export class JobApplicationsService {
     private jobPostsRepository: Repository<JobPost>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    @InjectRepository(ReferralLink) private referralLinksRepository: Repository<ReferralLink>,
     @InjectRepository(JobSeeker)
     private jobSeekerRepository: Repository<JobSeeker>,
     private applicationLimitsService: ApplicationLimitsService,
@@ -33,6 +35,7 @@ export class JobApplicationsService {
     coverLetter: string,
     fullName?: string,
     referredBy?: string,
+    refCode?: string,
   ) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
@@ -70,6 +73,17 @@ export class JobApplicationsService {
       throw new BadRequestException('Cover letter is required');
     }
 
+    let referralLink: ReferralLink | null = null;
+    if (refCode) {
+      referralLink = await this.referralLinksRepository.findOne({
+        where: { ref_code: refCode },
+        relations: ['job_post'],
+      });
+      // игнорируем кривые/чужие refCode: пишем только если реально к этой вакансии
+      if (!referralLink || referralLink.job_post?.id !== jobPostId) {
+        referralLink = null;
+      }
+    }
     const application = this.jobApplicationsRepository.create({
       job_post_id: jobPostId,
       job_seeker_id: userId,
@@ -77,12 +91,12 @@ export class JobApplicationsService {
       cover_letter: coverLetter.trim(),
       full_name: fullName?.trim() || null,
       referred_by: referredBy?.trim() || null,
+      referral_link_id: referralLink?.id || null,
     });
-    const savedApplication = await this.jobApplicationsRepository.save(application);
+    const saved = await this.jobApplicationsRepository.save(application);
 
     await this.applicationLimitsService.incrementApplicationCount(jobPostId);
-
-    return savedApplication;
+    return saved;
   }
 
   async getMyApplications(userId: string) {

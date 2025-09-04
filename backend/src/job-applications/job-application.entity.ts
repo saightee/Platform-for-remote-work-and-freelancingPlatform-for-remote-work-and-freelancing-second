@@ -1,6 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { JobPost } from '../job-posts/job-post.entity';
 import { User } from '../users/entities/user.entity';
+import { ReferralLink } from '../referrals/entities/referral-link.entity';
 
 @Entity('job_applications')
 export class JobApplication {
@@ -32,6 +33,13 @@ export class JobApplication {
 
   @Column({ type: 'varchar', length: 20 })
   status: 'Pending' | 'Accepted' | 'Rejected';
+
+@Column({ type: 'uuid', nullable: true })
+referral_link_id?: string;
+
+@ManyToOne(() => ReferralLink, { nullable: true })
+@JoinColumn({ name: 'referral_link_id' })
+referral_link?: ReferralLink;
 
   @CreateDateColumn()
   created_at: Date;

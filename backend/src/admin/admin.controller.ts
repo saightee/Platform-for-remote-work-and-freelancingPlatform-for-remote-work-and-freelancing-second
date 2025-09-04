@@ -713,6 +713,38 @@ export class AdminController {
       body.orderBy,
     );
   }
+  
+  @Post('job-posts/:id/notify-referral-applicants')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async notifyReferralApplicants(
+    @Param('id') jobPostId: string,
+    @Body() body: {
+      limit: number;
+      orderBy: 'beginning' | 'end' | 'random';
+    },
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userIdAdmin = payload.sub;
+
+    if (!body.limit || !Number.isInteger(body.limit) || body.limit < 1) {
+      throw new BadRequestException('Limit must be a positive integer');
+    }
+    if (!['beginning', 'end', 'random'].includes(body.orderBy)) {
+      throw new BadRequestException('OrderBy must be one of: beginning, end, random');
+    }
+    
+    return this.adminService.notifyReferralApplicants(
+      payload.sub,
+      jobPostId,
+      body.limit,
+      body.orderBy,
+    );
+  }
 
   @Get('chat/:jobApplicationId')
   @UseGuards(AuthGuard('jwt'), AdminGuard)

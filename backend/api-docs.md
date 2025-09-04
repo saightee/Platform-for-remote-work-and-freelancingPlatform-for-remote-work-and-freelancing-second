@@ -3258,6 +3258,58 @@
     "error": "Not Found"
   }
 
+### 74.1 Notify Referral Applicants (Admin)
+- **Endpoint**: `POST /api/admin/job-posts/:id/notify-referral-applicants`
+- **Description**: Sends email notifications only to applicants who have previously applied via referral links for jobs in the same category as the specified vacancy. Allows you to select the recipient limit and the selection order by registration date.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job post
+- **Request Body**:
+  ```json
+  {
+    "limit": 50,
+    "orderBy": "end" // Options: "beginning", "end", "random"
+  }
+
+- **Response (Success - 200)**:
+  ```json
+  {
+    "total": 120,
+    "sent": 50,
+    "jobPostId": "<jobPostId>"
+  }
+
+- **Response (Error - 400, invalid input)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Limit must be a positive integer",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 400, no category)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Job post has no category assigned",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 401, unauthorized)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 404, job post not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
+  }  
+
 ### 75. Get Chat History (Admin)
 - **Endpoint**: `GET /api/admin/chat/:jobApplicationId`
 - **Description**: Retrieves the chat history for a specific job application. Accessible only to users with the admin role.

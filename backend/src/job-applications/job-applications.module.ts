@@ -12,10 +12,11 @@ import { ApplicationLimitsModule } from '../application-limits/application-limit
 import { ChatModule } from '../chat/chat.module';
 import { ChatGateway } from '../chat/chat.gateway';
 import { EmailModule } from '../email/email.module';
+import { ReferralLink } from '../referrals/entities/referral-link.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([JobApplication, JobPost, User, JobSeeker]),
+    TypeOrmModule.forFeature([JobApplication, JobPost, User, JobSeeker, ReferralLink]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
