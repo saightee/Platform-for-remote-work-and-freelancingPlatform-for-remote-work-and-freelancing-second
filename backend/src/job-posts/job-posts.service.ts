@@ -333,26 +333,21 @@ export class JobPostsService {
       Use the exact details provided below for the job. Structure the description with markdown:
       - Use ## for section headers.
       - Use - for bullet points in lists.
-      - Add an empty line between sections for readability.
+      - Do NOT insert empty lines between sections or inside lists (no extra blank lines at all).
       - Keep the total length between 150-180 words.
       - Ensure the markdown is simple, HTML-compatible, and suitable for rendering in ReactQuill rich text editor.
-      - Use standard markdown (e.g., no tables, no complex nested elements, no extra line breaks within lists) to avoid rendering issues in ReactQuill.
-      - Do NOT include a word count or concluding remarks (e.g., no "Apply today" or "Join us").
+      - Do NOT insert extra <p> or blank paragraphs; output only clean markdown without extra spacing.
 
       **Structure**:
       One sentence summarizing the role based on the brief and title.
-
       ## Responsibilities
       - List 3-5 key duties extracted directly from the brief.
-
       ## Requirements
       - List 3-5 skills or qualifications from the brief.
-
       ## Work Details
       - **Work Mode**: ${data.location || 'Not specified'}
       - **Salary**: ${data.salary_type === 'negotiable' ? 'Negotiable' : (data.salary ? `${data.salary} ${data.salary_type || ''}` : 'Not specified')}
       - **Job Type**: ${data.job_type || 'Not specified'}
-
       **Provided Details**:
       - Job Title: ${data.title || 'Not specified'}
       - Brief: ${data.aiBrief}

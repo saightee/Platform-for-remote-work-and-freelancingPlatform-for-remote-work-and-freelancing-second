@@ -18,6 +18,10 @@
     "password": "password",
     "username": "test",
     "role": "jobseeker",
+      "linkedin": "https://www.linkedin.com/in/username",  // Optional
+    "instagram": "https://www.instagram.com/username",  // Optional
+    "facebook": "https://www.facebook.com/username",  // Optional
+    "description": "Кратко о себе до 50 слов",  // Optional
     "skills": ["<categoryId1>", "<categoryId2>"],  // Optional, array of category IDs
     "experience": "3 years",  // Optional
     "resume": "https://example.com/resume.pdf" // Optional, link to resume Для файла используй /profile/upload-resume после рега
@@ -319,6 +323,9 @@
       }
     ],
     "experience": "2 years",
+    "linkedin": "https://www.linkedin.com/in/username",
+    "instagram": "https://www.instagram.com/username",
+    "facebook": "https://www.facebook.com/username",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
     "video_intro": "https://video.com",
@@ -409,6 +416,9 @@
       }
     ],
     "experience": "2 years",
+    "linkedin": "https://www.linkedin.com/in/username",
+    "instagram": "https://www.instagram.com/username",
+    "facebook": "https://www.facebook.com/username",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
     "video_intro": "https://video.com",
@@ -470,6 +480,9 @@
     "role": "jobseeker",
     "skillIds": ["<skillId1>", "<skillId2>"],
     "experience": "3 years",
+    "linkedin": "https://www.linkedin.com/in/username",
+    "instagram": "https://www.instagram.com/username",
+    "facebook": "https://www.facebook.com/username",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://newportfolio.com",
     "video_intro": "https://newvideo.com",
@@ -1525,6 +1538,7 @@
         "role": "jobseeker",
         "status": "active",
         "created_at": "2025-05-13T18:00:00.000Z",
+        "last_seen_at": "2025-09-03T10:17:42.000Z",
         "updated_at": "2025-05-13T18:00:00.000Z"
       }
     ]
@@ -1560,6 +1574,7 @@
     "role": "employer",
     "provider": null,
     "created_at": "2025-05-13T18:00:00.000Z",
+    "last_seen_at": "2025-09-03T10:17:42.000Z",
     "updated_at": "2025-05-13T18:00:00.000Z"
   }
 
@@ -3956,3 +3971,51 @@
 - **Response (202 Accepted)**:
   ```json
   { "message": "Message accepted" }
+
+### 91. Get Chat Notification Settings (Admin)
+- **Endpoint:** `GET /api/admin/settings/chat-notifications`
+- **Description:** Returns global chat email-notification settings (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  ```json
+  {
+    "enabled": true,
+    "onEmployerMessage": {
+      "immediate": true,
+      "delayedIfUnread": { "enabled": true, "minutes": 60 },
+      "onlyFirstMessageInThread": false
+    },
+    "throttle": { "perChatCount": 2, "perMinutes": 60 }
+  }
+
+- **Response 401**:
+  ```json
+  { "statusCode": 401, "message": "Unauthorized", "error": "Unauthorized" }
+
+### 92. Update Chat Notification Settings (Admin)
+- **Endpoint:** `POST /api/admin/settings/chat-notifications`
+- **Description:** Updates global chat email-notification settings (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body:**:
+  ```json
+  {
+    "enabled": true,
+    "onEmployerMessage": {
+      "immediate": true,
+      "delayedIfUnread": { "enabled": true, "minutes": 60 },
+      "onlyFirstMessageInThread": false
+    },
+    "throttle": { "perChatCount": 2, "perMinutes": 60 }
+  }
+
+- **Response (200)**:
+  ```json
+  {
+    "message": "Chat notification settings updated",
+    "settings": { ...same as you sent... }
+  }
+- **Notes**:
+  - `immediate`: send right away when employer writes to jobseeker.
+  - `delayedIfUnread`: also send if still unread after minutes.
+  - `onlyFirstMessageInThread`: if true, notify only on the first message in a given chat thread.
+  - `throttle`: не чаще X раз в N минут для одного чата и получателя (anti-spam).

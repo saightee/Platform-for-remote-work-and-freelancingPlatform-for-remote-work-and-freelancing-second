@@ -90,26 +90,49 @@ export class AuthService {
       is_email_verified: role === 'admin' || role === 'moderator',
       referral_source: refCode || null,
     };
-    const additionalData: { timezone: string; currency: string; skills?: string[]; experience?: string; resume?: string } = {
+
+    const additionalData: {
+      timezone: string;
+      currency: string;
+      skills?: string[];
+      experience?: string;
+      resume?: string;
+      // только для jobseeker:
+      linkedin?: string | null;
+      instagram?: string | null;
+      facebook?: string | null;
+      description?: string | null;
+    } = {
       timezone: 'UTC',
       currency: 'USD',
     };
 
-    if (role === 'jobseeker' && 'skills' in dto && 'experience' in dto && 'resume' in dto) {
-      additionalData.skills = dto.skills || [];
-      additionalData.experience = dto.experience;
-      additionalData.resume = dto.resume || null;
+    if (role === 'jobseeker') {
+      const r = dto as RegisterDto;
+      if (r.skills) additionalData.skills = r.skills;
+      if (r.experience) additionalData.experience = r.experience;
+      if (r.resume) additionalData.resume = r.resume || null;
+
+      additionalData.linkedin = r.linkedin || null;
+      additionalData.instagram = r.instagram || null;
+      additionalData.facebook = r.facebook || null;
+
+      if (r.description) {
+        const words = r.description.trim().split(/\s+/).slice(0, 150);
+        additionalData.description = words.join(' ');
+      }
     }
 
     const newUser = await this.usersService.create(userData, additionalData);
     console.log('New User Created:', newUser);
+
     if (refCode) {
-        try {
-            await this.adminService.incrementRegistration(refCode, newUser.id);
-            console.log(`[AuthService] Incremented registration for refCode: ${refCode}, userId: ${newUser.id}`);
-        } catch (error) {
-            console.error(`[AuthService] Failed to increment registration for refCode ${refCode}:`, error);
-        }
+      try {
+        await this.adminService.incrementRegistration(refCode, newUser.id);
+        console.log(`[AuthService] Incremented registration for refCode: ${refCode}, userId: ${newUser.id}`);
+      } catch (error) {
+        console.error(`[AuthService] Failed to increment registration for refCode ${refCode}:`, error);
+      }
     }
 
     if (role === 'admin' || role === 'moderator') {
@@ -175,32 +198,45 @@ export class AuthService {
       return { message: 'Email successfully confirmed', accessToken };
     }
 
-  async login(email: string, password: string, rememberMe: boolean, ip: string, fingerprint: string, session: any) {
+  async login(
+    email: string,
+    password: string,
+    rememberMe: boolean,
+    ip: string,
+    fingerprint: string,
+    session: any,
+  ) {
     const user = await this.usersService.findByEmail(email);
     if (!user || !(await bcrypt.compare(password, user.password))) {
       throw new UnauthorizedException('Invalid credentials');
     }
-  
+
     if (user.status === 'blocked') {
       throw new UnauthorizedException('User is blocked');
     }
-  
+
     if (!user.is_email_verified && user.role !== 'admin' && user.role !== 'moderator') {
       throw new UnauthorizedException('Please confirm your email before logging in');
     }
-  
+
     const payload = { email: user.email, sub: user.id, role: user.role };
     const expiresIn = rememberMe ? '7d' : '1h';
     const token = this.jwtService.sign(payload, { expiresIn });
     const expirySeconds = rememberMe ? 7 * 24 * 60 * 60 : 3600;
+
     await this.redisService.set(`token:${user.id}`, token, expirySeconds);
     await this.redisService.setUserOnline(user.id, user.role as 'jobseeker' | 'employer');
-    
+
+    await this.usersService.setLastLoginAt(user.id);
+
+    await this.usersService.touchLastSeen(user.id);
+
     return new Promise((resolve, reject) => {
       session.regenerate((err) => {
         if (err) {
           console.error(`Login error: Failed to regenerate session for userId=${user.id}, error=${err.message}`);
           reject(new BadRequestException('Failed to regenerate session'));
+          return;
         }
         session.user = { id: user.id, email: user.email, role: user.role };
         console.log(`Login success: userId=${user.id}, sessionID=${session.id}, token=${token}`);

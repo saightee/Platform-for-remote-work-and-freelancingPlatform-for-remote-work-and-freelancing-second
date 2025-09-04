@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, IsArray, IsString as IsStringValidator } from 'class-validator';  // Измени импорт IsString на alias, чтобы избежать конфликта
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, IsArray, IsUrl } from 'class-validator';
 
 export class RegisterDto {
   @IsEmail()
@@ -14,18 +14,26 @@ export class RegisterDto {
 
   @IsString()
   @IsNotEmpty()
-  role: 'employer' | 'jobseeker'; 
+  role: 'employer' | 'jobseeker';
 
-  @IsOptional() 
+  // Только для jobseeker
+  @IsOptional()
   @IsArray()
-  @IsStringValidator({ each: true })  
-  skills?: string[]; 
+  @IsString({ each: true })
+  skills?: string[];
 
-  @IsOptional() 
+  @IsOptional()
   @IsString()
   experience?: string;
 
-  @IsOptional() 
+  @IsOptional()
   @IsString()
   resume?: string;
+
+  @IsOptional() @IsUrl() linkedin?: string;
+  @IsOptional() @IsUrl() instagram?: string;
+  @IsOptional() @IsUrl() facebook?: string;
+
+  @IsOptional() @IsString()
+  description?: string;
 }

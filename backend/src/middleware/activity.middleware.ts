@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class ActivityMiddleware implements NestMiddleware {
@@ -10,24 +11,37 @@ export class ActivityMiddleware implements NestMiddleware {
     private jwtService: JwtService,
     private redisService: RedisService,
     private configService: ConfigService, 
+    private usersService: UsersService, 
   ) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
     console.log(`ActivityMiddleware: Обработка запроса, path=${req.path}, sessionID=${req.sessionID}`);
     const authHeader = req.headers.authorization;
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
         const token = authHeader.replace('Bearer ', '');
         const payload = this.jwtService.verify(token, {
-          secret: this.configService.get<string>('JWT_SECRET'), 
+          secret: this.configService.get<string>('JWT_SECRET'),
         });
         const userId = payload.sub;
         const role = payload.role;
+
         if (['jobseeker', 'employer', 'admin', 'moderator'].includes(role)) {
           console.log(`ActivityMiddleware: Установка статуса онлайн для userId=${userId}, role=${role}, sessionID=${req.sessionID}`);
           await this.redisService.extendOnlineStatus(userId, role as 'jobseeker' | 'employer' | 'admin' | 'moderator');
-          const ttl = await this.redisService.getClient().ttl(`online:${userId}`);
-          console.log(`ActivityMiddleware: TTL для online:${userId} = ${ttl} секунд`);
+
+          const throttleKey = `lastseen:write:${userId}`;
+          const skip = await this.redisService.get(throttleKey);
+          if (!skip) {
+            try {
+              await this.usersService.touchLastSeen(userId);
+            } catch (e) {
+              console.error(`ActivityMiddleware: Ошибка touchLastSeen userId=${userId}: ${e.message}`);
+            }
+            await this.redisService.set(throttleKey, '1', 60);
+          }
+
           if (!req.session.user || req.session.user.id !== userId) {
             req.session.user = { id: userId, email: payload.email, role };
             req.session.save((err) => {

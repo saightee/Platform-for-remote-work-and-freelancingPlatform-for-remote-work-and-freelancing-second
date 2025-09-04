@@ -17,6 +17,7 @@ export class UsersService {
     private employerRepository: Repository<Employer>,
     @InjectRepository(Category) 
     private categoriesRepository: Repository<Category>,
+    @InjectRepository(User) private readonly usersRepo: Repository<User>,
   ) {}
 
   async create(
@@ -46,9 +47,14 @@ export class UsersService {
         ...(additionalData.job_search_status
           ? { job_search_status: additionalData.job_search_status }
           : { job_search_status: 'open_to_offers' }),
+        linkedin: additionalData.linkedin || null,
+        instagram: additionalData.instagram || null,
+        facebook: additionalData.facebook || null,
+        description: additionalData.description || null,
       };
       jobSeekerEntity.resume = additionalData.resume || null;
       jobSeekerEntity.experience = additionalData.experience || null;
+
       if (additionalData.skills && Array.isArray(additionalData.skills)) {
         jobSeekerEntity.skills = await this.categoriesRepository.findByIds(additionalData.skills);
       } else {
@@ -77,6 +83,14 @@ export class UsersService {
     }
 
     return savedUser;
+  }
+
+  async setLastLoginAt(userId: string): Promise<void> {
+    await this.usersRepository.update(userId, { last_login_at: () => 'CURRENT_TIMESTAMP' });
+  }
+
+  async touchLastSeen(userId: string): Promise<void> {
+    await this.usersRepository.update(userId, { last_seen_at: () => 'CURRENT_TIMESTAMP' });
   }
 
   async updateUser(

@@ -268,4 +268,54 @@ export class EmailService {
       }
     }
   }
+
+  async sendChatNewMessageNotification(args: {
+    toEmail: string;
+    username: string;
+    employerName: string;
+    jobTitle: string;
+    chatLink: string;
+    messageSnippet: string;
+  }): Promise<void> {
+    const maxRetries = 3;
+    let attempt = 1;
+  
+    const preview = this.stripHtml ? this.stripHtml(args.messageSnippet || '') : (args.messageSnippet || '');
+  
+    const templateId = Number(process.env.BREVO_TEMPLATE_CHAT_NEW_MESSAGE || 8);
+  
+    while (attempt <= maxRetries) {
+      try {
+        const res = await axios.post(
+          'https://api.brevo.com/v3/smtp/email',
+          {
+            sender: { name: 'JobForge', email: 'support@jobforge.net' },
+            to: [{ email: args.toEmail, name: args.username }],
+            templateId,
+            params: {
+              username: args.username,
+              senderName: args.employerName,
+              jobTitle: args.jobTitle,
+              chatLink: args.chatLink,
+              preview,
+            },
+          },
+          {
+            headers: {
+              'api-key': this.configService.get<string>('BREVO_API_KEY'),
+              'Content-Type': 'application/json',
+            },
+            timeout: 15000,
+          }
+        );
+        console.log('Chat notification sent:', res.data);
+        return;
+      } catch (error: any) {
+        console.error(`Attempt ${attempt} failed (chat email):`, error.message);
+        if (attempt === maxRetries) throw error;
+        attempt++;
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+      }
+    }
+  }
 }
