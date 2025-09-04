@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { submitFeedback } from '../services/api';
+import { submitIssueFeedback } from '../services/api';
 import '../styles/contact-support.css';
 
 const ReportIssue: React.FC = () => {
@@ -30,27 +30,15 @@ const ReportIssue: React.FC = () => {
     const v = validate();
     if (v) { setErr(v); return; }
 
-    // Склеиваем всё в одно сообщение для /api/feedback
-    const parts = [
-      `Category: ${category}`,
-      `Summary: ${summary.trim()}`,
-      steps.trim() && `Steps to reproduce:\n${steps.trim()}`,
-      expected.trim() && `Expected:\n${expected.trim()}`,
-      actual.trim() && `Actual:\n${actual.trim()}`,
-      [
-        'Context:',
-        `- URL: ${window.location.href}`,
-        `- UA: ${navigator.userAgent}`,
-        `- Locale: ${navigator.language}`,
-        `- TZ: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`,
-      ].join('\n'),
-    ].filter(Boolean) as string[];
-
-    const message = parts.join('\n\n');
-
     try {
       setSubmitting(true);
-      await submitFeedback(message); // <= /api/feedback { message }
+      await submitIssueFeedback({
+        category: category as 'Bug' | 'UI' | 'Performance' | 'Data' | 'Other',
+        summary: summary.trim(),
+        steps_to_reproduce: steps.trim() || undefined,
+        expected_result: expected.trim() || undefined,
+        actual_result: actual.trim() || undefined,
+      });
       setOk('Thanks! Your report has been submitted.');
       setCategory('');
       setSummary('');
@@ -115,33 +103,32 @@ const ReportIssue: React.FC = () => {
                 placeholder={`1) …\n2) …\n3) …`}
                 value={steps}
                 onChange={(e) => setSteps(e.target.value)}
-                maxLength={2000}
               />
             </div>
 
             <div className="cs-row">
-              <label className="cs-label">Expected result (optional)</label>
-              <input
-                className="cs-input"
+              <label className="cs-label">Expected (optional)</label>
+              <textarea
+                className="cs-textarea"
+                rows={3}
                 value={expected}
                 onChange={(e) => setExpected(e.target.value)}
-                maxLength={300}
               />
             </div>
 
             <div className="cs-row">
-              <label className="cs-label">Actual result (optional)</label>
-              <input
-                className="cs-input"
+              <label className="cs-label">Actual (optional)</label>
+              <textarea
+                className="cs-textarea"
+                rows={3}
                 value={actual}
                 onChange={(e) => setActual(e.target.value)}
-                maxLength={300}
               />
             </div>
 
-            <button className="cs-button" type="submit" disabled={submitting}>
-              {submitting ? 'Sending…' : 'Submit report'}
-            </button>
+            <div className="cs-actions">
+              <button className="cs-button" disabled={submitting}>Submit</button>
+            </div>
           </form>
         </div>
       </div>

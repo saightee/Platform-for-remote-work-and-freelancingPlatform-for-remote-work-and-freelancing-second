@@ -7,7 +7,7 @@ import { jwtDecode } from 'jwt-decode';
 import { 
   User, Profile, JobPost, Category, JobApplication, Review, Feedback, 
   BlockedCountry, LoginCredentials, RegisterCredentials, PaginatedResponse,
-  JobSeekerProfile, JobApplicationDetails, Message,
+  JobSeekerProfile, JobApplicationDetails, Message, PlatformFeedbackAdminItem, PlatformFeedbackList
 } from '@types';
 
 
@@ -90,6 +90,7 @@ api.interceptors.response.use(
 );
 
 export const submitPlatformFeedback = async (rating: number, description: string) => {
+  console.warn('submitPlatformFeedback(rating, description) is deprecated; use submitSuccessStory(payload) instead.');
   const response = await api.post('/platform-feedback', { rating, description });
   return response.data;
 };
@@ -98,14 +99,8 @@ export type IssuePayload = {
   category: 'Bug' | 'UI' | 'Performance' | 'Data' | 'Other';
   summary: string;
   steps_to_reproduce?: string;
-  expected?: string;
-  actual?: string;
-  context?: {
-    url?: string;
-    user_agent?: string;
-    locale?: string;
-    tz?: string;
-  };
+  expected_result?: string;
+  actual_result?: string;
 };
 
 export type StoryPayload = {
@@ -119,14 +114,7 @@ export type StoryPayload = {
 
 
 // services/api.ts
-export const submitIssueFeedback = async (payload: {
-  category: 'Bug' | 'UI' | 'Performance' | 'Data' | 'Other';
-  summary: string;
-  steps_to_reproduce?: string;
-  expected?: string;
-  actual?: string;
-  context?: Record<string, any>;
-}) => {
+export const submitIssueFeedback = async (payload: IssuePayload) => {
   const res = await api.post('/feedback', payload);
   return res.data;
 };
@@ -134,10 +122,10 @@ export const submitIssueFeedback = async (payload: {
 export const submitSuccessStory = async (payload: {
   headline: string;
   story: string;
-  role: 'Employer' | 'Jobseeker';
+  rating: number;
+  allow_publish: boolean;
   company?: string;
   country?: string;
-  consent_public: true;
 }) => {
   const res = await api.post('/platform-feedback', payload);
   return res.data;
@@ -925,10 +913,10 @@ export const getGlobalApplicationLimit = async () => {
 };
 
 // Feedback
-export const submitFeedback = async (message: string) => {
-  const response = await api.post<Feedback>('/feedback', { message });
-  return response.data;
-};
+// export const submitFeedback = async (message: string) => {
+//   const response = await api.post<Feedback>('/feedback', { message });
+//   return response.data;
+// };
 
 export const deletePlatformFeedback = async (id: string) => {
   try {
@@ -1169,15 +1157,11 @@ export const getAdminCategories = async () => {
   }
 };
 
-export const getPlatformFeedback = async () => {
-  try {
-    const response = await api.get('/admin/platform-feedback');
-    return response.data.data || []; // Paginated, так что data.data
-  } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>;
-    console.error('Error fetching platform feedback:', axiosError.response?.data?.message || axiosError.message);
-    throw axiosError;
-  }
+export const getPlatformFeedback = async (
+  params?: { page?: number; limit?: number; is_public?: boolean }
+): Promise<PlatformFeedbackList> => {
+  const { data } = await api.get<PlatformFeedbackList>('/admin/platform-feedback', { params });
+  return data; // { total, data: PlatformFeedbackAdminItem[] }
 };
 
 export const deleteCategory = async (id: string) => {
@@ -1185,7 +1169,15 @@ export const deleteCategory = async (id: string) => {
   return response.data;
 };
 
+export const publishPlatformFeedback = async (id: string): Promise<PlatformFeedbackAdminItem> => {
+  const { data } = await api.post(`/admin/platform-feedback/${id}/publish`);
+  return data;
+};
 
+export const unpublishPlatformFeedback = async (id: string): Promise<PlatformFeedbackAdminItem> => {
+  const { data } = await api.post(`/admin/platform-feedback/${id}/unpublish`);
+  return data;
+};
 
 // Убедитесь, что api экспортировано (если не было)
 export { api };

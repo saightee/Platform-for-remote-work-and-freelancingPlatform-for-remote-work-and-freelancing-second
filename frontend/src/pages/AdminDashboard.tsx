@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, Fragment } from 'react';
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, format } from 'date-fns';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, format, formatDistanceToNow } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz'; // Для времени по Маниле
 import { FaHome, FaSignOutAlt, FaUser, FaSearch, FaArrowUp, FaArrowDown, FaFilePdf, FaLink, FaCopy } from 'react-icons/fa'; // Иконки
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'; // Диаграммы
@@ -22,10 +22,10 @@ import {
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
-  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, api, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,
+  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, api, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, 
   // Добавляем logout из api
 } from '../services/api';
-import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile } from '@types';
+import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList } from '@types';
 import { AxiosError } from 'axios';
 // import {
 //   mockUsers, mockJobPosts, mockJobPostsWithApps, mockReviews, mockFeedback,
@@ -105,7 +105,8 @@ const [newParentCategoryId, setNewParentCategoryId] = useState<string>('');
 const [autoRefresh, setAutoRefresh] = useState(false);
 
 const [growthLimit] = useState(10); // Лимит на страницу
-const [stories, setStories] = useState<{ id: string; user_id: string; rating: number; description: string; created_at: string; updated_at: string; user: { id: string; username: string; role: string } }[]>([]);
+const [stories, setStories] = useState<PlatformFeedbackAdminItem[]>([]);
+
   const [analytics, setAnalytics] = useState<{
     totalUsers: number;
     employers: number;
@@ -199,7 +200,13 @@ const [username, setUsername] = useState<string>('Admin');
 
   const [showProfileModal, setShowProfileModal] = useState<string | null>(null); // Добавлено: state для модалки Profile
 const [selectedProfile, setSelectedProfile] = useState<JobSeekerProfile | null>(null);
-
+const renderDateCell = (iso?: string | null) => {
+  if (!iso) return '— / Never';
+  const d = new Date(iso);
+  const full = format(d, 'PP p'); // локальный формат проекта
+  const human = formatDistanceToNow(d, { addSuffix: true }); // “5 minutes ago”
+  return <span title={human}>{full}</span>; // человекочитаемое во всплывающей подсказке
+};
 const [referralFilterJobId, setReferralFilterJobId] = useState(''); // Добавлено: filter by jobId
 const [referralFilterJobTitle, setReferralFilterJobTitle] = useState(''); // Добавлено: filter by title
 const [expandedReferral, setExpandedReferral] = useState<string | null>(null); // Добавлено: для expandable registrations
@@ -792,7 +799,8 @@ useEffect(() => {
       | { globalApplicationLimit: number | null }
       | OnlineUsers
       | RecentRegistrations
-      | JobPostWithApplications[];
+      | JobPostWithApplications[]
+      | PlatformFeedbackList;
 
     const results = await Promise.allSettled(requests);
     const errors: { [key: string]: string } = {};
@@ -849,8 +857,11 @@ case 0:
           case 2:
             setIssues(value as Feedback[] || []);
             break;
-            case 3: setStories(value as { id: string; user_id: string; rating: number; description: string; created_at: string; updated_at: string; user: { id: string; username: string; role: string } }[] || []);
-            break;
+case 3: {
+  const { data } = value as PlatformFeedbackList;
+  setStories(data || []);
+  break;
+}
           case 4:
             setBlockedCountries(value as BlockedCountry[] || []);
             break;
@@ -1842,9 +1853,9 @@ if (isLoading) {
    <table className="dashboard-table">
   <thead>
     <tr>
-      <th onClick={() => handleUserSort('id')} style={{ cursor: 'pointer' }}>
+      {/* <th onClick={() => handleUserSort('id')} style={{ cursor: 'pointer' }}>
         ID {userSortColumn === 'id' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-      </th>
+      </th> */}
       <th>Username</th>
       <th>Email</th>
       <th onClick={() => handleUserSort('role')} style={{ cursor: 'pointer' }}>
@@ -1854,6 +1865,8 @@ if (isLoading) {
         Blocked Status {userSortColumn === 'is_blocked' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
       </th>
       <th>Online Status</th>
+      <th>Last online</th>
+      <th>Date joined</th>
       <th>Risk Score</th>
       <th>Actions</th>
     </tr>
@@ -1861,12 +1874,14 @@ if (isLoading) {
   <tbody>
   {usersToRender.length > 0 ? usersToRender.map((user) => (
     <tr key={user.id}>
-      <td>{user.id}</td>
+      {/* <td>{user.id}</td> */}
       <td>{user.username}</td>
       <td>{user.email}</td>
       <td>{user.role}</td>
       <td>{user.status === 'blocked' ? 'Blocked' : 'Active'}</td>
       <td>{onlineStatuses[user.id] ? 'Online' : 'Offline'}</td>
+      <td>{renderDateCell(user.last_seen_at)}</td>
+      <td>{renderDateCell(user.created_at)}</td>
       <td>
         <button onClick={() => handleViewRiskScore(user.id)} className="action-button">View Risk</button>
       </td>
@@ -1906,7 +1921,7 @@ if (isLoading) {
       </tr>
     )) : (
       <tr>
-        <td colSpan={8}>No users found.</td>
+        <td colSpan={9}>No users found.</td>
       </tr>
     )}
   </tbody>
@@ -2220,13 +2235,17 @@ if (isLoading) {
   </div>
 )}
 
-        {activeTab === 'Feedback' && (
+       {activeTab === 'Feedback' && (
   <div>
     <h4>Issues Feedback (Technical/Support)</h4>
     <table className="dashboard-table">
       <thead>
         <tr>
-          <th>Message</th>
+          <th>Category</th>
+          <th>Summary</th>
+          <th>Steps</th>
+          <th>Expected</th>
+          <th>Actual</th>
           <th>User</th>
           <th onClick={() => handleIssuesSort('created_at')} style={{ cursor: 'pointer' }}>
             Created At {issuesSortColumn === 'created_at' ? (issuesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
@@ -2236,66 +2255,117 @@ if (isLoading) {
       <tbody>
         {sortedIssues.length > 0 ? sortedIssues.map((fb) => (
           <tr key={fb.id}>
-            <td>{fb.message}</td>
+            <td>{fb.category}</td>
+            <td>{fb.summary}</td>
+            <td>{fb.steps_to_reproduce || '—'}</td>
+            <td>{fb.expected_result || '—'}</td>
+            <td>{fb.actual_result || '—'}</td>
             <td>{fb.user?.username || 'Unknown'}</td>
             <td>{format(new Date(fb.created_at), 'PP')}</td>
           </tr>
         )) : (
           <tr>
-            <td colSpan={3}>No issues feedback found.</td>
+            <td colSpan={7}>No issues feedback found.</td>
           </tr>
         )}
       </tbody>
     </table>
 
-    <h4>Success Stories Feedback</h4>
-    <table className="dashboard-table">
-      <thead>
-        <tr>
-          <th>Description</th>
-          <th>Rating</th>
-          <th>User</th>
-          <th onClick={() => handleStoriesSort('created_at')} style={{ cursor: 'pointer' }}>
-            Created At {storiesSortColumn === 'created_at' ? (storiesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-          </th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {sortedStories.length > 0 ? sortedStories.map((story) => (
-          <tr key={story.id}>
-            <td>{story.description}</td>
-            <td>{story.rating}</td>
-            <td>{story.user?.username || 'Unknown'}</td>
-            <td>{format(new Date(story.created_at), 'PP')}</td>
-            <td>
+
+   <h4>Success Stories Feedback</h4>
+<table className="dashboard-table">
+  <thead>
+    <tr>
+      <th>Headline</th>
+      <th>Rating</th>
+      <th>Consent</th>
+      <th>Public</th>
+      <th>Company</th>
+      <th>Country</th>
+      <th>User</th>
+      <th onClick={() => handleStoriesSort('created_at')} style={{ cursor: 'pointer' }}>
+        Created At {storiesSortColumn === 'created_at' ? (storiesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+      </th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {sortedStories.length > 0 ? sortedStories.map((story) => (
+      <tr key={story.id}>
+        <td title={story.story} style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {story.headline}
+        </td>
+        <td>{story.rating}</td>
+        <td>{story.allowed_to_publish ? 'Yes' : 'No'}</td>
+        <td>{story.is_public ? 'Yes' : 'No'}</td>
+        <td>{story.company || '—'}</td>
+        <td>{story.country || '—'}</td>
+        <td>{story.user?.username || 'Unknown'}</td>
+        <td>{format(new Date(story.created_at), 'PP')}</td>
+        <td style={{ display: 'flex', gap: 8 }}>
+          {/* Публиковать/Скрывать — ОДНА кнопка, и только если пользователь дал согласие */}
+          {story.allowed_to_publish ? (
+            story.is_public ? (
               <button
                 onClick={async () => {
-                  if (window.confirm('Are you sure you want to delete this story?')) {
-                    try {
-                      await deletePlatformFeedback(story.id);
-                      setStories(stories.filter((item) => item.id !== story.id));
-                      alert('Story deleted successfully!');
-                    } catch (error) {
-                      const axiosError = error as AxiosError<{ message?: string }>;
-                      console.error('Error deleting story:', axiosError);
-                      alert(axiosError.response?.data?.message || 'Failed to delete story.');
-                    }
+                  try {
+                    const updated = await unpublishPlatformFeedback(story.id);
+                    setStories(prev => prev.map(s => s.id === story.id ? { ...s, ...updated } : s));
+                  } catch (error) {
+                    const axiosError = error as AxiosError<{ message?: string }>;
+                    alert(axiosError.response?.data?.message || 'Failed to unpublish.');
                   }
                 }}
-                className="action-button danger"
+                className="action-button warning"
               >
-                Delete
+                Unpublish
               </button>
-            </td>
-          </tr>
-        )) : (
-          <tr>
-            <td colSpan={5}>No success stories found.</td>
-          </tr>
-        )}
-      </tbody>
-    </table>
+            ) : (
+              <button
+                onClick={async () => {
+                  try {
+                    const updated = await publishPlatformFeedback(story.id);
+                    setStories(prev => prev.map(s => s.id === story.id ? { ...s, ...updated } : s));
+                  } catch (error) {
+                    const axiosError = error as AxiosError<{ message?: string }>;
+                    alert(axiosError.response?.data?.message || 'Failed to publish.');
+                  }
+                }}
+                className="action-button success"
+              >
+                Publish
+              </button>
+            )
+          ) : null}
+
+          <button
+            onClick={async () => {
+              if (window.confirm('Are you sure you want to delete this story?')) {
+                try {
+                  await deletePlatformFeedback(story.id);
+                  setStories(stories.filter((item) => item.id !== story.id));
+                  alert('Story deleted successfully!');
+                } catch (error) {
+                  const axiosError = error as AxiosError<{ message?: string }>;
+                  console.error('Error deleting story:', axiosError);
+                  alert(axiosError.response?.data?.message || 'Failed to delete story.');
+                }
+              }
+            }}
+            className="action-button danger"
+          >
+            Delete
+          </button>
+        </td>
+      </tr>
+    )) : (
+      <tr>
+        <td colSpan={9}>No success stories found.</td>
+      </tr>
+    )}
+  </tbody>
+</table>
+
   </div>
 )}
           {activeTab === 'Categories' && (
