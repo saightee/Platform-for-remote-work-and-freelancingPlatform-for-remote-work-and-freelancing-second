@@ -884,10 +884,11 @@ export class AdminService {
 
     const subRegs = this.referralRegistrationsRepository
       .createQueryBuilder('rr')
-      .innerJoin('referral_links', 'rl', 'rl.id = rr.referral_link_id')
-      .innerJoin('job_posts', 'jp', 'jp.id = rl.job_post_id')
+      .innerJoin('rr.referral_link', 'rl')
+      .innerJoin('rl.job_post', 'jp')
+      .innerJoin('rr.user', 'ru')
       .where('jp.category_id IN (:...catIds)', { catIds: categoryIdsToMatch })
-      .select('DISTINCT rr.user_id');
+      .select('DISTINCT ru.id');
 
     const qb = this.jobSeekerRepository
       .createQueryBuilder('js')
@@ -912,13 +913,9 @@ export class AdminService {
 
     const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 1000) : 200;
     qb.take(safeLimit);
-    if (orderBy === 'beginning') {
-      qb.orderBy('u.created_at', 'ASC');
-    } else if (orderBy === 'end') {
-      qb.orderBy('u.created_at', 'DESC');
-    } else {
-      qb.addSelect('RANDOM()', 'r').orderBy('r', 'ASC');
-    }
+    if (orderBy === 'beginning') qb.orderBy('u.created_at', 'ASC');
+    else if (orderBy === 'end') qb.orderBy('u.created_at', 'DESC');
+    else qb.addSelect('RANDOM()', 'r').orderBy('r', 'ASC');
 
     const picked = await qb.getMany();
     let sent = 0;
