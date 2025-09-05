@@ -8,7 +8,8 @@ import { JobSeekerProfile, Review, Category } from '@types';
 import { useRole } from '../context/RoleContext';
 import {
   FaUserCircle, FaEnvelope, FaGlobe, FaClock, FaStar, FaRegStar,
-  FaBriefcase, FaLink, FaVideo, FaFilePdf, FaEye, FaShieldAlt, FaDollarSign
+  FaBriefcase, FaLink, FaVideo, FaFilePdf, FaEye, FaShieldAlt, FaDollarSign,
+  FaLinkedin, FaInstagram, FaFacebook
 } from 'react-icons/fa';
 import Loader from '../components/Loader';
 import '../styles/public-profile.css';
@@ -129,7 +130,7 @@ const PublicProfile: React.FC = () => {
   </li>
 )}
         <li>
-  <span className="ppx-kv-icon"><FaClock /></span>
+  <span className="ppx-kv-icon"><FaDollarSign /></span>
   <span className="ppx-kv-label">Currency</span>
   <span className="ppx-kv-value">{profile.currency || 'Not specified'}</span>
 </li>
@@ -186,6 +187,31 @@ const PublicProfile: React.FC = () => {
                   ) : ('Not specified')}
                 </span>
               </li>
+              {(profile as any).linkedin || (profile as any).instagram || (profile as any).facebook ? (
+  <li>
+    <span className="ppx-kv-icon"><FaLink /></span>
+    <span className="ppx-kv-label">Socials</span>
+    <span className="ppx-kv-value">
+      <div className="ppx-socials">
+        {(profile as any).linkedin && (
+          <a className="ppx-soc ppx-ln" href={(profile as any).linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+            <FaLinkedin />
+          </a>
+        )}
+        {(profile as any).instagram && (
+          <a className="ppx-soc ppx-ig" href={(profile as any).instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+            <FaInstagram />
+          </a>
+        )}
+        {(profile as any).facebook && (
+          <a className="ppx-soc ppx-fb" href={(profile as any).facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+            <FaFacebook />
+          </a>
+        )}
+      </div>
+    </span>
+  </li>
+) : null}
             </ul>
 
             {profile.skills?.length ? (

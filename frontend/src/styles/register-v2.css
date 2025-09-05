@@ -1,0 +1,246 @@
+:root{
+  --r2-accent:#4e74c8;
+  --r2-text:#1b1f2a;
+  --r2-muted:#6b7280;
+  --r2-bg:#f5f7ff;
+  --r2-white:#fff;
+  --r2-border:#e6ebff;
+  --r2-shadow:0 12px 32px rgba(18,33,73,.12);
+  --r2-shadow-sm:0 6px 18px rgba(18,33,73,.10);
+  --r2-radius:12px;
+}
+
+.reg2-shell{
+  min-height: 100dvh;               /* закрывает нижний «белый хвост» */
+  display: grid;
+  place-items: center;
+  padding: 24px 12px;
+  background: var(--r2-bg);
+}
+
+.reg2-card{
+  width:min(620px, 96vw);
+  background:var(--r2-white);
+  border-radius:var(--r2-radius);
+  box-shadow:var(--r2-shadow);
+  padding:28px 26px;
+}
+
+.reg2-title{
+  margin:0 0 14px;
+  text-align:center;
+  font-size:28px;
+  font-weight:800;
+  color:var(--r2-text);
+}
+
+/* form layout */
+.reg2-form{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:14px 16px;
+}
+.reg2-form.is-two{
+  grid-template-columns:1fr 1fr;  /* two columns on desktop for jobseeker */
+}
+.reg2-span2{ grid-column:1 / -1; }
+
+.reg2-field{ display:flex; flex-direction:column; gap:8px; }
+
+.reg2-label{
+  font-size:14px; font-weight:700; color:var(--r2-text);
+}
+.reg2-opt{ color:var(--r2-muted); font-weight:600; font-size:12px; margin-left:6px; }
+
+.reg2-input, .reg2-textarea, .reg2-select{
+  width:100%;
+  border:1px solid var(--r2-border);
+  border-radius:10px;
+  padding:12px 14px;
+  font-size:15px;
+  outline:none;
+  background:#fff;
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.reg2-input:focus, .reg2-textarea:focus, .reg2-select:focus{
+  border-color:var(--r2-accent);
+  box-shadow:0 0 0 4px rgba(78,116,200,.12);
+}
+.reg2-textarea{ resize:vertical; }
+
+.reg2-passwrap{ position:relative; }
+.reg2-eye{
+  position:absolute; right:8px; top:50%; transform:translateY(-50%);
+  border:0; background:transparent; color:#6b7280; cursor:pointer; font-size:18px;
+}
+
+/* notes */
+.reg2-note{ color:var(--r2-muted); font-size:12px; margin-top:-4px; }
+
+/* skills autocomplete */
+.reg2-auto{ position:relative; }
+.reg2-dd{
+  position:absolute; inset-inline:0; top:calc(100% + 6px);
+  background:#fff; border:1px solid var(--r2-border);
+  border-radius:10px; box-shadow:var(--r2-shadow-sm);
+  max-height:260px; overflow:auto; z-index:10;
+}
+.reg2-dd__item{
+  padding:10px 12px; cursor:pointer; font-size:14px;
+}
+.reg2-dd__item:hover{ background:#f7f9ff; }
+
+.reg2-tags{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.reg2-tag{
+  background:#eef2ff; color:#1f2937;
+  border:1px solid #dbe3ff; border-radius:999px;
+  padding:6px 10px; font-size:13px; display:inline-flex; align-items:center; gap:8px;
+}
+.reg2-tag__x{
+  border:0; background:transparent; cursor:pointer; font-size:16px; line-height:1; color:#4b5563;
+}
+
+/* divider for optional block */
+.reg2-divider{
+  margin-top:4px;
+  padding-top:12px;
+  border-top:1px dashed var(--r2-border);
+  color:var(--r2-muted);
+  font-weight:800; letter-spacing:.2px;
+}
+
+/* word counter */
+.reg2-counter{
+  text-align:right; font-size:12px; color:var(--r2-muted);
+  margin-top:4px;
+}
+.reg2-counter.is-over{ color:#b91c1c; }
+
+/* actions */
+.reg2-actions{ display:flex; justify-content:center; margin-top:6px; }
+.reg2-btn{
+  background:var(--r2-accent); color:#fff; border:0;
+  padding:12px 18px; border-radius:10px; font-weight:800;
+  box-shadow:var(--r2-shadow-sm); cursor:pointer;
+}
+.reg2-btn:hover{ transform:translateY(-1px); box-shadow:var(--r2-shadow); }
+.reg2-btn:disabled{ opacity:.6; cursor:not-allowed; transform:none; box-shadow:none; }
+
+.reg2-links{
+  display:flex; justify-content:space-between; flex-wrap:wrap;
+  gap:8px; color:var(--r2-muted); font-size:14px; margin-top:4px;
+}
+.reg2-links a{ color:var(--r2-accent); font-weight:700; text-decoration:none; }
+.reg2-links a:hover{ text-decoration:underline; }
+
+/* alerts */
+.reg2-alert{
+  border-radius:10px; padding:10px 12px; font-size:14px; margin-bottom:10px;
+}
+.reg2-alert--err{ background:#fdecea; color:#8a231f; box-shadow:var(--r2-shadow-sm); }
+
+/* responsive */
+@media (max-width: 800px){
+  .reg2-form{ grid-template-columns:1fr; }
+}
+/* password input: место под иконку + нормальная кликабельная зона */
+.reg2-passwrap { position: relative; }
+
+/* ДАЁМ input запас справа, чтобы текст/плейсхолдер не заходили под иконку */
+.reg2-passwrap .reg2-input {
+  padding-right: 48px;              /* было 14px -> теперь хватает даже на мобилках */
+}
+
+/* Иконка занимает всю высоту поля и не перекрывает текст */
+.reg2-eye{
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 40px;                      /* удобный тач-таргет */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transform: none;                  /* убираем translateY */
+}
+
+/* Чуть адаптируем на очень узких экранах */
+@media (max-width: 380px){
+  .reg2-passwrap .reg2-input { padding-right: 44px; }
+  .reg2-eye { width: 36px; }
+  .reg2-eye svg { font-size: 16px; }
+}
+
+/* В Edge скрываем стандартную « reveal »-иконку, чтобы не дублировалась */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear{
+  display: none;
+}
+
+/* ===============================
+   MOBILE: всё в один столбик
+   =============================== */
+@media (max-width: 640px) {
+  /* любой грид регистрации — одна колонка */
+  .reg2-grid { 
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ширина элементов внутри — на всю строку */
+  .reg2-field,
+  .reg2-field--full,
+  .reg2-input,
+  .reg2-select,
+  .reg2-textarea { 
+    width: 100%;
+  }
+
+  /* кнопка-сабмит на всю ширину и чуть компактнее */
+  .reg2-cta { 
+    width: 100%;
+    padding: 12px 16px;
+  }
+
+  /* комфортная зона клика для «глаза» и не перекрываем плейсхолдер */
+  .reg2-pw .reg2-input { 
+    padding-right: 46px;     /* место под иконку */
+    height: 48px;            /* единая высота на мобилке */
+    line-height: 48px;
+  }
+  .reg2-pw__btn {
+    width: 40px;
+    right: 6px;              /* не прилегаем к краю */
+    height: 40px;
+  }
+}
+.reg2-grid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:14px;
+}
+
+/* --- MOBILE: форсируем одну колонку для любой сетки регистрации --- */
+@media (max-width: 640px) {
+  .reg2-form,
+  .reg2-form.is-two,
+  .reg2-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* на всякий — элементы, которые растягивались на 2 колонки */
+  .reg2-span2 {
+    grid-column: 1 / -1;
+  }
+
+  /* поле пароля: запас под «глаз» и удобный тап-таргет */
+  .reg2-passwrap .reg2-input { padding-right: 48px; height: 48px; }
+  .reg2-eye { width: 40px; height: 100%; right: 0; top: 0; transform: none; }
+}
+
+@supports (-webkit-touch-callout: none) {
+  .reg2-shell { min-height: -webkit-fill-available; }
+}

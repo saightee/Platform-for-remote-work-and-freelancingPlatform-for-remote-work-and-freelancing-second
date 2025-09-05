@@ -24,7 +24,21 @@ import heroImg3 from '../assets/57130.png';
 import heroImg4 from '../assets/58136.png';
 import ReactCountryFlag from 'react-country-flag';
 import { Helmet } from 'react-helmet-async';
+import { jwtDecode } from 'jwt-decode';
 
+type JwtPayload = { exp?: number };
+
+const isAuthenticated = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const t = localStorage.getItem('token');
+  if (!t) return false;
+  try {
+    const { exp } = jwtDecode<JwtPayload>(t);
+    return !exp || exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+};
 
 const Home: React.FC = () => {
   const [jobs, setJobs] = useState<JobPost[]>([]);
@@ -32,7 +46,7 @@ const Home: React.FC = () => {
   const [filters, setFilters] = useState<{ title?: string }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+ const authed = isAuthenticated();
   const [stats, setStats] = useState({
     totalResumes: 0,
     totalJobPosts: 0,
@@ -591,7 +605,11 @@ const handleCookieConsent = () => {
               Whether you're seeking top remote talent or your next virtual opportunity,
               JobForge connects you to endless possibilities worldwide.
             </p>
-            <Link to="/role-selection" className="hv-final-cta-button">Get Started Today</Link>
+                {!authed && (
+              <Link to="/role-selection" className="hv-final-cta-button">
+                Get Started Today
+              </Link>
+            )}
           </div>
         </div>
       </div>

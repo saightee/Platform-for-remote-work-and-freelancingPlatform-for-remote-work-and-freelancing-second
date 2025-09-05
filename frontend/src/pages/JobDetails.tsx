@@ -37,8 +37,9 @@ const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const ref = params.get('ref');
   if (ref) {
     localStorage.setItem('referralCode', ref);
+    if (id) localStorage.setItem('referralJobId', id);
   }
-}, []);
+}, [id]);
 
   useEffect(() => {
     const fetchJob = async () => {

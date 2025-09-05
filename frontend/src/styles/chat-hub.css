@@ -159,7 +159,11 @@
 
 /* модалки */
 .ch-modal{ position:fixed; inset:0; background:rgba(9,13,28,.35); display:grid; place-items:center; padding:16px; z-index:50; }
-.ch-modal__content{ width:100%; max-width:520px; background:#fff; border-radius:12px; padding:18px; box-shadow:var(--ch-card-shadow); position:relative; }
+.ch-modal__content{ width:100%; max-width:520px; background:#fff; border-radius:12px; padding:18px; box-shadow:var(--ch-card-shadow); position:relative; max-height:88vh; 
+  overflow:auto; 
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  word-break: break-word;  }
 .ch-modal__close{ position:absolute; top:10px; right:12px; background:#fff; border:none; font-size:24px; line-height:1; cursor:pointer; color:#333; }
 
 .ch-form{ display:grid; gap:14px; }
@@ -315,4 +319,19 @@
   border:1px solid rgba(16,185,129,.6);
   background:#ecfdf5;
   margin-left:6px;
+}
+
+/* кликабельное имя */
+.ch-link{
+  color:#3358cc;
+  text-decoration:none;
+  font-weight:700;
+}
+.ch-link:hover{ text-decoration:underline; }
+
+/* дата подачи заявки в карточке чата слева */
+.ch-chatlist__applied{
+  font-size:12px;
+  color:var(--ch-muted);
+  white-space:nowrap;
 }

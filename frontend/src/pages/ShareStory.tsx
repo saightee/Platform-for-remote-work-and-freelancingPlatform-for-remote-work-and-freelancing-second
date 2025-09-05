@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
+import RatingPicker from '../components/RatingPicker';
 import { submitSuccessStory } from '../services/api';
 import '../styles/contact-support.css';
+
 
 const ShareStory: React.FC = () => {
   const [headline, setHeadline] = useState('');
@@ -97,10 +99,15 @@ const ShareStory: React.FC = () => {
               <div className="cs-hint">{story.trim().length}/2000</div>
             </div>
 
-            <div className="cs-row" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* <div className="cs-row" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <label className="cs-label">Rating</label>
               <input className="cs-label-rating" type="number" min={1} max={5} value={rating} onChange={(e) => setRating(Number(e.target.value))} />
-            </div>
+            </div> */}
+
+            <div className="cs-row" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+  <label className="cs-label">Rating</label>
+  <RatingPicker value={rating} onChange={setRating} />
+</div>
 
             <div className="cs-row">
               <label className="cs-label">Company (optional)</label>
