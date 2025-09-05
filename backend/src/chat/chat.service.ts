@@ -43,7 +43,7 @@ export class ChatService {
   async createMessage(senderId: string, jobApplicationId: string, content: string): Promise<Message> {
     const application = await this.jobApplicationsRepository.findOne({
       where: { id: jobApplicationId },
-      relations: ['job_post', 'job_seeker', 'job_post.employer', 'job_post.employer.user'],
+      relations: ['job_post', 'job_seeker', 'job_post.employer'],
     });
     if (!application) {
       throw new NotFoundException('Job application not found');
