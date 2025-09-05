@@ -868,18 +868,14 @@ export class AdminService {
     await this.checkAdminRole(adminId);
 
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
-    if (!jobPost) {
-      throw new NotFoundException('Job post not found');
-    }
-    if (!jobPost.category_id) {
-      throw new BadRequestException('Job post has no category assigned');
-    }
+    if (!jobPost) throw new NotFoundException('Job post not found');
+    if (!jobPost.category_id) throw new BadRequestException('Job post has no category assigned');
     if (jobPost.status !== 'Active') {
       throw new BadRequestException('Notifications can only be sent for active job posts');
     }
 
     const currentCategory = await this.categoriesService.getCategoryById(jobPost.category_id);
-    let categoryIdsToMatch: string[] = [];
+    let categoryIdsToMatch: string[];
     if (!currentCategory.parent_id) {
       categoryIdsToMatch = await this.categoriesService.getDescendantIdsIncludingSelf(jobPost.category_id);
     } else {
@@ -895,11 +891,11 @@ export class AdminService {
 
     const qb = this.jobSeekerRepository
       .createQueryBuilder('js')
-      .leftJoinAndSelect('js.user', 'user')
+      .leftJoinAndSelect('js.user', 'u')
       .where(`js.user_id IN (${subRegs.getQuery()})`)
-      .andWhere('user.role = :role', { role: 'jobseeker' })
-      .andWhere('user.status = :status', { status: 'active' })
-      .andWhere('user.is_email_verified = :verified', { verified: true })
+      .andWhere('u.role = :role', { role: 'jobseeker' })
+      .andWhere('u.status = :status', { status: 'active' })
+      .andWhere('u.is_email_verified = :verified', { verified: true })
       // не слать тем, кто уже подался на ЭТУ вакансию
       .andWhere(`NOT EXISTS (
         SELECT 1 FROM job_applications a2
@@ -908,7 +904,7 @@ export class AdminService {
       // и не слать тем, кому уже отправляли по ЭТОЙ вакансии
       .andWhere(`NOT EXISTS (
         SELECT 1 FROM email_notifications en
-        WHERE en.job_post_id = :thisJob AND en.recipient_email = user.email
+        WHERE en.job_post_id = :thisJob AND en.recipient_email = u.email
       )`, { thisJob: jobPostId })
       .setParameters(subRegs.getParameters());
 
@@ -917,9 +913,9 @@ export class AdminService {
     const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 1000) : 200;
     qb.take(safeLimit);
     if (orderBy === 'beginning') {
-      qb.orderBy('user.created_at', 'ASC');
+      qb.orderBy('u.created_at', 'ASC');
     } else if (orderBy === 'end') {
-      qb.orderBy('user.created_at', 'DESC');
+      qb.orderBy('u.created_at', 'DESC');
     } else {
       qb.addSelect('RANDOM()', 'r').orderBy('r', 'ASC');
     }
