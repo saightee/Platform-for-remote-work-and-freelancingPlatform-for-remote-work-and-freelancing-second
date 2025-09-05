@@ -849,6 +849,16 @@ export class AdminService {
     };
   }
 
+  private async getCategoryMatchIds(categoryId: string, includeSiblings = false): Promise<string[]> {
+    const cat = await this.categoriesService.getCategoryById(categoryId); 
+    if (!cat.parent_id) {
+      return this.categoriesService.getDescendantIdsIncludingSelf(categoryId);
+    }
+    if (!includeSiblings) return [categoryId, cat.parent_id];
+    return this.categoriesService.getDescendantIdsIncludingSelf(cat.parent_id);
+  }
+
+
   async notifyReferralApplicants(
     adminId: string,
     jobPostId: string,
@@ -856,78 +866,91 @@ export class AdminService {
     orderBy: 'beginning' | 'end' | 'random',
   ) {
     await this.checkAdminRole(adminId);
-  
-    const jobPost = await this.jobPostsRepository.findOne({
-      where: { id: jobPostId },
-      relations: ['employer', 'category'],
-    });
-    if (!jobPost) throw new NotFoundException('Job post not found');
-    if (!jobPost.category_id) throw new BadRequestException('Job post has no category assigned');
+
+    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
+    if (!jobPost) {
+      throw new NotFoundException('Job post not found');
+    }
+    if (!jobPost.category_id) {
+      throw new BadRequestException('Job post has no category assigned');
+    }
     if (jobPost.status !== 'Active') {
       throw new BadRequestException('Notifications can only be sent for active job posts');
     }
-  
-    // подберём пользователей, у кого были ЗАЯВКИ по реф-ссылке в этой категории
-    const subAppliedViaReferral = this.jobApplicationsRepository
-      .createQueryBuilder('a')
-      .leftJoin('a.job_post', 'prev')
-      .where('a.referral_link_id IS NOT NULL')
-      .andWhere('prev.category_id = :catId', { catId: jobPost.category_id })
-      .select('a.job_seeker_id');
-  
+
+    const currentCategory = await this.categoriesService.getCategoryById(jobPost.category_id);
+    let categoryIdsToMatch: string[] = [];
+    if (!currentCategory.parent_id) {
+      categoryIdsToMatch = await this.categoriesService.getDescendantIdsIncludingSelf(jobPost.category_id);
+    } else {
+      categoryIdsToMatch = [jobPost.category_id, currentCategory.parent_id];
+    }
+
+    const subRegs = this.referralRegistrationsRepository
+      .createQueryBuilder('rr')
+      .innerJoin('referral_links', 'rl', 'rl.id = rr.referral_link_id')
+      .innerJoin('job_posts', 'jp', 'jp.id = rl.job_post_id')
+      .where('jp.category_id IN (:...catIds)', { catIds: categoryIdsToMatch })
+      .select('DISTINCT rr.user_id');
+
     const qb = this.jobSeekerRepository
       .createQueryBuilder('js')
       .leftJoinAndSelect('js.user', 'user')
-      .where(`js.user_id IN (${subAppliedViaReferral.getQuery()})`)
+      .where(`js.user_id IN (${subRegs.getQuery()})`)
       .andWhere('user.role = :role', { role: 'jobseeker' })
       .andWhere('user.status = :status', { status: 'active' })
-      .andWhere('user.is_email_verified = :isEmailVerified', { isEmailVerified: true })
-      // исключаем тех, кто УЖЕ подался на эту вакансию
+      .andWhere('user.is_email_verified = :verified', { verified: true })
+      // не слать тем, кто уже подался на ЭТУ вакансию
       .andWhere(`NOT EXISTS (
         SELECT 1 FROM job_applications a2
         WHERE a2.job_post_id = :thisJob AND a2.job_seeker_id = js.user_id
       )`, { thisJob: jobPostId })
-      // и тех, кому уже слали письмо по этой вакансии (не обязательно, но полезно)
+      // и не слать тем, кому уже отправляли по ЭТОЙ вакансии
       .andWhere(`NOT EXISTS (
         SELECT 1 FROM email_notifications en
         WHERE en.job_post_id = :thisJob AND en.recipient_email = user.email
       )`, { thisJob: jobPostId })
-      .setParameters(subAppliedViaReferral.getParameters());
-      
+      .setParameters(subRegs.getParameters());
+
     const total = await qb.getCount();
-      
-    qb.take(limit);
-    if (orderBy === 'beginning') qb.orderBy('user.created_at', 'ASC');
-    else if (orderBy === 'end') qb.orderBy('user.created_at', 'DESC');
-    else qb.addSelect('RANDOM()', 'r').orderBy('r', 'ASC');
-      
-    const jobSeekers = await qb.getMany();
-      
+
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 1000) : 200;
+    qb.take(safeLimit);
+    if (orderBy === 'beginning') {
+      qb.orderBy('user.created_at', 'ASC');
+    } else if (orderBy === 'end') {
+      qb.orderBy('user.created_at', 'DESC');
+    } else {
+      qb.addSelect('RANDOM()', 'r').orderBy('r', 'ASC');
+    }
+
+    const picked = await qb.getMany();
     let sent = 0;
-    for (const js of jobSeekers) {
+    for (const js of picked) {
       try {
+        const url = `${this.configService.get('BASE_URL')}/jobs/${jobPost.id}`;
         const resp = await this.emailService.sendJobNotification(
           js.user.email,
           js.user.username,
           jobPost.title,
           jobPost.description,
-          `${this.configService.get('BASE_URL')}/jobs/${jobPost.id}`,
+          url,
         );
         await this.emailNotificationsRepository.save(
           this.emailNotificationsRepository.create({
             job_post_id: jobPostId,
             recipient_email: js.user.email,
             recipient_username: js.user.username,
-            message_id: resp.messageId,
+            message_id: resp?.messageId,
             sent_at: new Date(),
           }),
         );
         sent++;
       } catch (e) {
-        console.error(`Failed to send email to ${js.user.email}:`, (e as Error).message);
+        console.error(`NotifyReferralApplicants: failed to send to ${js.user.email}:`, (e as Error).message);
       }
     }
-  
+
     return { total, sent, jobPostId };
   }
 
