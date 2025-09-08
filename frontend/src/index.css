@@ -518,14 +518,14 @@ color: #4e74c8;
 }
 
 .hv-hiring-banner-title {
-  font-size: 32px;
+  font-size: 24px;
   font-weight: bold;
   color: #333;
   margin: 0;
 }
 
 .hv-hiring-banner-subtitle {
-  font-size: 18px;
+  font-size: 15px;
   color: #666;
   margin: 5px 0;
 }
@@ -574,11 +574,11 @@ color: #4e74c8;
 
   .hv-hiring-banner-left-icon,
   .hv-hiring-banner-right-icons {
-    margin: 10px 0;
+    margin: 0px 0;
   }
 
   .hv-hiring-banner-button {
-    margin: 10px 0 0;
+    margin: 16px 0 10px;
   }
 }
 
@@ -1347,12 +1347,12 @@ display: grid;
 /* Десктоп/планшет — обычная сетка */
 .rt-testimonials-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
 }
 
 .rt-testimonial-card {
-  background-color: #fff;
+  background-color: #4e74c808;
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
@@ -1361,6 +1361,7 @@ display: grid;
   font-size: 14px;
   color: #666;
 }
+
 
 /* бейджи/иконки/текст — как было */
 .rt-badge {
@@ -1443,6 +1444,9 @@ display: grid;
   .rt-dots { display: flex; }
 }
 
+
+
+
 /* Features Section */
 .features {
   text-align: center;
@@ -1462,7 +1466,7 @@ display: grid;
 }
 
 .feature-card {
-  background-color: white;
+  background-color: #4e74c808;
   padding: 30px 20px;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -6721,7 +6725,7 @@ header nav.mobile-menu-open .find-job {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5); /* Dark overlay */
+  background-color: rgba(0, 0, 0, 0.6); /* Dark overlay */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7045,7 +7049,7 @@ header nav.mobile-menu-open .find-job {
 
 /* ===== Общая карточка ===== */
 .jc-card {
-  background: var(--jc-bg);
+  background-color: #4e74c808;
   border: 1px solid var(--jc-border);
   border-radius: var(--jc-radius);
   box-shadow: var(--jc-shadow);
@@ -7130,7 +7134,7 @@ header nav.mobile-menu-open .find-job {
 }
 
 .jc-chip {
-  background: var(--jc-chip);
+  background: #4e74c80f;
   border: 1px solid var(--jc-border);
   padding: 6px 10px;
   border-radius: 10px;
@@ -7210,7 +7214,7 @@ header nav.mobile-menu-open .find-job {
 /* Кнопка в твоем цвете */
 .jc-btn {
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 8px 12px;
   font-weight: 700;
   font-size: 0.95rem;
   cursor: pointer;
@@ -7572,10 +7576,10 @@ header nav.mobile-menu-open .find-job {
   display: flex;
   align-items: stretch;
   background: var(--sb-bg);
-  border: 1px solid var(--sb-border);
-  border-radius: var(--sb-radius);
+  /* border: 1px solid var(--sb-border); */
+  border-radius: 10px;
   box-shadow: var(--sb-shadow);
-  overflow: hidden;            /* важно: чтобы фон кнопки доходил до скруглений */
+  overflow: hidden;     
   width: 100%;
   max-width: 840px;
 }
@@ -8493,4 +8497,28 @@ html, body { overflow-x: hidden; }
 .apply-btn:hover {
   transform: translateY(-1px);
   box-shadow: var(--cs-shadow, 0 10px 30px rgba(18,33,73,.12));
+}
+
+
+
+.divider-icon {
+  position: relative;
+  text-align: center;
+  margin: 40px auto;
+}
+.divider-icon::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0; right: 0;
+  height: 2px;
+  background: #e5e7eb;
+}
+.divider-icon span {
+  position: relative;
+  background: #fff;
+  padding: 0 12px;
+  color: #4e74c8;
+  font-weight: 600;
+  font-size: 14px;
 }

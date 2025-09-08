@@ -911,17 +911,19 @@ useEffect(() => {
     <div className="ch-chatlist__row">
       {/* Имя как ссылка на публичный профиль; останавливаем всплытие */}
       {currentRole === 'employer' && chat.userId ? (
-        <Link
-          to={`/public-profile/${chat.userId}`}
-          onClick={(e) => e.stopPropagation()}
-          className="ch-link"
-          title={`Open ${chat.partner}'s profile`}
-        >
-          {chat.partner}
-        </Link>
-      ) : (
-        <span className="ch-chatlist__partner">{chat.partner}</span>
-      )}
+  <a
+    href={`/public-profile/${chat.userId}`}
+    onClick={(e) => e.stopPropagation()}   /* чтобы не срабатывал выбор чата */
+    className="ch-link"
+    title={`Open ${chat.partner}'s profile`}
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    {chat.partner}
+  </a>
+) : (
+  <span className="ch-chatlist__partner">{chat.partner}</span>
+)}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {chat.status === 'Accepted' && <span className="ch-chip">Interview</span>}
@@ -1101,13 +1103,15 @@ useEffect(() => {
                     <h3 className="ch-chat__title">
   Chat with{' '}
   {currentRole === 'employer' && currentApp ? (
-    <Link
-      to={`/public-profile/${currentApp.userId}`}
-      className="ch-link"
-      title="Open applicant profile"
-    >
-      {currentApp.username}
-    </Link>
+<a
+  href={`/public-profile/${currentApp.userId}`}
+  className="ch-link"
+  title="Open applicant profile"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  {currentApp.username}
+</a>
   ) : (
     <span>
       {applications.find((a) => a.id === selectedChat)?.job_post?.employer?.username || 'Unknown'}

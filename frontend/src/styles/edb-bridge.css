@@ -608,3 +608,18 @@
     justify-self:start; font-size:12px;
   }
 }
+
+
+/* Одинаковая 5-колоночная сетка для шапки и строк */
+.edb-table .edb-thead,
+.edb-table .edb-row__head {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.2fr 1fr 1.2fr; /* Applicant | Job | Status | Applied | Actions */
+  align-items: center;
+  gap: 12px;
+}
+
+/* Для надёжности: запретим перенос заголовков на новую строку */
+.edb-table .edb-thead > div {
+  white-space: nowrap;
+}

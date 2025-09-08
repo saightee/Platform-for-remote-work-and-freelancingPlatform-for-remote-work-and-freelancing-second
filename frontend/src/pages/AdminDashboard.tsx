@@ -11,6 +11,7 @@ import Copyright from '../components/Copyright';
 import { useRole } from '../context/RoleContext';
 import Loader from '../components/Loader';
 import sanitizeHtml from 'sanitize-html';
+import '../styles/admin-settings.css';
 import {
   getAllUsers, getUserById, updateUser, deleteUser, resetUserPassword,
   getAllJobPosts, updateJobPostAdmin, deleteJobPostAdmin, approveJobPost, flagJobPost,
@@ -3482,137 +3483,174 @@ if (isLoading) {
     <h4>Settings</h4>
 
     {/* --- Global Application Limit (как было) --- */}
-    <div className="dashboard-section">
-      <h3>Global Application Limit</h3>
-      {fetchErrors.getGlobalApplicationLimit && <p className="error-message">{fetchErrors.getGlobalApplicationLimit}</p>}
-      <p>Current Limit: {globalLimit !== null ? globalLimit : 'Not set'}</p>
-      <button onClick={handleSetGlobalLimit} className="action-button">Set Global Limit</button>
+    {/* === Global Application Limit === */}
+<section className="bo-card">
+  <header className="bo-card__head">
+    <h3 className="bo-card__title">Global Application Limit</h3>
+  </header>
+
+  <div className="bo-card__body">
+    {fetchErrors.getGlobalApplicationLimit && (
+      <p className="bo-msg bo-msg--err">{fetchErrors.getGlobalApplicationLimit}</p>
+    )}
+
+    <div className="bo-grid">
+      <div className="bo-row">
+        <div className="bo-row__label">Current limit</div>
+        <div className="bo-row__control">
+          <span className="bo-kv">{globalLimit !== null ? globalLimit : 'Not set'}</span>
+        </div>
+      </div>
+
+      <div className="bo-row">
+        <div className="bo-row__label" />
+        <div className="bo-row__control">
+          <button onClick={handleSetGlobalLimit} className="bo-btn bo-btn--primary">
+            Set Global Limit
+          </button>
+        </div>
+      </div>
     </div>
+  </div>
+</section>
 
-    {/* --- Chat Notifications --- */}
-    <div className="dashboard-section">
-      <h3>Chat Notifications (Employer → Jobseeker)</h3>
+{/* === Chat Notifications (Employer → Jobseeker) === */}
+<section className="bo-card">
+  <header className="bo-card__head">
+    <h3 className="bo-card__title">Chat Notifications (Employer → Jobseeker)</h3>
+  </header>
 
-      {fetchErrors.chatNotif && <p className="error-message">{fetchErrors.chatNotif}</p>}
-      {chatNotifLoading && <p>Loading…</p>}
+  <div className="bo-card__body">
+    {fetchErrors.chatNotif && <p className="bo-msg bo-msg--err">{fetchErrors.chatNotif}</p>}
+    {chatNotifLoading && <p className="bo-msg">Loading…</p>}
 
-      {chatNotif && (
-        <>
-          {/* master toggle */}
-          <div className="form-group">
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                type="checkbox"
-                checked={chatNotif.enabled}
-                onChange={(e) =>
-                  updateCN(p => ({ ...p, enabled: e.target.checked }))
-                }
-              />
-              Enable notifications
-            </label>
-          </div>
-
-          {/* On employer message */}
-          <fieldset
-            className="form-group"
-            style={{ opacity: chatNotif.enabled ? 1 : 0.6 }}
-            disabled={!chatNotif.enabled}
-          >
-            <legend>On employer message</legend>
-
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                type="checkbox"
-                checked={chatNotif.onEmployerMessage.immediate}
-                onChange={(e) =>
-                  updateCN(p => ({
-                    ...p,
-                    onEmployerMessage: {
-                      ...p.onEmployerMessage,
-                      immediate: e.target.checked,
-                    },
-                  }))
-                }
-              />
-              Send immediately
-            </label>
-
-            <div style={{ marginTop: 8 }}>
-              <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+    {chatNotif && (
+      <>
+        {/* master toggle */}
+        <div className="bo-block">
+          <div className="bo-row bo-row--switch">
+            <label className="bo-row__label">Enable notifications</label>
+            <div className="bo-row__control">
+              <label className="bo-switch">
                 <input
                   type="checkbox"
-                  checked={chatNotif.onEmployerMessage.delayedIfUnread.enabled}
-                  onChange={(e) =>
-                    updateCN(p => ({
-                      ...p,
-                      onEmployerMessage: {
-                        ...p.onEmployerMessage,
-                        delayedIfUnread: {
-                          ...p.onEmployerMessage.delayedIfUnread,
-                          enabled: e.target.checked,
-                        },
-                      },
-                    }))
-                  }
+                  checked={chatNotif.enabled}
+                  onChange={(e) => updateCN(p => ({ ...p, enabled: e.target.checked }))}
                 />
-                Delayed reminder if unread
-              </label>
-
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
-                <span>Minutes:</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={10080}
-                  value={chatNotif.onEmployerMessage.delayedIfUnread.minutes}
-                  disabled={
-                    !chatNotif.enabled ||
-                    !chatNotif.onEmployerMessage.delayedIfUnread.enabled
-                  }
-                  onChange={(e) => {
-                    const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 10080);
-                    updateCN(p => ({
-                      ...p,
-                      onEmployerMessage: {
-                        ...p.onEmployerMessage,
-                        delayedIfUnread: { ...p.onEmployerMessage.delayedIfUnread, minutes: n },
-                      },
-                    }));
-                  }}
-                  style={{ width: 100 }}
-                />
-              </div>
-
-              <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={chatNotif.onEmployerMessage.onlyFirstMessageInThread}
-                  onChange={(e) =>
-                    updateCN(p => ({
-                      ...p,
-                      onEmployerMessage: {
-                        ...p.onEmployerMessage,
-                        onlyFirstMessageInThread: e.target.checked,
-                      },
-                    }))
-                  }
-                />
-                Only first message in thread
+                <span className="bo-switch__slider" />
               </label>
             </div>
-          </fieldset>
+          </div>
+        </div>
 
-          {/* Throttle */}
-          <fieldset
-            className="form-group"
-            style={{ opacity: chatNotif.enabled ? 1 : 0.6 }}
-            disabled={!chatNotif.enabled}
-          >
-            <legend>Throttle (per chat)</legend>
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-              <label>
-                Count:
+        {/* On employer message */}
+        <fieldset className={`bo-subcard ${chatNotif.enabled ? '' : 'is-disabled'}`} disabled={!chatNotif.enabled}>
+          <legend className="bo-subcard__legend">On employer message</legend>
+
+          <div className="bo-grid">
+            <div className="bo-row bo-row--switch">
+              <label className="bo-row__label">Send immediately</label>
+              <div className="bo-row__control">
+                <label className="bo-switch">
+                  <input
+                    type="checkbox"
+                    checked={chatNotif.onEmployerMessage.immediate}
+                    onChange={(e) =>
+                      updateCN(p => ({
+                        ...p,
+                        onEmployerMessage: { ...p.onEmployerMessage, immediate: e.target.checked },
+                      }))
+                    }
+                  />
+                  <span className="bo-switch__slider" />
+                </label>
+              </div>
+            </div>
+
+            <div className="bo-row bo-row--switch">
+              <label className="bo-row__label">Delayed reminder if unread</label>
+              <div className="bo-row__control bo-inline">
+                <label className="bo-switch">
+                  <input
+                    type="checkbox"
+                    checked={chatNotif.onEmployerMessage.delayedIfUnread.enabled}
+                    onChange={(e) =>
+                      updateCN(p => ({
+                        ...p,
+                        onEmployerMessage: {
+                          ...p.onEmployerMessage,
+                          delayedIfUnread: {
+                            ...p.onEmployerMessage.delayedIfUnread,
+                            enabled: e.target.checked,
+                          },
+                        },
+                      }))
+                    }
+                  />
+                  <span className="bo-switch__slider" />
+                </label>
+
+                <div className="bo-field">
+                  <label className="bo-field__label">Minutes</label>
+                  <input
+                    className="bo-input bo-input--sm"
+                    type="number"
+                    min={1}
+                    max={10080}
+                    value={chatNotif.onEmployerMessage.delayedIfUnread.minutes}
+                    disabled={
+                      !chatNotif.enabled ||
+                      !chatNotif.onEmployerMessage.delayedIfUnread.enabled
+                    }
+                    onChange={(e) => {
+                      const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 10080);
+                      updateCN(p => ({
+                        ...p,
+                        onEmployerMessage: {
+                          ...p.onEmployerMessage,
+                          delayedIfUnread: { ...p.onEmployerMessage.delayedIfUnread, minutes: n },
+                        },
+                      }));
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bo-row bo-row--switch">
+              <label className="bo-row__label">Only first message in thread</label>
+              <div className="bo-row__control">
+                <label className="bo-switch">
+                  <input
+                    type="checkbox"
+                    checked={chatNotif.onEmployerMessage.onlyFirstMessageInThread}
+                    onChange={(e) =>
+                      updateCN(p => ({
+                        ...p,
+                        onEmployerMessage: {
+                          ...p.onEmployerMessage,
+                          onlyFirstMessageInThread: e.target.checked,
+                        },
+                      }))
+                    }
+                  />
+                  <span className="bo-switch__slider" />
+                </label>
+              </div>
+            </div>
+          </div>
+        </fieldset>
+
+        {/* Throttle */}
+        <fieldset className={`bo-subcard ${chatNotif.enabled ? '' : 'is-disabled'}`} disabled={!chatNotif.enabled}>
+          <legend className="bo-subcard__legend">Throttle (per chat)</legend>
+
+          <div className="bo-grid">
+            <div className="bo-row">
+              <label className="bo-row__label">Count</label>
+              <div className="bo-row__control">
                 <input
+                  className="bo-input bo-input--sm"
                   type="number"
                   min={1}
                   max={100}
@@ -3621,12 +3659,15 @@ if (isLoading) {
                     const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 100);
                     updateCN(p => ({ ...p, throttle: { ...p.throttle, perChatCount: n } }));
                   }}
-                  style={{ width: 100, marginLeft: 8 }}
                 />
-              </label>
-              <label>
-                Per minutes:
+              </div>
+            </div>
+
+            <div className="bo-row">
+              <label className="bo-row__label">Per minutes</label>
+              <div className="bo-row__control">
                 <input
+                  className="bo-input bo-input--sm"
                   type="number"
                   min={1}
                   max={10080}
@@ -3635,33 +3676,38 @@ if (isLoading) {
                     const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 10080);
                     updateCN(p => ({ ...p, throttle: { ...p.throttle, perMinutes: n } }));
                   }}
-                  style={{ width: 120, marginLeft: 8 }}
                 />
-              </label>
+              </div>
             </div>
-            <p className="form-note" style={{ marginTop: 6 }}>
-              Counts both immediate and delayed emails per single chat.
-            </p>
-          </fieldset>
 
-          {chatNotifWarning && (
-            <p className="error-message" role="alert" aria-live="polite" style={{ marginTop: 6 }}>
-              {chatNotifWarning}
-            </p>
-          )}
-
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button className="action-button success" onClick={saveChatNotif} disabled={chatNotifSaving}>
-              {chatNotifSaving ? 'Saving…' : 'Save'}
-            </button>
-            <button className="action-button" onClick={loadChatNotif} disabled={chatNotifLoading || chatNotifSaving}>
-              Reset
-            </button>
+            <div className="bo-row">
+              <div className="bo-row__label" />
+              <div className="bo-row__control">
+                <p className="bo-note">Counts both immediate and delayed emails per single chat.</p>
+              </div>
+            </div>
           </div>
-        </>
-      )}
-    </div>
+        </fieldset>
+
+        {chatNotifWarning && (
+          <p className="bo-msg bo-msg--warn" role="alert" aria-live="polite">{chatNotifWarning}</p>
+        )}
+
+        <div className="bo-actions">
+          <button className="bo-btn bo-btn--success" onClick={saveChatNotif} disabled={chatNotifSaving}>
+            {chatNotifSaving ? 'Saving…' : 'Save'}
+          </button>
+          <button className="bo-btn" onClick={loadChatNotif} disabled={chatNotifLoading || chatNotifSaving}>
+            Reset
+          </button>
+        </div>
+      </>
+    )}
   </div>
+</section>
+
+    </div>
+  
 )}
 
 
