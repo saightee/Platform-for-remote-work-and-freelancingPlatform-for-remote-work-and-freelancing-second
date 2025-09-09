@@ -1191,14 +1191,14 @@ export const resendVerification = async (email: string) => {
 import { ChatNotificationsSettings } from '@types';
 
 export const getChatNotificationSettings = async (): Promise<ChatNotificationsSettings> => {
-  const { data } = await api.get('/api/admin/settings/chat-notifications');
+  const { data } = await api.get('/admin/settings/chat-notifications');
   return data;
 };
 
 export const updateChatNotificationSettings = async (
   payload: Partial<ChatNotificationsSettings>
 ): Promise<ChatNotificationsSettings> => {
-  const { data } = await api.post('/api/admin/settings/chat-notifications', payload);
+  const { data } = await api.post('/admin/settings/chat-notifications', payload);
   return data;
 };
 

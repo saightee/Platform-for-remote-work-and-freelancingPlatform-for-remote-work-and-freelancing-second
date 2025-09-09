@@ -327,7 +327,7 @@
   text-decoration:none;
   font-weight:700;
 }
-.ch-link:hover{ text-decoration:underline; }
+
 
 /* дата подачи заявки в карточке чата слева */
 .ch-chatlist__applied{
