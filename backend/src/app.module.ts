@@ -28,6 +28,7 @@ import { ActivityMiddleware } from './middleware/activity.middleware';
 import { PlatformFeedbackModule } from './platform-feedback/platform-feedback.module';
 import { ReferralsModule } from './referrals/referrals.module';
 import { ContactModule } from './contact/contact.module';
+import { SeoModule } from './seo/seo.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { ContactModule } from './contact/contact.module';
     PlatformFeedbackModule,
     ReferralsModule,
     ContactModule,
+    SeoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

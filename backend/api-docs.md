@@ -544,14 +544,16 @@
     "title": "Software Engineer",
     "description": "Develop and maintain web applications.",
     "location": "Remote",
-    "salary": 50000,  // Can be null if salary_type is 'negotiable'
+    "salary": 50000,
     "status": "Active",
     "category_id": "<categoryId>",
     "job_type": "Full-time",
-    "salary_type": "per month",  // Can be 'negotiable'
+    "salary_type": "per month",
     "employer_id": "<userId>",
     "views": 0,
     "pending_review": true,
+    "slug": "software-engineer-remote",
+    "slug_id": "software-engineer-remote--8df3b0be",
     "created_at": "2025-07-08T07:00:00.000Z",
     "updated_at": "2025-07-08T07:00:00.000Z"
   }
@@ -606,17 +608,19 @@
   ```json
   {
     "id": "<jobPostId>",
-    "title": "Software Engineer",
+    "title": "Senior Software Engineer",
     "description": "Develop and maintain web applications.",
     "location": "Remote",
-    "salary": 50000,  // Can be null if salary_type is 'negotiable'
+    "salary": 60000,
     "status": "Active",
     "category_id": "<categoryId>",
     "job_type": "Full-time",
-    "salary_type": "per month",  // Can be 'negotiable'
+    "salary_type": "per month",
     "employer_id": "<userId>",
     "views": 0,
     "pending_review": true,
+    "slug": "senior-software-engineer-remote",
+    "slug_id": "senior-software-engineer-remote--8df3b0be",
     "created_at": "2025-07-08T07:00:00.000Z",
     "updated_at": "2025-07-08T07:00:00.000Z"
   }
@@ -683,7 +687,7 @@
     "title": "Software Engineer",
     "description": "Develop and maintain web applications.",
     "location": "Remote",
-    "salary": null,  // Can be null if salary_type is 'negotiable'
+    "salary": null,
     "status": "Active",
     "category_id": "<categoryId>",
     "job_type": "Full-time",
@@ -691,6 +695,50 @@
     "employer_id": "<userId>",
     "views": 10,
     "pending_review": false,
+    "slug": "software-engineer-remote",
+    "slug_id": "software-engineer-remote--8df3b0be",
+    "created_at": "2025-07-08T07:00:00.000Z",
+    "updated_at": "2025-07-08T07:00:00.000Z",
+    "employer": {
+      "id": "<userId>",
+      "username": "employer1",
+      "email": "employer@example.com",
+      "role": "employer"
+    },
+    "category": {
+      "id": "<categoryId>",
+      "name": "Development"
+    }
+  }
+- **Response (Error - 404, if job post not found)**:  
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
+  }
+
+### 10. Get Job Post by Slug or ID
+- **Endpoint**: `GET /api/job-posts/by-slug-or-id/:slugOrId`
+- **Description**: Возвращает вакансию по slug_id, slug или по UUID id. Приоритет: slug_id → slug → id.
+- **Request Parameters**: `id`: The ID of the job post.
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "<jobPostId>",
+    "title": "Software Engineer",
+    "description": "Develop and maintain web applications.",
+    "location": "Remote",
+    "salary": null,
+    "status": "Active",
+    "category_id": "<categoryId>",
+    "job_type": "Full-time",
+    "salary_type": "negotiable",
+    "employer_id": "<userId>",
+    "views": 10,
+    "pending_review": false,
+    "slug": "software-engineer-remote",
+    "slug_id": "software-engineer-remote--8df3b0be",
     "created_at": "2025-07-08T07:00:00.000Z",
     "updated_at": "2025-07-08T07:00:00.000Z",
     "employer": {
@@ -3821,11 +3869,14 @@
   {
     "id": "<linkId>",
     "refCode": "<uuid>",
-    "fullLink": "https://yourdomain.com/ref/<uuid>",
     "jobPostId": "<jobPostId>",
     "description": "Facebook Ads, campaign A",
     "clicks": 0,
-    "registrations": 0
+    "registrations": 0,
+
+    "landingPath": "/job/<slug_id>",
+    "fullLink": "https://jobforge.net/job/<slug_id>?ref=<uuid>",
+    "legacyLink": "https://jobforge.net/ref/<uuid>"
   }
 - **Error: 404 if job post not found, 401 if not admin.**
 
@@ -3840,14 +3891,22 @@
     {
       "id": "<linkId>",
       "refCode": "<uuid>",
-      "fullLink": "https://yourdomain.com/ref/<uuid>",
       "jobPostId": "<jobId>",
-      "job_post": { "id": "<jobId>", "title": "Job Title" },
+      "job_post": {
+        "id": "<jobId>",
+        "title": "Job Title",
+        "slug": "job-title-remote",
+        "slug_id": "job-title-remote--8df3b0be"
+      },
       "description": "Facebook Ads, campaign A",
       "clicks": 10,
       "registrations": 5,
       "registrationsDetails": [ /* ... */ ],
-      "created_at": "2025-07-31T00:00:00.000Z"
+      "created_at": "2025-07-31T00:00:00.000Z",
+
+      "landingPath": "/job/<slug_id>",
+      "fullLink": "https://jobforge.net/job/<slug_id>?ref=<uuid>",
+      "legacyLink": "https://jobforge.net/ref/<uuid>"
     }
   ]
 - **Error: 401 if not admin.**
@@ -3855,6 +3914,23 @@
 ### 85.1 List Referral Links by Job Post (Admin)
 - **Endpoint**: `GET /api/admin/job-posts/:id/referral-links`
 - **Description**: Lists all referral links for a job post.
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "id": "<linkId>",
+      "refCode": "<uuid>",
+      "jobPostId": "<jobId>",
+      "description": "YouTube Influencer X",
+      "clicks": 3,
+      "registrations": 1,
+      "created_at": "2025-08-12T11:12:00.000Z",
+  
+      "landingPath": "/job/<slug_id>",
+      "fullLink": "https://jobforge.net/job/<slug_id>?ref=<uuid>",
+      "legacyLink": "https://jobforge.net/ref/<uuid>"
+    }
+  ]
 
 ### 85.2 Update Referral Link Description (Admin)
 - **Endpoint**: `PUT /api/admin/referral-links/:linkId`
@@ -3872,6 +3948,11 @@
 - **Endpoint**: `GET /ref/:refCode`
 - **Description**: Increments click count and redirects to the job post page.
 - **Response: Redirect to /jobs/<jobid>, or 404 if invalid.</jobid>**
+
+### 86.1 Track Referral Click (Public)
+- **Endpoint**: `POST /api/ref/track`
+- **Description**: Регистрирует клик по рефкоду на SPA-лендинге (когда открывается /job/<slug_id>?ref=<refCode>). Вызывать один раз при первом маунте страницы.
+- **Response: { "ok": true, "jobPostId": "<jobPostId>" }**
 
 ### 87. Get Chat History
 - **Endpoint**: `GET /api/chat/:jobApplicationId`

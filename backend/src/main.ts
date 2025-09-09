@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import * as express from 'express';
 import { RedisService } from './redis/redis.service';
 import { ConfigService } from '@nestjs/config';
+import { RequestMethod } from '@nestjs/common';
 
 const session = require('express-session');
 const connectRedis = require('connect-redis');
@@ -53,7 +54,12 @@ async function bootstrap() {
     next();
   });
 
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', {
+    exclude: [
+      { path: 'sitemap.xml', method: RequestMethod.GET },
+      { path: 'robots.txt',  method: RequestMethod.GET },
+    ],
+  });
   setInterval(() => redisService.cleanOldSessions(), 3600 * 1000);
   await app.listen(port);
 }
