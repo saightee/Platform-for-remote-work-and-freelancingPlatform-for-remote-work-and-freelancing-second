@@ -849,6 +849,104 @@ export class AdminService {
     };
   }
 
+  private async getCategoryMatchIds(categoryId: string, includeSiblings = false): Promise<string[]> {
+    const cat = await this.categoriesService.getCategoryById(categoryId); 
+    if (!cat.parent_id) {
+      return this.categoriesService.getDescendantIdsIncludingSelf(categoryId);
+    }
+    if (!includeSiblings) return [categoryId, cat.parent_id];
+    return this.categoriesService.getDescendantIdsIncludingSelf(cat.parent_id);
+  }
+
+
+  async notifyReferralApplicants(
+    adminId: string,
+    jobPostId: string,
+    limit: number,
+    orderBy: 'beginning' | 'end' | 'random',
+  ) {
+    await this.checkAdminRole(adminId);
+
+    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
+    if (!jobPost) throw new NotFoundException('Job post not found');
+    if (!jobPost.category_id) throw new BadRequestException('Job post has no category assigned');
+    if (jobPost.status !== 'Active') {
+      throw new BadRequestException('Notifications can only be sent for active job posts');
+    }
+
+    const currentCategory = await this.categoriesService.getCategoryById(jobPost.category_id);
+    let categoryIdsToMatch: string[];
+    if (!currentCategory.parent_id) {
+      categoryIdsToMatch = await this.categoriesService.getDescendantIdsIncludingSelf(jobPost.category_id);
+    } else {
+      categoryIdsToMatch = [jobPost.category_id, currentCategory.parent_id];
+    }
+
+    const subRegs = this.referralRegistrationsRepository
+      .createQueryBuilder('rr')
+      .innerJoin('rr.referral_link', 'rl')
+      .innerJoin('rl.job_post', 'jp')
+      .innerJoin('rr.user', 'ru')
+      .where('jp.category_id IN (:...catIds)', { catIds: categoryIdsToMatch })
+      .select('DISTINCT ru.id');
+
+    const qb = this.jobSeekerRepository
+      .createQueryBuilder('js')
+      .leftJoinAndSelect('js.user', 'u')
+      .where(`js.user_id IN (${subRegs.getQuery()})`)
+      .andWhere('u.role = :role', { role: 'jobseeker' })
+      .andWhere('u.status = :status', { status: 'active' })
+      .andWhere('u.is_email_verified = :verified', { verified: true })
+      // не слать тем, кто уже подался на ЭТУ вакансию
+      .andWhere(`NOT EXISTS (
+        SELECT 1 FROM job_applications a2
+        WHERE a2.job_post_id = :thisJob AND a2.job_seeker_id = js.user_id
+      )`, { thisJob: jobPostId })
+      // и не слать тем, кому уже отправляли по ЭТОЙ вакансии
+      .andWhere(`NOT EXISTS (
+        SELECT 1 FROM email_notifications en
+        WHERE en.job_post_id = :thisJob AND en.recipient_email = u.email
+      )`, { thisJob: jobPostId })
+      .setParameters(subRegs.getParameters());
+
+    const total = await qb.getCount();
+
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 1000) : 200;
+    qb.take(safeLimit);
+    if (orderBy === 'beginning') qb.orderBy('u.created_at', 'ASC');
+    else if (orderBy === 'end') qb.orderBy('u.created_at', 'DESC');
+    else qb.addSelect('RANDOM()', 'r').orderBy('r', 'ASC');
+
+    const picked = await qb.getMany();
+    let sent = 0;
+    for (const js of picked) {
+      try {
+        const url = `${this.configService.get('BASE_URL')}/jobs/${jobPost.id}`;
+        const resp = await this.emailService.sendJobNotification(
+          js.user.email,
+          js.user.username,
+          jobPost.title,
+          jobPost.description,
+          url,
+        );
+        await this.emailNotificationsRepository.save(
+          this.emailNotificationsRepository.create({
+            job_post_id: jobPostId,
+            recipient_email: js.user.email,
+            recipient_username: js.user.username,
+            message_id: resp?.messageId,
+            sent_at: new Date(),
+          }),
+        );
+        sent++;
+      } catch (e) {
+        console.error(`NotifyReferralApplicants: failed to send to ${js.user.email}:`, (e as Error).message);
+      }
+    }
+
+    return { total, sent, jobPostId };
+  }
+
   async getEmailStatsForJobPost(adminId: string, jobPostId: string) {
     await this.checkAdminRole(adminId);
 

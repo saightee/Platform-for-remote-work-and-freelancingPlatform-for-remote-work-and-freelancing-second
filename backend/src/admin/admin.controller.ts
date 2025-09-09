@@ -713,6 +713,38 @@ export class AdminController {
       body.orderBy,
     );
   }
+  
+  @Post('job-posts/:id/notify-referral-applicants')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async notifyReferralApplicants(
+    @Param('id') jobPostId: string,
+    @Body() body: {
+      limit: number;
+      orderBy: 'beginning' | 'end' | 'random';
+    },
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userIdAdmin = payload.sub;
+
+    if (!body.limit || !Number.isInteger(body.limit) || body.limit < 1) {
+      throw new BadRequestException('Limit must be a positive integer');
+    }
+    if (!['beginning', 'end', 'random'].includes(body.orderBy)) {
+      throw new BadRequestException('OrderBy must be one of: beginning, end, random');
+    }
+    
+    return this.adminService.notifyReferralApplicants(
+      payload.sub,
+      jobPostId,
+      body.limit,
+      body.orderBy,
+    );
+  }
 
   @Get('chat/:jobApplicationId')
   @UseGuards(AuthGuard('jwt'), AdminGuard)
@@ -906,11 +938,11 @@ export class AdminController {
 
   @Post('webhooks/brevo')
   async handleBrevoWebhook(@Body() body: any) {
-    console.log('Webhook received:', JSON.stringify(body, null, 2));  
+    console.log('Webhook received:', JSON.stringify(body, null, 2)); 
 
     const event = body.event;
     const messageId = body['message-id'];
-    const timestamp = body.ts;  
+    const timestamp = body.ts;
 
     console.log('Extracted event:', event, 'messageId:', messageId, 'timestamp:', timestamp);
 
@@ -928,7 +960,7 @@ export class AdminController {
 
       console.log('Found notification:', notification);
 
-      if (['opened', 'first_opening', 'open'].includes(event)) {
+      if (['first_opening', 'unique_opened'].includes(event)) {
         notification.opened = true;
         notification.opened_at = new Date(timestamp * 1000);
         console.log('Updating opened for notification:', notification.id);
