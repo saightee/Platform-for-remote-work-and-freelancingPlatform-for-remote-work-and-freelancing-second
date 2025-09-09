@@ -1070,4 +1070,6 @@ export class AdminController {
     await this.settingsService.setChatNotificationSettings(normalized);
     return { message: 'Chat notification settings updated', settings: normalized };
   }
+
+  
 }

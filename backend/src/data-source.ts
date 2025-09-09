@@ -1,4 +1,3 @@
-// src/data-source.ts
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import * as path from 'path';

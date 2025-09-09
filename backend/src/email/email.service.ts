@@ -94,13 +94,26 @@ export class EmailService {
     toEmail: string,
     username: string,
     jobTitle: string,
-    jobDescription: string,
+    jobDescriptionHtml: string,
     jobLink: string,
-  ): Promise<any> { 
+    options?: {
+      location?: string;
+      salary?: number | null;
+      salary_type?: 'per hour' | 'per month' | 'negotiable';
+      job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+    }
+  ): Promise<any> {
     const maxRetries = 3;
     let attempt = 1;
 
-    const cleanedDescription = this.stripHtml(jobDescription);
+    const preview = this.stripHtml(jobDescriptionHtml).replace(/\s+/g, ' ').trim();
+
+    const salaryDisplay =
+      options?.salary_type === 'negotiable'
+        ? 'Negotiable'
+        : (options?.salary != null
+            ? `${options.salary} ${options?.salary_type === 'per hour' ? 'per hour' : options?.salary_type === 'per month' ? 'per month' : ''}`.trim()
+            : 'Not specified');
 
     while (attempt <= maxRetries) {
       try {
@@ -109,12 +122,15 @@ export class EmailService {
           {
             sender: { name: 'JobForge', email: 'support@jobforge.net' },
             to: [{ email: toEmail, name: username }],
-            templateId: 4, 
+            templateId: 4,
             params: {
               username,
               jobTitle,
-              jobDescription: cleanedDescription,
+              jobDescription: preview,
               jobLink,
+              location: options?.location || 'Not specified',
+              jobType: options?.job_type || 'Not specified',
+              salaryDisplay,
             },
           },
           {
@@ -125,13 +141,9 @@ export class EmailService {
             timeout: 15000,
           },
         );
-        console.log(`Job notification email sent to ${toEmail}:`, response.data);
-        return response.data;  
-      } catch (error) {
-        console.error(`Attempt ${attempt} failed for ${toEmail}:`, error.message);
-        if (attempt === maxRetries) {
-          throw new Error(`Failed to send job notification email after ${maxRetries} attempts: ${error.message}`);
-        }
+        return response.data;
+      } catch (error: any) {
+        if (attempt === maxRetries) throw new Error(`Failed to send job notification email after ${maxRetries} attempts: ${error.message}`);
         attempt++;
         await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
       }

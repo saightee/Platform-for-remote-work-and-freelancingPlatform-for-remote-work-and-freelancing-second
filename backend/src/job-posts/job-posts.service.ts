@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { marked } from 'marked';
 import sanitizeHtml from 'sanitize-html';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class JobPostsService {
@@ -26,6 +27,16 @@ export class JobPostsService {
     private settingsService: SettingsService,
     private configService: ConfigService, 
   ) {}
+
+  private slugify(input: string): string {
+    return (input || '')
+      .toLowerCase()
+      .trim()
+      .replace(/&/g, ' and ')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-');
+  }
 
   async createJobPost(userId: string, jobPostData: { 
     title: string; 
@@ -46,7 +57,7 @@ export class JobPostsService {
     if (user.role !== 'employer') {
       throw new UnauthorizedException('Only employers can create job posts');
     }
-  
+
     if (jobPostData.category_id) {
       await this.categoriesService.getCategoryById(jobPostData.category_id);
     }
@@ -68,25 +79,32 @@ export class JobPostsService {
         job_type: jobPostData.job_type,
       });
     }
-  
+
     const limitObj = await this.settingsService.getGlobalApplicationLimit();
     let globalLimit = limitObj.globalApplicationLimit;
     if (!Number.isFinite(globalLimit) || globalLimit < 0) {
       globalLimit = 100; 
     }
-  
+
     const jobPost = this.jobPostsRepository.create({
       ...jobPostData,
       employer_id: userId,
       pending_review: true,
     });
     const savedJobPost = await this.jobPostsRepository.save(jobPost);
-  
+
+    const baseSlug = this.slugify(savedJobPost.title || '');
+    const shortId = (savedJobPost.id || '').replace(/-/g, '').slice(0, 8);
+    savedJobPost.slug = baseSlug || null;
+    savedJobPost.slug_id = baseSlug && shortId ? `${baseSlug}--${shortId}` : null;
+
+    await this.jobPostsRepository.save(savedJobPost);
+
     await this.applicationLimitsService.initializeLimits(savedJobPost.id, globalLimit);
-  
+
     return savedJobPost;
   }
-  
+
   async updateJobPost(
     userId: string,
     jobPostId: string,
@@ -134,6 +152,8 @@ export class JobPostsService {
       });
     }
 
+    const titleChanged = !!updates.title && updates.title !== jobPost.title;
+
     if (updates.title) jobPost.title = updates.title;
     if (updates.description) jobPost.description = updates.description;
     if (updates.location) jobPost.location = updates.location;
@@ -144,7 +164,28 @@ export class JobPostsService {
     if (updates.salary_type) jobPost.salary_type = updates.salary_type;
     if (updates.excluded_locations) jobPost.excluded_locations = updates.excluded_locations;
 
-    return this.jobPostsRepository.save(jobPost);
+    if (titleChanged) {
+      const baseSlug = this.slugify(jobPost.title || '');
+      const shortId = (jobPost.id || '').replace(/-/g, '').slice(0, 8);
+      jobPost.slug = baseSlug || null;
+      jobPost.slug_id = baseSlug && shortId ? `${baseSlug}--${shortId}` : null;
+    }
+
+    return await this.jobPostsRepository.save(jobPost);
+  }
+
+  async getBySlugOrId(slugOrId: string) {
+    let post = await this.jobPostsRepository.findOne({ where: { slug_id: slugOrId } });
+    if (post) return post;
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(slugOrId)) {
+      post = await this.jobPostsRepository.findOne({ where: { id: slugOrId } });
+    }
+    if (!post) {
+      throw new NotFoundException('Job post not found');
+    }
+    return post;
   }
 
   async getJobPost(jobPostId: string) {

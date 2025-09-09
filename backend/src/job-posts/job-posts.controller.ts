@@ -177,4 +177,9 @@ export class JobPostsController {
     }
     return this.jobPostsService.generateDescription({ aiBrief, title, location, salary, salary_type, job_type });
   }
+
+  @Get('by-slug-or-id/:slugOrId')
+  async getBySlugOrId(@Param('slugOrId') slugOrId: string) {
+    return this.jobPostsService.getBySlugOrId(slugOrId);
+  }
 }

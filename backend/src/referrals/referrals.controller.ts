@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Res, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Param, Res, NotFoundException, Post, Body, BadRequestException } from '@nestjs/common';
 import { Response } from 'express';
 import { AdminService } from '../admin/admin.service';
 
@@ -22,5 +22,14 @@ export class ReferralsController {
         res.status(500).send('Internal server error');
       }
     }
+  }
+
+  @Post('track')
+  async trackClick(@Body('ref') ref: string) {
+    if (!ref) {
+      throw new BadRequestException('ref is required');
+    }
+    const jobPostId = await this.adminService.incrementClick(ref);
+    return { ok: true, jobPostId };
   }
 }

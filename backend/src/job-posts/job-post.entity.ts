@@ -3,6 +3,7 @@ import { User } from '../users/entities/user.entity';
 import { Category } from '../categories/category.entity';
 import { JobApplication } from '../job-applications/job-application.entity'; 
 import { ReferralLink } from '../referrals/entities/referral-link.entity';
+import { Index } from 'typeorm';
 
 @Entity('job_posts')
 export class JobPost {
@@ -61,6 +62,12 @@ export class JobPost {
 
   @OneToMany(() => ReferralLink, (link) => link.job_post)
   referralLinks: ReferralLink[];
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  slug: string | null;
+
+  @Column({ type: 'varchar', length: 300, unique: true, nullable: true })
+  slug_id: string | null;
 
   @CreateDateColumn()
   created_at: Date;
