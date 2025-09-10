@@ -357,7 +357,7 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
             {!isEditing && (
               <div className="pf-actions-top">
                 <button className="pf-button" onClick={() => setIsEditing(true)}>Edit Profile</button>
-                <button className="pf-button pf-danger" onClick={handleDeleteAccount}>Delete Account</button>
+                {/* <button className="pf-button pf-danger" onClick={handleDeleteAccount}>Delete Account</button> */}
               </div>
             )}
           </div>

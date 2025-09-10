@@ -909,21 +909,8 @@ useEffect(() => {
 >
   <div className="ch-chatlist__meta">
     <div className="ch-chatlist__row">
-      {/* Имя как ссылка на публичный профиль; останавливаем всплытие */}
-      {currentRole === 'employer' && chat.userId ? (
-  <a
-    href={`/public-profile/${chat.userId}`}
-    onClick={(e) => e.stopPropagation()}   /* чтобы не срабатывал выбор чата */
-    className="ch-link"
-    title={`Open ${chat.partner}'s profile`}
-    target="_blank"
-    rel="noopener noreferrer"
-  >
-    {chat.partner}
-  </a>
-) : (
-  <span className="ch-chatlist__partner">{chat.partner}</span>
-)}
+  
+   <span className="ch-chatlist__partner">{chat.partner}</span>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {chat.status === 'Accepted' && <span className="ch-chip">Interview</span>}

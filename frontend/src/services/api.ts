@@ -1212,3 +1212,19 @@ export const notifyReferralApplicants = (
   }
 ) => api.post(`/admin/job-posts/${jobPostId}/notify-referral-applicants`, payload)
        .then(r => r.data);
+
+
+
+export const getJobBySlugOrId = async (slugOrId: string) => {
+  const { data } = await api.get<JobPost>(`/job-posts/by-slug-or-id/${slugOrId}`);
+  return data;
+};
+
+// Track referral click once per visit
+export const trackReferralClick = async (ref: string) => {
+  try {
+    await api.post('/ref/track', { ref });
+  } catch (e) {
+    console.warn('ref track failed', e);
+  }
+};
