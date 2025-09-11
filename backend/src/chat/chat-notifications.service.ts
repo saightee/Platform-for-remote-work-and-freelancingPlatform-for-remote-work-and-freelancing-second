@@ -62,7 +62,6 @@ export class ChatNotificationsService {
       if (cnt > 1 && !settings.onEmployerMessage.delayedIfUnread.enabled) return;
     }
 
-    const chatLink = this.buildChatLink(saved.job_application_id);
     const employerName =
       application.job_post?.employer?.username || 'Employer'; // ← У нас employer — User, без company_name/user. :contentReference[oaicite:2]{index=2}
     const jobTitle = application.job_post?.title || 'Job';
@@ -82,7 +81,6 @@ export class ChatNotificationsService {
             username: recipient.username || 'there',
             employerName,
             jobTitle,
-            chatLink,
             messageSnippet: this.snippet(saved.content),
           });
         },
@@ -178,7 +176,6 @@ export class ChatNotificationsService {
               username: recipient.username || 'there',
               employerName,
               jobTitle,
-              chatLink: this.buildChatLink(job.jobApplicationId),
               messageSnippet: 'You have unread messages in the chat.',
             });
           },
@@ -212,11 +209,6 @@ export class ChatNotificationsService {
   private snippet(text: string, maxLen = 140) {
     const s = (text || '').replace(/\s+/g, ' ').trim();
     return s.length > maxLen ? s.slice(0, maxLen - 1) + '…' : s;
-  }
-
-  private buildChatLink(jobApplicationId: string) {
-    const base = this.config.get<string>('FRONTEND_URL') || '';
-    return `${base}/jobseeker-dashboard/messages?applicationId=${encodeURIComponent(jobApplicationId)}`;
   }
 
   private async isRecipientOnline(userId: string): Promise<boolean> {

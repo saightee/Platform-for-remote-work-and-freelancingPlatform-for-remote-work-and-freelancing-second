@@ -286,16 +286,17 @@ export class EmailService {
     username: string;
     employerName: string;
     jobTitle: string;
-    chatLink: string;
     messageSnippet: string;
   }): Promise<void> {
     const maxRetries = 3;
     let attempt = 1;
-  
+
     const preview = this.stripHtml ? this.stripHtml(args.messageSnippet || '') : (args.messageSnippet || '');
-  
+    const base = this.configService.get<string>('BASE_URL') || 'https://jobforge.net';
+    const chatLink = base.replace(/\/api\/?$/, '') + '/jobseeker-dashboard/messages';
+
     const templateId = Number(process.env.BREVO_TEMPLATE_CHAT_NEW_MESSAGE || 8);
-  
+
     while (attempt <= maxRetries) {
       try {
         const res = await axios.post(
@@ -308,7 +309,7 @@ export class EmailService {
               username: args.username,
               senderName: args.employerName,
               jobTitle: args.jobTitle,
-              chatLink: args.chatLink,
+              chatLink,
               preview,
             },
           },
