@@ -164,6 +164,7 @@ const [chatNotifWarning, setChatNotifWarning] = useState<string | null>(null);
   const [showRiskModal, setShowRiskModal] = useState(false);
   const [onlineStatuses, setOnlineStatuses] = useState<{ [key: string]: boolean }>({});
   const [fetchErrors, setFetchErrors] = useState<{ [key: string]: string }>({});
+  const notifyJob = jobPosts.find(p => p.id === notifyJobPostId);
 const [userPage, setUserPage] = useState(1);
 const [userLimit] = useState(30);
 const [isUsersLoading, setIsUsersLoading] = useState(false);
@@ -2200,7 +2201,14 @@ if (isLoading) {
                 <button onClick={() => setShowJobModal(post.id)} className="action-button">
                   View Job
                 </button>
- <button onClick={() => handleReferralForPost(post.id)} className="action-button">
+                <button
+    onClick={() => window.open(`/job/${(post as any).slug_id || post.id}`, '_blank')}
+    className="action-button"
+    title="Open advertising landing for this job"
+  >
+    View LP
+  </button>
+ <button onClick={() => handleReferralForPost(post.id)} className="action-button generate-ref">
   Generate Referral
 </button>
               </td>
@@ -2247,7 +2255,7 @@ if (isLoading) {
   {showNotifyModal && (
   <div className="modal_notify">
     <div className="modal-content">
-        <h3>Notify Candidates for Job Post ID: {notifyJobPostId}</h3>
+       <h3>Notify Candidates for Job Post: {notifyJob?.title || notifyJobPostId}</h3>
         <fieldset className="form-group">
   <legend>Audience</legend>
   <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', marginRight: 16 }}>
@@ -2267,25 +2275,11 @@ if (isLoading) {
       checked={notifyAudience === 'referral'}
       onChange={() => setNotifyAudience('referral')}
     />
-    Applicants who applied via referral links
+    Users who registered via referral links (same category)
   </label>
 </fieldset>
 
-{notifyAudience === 'referral' && (
-  <div className="form-group">
-    <label>Title keyword (optional):</label>
-    <input
-      type="text"
-      value={notifyTitleFilter}
-      onChange={(e) => setNotifyTitleFilter(e.target.value)}
-      placeholder="e.g., Social Media"
-    />
-    <small className="form-note">
-      Emails will go to past referral applicants of jobs whose title matches this keyword
-      (or adjust on backend to match by category).
-    </small>
-  </div>
-)}
+
         <div className="form-group">
 
           <label>Number of candidates to notify:</label>
@@ -2724,7 +2718,7 @@ if (isLoading) {
       <div className="modal">
         <div className="modal-content">
           <span className="close" onClick={() => setShowJobModal(null)}>×</span>
-          <h3>Job Post Details</h3>
+          <h3 className='job-post-details'>Job Post Details</h3>
           <p><strong>Title:</strong> {jobPosts.find(post => post.id === showJobModal)?.title}</p>
          <p><strong>Description:</strong></p>
 <div
@@ -3641,66 +3635,85 @@ if (isLoading) {
           </div>
         </fieldset>
 
-        {/* Throttle */}
-        <fieldset className={`bo-subcard ${chatNotif.enabled ? '' : 'is-disabled'}`} disabled={!chatNotif.enabled}>
-          <legend className="bo-subcard__legend">Throttle (per chat)</legend>
+{/* Throttle */}
+<fieldset
+  className={`bo-subcard ${chatNotif.enabled ? '' : 'is-disabled'}`}
+  disabled={!chatNotif.enabled}
+>
+  <legend className="bo-subcard__legend">Throttle (per chat)</legend>
 
-          <div className="bo-grid">
-            <div className="bo-row">
-              <label className="bo-row__label">Count</label>
-              <div className="bo-row__control">
-                <input
-                  className="bo-input bo-input--sm"
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={chatNotif.throttle.perChatCount}
-                  onChange={(e) => {
-                    const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 100);
-                    updateCN(p => ({ ...p, throttle: { ...p.throttle, perChatCount: n } }));
-                  }}
-                />
-              </div>
-            </div>
+  <div className="bo-grid">
+    <div className="bo-row">
+      <label className="bo-row__label">Count</label>
+      <div className="bo-row__control">
+        <input
+          className="bo-input bo-input--sm"
+          type="number"
+          min={1}
+          max={100}
+          value={chatNotif.throttle.perChatCount}
+          onChange={(e) => {
+            const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 100);
+            updateCN(p => ({ ...p, throttle: { ...p.throttle, perChatCount: n } }));
+          }}
+        />
+      </div>
+    </div>
 
-            <div className="bo-row">
-              <label className="bo-row__label">Per minutes</label>
-              <div className="bo-row__control">
-                <input
-                  className="bo-input bo-input--sm"
-                  type="number"
-                  min={1}
-                  max={10080}
-                  value={chatNotif.throttle.perMinutes}
-                  onChange={(e) => {
-                    const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 10080);
-                    updateCN(p => ({ ...p, throttle: { ...p.throttle, perMinutes: n } }));
-                  }}
-                />
-              </div>
-            </div>
+    <div className="bo-row">
+      <label className="bo-row__label">Per minutes</label>
+      <div className="bo-row__control">
+        <input
+          className="bo-input bo-input--sm"
+          type="number"
+          min={1}
+          max={10080}
+          value={chatNotif.throttle.perMinutes}
+          onChange={(e) => {
+            const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 10080);
+            updateCN(p => ({ ...p, throttle: { ...p.throttle, perMinutes: n } }));
+          }}
+        />
+      </div>
+    </div>
 
-            <div className="bo-row">
-              <div className="bo-row__label" />
-              <div className="bo-row__control">
-                <p className="bo-note">Counts both immediate and delayed emails per single chat.</p>
-              </div>
-            </div>
-          </div>
-        </fieldset>
+    <div className="bo-row">
+      <div className="bo-row__label" />
+      <div className="bo-row__control">
+        <p className="bo-note">
+          Counts both immediate and delayed emails per single chat.
+        </p>
+      </div>
+    </div>
+  </div>
+</fieldset>
 
-        {chatNotifWarning && (
-          <p className="bo-msg bo-msg--warn" role="alert" aria-live="polite">{chatNotifWarning}</p>
-        )}
+{chatNotifWarning && (
+  <p className="bo-msg bo-msg--warn" role="alert" aria-live="polite">
+    {chatNotifWarning}
+  </p>
+)}
 
-        <div className="bo-actions">
-          <button className="bo-btn bo-btn--success" onClick={saveChatNotif} disabled={chatNotifSaving}>
-            {chatNotifSaving ? 'Saving…' : 'Save'}
-          </button>
-          <button className="bo-btn" onClick={loadChatNotif} disabled={chatNotifLoading || chatNotifSaving}>
-            Reset
-          </button>
-        </div>
+<div className="bo-actions">
+  <button
+    type="button"
+    className="bo-btn bo-btn--success"
+    onClick={saveChatNotif}
+    disabled={chatNotifSaving}
+  >
+    {chatNotifSaving ? 'Saving…' : 'Save'}
+  </button>
+
+  <button
+    type="button"
+    className="bo-btn"
+    onClick={loadChatNotif}
+    disabled={chatNotifLoading || chatNotifSaving}
+  >
+    Reset
+  </button>
+</div>
+
       </>
     )}
   </div>

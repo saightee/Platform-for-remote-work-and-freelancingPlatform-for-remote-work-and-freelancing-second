@@ -3457,7 +3457,7 @@ table th {
 
 .job-details-content {
   background-color: white;
-  padding: 30px;
+  padding: 10px 30px 30px 30px;
   border-radius: 5px;
   box-shadow: 0 2px 4px rgba(0, 2, 4, 0.1);
   display: flex;
@@ -3983,6 +3983,9 @@ table th {
   padding: 20px 0;
 }
 
+.generate-ref {
+margin-left: 5px;
+}
 .sidebar h2 {
   font-size: 20px;
   margin: 0 20px 20px;
@@ -4194,6 +4197,10 @@ justify-content: space-between;
   border-collapse: collapse;
   margin-top: 10px;
 }
+.job-post-details {
+  color: #666;
+
+}
 
 .dashboard-table th, .dashboard-table td {
   padding: 6px;
@@ -4255,7 +4262,7 @@ summary:hover {
   background-color: #3498db;
   color: #ffffff;
   border: none;
-  padding: 4px 12px;
+  padding: 6px 12px;
   border-radius: 5px;
   cursor: pointer;
   font-size: 14px;
@@ -4368,7 +4375,7 @@ summary:hover {
   padding: 20px;
   border-radius: 5px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  max-width: 500px;
+  max-width: 900px;
   width: 100%;
   text-align: left;
   color: #333;

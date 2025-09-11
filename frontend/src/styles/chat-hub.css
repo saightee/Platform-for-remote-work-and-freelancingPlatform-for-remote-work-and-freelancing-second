@@ -72,7 +72,7 @@
   transition: box-shadow .15s ease, transform .05s ease, border-color .15s ease, background .15s ease;
   background:#fff;
 }
-.ch-chatlist__item:hover{ transform:translateY(-1px); border-color:#dfe6ff; }
+.ch-chatlist__item:hover{  border-color:#cad2f0; }
 .ch-chatlist__item.is-active{ border-color:var(--ch-accent); box-shadow:0 0 0 3px rgba(78,116,200,.12); }
 .ch-chatlist__item.has-unread{ background:#f7f9ff; }
 

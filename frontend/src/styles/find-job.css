@@ -72,7 +72,7 @@
 .fj-tag-x{background:transparent;border:none;cursor:pointer;font-size:14px;line-height:1}
 
 /* results */
-.fj-results{}
+
 .fj-grid{display:grid;grid-template-columns:repeat(1,1fr);gap:18px}
 @media (max-width:1000px){.fj-grid{grid-template-columns:1fr}}
 .fj-empty{color:var(--cs-muted);padding:18px}

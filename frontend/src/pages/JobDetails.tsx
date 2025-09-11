@@ -12,6 +12,7 @@ import { parseISO } from 'date-fns';
 import sanitizeHtml from 'sanitize-html';
 import Loader from '../components/Loader';
 import { Helmet } from 'react-helmet-async';
+import '../styles/promo-latam.css';
 
 
 
@@ -325,7 +326,7 @@ const backAfterReport =
           <div className="job-details-info">
             
              {!profile && job.status === 'Active' && (
-      <div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0 16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', fontWeight: 'bold' }}>
         <button
           onClick={() => navigate('/register/jobseeker')}
           className="action-button"
