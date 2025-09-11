@@ -120,7 +120,7 @@ const ShareStory: React.FC = () => {
             </div>
 
             <div className="cs-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input id="allowPublish" type="checkbox" checked={allowPublish} onChange={(e) => setAllowPublish(e.target.checked)} />
+              <input id="allowPublish" className="cs-label-check" type="checkbox" checked={allowPublish} onChange={(e) => setAllowPublish(e.target.checked)} />
               <label htmlFor="allowPublish" className="cs-label">I allow publishing my story</label>
             </div>
 

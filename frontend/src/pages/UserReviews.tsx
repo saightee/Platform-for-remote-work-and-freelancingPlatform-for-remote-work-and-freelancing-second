@@ -1,4 +1,3 @@
-// src/pages/UserReviews.tsx
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import Header from '../components/Header';
@@ -6,6 +5,17 @@ import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import { getReviewsForUser } from '../services/api';
 import { Review } from '@types';
+import '../styles/user-reviews.css';
+
+const formatDate = (iso?: string) => {
+  if (!iso) return 'Not specified';
+  // DD.MM.YYYY независимо от локали
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}.${mm}.${yyyy}`;
+};
 
 const UserReviews: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,14 +26,14 @@ const UserReviews: React.FC = () => {
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        if (id) {
-          setLoading(true);
-          const reviewsData = await getReviewsForUser(id);
-          setReviews(reviewsData);
-        }
+        if (!id) return;
+        setLoading(true);
+        setError(null);
+        const reviewsData = await getReviewsForUser(id);
+        setReviews(reviewsData || []);
       } catch (err: any) {
         console.error('Error fetching reviews:', err);
-        setError(err.response?.data?.message || 'Failed to load reviews.');
+        setError(err?.response?.data?.message || 'Failed to load reviews.');
       } finally {
         setLoading(false);
       }
@@ -31,31 +41,71 @@ const UserReviews: React.FC = () => {
     fetchReviews();
   }, [id]);
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>{error}</div>;
-
   return (
-    <div>
+    <div className="ur-shell">
       <Header />
-      <div className="container">
-        <h2>User Reviews</h2>
-        {reviews.length > 0 ? (
-          <div className="review-list">
-            {reviews.map((review) => (
-              <div key={review.id} className="review-item">
-                <h3>Rating: {review.rating}/5</h3>
-                <p><strong>Comment:</strong> {review.comment}</p>
-                <p><strong>Reviewer:</strong> {review.reviewer?.username || 'Anonymous'}</p>
-                <p><strong>Date:</strong> {review.created_at ? new Date(review.created_at).toLocaleDateString() : 'Not specified'}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p>No reviews found for this user.</p>
-        )}
+
+      <main className="ur-main">
+        <div className="ur-container">
+          <h1 className="ur-title">User Reviews</h1>
+
+          {loading && (
+            <div className="ur-status ur-loading" role="status">Loading…</div>
+          )}
+
+          {!loading && error && (
+            <div className="ur-status ur-error">{error}</div>
+          )}
+
+          {!loading && !error && (
+            <>
+              {reviews.length > 0 ? (
+                <ul className="ur-list" aria-live="polite">
+                  {reviews.map((review) => (
+                    <li className="ur-card" key={review.id}>
+                      <div className="ur-card__head">
+                        <div className="ur-rating">
+                          <span className="ur-rating__value">
+                            {review.rating}
+                          </span>
+                          <span className="ur-rating__of">/5</span>
+                        </div>
+
+                        <div className="ur-meta">
+                          <span className="ur-meta__item">
+                            <span className="ur-k">Reviewer:</span>
+                            <span className="ur-v">{review.reviewer?.username || 'Anonymous'}</span>
+                          </span>
+                          <span className="ur-meta__item">
+                            <span className="ur-k">Date:</span>
+                            <span className="ur-v">{formatDate(review.created_at)}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {review.comment && (
+                        <p className="ur-comment">
+                          {review.comment}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="ur-empty">
+                  No reviews found for this user.
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </main>
+
+      {/* футер прижат к низу за счёт flex-раскладки оболочки */}
+      <div className="ur-bottom">
+        <Footer />
+        <Copyright />
       </div>
-         <Footer />
-      <Copyright />
     </div>
   );
 };

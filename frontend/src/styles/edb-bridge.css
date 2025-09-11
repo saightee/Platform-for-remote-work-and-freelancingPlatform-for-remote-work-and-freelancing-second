@@ -528,12 +528,12 @@
 }
 
 /* выравниваем внутренний контент футера с контентной колонкой дашборда (только на десктопе) */
-@media (min-width: 1024px){
+/* @media (min-width: 1024px){
   .edb-bottom .jf2-inner,
   .edb-bottom .jf2-copy__inner{
     padding-left: calc(var(--edb-sidebar-w) + 24px);
   }
-}
+} */
 
 
 .edb-row__actions{ display:flex; gap:14px; flex-wrap:wrap; }

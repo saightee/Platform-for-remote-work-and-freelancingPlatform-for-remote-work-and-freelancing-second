@@ -226,13 +226,56 @@ const MyApplications: React.FC = () => {
                     </div>
                   </div>
 
-                  {app.job_post?.id && (
-                    <div className="ma-actions-row">
-                      <Link className="ma-btn ma-secondary" to={`/jobs/${app.job_post!.id}`}>
-                        View Job Post
-                      </Link>
-                    </div>
-                  )}
+              {app.job_post?.id && (
+  <div className="ma-actions-row">
+    {/* новый роут: /vacancy/<slug_or_id> */}
+    <Link
+      className="ma-btn ma-secondary"
+      to={`/vacancy/${(app.job_post as any).slug_id || app.job_post!.id}`}
+    >
+      View Job Post
+    </Link>
+
+    {/* Кнопка "Leave Review" для джобсикера */}
+    {(() => {
+      const alreadyReviewed =
+        (app.reviews && app.reviews.length > 0) ||
+        !!leftReviews[app.id];
+
+      if (alreadyReviewed) {
+        return (
+          <button
+            type="button"
+            className="ma-btn"
+            disabled
+            title="You have already left a review for this application"
+          >
+            Review submitted
+          </button>
+        );
+      }
+
+      // если хочешь ограничить только Accepted/Closed — добавь условие здесь
+      // const canLeave = app.status === 'Accepted' || isJobClosed(app);
+      // if (!canLeave) return null;
+
+      return (
+        <button
+          type="button"
+          className="ma-btn ma-secondary"
+          onClick={() => {
+            setFormError(null);
+            setReviewForm({ applicationId: app.id, rating: 5, comment: '' });
+            setIsReviewModalOpen(true);
+          }}
+        >
+          Leave Review
+        </button>
+      );
+    })()}
+  </div>
+)}
+
 
                   {app.status === 'Accepted' && (
                     <div className="ma-note ma-ok">

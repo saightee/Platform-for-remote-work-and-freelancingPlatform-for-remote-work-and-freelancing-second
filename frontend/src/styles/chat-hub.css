@@ -79,7 +79,9 @@
 .ch-chatlist__meta{ display:grid; gap:4px; }
 .ch-chatlist__row{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .ch-chatlist__job{ color:var(--ch-text); font-weight:700; }
-.ch-chatlist__partner{ font-size:13px; color:var(--ch-muted); }
+.ch-chatlist__partner{ font-size: 16px;
+    color: #4e74c8;
+    font-weight: bold; } 
 .ch-chatlist__badge{
   background:var(--ch-accent); color:#fff; font-size:12px;
   padding:2px 6px; border-radius:999px;
@@ -323,7 +325,7 @@
 
 /* кликабельное имя */
 .ch-link{
-  color:#3358cc;
+  color:#4e74c8;
   text-decoration:none;
   font-weight:700;
 }
