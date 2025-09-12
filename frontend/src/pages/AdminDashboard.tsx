@@ -23,12 +23,10 @@ import {
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
-  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, getChatNotificationSettings,
-  updateChatNotificationSettings,
-  notifyReferralApplicants, api
+  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, 
   // Добавляем logout из api
 } from '../services/api';
-import type { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings } from '@types';
+import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings } from '@types';
 import { AxiosError } from 'axios';
 // import {
 //   mockUsers, mockJobPosts, mockJobPostsWithApps, mockReviews, mockFeedback,
@@ -382,9 +380,10 @@ const updateCN = (updater: (p: ChatNotificationsSettings) => ChatNotificationsSe
 const loadChatNotif = async () => {
   setChatNotifLoading(true);
   try {
+    const { getChatNotificationSettings } = await import('../services/api');
     const data = await getChatNotificationSettings();
     setChatNotif(normalizeCN(data));
-  } catch (e) {
+  } catch {
     setFetchErrors(prev => ({ ...prev, chatNotif: 'Failed to load chat notification settings.' }));
     setChatNotif(normalizeCN({}));
   } finally {
@@ -414,7 +413,7 @@ const saveChatNotif = async () => {
   if (!chatNotif) return;
   setChatNotifSaving(true);
   try {
-    // можно отправлять полный объект — бэку ок; частичный тоже поддерживается
+    const { updateChatNotificationSettings } = await import('../services/api');
     const saved = await updateChatNotificationSettings(chatNotif);
     setChatNotif(normalizeCN(saved || {}));
     alert('Chat notification settings saved.');
@@ -1388,33 +1387,25 @@ const handleNotifyCandidates = async (id: string) => {
 
 const handleNotifySubmit = async () => {
   const n = parseInt(notifyLimit, 10);
-  if (!n || n < 1) {
-    alert('Please enter a valid number of candidates.');
-    return;
-  }
+  if (!n || n < 1) { alert('Please enter a valid number of candidates.'); return; }
 
   try {
+    const { notifyCandidates, notifyReferralApplicants } = await import('../services/api');
     let res;
     if (notifyAudience === 'referral') {
       res = await notifyReferralApplicants(notifyJobPostId, {
         limit: n,
         orderBy: notifyOrderBy,
-        titleContains: notifyTitleFilter.trim() || undefined, // опционально для примера с "Social Media"
-        // categoryId: selectedJobCategoryId, // если решишь подставлять категорию текущей вакансии
+        titleContains: notifyTitleFilter.trim() || undefined,
       });
     } else {
       res = await notifyCandidates(notifyJobPostId, { limit: n, orderBy: notifyOrderBy });
     }
-
     alert(`Notified ${res.sent} of ${res.total} candidates for job post ${res.jobPostId}`);
     setShowNotifyModal(false);
-    setNotifyLimit('10');
-    setNotifyOrderBy('beginning');
-    setNotifyAudience('all');
-    setNotifyTitleFilter('');
+    setNotifyLimit('10'); setNotifyOrderBy('beginning'); setNotifyAudience('all'); setNotifyTitleFilter('');
   } catch (error: any) {
     const msg = error?.response?.data?.message || 'Failed to notify candidates.';
-    console.error('Error notifying candidates:', error);
     alert(msg);
   }
 };
