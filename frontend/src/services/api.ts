@@ -567,12 +567,9 @@ export const getMyApplications = async () => {
   }
 };
 
-export const getApplicationsForJobPost = async (jobPostId: number, params?: any) => {
-  const response = await api.get(`/applications/job-post/${jobPostId}`, {
-    params: {
-      ...params,
-    },
-  });
+export const getApplicationsForJobPost = async (jobPostId: string) => {
+  const response = await api.get<JobApplicationDetails[]>(`/job-applications/job-post/${jobPostId}`);
+  console.log('Fetched applications:', response.data);
   return response.data;
 };
 
