@@ -43,7 +43,7 @@ export default defineConfig({
   resolve: {
     alias: {
       // жёстко указываем на ОДИН файл с типами
-      '@types': resolve(__dirname, 'src/types/index.ts'),
+      '@types': resolve(__dirname, 'src/types'),
     },
   },
 });

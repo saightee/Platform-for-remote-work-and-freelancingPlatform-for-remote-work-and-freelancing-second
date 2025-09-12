@@ -4,7 +4,7 @@ import axios, { AxiosResponse, AxiosError } from 'axios';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { io, Socket } from 'socket.io-client';
 import { jwtDecode } from 'jwt-decode';
-import { 
+import type { 
   User, Profile, JobPost, Category, JobApplication, Review, Feedback, 
   BlockedCountry, LoginCredentials, RegisterCredentials, PaginatedResponse,
   JobSeekerProfile, JobApplicationDetails, Message, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings
