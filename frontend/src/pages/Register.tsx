@@ -7,6 +7,11 @@ import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import '../styles/register-v2.css';
 
 const urlOk = (v: string) => /^https?:\/\/\S+$/i.test(v.trim());
+const getCookie = (name: string): string | undefined => {
+  const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '=([^;]*)'));
+  return m ? decodeURIComponent(m[1]) : undefined;
+};
+
 
 const Register: React.FC = () => {
   const { role } = useParams<{ role: 'employer' | 'jobseeker' }>();
@@ -29,7 +34,6 @@ const Register: React.FC = () => {
   const [instagram, setInstagram]   = useState('');
   const [facebook, setFacebook]     = useState('');
   const [about, setAbout]           = useState('');
-
   // skills (jobseeker)
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<Category[]>([]);
@@ -104,35 +108,26 @@ const Register: React.FC = () => {
 
     try {
       setBusy(true); setErr(null);
-
-      const refCode = localStorage.getItem('referralCode') || undefined;
-      const payload: any = {
-        username,
-        email,
-        password,
-        role,
-      };
-
-      if (role === 'jobseeker') {
-        if (experience) payload.experience = experience;
-        if (selectedSkills.length) payload.skills = selectedSkills.map(s => String(s.id));
-        if (resumeLink.trim()) payload.resume = resumeLink.trim();
-
-        // optional socials — send only if filled
-        if (linkedin.trim())  payload.linkedin  = linkedin.trim();
-        if (instagram.trim()) payload.instagram = instagram.trim();
-        if (facebook.trim())  payload.facebook  = facebook.trim();
-
-        if (about.trim())     payload.about     = about.trim(); // soft limit; back will trim
-      }
-
-      if (refCode) payload.ref = refCode;
-
+    const urlRef = new URLSearchParams(window.location.search).get('ref') || undefined;
+const lsRef  = localStorage.getItem('referralCode') || undefined;
+const ckRef  = getCookie('jf_ref') || undefined;
+const refCode = urlRef || lsRef || ckRef || undefined;
+      const payload: any = { username, email, password, role };
+if (role === 'jobseeker') {
+  if (experience) payload.experience = experience;
+  if (selectedSkills.length) payload.skills = selectedSkills.map(s => String(s.id));
+  if (resumeLink.trim()) payload.resume = resumeLink.trim();
+  if (linkedin.trim())  payload.linkedin  = linkedin.trim();
+  if (instagram.trim()) payload.instagram = instagram.trim();
+  if (facebook.trim())  payload.facebook  = facebook.trim();
+  if (about.trim())     payload.about     = about.trim();
+}
+if (refCode) payload.ref = refCode;
       await register(payload);
 
-      localStorage.setItem('pendingEmail', email);
-      if (refCode) localStorage.removeItem('referralCode');
-      navigate('/check-email', { state: { email } });
+    localStorage.setItem('pendingEmail', email);
+if (refCode) localStorage.removeItem('referralCode');
+navigate('/check-email', { state: { email } });
     } catch (error: any) {
       console.error('Register error', error);
       const msg = error?.response?.data?.message;

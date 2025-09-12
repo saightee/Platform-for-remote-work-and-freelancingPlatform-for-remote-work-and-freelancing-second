@@ -2022,14 +2022,14 @@ if (isLoading) {
         <button onClick={() => handleViewRiskScore(user.id)} className="action-button">View Risk</button>
       </td>
         <td>
-        <a
-    href={`/public-profile`}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="action-button-view-a"
-  >
-    View Profile
-  </a>
+<a
+  href={`/public-profile/${user.id}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="action-button-view-a"
+>
+  View Profile
+</a>
           <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
             Delete
           </button>
