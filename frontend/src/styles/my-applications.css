@@ -79,14 +79,14 @@
 .ma-btn.ma-success{background:#2ea36a}
 
 /* actions row + secondary button for link */
-.ma-actions-row{display:flex;gap:8px;margin-top:10px}
-.ma-btn.ma-secondary{background:#eef2ff;color:#2d3a6b}
+.ma-actions-row{display:flex;gap:8px;margin-top:10px; text-decoration: none;}
+.ma-btn.ma-secondary{background:#4e74c8;color:#ffffff; padding: 6px 14px; font-weight: 500; margin-top: 11px; text-decoration: none;}
 
 .ma-tabs { display:flex; gap:8px; margin:12px 0 20px; }
 .ma-tab {
   padding:6px 12px; border-radius:10px; background:#eef2ff; border:none;
   font-weight:600; cursor:pointer; color: #333;
 }
-.ma-tab.is-active { background:#3b82f6; color:#fff; }
+.ma-tab.is-active { background:#4e74c8; color:#fff; }
 
 

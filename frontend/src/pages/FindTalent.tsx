@@ -592,7 +592,7 @@ const handlePageChange = (newPage: number) => {
     if (!v) return null;
     const label = v === 'actively_looking' ? 'Actively looking' : v === 'hired' ? 'Hired' : 'Open to offers';
     const color = v === 'actively_looking' ? '#14804a' : v === 'hired' ? '#6b7280' : '#4e74c8';
-    return <span style={{ marginLeft: 6, padding: '5px 8px', borderRadius: 999, background: `${color}20`, color, fontSize: 12, fontWeight: 'bold',  }}>{label}</span>;
+    return <span style={{ padding: '5px 8px', borderRadius: 999, background: `${color}20`, color, fontSize: 12, fontWeight: 'bold',  }}>{label}</span>;
   })()}
                                 {typeof rating === 'number' && (
                                   <span className="ftl-stars" aria-label={`rating ${rating}/5`}>

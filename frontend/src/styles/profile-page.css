@@ -178,7 +178,7 @@
   position: absolute;
   z-index: 20;
   left: 0; right: 0;
-  top: calc(100% + 6px);
+  top: calc(100% + 2px);
   background: #fff;
   border: 1px solid #e3e6ef;
   border-radius: 10px;

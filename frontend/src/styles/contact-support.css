@@ -149,3 +149,61 @@ border-radius: 6px;
 .cs-rating-text {
   font-weight: bold;
 }
+
+/* --- красивый кастом-стрелочник для select --- */
+.cs-select{
+  --cs-arrow-gap: 18px;              /* дефолтный зазор справа от стрелки */
+  position: relative;
+}
+
+/* прячем системную стрелку */
+.cs-select__el{
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: calc(2.4em + var(--cs-arrow-gap));
+  background-color: #fff;
+}
+/* IE/старый Edge */
+.cs-select__el::-ms-expand{ display:none; }
+
+/* наша стрелка */
+.cs-select::after{
+  content:"";
+  position:absolute;
+  top:50%;
+  right: var(--cs-arrow-gap);
+  width:6px; height:6px;
+  border-right:2px solid var(--cs-accent);
+  border-bottom:2px solid var(--cs-accent);
+  transform: translateY(-50%) rotate(45deg);
+  pointer-events:none;
+  transition: transform .15s ease, opacity .15s ease;
+  opacity:.9;
+}
+
+/* ховер/фокус — мягкий ринг и лёгкая подсветка */
+.cs-select__el:hover{
+  border-color:#d9e0f3;
+  box-shadow: 0 0 0 3px rgba(78,116,200,.08);
+}
+.cs-select__el:focus{
+  border-color: var(--cs-accent);
+  box-shadow: 0 0 0 4px rgba(78,116,200,.12);
+}
+
+/* анимация стрелки «вверх» при фокусе (почти как раскрытие) */
+.cs-select:focus-within::after{
+  transform: translateY(-50%) rotate(225deg);
+}
+
+/* состояние disabled — приглушаем */
+.cs-select__el:disabled{
+  background:#f6f7fb;
+  color:#9aa3b2;
+  cursor:not-allowed;
+}
+.cs-label-check {
+  width: 18px;
+  height: 18px;
+}

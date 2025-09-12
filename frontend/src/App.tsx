@@ -63,9 +63,9 @@ const App: React.FC = () => {
         {/* <ErrorBoundary fallback={<div>Error loading app</div>}></ErrorBoundary> */}
         <Routes>
           <Route path="/" element={<Home />} />
-            <Route path="/jobs/:id" element={<JobDetails />} />   {/* legacy путь оставляем */}
-            <Route path="/vacancy/:slugId" element={<Vacancy />} />
-            <Route path="/job/:slugId" element={<JobLanding />} />
+           <Route path="/jobs/:id" element={<JobDetails />} />   {/* legacy путь оставляем */}
+<Route path="/vacancy/:slugId" element={<JobDetails />} />  {/* тот же UI, но грузим по slugOrId */}
+<Route path="/job/:slugId" element={<JobLanding />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register/:role" element={<Register />} />
           <Route path="/auth/callback" element={<AuthCallback />} />

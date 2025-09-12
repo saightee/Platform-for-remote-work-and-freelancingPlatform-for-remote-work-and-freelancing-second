@@ -22,10 +22,15 @@ import {
   blockUser, unblockUser, getUserRiskScore, exportUsersToCSV, getUserOnlineStatus,
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
-  resolveComplaint, getChatHistory, notifyCandidates, notifyReferralApplicants, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
-  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, api, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, getChatNotificationSettings, updateChatNotificationSettings,
+  resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
+  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, 
   // Добавляем logout из api
 } from '../services/api';
+import {
+  getChatNotificationSettings,
+  updateChatNotificationSettings,
+  notifyReferralApplicants,
+} from '../services/adminSettings';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings } from '@types';
 import { AxiosError } from 'axios';
 // import {
@@ -2020,6 +2025,14 @@ if (isLoading) {
         <button onClick={() => handleViewRiskScore(user.id)} className="action-button">View Risk</button>
       </td>
         <td>
+        <a
+    href={`/public-profile`}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="action-button-view-a"
+  >
+    View Profile
+  </a>
           <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
             Delete
           </button>
@@ -2100,10 +2113,10 @@ if (isLoading) {
     <div className="search_users" style={{ marginBottom: '10px' }}>
       <input
         type="text"
-        placeholder="Search by title or employer username/email"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-      />
+        placeholder="Search by title, employer username or ID"
+  value={searchQuery}
+  onChange={(e) => setSearchQuery(e.target.value)}
+/>
 <button onClick={() => {
   const query = searchQuery.trim();
   if (!query) return;
@@ -2161,7 +2174,6 @@ if (isLoading) {
     <table className="dashboard-table">
       <thead>
         <tr>
-          <th>ID</th>
           <th>Title</th>
           <th>Employer</th>
           <th>Status</th>
@@ -2177,7 +2189,6 @@ if (isLoading) {
           .filter(post => pendingReviewFilter === 'All' || (pendingReviewFilter === 'true' ? post.pending_review : !post.pending_review))
           .map((post) => (
             <tr key={post.id}>
-              <td>{post.id}</td>
               <td>{post.title}</td>
               <td>{post.employer?.username || 'N/A'}</td>
               <td>{post.status}</td>
@@ -2229,7 +2240,7 @@ if (isLoading) {
             </tr>
           )) : (
             <tr>
-              <td colSpan={8}>No job posts found.</td> {/* colSpan +1 */}
+              <td colSpan={7}>No job posts found.</td>
             </tr>
           )}
       </tbody>

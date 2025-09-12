@@ -104,7 +104,7 @@
   left: 0;
   right: 0;
   background: #fff;
-  border: 1px solid #e3e6ef;
+  /* border: 1px solid #e3e6ef; */
   border-radius: 10px;
   box-shadow: var(--cs-shadow-sm);
   max-height: 280px;

@@ -89,9 +89,14 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
           <span className="jc-salary">
            {renderSalary(job)}
           </span>
-          <Link to={`/jobs/${job.id}`}>
-            <button className="jc-btn jc-btn--primary" type="button">View Details</button>
-          </Link>
+         {(() => {
+  const slugOrId = (job as any).slug_id || job.id;
+  return (
+    <Link to={`/vacancy/${slugOrId}`}>
+      <button className="jc-btn jc-btn--primary" type="button">View Details</button>
+    </Link>
+  );
+})()}
         </div>
       </div>
     );
@@ -147,9 +152,14 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
           <span className="jc-salary">
             {renderSalary(job)}
           </span>
-          <Link to={`/jobs/${job.id}`}>
-            <button className="jc-btn jc-btn--primary" type="button">View Details</button>
-          </Link>
+        {(() => {
+  const slugOrId = (job as any).slug_id || job.id;
+  return (
+    <Link to={`/vacancy/${slugOrId}`}>
+      <button className="jc-btn jc-btn--primary" type="button">View Details</button>
+    </Link>
+  );
+})()}
         </div>
       </div>
     </div>

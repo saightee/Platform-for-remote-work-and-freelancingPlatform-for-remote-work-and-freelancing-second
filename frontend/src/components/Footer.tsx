@@ -146,6 +146,7 @@ const Footer: React.FC = () => {
                   <Link to="/report-issue">Report Issue</Link>
                 </>
               )}
+               
             </nav>
           </div>
         </div>

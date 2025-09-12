@@ -67,20 +67,23 @@ const ReportIssue: React.FC = () => {
           <form className="cs-form" onSubmit={onSubmit} noValidate>
             <div className="cs-row">
               <label className="cs-label">Category</label>
-              <select
-                className="cs-input"
-                value={category}
-                onChange={(e) => setCategory(e.target.value as any)}
-                required
-              >
-                <option value="">Choose…</option>
-                <option value="Bug">Bug</option>
-                <option value="UI">UI</option>
-                <option value="Performance">Performance</option>
-                <option value="Data">Data</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
+              <div className="cs-select" style={{ ['--cs-arrow-gap' as any]: '22px' }}>
+    <select
+      id="cs-category"
+      className="cs-input cs-select__el"
+      value={category}
+      onChange={(e) => setCategory(e.target.value as any)}
+      required
+    >
+      <option value="">Choose…</option>
+      <option value="Bug">Bug</option>
+      <option value="UI">UI</option>
+      <option value="Performance">Performance</option>
+      <option value="Data">Data</option>
+      <option value="Other">Other</option>
+    </select>
+  </div>
+</div>
 
             <div className="cs-row">
               <label className="cs-label">Summary</label>

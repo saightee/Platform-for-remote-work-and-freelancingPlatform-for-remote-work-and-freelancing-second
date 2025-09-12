@@ -974,7 +974,13 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                     </div>
                     <div className="pf-review-row">
                       <span className="pf-k">Date</span>
-                      <span className="pf-v">{review.created_at}</span>
+                      <span className="pf-v">
+  {new Date(review.created_at).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',   // "Aug"
+    day: '2-digit'    // "12"
+  })}
+</span>
                     </div>
                   </li>
                 ))}
