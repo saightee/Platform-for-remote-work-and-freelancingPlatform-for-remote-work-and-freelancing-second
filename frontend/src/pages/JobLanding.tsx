@@ -122,6 +122,7 @@ const ogImage = `${ORIGIN}/static/og/jobforge.png`;
       document.cookie = `jf_ref=${encodeURIComponent(ref)}; Max-Age=${
         60 * 60 * 24 * 30
       }; Path=/; SameSite=Lax`;
+      localStorage.setItem('referralCode', ref);
     } catch {
       /* no-op */
     }
