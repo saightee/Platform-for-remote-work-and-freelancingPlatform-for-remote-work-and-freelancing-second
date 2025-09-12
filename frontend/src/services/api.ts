@@ -7,7 +7,7 @@ import { jwtDecode } from 'jwt-decode';
 import { 
   User, Profile, JobPost, Category, JobApplication, Review, Feedback, 
   BlockedCountry, LoginCredentials, RegisterCredentials, PaginatedResponse,
-  JobSeekerProfile, JobApplicationDetails, Message, PlatformFeedbackAdminItem, PlatformFeedbackList
+  JobSeekerProfile, JobApplicationDetails, Message, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings
 } from '@types';
 
 
@@ -20,6 +20,12 @@ interface WebSocketMessage {
   created_at: string;
   is_read: boolean;
 }
+
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
 
 export async function contactSupport(payload: {
   name: string;
@@ -55,13 +61,15 @@ const getFingerprint = async () => {
   return result.visitorId;
 };
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true, // Включение отправки и получения cookies
-});
+// const api = axios.create({
+//   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
+//   headers: {
+//     'Content-Type': 'application/json',
+//   },
+//   withCredentials: true, // Включение отправки и получения cookies
+// });
+
+
 
 api.interceptors.request.use(async (config) => {
   const token = localStorage.getItem('token');
@@ -313,6 +321,8 @@ export const getAllEmailStats = async (params: {
   }>('/admin/email-stats', { params });
   return response.data;
 };
+
+
 
 export const generateDescription = async (data: {
   aiBrief: string;
@@ -1176,8 +1186,6 @@ export const unpublishPlatformFeedback = async (id: string) => {
   return data;
 };
 
-// Убедитесь, что api экспортировано (если не было)
-export { api };
 
 
 
@@ -1187,8 +1195,7 @@ export const resendVerification = async (email: string) => {
   return data;
 };
 
-// services/api.ts
-import { ChatNotificationsSettings } from '@types';
+
 
 export const getChatNotificationSettings = async (): Promise<ChatNotificationsSettings> => {
   const { data } = await api.get('/admin/settings/chat-notifications');
