@@ -567,9 +567,12 @@ export const getMyApplications = async () => {
   }
 };
 
-export const getApplicationsForJobPost = async (jobPostId: string) => {
-  const response = await api.get<JobApplicationDetails[]>(`/job-applications/job-post/${jobPostId}`);
-  console.log('Fetched applications:', response.data);
+export const getApplicationsForJobPost = async (jobPostId: number, params?: any) => {
+  const response = await api.get(`/applications/job-post/${jobPostId}`, {
+    params: {
+      ...params,
+    },
+  });
   return response.data;
 };
 
@@ -603,17 +606,7 @@ export const submitComplaint = async (data: ComplaintData) => {
   return response.data;
 };
 
-// Admin Endpoints
-// export const getAllUsers = async (params: { username?: string; email?: string; createdAfter?: string; page?: number; limit?: number }) => {
-//   const response = await api.get<PaginatedResponse<User>>('/admin/users', {
-//     params,
-//     headers: {
-//       'Cache-Control': 'no-cache',
-//     },
-//   });
-//   console.log('getAllUsers response:', response.data); // Лог ответа
-//   return response.data;
-// };
+
 
 
 // services/api.ts
