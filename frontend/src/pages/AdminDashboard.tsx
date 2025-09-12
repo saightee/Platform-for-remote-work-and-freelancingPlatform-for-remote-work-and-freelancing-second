@@ -25,10 +25,10 @@ import {
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
   logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, getChatNotificationSettings,
   updateChatNotificationSettings,
-  notifyReferralApplicants,
+  notifyReferralApplicants, api
   // Добавляем logout из api
 } from '../services/api';
-import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings } from '@types';
+import type { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings } from '@types';
 import { AxiosError } from 'axios';
 // import {
 //   mockUsers, mockJobPosts, mockJobPostsWithApps, mockReviews, mockFeedback,
@@ -416,7 +416,7 @@ const saveChatNotif = async () => {
   try {
     // можно отправлять полный объект — бэку ок; частичный тоже поддерживается
     const saved = await updateChatNotificationSettings(chatNotif);
-    setChatNotif(saved);
+    setChatNotif(normalizeCN(saved || {}));
     alert('Chat notification settings saved.');
   } catch (e: any) {
     const msg = e?.response?.data?.message || 'Failed to save chat notifications.';
