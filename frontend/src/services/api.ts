@@ -603,17 +603,7 @@ export const submitComplaint = async (data: ComplaintData) => {
   return response.data;
 };
 
-// Admin Endpoints
-// export const getAllUsers = async (params: { username?: string; email?: string; createdAfter?: string; page?: number; limit?: number }) => {
-//   const response = await api.get<PaginatedResponse<User>>('/admin/users', {
-//     params,
-//     headers: {
-//       'Cache-Control': 'no-cache',
-//     },
-//   });
-//   console.log('getAllUsers response:', response.data); // Лог ответа
-//   return response.data;
-// };
+
 
 
 // services/api.ts
