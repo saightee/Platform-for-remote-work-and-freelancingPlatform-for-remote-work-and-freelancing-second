@@ -165,6 +165,8 @@ const [chatNotifWarning, setChatNotifWarning] = useState<string | null>(null);
   const [showRiskModal, setShowRiskModal] = useState(false);
   const [onlineStatuses, setOnlineStatuses] = useState<{ [key: string]: boolean }>({});
   const [fetchErrors, setFetchErrors] = useState<{ [key: string]: string }>({});
+  const [showNotifyModal, setShowNotifyModal] = useState(false);
+const [notifyJobPostId, setNotifyJobPostId] = useState<string>('');
   const notifyJob = jobPosts.find(p => p.id === notifyJobPostId);
 const [userPage, setUserPage] = useState(1);
 const [userLimit] = useState(30);
@@ -198,8 +200,7 @@ const [freelancerSignupsToday, setFreelancerSignupsToday] = useState<{ country: 
   const [businessSignupsYesterday, setBusinessSignupsYesterday] = useState<{ country: string; count: number }[]>([]);
   const [businessSignupsWeek, setBusinessSignupsWeek] = useState<{ country: string; count: number }[]>([]);
 const [businessSignupsMonth, setBusinessSignupsMonth] = useState<{ country: string; count: number }[]>([]);
-const [showNotifyModal, setShowNotifyModal] = useState(false);
-const [notifyJobPostId, setNotifyJobPostId] = useState<string>('');
+
 const [notifyLimit, setNotifyLimit] = useState<string>('10');
 const [notifyOrderBy, setNotifyOrderBy] = useState<'beginning' | 'end' | 'random'>('beginning');
 const [username, setUsername] = useState<string>('Admin');
