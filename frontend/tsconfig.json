@@ -14,12 +14,16 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["react", "react-dom"],
+    "types": ["react", "react-dom", "node"],
     "jsx": "react-jsx",
+    "importsNotUsedAsValues": "remove",
     "baseUrl": "src",
-    "paths": {
-      "@types": ["types"],
-      "@types/*": ["types/*"]
+    // "paths": {
+    //   "@types": ["types"],
+    //   "@types/*": ["types/*"]
+    // },
+     "paths": {
+      "@types": ["types/index.ts"]
     },
     "allowImportingTsExtensions": true // Add this line
   },
