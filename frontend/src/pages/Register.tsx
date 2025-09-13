@@ -117,7 +117,9 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     // безопасный внутренний return-путь (без open redirect на внешние домены)
     const rawReturn = new URLSearchParams(window.location.search).get('return') || '';
-    const safeReturn = rawReturn.startsWith('/') ? rawReturn : undefined;
+    const safeReturn =
+  rawReturn.startsWith('/') && !rawReturn.startsWith('//') ? rawReturn : undefined;
+
 
     const payload: any = { username, email, password, role };
     if (role === 'jobseeker') {
@@ -131,20 +133,24 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
     if (refCode) payload.ref = refCode;
 
-    await register(payload);
+   await register(payload);
 
-    localStorage.setItem('pendingEmail', email);
-    if (refCode) { try { localStorage.removeItem('referralCode'); } catch {} }
+// запоминаем данные для ПОСЛЕ верификации
+localStorage.setItem('pendingEmail', email);
+localStorage.setItem('pendingRole', role); // чтобы VerifyEmail знал роль
+// если это jobseeker по рефке и есть валидный внутренний return — сохраним
+if (role === 'jobseeker' && refCode && safeReturn) {
+  localStorage.setItem('afterVerifyReturn', safeReturn);
+} else {
+  localStorage.removeItem('afterVerifyReturn');
+}
 
-    // редиректы по ТЗ:
-    // - jobseeker С рефкой и с валидным return → на конкретную вакансию
-    // - jobseeker без рефки → на /jobseeker-dashboard
-    // - employer → на /employer-dashboard
-    if (role === 'jobseeker' && refCode && safeReturn) {
-      navigate(safeReturn, { replace: true });
-    } else {
-      navigate(role === 'employer' ? '/employer-dashboard' : '/jobseeker-dashboard', { replace: true });
-    }
+// реф-код в LS больше не держим
+if (refCode) { try { localStorage.removeItem('referralCode'); } catch {} }
+
+// НИКУДА не уводим — показываем страницу «проверьте почту»
+navigate('/check-email', { state: { email } });
+
   } catch (error: any) {
     console.error('Register error', error);
     const msg = error?.response?.data?.message;
