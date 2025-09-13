@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getJobBySlugOrId, applyToJobPost, incrementJobView, checkJobApplicationStatus, applyToJobPostExtended } from '../services/api';
+import { getJobBySlugOrId, applyToJobPost, incrementJobView, checkJobApplicationStatus, applyToJobPostExtended} from '../services/api';
 import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import { FaEye, FaBriefcase, FaDollarSign, FaMapMarkerAlt, FaCalendarAlt, FaUserCircle, FaTools, FaFolder, FaSignInAlt, FaUserPlus } from 'react-icons/fa';
@@ -55,9 +55,12 @@ useEffect(() => {
       // 1) грузим вакансию по slug или id
       const jobData = await getJobBySlugOrId(slugOrId);
       if (!alive) return;
-      setJob(jobData);
+    setJob(jobData);
 
-      const jobId = jobData.id;
+
+
+const jobId = jobData.id;
+
 
       // 2) NEW: сохраняем реф из ?ref, зная реальный jobId
       const refFromUrl = new URLSearchParams(window.location.search).get('ref');
@@ -344,7 +347,14 @@ const backAfterReport =
             ) : (
               <FaUserCircle className="employer-avatar" />
             )}
-            <span className="employer-name">{job.employer?.username || 'Unknown'}</span>
+            {(() => {
+  const displayEmployer =
+    job.employer?.username ||
+    (job as any).employer_username ||   // если бэк кладёт плоско
+    (job as any).employer?.company_name ||
+    'Unknown';
+  return <span className="employer-name">{displayEmployer}</span>;
+})()}
 
           </div>
                    {!profile && (

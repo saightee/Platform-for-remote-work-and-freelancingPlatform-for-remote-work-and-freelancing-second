@@ -95,10 +95,20 @@ const Register: React.FC = () => {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   if (!role) return;
-  if (password !== confirm) { setErr('Passwords do not match.'); return; }
+  
 
   // URL validation (only if filled)
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!username.trim()) { setErr('Username is required.'); return; }
+  if (!email.trim() || !emailRe.test(email.trim())) { setErr('Valid email is required.'); return; }
+  if (!password) { setErr('Password is required.'); return; }
+  if (password !== confirm) { setErr('Passwords do not match.'); return; }
+  if (role === 'jobseeker' && !experience) { setErr('Please select your experience.'); return; }
+
+  // URL validation (only if filled)
+ 
   const urlErrors: string[] = [];
+  
   const check = (val: string, label: string) => { if (val && !urlOk(val)) urlErrors.push(`${label} URL is invalid (use https://...)`); };
   check(resumeLink, 'Resume');
   check(linkedin, 'LinkedIn');
@@ -182,7 +192,7 @@ navigate('/check-email', { state: { email } });
 
         {err && <div className="reg2-alert reg2-alert--err">{err}</div>}
 
-        <form onSubmit={handleSubmit} className={`reg2-form ${isJobseeker ? 'is-two' : ''}`} noValidate>
+        <form onSubmit={handleSubmit} className={`reg2-form ${isJobseeker ? 'is-two' : ''}`}>
           {/* left column */}
           <div className="reg2-field">
             <label className="reg2-label">Username</label>
