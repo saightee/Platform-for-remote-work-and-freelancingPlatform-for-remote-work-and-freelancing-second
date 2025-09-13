@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, Fragment } from 'react';
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, format } from 'date-fns';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, format, formatDistanceToNow } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz'; // Для времени по Маниле
 import { FaHome, FaSignOutAlt, FaUser, FaSearch, FaArrowUp, FaArrowDown, FaFilePdf, FaLink, FaCopy } from 'react-icons/fa'; // Иконки
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'; // Диаграммы
@@ -11,6 +11,7 @@ import Copyright from '../components/Copyright';
 import { useRole } from '../context/RoleContext';
 import Loader from '../components/Loader';
 import sanitizeHtml from 'sanitize-html';
+import '../styles/admin-settings.css';
 import {
   getAllUsers, getUserById, updateUser, deleteUser, resetUserPassword,
   getAllJobPosts, updateJobPostAdmin, deleteJobPostAdmin, approveJobPost, flagJobPost,
@@ -22,10 +23,11 @@ import {
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
-  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, api, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,
-  // Добавляем logout из api
+  logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, getChatNotificationSettings,
+  updateChatNotificationSettings,
+  notifyReferralApplicants
 } from '../services/api';
-import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile } from '@types';
+import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings } from '@types';
 import { AxiosError } from 'axios';
 // import {
 //   mockUsers, mockJobPosts, mockJobPostsWithApps, mockReviews, mockFeedback,
@@ -103,9 +105,12 @@ const [newParentCategoryId, setNewParentCategoryId] = useState<string>('');
   const [issues, setIssues] = useState<Feedback[]>([]);
   const [growthPage, setGrowthPage] = useState(1);
 const [autoRefresh, setAutoRefresh] = useState(false);
+const [notifyAudience, setNotifyAudience] = useState<'all' | 'referral'>('all');
+const [notifyTitleFilter, setNotifyTitleFilter] = useState<string>(''); // опционально
 
 const [growthLimit] = useState(10); // Лимит на страницу
-const [stories, setStories] = useState<{ id: string; user_id: string; rating: number; description: string; created_at: string; updated_at: string; user: { id: string; username: string; role: string } }[]>([]);
+const [stories, setStories] = useState<PlatformFeedbackAdminItem[]>([]);
+
   const [analytics, setAnalytics] = useState<{
     totalUsers: number;
     employers: number;
@@ -123,6 +128,11 @@ const [stories, setStories] = useState<{ id: string; user_id: string; rating: nu
   const [topJobseekers, setTopJobseekers] = useState<{ job_seeker_id: string; username: string; application_count: number }[]>([]);
   const [topJobseekersByViews, setTopJobseekersByViews] = useState<{ userId: string; username: string; email: string; profileViews: number }[]>([]);
   const [topEmployersByPosts, setTopEmployersByPosts] = useState<{ userId: string; username: string; email: string; jobCount: number }[]>([]);
+const [chatNotif, setChatNotif] = useState<ChatNotificationsSettings | null>(null);
+const [chatNotifLoading, setChatNotifLoading] = useState(false);
+const [chatNotifSaving, setChatNotifSaving] = useState(false);
+const [chatNotifWarning, setChatNotifWarning] = useState<string | null>(null);
+
   const [growthTrends, setGrowthTrends] = useState<{
     registrations: { period: string; count: number }[];
     jobPosts: { period: string; count: number }[];
@@ -155,6 +165,9 @@ const [stories, setStories] = useState<{ id: string; user_id: string; rating: nu
   const [showRiskModal, setShowRiskModal] = useState(false);
   const [onlineStatuses, setOnlineStatuses] = useState<{ [key: string]: boolean }>({});
   const [fetchErrors, setFetchErrors] = useState<{ [key: string]: string }>({});
+  const [showNotifyModal, setShowNotifyModal] = useState(false);
+const [notifyJobPostId, setNotifyJobPostId] = useState<string>('');
+  const notifyJob = jobPosts.find(p => p.id === notifyJobPostId);
 const [userPage, setUserPage] = useState(1);
 const [userLimit] = useState(30);
 const [isUsersLoading, setIsUsersLoading] = useState(false);
@@ -187,8 +200,7 @@ const [freelancerSignupsToday, setFreelancerSignupsToday] = useState<{ country: 
   const [businessSignupsYesterday, setBusinessSignupsYesterday] = useState<{ country: string; count: number }[]>([]);
   const [businessSignupsWeek, setBusinessSignupsWeek] = useState<{ country: string; count: number }[]>([]);
 const [businessSignupsMonth, setBusinessSignupsMonth] = useState<{ country: string; count: number }[]>([]);
-const [showNotifyModal, setShowNotifyModal] = useState(false);
-const [notifyJobPostId, setNotifyJobPostId] = useState<string>('');
+
 const [notifyLimit, setNotifyLimit] = useState<string>('10');
 const [notifyOrderBy, setNotifyOrderBy] = useState<'beginning' | 'end' | 'random'>('beginning');
 const [username, setUsername] = useState<string>('Admin');
@@ -196,10 +208,18 @@ const [username, setUsername] = useState<string>('Admin');
   const [onlineFreelancers, setOnlineFreelancers] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [storyDetails, setStoryDetails] = useState<PlatformFeedbackAdminItem | null>(null);
+
 
   const [showProfileModal, setShowProfileModal] = useState<string | null>(null); // Добавлено: state для модалки Profile
 const [selectedProfile, setSelectedProfile] = useState<JobSeekerProfile | null>(null);
-
+const renderDateCell = (iso?: string | null) => {
+  if (!iso) return 'no info';
+  const d = new Date(iso);
+  const full = format(d, 'PP p'); // локальный формат проекта
+  const human = formatDistanceToNow(d, { addSuffix: true }); // “5 minutes ago”
+  return <span title={human}>{full}</span>; // человекочитаемое во всплывающей подсказке
+};
 const [referralFilterJobId, setReferralFilterJobId] = useState(''); // Добавлено: filter by jobId
 const [referralFilterJobTitle, setReferralFilterJobTitle] = useState(''); // Добавлено: filter by title
 const [expandedReferral, setExpandedReferral] = useState<string | null>(null); // Добавлено: для expandable registrations
@@ -354,7 +374,57 @@ const handleReferralForPost = (id: string) => {
 
 
 
+// helpers
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+const updateCN = (updater: (p: ChatNotificationsSettings) => ChatNotificationsSettings) =>
+  setChatNotif(prev => (prev ? updater(prev) : prev));
 
+const loadChatNotif = async () => {
+  setChatNotifLoading(true);
+  try {
+    const data = await getChatNotificationSettings();
+    setChatNotif(normalizeCN(data));
+  } catch (e) {
+    setFetchErrors(prev => ({ ...prev, chatNotif: 'Failed to load chat notification settings.' }));
+    setChatNotif(normalizeCN({}));
+  } finally {
+    setChatNotifLoading(false);
+  }
+};
+
+useEffect(() => {
+  if (activeTab === 'Settings') loadChatNotif();
+}, [activeTab]);
+
+useEffect(() => {
+  if (!chatNotif) return;
+  if (
+    chatNotif.enabled &&
+    !chatNotif.onEmployerMessage.immediate &&
+    !chatNotif.onEmployerMessage.delayedIfUnread.enabled
+  ) {
+    setChatNotifWarning('Warning: nothing will be sent with current settings.');
+  } else {
+    setChatNotifWarning(null);
+  }
+}, [chatNotif]);
+
+// save handler
+const saveChatNotif = async () => {
+  if (!chatNotif) return;
+  setChatNotifSaving(true);
+  try {
+    // можно отправлять полный объект — бэку ок; частичный тоже поддерживается
+    const saved = await updateChatNotificationSettings(chatNotif);
+    setChatNotif(normalizeCN(saved || {}));
+    alert('Chat notification settings saved.');
+  } catch (e: any) {
+    const msg = e?.response?.data?.message || 'Failed to save chat notifications.';
+    alert(msg);
+  } finally {
+    setChatNotifSaving(false);
+  }
+};
 
 
 useEffect(() => {
@@ -374,6 +444,24 @@ useEffect(() => {
   };
   enrichComplaints();
 }, [complaints]);
+
+useEffect(() => {
+  if (currentRole !== 'admin') return;
+  (async () => {
+    try {
+      const stats = await getRegistrationStats({
+        startDate: '2023-01-01',
+        endDate: new Date().toISOString().split('T')[0],
+        interval: selectedInterval,
+      });
+      setRegistrationStats(stats || []);
+      setFetchErrors(prev => ({ ...prev, getRegistrationStats: '' }));
+    } catch {
+      setFetchErrors(prev => ({ ...prev, getRegistrationStats: 'Failed to load registration stats.' }));
+    }
+  })();
+}, [selectedInterval, currentRole]);
+
 
 useEffect(() => {
   if (showProfileModal) {
@@ -527,7 +615,7 @@ const fetchJobPosts = useCallback(async (params: {
   } finally {
     setIsLoading(false);
   }
-}, [jobPostPage, jobPostLimit, navigate]);
+}, [jobPostPage, jobPostLimit]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -792,7 +880,8 @@ useEffect(() => {
       | { globalApplicationLimit: number | null }
       | OnlineUsers
       | RecentRegistrations
-      | JobPostWithApplications[];
+      | JobPostWithApplications[]
+      | PlatformFeedbackList;
 
     const results = await Promise.allSettled(requests);
     const errors: { [key: string]: string } = {};
@@ -803,7 +892,7 @@ const endpoints = [
   'getFeedback',
   'getPlatformFeedback',   // ← добавили
   'getBlockedCountries',
-  'getCategories',
+  'getAdminCategories',
   'getAnalytics',
   'getRegistrationStats',
   'freelancerSignupsToday',
@@ -849,8 +938,11 @@ case 0:
           case 2:
             setIssues(value as Feedback[] || []);
             break;
-            case 3: setStories(value as { id: string; user_id: string; rating: number; description: string; created_at: string; updated_at: string; user: { id: string; username: string; role: string } }[] || []);
-            break;
+case 3: {
+  const { data } = value as PlatformFeedbackList;
+  setStories(data || []);
+  break;
+}
           case 4:
             setBlockedCountries(value as BlockedCountry[] || []);
             break;
@@ -917,26 +1009,46 @@ case 22:
           case 24:
             setRecentRegistrations(value as RecentRegistrations || { jobseekers: [], employers: [] });
             break;
-case 25:
-  const jobPostsWithApps = (value as JobPostWithApplications[]).map(post => ({
+
+
+case 25: {
+  const postsWithApps = (value as JobPostWithApplications[]).map((post) => ({
     ...post,
     username: post.employer?.username || 'N/A',
-    category: typeof post.category === 'string' ? post.category : post.category?.name || 'N/A',
+    category:
+      typeof post.category === 'string'
+        ? post.category
+        : post.category?.name || 'N/A',
   }));
-  setJobPostsWithApps(jobPostsWithApps);
-  console.log('Job Posts with Applications:', JSON.stringify(jobPostsWithApps, null, 2));
-  // Добавлено: fetch stats for each post
-  const statsPromises = jobPostsWithApps.map(post => getEmailStatsForJob(post.id).catch(() => ({ sent: 0, opened: 0, clicked: 0 })));
-  const statsResults = await Promise.all(statsPromises);
-  const statsMap = jobPostsWithApps.reduce((acc: { [key: string]: { sent: number; opened: number; clicked: number } }, post, i) => {
+
+  setJobPostsWithApps(postsWithApps);
+
+  // fetch stats for each post
+  const statsPromises = postsWithApps.map((post) =>
+    getEmailStatsForJob(post.id).catch(() => ({
+      sent: 0,
+      opened: 0,
+      clicked: 0,
+    }))
+  );
+
+  const statsResults: Array<{ sent: number; opened: number; clicked: number }> =
+    await Promise.all(statsPromises);
+
+  const statsMap = postsWithApps.reduce<
+    Record<string, { sent: number; opened: number; clicked: number }>
+  >((acc, post, i) => {
     acc[post.id] = statsResults[i];
     return acc;
   }, {});
+
   setNotificationStats(statsMap);
-  // Добавлено: fetch referral links
+
+  // referral links
   const referralData = await getReferralLinks({});
   setReferralLinks(referralData || []);
   break;
+}
         }
       } else {
         const axiosError = result.reason as AxiosError<{ message?: string }>;
@@ -1107,6 +1219,26 @@ const handleVerifyIdentity = async (id: string, verify: boolean) => {
   }
 };
 
+const normalizeCN = (raw: any): ChatNotificationsSettings => ({
+  enabled: !!raw?.enabled,
+  onEmployerMessage: {
+    immediate: !!raw?.onEmployerMessage?.immediate,
+    delayedIfUnread: {
+      enabled: !!raw?.onEmployerMessage?.delayedIfUnread?.enabled,
+      minutes: clamp(
+        Number(raw?.onEmployerMessage?.delayedIfUnread?.minutes) || 60,
+        1, 10080
+      ),
+    },
+    onlyFirstMessageInThread: !!raw?.onEmployerMessage?.onlyFirstMessageInThread,
+  },
+  throttle: {
+    perChatCount: clamp(Number(raw?.throttle?.perChatCount) || 1, 1, 100),
+    perMinutes: clamp(Number(raw?.throttle?.perMinutes) || 60, 1, 10080),
+  },
+});
+
+
 const handleUnblockUser = async (id: string, username: string) => {
   if (window.confirm(`Are you sure you want to unblock ${username}?`)) {
     try {
@@ -1246,32 +1378,47 @@ const handleFlagJobPost = async (id: string) => {
 const safeDescription = sanitizeHtml(selectedJob?.description ?? '');
 
 const handleNotifyCandidates = async (id: string) => {
-  console.log('Handle Notify called for id:', id); // Добавлено: лог для диагностики клика
+  
   setNotifyJobPostId(id);
+  setNotifyAudience('all');
+  setNotifyTitleFilter('');
   setShowNotifyModal(true);
   console.log('State should update to true'); // Добавлено: лог после setState
 };
 
 const handleNotifySubmit = async () => {
-  if (!notifyLimit || isNaN(parseInt(notifyLimit)) || parseInt(notifyLimit) < 1) {
+  const n = parseInt(notifyLimit, 10);
+  if (!n || n < 1) {
     alert('Please enter a valid number of candidates.');
     return;
   }
+
   try {
-    const response = await notifyCandidates(notifyJobPostId, {
-      limit: parseInt(notifyLimit),
-      orderBy: notifyOrderBy,
-    });
-    alert(`Notified ${response.sent} of ${response.total} candidates for job post ${response.jobPostId}`);
+    let res;
+    if (notifyAudience === 'referral') {
+      res = await notifyReferralApplicants(notifyJobPostId, {
+        limit: n,
+        orderBy: notifyOrderBy,
+        titleContains: notifyTitleFilter.trim() || undefined, // опционально для примера с "Social Media"
+        // categoryId: selectedJobCategoryId, // если решишь подставлять категорию текущей вакансии
+      });
+    } else {
+      res = await notifyCandidates(notifyJobPostId, { limit: n, orderBy: notifyOrderBy });
+    }
+
+    alert(`Notified ${res.sent} of ${res.total} candidates for job post ${res.jobPostId}`);
     setShowNotifyModal(false);
     setNotifyLimit('10');
     setNotifyOrderBy('beginning');
-  } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>;
-    console.error('Error notifying candidates:', axiosError);
-    alert(axiosError.response?.data?.message || 'Failed to notify candidates.');
+    setNotifyAudience('all');
+    setNotifyTitleFilter('');
+  } catch (error: any) {
+    const msg = error?.response?.data?.message || 'Failed to notify candidates.';
+    console.error('Error notifying candidates:', error);
+    alert(msg);
   }
 };
+
 
   const handleDeleteReview = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this review?')) {
@@ -1842,9 +1989,9 @@ if (isLoading) {
    <table className="dashboard-table">
   <thead>
     <tr>
-      <th onClick={() => handleUserSort('id')} style={{ cursor: 'pointer' }}>
+      {/* <th onClick={() => handleUserSort('id')} style={{ cursor: 'pointer' }}>
         ID {userSortColumn === 'id' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-      </th>
+      </th> */}
       <th>Username</th>
       <th>Email</th>
       <th onClick={() => handleUserSort('role')} style={{ cursor: 'pointer' }}>
@@ -1854,6 +2001,8 @@ if (isLoading) {
         Blocked Status {userSortColumn === 'is_blocked' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
       </th>
       <th>Online Status</th>
+      <th>Last online</th>
+      <th>Date joined</th>
       <th>Risk Score</th>
       <th>Actions</th>
     </tr>
@@ -1861,16 +2010,28 @@ if (isLoading) {
   <tbody>
   {usersToRender.length > 0 ? usersToRender.map((user) => (
     <tr key={user.id}>
-      <td>{user.id}</td>
+      {/* <td>{user.id}</td> */}
       <td>{user.username}</td>
       <td>{user.email}</td>
       <td>{user.role}</td>
       <td>{user.status === 'blocked' ? 'Blocked' : 'Active'}</td>
       <td>{onlineStatuses[user.id] ? 'Online' : 'Offline'}</td>
+      <td>{renderDateCell(user.last_seen_at)}</td>
+      <td>{renderDateCell(user.created_at)}</td>
       <td>
         <button onClick={() => handleViewRiskScore(user.id)} className="action-button">View Risk</button>
       </td>
         <td>
+  {user.role !== 'admin' && (
+    <a
+      href={`/public-profile/${user.id}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="action-button-view-a"
+    >
+      View Profile
+    </a>
+  )}
           <button onClick={() => handleDeleteUser(user.id)} className="action-button danger">
             Delete
           </button>
@@ -1906,7 +2067,7 @@ if (isLoading) {
       </tr>
     )) : (
       <tr>
-        <td colSpan={8}>No users found.</td>
+        <td colSpan={9}>No users found.</td>
       </tr>
     )}
   </tbody>
@@ -1951,10 +2112,10 @@ if (isLoading) {
     <div className="search_users" style={{ marginBottom: '10px' }}>
       <input
         type="text"
-        placeholder="Search by title or employer username/email"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-      />
+        placeholder="Search by title, employer username or ID"
+  value={searchQuery}
+  onChange={(e) => setSearchQuery(e.target.value)}
+/>
 <button onClick={() => {
   const query = searchQuery.trim();
   if (!query) return;
@@ -2012,7 +2173,6 @@ if (isLoading) {
     <table className="dashboard-table">
       <thead>
         <tr>
-          <th>ID</th>
           <th>Title</th>
           <th>Employer</th>
           <th>Status</th>
@@ -2028,7 +2188,6 @@ if (isLoading) {
           .filter(post => pendingReviewFilter === 'All' || (pendingReviewFilter === 'true' ? post.pending_review : !post.pending_review))
           .map((post) => (
             <tr key={post.id}>
-              <td>{post.id}</td>
               <td>{post.title}</td>
               <td>{post.employer?.username || 'N/A'}</td>
               <td>{post.status}</td>
@@ -2052,7 +2211,14 @@ if (isLoading) {
                 <button onClick={() => setShowJobModal(post.id)} className="action-button">
                   View Job
                 </button>
- <button onClick={() => handleReferralForPost(post.id)} className="action-button">
+                <button
+    onClick={() => window.open(`/job/${(post as any).slug_id || post.id}`, '_blank')}
+    className="action-button"
+    title="Open advertising landing for this job"
+  >
+    View LP
+  </button>
+ <button onClick={() => handleReferralForPost(post.id)} className="action-button generate-ref">
   Generate Referral
 </button>
               </td>
@@ -2073,7 +2239,7 @@ if (isLoading) {
             </tr>
           )) : (
             <tr>
-              <td colSpan={8}>No job posts found.</td> {/* colSpan +1 */}
+              <td colSpan={7}>No job posts found.</td>
             </tr>
           )}
       </tbody>
@@ -2095,46 +2261,37 @@ if (isLoading) {
         Next
       </button>
     </div>
-    {showJobModal && jobPosts.find(post => post.id === showJobModal) && (
-      <div className="modal">
-        <div className="modal-content">
-          <span className="close" onClick={() => setShowJobModal(null)}>×</span>
-          <h3>Job Post Details</h3>
-          <p><strong>Title:</strong> {jobPosts.find(post => post.id === showJobModal)?.title}</p>
-          <p><strong>Description:</strong></p>
-<div
-  dangerouslySetInnerHTML={{ __html: safeDescription }}
-/>
-          {jobPosts.find(post => post.id === showJobModal)?.pending_review && (
-            <button onClick={() => {
-              handleApproveJobPost(showJobModal);
-              setShowJobModal(null);
-            }} className="action-button success">
-              Approve
-            </button>
-          )}
-        </div>
-      </div>
-    )}
-    {showProfileModal && selectedProfile && ( 
-  <div className="modal">
-    <div className="modal-content">
-      <span className="close" onClick={() => setShowProfileModal(null)}>×</span>
-      <h3>Profile Details</h3>
-      <p><strong>Username:</strong> {selectedProfile.username}</p>
-      <p><strong>Email:</strong> {selectedProfile.email || 'N/A'}</p>
-      <p><strong>Skills:</strong> {selectedProfile.skills?.map(skill => skill.name).join(', ') || 'N/A'}</p>
-      <p><strong>Experience:</strong> {selectedProfile.experience || 'N/A'}</p>
-      <p><strong>Average Rating:</strong> {selectedProfile.average_rating}</p>
-      <p><strong>Reviews:</strong> {selectedProfile.reviews.length > 0 ? selectedProfile.reviews.map(review => review.comment).join('; ') : 'No reviews'}</p>
-    </div>
-  </div>
-  )}
+
   {showNotifyModal && (
   <div className="modal_notify">
     <div className="modal-content">
-        <h3>Notify Candidates for Job Post ID: {notifyJobPostId}</h3>
+       <h3>Notify Candidates for Job Post: {notifyJob?.title || notifyJobPostId}</h3>
+        <fieldset className="form-group">
+  <legend>Audience</legend>
+  <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', marginRight: 16 }}>
+    <input
+      type="radio"
+      value="all"
+      checked={notifyAudience === 'all'}
+      onChange={() => setNotifyAudience('all')}
+    />
+    All Applicants (current behavior)
+  </label>
+
+  <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+    <input
+      type="radio"
+      value="referral"
+      checked={notifyAudience === 'referral'}
+      onChange={() => setNotifyAudience('referral')}
+    />
+    Users who registered via referral links (same category)
+  </label>
+</fieldset>
+
+
         <div className="form-group">
+
           <label>Number of candidates to notify:</label>
           <input
             type="number"
@@ -2164,6 +2321,8 @@ if (isLoading) {
               setShowNotifyModal(false);
               setNotifyLimit('10');
               setNotifyOrderBy('beginning');
+              setNotifyAudience('all');
+              setNotifyTitleFilter('');
             }}
             className="action-button"
           >
@@ -2220,13 +2379,17 @@ if (isLoading) {
   </div>
 )}
 
-        {activeTab === 'Feedback' && (
+       {activeTab === 'Feedback' && (
   <div>
     <h4>Issues Feedback (Technical/Support)</h4>
     <table className="dashboard-table">
       <thead>
         <tr>
-          <th>Message</th>
+          <th>Category</th>
+          <th>Summary</th>
+          <th>Steps</th>
+          <th>Expected</th>
+          <th>Actual</th>
           <th>User</th>
           <th onClick={() => handleIssuesSort('created_at')} style={{ cursor: 'pointer' }}>
             Created At {issuesSortColumn === 'created_at' ? (issuesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
@@ -2236,66 +2399,126 @@ if (isLoading) {
       <tbody>
         {sortedIssues.length > 0 ? sortedIssues.map((fb) => (
           <tr key={fb.id}>
-            <td>{fb.message}</td>
+            <td>{fb.category}</td>
+            <td>{fb.summary}</td>
+            <td>{fb.steps_to_reproduce || '—'}</td>
+            <td>{fb.expected_result || '—'}</td>
+            <td>{fb.actual_result || '—'}</td>
             <td>{fb.user?.username || 'Unknown'}</td>
             <td>{format(new Date(fb.created_at), 'PP')}</td>
           </tr>
         )) : (
           <tr>
-            <td colSpan={3}>No issues feedback found.</td>
+            <td colSpan={7}>No issues feedback found.</td>
           </tr>
         )}
       </tbody>
     </table>
 
-    <h4>Success Stories Feedback</h4>
-    <table className="dashboard-table">
-      <thead>
-        <tr>
-          <th>Description</th>
-          <th>Rating</th>
-          <th>User</th>
-          <th onClick={() => handleStoriesSort('created_at')} style={{ cursor: 'pointer' }}>
-            Created At {storiesSortColumn === 'created_at' ? (storiesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-          </th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {sortedStories.length > 0 ? sortedStories.map((story) => (
-          <tr key={story.id}>
-            <td>{story.description}</td>
-            <td>{story.rating}</td>
-            <td>{story.user?.username || 'Unknown'}</td>
-            <td>{format(new Date(story.created_at), 'PP')}</td>
-            <td>
-              <button
-                onClick={async () => {
-                  if (window.confirm('Are you sure you want to delete this story?')) {
-                    try {
-                      await deletePlatformFeedback(story.id);
-                      setStories(stories.filter((item) => item.id !== story.id));
-                      alert('Story deleted successfully!');
-                    } catch (error) {
-                      const axiosError = error as AxiosError<{ message?: string }>;
-                      console.error('Error deleting story:', axiosError);
-                      alert(axiosError.response?.data?.message || 'Failed to delete story.');
-                    }
-                  }
-                }}
-                className="action-button danger"
-              >
-                Delete
-              </button>
-            </td>
-          </tr>
-        )) : (
-          <tr>
-            <td colSpan={5}>No success stories found.</td>
-          </tr>
-        )}
-      </tbody>
-    </table>
+
+   <h4>Success Stories Feedback</h4>
+<table className="dashboard-table">
+  <thead>
+    <tr>
+      <th>Headline</th>
+      <th>Rating</th>
+      <th>Consent</th>
+      <th>Public</th>
+      <th>Company</th>
+      <th>Country</th>
+      <th>User</th>
+      <th onClick={() => handleStoriesSort('created_at')} style={{ cursor: 'pointer' }}>
+        Created At {storiesSortColumn === 'created_at' ? (storiesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+      </th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {sortedStories.length > 0 ? sortedStories.map((story) => (
+      <tr key={story.id}>
+        <td title={story.story} style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {story.headline}
+        </td>
+        <td>{story.rating}</td>
+        <td>{story.allowed_to_publish ? 'Yes' : 'No'}</td>
+        <td>{story.is_public ? 'Yes' : 'No'}</td>
+        <td>{story.company || '—'}</td>
+        <td>{story.country || '—'}</td>
+        <td>{story.user?.username || 'Unknown'}</td>
+        <td>{format(new Date(story.created_at), 'PP')}</td>
+        <td style={{ display: 'flex', gap: 8 }}>
+  {/* NEW: Details — открывает модалку с полным текстом истории */}
+  <button
+    onClick={() => setStoryDetails(story)}
+    className="action-button"
+  >
+    Details
+  </button>
+
+  {/* Публиковать/Скрывать — ОДНА кнопка, и только если пользователь дал согласие */}
+  {story.allowed_to_publish ? (
+    story.is_public ? (
+      <button
+        onClick={async () => {
+          try {
+            const updated = await unpublishPlatformFeedback(story.id);
+            setStories(prev => prev.map(s => s.id === story.id ? { ...s, ...updated } : s));
+          } catch (error) {
+            const axiosError = error as AxiosError<{ message?: string }>;
+            alert(axiosError.response?.data?.message || 'Failed to unpublish.');
+          }
+        }}
+        className="action-button warning"
+      >
+        Unpublish
+      </button>
+    ) : (
+      <button
+        onClick={async () => {
+          try {
+            const updated = await publishPlatformFeedback(story.id);
+            setStories(prev => prev.map(s => s.id === story.id ? { ...s, ...updated } : s));
+          } catch (error) {
+            const axiosError = error as AxiosError<{ message?: string }>;
+            alert(axiosError.response?.data?.message || 'Failed to publish.');
+          }
+        }}
+        className="action-button success"
+      >
+        Publish
+      </button>
+    )
+  ) : null}
+
+  <button
+    onClick={async () => {
+      if (window.confirm('Are you sure you want to delete this story?')) {
+        try {
+          await deletePlatformFeedback(story.id);
+          setStories(stories.filter((item) => item.id !== story.id));
+          alert('Story deleted successfully!');
+        } catch (error) {
+          const axiosError = error as AxiosError<{ message?: string }>;
+          console.error('Error deleting story:', axiosError);
+          alert(axiosError.response?.data?.message || 'Failed to delete story.');
+        }
+      }
+    }}
+    className="action-button danger"
+  >
+    Delete
+  </button>
+</td>
+
+      </tr>
+    )) : (
+      <tr>
+        <td colSpan={9}>No success stories found.</td>
+      </tr>
+    )}
+  </tbody>
+</table>
+
   </div>
 )}
           {activeTab === 'Categories' && (
@@ -2505,7 +2728,7 @@ if (isLoading) {
       <div className="modal">
         <div className="modal-content">
           <span className="close" onClick={() => setShowJobModal(null)}>×</span>
-          <h3>Job Post Details</h3>
+          <h3 className='job-post-details'>Job Post Details</h3>
           <p><strong>Title:</strong> {jobPosts.find(post => post.id === showJobModal)?.title}</p>
          <p><strong>Description:</strong></p>
 <div
@@ -2638,9 +2861,9 @@ if (isLoading) {
     )}
     <h4>Registration Stats</h4>
                      <div className="interval-tabs">
-  <button className={selectedInterval === 'day' ? 'active' : ''} onClick={() => { setSelectedInterval('day'); handleRefresh(); }}>Day</button>
-  <button className={selectedInterval === 'week' ? 'active' : ''} onClick={() => { setSelectedInterval('week'); handleRefresh(); }}>Week</button>
-  <button className={selectedInterval === 'month' ? 'active' : ''} onClick={() => { setSelectedInterval('month'); handleRefresh(); }}>Month</button>
+  <button className={selectedInterval === 'day' ? 'active' : ''} onClick={() => setSelectedInterval('day')}>Day</button>
+  <button className={selectedInterval === 'week' ? 'active' : ''} onClick={() => setSelectedInterval('week')}>Week</button>
+  <button className={selectedInterval === 'month' ? 'active' : ''} onClick={() => setSelectedInterval('month')}>Month</button>
 </div>
     {fetchErrors.getRegistrationStats && <p className="error-message">{fetchErrors.getRegistrationStats}</p>}
     {registrationStats.length > 0 && (
@@ -3100,6 +3323,98 @@ if (isLoading) {
   </div>
 )}
 
+{storyDetails && (
+  <div className="modal" onClick={() => setStoryDetails(null)}>
+    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <span className="close" onClick={() => setStoryDetails(null)}>×</span>
+      <h3>Success Story Details</h3>
+
+      <div className="form-group">
+        <label><strong>Headline:</strong></label>
+        <div>{storyDetails.headline}</div>
+      </div>
+
+      <div className="form-group">
+        <label><strong>User:</strong></label>
+        <div>{storyDetails.user?.username || storyDetails.user_id}</div>
+      </div>
+
+      <div className="form-group">
+        <label><strong>Rating:</strong></label>
+        <div>{storyDetails.rating} / 5</div>
+      </div>
+
+      <div className="form-group">
+        <label><strong>Company:</strong></label>
+        <div>{storyDetails.company || '—'}</div>
+      </div>
+
+      <div className="form-group">
+        <label><strong>Country:</strong></label>
+        <div>{storyDetails.country || '—'}</div>
+      </div>
+
+      <div className="form-group">
+        <label><strong>Created:</strong></label>
+        <div>{format(new Date(storyDetails.created_at), 'PPpp')}</div>
+      </div>
+
+      <div className="form-group">
+        <label><strong>Updated:</strong></label>
+        <div>{format(new Date(storyDetails.updated_at), 'PPpp')}</div>
+      </div>
+
+      <hr />
+
+      <div className="form-group">
+        <label><strong>Story:</strong></label>
+        {/* текст хранится как plain; рендерим безопасно как текст */}
+        <div style={{ whiteSpace: 'pre-wrap' }}>{storyDetails.story}</div>
+      </div>
+
+      <div className="modal-actions" style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <button className="action-button" onClick={() => setStoryDetails(null)}>Close</button>
+
+        {/* Дублируем действие публикации прямо из модалки (необязательно, можно удалить этот блок) */}
+        {storyDetails.allowed_to_publish && (
+          storyDetails.is_public ? (
+            <button
+              className="action-button warning"
+              onClick={async () => {
+                try {
+                  const updated = await unpublishPlatformFeedback(storyDetails.id);
+                  setStories(prev => prev.map(s => s.id === storyDetails.id ? { ...s, ...updated } : s));
+                  setStoryDetails({ ...storyDetails, ...updated });
+                } catch (error) {
+                  const axiosError = error as AxiosError<{ message?: string }>;
+                  alert(axiosError.response?.data?.message || 'Failed to unpublish.');
+                }
+              }}
+            >
+              Unpublish
+            </button>
+          ) : (
+            <button
+              className="action-button success"
+              onClick={async () => {
+                try {
+                  const updated = await publishPlatformFeedback(storyDetails.id);
+                  setStories(prev => prev.map(s => s.id === storyDetails.id ? { ...s, ...updated } : s));
+                  setStoryDetails({ ...storyDetails, ...updated });
+                } catch (error) {
+                  const axiosError = error as AxiosError<{ message?: string }>;
+                  alert(axiosError.response?.data?.message || 'Failed to publish.');
+                }
+              }}
+            >
+              Publish
+            </button>
+          )
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
 {resolveModal && (
   <div className="modal">
@@ -3167,19 +3482,257 @@ if (isLoading) {
     </div>
   </div>
 )}
-        {activeTab === 'Settings' && (
+{activeTab === 'Settings' && (
   <div>
     <h4>Settings</h4>
-    <div className="dashboard-section">
-      <h3>Global Application Limit</h3>
-      {fetchErrors.getGlobalApplicationLimit && <p className="error-message">{fetchErrors.getGlobalApplicationLimit}</p>}
-      <p>Current Limit: {globalLimit !== null ? globalLimit : 'Not set'}</p>
-      <button onClick={handleSetGlobalLimit} className="action-button">
-        Set Global Limit
-      </button>
+
+    {/* --- Global Application Limit (как было) --- */}
+    {/* === Global Application Limit === */}
+<section className="bo-card">
+  <header className="bo-card__head">
+    <h3 className="bo-card__title">Global Application Limit</h3>
+  </header>
+
+  <div className="bo-card__body">
+    {fetchErrors.getGlobalApplicationLimit && (
+      <p className="bo-msg bo-msg--err">{fetchErrors.getGlobalApplicationLimit}</p>
+    )}
+
+    <div className="bo-grid">
+      <div className="bo-row">
+        <div className="bo-row__label">Current limit</div>
+        <div className="bo-row__control">
+          <span className="bo-kv">{globalLimit !== null ? globalLimit : 'Not set'}</span>
+        </div>
+      </div>
+
+      <div className="bo-row">
+        <div className="bo-row__label" />
+        <div className="bo-row__control">
+          <button onClick={handleSetGlobalLimit} className="bo-btn bo-btn--primary">
+            Set Global Limit
+          </button>
+        </div>
+      </div>
     </div>
   </div>
+</section>
+
+{/* === Chat Notifications (Employer → Jobseeker) === */}
+<section className="bo-card">
+  <header className="bo-card__head">
+    <h3 className="bo-card__title">Chat Notifications (Employer → Jobseeker)</h3>
+  </header>
+
+  <div className="bo-card__body">
+    {fetchErrors.chatNotif && <p className="bo-msg bo-msg--err">{fetchErrors.chatNotif}</p>}
+    {chatNotifLoading && <p className="bo-msg">Loading…</p>}
+
+    {chatNotif && (
+      <>
+        {/* master toggle */}
+        <div className="bo-block">
+          <div className="bo-row bo-row--switch">
+            <label className="bo-row__label">Enable notifications</label>
+            <div className="bo-row__control">
+              <label className="bo-switch">
+                <input
+                  type="checkbox"
+                  checked={chatNotif.enabled}
+                  onChange={(e) => updateCN(p => ({ ...p, enabled: e.target.checked }))}
+                />
+                <span className="bo-switch__slider" />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* On employer message */}
+        <fieldset className={`bo-subcard ${chatNotif.enabled ? '' : 'is-disabled'}`} disabled={!chatNotif.enabled}>
+          <legend className="bo-subcard__legend">On employer message</legend>
+
+          <div className="bo-grid">
+            <div className="bo-row bo-row--switch">
+              <label className="bo-row__label">Send immediately</label>
+              <div className="bo-row__control">
+                <label className="bo-switch">
+                  <input
+                    type="checkbox"
+                    checked={chatNotif.onEmployerMessage.immediate}
+                    onChange={(e) =>
+                      updateCN(p => ({
+                        ...p,
+                        onEmployerMessage: { ...p.onEmployerMessage, immediate: e.target.checked },
+                      }))
+                    }
+                  />
+                  <span className="bo-switch__slider" />
+                </label>
+              </div>
+            </div>
+
+            <div className="bo-row bo-row--switch">
+              <label className="bo-row__label">Delayed reminder if unread</label>
+              <div className="bo-row__control bo-inline">
+                <label className="bo-switch">
+                  <input
+                    type="checkbox"
+                    checked={chatNotif.onEmployerMessage.delayedIfUnread.enabled}
+                    onChange={(e) =>
+                      updateCN(p => ({
+                        ...p,
+                        onEmployerMessage: {
+                          ...p.onEmployerMessage,
+                          delayedIfUnread: {
+                            ...p.onEmployerMessage.delayedIfUnread,
+                            enabled: e.target.checked,
+                          },
+                        },
+                      }))
+                    }
+                  />
+                  <span className="bo-switch__slider" />
+                </label>
+
+                <div className="bo-field">
+                  <label className="bo-field__label">Minutes</label>
+                  <input
+                    className="bo-input bo-input--sm"
+                    type="number"
+                    min={1}
+                    max={10080}
+                    value={chatNotif.onEmployerMessage.delayedIfUnread.minutes}
+                    disabled={
+                      !chatNotif.enabled ||
+                      !chatNotif.onEmployerMessage.delayedIfUnread.enabled
+                    }
+                    onChange={(e) => {
+                      const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 10080);
+                      updateCN(p => ({
+                        ...p,
+                        onEmployerMessage: {
+                          ...p.onEmployerMessage,
+                          delayedIfUnread: { ...p.onEmployerMessage.delayedIfUnread, minutes: n },
+                        },
+                      }));
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bo-row bo-row--switch">
+              <label className="bo-row__label">Only first message in thread</label>
+              <div className="bo-row__control">
+                <label className="bo-switch">
+                  <input
+                    type="checkbox"
+                    checked={chatNotif.onEmployerMessage.onlyFirstMessageInThread}
+                    onChange={(e) =>
+                      updateCN(p => ({
+                        ...p,
+                        onEmployerMessage: {
+                          ...p.onEmployerMessage,
+                          onlyFirstMessageInThread: e.target.checked,
+                        },
+                      }))
+                    }
+                  />
+                  <span className="bo-switch__slider" />
+                </label>
+              </div>
+            </div>
+          </div>
+        </fieldset>
+
+{/* Throttle */}
+<fieldset
+  className={`bo-subcard ${chatNotif.enabled ? '' : 'is-disabled'}`}
+  disabled={!chatNotif.enabled}
+>
+  <legend className="bo-subcard__legend">Throttle (per chat)</legend>
+
+  <div className="bo-grid">
+    <div className="bo-row">
+      <label className="bo-row__label">Count</label>
+      <div className="bo-row__control">
+        <input
+          className="bo-input bo-input--sm"
+          type="number"
+          min={1}
+          max={100}
+          value={chatNotif.throttle.perChatCount}
+          onChange={(e) => {
+            const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 100);
+            updateCN(p => ({ ...p, throttle: { ...p.throttle, perChatCount: n } }));
+          }}
+        />
+      </div>
+    </div>
+
+    <div className="bo-row">
+      <label className="bo-row__label">Per minutes</label>
+      <div className="bo-row__control">
+        <input
+          className="bo-input bo-input--sm"
+          type="number"
+          min={1}
+          max={10080}
+          value={chatNotif.throttle.perMinutes}
+          onChange={(e) => {
+            const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 10080);
+            updateCN(p => ({ ...p, throttle: { ...p.throttle, perMinutes: n } }));
+          }}
+        />
+      </div>
+    </div>
+
+    <div className="bo-row">
+      <div className="bo-row__label" />
+      <div className="bo-row__control">
+        <p className="bo-note">
+          Counts both immediate and delayed emails per single chat.
+        </p>
+      </div>
+    </div>
+  </div>
+</fieldset>
+
+{chatNotifWarning && (
+  <p className="bo-msg bo-msg--warn" role="alert" aria-live="polite">
+    {chatNotifWarning}
+  </p>
 )}
+
+<div className="bo-actions">
+  <button
+    type="button"
+    className="bo-btn bo-btn--success"
+    onClick={saveChatNotif}
+    disabled={chatNotifSaving}
+  >
+    {chatNotifSaving ? 'Saving…' : 'Save'}
+  </button>
+
+  <button
+    type="button"
+    className="bo-btn"
+    onClick={loadChatNotif}
+    disabled={chatNotifLoading || chatNotifSaving}
+  >
+    Reset
+  </button>
+</div>
+
+      </>
+    )}
+  </div>
+</section>
+
+    </div>
+  
+)}
+
 
 {showDocumentModal && (
         <div className="modal" onClick={() => setShowDocumentModal(null)}>

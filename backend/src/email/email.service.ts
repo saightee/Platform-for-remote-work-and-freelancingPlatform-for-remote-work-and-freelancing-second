@@ -94,13 +94,37 @@ export class EmailService {
     toEmail: string,
     username: string,
     jobTitle: string,
-    jobDescription: string,
+    jobDescriptionHtml: string,
     jobLink: string,
-  ): Promise<any> { 
+    options?: {
+      location?: string;
+      salary?: number | null;
+      salary_type?: 'per hour' | 'per month' | 'negotiable';
+      job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+    }
+  ): Promise<any> {
     const maxRetries = 3;
     let attempt = 1;
 
-    const cleanedDescription = this.stripHtml(jobDescription);
+    const raw = this.stripHtml(jobDescriptionHtml || '');
+    const cleaned = raw
+      .replace(/\s+/g, ' ')
+      .replace(/\b(Work Details|Work Mode|Salary|Job Type)\s*:.*?(?=(Work Details|Work Mode|Salary|Job Type|$))/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    const salaryDisplay =
+      options?.salary_type === 'negotiable'
+        ? 'Negotiable'
+        : (options?.salary != null
+            ? `${options.salary} ${
+                options?.salary_type === 'per hour'
+                  ? 'per hour'
+                  : options?.salary_type === 'per month'
+                  ? 'per month'
+                  : ''
+              }`.trim()
+            : 'Not specified');
 
     while (attempt <= maxRetries) {
       try {
@@ -109,12 +133,15 @@ export class EmailService {
           {
             sender: { name: 'JobForge', email: 'support@jobforge.net' },
             to: [{ email: toEmail, name: username }],
-            templateId: 4, 
+            templateId: 4,
             params: {
               username,
               jobTitle,
-              jobDescription: cleanedDescription,
+              jobDescription: cleaned,
               jobLink,
+              location: options?.location || 'Not specified',
+              jobType: options?.job_type || 'Not specified',
+              salaryDisplay,
             },
           },
           {
@@ -125,15 +152,17 @@ export class EmailService {
             timeout: 15000,
           },
         );
-        console.log(`Job notification email sent to ${toEmail}:`, response.data);
-        return response.data;  
-      } catch (error) {
-        console.error(`Attempt ${attempt} failed for ${toEmail}:`, error.message);
+        return response.data;
+      } catch (error: any) {
         if (attempt === maxRetries) {
-          throw new Error(`Failed to send job notification email after ${maxRetries} attempts: ${error.message}`);
+          throw new Error(
+            `Failed to send job notification email after ${maxRetries} attempts: ${error.message}`,
+          );
         }
         attempt++;
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+        await new Promise((resolve) =>
+          setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)),
+        );
       }
     }
   }
@@ -147,6 +176,9 @@ export class EmailService {
     const maxRetries = 3;
     let attempt = 1;
 
+    const base = this.configService.get<string>('BASE_URL') || 'https://jobforge.net';
+    const dashboardLink = base.replace(/\/api\/?$/, '') + '/employer-dashboard/post-job';
+
     while (attempt <= maxRetries) {
       try {
         console.log(`Attempt ${attempt} to send job post rejection email to ${toEmail}`);
@@ -155,11 +187,12 @@ export class EmailService {
           {
             sender: { name: 'JobForge', email: 'support@jobforge.net' },
             to: [{ email: toEmail, name: username }],
-            templateId: 5, 
+            templateId: 5,
             params: {
               username,
               jobTitle,
               reason,
+              dashboardLink,
             },
           },
           {
@@ -265,6 +298,57 @@ export class EmailService {
         }
         attempt++;
         await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+      }
+    }
+  }
+
+  async sendChatNewMessageNotification(args: {
+    toEmail: string;
+    username: string;
+    employerName: string;
+    jobTitle: string;
+    messageSnippet: string;
+  }): Promise<void> {
+    const maxRetries = 3;
+    let attempt = 1;
+
+    const preview = this.stripHtml ? this.stripHtml(args.messageSnippet || '') : (args.messageSnippet || '');
+    const base = this.configService.get<string>('BASE_URL') || 'https://jobforge.net';
+    const chatLink = base.replace(/\/api\/?$/, '') + '/jobseeker-dashboard/messages';
+
+    const templateId = Number(process.env.BREVO_TEMPLATE_CHAT_NEW_MESSAGE || 8);
+
+    while (attempt <= maxRetries) {
+      try {
+        const res = await axios.post(
+          'https://api.brevo.com/v3/smtp/email',
+          {
+            sender: { name: 'JobForge', email: 'support@jobforge.net' },
+            to: [{ email: args.toEmail, name: args.username }],
+            templateId,
+            params: {
+              username: args.username,
+              senderName: args.employerName,
+              jobTitle: args.jobTitle,
+              chatLink,
+              preview,
+            },
+          },
+          {
+            headers: {
+              'api-key': this.configService.get<string>('BREVO_API_KEY'),
+              'Content-Type': 'application/json',
+            },
+            timeout: 15000,
+          }
+        );
+        console.log('Chat notification sent:', res.data);
+        return;
+      } catch (error: any) {
+        console.error(`Attempt ${attempt} failed (chat email):`, error.message);
+        if (attempt === maxRetries) throw error;
+        attempt++;
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
       }
     }
   }

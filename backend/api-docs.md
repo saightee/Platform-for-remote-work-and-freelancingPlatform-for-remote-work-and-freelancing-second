@@ -18,6 +18,10 @@
     "password": "password",
     "username": "test",
     "role": "jobseeker",
+      "linkedin": "https://www.linkedin.com/in/username",  // Optional
+    "instagram": "https://www.instagram.com/username",  // Optional
+    "facebook": "https://www.facebook.com/username",  // Optional
+    "description": "Кратко о себе до 50 слов",  // Optional
     "skills": ["<categoryId1>", "<categoryId2>"],  // Optional, array of category IDs
     "experience": "3 years",  // Optional
     "resume": "https://example.com/resume.pdf" // Optional, link to resume Для файла используй /profile/upload-resume после рега
@@ -319,6 +323,9 @@
       }
     ],
     "experience": "2 years",
+    "linkedin": "https://www.linkedin.com/in/username",
+    "instagram": "https://www.instagram.com/username",
+    "facebook": "https://www.facebook.com/username",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
     "video_intro": "https://video.com",
@@ -409,6 +416,9 @@
       }
     ],
     "experience": "2 years",
+    "linkedin": "https://www.linkedin.com/in/username",
+    "instagram": "https://www.instagram.com/username",
+    "facebook": "https://www.facebook.com/username",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
     "video_intro": "https://video.com",
@@ -470,6 +480,9 @@
     "role": "jobseeker",
     "skillIds": ["<skillId1>", "<skillId2>"],
     "experience": "3 years",
+    "linkedin": "https://www.linkedin.com/in/username",
+    "instagram": "https://www.instagram.com/username",
+    "facebook": "https://www.facebook.com/username",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://newportfolio.com",
     "video_intro": "https://newvideo.com",
@@ -531,14 +544,16 @@
     "title": "Software Engineer",
     "description": "Develop and maintain web applications.",
     "location": "Remote",
-    "salary": 50000,  // Can be null if salary_type is 'negotiable'
+    "salary": 50000,
     "status": "Active",
     "category_id": "<categoryId>",
     "job_type": "Full-time",
-    "salary_type": "per month",  // Can be 'negotiable'
+    "salary_type": "per month",
     "employer_id": "<userId>",
     "views": 0,
     "pending_review": true,
+    "slug": "software-engineer-remote",
+    "slug_id": "software-engineer-remote--8df3b0be",
     "created_at": "2025-07-08T07:00:00.000Z",
     "updated_at": "2025-07-08T07:00:00.000Z"
   }
@@ -593,17 +608,19 @@
   ```json
   {
     "id": "<jobPostId>",
-    "title": "Software Engineer",
+    "title": "Senior Software Engineer",
     "description": "Develop and maintain web applications.",
     "location": "Remote",
-    "salary": 50000,  // Can be null if salary_type is 'negotiable'
+    "salary": 60000,
     "status": "Active",
     "category_id": "<categoryId>",
     "job_type": "Full-time",
-    "salary_type": "per month",  // Can be 'negotiable'
+    "salary_type": "per month",
     "employer_id": "<userId>",
     "views": 0,
     "pending_review": true,
+    "slug": "senior-software-engineer-remote",
+    "slug_id": "senior-software-engineer-remote--8df3b0be",
     "created_at": "2025-07-08T07:00:00.000Z",
     "updated_at": "2025-07-08T07:00:00.000Z"
   }
@@ -670,7 +687,7 @@
     "title": "Software Engineer",
     "description": "Develop and maintain web applications.",
     "location": "Remote",
-    "salary": null,  // Can be null if salary_type is 'negotiable'
+    "salary": null,
     "status": "Active",
     "category_id": "<categoryId>",
     "job_type": "Full-time",
@@ -678,6 +695,50 @@
     "employer_id": "<userId>",
     "views": 10,
     "pending_review": false,
+    "slug": "software-engineer-remote",
+    "slug_id": "software-engineer-remote--8df3b0be",
+    "created_at": "2025-07-08T07:00:00.000Z",
+    "updated_at": "2025-07-08T07:00:00.000Z",
+    "employer": {
+      "id": "<userId>",
+      "username": "employer1",
+      "email": "employer@example.com",
+      "role": "employer"
+    },
+    "category": {
+      "id": "<categoryId>",
+      "name": "Development"
+    }
+  }
+- **Response (Error - 404, if job post not found)**:  
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
+  }
+
+### 10. Get Job Post by Slug or ID
+- **Endpoint**: `GET /api/job-posts/by-slug-or-id/:slugOrId`
+- **Description**: Возвращает вакансию по slug_id, slug или по UUID id. Приоритет: slug_id → slug → id.
+- **Request Parameters**: `id`: The ID of the job post.
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "<jobPostId>",
+    "title": "Software Engineer",
+    "description": "Develop and maintain web applications.",
+    "location": "Remote",
+    "salary": null,
+    "status": "Active",
+    "category_id": "<categoryId>",
+    "job_type": "Full-time",
+    "salary_type": "negotiable",
+    "employer_id": "<userId>",
+    "views": 10,
+    "pending_review": false,
+    "slug": "software-engineer-remote",
+    "slug_id": "software-engineer-remote--8df3b0be",
     "created_at": "2025-07-08T07:00:00.000Z",
     "updated_at": "2025-07-08T07:00:00.000Z",
     "employer": {
@@ -1525,6 +1586,7 @@
         "role": "jobseeker",
         "status": "active",
         "created_at": "2025-05-13T18:00:00.000Z",
+        "last_seen_at": "2025-09-03T10:17:42.000Z",
         "updated_at": "2025-05-13T18:00:00.000Z"
       }
     ]
@@ -1560,6 +1622,7 @@
     "role": "employer",
     "provider": null,
     "created_at": "2025-05-13T18:00:00.000Z",
+    "last_seen_at": "2025-09-03T10:17:42.000Z",
     "updated_at": "2025-05-13T18:00:00.000Z"
   }
 
@@ -3243,6 +3306,58 @@
     "error": "Not Found"
   }
 
+### 74.1 Notify Referral Applicants (Admin)
+- **Endpoint**: `POST /api/admin/job-posts/:id/notify-referral-applicants`
+- **Description**: Sends email notifications only to applicants who have previously applied via referral links for jobs in the same category as the specified vacancy. Allows you to select the recipient limit and the selection order by registration date.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Parameters**: `id`: The ID of the job post
+- **Request Body**:
+  ```json
+  {
+    "limit": 50,
+    "orderBy": "end" // Options: "beginning", "end", "random"
+  }
+
+- **Response (Success - 200)**:
+  ```json
+  {
+    "total": 120,
+    "sent": 50,
+    "jobPostId": "<jobPostId>"
+  }
+
+- **Response (Error - 400, invalid input)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Limit must be a positive integer",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 400, no category)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "Job post has no category assigned",
+    "error": "Bad Request"
+  }
+
+- **Response (Error - 401, unauthorized)**:
+  ```json
+  {
+    "statusCode": 401,
+    "message": "Invalid token",
+    "error": "Unauthorized"
+  }
+
+- **Response (Error - 404, job post not found)**:
+  ```json
+  {
+    "statusCode": 404,
+    "message": "Job post not found",
+    "error": "Not Found"
+  }  
+
 ### 75. Get Chat History (Admin)
 - **Endpoint**: `GET /api/admin/chat/:jobApplicationId`
 - **Description**: Retrieves the chat history for a specific job application. Accessible only to users with the admin role.
@@ -3754,11 +3869,14 @@
   {
     "id": "<linkId>",
     "refCode": "<uuid>",
-    "fullLink": "https://yourdomain.com/ref/<uuid>",
     "jobPostId": "<jobPostId>",
     "description": "Facebook Ads, campaign A",
     "clicks": 0,
-    "registrations": 0
+    "registrations": 0,
+
+    "landingPath": "/job/<slug_id>",
+    "fullLink": "https://jobforge.net/job/<slug_id>?ref=<uuid>",
+    "legacyLink": "https://jobforge.net/ref/<uuid>"
   }
 - **Error: 404 if job post not found, 401 if not admin.**
 
@@ -3773,14 +3891,22 @@
     {
       "id": "<linkId>",
       "refCode": "<uuid>",
-      "fullLink": "https://yourdomain.com/ref/<uuid>",
       "jobPostId": "<jobId>",
-      "job_post": { "id": "<jobId>", "title": "Job Title" },
+      "job_post": {
+        "id": "<jobId>",
+        "title": "Job Title",
+        "slug": "job-title-remote",
+        "slug_id": "job-title-remote--8df3b0be"
+      },
       "description": "Facebook Ads, campaign A",
       "clicks": 10,
       "registrations": 5,
       "registrationsDetails": [ /* ... */ ],
-      "created_at": "2025-07-31T00:00:00.000Z"
+      "created_at": "2025-07-31T00:00:00.000Z",
+
+      "landingPath": "/job/<slug_id>",
+      "fullLink": "https://jobforge.net/job/<slug_id>?ref=<uuid>",
+      "legacyLink": "https://jobforge.net/ref/<uuid>"
     }
   ]
 - **Error: 401 if not admin.**
@@ -3788,6 +3914,23 @@
 ### 85.1 List Referral Links by Job Post (Admin)
 - **Endpoint**: `GET /api/admin/job-posts/:id/referral-links`
 - **Description**: Lists all referral links for a job post.
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "id": "<linkId>",
+      "refCode": "<uuid>",
+      "jobPostId": "<jobId>",
+      "description": "YouTube Influencer X",
+      "clicks": 3,
+      "registrations": 1,
+      "created_at": "2025-08-12T11:12:00.000Z",
+  
+      "landingPath": "/job/<slug_id>",
+      "fullLink": "https://jobforge.net/job/<slug_id>?ref=<uuid>",
+      "legacyLink": "https://jobforge.net/ref/<uuid>"
+    }
+  ]
 
 ### 85.2 Update Referral Link Description (Admin)
 - **Endpoint**: `PUT /api/admin/referral-links/:linkId`
@@ -3805,6 +3948,11 @@
 - **Endpoint**: `GET /ref/:refCode`
 - **Description**: Increments click count and redirects to the job post page.
 - **Response: Redirect to /jobs/<jobid>, or 404 if invalid.</jobid>**
+
+### 86.1 Track Referral Click (Public)
+- **Endpoint**: `POST /api/ref/track`
+- **Description**: Регистрирует клик по рефкоду на SPA-лендинге (когда открывается /job/<slug_id>?ref=<refCode>). Вызывать один раз при первом маунте страницы.
+- **Response: { "ok": true, "jobPostId": "<jobPostId>" }**
 
 ### 87. Get Chat History
 - **Endpoint**: `GET /api/chat/:jobApplicationId`
@@ -3956,3 +4104,51 @@
 - **Response (202 Accepted)**:
   ```json
   { "message": "Message accepted" }
+
+### 91. Get Chat Notification Settings (Admin)
+- **Endpoint:** `GET /api/admin/settings/chat-notifications`
+- **Description:** Returns global chat email-notification settings (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  ```json
+  {
+    "enabled": true,
+    "onEmployerMessage": {
+      "immediate": true,
+      "delayedIfUnread": { "enabled": true, "minutes": 60 },
+      "onlyFirstMessageInThread": false
+    },
+    "throttle": { "perChatCount": 2, "perMinutes": 60 }
+  }
+
+- **Response 401**:
+  ```json
+  { "statusCode": 401, "message": "Unauthorized", "error": "Unauthorized" }
+
+### 92. Update Chat Notification Settings (Admin)
+- **Endpoint:** `POST /api/admin/settings/chat-notifications`
+- **Description:** Updates global chat email-notification settings (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body:**:
+  ```json
+  {
+    "enabled": true,
+    "onEmployerMessage": {
+      "immediate": true,
+      "delayedIfUnread": { "enabled": true, "minutes": 60 },
+      "onlyFirstMessageInThread": false
+    },
+    "throttle": { "perChatCount": 2, "perMinutes": 60 }
+  }
+
+- **Response (200)**:
+  ```json
+  {
+    "message": "Chat notification settings updated",
+    "settings": { ...same as you sent... }
+  }
+- **Notes**:
+  - `immediate`: send right away when employer writes to jobseeker.
+  - `delayedIfUnread`: also send if still unread after minutes.
+  - `onlyFirstMessageInThread`: if true, notify only on the first message in a given chat thread.
+  - `throttle`: не чаще X раз в N минут для одного чата и получателя (anti-spam).

@@ -146,7 +146,9 @@
 .jsd-content .section-title:first-child{ margin-top:0!important; }
 
 /* футер дашборда на всю ширину, с отступом слева под сайдбар на десктопе */
-.jsd-bottom{ width:100%; }
+.jsd-bottom{  position: relative;
+  z-index: 60;   /* выше .jsd-sidebar */
+  width: 100%; }
 @media (min-width:1024px){
   .jsd-bottom footer .footer-content,
   .jsd-bottom .copyright{

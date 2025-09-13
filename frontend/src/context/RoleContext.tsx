@@ -11,6 +11,7 @@ import { Profile } from '@types';
 import type { Socket } from 'socket.io-client';
 import { jwtDecode } from 'jwt-decode';
 
+
 interface Message {
   id: string;
   job_application_id: string;

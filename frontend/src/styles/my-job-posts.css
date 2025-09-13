@@ -169,9 +169,14 @@
   position: relative;
   background: #fff; border-radius: 12px; box-shadow: var(--cs-shadow);
   width: min(720px, 96vw); padding: 20px 22px;
+    max-height: 88vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 .mjp-modal-title { margin: 0 0 8px; font-size: 18px; font-weight: 800; color: var(--cs-text); display:flex; align-items:center; gap:8px; }
-.mjp-modal-body { color: #1f2937; font-size: 15px; }
+.mjp-modal-body { color: #1f2937; font-size: 15px;   overflow-wrap: anywhere; 
+  word-break: break-word;  }
 .mjp-modal-close {
   position: absolute; right: 10px; top: 10px;
   display: inline-flex; align-items: center; justify-content: center;
@@ -376,3 +381,12 @@
   box-shadow: none;
   pointer-events: none;    /* защита от очень быстрых дабл-кликов */
 }
+
+/* my-job-posts.css */
+.mjp-badge{
+  display:inline-flex; align-items:center; gap:6px;
+  background:#eef2ff; border:1px solid #dfe6ff;
+  color:#31417d; padding:4px 8px; border-radius:999px;
+  font-weight:700; font-size:12px;
+}
+.mjp-badge .mjp-badge-label{ margin-left:4px; opacity:.8; font-weight:700; }

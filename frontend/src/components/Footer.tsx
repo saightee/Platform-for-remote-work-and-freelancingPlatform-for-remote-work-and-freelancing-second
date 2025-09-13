@@ -1,10 +1,24 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { jwtDecode } from 'jwt-decode'; // ⬅️ добавили
 import '../styles/footer.css';
 
+type JwtPayload = { exp?: number };
+
+const isAuthenticated = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const t = localStorage.getItem('token');
+  if (!t) return false;
+  try {
+    const { exp } = jwtDecode<JwtPayload>(t);
+    return !exp || exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+};
+
 const Footer: React.FC = () => {
-  // нужно только для мобильного аккордеона
   const [open, setOpen] = useState({
     employers: false,
     vas: false,
@@ -15,11 +29,13 @@ const Footer: React.FC = () => {
   const toggle = (key: keyof typeof open) =>
     setOpen((p) => ({ ...p, [key]: !p[key] }));
 
+  const authed = isAuthenticated(); // ⬅️
+
   return (
     <footer className="jf2-footer" role="contentinfo">
       <div className="jf2-inner">
         <div className="jf2-grid jf2-grid--5">
-          {/* BRAND / ABOUT (1-я колонка) */}
+          {/* BRAND / ABOUT */}
           <div className="jf2-col jf2-col--brand">
             <a className="jf2-logo">Jobforge_</a>
             <p className="jf2-desc">
@@ -47,13 +63,13 @@ const Footer: React.FC = () => {
               className={`jf2-links ${open.employers ? 'is-open' : ''}`}
               aria-label="For Employers"
             >
-              <Link to="/how-it-works/employer-faq">How to Hire</Link>
+              <Link to="#">How to Hire</Link>
               <Link to="#">Pricing Plans</Link>
               <Link to="#">Client Stories</Link>
             </nav>
           </div>
 
-          {/* For VAs */}
+          {/* For Jobseekers */}
           <div className="jf2-col">
             <button
               type="button"
@@ -62,7 +78,7 @@ const Footer: React.FC = () => {
               aria-expanded={open.vas}
               aria-controls="jf2-vas"
             >
-              <span className="jf2-title-text">For VAs</span>
+              <span className="jf2-title-text">For Jobseekers</span>
               <span className="jf2-chevron" aria-hidden="true">
                 {open.vas ? <FaChevronUp /> : <FaChevronDown />}
               </span>
@@ -74,7 +90,7 @@ const Footer: React.FC = () => {
             >
               <Link to="/find-job">Find Jobs</Link>
               <Link to="#">Profile Tips</Link>
-              <Link to="/skill-test">Skill Tests</Link>
+              <Link to="#">Skill Tests</Link>
               <Link to="#">Success Stories</Link>
             </nav>
           </div>
@@ -124,8 +140,13 @@ const Footer: React.FC = () => {
               aria-label="Help"
             >
               <Link to="/contact-support">Contact Support</Link>
-              <Link to="/share-story">Share Story</Link>
-              <Link to="/report-issue">Report Issue</Link>
+              {authed && (
+                <>
+                  <Link to="/share-story">Share Story</Link>
+                  <Link to="/report-issue">Report Issue</Link>
+                </>
+              )}
+               
             </nav>
           </div>
         </div>

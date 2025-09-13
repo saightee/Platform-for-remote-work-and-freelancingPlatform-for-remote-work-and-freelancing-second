@@ -2,26 +2,99 @@ import React, { useMemo, useState } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { FaClock, FaCheckCircle, FaTimesCircle, FaStar, FaShieldAlt, FaGlobe, FaEnvelope } from 'react-icons/fa';
+import {
+  FaClock,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaStar,
+  FaShieldAlt,
+  FaGlobe,
+  FaEnvelope,
+  FaUserCheck,
+} from 'react-icons/fa';
 import '../styles/skill-test.css';
+import { Helmet } from 'react-helmet-async';
 
-// ====== Типы
-type QType = 'single' | 'multi';
-type Option = { id: string; label: string };
-type Question = {
+/* =====================================================================================
+   PAGE WRAPPER: two tests on one page with a simple toggle (tabs-like)
+===================================================================================== */
+
+const SkillTest: React.FC = () => {
+  const [tab, setTab] = useState<'va' | 'workstyle'>('va');
+
+  return (
+    <div className="stx-page">
+      <Helmet>
+  <title>Skill Tests for VAs & Jobseekers | Jobforge</title>
+  <meta name="description" content="Prove your skills with Jobforge tests and showcase results on your profile." />
+  <link rel="canonical" href="https://jobforge.net/skill-test" />
+</Helmet>
+
+      <Header />
+
+      <div className="stx-shell">
+        <div className="stx-card">
+          {/* Top switcher */}
+          <div className="stx-topbar" style={{ marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                className="stx-button"
+                onClick={() => setTab('va')}
+                style={{
+                  background: tab === 'va' ? 'var(--stx-accent)' : 'transparent',
+                  color: tab === 'va' ? '#fff' : 'var(--stx-text)',
+                  border: tab === 'va' ? 'none' : '1px solid var(--stx-border)',
+                  boxShadow: tab === 'va' ? '0 4px 14px rgba(78,116,200,.25)' : 'none',
+                }}
+              >
+                General VA Skill Test
+              </button>
+              <button
+                className="stx-button"
+                onClick={() => setTab('workstyle')}
+                style={{
+                  background: tab === 'workstyle' ? 'var(--stx-accent)' : 'transparent',
+                  color: tab === 'workstyle' ? '#fff' : 'var(--stx-text)',
+                  border: tab === 'workstyle' ? 'none' : '1px solid var(--stx-border)',
+                  boxShadow: tab === 'workstyle' ? '0 4px 14px rgba(78,116,200,.25)' : 'none',
+                }}
+              >
+                Jobseeker Workstyle Test
+              </button>
+            </div>
+          </div>
+
+          {/* Test content (without extra card wrappers) */}
+          {tab === 'va' ? <GeneralVATest /> : <WorkstyleTest />}
+        </div>
+      </div>
+
+      <Footer />
+      <Copyright />
+    </div>
+  );
+};
+
+export default SkillTest;
+
+/* =====================================================================================
+   TEST 1: General VA Skill Test (20 auto-graded questions; NO practical block)
+===================================================================================== */
+
+type VA_QType = 'single' | 'multi';
+type VA_Option = { id: string; label: string };
+type VA_Question = {
   id: string;
-  type: QType;
+  type: VA_QType;
   category: 'Communication' | 'Timezone' | 'Search' | 'Sheets' | 'Ops';
   title: string;
-  options: Option[];
-  correct: string[]; // массив даже для single
+  options: VA_Option[];
+  correct: string[];
   note?: string;
 };
-type Answers = Record<string, string[]>;
-type Practical = { q21: string; q22: string };
+type VA_Answers = Record<string, string[]>;
 
-// ====== Данные теста (20 автопроверяемых + 2 практики для ручной оценки)
-const QUESTIONS: Question[] = [
+const VA_QUESTIONS: VA_Question[] = [
   // Communication
   {
     id: 'Q1',
@@ -132,7 +205,7 @@ const QUESTIONS: Question[] = [
     correct: ['B'],
   },
 
-  // Search / Credibility
+  // Search
   {
     id: 'Q7',
     type: 'single',
@@ -185,7 +258,7 @@ const QUESTIONS: Question[] = [
       { id: 'C', label: '=SUMIFS(A2:A10,B2:B10,"Paid")' },
       { id: 'D', label: 'Both B and C are valid' },
     ],
-    correct: ['D'], // допущение: считаем "оба корректны" как итоговый верный вариант
+    correct: ['D'],
     note: 'Multiple answers concept',
   },
   {
@@ -241,7 +314,7 @@ const QUESTIONS: Question[] = [
     correct: ['B'],
   },
 
-  // Ops (productivity / security / SLA / data)
+  // Ops
   {
     id: 'Q15',
     type: 'single',
@@ -298,34 +371,28 @@ const QUESTIONS: Question[] = [
   },
 ];
 
-const CATEGORIES: Question['category'][] = ['Communication', 'Timezone', 'Search', 'Sheets', 'Ops'];
+const VA_CATEGORIES: VA_Question['category'][] = ['Communication', 'Timezone', 'Search', 'Sheets', 'Ops'];
 
-const SkillTest: React.FC = () => {
+const GeneralVATest: React.FC = () => {
   const [started, setStarted] = useState(false);
   const [current, setCurrent] = useState(0);
-  const [answers, setAnswers] = useState<Answers>({});
-  const [practical, setPractical] = useState<Practical>({ q21: '', q22: '' });
+  const [answers, setAnswers] = useState<VA_Answers>({});
   const [submitted, setSubmitted] = useState(false);
 
-  const total = QUESTIONS.length;
+  const total = VA_QUESTIONS.length;
 
   const progress = useMemo(() => {
-    const answeredCount = QUESTIONS.reduce((n, q) => (answers[q.id]?.length ? n + 1 : n), 0);
+    const answeredCount = VA_QUESTIONS.reduce((n, q) => (answers[q.id]?.length ? n + 1 : n), 0);
     return Math.round((answeredCount / total) * 100);
   }, [answers, total]);
 
-  const onSingle = (qid: string, opt: string) => {
-    setAnswers((s) => ({ ...s, [qid]: [opt] }));
-  };
-
-  const onMulti = (qid: string, opt: string) => {
+  const onSingle = (qid: string, opt: string) => setAnswers((s) => ({ ...s, [qid]: [opt] }));
+  const onMulti = (qid: string, opt: string) =>
     setAnswers((s) => {
       const prev = new Set(s[qid] || []);
-      if (prev.has(opt)) prev.delete(opt);
-      else prev.add(opt);
+      prev.has(opt) ? prev.delete(opt) : prev.add(opt);
       return { ...s, [qid]: Array.from(prev) };
     });
-  };
 
   const go = (dir: -1 | 1) => {
     setCurrent((i) => Math.min(Math.max(0, i + dir), total - 1));
@@ -334,7 +401,7 @@ const SkillTest: React.FC = () => {
 
   const computeScore = () => {
     let score = 0;
-    const perCat: Record<Question['category'], { ok: number; all: number }> = {
+    const perCat: Record<VA_Question['category'], { ok: number; all: number }> = {
       Communication: { ok: 0, all: 0 },
       Timezone: { ok: 0, all: 0 },
       Search: { ok: 0, all: 0 },
@@ -342,7 +409,7 @@ const SkillTest: React.FC = () => {
       Ops: { ok: 0, all: 0 },
     };
 
-    for (const q of QUESTIONS) {
+    for (const q of VA_QUESTIONS) {
       perCat[q.category].all++;
       const user = new Set(answers[q.id] || []);
       const correct = new Set(q.correct);
@@ -361,230 +428,522 @@ const SkillTest: React.FC = () => {
     if (pct >= 80) return `${label}: strong`;
     if (pct >= 50) return `${label}: solid`;
     return `${label}: needs improvement`;
-    };
+  };
 
   const handleSubmit = () => {
-    // Разрешаем сдачу даже если что-то не отмечено — но предупредим
-    const unanswered = QUESTIONS.filter((q) => !(answers[q.id] && answers[q.id].length)).length;
+    const unanswered = VA_QUESTIONS.filter((q) => !(answers[q.id] && answers[q.id].length)).length;
     if (unanswered > 0) {
-      const ok = window.confirm(
-        `You have ${unanswered} unanswered question(s). Submit anyway?`
-      );
+      const ok = window.confirm(`You have ${unanswered} unanswered question(s). Submit anyway?`);
       if (!ok) return;
     }
     setSubmitted(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // ====== Рендер
-  const q = QUESTIONS[current];
+  const q = VA_QUESTIONS[current];
   const currentValue = answers[q?.id] || [];
 
   return (
-    <div className="stx-page">
-      <Header />
+    <>
+      {!started ? (
+        <div className="stx-intro">
+          <h1 className="stx-title">General VA Skill Test</h1>
+          <p className="stx-subtitle">20 auto-graded multiple-choice questions.</p>
 
-      <div className="stx-shell">
-        <div className="stx-card">
-          {!started ? (
-            <div className="stx-intro">
-              <h1 className="stx-title">General VA Skill Test</h1>
-              <p className="stx-subtitle">20 auto-graded questions + 2 short practicals (manual review).</p>
+          <div className="stx-meta">
+            <div className="stx-chip"><FaClock /> ~30 min</div>
+            <div className="stx-chip"><FaEnvelope /> Asynchronous</div>
+            <div className="stx-chip"><FaGlobe /> English</div>
+            <div className="stx-chip"><FaShieldAlt /> No external tools required</div>
+          </div>
 
-              <div className="stx-meta">
-                <div className="stx-chip"><FaClock /> ~30 min</div>
-                <div className="stx-chip"><FaEnvelope /> Asynchronous</div>
-                <div className="stx-chip"><FaGlobe /> English</div>
-                <div className="stx-chip"><FaShieldAlt /> No external tools required</div>
-              </div>
+          <ul className="stx-guidelines">
+            <li>Single choice unless marked “Select all that apply”.</li>
+            <li>PST = UTC-8 (standard time).</li>
+            <li>Passing: 80% (16/20) on the auto-graded part.</li>
+          </ul>
 
-              <ul className="stx-guidelines">
-                <li>Single choice unless marked “Select all that apply”.</li>
-                <li>PST = UTC-8 (standard time).</li>
-                <li>Passing: 80% (16/20) on the auto-graded part.</li>
-              </ul>
-
-              <button className="stx-button" onClick={() => setStarted(true)}>Start the test</button>
-            </div>
-          ) : !submitted ? (
-            <>
-              <div className="stx-topbar">
-                <div className="stx-topbar__left">
-                  <div className="stx-progress">
-                    <div className="stx-progress__bar" style={{ width: `${progress}%` }} />
-                  </div>
-                  <div className="stx-progress__text">{progress}% completed</div>
-                </div>
-                <div className="stx-topbar__right">
-                  <span className="stx-count">Question {current + 1} / {total}</span>
-                </div>
-              </div>
-
-              <div className="stx-qcard" role="group" aria-labelledby={`q-${q.id}`}>
-                <div className="stx-qhead">
-                  <span className={`stx-cat stx-cat--${q.category.toLowerCase()}`}>{q.category}</span>
-                  {q.type === 'multi' && <span className="stx-note">Select all that apply</span>}
-                </div>
-                <h3 id={`q-${q.id}`} className="stx-qtitle">{q.title}</h3>
-
-                <div className="stx-options">
-                  {q.options.map((op) => {
-                    const checked = currentValue.includes(op.id);
-                    const inputProps =
-                      q.type === 'single'
-                        ? { type: 'radio' as const, name: q.id, checked, onChange: () => onSingle(q.id, op.id) }
-                        : { type: 'checkbox' as const, name: `${q.id}-${op.id}`, checked, onChange: () => onMulti(q.id, op.id) };
-
-                    return (
-                      <label key={op.id} className={`stx-opt ${checked ? 'is-checked' : ''}`}>
-                        <input {...inputProps} />
-                        <span className="stx-opt__fake" />
-                        <span className="stx-opt__text">{op.label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-
-                <div className="stx-nav">
-                  <button className="stx-button stx-ghost" onClick={() => go(-1)} disabled={current === 0}>
-                    Prev
-                  </button>
-                  {current < total - 1 ? (
-                    <button className="stx-button" onClick={() => go(1)}>Next</button>
-                  ) : (
-                    <button className="stx-button stx-success" onClick={handleSubmit}>Submit</button>
-                  )}
-                </div>
-              </div>
-
-              {/* Практика (не влияет на автосчёт) */}
-              <div className="stx-practical">
-                <h4 className="stx-pr-title">Optional practical (manual review)</h4>
-                <div className="stx-row">
-                  <label className="stx-label">Q21. Two-sentence status update</label>
-                  <textarea
-                    className="stx-textarea"
-                    placeholder="Write 1–2 sentences…"
-                    rows={3}
-                    value={practical.q21}
-                    onChange={(e) => setPractical((p) => ({ ...p, q21: e.target.value }))}
-                  />
-                </div>
-                <div className="stx-row">
-                  <label className="stx-label">Q22. SOP micro-checklist (4–6 steps)</label>
-                  <textarea
-                    className="stx-textarea"
-                    placeholder="List 4–6 steps…"
-                    rows={4}
-                    value={practical.q22}
-                    onChange={(e) => setPractical((p) => ({ ...p, q22: e.target.value }))}
-                  />
-                </div>
-                <p className="stx-hint">These answers won’t affect the auto-grade, but you can review them manually.</p>
-              </div>
-            </>
-          ) : (
-            // ====== Результаты
-            <div className="stx-result">
-              <div className="stx-rescore">
-                {result && result.pct >= 80 ? (
-                  <FaCheckCircle className="stx-res-ico ok" />
-                ) : (
-                  <FaTimesCircle className="stx-res-ico bad" />
-                )}
-                <div className="stx-resline">
-                  <div className="stx-res-main">
-                    Score: <strong>{result?.score}/{total}</strong> ({result?.pct}%)
-                  </div>
-                  <div className="stx-res-sub">
-                    Passing: 16/20 (80%) on the auto-graded part
-                  </div>
-                </div>
-              </div>
-
-              {/* Категории */}
-              <div className="stx-cats">
-                {CATEGORIES.map((cat) => {
-                  const c = result!.perCat[cat];
-                  const pct = Math.round((c.ok / c.all) * 100);
-                  return (
-                    <div key={cat} className="stx-catline">
-                      <div className="stx-catline__head">
-                        <span className={`stx-cat stx-cat--${cat.toLowerCase()}`}>{cat}</span>
-                        <span className="stx-catline__pct">{pct}%</span>
-                      </div>
-                      <div className="stx-catline__bar">
-                        <div className="stx-catline__fill" style={{ width: `${pct}%` }} />
-                      </div>
-                      <div className="stx-capability">
-                        {capabilityLine(cat, pct)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* “Скиловое” описание */}
-              <div className="stx-summary">
-                <h3>What this result says about you</h3>
-                <ul>
-                  <li>You can communicate clearly and concisely with clients and teammates.</li>
-                  <li>You handle time-zone coordination and remote scheduling reliably.</li>
-                  <li>You know how to search, validate sources, and share clean links.</li>
-                  <li>You’re comfortable with Google Sheets/Excel basics (filters, unique, lookups).</li>
-                  <li>You prioritize critical tasks, understand SLAs, and follow security best practices.</li>
-                </ul>
-                <p className="stx-note2">
-                  Want to improve? Focus on any category below 80% and retake the test.
-                </p>
-              </div>
-
-              {/* Практика — просто показываем, что сохранено локально */}
-              {(practical.q21.trim() || practical.q22.trim()) && (
-                <div className="stx-pr-out">
-                  <h4>Your practical answers (saved locally)</h4>
-                  {practical.q21.trim() && (
-                    <div className="stx-pr-out__block">
-                      <div className="stx-pr-label">Q21</div>
-                      <p>{practical.q21}</p>
-                    </div>
-                  )}
-                  {practical.q22.trim() && (
-                    <div className="stx-pr-out__block">
-                      <div className="stx-pr-label">Q22</div>
-                      <pre className="stx-pre">{practical.q22}</pre>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="stx-actions">
-                <button className="stx-button stx-ghost" onClick={() => { setSubmitted(false); setCurrent(0); }}>
-                  Review answers
-                </button>
-                <button
-                  className="stx-button"
-                  onClick={() => {
-                    setStarted(false);
-                    setCurrent(0);
-                    setAnswers({});
-                    setPractical({ q21: '', q22: '' });
-                    setSubmitted(false);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                >
-                  Retake
-                </button>
-              </div>
-            </div>
-          )}
+          <button className="stx-button" onClick={() => setStarted(true)}>Start the test</button>
         </div>
-      </div>
+      ) : !submitted ? (
+        <>
+          <div className="stx-topbar">
+            <div className="stx-topbar__left">
+              <div className="stx-progress">
+                <div className="stx-progress__bar" style={{ width: `${progress}%` }} />
+              </div>
+              <div className="stx-progress__text">{progress}% completed</div>
+            </div>
+            <div className="stx-topbar__right">
+              <span className="stx-count">Question {current + 1} / {total}</span>
+            </div>
+          </div>
 
-      <Footer />
-      <Copyright />
-    </div>
+          <div className="stx-qcard" role="group" aria-labelledby={`q-${q.id}`}>
+            <div className="stx-qhead">
+              <span className={`stx-cat stx-cat--${q.category.toLowerCase()}`}>{q.category}</span>
+              {q.type === 'multi' && <span className="stx-note">Select all that apply</span>}
+            </div>
+            <h3 id={`q-${q.id}`} className="stx-qtitle">{q.title}</h3>
+
+            <div className="stx-options">
+              {q.options.map((op) => {
+                const checked = currentValue.includes(op.id);
+                const inputProps =
+                  q.type === 'single'
+                    ? { type: 'radio' as const, name: q.id, checked, onChange: () => onSingle(q.id, op.id) }
+                    : { type: 'checkbox' as const, name: `${q.id}-${op.id}`, checked, onChange: () => onMulti(q.id, op.id) };
+
+                return (
+                  <label key={op.id} className={`stx-opt ${checked ? 'is-checked' : ''}`}>
+                    <input {...inputProps} />
+                    <span className="stx-opt__fake" />
+                    <span className="stx-opt__text">{op.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="stx-nav">
+              <button className="stx-button stx-ghost" onClick={() => go(-1)} disabled={current === 0}>
+                Prev
+              </button>
+              {current < total - 1 ? (
+                <button className="stx-button" onClick={() => go(1)}>Next</button>
+              ) : (
+                <button className="stx-button stx-success" onClick={handleSubmit}>Submit</button>
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="stx-result">
+          <div className="stx-rescore">
+            {result && result.pct >= 80 ? (
+              <FaCheckCircle className="stx-res-ico ok" />
+            ) : (
+              <FaTimesCircle className="stx-res-ico bad" />
+            )}
+            <div className="stx-resline">
+              <div className="stx-res-main">
+                Score: <strong>{result?.score}/{total}</strong> ({result?.pct}%)
+              </div>
+              <div className="stx-res-sub">Passing: 16/20 (80%) on the auto-graded part</div>
+            </div>
+          </div>
+
+          <div className="stx-cats">
+            {VA_CATEGORIES.map((cat) => {
+              const c = result!.perCat[cat];
+              const pct = Math.round((c.ok / c.all) * 100);
+              return (
+                <div key={cat} className="stx-catline">
+                  <div className="stx-catline__head">
+                    <span className={`stx-cat stx-cat--${cat.toLowerCase()}`}>{cat}</span>
+                    <span className="stx-catline__pct">{pct}%</span>
+                  </div>
+                  <div className="stx-catline__bar">
+                    <div className="stx-catline__fill" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="stx-capability">
+                    {capabilityLine(cat, pct)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="stx-summary">
+            <h3>What this result says about you</h3>
+            <ul>
+              <li>You can communicate clearly and concisely with clients and teammates.</li>
+              <li>You handle time-zone coordination and remote scheduling reliably.</li>
+              <li>You know how to search, validate sources, and share clean links.</li>
+              <li>You’re comfortable with Google Sheets/Excel basics.</li>
+              <li>You prioritize critical tasks, understand SLAs, and follow security best practices.</li>
+            </ul>
+            <p className="stx-note2">Focus on any category below 80% and retake the test.</p>
+          </div>
+
+          <div className="stx-actions">
+            <button className="stx-button stx-ghost" onClick={() => { setSubmitted(false); setCurrent(0); }}>
+              Review answers
+            </button>
+            <button
+              className="stx-button"
+              onClick={() => {
+                setStarted(false);
+                setCurrent(0);
+                setAnswers({});
+                setSubmitted(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            >
+              Retake
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
-export default SkillTest;
+/* =====================================================================================
+   TEST 2: Jobseeker Workstyle Test (12 single-choice questions, profiling)
+===================================================================================== */
+
+type WS_Trait = 'Planner' | 'Doer' | 'Communicator' | 'Analyst' | 'Creator';
+type WS_Option = { id: string; label: string; trait: WS_Trait };
+type WS_Question = { id: string; title: string; options: WS_Option[] };
+type WS_Answers = Record<string, string>;
+
+const WS_QUESTIONS: WS_Question[] = [
+  {
+    id: 'W1',
+    title: 'A new project lands on your desk. What do you do first?',
+    options: [
+      { id: 'A', label: 'Draft a quick timeline and milestones', trait: 'Planner' },
+      { id: 'B', label: 'Start tackling the first actionable task', trait: 'Doer' },
+      { id: 'C', label: 'Ping stakeholders to clarify expectations', trait: 'Communicator' },
+      { id: 'D', label: 'Outline unknowns and research them', trait: 'Analyst' },
+    ],
+  },
+  {
+    id: 'W2',
+    title: 'Your manager gives you a vague goal.',
+    options: [
+      { id: 'A', label: 'Ask questions and turn it into a clear brief', trait: 'Communicator' },
+      { id: 'B', label: 'Break it into a checklist and get moving', trait: 'Doer' },
+      { id: 'C', label: 'Map risks, dependencies, and success metrics', trait: 'Planner' },
+      { id: 'D', label: 'Collect examples and benchmark options', trait: 'Analyst' },
+    ],
+  },
+  {
+    id: 'W3',
+    title: 'Your favorite type of task is…',
+    options: [
+      { id: 'A', label: 'Shipping things and closing loops', trait: 'Doer' },
+      { id: 'B', label: 'Designing visuals or writing copy', trait: 'Creator' },
+      { id: 'C', label: 'Creating systems and SOPs', trait: 'Planner' },
+      { id: 'D', label: 'Finding insights in data', trait: 'Analyst' },
+    ],
+  },
+  {
+    id: 'W4',
+    title: 'A teammate missed a deadline.',
+    options: [
+      { id: 'A', label: 'Coordinate a quick call and reset expectations', trait: 'Communicator' },
+      { id: 'B', label: 'Replan timeline with contingencies', trait: 'Planner' },
+      { id: 'C', label: 'Jump in and help finish the task', trait: 'Doer' },
+      { id: 'D', label: 'Analyze the root cause to prevent repeats', trait: 'Analyst' },
+    ],
+  },
+  {
+    id: 'W5',
+    title: 'Which tool do you enjoy most?',
+    options: [
+      { id: 'A', label: 'Trello/Asana/ClickUp', trait: 'Planner' },
+      { id: 'B', label: 'Canva/Figma/GDocs', trait: 'Creator' },
+      { id: 'C', label: 'Sheets/Excel/Looker', trait: 'Analyst' },
+      { id: 'D', label: 'Slack/Email/CRM', trait: 'Communicator' },
+    ],
+  },
+  {
+    id: 'W6',
+    title: 'Feedback from others most often says you are…',
+    options: [
+      { id: 'A', label: 'Organized and reliable', trait: 'Planner' },
+      { id: 'B', label: 'Clear and empathetic', trait: 'Communicator' },
+      { id: 'C', label: 'Fast and hands-on', trait: 'Doer' },
+      { id: 'D', label: 'Insightful and logical', trait: 'Analyst' },
+    ],
+  },
+  {
+    id: 'W7',
+    title: 'You’re given a blank page task.',
+    options: [
+      { id: 'A', label: 'Sketch an outline and iterate visually', trait: 'Creator' },
+      { id: 'B', label: 'Define scope and acceptance criteria', trait: 'Planner' },
+      { id: 'C', label: 'Draft the first version to get feedback', trait: 'Doer' },
+      { id: 'D', label: 'Research prior art and patterns', trait: 'Analyst' },
+    ],
+  },
+  {
+    id: 'W8',
+    title: 'How do you prefer to communicate progress?',
+    options: [
+      { id: 'A', label: 'Short async updates with blockers + next steps', trait: 'Communicator' },
+      { id: 'B', label: 'Dashboard/metrics that auto-update', trait: 'Analyst' },
+      { id: 'C', label: 'A simple plan with dates and owners', trait: 'Planner' },
+      { id: 'D', label: 'A demo or mockup people can see', trait: 'Creator' },
+    ],
+  },
+  {
+    id: 'W9',
+    title: 'What motivates you most?',
+    options: [
+      { id: 'A', label: 'Seeing things shipped and users happy', trait: 'Doer' },
+      { id: 'B', label: 'Solving hard problems elegantly', trait: 'Analyst' },
+      { id: 'C', label: 'Turning ideas into something tangible', trait: 'Creator' },
+      { id: 'D', label: 'Keeping everyone aligned and calm', trait: 'Communicator' },
+    ],
+  },
+  {
+    id: 'W10',
+    title: 'Your desk vibe is…',
+    options: [
+      { id: 'A', label: 'Neat folders and calendars', trait: 'Planner' },
+      { id: 'B', label: 'Post-its and quick notes', trait: 'Doer' },
+      { id: 'C', label: 'Moodboards and sketches', trait: 'Creator' },
+      { id: 'D', label: 'Charts and queries', trait: 'Analyst' },
+    ],
+  },
+  {
+    id: 'W11',
+    title: 'When priorities clash, you…',
+    options: [
+      { id: 'A', label: 'Clarify trade-offs with stakeholders', trait: 'Communicator' },
+      { id: 'B', label: 'Reprioritize with a new plan', trait: 'Planner' },
+      { id: 'C', label: 'Knock out the quickest wins first', trait: 'Doer' },
+      { id: 'D', label: 'Evaluate impact using data', trait: 'Analyst' },
+    ],
+  },
+  {
+    id: 'W12',
+    title: 'Pick the statement that fits you best:',
+    options: [
+      { id: 'A', label: 'I love structure', trait: 'Planner' },
+      { id: 'B', label: 'I love momentum', trait: 'Doer' },
+      { id: 'C', label: 'I love clarity', trait: 'Communicator' },
+      { id: 'D', label: 'I love patterns', trait: 'Analyst' },
+    ],
+  },
+];
+
+const WS_DESCRIPTIONS: Record<
+  WS_Trait,
+  { title: string; text: string; suggested: string[] }
+> = {
+  Planner: {
+    title: 'Planner',
+    text:
+      'You bring order and predictability. You break work into clear steps, define owners and dates, and prevent surprises.',
+    suggested: ['Project Coordinator', 'Operations Specialist', 'PM Assistant'],
+  },
+  Doer: {
+    title: 'Doer',
+    text: 'You create momentum. You like to ship, close loops, and turn ideas into reality fast.',
+    suggested: ['Virtual Assistant', 'Implementation Specialist', 'Support Ops'],
+  },
+  Communicator: {
+    title: 'Communicator',
+    text:
+      'You keep people aligned. You clarify expectations, write clearly, and handle stakeholders with empathy.',
+    suggested: ['Account Coordinator', 'Customer Success', 'Community Manager'],
+  },
+  Analyst: {
+    title: 'Analyst',
+    text: 'You discover signal in noise. You love spreadsheets, metrics, and testing assumptions.',
+    suggested: ['Data Assistant', 'Ops Analyst', 'Research Assistant'],
+  },
+  Creator: {
+    title: 'Creator',
+    text:
+      'You turn stories into visuals or words. You enjoy mockups, copy, and making things feel polished.',
+    suggested: ['Content Specialist', 'Design Assistant', 'Marketing VA'],
+  },
+};
+
+const WorkstyleTest: React.FC = () => {
+  const [started, setStarted] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [answers, setAnswers] = useState<WS_Answers>({});
+  const [submitted, setSubmitted] = useState(false);
+
+  const total = WS_QUESTIONS.length;
+
+  const progress = useMemo(() => {
+    const answered = Object.keys(answers).length;
+    return Math.round((answered / total) * 100);
+  }, [answers, total]);
+
+  const select = (qid: string, optId: string) => setAnswers((s) => ({ ...s, [qid]: optId }));
+  const go = (dir: -1 | 1) => {
+    setCurrent((i) => Math.min(Math.max(0, i + dir), total - 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const computeProfile = () => {
+    const counts: Record<WS_Trait, number> = {
+      Planner: 0,
+      Doer: 0,
+      Communicator: 0,
+      Analyst: 0,
+      Creator: 0,
+    };
+    for (const q of WS_QUESTIONS) {
+      const picked = answers[q.id];
+      const op = q.options.find((o) => o.id === picked);
+      if (op) counts[op.trait] += 1;
+    }
+    const sorted = (Object.keys(counts) as WS_Trait[]).sort((a, b) => counts[b] - counts[a]);
+    const totalPicks = Object.values(counts).reduce((a, b) => a + b, 0) || 1;
+    return { counts, sorted, totalPicks };
+  };
+
+  const result = useMemo(() => (submitted ? computeProfile() : null), [submitted, answers]);
+
+  const q = WS_QUESTIONS[current];
+  const picked = answers[q?.id];
+
+  return (
+    <>
+      {!started ? (
+        <div className="stx-intro">
+          <h1 className="stx-title">Jobseeker Workstyle Test</h1>
+          <p className="stx-subtitle">12 quick single-choice questions to reveal your primary working style.</p>
+
+          <div className="stx-meta">
+            <div className="stx-chip"><FaClock /> ~7 min</div>
+            <div className="stx-chip"><FaGlobe /> English</div>
+            <div className="stx-chip"><FaShieldAlt /> No external tools</div>
+          </div>
+
+          <ul className="stx-guidelines">
+            <li>Choose the option that fits you best — there are no “right” or “wrong” answers.</li>
+            <li>At the end you’ll see your top styles and role ideas.</li>
+          </ul>
+
+          <button className="stx-button" onClick={() => setStarted(true)}>Start</button>
+        </div>
+      ) : !submitted ? (
+        <>
+          <div className="stx-topbar">
+            <div className="stx-topbar__left">
+              <div className="stx-progress">
+                <div className="stx-progress__bar" style={{ width: `${progress}%` }} />
+              </div>
+              <div className="stx-progress__text">{progress}% completed</div>
+            </div>
+            <div className="stx-topbar__right">
+              <span className="stx-count">Question {current + 1} / {total}</span>
+            </div>
+          </div>
+
+          <div className="stx-qcard" role="group" aria-labelledby={`wq-${q.id}`}>
+            <div className="stx-qhead">
+              <span className="stx-cat">Workstyle</span>
+            </div>
+            <h3 id={`wq-${q.id}`} className="stx-qtitle">{q.title}</h3>
+
+            <div className="stx-options">
+              {q.options.map((op) => {
+                const checked = picked === op.id;
+                return (
+                  <label key={op.id} className={`stx-opt ${checked ? 'is-checked' : ''}`}>
+                    <input
+                      type="radio"
+                      name={q.id}
+                      checked={checked}
+                      onChange={() => select(q.id, op.id)}
+                    />
+                    <span className="stx-opt__fake" />
+                    <span className="stx-opt__text">{op.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="stx-nav">
+              <button className="stx-button stx-ghost" onClick={() => go(-1)} disabled={current === 0}>
+                Prev
+              </button>
+              {current < total - 1 ? (
+                <button className="stx-button" onClick={() => go(1)}>Next</button>
+              ) : (
+                <button
+                  className="stx-button"
+                  onClick={() => {
+                    const unanswered = WS_QUESTIONS.filter((q) => !answers[q.id]).length;
+                    if (unanswered > 0) {
+                      const ok = window.confirm(`You have ${unanswered} unanswered question(s). Submit anyway?`);
+                      if (!ok) return;
+                    }
+                    setSubmitted(true);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                >
+                  See my result
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="stx-result">
+          <div className="stx-rescore">
+            <FaUserCheck className="stx-res-ico ok" />
+            <div className="stx-resline">
+              <div className="stx-res-main">
+                Your primary style: <strong>{result!.sorted[0]}</strong>
+              </div>
+              <div className="stx-res-sub">
+                Secondary: {result!.sorted[1]} • Tertiary: {result!.sorted[2]}
+              </div>
+            </div>
+          </div>
+
+          <div className="stx-cats">
+            {result!.sorted.map((t) => {
+              const pct = Math.round((result!.counts[t] / result!.totalPicks) * 100);
+              return (
+                <div key={t} className="stx-catline">
+                  <div className="stx-catline__head">
+                    <span className="stx-cat">{t}</span>
+                    <span className="stx-catline__pct">{pct}%</span>
+                  </div>
+                  <div className="stx-catline__bar">
+                    <div className="stx-catline__fill" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="stx-capability">{WS_DESCRIPTIONS[t].text}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="stx-summary">
+            <h3>Suggested roles to explore</h3>
+            <ul>
+              {[result!.sorted[0], result!.sorted[1]].map((t) => (
+                <li key={t}>
+                  <strong>{WS_DESCRIPTIONS[t].title}:</strong> {WS_DESCRIPTIONS[t].suggested.join(', ')}
+                </li>
+              ))}
+            </ul>
+            <p className="stx-note2">
+              Use your style in your profile headline (e.g., “{result!.sorted[0]} {result!.sorted[1]} — ready to help your team move faster”).
+            </p>
+          </div>
+
+          <div className="stx-actions">
+            <button className="stx-button stx-ghost" onClick={() => { setSubmitted(false); setCurrent(0); }}>
+              Review answers
+            </button>
+            <button
+              className="stx-button"
+              onClick={() => {
+                setStarted(false);
+                setCurrent(0);
+                setAnswers({});
+                setSubmitted(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            >
+              Retake
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};

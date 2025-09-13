@@ -1,198 +1,261 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
-import { register, login, getCategories, searchCategories, updateProfile, uploadIdentityDocument } from '../services/api';
-import { Category, JobSeekerProfile } from '@types'; // Добавил JobSeekerProfile
-import { useRole } from '../context/RoleContext';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { register, getCategories, searchCategories } from '../services/api';
+import { Category } from '@types';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
+
+import '../styles/register-v2.css';
+
+const urlOk = (v: string) => /^https?:\/\/\S+$/i.test(v.trim());
+const getCookie = (name: string): string | undefined => {
+  const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '=([^;]*)'));
+  return m ? decodeURIComponent(m[1]) : undefined;
+};
+
 
 const Register: React.FC = () => {
   const { role } = useParams<{ role: 'employer' | 'jobseeker' }>();
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
-  const { refreshProfile } = useRole();
-  const [experience, setExperience] = useState(''); // New for jobseeker
-  const [selectedSkills, setSelectedSkills] = useState<Category[]>([]); // New for jobseeker
-  const [skillInput, setSkillInput] = useState(''); // New
-  const [filteredSkills, setFilteredSkills] = useState<Category[]>([]); // New
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false); // New
-  const [categories, setCategories] = useState<Category[]>([]); // New
-  const [resumeFile, setResumeFile] = useState<File | null>(null); // New for jobseeker
-  const [resumeLink, setResumeLink] = useState(''); // Добавлено: для link на resume
+
+  // common
+  const [username, setUsername] = useState('');
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm]   = useState('');
+  const [seePass, setSeePass]   = useState(false);
+  const [seeConf, setSeeConf]   = useState(false);
+  const [err, setErr]           = useState<string | null>(null);
+  const [busy, setBusy]         = useState(false);
+
+  // jobseeker specifics
+  const [experience, setExperience] = useState('');
+  const [resumeLink, setResumeLink] = useState('');
+  const [linkedin, setLinkedin]     = useState('');
+  const [instagram, setInstagram]   = useState('');
+  const [facebook, setFacebook]     = useState('');
+  const [about, setAbout]           = useState('');
+  // skills (jobseeker)
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedSkills, setSelectedSkills] = useState<Category[]>([]);
+  const [skillQuery, setSkillQuery] = useState('');
+  const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
+  const [openDrop, setOpenDrop] = useState(false);
 
   useEffect(() => {
     if (!role || !['employer', 'jobseeker'].includes(role)) {
       navigate('/role-selection');
+      return;
     }
     if (role === 'jobseeker') {
-const fetchCategories = async () => {
-  try {
-    const cats = await getCategories();
-    const sortedCats = cats.sort((a, b) => a.name.localeCompare(b.name));
-    setCategories(sortedCats);
-  } catch (error) {
-    console.error('Error fetching categories in Register:', error);
-  }
-};
-      fetchCategories();
+      (async () => {
+        try {
+          const cats = await getCategories();
+          setCategories((cats || []).sort((a, b) => a.name.localeCompare(b.name)));
+        } catch (e) {
+          console.error('getCategories error', e);
+        }
+      })();
     }
   }, [role, navigate]);
 
   useEffect(() => {
-    if (role === 'jobseeker' && skillInput.trim()) {
-      const search = async () => {
-        try {
-          const res = await searchCategories(skillInput);
-          setFilteredSkills(res);
-          setIsDropdownOpen(true);
-        } catch (error) {
-          console.error('Error searching skills in Register:', error);
-          setFilteredSkills([]);
-          setIsDropdownOpen(false);
-        }
-      };
-      const debounce = setTimeout(search, 300);
-      return () => clearTimeout(debounce);
-    } else {
-      setFilteredSkills([]);
-      setIsDropdownOpen(false);
+    if (role !== 'jobseeker') return;
+    if (!skillQuery.trim()) {
+      setFilteredSkills([]); setOpenDrop(false);
+      return;
     }
-  }, [skillInput, role]);
+    const t = setTimeout(async () => {
+      try {
+        const res = await searchCategories(skillQuery);
+        setFilteredSkills(res || []);
+        setOpenDrop(true);
+      } catch (e) {
+        console.error('searchCategories error', e);
+        setFilteredSkills([]); setOpenDrop(false);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [skillQuery, role]);
+
+  const wordCount = useMemo(() => {
+    const words = about.trim().split(/\s+/).filter(Boolean);
+    return words.length;
+  }, [about]);
+
+  const addSkill = (s: Category) => {
+    if (!selectedSkills.find(x => x.id === s.id)) {
+      setSelectedSkills(prev => [...prev, s]);
+    }
+    setSkillQuery('');
+    setOpenDrop(false);
+  };
+  const removeSkill = (id: string | number) =>
+    setSelectedSkills(prev => prev.filter(s => s.id !== id));
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   if (!role) return;
-  if (password !== confirmPassword) {
-    setErrorMessage('Passwords do not match!');
-    return;
-  }
+  if (password !== confirm) { setErr('Passwords do not match.'); return; }
+
+  // URL validation (only if filled)
+  const urlErrors: string[] = [];
+  const check = (val: string, label: string) => { if (val && !urlOk(val)) urlErrors.push(`${label} URL is invalid (use https://...)`); };
+  check(resumeLink, 'Resume');
+  check(linkedin, 'LinkedIn');
+  check(instagram, 'Instagram');
+  check(facebook, 'Facebook');
+  if (urlErrors.length) { setErr(urlErrors[0]); return; }
+
   try {
-    setErrorMessage(null);
-    const refCode = localStorage.getItem('referralCode');
+    setBusy(true); setErr(null);
 
-    const payload = {
-      username,
-      email,
-      password,
-      role,
-      skills: selectedSkills.map(s => s.id.toString()),
-      experience,
-      resume: resumeLink || undefined,
-      ref: refCode || undefined,
-    };
+    // рефкод: URL → LS → cookie
+    const urlRef = new URLSearchParams(window.location.search).get('ref') || undefined;
+    const lsRef  = localStorage.getItem('referralCode') || undefined;
+    const ckRef  = getCookie('jf_ref') || undefined;
+    const refCode = urlRef || lsRef || ckRef || undefined;
 
-    const res = await register(payload);
-    localStorage.setItem('pendingEmail', email);
+    // безопасный внутренний return-путь (без open redirect на внешние домены)
+    const rawReturn = new URLSearchParams(window.location.search).get('return') || '';
+    const safeReturn =
+  rawReturn.startsWith('/') && !rawReturn.startsWith('//') ? rawReturn : undefined;
+
+
+    const payload: any = { username, email, password, role };
+    if (role === 'jobseeker') {
+      if (experience)            payload.experience = experience;
+      if (selectedSkills.length) payload.skills     = selectedSkills.map(s => String(s.id));
+      if (resumeLink.trim())     payload.resume     = resumeLink.trim();
+      if (linkedin.trim())       payload.linkedin   = linkedin.trim();
+      if (instagram.trim())      payload.instagram  = instagram.trim();
+      if (facebook.trim())       payload.facebook   = facebook.trim();
+      if (about.trim())          payload.about      = about.trim();
+    }
+    if (refCode) payload.ref = refCode;
+
+   await register(payload);
+
+// запоминаем данные для ПОСЛЕ верификации
+localStorage.setItem('pendingEmail', email);
+localStorage.setItem('pendingRole', role); // чтобы VerifyEmail знал роль
+// если это jobseeker по рефке и есть валидный внутренний return — сохраним
+if (role === 'jobseeker' && refCode && safeReturn) {
+  localStorage.setItem('afterVerifyReturn', safeReturn);
+} else {
+  localStorage.removeItem('afterVerifyReturn');
+}
+
+// реф-код в LS больше не держим
+if (refCode) { try { localStorage.removeItem('referralCode'); } catch {} }
+
+// НИКУДА не уводим — показываем страницу «проверьте почту»
 navigate('/check-email', { state: { email } });
-    // 1) обычный success
-    // 2) success c message: 'Account exists but not verified...' (бек уже отправил письмо)
-    if (refCode) localStorage.removeItem('referralCode');
 
-    // в любом случае ведём на check-email и передаём email
-    navigate('/check-email', { state: { email } });
   } catch (error: any) {
-    console.error('Register error:', error);
-    const msg = error.response?.data?.message;
-
+    console.error('Register error', error);
+    const msg = error?.response?.data?.message;
     if (msg?.includes('Account exists but not verified')) {
-      // на случай, если бек отдаёт это 200 ИЛИ по ошибке 4xx — ведём на check-email
+      // для уже существующего, но не верифицированного — оставляем переход на проверку почты
       navigate('/check-email', { state: { email } });
       return;
     }
-
-    const errorMsg =
-      error.response?.status === 403 &&
-      msg === 'Registration is not allowed from your country'
-        ? 'Registration is not allowed from your country.'
-        : msg || 'Registration failed. Please try again.';
-    setErrorMessage(errorMsg);
+    if (error?.response?.status === 403 && msg === 'Registration is not allowed from your country') {
+      setErr('Registration is not allowed from your country.');
+    } else {
+      setErr(msg || 'Registration failed. Please try again.');
+    }
+  } finally {
+    setBusy(false);
   }
 };
 
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const toggleConfirmPasswordVisibility = () => {
-    setShowConfirmPassword(!showConfirmPassword);
-  };
 
   if (!role) return null;
 
+  const isJobseeker = role === 'jobseeker';
+
   return (
-    <div className="register-container">
-      <div className="register-box">
-        <h2>Sign Up</h2>
-        {errorMessage && <p style={{ color: 'red', textAlign: 'center' }}>{errorMessage}</p>}
-        <form onSubmit={handleSubmit} className="register-form">
-          <div className="form-group">
-            <label>Username</label>
+    <div className="reg2-shell">
+      <div className="reg2-card">
+        <h1 className="reg2-title">Sign Up</h1>
+
+        {err && <div className="reg2-alert reg2-alert--err">{err}</div>}
+
+        <form onSubmit={handleSubmit} className={`reg2-form ${isJobseeker ? 'is-two' : ''}`} noValidate>
+          {/* left column */}
+          <div className="reg2-field">
+            <label className="reg2-label">Username</label>
             <input
+              className="reg2-input"
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={e => setUsername(e.target.value)}
               placeholder="Enter your username"
               autoComplete="username"
               required
             />
           </div>
-          <div className="form-group">
-            <label>Email</label>
+
+          <div className="reg2-field">
+            <label className="reg2-label">Email</label>
             <input
+              className="reg2-input"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
               placeholder="Enter your email"
               autoComplete="email"
               required
             />
           </div>
-          <div className="form-group password-container">
-            <label>Password</label>
-            <div className="password-input-wrapper">
+
+          <div className="reg2-field">
+            <label className="reg2-label">Password</label>
+            <div className="reg2-passwrap">
               <input
-                type={showPassword ? 'text' : 'password'}
+                className="reg2-input"
+                type={seePass ? 'text' : 'password'}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={e => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 autoComplete="new-password"
                 required
               />
-              <span className="password-toggle-icon" onClick={togglePasswordVisibility}>
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
-              </span>
+              <button type="button" className="reg2-eye" onClick={() => setSeePass(s => !s)} aria-label="Toggle password">
+                {seePass ? <FaEyeSlash /> : <FaEye />}
+              </button>
             </div>
           </div>
-          <div className="form-group password-container">
-            <label>Confirm Password</label>
-            <div className="password-input-wrapper">
+
+          <div className="reg2-field">
+            <label className="reg2-label">Confirm Password</label>
+            <div className="reg2-passwrap">
               <input
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="reg2-input"
+                type={seeConf ? 'text' : 'password'}
+                value={confirm}
+                onChange={e => setConfirm(e.target.value)}
                 placeholder="Confirm your password"
                 autoComplete="new-password"
                 required
               />
-              <span className="password-toggle-icon" onClick={toggleConfirmPasswordVisibility}>
-                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-              </span>
+              <button type="button" className="reg2-eye" onClick={() => setSeeConf(s => !s)} aria-label="Toggle password">
+                {seeConf ? <FaEyeSlash /> : <FaEye />}
+              </button>
             </div>
           </div>
-          {role === 'jobseeker' && (
+
+          {/* right column (jobseeker extras) */}
+          {isJobseeker && (
             <>
-              <div className="form-group">
-                <label>Experience</label>
+              <div className="reg2-field">
+                <label className="reg2-label">Experience</label>
                 <select
+                  className="reg2-input"
                   value={experience}
-                  onChange={(e) => setExperience(e.target.value)}
-                  className="category-select"
+                  onChange={e => setExperience(e.target.value)}
+                  required
                 >
                   <option value="" disabled>Select experience level</option>
                   <option value="Less than 1 year">Less than 1 year</option>
@@ -202,76 +265,134 @@ navigate('/check-email', { state: { email } });
                   <option value="6+ years">6+ years</option>
                 </select>
               </div>
-              <div className="form-group"> {/* Добавлено: input для resume link */}
-      <label>Resume Link (optional)</label>
-      <input
-        type="url"
-        value={resumeLink}
-        onChange={(e) => setResumeLink(e.target.value)}
-        placeholder="https://example.com/resume.pdf"
-      />
-      <p className="form-note">You can upload a file after registration.</p>
-    </div>
-             <div className="form-group">  
-  <label>Talents/Skills:</label>  
-  <div className="autocomplete-wrapper">  
-    <input  
-      type="text"  
-      value={skillInput}  
-      onChange={(e) => setSkillInput(e.target.value)}  
-      placeholder="Start typing to search skills..." // Изменено на шаблон из Profile  
-      className="category-select"  
-      onFocus={() => skillInput.trim() && setIsDropdownOpen(true)}  
-      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}  
-    />  
-    {isDropdownOpen && filteredSkills.length > 0 && (  
-      <ul className="autocomplete-dropdown">  
-        {filteredSkills.map((skill) => (  
-          <li  
-            key={skill.id}  
-            className="autocomplete-item"  
-            onMouseDown={() => {  
-              if (!selectedSkills.find(s => s.id === skill.id)) {  
-                setSelectedSkills([...selectedSkills, skill]);  
-              }  
-              setSkillInput('');  
-              setIsDropdownOpen(false);  
-            }}  
-          >  
-            {skill.parent_id  
-              ? `${categories.find((cat) => cat.id === skill.parent_id)?.name || 'Category'} > ${skill.name}`  
-              : skill.name}  
-          </li>  
-        ))}  
-      </ul>  
-    )}  
-  </div>  
-  <div className="category-tags">  
-    {selectedSkills.map((skill) => (  
-      <span key={skill.id} className="category-tag">  
-        {skill.name}  
-        <span  
-          className="remove-tag"  
-          onClick={() => {  
-            setSelectedSkills(selectedSkills.filter((s) => s.id !== skill.id));  
-          }}  
-        >  
-          ×  
-        </span>  
-      </span>  
-    ))}  
-  </div>  
-</div>  
+
+              <div className="reg2-field">
+                <label className="reg2-label">
+                  Resume Link <span className="reg2-opt">(optional)</span>
+                </label>
+                <input
+                  className="reg2-input"
+                  type="url"
+                  value={resumeLink}
+                  onChange={e => setResumeLink(e.target.value)}
+                  placeholder="https://example.com/resume.pdf"
+                />
+                <div className="reg2-note">You can upload a file after registration.</div>
+              </div>
+
+              <div className="reg2-field reg2-span2">
+                <label className="reg2-label">Talents/Skills</label>
+                <div className="reg2-auto">
+                  <input
+                    className="reg2-input"
+                    type="text"
+                    value={skillQuery}
+                    onChange={e => setSkillQuery(e.target.value)}
+                    placeholder="Start typing to search skills…"
+                    onFocus={() => skillQuery.trim() && setOpenDrop(true)}
+                    onBlur={() => setTimeout(() => setOpenDrop(false), 200)}
+                  />
+                  {openDrop && filteredSkills.length > 0 && (
+                    <ul className="reg2-dd">
+                      {filteredSkills.map(s => (
+                        <li
+                          key={s.id}
+                          className="reg2-dd__item"
+                          onMouseDown={() => addSkill(s)}
+                        >
+                          {s.parent_id
+                            ? `${categories.find(c => c.id === s.parent_id)?.name || 'Category'} > ${s.name}`
+                            : s.name}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {selectedSkills.length > 0 && (
+                  <div className="reg2-tags">
+                    {selectedSkills.map(s => (
+                      <span className="reg2-tag" key={s.id}>
+                        {s.name}
+                        <button type="button" className="reg2-tag__x" onClick={() => removeSkill(s.id)}>
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Optional socials */}
+              <div className="reg2-divider reg2-span2">Optional</div>
+
+              <div className="reg2-field">
+                <label className="reg2-label">
+                  LinkedIn <span className="reg2-opt">(optional)</span>
+                </label>
+                <input
+                  className="reg2-input"
+                  type="url"
+                  value={linkedin}
+                  onChange={e => setLinkedin(e.target.value)}
+                  placeholder="https://www.linkedin.com/in/username"
+                />
+              </div>
+
+              <div className="reg2-field">
+                <label className="reg2-label">
+                  Instagram <span className="reg2-opt">(optional)</span>
+                </label>
+                <input
+                  className="reg2-input"
+                  type="url"
+                  value={instagram}
+                  onChange={e => setInstagram(e.target.value)}
+                  placeholder="https://www.instagram.com/username"
+                />
+              </div>
+
+              <div className="reg2-field">
+                <label className="reg2-label">
+                  Facebook <span className="reg2-opt">(optional)</span>
+                </label>
+                <input
+                  className="reg2-input"
+                  type="url"
+                  value={facebook}
+                  onChange={e => setFacebook(e.target.value)}
+                  placeholder="https://www.facebook.com/username"
+                />
+              </div>
+
+              <div className="reg2-field reg2-span2">
+                <label className="reg2-label">
+                  About me <span className="reg2-opt">(up to 150 words)</span>
+                </label>
+                <textarea
+                  className="reg2-textarea"
+                  rows={4}
+                  value={about}
+                  onChange={e => setAbout(e.target.value)}
+                  placeholder="Tell briefly about your experience, strengths and what roles you're seeking…"
+                />
+                <div className={`reg2-counter ${wordCount > 150 ? 'is-over' : ''}`}>
+                  {wordCount} / 150 words
+                </div>
+              </div>
             </>
           )}
-          <button type="submit">Sign Up as {role === 'employer' ? 'Employer' : 'Jobseeker'}</button>
-          <div className="form-links">
-            <p>
-              Already have an account? <Link to="/login">Login</Link>
-            </p>
-            <p>
-              <Link to="/">Go to Home</Link>
-            </p>
+
+          {/* submit + links */}
+          <div className="reg2-actions reg2-span2">
+            <button className="reg2-btn" type="submit" disabled={busy}>
+              {busy ? 'Signing up…' : `Sign Up as ${role === 'employer' ? 'Employer' : 'Jobseeker'}`}
+            </button>
+          </div>
+
+          <div className="reg2-links reg2-span2">
+            <span>Already have an account? <Link to="/login">Login</Link></span>
+            <span><Link to="/">Go to Home</Link></span>
           </div>
         </form>
       </div>

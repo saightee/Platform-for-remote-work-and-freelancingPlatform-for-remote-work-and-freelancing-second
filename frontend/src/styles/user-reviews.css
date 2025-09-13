@@ -1,0 +1,141 @@
+/* ===== User Reviews page ===== */
+.ur-shell{
+  --ur-accent:#4e74c8;
+  --ur-bg:#f6f8fc;
+  --ur-surface:#fff;
+  --ur-surface-2:#f3f6fd;
+  --ur-border:#e6ecf5;
+  --ur-text:#111827;
+  --ur-text-dim:#64748b;
+  --ur-radius:14px;
+  --ur-shadow:0 6px 18px rgba(24,39,75,.04), 0 2px 6px rgba(24,39,75,.06);
+
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
+  background:var(--ur-bg);
+  color:var(--ur-text);
+}
+
+/* контент растягивается, чтобы футер всегда был внизу */
+.ur-main{ flex:1 0 auto; }
+.ur-bottom{ flex:0 0 auto; }
+
+/* контейнер + заголовок */
+.ur-container{
+  max-width: 1080px;
+  margin: 20px auto 32px;
+  padding: 0 16px;
+}
+.ur-title{
+  font-size: clamp(22px, 2.2vw, 28px);
+  font-weight: 800;
+  letter-spacing: .2px;
+  margin: 8px 0 18px;
+  color: var(--ur-text);
+}
+
+/* список карточек */
+.ur-list{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  list-style:none;
+  padding:0; margin:0;
+}
+@media (min-width: 720px){
+  .ur-list{ grid-template-columns: 1fr 1fr; }
+}
+@media (min-width: 1024px){
+  .ur-list{ grid-template-columns: 1fr 1fr 1fr; }
+}
+
+.ur-card{
+  background: var(--ur-surface);
+  border: 1px solid var(--ur-border);
+  border-radius: var(--ur-radius);
+  box-shadow: var(--ur-shadow);
+  padding: 16px 16px 14px;
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.ur-card:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(24,39,75,.06), 0 3px 8px rgba(24,39,75,.08);
+}
+
+/* верх карточки: рейтинг слева, мета справа */
+.ur-card__head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap: 10px;
+}
+
+/* Рейтинг */
+.ur-rating{
+  display:flex; align-items:baseline; gap:4px;
+  color: var(--ur-accent);
+  background: #eef3ff;
+  border: 1px solid #d9e4ff;
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+.ur-rating__value{
+  font-size: 20px; font-weight: 800; line-height:1;
+}
+.ur-rating__of{
+  font-size: 13px; color:#2b3a67; opacity:.9;
+}
+
+/* Мета: ревьювер + дата */
+.ur-meta{
+  display:flex; flex-wrap:wrap; gap:10px 14px;
+  justify-content:flex-end;
+}
+.ur-meta__item{
+  display:flex; align-items:center; gap:6px;
+  font-size: 14px;
+}
+.ur-k{ color: var(--ur-text-dim); }
+.ur-v{ color: var(--ur-text); font-weight:600; }
+
+/* Комментарий */
+.ur-comment{
+  margin: 2px 0 0;
+  color: var(--ur-text);
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+/* состояния */
+.ur-status{
+  background: var(--ur-surface);
+  border:1px solid var(--ur-border);
+  border-radius: var(--ur-radius);
+  padding: 16px;
+  box-shadow: var(--ur-shadow);
+  margin-top: 8px;
+}
+.ur-loading{ color: var(--ur-text-dim); }
+.ur-error{ color: #c0392b; }
+
+.ur-empty{
+  background: var(--ur-surface);
+  border:1px dashed var(--ur-border);
+  border-radius: var(--ur-radius);
+  padding: 28px 16px;
+  text-align:center;
+  color: var(--ur-text-dim);
+  margin-top: 8px;
+}
+
+/* Мобильные правки */
+@media (max-width: 540px){
+  .ur-card{ padding: 14px; }
+  .ur-meta{ gap:6px 10px; }
+  .ur-meta__item{ font-size: 13px; }
+  .ur-rating__value{ font-size: 18px; }
+}

@@ -518,14 +518,14 @@ color: #4e74c8;
 }
 
 .hv-hiring-banner-title {
-  font-size: 32px;
+  font-size: 24px;
   font-weight: bold;
   color: #333;
   margin: 0;
 }
 
 .hv-hiring-banner-subtitle {
-  font-size: 18px;
+  font-size: 15px;
   color: #666;
   margin: 5px 0;
 }
@@ -574,11 +574,11 @@ color: #4e74c8;
 
   .hv-hiring-banner-left-icon,
   .hv-hiring-banner-right-icons {
-    margin: 10px 0;
+    margin: 0px 0;
   }
 
   .hv-hiring-banner-button {
-    margin: 10px 0 0;
+    margin: 16px 0 10px;
   }
 }
 
@@ -1347,12 +1347,12 @@ display: grid;
 /* Десктоп/планшет — обычная сетка */
 .rt-testimonials-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
 }
 
 .rt-testimonial-card {
-  background-color: #fff;
+  background-color: #4e74c808;
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
@@ -1361,6 +1361,7 @@ display: grid;
   font-size: 14px;
   color: #666;
 }
+
 
 /* бейджи/иконки/текст — как было */
 .rt-badge {
@@ -1443,6 +1444,9 @@ display: grid;
   .rt-dots { display: flex; }
 }
 
+
+
+
 /* Features Section */
 .features {
   text-align: center;
@@ -1462,7 +1466,7 @@ display: grid;
 }
 
 .feature-card {
-  background-color: white;
+  background-color: #4e74c808;
   padding: 30px 20px;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -1906,7 +1910,7 @@ footer {
   top: 20%;
   height: 60%;
   width: 5px;
-  background-color: #4a90e2;
+  background-color: #4e74c8;
   clip-path: polygon(100% 10%, 0 0, 0 100%, 100% 90%);
 }
 
@@ -2164,7 +2168,6 @@ z-index: 1000;
 }
 
 .modal_notify {
-  display: block; /* Убедитесь, что visible при showNotifyModal=true */
   position: fixed;
   z-index: 1;
   left: 0;
@@ -2173,6 +2176,9 @@ z-index: 1000;
   height: 100%;
   overflow: auto;
   background-color: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .modal-content {
@@ -2335,7 +2341,7 @@ table th {
 .login-form button {
   width: 100%;
   padding: 12px;
-  background-color: #3498db;
+  background-color: #4e74c8;
   color: white;
   border: none;
   border-radius: 6px;
@@ -2562,7 +2568,7 @@ table th {
 .role-button {
   padding: 15px;
   font-size: 18px;
-  background-color: #3498db;
+  background-color: #4e74c8;
   color: white;
   border: none;
   border-radius: 5px;
@@ -2753,6 +2759,7 @@ table th {
   flex-direction: column;
   min-height: 100vh;
   padding: 20px;
+  margin-top: 100px;
 }
 
 .forgot-password-container h2 {
@@ -3451,7 +3458,7 @@ table th {
 
 .job-details-content {
   background-color: white;
-  padding: 30px;
+  padding: 10px 30px 30px 30px;
   border-radius: 5px;
   box-shadow: 0 2px 4px rgba(0, 2, 4, 0.1);
   display: flex;
@@ -3977,6 +3984,9 @@ table th {
   padding: 20px 0;
 }
 
+.generate-ref {
+margin-left: 5px;
+}
 .sidebar h2 {
   font-size: 20px;
   margin: 0 20px 20px;
@@ -4188,6 +4198,10 @@ justify-content: space-between;
   border-collapse: collapse;
   margin-top: 10px;
 }
+.job-post-details {
+  color: #666;
+
+}
 
 .dashboard-table th, .dashboard-table td {
   padding: 6px;
@@ -4249,7 +4263,7 @@ summary:hover {
   background-color: #3498db;
   color: #ffffff;
   border: none;
-  padding: 4px 12px;
+  padding: 6px 12px;
   border-radius: 5px;
   cursor: pointer;
   font-size: 14px;
@@ -4362,7 +4376,7 @@ summary:hover {
   padding: 20px;
   border-radius: 5px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  max-width: 500px;
+  max-width: 900px;
   width: 100%;
   text-align: left;
   color: #333;
@@ -6719,7 +6733,7 @@ header nav.mobile-menu-open .find-job {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5); /* Dark overlay */
+  background-color: rgba(0, 0, 0, 0.6); /* Dark overlay */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7043,7 +7057,7 @@ header nav.mobile-menu-open .find-job {
 
 /* ===== Общая карточка ===== */
 .jc-card {
-  background: var(--jc-bg);
+  background-color: #4e74c808;
   border: 1px solid var(--jc-border);
   border-radius: var(--jc-radius);
   box-shadow: var(--jc-shadow);
@@ -7128,7 +7142,7 @@ header nav.mobile-menu-open .find-job {
 }
 
 .jc-chip {
-  background: var(--jc-chip);
+  background: #4e74c80f;
   border: 1px solid var(--jc-border);
   padding: 6px 10px;
   border-radius: 10px;
@@ -7208,7 +7222,7 @@ header nav.mobile-menu-open .find-job {
 /* Кнопка в твоем цвете */
 .jc-btn {
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 8px 12px;
   font-weight: 700;
   font-size: 0.95rem;
   cursor: pointer;
@@ -7570,10 +7584,10 @@ header nav.mobile-menu-open .find-job {
   display: flex;
   align-items: stretch;
   background: var(--sb-bg);
-  border: 1px solid var(--sb-border);
-  border-radius: var(--sb-radius);
+  /* border: 1px solid var(--sb-border); */
+  border-radius: 10px;
   box-shadow: var(--sb-shadow);
-  overflow: hidden;            /* важно: чтобы фон кнопки доходил до скруглений */
+  overflow: hidden;     
   width: 100%;
   max-width: 840px;
 }
@@ -8491,4 +8505,64 @@ html, body { overflow-x: hidden; }
 .apply-btn:hover {
   transform: translateY(-1px);
   box-shadow: var(--cs-shadow, 0 10px 30px rgba(18,33,73,.12));
+}
+
+
+
+.divider-icon {
+  position: relative;
+  text-align: center;
+  margin: 40px auto;
+}
+.divider-icon::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0; right: 0;
+  height: 2px;
+  background: #e5e7eb;
+}
+.divider-icon span {
+  position: relative;
+  background: #fff;
+  padding: 0 12px;
+  color: #4e74c8;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.action-button-view-a {
+      background-color: #3498db;
+    color: #ffffff;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    margin: 5px 0;
+    transition: background-color 0.3s;
+    text-decoration: none;
+}
+
+.form-group-forgot input {
+  padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 14px;
+    flex: 1;
+    min-width: 400px;
+}
+
+.form-group-forgot label {
+padding-bottom: 5px;
+}
+
+@media (max-width: 480px) {
+  .form-group-forgot input {
+    min-width: 320px;
+  }
+  .form-group-forgot{
+        display: flex;
+    flex-direction: column;
+  }
 }

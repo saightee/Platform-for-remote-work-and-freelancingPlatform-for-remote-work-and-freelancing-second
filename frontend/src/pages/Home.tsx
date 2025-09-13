@@ -23,7 +23,24 @@ import heroImg2 from '../assets/2147839972.jpg';
 import heroImg3 from '../assets/57130.png';
 import heroImg4 from '../assets/58136.png';
 import ReactCountryFlag from 'react-country-flag';
+import { Helmet } from 'react-helmet-async';
+import { jwtDecode } from 'jwt-decode';
+import TestimonialsCarousel, { Testimonial } from "../components/TestimonialsCarousel";
 
+
+type JwtPayload = { exp?: number };
+
+const isAuthenticated = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const t = localStorage.getItem('token');
+  if (!t) return false;
+  try {
+    const { exp } = jwtDecode<JwtPayload>(t);
+    return !exp || exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+};
 
 const Home: React.FC = () => {
   const [jobs, setJobs] = useState<JobPost[]>([]);
@@ -31,7 +48,7 @@ const Home: React.FC = () => {
   const [filters, setFilters] = useState<{ title?: string }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+ const authed = isAuthenticated();
   const [stats, setStats] = useState({
     totalResumes: 0,
     totalJobPosts: 0,
@@ -139,7 +156,67 @@ const handleCookieConsent = () => {
     fetchData();
   }, [filters]);
 
+const testimonials: Testimonial[] = [
+  { role: "employer", text: "As an HR Manager, I’m constantly searching for reliable ways to connect with great people. On Jobforge I quickly found exactly what our company needed — talented candidates who not only matched the job descriptions but also fit our team culture. Within just a few weeks, I hired several amazing employees through the platform. The process was simple: posting a job, reviewing applicants, and chatting directly with them felt effortless compared to other tools I’ve tried. What I really love is how much time it saved me, and the fact that I could genuinely focus on people, not just resumes. For us, Jobforge became more than just a hiring platform — it’s a partner that makes building a strong team much easier.", name: "Anna Schneider", title: "HR Manager – Recruitment & Talent Development", countryCode: "DE", avatarUrl: "/img/jordan.jpg" },
+ {
+    role: "talent",
+    text: "I joined Jobforge hoping to get more freelance work, and I ended up with a steady client in the US. The process was simple, and I love how easy it is to showcase my skills here.",
+    name: "Mateo Rojas",
+    title: "Frontend Developer",
+    countryCode: "MX"
+  },
+  {
+    role: "employer",
+    text: "Our company needed remote support fast. Posting jobs on Jobforge was easy, and within days I had several strong candidates ready to interview. It saved us so much time.",
+    name: "James O’Connor",
+    title: "Operations Director",
+    countryCode: "IE"
+  },
+    {
+    role: "employer",
+    text: "Hiring internationally always seemed complicated, but Jobforge made it straightforward. In less than a month, we had two new hires who are already adding value to our projects.",
+    name: "Lars Johansen",
+    title: "CEO",
+    countryCode: "DK"
+  },
+  {
+    role: "talent",
+    text: "Jobforge opened the door to opportunities I never thought I’d have. I landed a marketing role with a European brand, and the collaboration has been amazing so far.",
+    name: "Sofia Rossi",
+    title: "Marketing Specialist",
+    countryCode: "IT"
+  },
 
+  {
+    role: "talent",
+    text: "Thanks to Jobforge, I found a data analyst role that matches my background and lets me work remotely. The direct chat feature made connecting with the employer so easy.",
+    name: "Akira Tanaka",
+    title: "Data Analyst",
+    countryCode: "JP"
+  },
+  {
+    role: "employer",
+    text: "As a startup founder, I appreciate speed and clarity. Jobforge gave me both — I connected with designers and developers quickly and built a reliable team without hassle.",
+    name: "Olivia Brown",
+    title: "Startup Founder",
+    countryCode: "GB"
+  },
+  {
+    role: "talent",
+    text: "From the Philippines, it can be hard to reach global clients, but Jobforge changed that for me. I’ve already completed projects for companies in Europe and Brazil, and it feels like new doors just keep opening.",
+    name: "Maria Santos",
+    title: "Virtual Assistant",
+    countryCode: "PH"
+  },
+  {
+  role: "talent",
+  text: "I’m based in Malaysia, and Jobforge gave me the chance to work with companies abroad without ever leaving home. I recently joined a project as a full-stack developer, and the experience has been smooth and rewarding.",
+  name: "Ahmad Faiz",
+  title: "Full-Stack Developer",
+  countryCode: "MY"
+}
+  // ...все остальные как у тебя на главной
+];
 
   // Группировка категорий для карусели (5 колонок × 2 ряда = 10 карточек на слайд)
   const columns = 5;
@@ -236,6 +313,18 @@ const handleCookieConsent = () => {
 
   return (
     <div>
+      <Helmet>
+  <title>Jobforge — The Simplest Path to Connect Talent and Opportunities</title>
+  <meta
+    name="description"
+    content="Join a growing community of candidates and employers. Create a standout profile, apply with one click, and chat directly."
+  />
+  <link rel="canonical" href="https://jobforge.net/" />
+  <meta property="og:title" content="Jobforge — Remote Work & Global Hiring" />
+  <meta property="og:description" content="Find remote jobs or hire global talent today." />
+  <meta property="og:url" content="https://jobforge.net/" />
+</Helmet>
+
       <Header />
 
       {/* Hero Section */}
@@ -465,10 +554,24 @@ const handleCookieConsent = () => {
           </div>
         </div>
 
-        {/* Testimonials */}
-        <div className="rt-testimonials-container">
+  
+
+{/* <div className="divider-icon"><span>JF</span></div> */}
+
+
+
+
+
+<TestimonialsCarousel
+  items={testimonials}
+  title="What Our Users Say"
+  heroImageUrl={"/img/hero-person.jpg"} // можно не передавать — возьмётся avatarUrl первого
+/>
+       
+        {/* <div className="rt-testimonials-container">
           <h2 className="rt-testimonials-title">What Our Users Say</h2>
           <div className="rt-testimonials-grid" ref={tViewportRef}>
+
             <div className="rt-testimonial-card">
               <div className="rt-badge rt-employer"><FaBriefcase /> Employer</div>
               <FaQuoteLeft className="rt-quote-icon" />
@@ -554,9 +657,9 @@ const handleCookieConsent = () => {
               <p className="rt-specialty">Translator <ReactCountryFlag countryCode="ES" svg className="rt-flag" /></p>
             </div>
           </div>
-        </div>
+        </div> */}
 
-        <div className="rt-dots">
+        {/* <div className="rt-dots">
           {Array.from({ length: tPages }).map((_, i) => (
             <button
               key={i}
@@ -566,7 +669,7 @@ const handleCookieConsent = () => {
               type="button"
             />
           ))}
-        </div>
+        </div> */}
       </div>
 
       {/* Final CTA */}
@@ -578,7 +681,11 @@ const handleCookieConsent = () => {
               Whether you're seeking top remote talent or your next virtual opportunity,
               JobForge connects you to endless possibilities worldwide.
             </p>
-            <Link to="/role-selection" className="hv-final-cta-button">Get Started Today</Link>
+                {!authed && (
+              <Link to="/role-selection" className="hv-final-cta-button">
+                Get Started Today
+              </Link>
+            )}
           </div>
         </div>
       </div>

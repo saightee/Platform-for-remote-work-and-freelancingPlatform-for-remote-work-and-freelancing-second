@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 
-export type TechFeedbackCategory = 'Bug' | 'UI' | 'Perfomance' | 'Data' | 'Other';
+export type TechFeedbackCategory = 'Bug' | 'UI' | 'Performance' | 'Data' | 'Other';
 
 @Entity('feedback')
 export class Feedback {

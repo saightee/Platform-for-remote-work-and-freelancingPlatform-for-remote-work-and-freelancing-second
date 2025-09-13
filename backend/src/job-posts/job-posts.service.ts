@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { marked } from 'marked';
 import sanitizeHtml from 'sanitize-html';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class JobPostsService {
@@ -26,6 +27,16 @@ export class JobPostsService {
     private settingsService: SettingsService,
     private configService: ConfigService, 
   ) {}
+
+  private slugify(input: string): string {
+    return (input || '')
+      .toLowerCase()
+      .trim()
+      .replace(/&/g, ' and ')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-');
+  }
 
   async createJobPost(userId: string, jobPostData: { 
     title: string; 
@@ -46,7 +57,7 @@ export class JobPostsService {
     if (user.role !== 'employer') {
       throw new UnauthorizedException('Only employers can create job posts');
     }
-  
+
     if (jobPostData.category_id) {
       await this.categoriesService.getCategoryById(jobPostData.category_id);
     }
@@ -68,25 +79,32 @@ export class JobPostsService {
         job_type: jobPostData.job_type,
       });
     }
-  
+
     const limitObj = await this.settingsService.getGlobalApplicationLimit();
     let globalLimit = limitObj.globalApplicationLimit;
     if (!Number.isFinite(globalLimit) || globalLimit < 0) {
       globalLimit = 100; 
     }
-  
+
     const jobPost = this.jobPostsRepository.create({
       ...jobPostData,
       employer_id: userId,
       pending_review: true,
     });
     const savedJobPost = await this.jobPostsRepository.save(jobPost);
-  
+
+    const baseSlug = this.slugify(savedJobPost.title || '');
+    const shortId = (savedJobPost.id || '').replace(/-/g, '').slice(0, 8);
+    savedJobPost.slug = baseSlug || null;
+    savedJobPost.slug_id = baseSlug && shortId ? `${baseSlug}--${shortId}` : null;
+
+    await this.jobPostsRepository.save(savedJobPost);
+
     await this.applicationLimitsService.initializeLimits(savedJobPost.id, globalLimit);
-  
+
     return savedJobPost;
   }
-  
+
   async updateJobPost(
     userId: string,
     jobPostId: string,
@@ -134,6 +152,8 @@ export class JobPostsService {
       });
     }
 
+    const titleChanged = !!updates.title && updates.title !== jobPost.title;
+
     if (updates.title) jobPost.title = updates.title;
     if (updates.description) jobPost.description = updates.description;
     if (updates.location) jobPost.location = updates.location;
@@ -144,7 +164,28 @@ export class JobPostsService {
     if (updates.salary_type) jobPost.salary_type = updates.salary_type;
     if (updates.excluded_locations) jobPost.excluded_locations = updates.excluded_locations;
 
-    return this.jobPostsRepository.save(jobPost);
+    if (titleChanged) {
+      const baseSlug = this.slugify(jobPost.title || '');
+      const shortId = (jobPost.id || '').replace(/-/g, '').slice(0, 8);
+      jobPost.slug = baseSlug || null;
+      jobPost.slug_id = baseSlug && shortId ? `${baseSlug}--${shortId}` : null;
+    }
+
+    return await this.jobPostsRepository.save(jobPost);
+  }
+
+  async getBySlugOrId(slugOrId: string) {
+    let post = await this.jobPostsRepository.findOne({ where: { slug_id: slugOrId } });
+    if (post) return post;
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(slugOrId)) {
+      post = await this.jobPostsRepository.findOne({ where: { id: slugOrId } });
+    }
+    if (!post) {
+      throw new NotFoundException('Job post not found');
+    }
+    return post;
   }
 
   async getJobPost(jobPostId: string) {
@@ -333,26 +374,21 @@ export class JobPostsService {
       Use the exact details provided below for the job. Structure the description with markdown:
       - Use ## for section headers.
       - Use - for bullet points in lists.
-      - Add an empty line between sections for readability.
+      - Do NOT insert empty lines between sections or inside lists (no extra blank lines at all).
       - Keep the total length between 150-180 words.
       - Ensure the markdown is simple, HTML-compatible, and suitable for rendering in ReactQuill rich text editor.
-      - Use standard markdown (e.g., no tables, no complex nested elements, no extra line breaks within lists) to avoid rendering issues in ReactQuill.
-      - Do NOT include a word count or concluding remarks (e.g., no "Apply today" or "Join us").
+      - Do NOT insert extra <p> or blank paragraphs; output only clean markdown without extra spacing.
 
       **Structure**:
       One sentence summarizing the role based on the brief and title.
-
       ## Responsibilities
       - List 3-5 key duties extracted directly from the brief.
-
       ## Requirements
       - List 3-5 skills or qualifications from the brief.
-
       ## Work Details
       - **Work Mode**: ${data.location || 'Not specified'}
       - **Salary**: ${data.salary_type === 'negotiable' ? 'Negotiable' : (data.salary ? `${data.salary} ${data.salary_type || ''}` : 'Not specified')}
       - **Job Type**: ${data.job_type || 'Not specified'}
-
       **Provided Details**:
       - Job Title: ${data.title || 'Not specified'}
       - Brief: ${data.aiBrief}

@@ -1,3 +1,5 @@
+
+
 import axios, { AxiosResponse, AxiosError } from 'axios';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { io, Socket } from 'socket.io-client';
@@ -5,8 +7,9 @@ import { jwtDecode } from 'jwt-decode';
 import { 
   User, Profile, JobPost, Category, JobApplication, Review, Feedback, 
   BlockedCountry, LoginCredentials, RegisterCredentials, PaginatedResponse,
-  JobSeekerProfile, JobApplicationDetails, Message,
+  JobSeekerProfile, JobApplicationDetails, Message, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings
 } from '@types';
+
 
 interface WebSocketMessage {
   id: string;
@@ -17,6 +20,12 @@ interface WebSocketMessage {
   created_at: string;
   is_read: boolean;
 }
+
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
 
 export async function contactSupport(payload: {
   name: string;
@@ -52,13 +61,15 @@ const getFingerprint = async () => {
   return result.visitorId;
 };
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true, // Включение отправки и получения cookies
-});
+// const api = axios.create({
+//   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
+//   headers: {
+//     'Content-Type': 'application/json',
+//   },
+//   withCredentials: true, // Включение отправки и получения cookies
+// });
+
+
 
 api.interceptors.request.use(async (config) => {
   const token = localStorage.getItem('token');
@@ -84,6 +95,7 @@ api.interceptors.response.use(
 );
 
 export const submitPlatformFeedback = async (rating: number, description: string) => {
+  console.warn('submitPlatformFeedback(rating, description) is deprecated; use submitSuccessStory(payload) instead.');
   const response = await api.post('/platform-feedback', { rating, description });
   return response.data;
 };
@@ -92,14 +104,8 @@ export type IssuePayload = {
   category: 'Bug' | 'UI' | 'Performance' | 'Data' | 'Other';
   summary: string;
   steps_to_reproduce?: string;
-  expected?: string;
-  actual?: string;
-  context?: {
-    url?: string;
-    user_agent?: string;
-    locale?: string;
-    tz?: string;
-  };
+  expected_result?: string;
+  actual_result?: string;
 };
 
 export type StoryPayload = {
@@ -113,14 +119,7 @@ export type StoryPayload = {
 
 
 // services/api.ts
-export const submitIssueFeedback = async (payload: {
-  category: 'Bug' | 'UI' | 'Performance' | 'Data' | 'Other';
-  summary: string;
-  steps_to_reproduce?: string;
-  expected?: string;
-  actual?: string;
-  context?: Record<string, any>;
-}) => {
+export const submitIssueFeedback = async (payload: IssuePayload) => {
   const res = await api.post('/feedback', payload);
   return res.data;
 };
@@ -128,10 +127,10 @@ export const submitIssueFeedback = async (payload: {
 export const submitSuccessStory = async (payload: {
   headline: string;
   story: string;
-  role: 'Employer' | 'Jobseeker';
+  rating: number;
+  allow_publish: boolean;
   company?: string;
   country?: string;
-  consent_public: true;
 }) => {
   const res = await api.post('/platform-feedback', payload);
   return res.data;
@@ -323,6 +322,8 @@ export const getAllEmailStats = async (params: {
   return response.data;
 };
 
+
+
 export const generateDescription = async (data: {
   aiBrief: string;
   title?: string;
@@ -425,9 +426,30 @@ export const deleteReferralLink = async (linkId: string) => {
 
 // Job Posts
 export const createJobPost = async (data: Partial<JobPost>) => {
-  const response = await api.post<JobPost>('/job-posts', data);
+  // Нормализуем кейсы ключей, если вдруг прилетят camelCase
+  const body: any = { ...data };
+
+  if (body.categoryId && !body.category_id) {
+    body.category_id = body.categoryId;
+    delete body.categoryId;
+  }
+  if (body.salaryType && !body.salary_type) {
+    body.salary_type = body.salaryType;
+    delete body.salaryType;
+  }
+  if (body.excludedLocations && !body.excluded_locations) {
+    body.excluded_locations = body.excludedLocations;
+    delete body.excludedLocations;
+  }
+  if (body.jobType && !body.job_type) {
+    body.job_type = body.jobType;
+    delete body.jobType;
+  }
+
+  const response = await api.post<JobPost>('/job-posts', body);
   return response.data;
 };
+
 
 export const updateJobPost = async (id: string, data: Partial<JobPost>) => {
   const response = await api.put<JobPost>(`/job-posts/${id}`, data);
@@ -438,14 +460,26 @@ export const getJobPost = async (id: string) => {
   console.log(`Fetching job post with ID: ${id}`);
   try {
     const response = await api.get<JobPost>(`/job-posts/${id}`);
-    console.log(`Job post ${id} fetched:`, response.data);
-    return response.data;
+    const job = response.data as any;
+
+    // fallback: если category отсутствует, но есть category_id — достанем из кэша/дерева
+    if (!job?.category && job?.category_id != null) {
+      const cats = await __ensureCategories();
+      const cat = __findCatById(job.category_id, cats);
+      if (cat) {
+        job.category = { id: cat.id, name: cat.name };
+      }
+    }
+
+    console.log(`Job post ${id} fetched:`, job);
+    return job as JobPost;
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
     console.error(`Error fetching job post ${id}:`, axiosError.response?.data?.message || axiosError.message);
     throw axiosError;
   }
 };
+
 
 export const getMyJobPosts = async () => {
   const response = await api.get<JobPost[]>('/job-posts/my-posts');
@@ -466,9 +500,26 @@ export const searchJobPosts = async (params: {
   sort_by?: string;
   sort_order?: string;
 }) => {
-  const response = await api.get<PaginatedResponse<JobPost>>('/job-posts', { params });
-  return response.data;
+  const { data } = await api.get<PaginatedResponse<JobPost>>('/job-posts', { params });
+
+  // Поправим категории в выдаче, если их нет
+  try {
+    const cats = await __ensureCategories();
+    data.data = data.data.map(j => {
+      const job: any = { ...j };
+      if (!job.category && job.category_id != null) {
+        const cat = __findCatById(job.category_id, cats);
+        if (cat) job.category = { id: cat.id, name: cat.name };
+      }
+      return job as JobPost;
+    });
+  } catch {
+    // молча пропускаем, если категории не загрузились
+  }
+
+  return data;
 };
+
 
 export const searchJobseekers = async (params: {
   username?: string;
@@ -520,6 +571,7 @@ export const getCategories = async () => {
   try {
     const response = await api.get<Category[]>('/categories');
     console.log('Fetched categories:', response.data);
+    __categoriesCache = response.data || []; // <-- обновляем кэш
     return response.data;
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
@@ -527,6 +579,30 @@ export const getCategories = async () => {
     throw axiosError;
   }
 };
+
+
+// --- КЭШ И ХЕЛПЕРЫ ДЛЯ КАТЕГОРИЙ (добавить сразу после getCategories) ---
+let __categoriesCache: Category[] | null = null;
+
+const __flatCats = (cats: Category[]): Category[] =>
+  cats.flatMap(c => [c, ...(c.subcategories ? __flatCats(c.subcategories) : [])]);
+
+const __findCatById = (id: string | number, tree: Category[]): Category | undefined => {
+  const all = __flatCats(tree);
+  return all.find(c => String(c.id) === String(id));
+};
+
+const __ensureCategories = async (): Promise<Category[]> => {
+  if (__categoriesCache && __categoriesCache.length) return __categoriesCache;
+  try {
+    const { data } = await api.get<Category[]>('/categories');
+    __categoriesCache = data || [];
+  } catch {
+    __categoriesCache = [];
+  }
+  return __categoriesCache;
+};
+
 
 // Job Applications
 export const applyToJobPost = async (job_post_id: string, cover_letter: string) => {
@@ -602,17 +678,7 @@ export const submitComplaint = async (data: ComplaintData) => {
   return response.data;
 };
 
-// Admin Endpoints
-// export const getAllUsers = async (params: { username?: string; email?: string; createdAfter?: string; page?: number; limit?: number }) => {
-//   const response = await api.get<PaginatedResponse<User>>('/admin/users', {
-//     params,
-//     headers: {
-//       'Cache-Control': 'no-cache',
-//     },
-//   });
-//   console.log('getAllUsers response:', response.data); // Лог ответа
-//   return response.data;
-// };
+
 
 
 // services/api.ts
@@ -919,10 +985,10 @@ export const getGlobalApplicationLimit = async () => {
 };
 
 // Feedback
-export const submitFeedback = async (message: string) => {
-  const response = await api.post<Feedback>('/feedback', { message });
-  return response.data;
-};
+// export const submitFeedback = async (message: string) => {
+//   const response = await api.post<Feedback>('/feedback', { message });
+//   return response.data;
+// };
 
 export const deletePlatformFeedback = async (id: string) => {
   try {
@@ -1163,15 +1229,11 @@ export const getAdminCategories = async () => {
   }
 };
 
-export const getPlatformFeedback = async () => {
-  try {
-    const response = await api.get('/admin/platform-feedback');
-    return response.data.data || []; // Paginated, так что data.data
-  } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>;
-    console.error('Error fetching platform feedback:', axiosError.response?.data?.message || axiosError.message);
-    throw axiosError;
-  }
+export const getPlatformFeedback = async (
+  params?: { page?: number; limit?: number; is_public?: boolean }
+): Promise<PlatformFeedbackList> => {
+  const { data } = await api.get<PlatformFeedbackList>('/admin/platform-feedback', { params });
+  return data; // { total, data: PlatformFeedbackAdminItem[] }
 };
 
 export const deleteCategory = async (id: string) => {
@@ -1179,10 +1241,16 @@ export const deleteCategory = async (id: string) => {
   return response.data;
 };
 
+export const publishPlatformFeedback = async (id: string) => {
+  const { data } = await api.patch<PlatformFeedbackAdminItem>(`/admin/platform-feedback/${id}/publish`);
+  return data;
+};
 
+export const unpublishPlatformFeedback = async (id: string) => {
+  const { data } = await api.patch<PlatformFeedbackAdminItem>(`/admin/platform-feedback/${id}/unpublish`);
+  return data;
+};
 
-// Убедитесь, что api экспортировано (если не было)
-export { api };
 
 
 
@@ -1192,3 +1260,54 @@ export const resendVerification = async (email: string) => {
   return data;
 };
 
+
+
+export const getChatNotificationSettings = async (): Promise<ChatNotificationsSettings> => {
+  const { data } = await api.get('/admin/settings/chat-notifications');
+  return data;
+};
+
+export const updateChatNotificationSettings = async (
+  payload: Partial<ChatNotificationsSettings>
+): Promise<ChatNotificationsSettings> => {
+  const { data } = await api.post('/admin/settings/chat-notifications', payload);
+  return data;
+};
+
+export const notifyReferralApplicants = (
+  jobPostId: string,
+  payload: {
+    limit: number;
+    orderBy: 'beginning' | 'end' | 'random';
+    titleContains?: string;       // опциональный фильтр по ключевому слову в названии прошлых вакансий
+    categoryId?: string;          // если бэк будет поддерживать матчинг по категории
+  }
+) => api.post(`/admin/job-posts/${jobPostId}/notify-referral-applicants`, payload)
+       .then(r => r.data);
+
+
+
+export const getJobBySlugOrId = async (slugOrId: string) => {
+  const { data } = await api.get<JobPost>(`/job-posts/by-slug-or-id/${slugOrId}`);
+  const job = data as any;
+
+  if (!job?.category && job?.category_id != null) {
+    const cats = await __ensureCategories();
+    const cat = __findCatById(job.category_id, cats);
+    if (cat) {
+      job.category = { id: cat.id, name: cat.name };
+    }
+  }
+
+  return job as JobPost;
+};
+
+
+// Track referral click once per visit
+export const trackReferralClick = async (ref: string) => {
+  try {
+    await api.post('/ref/track', { ref });
+  } catch (e) {
+    console.warn('ref track failed', e);
+  }
+};

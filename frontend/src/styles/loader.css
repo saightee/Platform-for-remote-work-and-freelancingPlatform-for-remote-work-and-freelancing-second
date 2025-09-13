@@ -1,0 +1,131 @@
+/* Базовые переменные — берём цвет с сайта, иначе дефолт */
+.loader-container{
+  --jf-brand: var(--cs-accent, #4e74c8);
+  display:flex; align-items:center; justify-content:center;
+  min-height:160px; padding:20px; background:transparent;
+}
+.loader-container.is-white{ background:#fff; }
+
+.jf-ldr{
+font-family: 'Poppins', sans-serif;
+}
+.jf-ldr--sm{ transform: scale(.9); }
+.jf-ldr--md{ transform: scale(1); }
+.jf-ldr--lg{ transform: scale(1.2); }
+
+/* =========================================
+   VARIANT 1: «Jobforge» + живое подчёркивание
+   (буквы — однотонные, как на главной)
+========================================= */
+.jf-ldr-wordmark{ display:inline-flex; align-items:center; gap:10px; }
+.jf-wm-text{
+  font-weight:900; font-size:34px; letter-spacing:.2px; line-height:1;
+  color: var(--jf-brand);              /* только один цвет */
+}
+.jf-wm-underscore{
+  position:relative; width:42px; height:10px; border-radius:999px;
+  background: var(--jf-brand);
+  box-shadow: 0 6px 16px rgba(78,116,200,.25);
+  /* анимация «пружинка/вращение» */
+  animation: jf-underscore-spin 1.8s ease-in-out infinite;
+}
+.jf-wm-underscore::after{
+  /* бегущая блик-точка внутри подчёркивания */
+  content:""; position:absolute; top:50%; left:8%;
+  width:8px; height:8px; border-radius:50%;
+  background:#fff; opacity:.9; transform:translateY(-50%);
+  animation: jf-underscore-dash 1.8s ease-in-out infinite;
+}
+@keyframes jf-underscore-spin{
+  0%   { transform: rotate(0deg) scaleX(1); }
+  50%  { transform: rotate(180deg) scaleX(1.1); }
+  100% { transform: rotate(360deg) scaleX(1); }
+}
+@keyframes jf-underscore-dash{
+  0%{ left:8% } 50%{ left:76% } 100%{ left:8% }
+}
+
+/* =========================================
+   VARIANT 2: «печать» Jobforge + мигающий _
+   (буквы — один цвет, просто маска «печатает»)
+========================================= */
+.jf-ldr-typing{ display:flex; align-items:baseline; gap:6px; }
+.jf-typing{
+  --letters: 8; /* длина "Jobforge" */
+  font-weight:900; font-size:32px; color: var(--jf-brand);
+  overflow:hidden; white-space:nowrap; width:0ch;
+  animation: jf-typing 2.2s steps(var(--letters)) infinite alternate;
+}
+.jf-caret{
+  font-weight:900; font-size:32px; color: var(--jf-brand);
+  animation: jf-caret 0.85s steps(1) infinite;
+}
+@keyframes jf-typing{ from{ width:0ch } to{ width:8ch } }
+@keyframes jf-caret{ 0%,49%{ opacity:1 } 50%,100%{ opacity:.06 } }
+
+/* =========================================
+   VARIANT 3: «наковальня» — анимация вокруг, текст не трогаем
+========================================= */
+.jf-ldr-anvil{
+  position:relative; width:180px; height:80px;
+  display:flex; align-items:flex-end; justify-content:center;
+}
+.jf-anvil{ width:180px; height:60px; }
+.jf-hammer{
+  position:absolute; left:26px; top:-6px; width:60px; height:60px;
+  transform-origin: 48px 40px;
+  animation: jf-hammer 1.2s ease-in-out infinite;
+  filter: drop-shadow(0 4px 10px rgba(45,58,107,.35));
+}
+@keyframes jf-hammer{
+  0%   { transform: rotate(-28deg) translateY(-2px); }
+  55%  { transform: rotate(0deg) translateY(0); }
+  66%  { transform: rotate(2deg) translateY(0); }
+  100% { transform: rotate(-28deg) translateY(-2px); }
+}
+.jf-spark{
+  position:absolute; bottom:26px; left:92px;
+  width:8px; height:8px; border-radius:50%;
+  background: radial-gradient(circle,#ffd166,#ff9f1c);
+  opacity:0;
+}
+.jf-spark.s1{ animation: jf-spark 1.2s .52s ease-out infinite; }
+.jf-spark.s2{ animation: jf-spark 1.2s .60s ease-out infinite; }
+.jf-spark.s3{ animation: jf-spark 1.2s .68s ease-out infinite; }
+@keyframes jf-spark{
+  0%{ opacity:0; transform: translate(0,0) scale(.6); }
+  10%{ opacity:1; }
+  40%{ transform: translate(18px,-18px) scale(1); opacity:.9; }
+  80%{ transform: translate(32px,-8px) scale(.8); opacity:.2; }
+  100%{ opacity:0; }
+}
+.jf-ldr-caption{
+  margin-top:8px; text-align:center; color:#6b7a90; font-weight:600; font-size:14px;
+}
+
+/* =========================================
+   VARIANT 4: прогресс-бар, заголовок один цвет
+========================================= */
+.jf-ldr-bar{ display:flex; flex-direction:column; gap:10px; min-width:260px; }
+.jf-bar-title{ font-weight:900; font-size:22px; color: var(--jf-brand); }
+.jf-bar-track{
+  height:12px; border-radius:999px; background:#eef2ff;
+  border:1px solid #dbe7ff; overflow:hidden;
+}
+.jf-bar-fill{
+  height:100%; width:10%;
+  background: linear-gradient(90deg, rgba(78,116,200,1) 0%, rgba(78,116,200,.35) 100%);
+  animation: jf-bar 1.4s ease-in-out infinite;
+  border-radius:999px;
+}
+@keyframes jf-bar{
+  0%  { width:12%; }
+  50% { width:78%; }
+  100%{ width:92%; }
+}
+
+/* Адаптив */
+@media (max-width:400px){
+  .jf-wm-text{ font-size:28px; }
+  .jf-typing, .jf-caret{ font-size:28px; }
+}

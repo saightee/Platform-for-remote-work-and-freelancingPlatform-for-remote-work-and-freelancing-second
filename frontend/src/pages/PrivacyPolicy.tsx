@@ -1,10 +1,17 @@
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
+import { Helmet } from 'react-helmet-async';
 
 const PrivacyPolicy: React.FC = () => {
   return (
     <div>
+      <Helmet>
+  <title>Privacy Policy | Jobforge</title>
+  <meta name="description" content="How Jobforge collects, uses, and protects your data." />
+  <link rel="canonical" href="https://jobforge.net/privacy-policy" />
+</Helmet>
+
       <Header />
       <div className="container">
         <h1>Privacy Policy</h1>

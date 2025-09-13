@@ -20,6 +20,7 @@ export interface User {
   status?: 'active' | 'blocked';
   identity_verified?: boolean;
   identity_document?: string | null;
+  last_seen_at?: string | null;
 }
 
 
@@ -182,17 +183,44 @@ export interface Review {
 export interface Feedback {
   id: string;
   user_id: string;
-  message: string;
   role: 'jobseeker' | 'employer';
+  category: 'Bug' | 'UI' | 'Performance' | 'Data' | 'Other';
+  summary: string;
+  steps_to_reproduce?: string;
+  expected_result?: string;
+  actual_result?: string;
+  created_at: string;
+  updated_at: string;
   user?: {
     id: string;
     email: string;
     username: string;
     role: 'jobseeker' | 'employer';
   };
+}
+
+export interface PlatformFeedbackAdminItem {
+  id: string;
+  user_id: string;
+  role: 'jobseeker' | 'employer';
+  headline: string;
+  story: string;
+  rating: number;
+  allowed_to_publish: boolean;
+  is_public: boolean;
+  company?: string;
+  country?: string;
   created_at: string;
   updated_at: string;
+  user?: { id: string; username: string; role: 'jobseeker' | 'employer' };
 }
+
+export interface PlatformFeedbackList {
+  total: number;
+  data: PlatformFeedbackAdminItem[];
+}
+
+
 
 export interface Message {
   id: string;
@@ -270,3 +298,13 @@ interface EnrichedComplaint extends Complaint { // Изменено: extends Com
   targetUsername: string;
 }
 
+
+export interface ChatNotificationsSettings {
+  enabled: boolean;
+  onEmployerMessage: {
+    immediate: boolean;
+    delayedIfUnread: { enabled: boolean; minutes: number }; // 1..10080
+    onlyFirstMessageInThread: boolean;
+  };
+  throttle: { perChatCount: number; perMinutes: number };   // count 1..100, minutes 1..10080
+}

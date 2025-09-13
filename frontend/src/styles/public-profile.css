@@ -83,3 +83,15 @@
   .ppx-card{padding:16px}
   .ppx-kv li{grid-template-columns:20px 100px 1fr}
 }
+/* socials on public profile */
+.ppx-socials { display:inline-flex; gap:10px; }
+.ppx-soc{
+   display:inline-flex; align-items:center; justify-content:center;
+   font-size: 28px;
+  
+  transition:transform .05s ease, box-shadow .15s ease, opacity .15s ease;
+}
+.ppx-soc:hover{ transform:translateY(-1px); box-shadow:var(--cs-shadow); }
+.ppx-ln{ color:#0a66c2; }
+.ppx-ig{ color:#d62976; }
+.ppx-fb{ color:#1877f2; }

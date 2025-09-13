@@ -713,6 +713,38 @@ export class AdminController {
       body.orderBy,
     );
   }
+  
+  @Post('job-posts/:id/notify-referral-applicants')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async notifyReferralApplicants(
+    @Param('id') jobPostId: string,
+    @Body() body: {
+      limit: number;
+      orderBy: 'beginning' | 'end' | 'random';
+    },
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userIdAdmin = payload.sub;
+
+    if (!body.limit || !Number.isInteger(body.limit) || body.limit < 1) {
+      throw new BadRequestException('Limit must be a positive integer');
+    }
+    if (!['beginning', 'end', 'random'].includes(body.orderBy)) {
+      throw new BadRequestException('OrderBy must be one of: beginning, end, random');
+    }
+    
+    return this.adminService.notifyReferralApplicants(
+      payload.sub,
+      jobPostId,
+      body.limit,
+      body.orderBy,
+    );
+  }
 
   @Get('chat/:jobApplicationId')
   @UseGuards(AuthGuard('jwt'), AdminGuard)
@@ -1030,4 +1062,46 @@ export class AdminController {
       return this.adminService.getReferralLinks(adminId, filters);
   }
 
+  @Get('settings/chat-notifications')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async getChatNotifications(
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    return this.settingsService.getChatNotificationSettings();
+  }
+
+  @Post('settings/chat-notifications')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async setChatNotifications(
+    @Body() body: any,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+
+    const normalized = {
+      enabled: Boolean(body?.enabled),
+      onEmployerMessage: {
+        immediate: Boolean(body?.onEmployerMessage?.immediate),
+        delayedIfUnread: {
+          enabled: Boolean(body?.onEmployerMessage?.delayedIfUnread?.enabled),
+          minutes: Math.max(1, Number(body?.onEmployerMessage?.delayedIfUnread?.minutes ?? 60)),
+        },
+        onlyFirstMessageInThread: Boolean(body?.onEmployerMessage?.onlyFirstMessageInThread),
+      },
+      throttle: {
+        perChatCount: Math.max(1, Number(body?.throttle?.perChatCount ?? 2)),
+        perMinutes: Math.max(1, Number(body?.throttle?.perMinutes ?? 60)),
+      },
+    };
+
+    await this.settingsService.setChatNotificationSettings(normalized);
+    return { message: 'Chat notification settings updated', settings: normalized };
+  }
+
+  
 }

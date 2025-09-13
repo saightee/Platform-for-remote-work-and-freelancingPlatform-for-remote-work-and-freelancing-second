@@ -48,17 +48,24 @@ import JobseekerOverview from './pages/JobseekerOverview';
 import ContactSupport from './pages/ContactSupport';
 import PromoLatamFreelancer from './pages/promoLatamFreelancer';
 import PromoPhilippinoFreelancer from './pages/promoPhilippinoFreelancer';
-
+import { HelmetProvider } from 'react-helmet-async';
+import Vacancy from './pages/Vacancy';
+import JobLanding from './pages/JobLanding';
+import ScrollToTop from "./components/ScrollToTop";
 
 
 const App: React.FC = () => {
   return (
+    <HelmetProvider>
     <RoleProvider>
       <Router>
+        <ScrollToTop />
         {/* <ErrorBoundary fallback={<div>Error loading app</div>}></ErrorBoundary> */}
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/jobs/:id" element={<JobDetails />} />
+           <Route path="/jobs/:id" element={<JobDetails />} />   {/* legacy путь оставляем */}
+<Route path="/vacancy/:slugId" element={<JobDetails />} />  {/* тот же UI, но грузим по slugOrId */}
+<Route path="/job/:slugId" element={<JobLanding />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register/:role" element={<Register />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
@@ -121,6 +128,7 @@ const App: React.FC = () => {
         </Routes>
       </Router>
     </RoleProvider>
+    </HelmetProvider>
   );
 };
 

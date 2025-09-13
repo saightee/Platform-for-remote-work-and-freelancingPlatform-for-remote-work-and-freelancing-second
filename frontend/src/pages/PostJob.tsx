@@ -204,21 +204,26 @@ const PostJob: React.FC = () => {
         }
       }
 
-      const jobData: Partial<JobPost> & { aiBrief?: string } = {
-        title,
-        location: locationMode,
-        salary: salaryType === 'negotiable' ? null : salary ?? null,
-        salary_type: salaryType,
-        excluded_locations: excludedCountries,
-        status: 'Active',
-        job_type: jobType,
-        category_id: categoryId || undefined,
-      };
+const jobData: Partial<JobPost> & { aiBrief?: string } = {
+  title,
+  location: locationMode,
+  salary: salaryType === 'negotiable' ? null : (salary ?? null),
+  salary_type: salaryType,
+  excluded_locations: excludedCountries,
+  status: 'Active',
+  job_type: jobType,
+  // ВАЖНО: snake_case как в API
+  category_id: categoryId || undefined,
+};
 
-      if (isEdited || !aiBrief.trim()) jobData.description = description;
-      else jobData.aiBrief = aiBrief;
+if (isEdited || !aiBrief.trim()) {
+  jobData.description = description;
+} else {
+  jobData.aiBrief = aiBrief;
+}
 
-      await createJobPost(jobData);
+await createJobPost(jobData);
+
       navigate('/employer-dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create job post.');
@@ -460,32 +465,37 @@ const PostJob: React.FC = () => {
                   )}
                 </div>
 
-                {categoryId && (() => {
-                  const skill =
-                    findCategoryById(categoryId, categories) ||
-                    findCategoryById(categoryId, filteredSkills);
-                  const parent = skill?.parent_id
-                    ? findCategoryById(skill.parent_id, categories)
-                    : undefined;
-                  const label = skill
-                    ? (skill.parent_id && parent ? `${parent.name} > ${skill.name}` : skill.name)
-                    : 'Unknown Category';
-                  return (
-                    <div className="pjx-chips">
-                      <span className="pjx-chip">
-                        {label}
-                        <button
-                          type="button"
-                          className="pjx-chip-x"
-                          onClick={() => setCategoryId('')}
-                          aria-label="Remove category"
-                        >
-                          <FaTimes />
-                        </button>
-                      </span>
-                    </div>
-                  );
-                })()}
+{categoryId && (() => {
+  const flat = (cats: Category[]): Category[] =>
+    cats.flatMap(c => [c, ...(c.subcategories ? flat(c.subcategories) : [])]);
+
+  const all = flat(categories).concat(filteredSkills);
+  const cat = all.find(c => String(c.id) === String(categoryId));
+  const parent = cat?.parent_id
+    ? all.find(c => String(c.id) === String(cat.parent_id))
+    : undefined;
+
+  const label = cat
+    ? (parent ? `${parent.name} > ${cat.name}` : cat.name)
+    : 'Unknown Category';
+
+  return (
+    <div className="pjx-chips">
+      <span className="pjx-chip">
+        {label}
+        <button
+          type="button"
+          className="pjx-chip-x"
+          onClick={() => setCategoryId('')}
+          aria-label="Remove category"
+        >
+          ×
+        </button>
+      </span>
+    </div>
+  );
+})()}
+
               </div>
 
               <div className="pjx-row">

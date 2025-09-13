@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getJobPost, applyToJobPost, incrementJobView, checkJobApplicationStatus, applyToJobPostExtended } from '../services/api';
+import { getJobBySlugOrId, applyToJobPost, incrementJobView, checkJobApplicationStatus, applyToJobPostExtended } from '../services/api';
 import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import { FaEye, FaBriefcase, FaDollarSign, FaMapMarkerAlt, FaCalendarAlt, FaUserCircle, FaTools, FaFolder, FaSignInAlt, FaUserPlus } from 'react-icons/fa';
@@ -11,11 +11,15 @@ import { format, utcToZonedTime } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
 import sanitizeHtml from 'sanitize-html';
 import Loader from '../components/Loader';
+import { Helmet } from 'react-helmet-async';
+
+
 
 
 
 const JobDetails: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id, slugId } = useParams<{ id?: string; slugId?: string }>();
+const slugOrId = (slugId || id || '').trim();
   const navigate = useNavigate();
   const location = useLocation();
   const { profile } = useRole();
@@ -30,52 +34,82 @@ const [applyError, setApplyError] = useState<string | null>(null); // NEW (ош�
 const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const viewed = useRef(false); // Добавлено для предотвращения double increment
 
-  useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  const ref = params.get('ref');
-  if (ref) {
-    localStorage.setItem('referralCode', ref);
-  }
-}, []);
 
-  useEffect(() => {
-    const fetchJob = async () => {
-      try {
-        if (id) {
-          setLoading(true);
-          setError(null);
-          setHasApplied(null);
-          const jobData = await getJobPost(id);
-          setJob(jobData);
-          if (!viewed.current) {
-            viewed.current = true;
-            try {
-              const response = await incrementJobView(id);
-              setJob((prev) => (prev ? { ...prev, views: response.views || (jobData.views || 0) + 1 } : prev));
-            } catch (viewError) {
-              console.error('Error incrementing job view:', viewError);
-            }
-          }
-         if (profile?.role === 'jobseeker') {
-  try {
-    const applicationStatus = await checkJobApplicationStatus(id);
-    setHasApplied(applicationStatus.hasApplied);
-  } catch (e) {
-    console.warn('check status failed → assume not applied', e);
-    // если проверка упала (например, 404), не ломаем UI — показываем кнопку Apply
-    setHasApplied(false);
-  }
-}
-        }
-      } catch (err: any) {
-        console.error('Error fetching job:', err);
-        setError(err.response?.data?.message || 'Failed to load job details. Please try again.');
-      } finally {
-        setLoading(false);
+
+// внутри JobDetails.tsx
+// const { id, slugId } = useParams<{ id?: string; slugId?: string }>();
+// const slugOrId = (slugId || id || '').trim();
+
+useEffect(() => {
+  // если параметр пуст — нечего грузить
+  if (!slugOrId) return;
+
+  let alive = true;
+
+  const fetchJob = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setHasApplied(null);
+
+      // 1) грузим вакансию по slug или id
+      const jobData = await getJobBySlugOrId(slugOrId);
+      if (!alive) return;
+      setJob(jobData);
+
+      const jobId = jobData.id;
+
+      // 2) NEW: сохраняем реф из ?ref, зная реальный jobId
+      const refFromUrl = new URLSearchParams(window.location.search).get('ref');
+      if (refFromUrl && jobId) {
+        localStorage.setItem('referralCode', refFromUrl);
+        localStorage.setItem('referralJobId', jobId);
+
+        // опционально: чистим URL без ?ref (каноникал у нас чистый)
+        const clean = location.pathname + (location.hash || '');
+        window.history.replaceState(null, '', clean);
       }
-    };
-    fetchJob();
-  }, [id, profile]);
+
+      // 3) инкремент просмотров (1 раз)
+      if (!viewed.current && jobId) {
+        viewed.current = true;
+        try {
+          const response = await incrementJobView(jobId);
+          if (!alive) return;
+          setJob((prev) =>
+            prev ? { ...prev, views: response?.views ?? (jobData.views || 0) + 1 } : prev
+          );
+        } catch (viewError) {
+          console.error('Error incrementing job view:', viewError);
+        }
+      }
+
+      // 4) статус заявки (только для соискателя)
+      if (profile?.role === 'jobseeker' && jobId) {
+        try {
+          const applicationStatus = await checkJobApplicationStatus(jobId);
+          if (!alive) return;
+          setHasApplied(applicationStatus.hasApplied);
+        } catch (e) {
+          console.warn('check status failed → assume not applied', e);
+          if (!alive) return;
+          setHasApplied(false);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error fetching job:', err);
+      if (!alive) return;
+      setError(err?.response?.data?.message || 'Failed to load job details. Please try again.');
+    } finally {
+      if (alive) setLoading(false);
+    }
+  };
+
+  fetchJob();
+  return () => { alive = false; };
+  // profile нужен из-за проверки роли; pathname/hash — для очистки URL без ?ref
+}, [slugOrId, profile, location.pathname, location.hash]);
+
 
 const handleApply = async () => {
   if (hasApplied) return;
@@ -104,30 +138,38 @@ const submitApply = async () => {
     return;
   }
 
-  try {
-    if (id) {
-      await applyToJobPostExtended({
-        job_post_id: id,
-        cover_letter: coverLetter,
-        full_name: fullName.trim() ? fullName.trim() : undefined,
-        referred_by: referredBy.trim() ? referredBy.trim() : undefined,
-      });
-      setHasApplied(true);
-      setIsApplyModalOpen(false);
-      navigate('/my-applications');
-    }
-  } catch (err: any) {
-    console.error('Error applying to job:', err);
-    const msg: string = err?.response?.data?.message || '';
-
-    if ((err?.response?.status === 400 || err?.response?.status === 409) && /already applied/i.test(msg)) {
-      setHasApplied(true);
-      setIsApplyModalOpen(false);
-      return;
-    }
-
-    setApplyError(msg || 'Failed to apply. Please try again.');
+try {
+  const jobId = job?.id;                 // ← всегда есть после загрузки
+  if (jobId) {
+    await applyToJobPostExtended({
+      job_post_id: jobId,
+      cover_letter: coverLetter,
+      full_name: fullName.trim() || undefined,
+      referred_by: referredBy.trim() || undefined,
+    });
+    setHasApplied(true);
+    setIsApplyModalOpen(false);
+    // чтобы Back не возвращал в модалку — можно заменить history запись
+    navigate('/jobseeker-dashboard/my-applications', {
+      replace: true,
+      state: { justApplied: jobId },     // опционально: подсветить заявку на той странице
+    });
   }
+} catch (err: any) {
+  console.error('Error applying to job:', err);
+  const msg: string = err?.response?.data?.message || '';
+
+  // если уже подавался — всё равно ведем в список заявок
+  if ((err?.response?.status === 400 || err?.response?.status === 409) && /already applied/i.test(msg)) {
+    setHasApplied(true);
+    setIsApplyModalOpen(false);
+    navigate('/jobseeker-dashboard/my-applications', { replace: true });
+    return;
+  }
+
+  setApplyError(msg || 'Failed to apply. Please try again.');
+}
+
 };
 
 const formatDateInTimezone = (dateString?: string, timezone?: string): string => {
@@ -174,6 +216,65 @@ const renderSalary = (j: JobPost): string => {
   return 'Not specified';
 };
 
+// локальный доп. тип — НЕ меняем глобальный JobPost
+type JobExtras = {
+  company_name?: string;
+  companyName?: string;
+  expires_at?: string;
+};
+
+const cleanedDesc = sanitizeHtml(job.description || '', { allowedTags: [], allowedAttributes: {} });
+const salary = job.salary ?? null;
+
+const unitMap: Record<string, "HOUR" | "MONTH" | "YEAR"> = {
+  "per hour": "HOUR",
+  "per month": "MONTH"
+};
+
+// пересечение типов: у объекта теперь опционально есть нужные поля
+const j = job as typeof job & JobExtras;
+
+const companyName =
+  j.company_name ??
+  j.companyName ??
+  'Jobforge Employer';
+
+const validThrough = j.expires_at;
+
+// формируем JSON-LD без undefined-полей
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "JobPosting",
+  "title": job.title,
+  "description": cleanedDesc,
+  "datePosted": job.created_at,
+  "employmentType": job.job_type || "CONTRACTOR",
+  "jobLocationType": job.location === "Remote" ? "TELECOMMUTE" : "ON_SITE",
+  ...(job.location === "Remote"
+    ? { "applicantLocationRequirements": [{ "@type": "Country", "name": "Remote" }] }
+    : {}),
+  "hiringOrganization": {
+    "@type": "Organization",
+    "name": companyName,
+    "sameAs": "https://jobforge.net/"
+  },
+  ...(validThrough ? { "validThrough": validThrough } : {}),
+  ...(salary
+    ? {
+        "baseSalary": {
+          "@type": "MonetaryAmount",
+          "currency": "USD",
+          "value": {
+            "@type": "QuantitativeValue",
+            "value": salary,
+            "unitText": unitMap[job.salary_type || "per month"] || "MONTH"
+          }
+        }
+      }
+    : {})
+};
+
+
 
 const backAfterReport =
   profile?.role === 'employer'
@@ -185,6 +286,42 @@ const backAfterReport =
 
   return (
     <div>
+      <Helmet>
+  <title>{job.title} | Jobforge</title>
+  <meta name="description" content={cleanedDesc.slice(0, 160)} />
+  {(() => {
+  const canonical = slugId
+    ? `https://jobforge.net/vacancy/${slugId}`
+    : `https://jobforge.net/jobs/${job.id}`;
+
+  return (
+    <>
+      <link rel="canonical" href={canonical} />
+      <meta property="og:title" content={`${job.title} | Jobforge`} />
+      <meta property="og:description" content={cleanedDesc.slice(0, 160)} />
+      <meta property="og:url" content={canonical} />
+    </>
+  );
+})()}
+{(() => {
+  const canonical = slugId
+    ? `https://jobforge.net/vacancy/${slugId}`
+    : `https://jobforge.net/jobs/${job.id}`;
+
+  return (
+    <script type="application/ld+json">{JSON.stringify({
+      "@context":"https://schema.org",
+      "@type":"BreadcrumbList",
+      "itemListElement":[
+        {"@type":"ListItem","position":1,"name":"Jobs","item":"https://jobforge.net/find-job"},
+        {"@type":"ListItem","position":2,"name":job.title,"item": canonical}
+      ]
+    })}</script>
+  );
+})()}
+
+</Helmet>
+
       <Header />
       <div className="container job-details-container">
         <div className="job-details-header">
@@ -210,15 +347,25 @@ const backAfterReport =
             <span className="employer-name">{job.employer?.username || 'Unknown'}</span>
 
           </div>
-                     {!profile && (
-<div><p className="login-prompt">
-  <span>Please</span>
-  <Link to="/login" className="lp-btn lp-primary"><FaSignInAlt /> Log in</Link>
-  <span>or</span>
-  <Link to="/register/jobseeker" className="lp-btn lp-outline"><FaUserPlus /> Register</Link>
-  <span>as jobseeker to apply for this job.</span>
-</p></div>
+                   {!profile && (
+  <div>
+    <p className="login-prompt">
+      <span>Please</span>
+      <Link to="/login" className="lp-btn lp-primary"><FaSignInAlt /> Log in</Link>
+      <span>or</span>
+      <Link
+        to={`/register/jobseeker?return=${encodeURIComponent(
+          slugId ? `/vacancy/${slugId}` : `/jobs/${job.id}`
+        )}`}
+        className="lp-btn lp-outline"
+      >
+        <FaUserPlus /> Register
+      </Link>
+      <span>as jobseeker to apply for this job.</span>
+    </p>
+  </div>
 )}
+
         </div>
         <div className="job-details-panel">
           <div className="job-detail-item">
@@ -244,11 +391,15 @@ const backAfterReport =
         <div className="job-details-content">
           <div className="job-details-info">
             
-             {!profile && job.status === 'Active' && (
-      <div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0 16px' }}>
-        <button
-          onClick={() => navigate('/register/jobseeker')}
-          className="action-button"
+          {!profile && job.status === 'Active' && (
+  <div style={{ display: 'flex', justifyContent: 'center', fontWeight: 'bold' }}>
+    <button
+       onClick={() => navigate(
+    `/register/jobseeker?utm_source=job_details&job=${encodeURIComponent(job?.id || '')}&return=${encodeURIComponent(
+      slugId ? `/vacancy/${slugId}` : (job?.id ? `/jobs/${job.id}` : '/find-job')
+    )}`
+  )}
+  className="action-button"
           style={{
             fontSize: '15px',
             padding: '4px 12px',
@@ -258,11 +409,11 @@ const backAfterReport =
             lineHeight: '20px'
           }}
          aria-label="Register to apply for this job"
-        >
-          Register to Apply for Job
-        </button>
-      </div>
-    )}
+    >
+      Register to Apply for Job
+    </button>
+  </div>
+)}
 
             <h2>Job Overview</h2>
             <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(job.description) }} />

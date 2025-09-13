@@ -72,14 +72,16 @@
   transition: box-shadow .15s ease, transform .05s ease, border-color .15s ease, background .15s ease;
   background:#fff;
 }
-.ch-chatlist__item:hover{ transform:translateY(-1px); border-color:#dfe6ff; }
+.ch-chatlist__item:hover{  border-color:#cad2f0; }
 .ch-chatlist__item.is-active{ border-color:var(--ch-accent); box-shadow:0 0 0 3px rgba(78,116,200,.12); }
 .ch-chatlist__item.has-unread{ background:#f7f9ff; }
 
 .ch-chatlist__meta{ display:grid; gap:4px; }
 .ch-chatlist__row{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .ch-chatlist__job{ color:var(--ch-text); font-weight:700; }
-.ch-chatlist__partner{ font-size:13px; color:var(--ch-muted); }
+.ch-chatlist__partner{ font-size: 16px;
+    color: #4e74c8;
+    font-weight: bold; } 
 .ch-chatlist__badge{
   background:var(--ch-accent); color:#fff; font-size:12px;
   padding:2px 6px; border-radius:999px;
@@ -159,7 +161,11 @@
 
 /* модалки */
 .ch-modal{ position:fixed; inset:0; background:rgba(9,13,28,.35); display:grid; place-items:center; padding:16px; z-index:50; }
-.ch-modal__content{ width:100%; max-width:520px; background:#fff; border-radius:12px; padding:18px; box-shadow:var(--ch-card-shadow); position:relative; }
+.ch-modal__content{ width:100%; max-width:520px; background:#fff; border-radius:12px; padding:18px; box-shadow:var(--ch-card-shadow); position:relative; max-height:88vh; 
+  overflow:auto; 
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  word-break: break-word;  }
 .ch-modal__close{ position:absolute; top:10px; right:12px; background:#fff; border:none; font-size:24px; line-height:1; cursor:pointer; color:#333; }
 
 .ch-form{ display:grid; gap:14px; }
@@ -315,4 +321,19 @@
   border:1px solid rgba(16,185,129,.6);
   background:#ecfdf5;
   margin-left:6px;
+}
+
+/* кликабельное имя */
+.ch-link{
+  color:#4e74c8;
+  text-decoration:none;
+  font-weight:700;
+}
+
+
+/* дата подачи заявки в карточке чата слева */
+.ch-chatlist__applied{
+  font-size:12px;
+  color:var(--ch-muted);
+  white-space:nowrap;
 }

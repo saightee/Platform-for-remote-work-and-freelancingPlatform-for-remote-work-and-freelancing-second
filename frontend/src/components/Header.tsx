@@ -179,7 +179,7 @@ useEffect(() => {
           ) : (
             <>
               {/* Публичный хедер для гостей */}
-              <div className={`hm-dd ${isDropdownOpen ? 'active' : ''}`}>
+              {/* <div className={`hm-dd ${isDropdownOpen ? 'active' : ''}`}>
                 <span className="hm-dd-toggle" onClick={toggleDropdown}>
                   How it Works <FaChevronDown className="hm-dd-icon" />
                 </span>
@@ -187,10 +187,10 @@ useEffect(() => {
                   <Link to="/how-it-works/jobseeker-faq" onClick={closeMobileMenu} className="hm-dd-item">Jobseeker FAQ</Link>
                   <Link to="/how-it-works/employer-faq"  onClick={closeMobileMenu} className="hm-dd-item">Employer FAQ</Link>
                 </div>
-              </div>
+              </div> */}
 
-              <Link to="#"      onClick={closeMobileMenu} className="hm-link">Pricing</Link>
-              <Link to="#" onClick={closeMobileMenu} className="hm-link">Real Results</Link>
+              {/* <Link to="#"      onClick={closeMobileMenu} className="hm-link">Pricing</Link>
+              <Link to="#" onClick={closeMobileMenu} className="hm-link">Real Results</Link> */}
 
               <Link to="/role-selection" onClick={closeMobileMenu} className="hm-btn hm-btn--outline">POST A JOB</Link>
               <Link to="/find-job"      onClick={closeMobileMenu} className="hm-btn hm-btn--primary">FIND JOB</Link>

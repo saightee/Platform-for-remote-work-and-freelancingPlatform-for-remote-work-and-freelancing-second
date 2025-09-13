@@ -10,6 +10,7 @@ import { searchJobPosts, getCategories, checkJobApplicationStatus, searchCategor
 import { useRole } from '../context/RoleContext';
 import Loader from '../components/Loader';
 import '../styles/find-job.css';
+import { Helmet } from 'react-helmet-async';
 
 const FindJob: React.FC = () => {
   const { profile } = useRole();
@@ -265,6 +266,11 @@ setSearchParams(nextParams, { replace: true });
 
   return (
     <div>
+      <Helmet>
+  <title>Find Remote Jobs | Jobforge_</title>
+  <meta name="robots" content="noindex,follow" />
+  <link rel="canonical" href="https://jobforge.net/find-job" />
+</Helmet>
       <Header />
 
       {isLoading && (

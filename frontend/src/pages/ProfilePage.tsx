@@ -15,16 +15,26 @@ import {
 } from '../services/api';
 import { Profile, Category, JobSeekerProfile, EmployerProfile, Review } from '@types';
 import { useRole } from '../context/RoleContext';
-import { FaUserCircle, FaFilePdf, FaPen, FaCheck, FaTimes } from 'react-icons/fa';
+import {
+  FaUserCircle, FaFilePdf, FaPen, FaCheck, FaTimes,
+  FaLinkedin, FaInstagram, FaFacebook
+} from 'react-icons/fa';
 import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
 import '../styles/profile-page.css';
 
 const USERNAME_RGX = /^[a-zA-Z0-9_.-]{3,20}$/; // простая валидация
-
+type JobSeekerExtended = JobSeekerProfile & {
+  expected_salary?: number | string | null;
+  job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired' | string | null;
+  linkedin?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
+};
 const ProfilePage: React.FC = () => {
   const { profile, refreshProfile } = useRole();
   const [profileData, setProfileData] = useState<Profile | null>(null);
+  const originalRef = useRef<Profile | null>(null); // снимок для диффа
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -115,6 +125,7 @@ const ProfilePage: React.FC = () => {
         setError(null);
         const [pData, cats] = await Promise.all([getProfile(), getCategories()]);
         setProfileData(pData);
+        originalRef.current = pData; // снимок для сравнения
         setCategories(cats || []);
         setUsernameDraft(pData.username || '');
         if (pData.role === 'jobseeker') {
@@ -130,6 +141,7 @@ const ProfilePage: React.FC = () => {
 
     if (profile) {
       setProfileData(profile);
+      originalRef.current = profile;
       setUsernameDraft(profile.username || '');
       fetchData();
     } else {
@@ -152,6 +164,8 @@ const ProfilePage: React.FC = () => {
     setIsSaving(true); // общий лоадер на кнопку
 
     try {
+      const orig = originalRef.current;
+
       if (profileData.role === 'jobseeker') {
         // validate salary
         const salaryRaw = (profileData as any).expected_salary;
@@ -165,51 +179,97 @@ const ProfilePage: React.FC = () => {
           expectedSalaryNum = Math.round(parsed * 100) / 100;
         }
 
-        const payload = {
-          username: usernameToSave,
-          email: profileData.email,
-          timezone: profileData.timezone,
-          currency: profileData.currency,
-          expected_salary: expectedSalaryNum,
-          job_search_status: (profileData as any).job_search_status || 'open_to_offers',
-          skillIds: (profileData as any).skills?.map((s: Category) => s.id) || [],
-          experience: (profileData as JobSeekerProfile).experience,
-          description: (profileData as JobSeekerProfile).description,
-          portfolio: (profileData as JobSeekerProfile).portfolio,
-          video_intro: (profileData as JobSeekerProfile).video_intro,
-          resume: (profileData as JobSeekerProfile).resume,
-        };
+        const now = profileData as JobSeekerExtended;
+const o   = (orig as JobSeekerExtended | null);
 
-        const updated = await updateProfile(payload);
+const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtended[K]) =>
+  o ? o[key] !== val : val !== undefined;
+
+        const skillsIdsNow  = (now.skills || []).map((s: Category) => s.id);
+        const skillsIdsOrig = (o?.skills || []).map((s: Category) => s.id);
+        const skillsChanged =
+          skillsIdsNow.length !== skillsIdsOrig.length ||
+          skillsIdsNow.some((id, i) => id !== skillsIdsOrig[i]);
+
+        const patch: any = { role: 'jobseeker' }; // на бэке бывает нужно
+        if (changed('username', usernameToSave))             patch.username         = usernameToSave;
+        if (changed('timezone', now.timezone))               patch.timezone         = now.timezone;
+        if (changed('currency', now.currency))               patch.currency         = now.currency;
+        if (changed('expected_salary', expectedSalaryNum))   patch.expected_salary  = expectedSalaryNum;
+        if (changed('job_search_status', (now as any).job_search_status || 'open_to_offers'))
+                                                             patch.job_search_status = (now as any).job_search_status || 'open_to_offers';
+        if (skillsChanged)                                   patch.skillIds         = skillsIdsNow;
+        if (changed('experience', now.experience))           patch.experience       = now.experience;
+        if (changed('description', now.description))         patch.description      = now.description;
+        if (changed('portfolio', now.portfolio))             patch.portfolio        = now.portfolio;
+        if (changed('video_intro', now.video_intro))         patch.video_intro      = now.video_intro;
+        if (changed('resume', now.resume))                   patch.resume           = now.resume;
+
+        // соцсети (отправляем и пустоту как null, если очищают)
+        if (changed('linkedin' as any,  (now as any).linkedin))   patch.linkedin  = (now as any).linkedin  || null;
+        if (changed('instagram' as any, (now as any).instagram))  patch.instagram = (now as any).instagram || null;
+        if (changed('facebook' as any,  (now as any).facebook))   patch.facebook  = (now as any).facebook  || null;
+
+        // если нечего менять — просто выходим из режима редактирования
+        if (Object.keys(patch).length <= 1) { // только role
+          setIsEditing(false);
+          setUsernameEditMode(false);
+          setIsSaving(false);
+          return;
+        }
+
+        const updated = await updateProfile(patch);
         setProfileData(updated);
+        originalRef.current = updated;
         setUsernameDraft(updated.username || usernameToSave);
 
-        // спец-тост на статус (400 обрабатываем в catch ниже)
-        if (payload.job_search_status) {
-          alert('The changes are saved');
-        }
+        alert('The changes are saved');
       } else if (profileData.role === 'employer') {
-        const payload: Partial<EmployerProfile> = {
-          username: usernameToSave,
-          email: profileData.email,
-          timezone: profileData.timezone,
-          currency: profileData.currency,
-          company_name: (profileData as EmployerProfile).company_name,
-          company_info: (profileData as EmployerProfile).company_info,
-          referral_link: (profileData as EmployerProfile).referral_link,
-        };
-        const updated = await updateProfile(payload);
+        // для работодателя тоже шлём только изменённое
+        const now = profileData as EmployerProfile;
+        const o   = (orig as EmployerProfile | null);
+        const changed = <T,>(k: keyof EmployerProfile, v: T) => o ? (o as any)[k] !== v : v !== undefined;
+
+        const patch: any = { role: 'employer' };
+        if (changed('username', usernameToSave))              patch.username     = usernameToSave;
+        if (changed('timezone', now.timezone))                patch.timezone     = now.timezone;
+        if (changed('currency', now.currency))                patch.currency     = now.currency;
+        if (changed('company_name', now.company_name))        patch.company_name = now.company_name;
+        if (changed('company_info', now.company_info))        patch.company_info = now.company_info;
+        if (changed('referral_link', now.referral_link))      patch.referral_link = now.referral_link;
+
+        if (Object.keys(patch).length <= 1) {
+          setIsEditing(false);
+          setUsernameEditMode(false);
+          setIsSaving(false);
+          return;
+        }
+
+        const updated = await updateProfile(patch);
         setProfileData(updated);
+        originalRef.current = updated;
         setUsernameDraft(updated.username || usernameToSave);
       } else {
-        const payload: Partial<Profile> = {
-          username: usernameToSave,
-          email: profileData.email,
-          timezone: profileData.timezone,
-          currency: profileData.currency,
-        };
-        const updated = await updateProfile(payload);
+        // generic
+        const now = profileData as Profile;
+        const o   = (orig as Profile | null);
+        const changed = <T,>(k: keyof Profile, v: T) => o ? (o as any)[k] !== v : v !== undefined;
+
+        const patch: any = {};
+        if (changed('username', usernameToSave)) patch.username = usernameToSave;
+        if (changed('timezone', now.timezone))   patch.timezone = now.timezone;
+        if (changed('currency', now.currency))   patch.currency = now.currency;
+
+        if (Object.keys(patch).length === 0) {
+          setIsEditing(false);
+          setUsernameEditMode(false);
+          setIsSaving(false);
+          return;
+        }
+
+        const updated = await updateProfile(patch);
         setProfileData(updated);
+        originalRef.current = updated;
         setUsernameDraft(updated.username || usernameToSave);
       }
 
@@ -236,6 +296,7 @@ const ProfilePage: React.FC = () => {
       formData.append('resume', resumeFile);
       const updated = await uploadResume(formData);
       setProfileData(updated);
+      originalRef.current = updated;
       setResumeFile(null);
       await refreshProfile();
     } catch (e: any) {
@@ -250,6 +311,7 @@ const ProfilePage: React.FC = () => {
       formData.append('avatar', file);
       const updated = await uploadAvatar(formData);
       setProfileData(updated);
+      originalRef.current = updated;
       setAvatarFile(null);
       await refreshProfile();
     } catch (e) {
@@ -295,7 +357,7 @@ const ProfilePage: React.FC = () => {
             {!isEditing && (
               <div className="pf-actions-top">
                 <button className="pf-button" onClick={() => setIsEditing(true)}>Edit Profile</button>
-                <button className="pf-button pf-danger" onClick={handleDeleteAccount}>Delete Account</button>
+                {/* <button className="pf-button pf-danger" onClick={handleDeleteAccount}>Delete Account</button> */}
               </div>
             )}
           </div>
@@ -351,7 +413,6 @@ const ProfilePage: React.FC = () => {
                     <div className="pf-kv-row"><span className="pf-k">Username</span><span className="pf-v">{profileData.username}</span></div>
                     <div className="pf-kv-row"><span className="pf-k">Timezone</span><span className="pf-v">{profileData.timezone || 'Not specified'}</span></div>
                     <div className="pf-kv-row"><span className="pf-k">Currency</span><span className="pf-v">{profileData.currency || 'Not specified'}</span></div>
-                    {/* NEW: visible only if set and not zero */}
                     {(profileData as any).expected_salary != null &&
                       (profileData as any).expected_salary !== '' &&
                       Number((profileData as any).expected_salary) !== 0 && (
@@ -454,14 +515,13 @@ const ProfilePage: React.FC = () => {
                         <input
                           className="pf-input"
                           type="number"
-                          step="0.01"                 
+                          step="0.01"
                           min="0"
                           inputMode="decimal"
                           placeholder="e.g., 4000"
                           value={(profileData as any).expected_salary ?? ''}
                           onChange={(e) => {
                             const raw = e.target.value;
-                            // allow empty to clear
                             if (raw === '') {
                               setProfileData({ ...(profileData as any), expected_salary: '' } as any);
                               return;
@@ -551,6 +611,33 @@ const ProfilePage: React.FC = () => {
                       <div className="pf-kv-row"><span className="pf-k">Skills</span><span className="pf-v">{(profileData as JobSeekerProfile).skills?.map(s => s.name).join(', ') || 'Not specified'}</span></div>
                       <div className="pf-kv-row"><span className="pf-k">Experience</span><span className="pf-v">{(profileData as JobSeekerProfile).experience || 'Not specified'}</span></div>
                       <div className="pf-kv-row"><span className="pf-k">Description</span><span className="pf-v">{(profileData as JobSeekerProfile).description || 'Not specified'}</span></div>
+
+                      {/* Socials */}
+                      {(((profileData as any).linkedin) || ((profileData as any).instagram) || ((profileData as any).facebook)) && (
+                        <div className="pf-kv-row pf-socials-row">
+                          <span className="pf-k">Socials</span>
+                          <span className="pf-v">
+                            <div className="pf-socials">
+                              {(profileData as any).linkedin && (
+                                <a className="pf-soc pf-linkedin" href={(profileData as any).linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+                                  <FaLinkedin />
+                                </a>
+                              )}
+                              {(profileData as any).instagram && (
+                                <a className="pf-soc pf-instagram" href={(profileData as any).instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                                  <FaInstagram />
+                                </a>
+                              )}
+                              {(profileData as any).facebook && (
+                                <a className="pf-soc pf-facebook" href={(profileData as any).facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+                                  <FaFacebook />
+                                </a>
+                              )}
+                            </div>
+                          </span>
+                        </div>
+                      )}
+
                       <div className="pf-kv-row"><span className="pf-k">Portfolio</span><span className="pf-v">{(profileData as JobSeekerProfile).portfolio || 'Not specified'}</span></div>
                       <div className="pf-kv-row"><span className="pf-k">Video Intro</span><span className="pf-v">{(profileData as JobSeekerProfile).video_intro || 'Not specified'}</span></div>
                       <div className="pf-kv-row">
@@ -758,6 +845,50 @@ const ProfilePage: React.FC = () => {
                         />
                       </div>
 
+                      {/* Socials (optional) */}
+                      <div className="pf-row">
+                        <label className="pf-label">Socials (optional)</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                          <div>
+                            <div className="pf-label" style={{ fontWeight: 700, fontSize: 12, opacity: .8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <FaLinkedin /> LinkedIn
+                            </div>
+                            <input
+                              className="pf-input"
+                              type="url"
+                              placeholder="https://www.linkedin.com/in/username"
+                              value={(profileData as any).linkedin || ''}
+                              onChange={(e) => setProfileData({ ...(profileData as any), linkedin: e.target.value } as any)}
+                            />
+                          </div>
+                          <div>
+                            <div className="pf-label" style={{ fontWeight: 700, fontSize: 12, opacity: .8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <FaInstagram /> Instagram
+                            </div>
+                            <input
+                              className="pf-input"
+                              type="url"
+                              placeholder="https://www.instagram.com/username"
+                              value={(profileData as any).instagram || ''}
+                              onChange={(e) => setProfileData({ ...(profileData as any), instagram: e.target.value } as any)}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: 12 }}>
+                          <div className="pf-label" style={{ fontWeight: 700, fontSize: 12, opacity: .8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <FaFacebook /> Facebook
+                          </div>
+                          <input
+                            className="pf-input"
+                            type="url"
+                            placeholder="https://www.facebook.com/username"
+                            value={(profileData as any).facebook || ''}
+                            onChange={(e) => setProfileData({ ...(profileData as any), facebook: e.target.value } as any)}
+                          />
+                        </div>
+                      </div>
+
                       <div className="pf-row">
                         <label className="pf-label">Upload Resume File (PDF, DOC, DOCX)</label>
                         <input
@@ -807,6 +938,8 @@ const ProfilePage: React.FC = () => {
                         setIsEditing(false);
                         setUsernameEditMode(false);
                         setUsernameDraft(profileData.username || '');
+                        // откатываем визуальные изменения к оригиналу
+                        if (originalRef.current) setProfileData(originalRef.current);
                       }
                     }}
                     disabled={isSaving}
@@ -841,7 +974,13 @@ const ProfilePage: React.FC = () => {
                     </div>
                     <div className="pf-review-row">
                       <span className="pf-k">Date</span>
-                      <span className="pf-v">{review.created_at}</span>
+                      <span className="pf-v">
+  {new Date(review.created_at).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',   // "Aug"
+    day: '2-digit'    // "12"
+  })}
+</span>
                     </div>
                   </li>
                 ))}

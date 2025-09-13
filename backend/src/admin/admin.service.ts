@@ -104,61 +104,57 @@ export class AdminService {
   ) {
     await this.checkAdminRole(adminId);
 
-    const query = this.usersRepository.createQueryBuilder('user');
+    const qb = this.usersRepository
+      .createQueryBuilder('user')
+      .select([
+        'user.id',
+        'user.email',
+        'user.username',
+        'user.role',
+        'user.status',
+        'user.risk_score',
+        'user.created_at',
+        'user.last_seen_at',
+      ]);
 
     let hasSearch = false;
-    if (filters.username || filters.email || filters.id) {
-      const conditions: string[] = [];
-      if (filters.username) {
-        conditions.push('user.username ILIKE :username');
-      }
-      if (filters.email) {
-        conditions.push('user.email ILIKE :email');
-      }
-      if (filters.id) {
-        conditions.push('user.id = :id');
-      }
-      if (conditions.length > 0) {
-        query.andWhere(`(${conditions.join(' OR ')})`);
-        hasSearch = true;
-      }
+    const conditions: string[] = [];
+    if (filters.username) conditions.push('user.username ILIKE :username');
+    if (filters.email)    conditions.push('user.email ILIKE :email');
+    if (filters.id)       conditions.push('user.id = :id');
+    if (conditions.length) {
+      qb.andWhere(`(${conditions.join(' OR ')})`);
+      hasSearch = true;
     }
 
-    if (filters.role) {
-      query.andWhere('user.role = :role', { role: filters.role });
-    }
-    if (filters.status) {
-      query.andWhere('user.status = :status', { status: filters.status });
-    }
+    if (filters.role)   qb.andWhere('user.role = :role', { role: filters.role });
+    if (filters.status) qb.andWhere('user.status = :status', { status: filters.status });
+
     if (filters.createdAfter) {
       const createdAfterDate = new Date(filters.createdAfter);
       if (isNaN(createdAfterDate.getTime())) {
         throw new BadRequestException('Invalid createdAfter date format');
       }
-      query.andWhere('user.created_at >= :createdAfter', { createdAfter: createdAfterDate });
+      qb.andWhere('user.created_at >= :createdAfter', { createdAfter: createdAfterDate });
     }
 
     const params: any = {};
     if (filters.username) params.username = `%${filters.username}%`;
-    if (filters.email) params.email = `%${filters.email}%`;
-    if (filters.id) params.id = filters.id;
-    if (hasSearch) query.setParameters(params);
+    if (filters.email)    params.email    = `%${filters.email}%`;
+    if (filters.id)       params.id       = filters.id;
+    if (hasSearch) qb.setParameters(params);
 
-    const total = await query.getCount();
-
-    const page = filters.page || 1;
+    const total = await qb.getCount();
+    const page  = filters.page  || 1;
     const limit = filters.limit || 10;
-    const skip = (page - 1) * limit;
-    query.skip(skip).take(limit);
+    const skip  = (page - 1) * limit;
 
-    query.orderBy('user.created_at', 'DESC');
+    qb.orderBy('user.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
 
-    const users = await query.getMany();
-
-    return {
-      total,
-      data: users,
-    };
+    const data = await qb.getMany();
+    return { total, data };
   }
 
   async getUserById(adminId: string, userId: string) {
@@ -786,7 +782,6 @@ export class AdminService {
       throw new BadRequestException('Notifications can only be sent for active job posts');
     }
 
-    // Подзапрос для получения jobSeeker с нужной категорией
     const subQuery = this.jobSeekerRepository
       .createQueryBuilder('js')
       .leftJoin('js.skills', 'skills')
@@ -800,7 +795,7 @@ export class AdminService {
       .andWhere('user.role = :role', { role: 'jobseeker' })
       .andWhere('user.status = :status', { status: 'active' })
       .andWhere('user.is_email_verified = :isEmailVerified', { isEmailVerified: true })
-      .setParameters(subQuery.getParameters()); // Передаем параметры из subQuery
+      .setParameters(subQuery.getParameters());
 
     const total = await query.getCount();
 
@@ -810,13 +805,17 @@ export class AdminService {
     } else if (orderBy === 'end') {
       query.orderBy('user.created_at', 'DESC');
     } else if (orderBy === 'random') {
-      query.addSelect('RANDOM()', 'randomOrder').orderBy('randomOrder', 'ASC'); // Добавляем RANDOM() в SELECT
+      query.addSelect('RANDOM()', 'randomOrder').orderBy('randomOrder', 'ASC');
     }
 
     const jobSeekers = await query.getMany();
 
     let sentCount = 0;
-    const sentEmails = [];
+    const sentEmails: string[] = [];
+
+    const siteBase = (this.configService.get<string>('BASE_URL') || 'https://jobforge.net').replace(/\/api\/?$/, '');
+    const slugOrId = (jobPost as any).slug_id || jobPost.id;
+    const jobUrl = `${siteBase}/job/${slugOrId}`;
 
     for (const jobSeeker of jobSeekers) {
       try {
@@ -825,10 +824,15 @@ export class AdminService {
           jobSeeker.user.username,
           jobPost.title,
           jobPost.description,
-          `${this.configService.get('BASE_URL')}/jobs/${jobPost.id}`,
+          jobUrl,
+          {
+            location: jobPost.location || (jobPost as any).work_mode || 'Remote',
+            salary: jobPost.salary ?? null,
+            salary_type: jobPost.salary_type as any,
+            job_type: jobPost.job_type as any,
+          }
         );
 
-        // Сохраняем уведомление в БД
         const notification = this.emailNotificationsRepository.create({
           job_post_id: jobPostId,
           recipient_email: jobSeeker.user.email,
@@ -840,7 +844,7 @@ export class AdminService {
 
         sentEmails.push(jobSeeker.user.email);
         sentCount++;
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Failed to send email to ${jobSeeker.user.email}:`, error.message);
       }
     }
@@ -851,6 +855,115 @@ export class AdminService {
       emails: sentEmails,
       jobPostId,
     };
+  }
+
+  private async getCategoryMatchIds(categoryId: string, includeSiblings = false): Promise<string[]> {
+    const cat = await this.categoriesService.getCategoryById(categoryId); 
+    if (!cat.parent_id) {
+      return this.categoriesService.getDescendantIdsIncludingSelf(categoryId);
+    }
+    if (!includeSiblings) return [categoryId, cat.parent_id];
+    return this.categoriesService.getDescendantIdsIncludingSelf(cat.parent_id);
+  }
+
+
+  async notifyReferralApplicants(
+    adminId: string,
+    jobPostId: string,
+    limit: number,
+    orderBy: 'beginning' | 'end' | 'random',
+  ) {
+    await this.checkAdminRole(adminId);
+
+    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
+    if (!jobPost) throw new NotFoundException('Job post not found');
+    if (!jobPost.category_id) throw new BadRequestException('Job post has no category assigned');
+    if (jobPost.status !== 'Active') {
+      throw new BadRequestException('Notifications can only be sent for active job posts');
+    }
+
+    const currentCategory = await this.categoriesService.getCategoryById(jobPost.category_id);
+    let categoryIdsToMatch: string[];
+    if (!currentCategory.parent_id) {
+      categoryIdsToMatch = await this.categoriesService.getDescendantIdsIncludingSelf(jobPost.category_id);
+    } else {
+      categoryIdsToMatch = [jobPost.category_id, currentCategory.parent_id];
+    }
+
+    const subRegs = this.referralRegistrationsRepository
+      .createQueryBuilder('rr')
+      .innerJoin('rr.referral_link', 'rl')
+      .innerJoin('rl.job_post', 'jp')
+      .innerJoin('rr.user', 'ru')
+      .where('jp.category_id IN (:...catIds)', { catIds: categoryIdsToMatch })
+      .select('DISTINCT ru.id');
+
+    const qb = this.jobSeekerRepository
+      .createQueryBuilder('js')
+      .leftJoinAndSelect('js.user', 'u')
+      .where(`js.user_id IN (${subRegs.getQuery()})`)
+      .andWhere('u.role = :role', { role: 'jobseeker' })
+      .andWhere('u.status = :status', { status: 'active' })
+      .andWhere('u.is_email_verified = :verified', { verified: true })
+      // не слать тем, кто уже подался на ЭТУ вакансию
+      .andWhere(`NOT EXISTS (
+        SELECT 1 FROM job_applications a2
+        WHERE a2.job_post_id = :thisJob AND a2.job_seeker_id = js.user_id
+      )`, { thisJob: jobPostId })
+      // и не слать тем, кому уже отправляли по ЭТОЙ вакансии
+      .andWhere(`NOT EXISTS (
+        SELECT 1 FROM email_notifications en
+        WHERE en.job_post_id = :thisJob AND en.recipient_email = u.email
+      )`, { thisJob: jobPostId })
+      .setParameters(subRegs.getParameters());
+
+    const total = await qb.getCount();
+
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 1000) : 200;
+    qb.take(safeLimit);
+    if (orderBy === 'beginning') qb.orderBy('u.created_at', 'ASC');
+    else if (orderBy === 'end') qb.orderBy('u.created_at', 'DESC');
+    else qb.addSelect('RANDOM()', 'r').orderBy('r', 'ASC');
+
+    const picked = await qb.getMany();
+
+    const siteBase = (this.configService.get<string>('BASE_URL') || 'https://jobforge.net').replace(/\/api\/?$/, '');
+    const slugOrId = (jobPost as any).slug_id || jobPost.id;
+    const jobUrl = `${siteBase}/job/${slugOrId}`;
+
+    let sent = 0;
+    for (const js of picked) {
+      try {
+        const resp = await this.emailService.sendJobNotification(
+          js.user.email,
+          js.user.username,
+          jobPost.title,
+          jobPost.description,
+          jobUrl,
+          {
+            location: jobPost.location || (jobPost as any).work_mode || 'Remote',
+            salary: jobPost.salary ?? null,
+            salary_type: jobPost.salary_type as any,
+            job_type: jobPost.job_type as any,
+          }
+        );
+
+        await this.emailNotificationsRepository.save(
+          this.emailNotificationsRepository.create({
+            job_post_id: jobPostId,
+            recipient_email: js.user.email,
+            recipient_username: js.user.username,
+            message_id: resp?.messageId,
+            sent_at: new Date(),
+          }),
+        );
+        sent++;
+      } catch (e: any) {
+        console.error(`NotifyReferralApplicants: failed to send to ${js.user.email}:`, e.message);
+      }
+    }
+
+    return { total, sent, jobPostId };
   }
 
   async getEmailStatsForJobPost(adminId: string, jobPostId: string) {
@@ -1054,11 +1167,7 @@ export class AdminService {
     return { message: 'Category successfully deleted' };
   }
 
-  async createReferralLink(
-    adminId: string,
-    jobPostId: string,
-    description?: string,
-  ) {
+  async createReferralLink(adminId: string, jobPostId: string, description?: string) {
     await this.checkAdminRole(adminId);
 
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
@@ -1066,7 +1175,8 @@ export class AdminService {
       throw new NotFoundException('Job post not found');
     }
 
-    const refCode = uuidv4();
+    const refCode = crypto.randomUUID();
+
     const referralLink = this.referralLinksRepository.create({
       ref_code: refCode,
       job_post: jobPost,
@@ -1076,16 +1186,38 @@ export class AdminService {
     });
     await this.referralLinksRepository.save(referralLink);
 
-    const baseUrl = this.configService.get<string>('BASE_URL', 'https://yourdomain.com');
+    const baseUrl = this.configService.get<string>('BASE_URL', 'https://jobforge.net');
+
+    const baseSlug = (jobPost.slug && jobPost.slug.trim().length > 0)
+      ? jobPost.slug
+      : this.slugify(jobPost.title || '');
+    const shortId = (jobPost.id || '').replace(/-/g, '').slice(0, 8);
+    const slugId = jobPost.slug_id || (baseSlug && shortId ? `${baseSlug}--${shortId}` : jobPost.id);
+
+    const prettyLink = `${baseUrl}/job/${slugId}?ref=${referralLink.ref_code}`;
+
+    const legacyLink = `${baseUrl}/ref/${referralLink.ref_code}`;
+
     return {
       id: referralLink.id,
       refCode: referralLink.ref_code,
-      fullLink: `${baseUrl}/ref/${referralLink.ref_code}`,
+      fullLink: prettyLink,
+      legacyLink,
       jobPostId,
       description: referralLink.description,
       clicks: referralLink.clicks,
       registrations: referralLink.registrations,
     };
+  }
+
+  private slugify(input: string): string {
+    return (input || '')
+      .toLowerCase()
+      .trim()
+      .replace(/&/g, ' and ')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-');
   }
 
   async listReferralLinksByJobPost(adminId: string, jobPostId: string) {
@@ -1095,17 +1227,25 @@ export class AdminService {
       relations: ['job_post', 'registrationsDetails', 'registrationsDetails.user'],
       order: { created_at: 'DESC' },
     });
-    const baseUrl = this.configService.get<string>('BASE_URL', 'https://yourdomain.com');
-    return links.map(link => ({
-      id: link.id,
-      jobPostId: link.job_post?.id,
-      refCode: link.ref_code,
-      fullLink: `${baseUrl}/ref/${link.ref_code}`,
-      description: link.description || null,
-      clicks: link.clicks,
-      registrations: link.registrations,
-      registrationsDetails: link.registrationsDetails || [],
-    }));
+    const baseUrl = this.configService.get<string>('BASE_URL', 'https://jobforge.net');
+
+    return links.map(link => {
+      const jp = link.job_post;
+      const baseSlug = (jp.slug && jp.slug.trim().length > 0) ? jp.slug : this.slugify(jp.title || '');
+      const shortId = (jp.id || '').replace(/-/g, '').slice(0, 8);
+      const slugId = jp.slug_id || (baseSlug && shortId ? `${baseSlug}--${shortId}` : jp.id);
+      return {
+        id: link.id,
+        jobPostId: jp?.id,
+        refCode: link.ref_code,
+        fullLink: `${baseUrl}/job/${slugId}?ref=${link.ref_code}`,
+        legacyLink: `${baseUrl}/ref/${link.ref_code}`,
+        description: link.description || null,
+        clicks: link.clicks,
+        registrations: link.registrations,
+        registrationsDetails: link.registrationsDetails || [],
+      };
+    });
   }
 
   async updateReferralLinkDescription(adminId: string, linkId: string, description: string) {
@@ -1126,37 +1266,42 @@ export class AdminService {
   }
 
   async getReferralLinks(adminId: string, filters: { jobId?: string, jobTitle?: string } = {}) {
-      await this.checkAdminRole(adminId);
-      const query = this.referralLinksRepository.createQueryBuilder('link')
-          .leftJoinAndSelect('link.job_post', 'jobPost')
-          .leftJoinAndSelect('link.registrationsDetails', 'reg')
-          .leftJoinAndSelect('reg.user', 'user')
-          .orderBy('link.created_at', 'DESC');
+    await this.checkAdminRole(adminId);
+    const query = this.referralLinksRepository.createQueryBuilder('link')
+      .leftJoinAndSelect('link.job_post', 'jobPost')
+      .leftJoinAndSelect('link.registrationsDetails', 'reg')
+      .leftJoinAndSelect('reg.user', 'user')
+      .orderBy('link.created_at', 'DESC');
 
-      if (filters.jobId) {
-          query.andWhere('jobPost.id = :jobId', { jobId: filters.jobId });
-      }
-      if (filters.jobTitle) {
-          query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.jobTitle}%` });
-      }
+    if (filters.jobId) {
+      query.andWhere('jobPost.id = :jobId', { jobId: filters.jobId });
+    }
+    if (filters.jobTitle) {
+      query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.jobTitle}%` });
+    }
 
-      const links = await query.getMany();
-      const baseUrl = this.configService.get<string>('BASE_URL', 'https://jobforge.net');
+    const links = await query.getMany();
+    const baseUrl = this.configService.get<string>('BASE_URL', 'https://jobforge.net');
 
-      return links.map(link => ({
-          id: link.id,
-          jobPostId: link.job_post?.id,
-          refCode: link.ref_code,
-          fullLink: `${baseUrl}/ref/${link.ref_code}`,
-          clicks: link.clicks,
-          registrations: link.registrations,
-          registrationsDetails: link.registrationsDetails || [],
-          description: link.description || null,
-          job_post: link.job_post ? {
-              id: link.job_post.id,
-              title: link.job_post.title,
-          } : null,
-      }));
+    return links.map(link => {
+      const jp = link.job_post;
+      const baseSlug = (jp.slug && jp.slug.trim().length > 0) ? jp.slug : this.slugify(jp.title || '');
+      const shortId = (jp.id || '').replace(/-/g, '').slice(0, 8);
+      const slugId = jp.slug_id || (baseSlug && shortId ? `${baseSlug}--${shortId}` : jp.id);
+
+      return {
+        id: link.id,
+        jobPostId: jp?.id,
+        refCode: link.ref_code,
+        fullLink: `${baseUrl}/job/${slugId}?ref=${link.ref_code}`,
+        legacyLink: `${baseUrl}/ref/${link.ref_code}`,
+        clicks: link.clicks,
+        registrations: link.registrations,
+        registrationsDetails: link.registrationsDetails || [],
+        description: link.description || null,
+        job_post: jp ? { id: jp.id, title: jp.title } : null,
+      };
+    });
   }
 
   async incrementClick(refCode: string) {
@@ -1202,4 +1347,5 @@ export class AdminService {
     await this.referralRegistrationsRepository.save(referralRegistration);
   }
 
+  
 }
