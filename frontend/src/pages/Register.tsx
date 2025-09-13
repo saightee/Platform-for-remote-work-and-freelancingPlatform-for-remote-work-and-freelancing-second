@@ -109,27 +109,26 @@ const handleSubmit = async (e: React.FormEvent) => {
   try {
     setBusy(true); setErr(null);
 
-    // рефкод из URL → LS → cookie
+    // рефкод: URL → LS → cookie
     const urlRef = new URLSearchParams(window.location.search).get('ref') || undefined;
     const lsRef  = localStorage.getItem('referralCode') || undefined;
     const ckRef  = getCookie('jf_ref') || undefined;
     const refCode = urlRef || lsRef || ckRef || undefined;
 
-    // целевая страница возврата
-    const returnTo = new URLSearchParams(window.location.search).get('return') || undefined;
+    // безопасный внутренний return-путь (без open redirect на внешние домены)
+    const rawReturn = new URLSearchParams(window.location.search).get('return') || '';
+    const safeReturn = rawReturn.startsWith('/') ? rawReturn : undefined;
 
     const payload: any = { username, email, password, role };
-
     if (role === 'jobseeker') {
-      if (experience)               payload.experience = experience;
-      if (selectedSkills.length)    payload.skills     = selectedSkills.map(s => String(s.id));
-      if (resumeLink.trim())        payload.resume     = resumeLink.trim();
-      if (linkedin.trim())          payload.linkedin   = linkedin.trim();
-      if (instagram.trim())         payload.instagram  = instagram.trim();
-      if (facebook.trim())          payload.facebook   = facebook.trim();
-      if (about.trim())             payload.about      = about.trim();
+      if (experience)            payload.experience = experience;
+      if (selectedSkills.length) payload.skills     = selectedSkills.map(s => String(s.id));
+      if (resumeLink.trim())     payload.resume     = resumeLink.trim();
+      if (linkedin.trim())       payload.linkedin   = linkedin.trim();
+      if (instagram.trim())      payload.instagram  = instagram.trim();
+      if (facebook.trim())       payload.facebook   = facebook.trim();
+      if (about.trim())          payload.about      = about.trim();
     }
-
     if (refCode) payload.ref = refCode;
 
     await register(payload);
@@ -137,16 +136,20 @@ const handleSubmit = async (e: React.FormEvent) => {
     localStorage.setItem('pendingEmail', email);
     if (refCode) { try { localStorage.removeItem('referralCode'); } catch {} }
 
-    // редирект: если есть return — туда, иначе как раньше на check-email
-    if (returnTo) {
-      navigate(returnTo, { replace: true });
+    // редиректы по ТЗ:
+    // - jobseeker С рефкой и с валидным return → на конкретную вакансию
+    // - jobseeker без рефки → на /jobseeker-dashboard
+    // - employer → на /employer-dashboard
+    if (role === 'jobseeker' && refCode && safeReturn) {
+      navigate(safeReturn, { replace: true });
     } else {
-      navigate('/check-email', { state: { email } });
+      navigate(role === 'employer' ? '/employer-dashboard' : '/jobseeker-dashboard', { replace: true });
     }
   } catch (error: any) {
     console.error('Register error', error);
     const msg = error?.response?.data?.message;
     if (msg?.includes('Account exists but not verified')) {
+      // для уже существующего, но не верифицированного — оставляем переход на проверку почты
       navigate('/check-email', { state: { email } });
       return;
     }
@@ -159,6 +162,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     setBusy(false);
   }
 };
+
 
 
   if (!role) return null;

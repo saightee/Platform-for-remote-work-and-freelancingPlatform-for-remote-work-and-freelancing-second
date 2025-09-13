@@ -347,15 +347,25 @@ const backAfterReport =
             <span className="employer-name">{job.employer?.username || 'Unknown'}</span>
 
           </div>
-                     {!profile && (
-<div><p className="login-prompt">
-  <span>Please</span>
-  <Link to="/login" className="lp-btn lp-primary"><FaSignInAlt /> Log in</Link>
-  <span>or</span>
-  <Link to="/register/jobseeker" className="lp-btn lp-outline"><FaUserPlus /> Register</Link>
-  <span>as jobseeker to apply for this job.</span>
-</p></div>
+                   {!profile && (
+  <div>
+    <p className="login-prompt">
+      <span>Please</span>
+      <Link to="/login" className="lp-btn lp-primary"><FaSignInAlt /> Log in</Link>
+      <span>or</span>
+      <Link
+        to={`/register/jobseeker?return=${encodeURIComponent(
+          slugId ? `/vacancy/${slugId}` : `/jobs/${job.id}`
+        )}`}
+        className="lp-btn lp-outline"
+      >
+        <FaUserPlus /> Register
+      </Link>
+      <span>as jobseeker to apply for this job.</span>
+    </p>
+  </div>
 )}
+
         </div>
         <div className="job-details-panel">
           <div className="job-detail-item">
@@ -381,11 +391,15 @@ const backAfterReport =
         <div className="job-details-content">
           <div className="job-details-info">
             
-             {!profile && job.status === 'Active' && (
-      <div style={{ display: 'flex', justifyContent: 'center', fontWeight: 'bold' }}>
-        <button
-          onClick={() => navigate('/register/jobseeker')}
-          className="action-button"
+          {!profile && job.status === 'Active' && (
+  <div style={{ display: 'flex', justifyContent: 'center', fontWeight: 'bold' }}>
+    <button
+       onClick={() => navigate(
+    `/register/jobseeker?utm_source=job_details&job=${encodeURIComponent(job?.id || '')}&return=${encodeURIComponent(
+      slugId ? `/vacancy/${slugId}` : (job?.id ? `/jobs/${job.id}` : '/find-job')
+    )}`
+  )}
+  className="action-button"
           style={{
             fontSize: '15px',
             padding: '4px 12px',
@@ -395,11 +409,11 @@ const backAfterReport =
             lineHeight: '20px'
           }}
          aria-label="Register to apply for this job"
-        >
-          Register to Apply for Job
-        </button>
-      </div>
-    )}
+    >
+      Register to Apply for Job
+    </button>
+  </div>
+)}
 
             <h2>Job Overview</h2>
             <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(job.description) }} />

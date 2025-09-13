@@ -50,7 +50,7 @@ const ForgotPassword: React.FC = () => {
       {message && <p className="success-message">{message}</p>}
       {error && <p className="error-message">{error}</p>}
       <form onSubmit={handleSubmit} className="forgot-password-form">
-        <div className="form-group">
+        <div className="form-group-forgot">
           <label>Email Address:</label>
           <input
             type="email"
