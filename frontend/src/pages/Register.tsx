@@ -92,58 +92,74 @@ const Register: React.FC = () => {
   const removeSkill = (id: string | number) =>
     setSelectedSkills(prev => prev.filter(s => s.id !== id));
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!role) return;
-    if (password !== confirm) { setErr('Passwords do not match.'); return; }
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!role) return;
+  if (password !== confirm) { setErr('Passwords do not match.'); return; }
 
-    // URL validation (only if filled)
-    const urlErrors: string[] = [];
-    const check = (val: string, label: string) => { if (val && !urlOk(val)) urlErrors.push(`${label} URL is invalid (use https://...)`); };
-    check(resumeLink, 'Resume');
-    check(linkedin, 'LinkedIn');
-    check(instagram, 'Instagram');
-    check(facebook, 'Facebook');
-    if (urlErrors.length) { setErr(urlErrors[0]); return; }
+  // URL validation (only if filled)
+  const urlErrors: string[] = [];
+  const check = (val: string, label: string) => { if (val && !urlOk(val)) urlErrors.push(`${label} URL is invalid (use https://...)`); };
+  check(resumeLink, 'Resume');
+  check(linkedin, 'LinkedIn');
+  check(instagram, 'Instagram');
+  check(facebook, 'Facebook');
+  if (urlErrors.length) { setErr(urlErrors[0]); return; }
 
-    try {
-      setBusy(true); setErr(null);
+  try {
+    setBusy(true); setErr(null);
+
+    // рефкод из URL → LS → cookie
     const urlRef = new URLSearchParams(window.location.search).get('ref') || undefined;
-const lsRef  = localStorage.getItem('referralCode') || undefined;
-const ckRef  = getCookie('jf_ref') || undefined;
-const refCode = urlRef || lsRef || ckRef || undefined;
-      const payload: any = { username, email, password, role };
-if (role === 'jobseeker') {
-  if (experience) payload.experience = experience;
-  if (selectedSkills.length) payload.skills = selectedSkills.map(s => String(s.id));
-  if (resumeLink.trim()) payload.resume = resumeLink.trim();
-  if (linkedin.trim())  payload.linkedin  = linkedin.trim();
-  if (instagram.trim()) payload.instagram = instagram.trim();
-  if (facebook.trim())  payload.facebook  = facebook.trim();
-  if (about.trim())     payload.about     = about.trim();
-}
-if (refCode) payload.ref = refCode;
-      await register(payload);
+    const lsRef  = localStorage.getItem('referralCode') || undefined;
+    const ckRef  = getCookie('jf_ref') || undefined;
+    const refCode = urlRef || lsRef || ckRef || undefined;
+
+    // целевая страница возврата
+    const returnTo = new URLSearchParams(window.location.search).get('return') || undefined;
+
+    const payload: any = { username, email, password, role };
+
+    if (role === 'jobseeker') {
+      if (experience)               payload.experience = experience;
+      if (selectedSkills.length)    payload.skills     = selectedSkills.map(s => String(s.id));
+      if (resumeLink.trim())        payload.resume     = resumeLink.trim();
+      if (linkedin.trim())          payload.linkedin   = linkedin.trim();
+      if (instagram.trim())         payload.instagram  = instagram.trim();
+      if (facebook.trim())          payload.facebook   = facebook.trim();
+      if (about.trim())             payload.about      = about.trim();
+    }
+
+    if (refCode) payload.ref = refCode;
+
+    await register(payload);
 
     localStorage.setItem('pendingEmail', email);
-if (refCode) localStorage.removeItem('referralCode');
-navigate('/check-email', { state: { email } });
-    } catch (error: any) {
-      console.error('Register error', error);
-      const msg = error?.response?.data?.message;
-      if (msg?.includes('Account exists but not verified')) {
-        navigate('/check-email', { state: { email } });
-        return;
-      }
-      if (error?.response?.status === 403 && msg === 'Registration is not allowed from your country') {
-        setErr('Registration is not allowed from your country.');
-      } else {
-        setErr(msg || 'Registration failed. Please try again.');
-      }
-    } finally {
-      setBusy(false);
+    if (refCode) { try { localStorage.removeItem('referralCode'); } catch {} }
+
+    // редирект: если есть return — туда, иначе как раньше на check-email
+    if (returnTo) {
+      navigate(returnTo, { replace: true });
+    } else {
+      navigate('/check-email', { state: { email } });
     }
-  };
+  } catch (error: any) {
+    console.error('Register error', error);
+    const msg = error?.response?.data?.message;
+    if (msg?.includes('Account exists but not verified')) {
+      navigate('/check-email', { state: { email } });
+      return;
+    }
+    if (error?.response?.status === 403 && msg === 'Registration is not allowed from your country') {
+      setErr('Registration is not allowed from your country.');
+    } else {
+      setErr(msg || 'Registration failed. Please try again.');
+    }
+  } finally {
+    setBusy(false);
+  }
+};
+
 
   if (!role) return null;
 

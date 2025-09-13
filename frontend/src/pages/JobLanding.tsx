@@ -134,8 +134,12 @@ const ogImage = `${ORIGIN}/static/og/jobforge.png`;
 
   if (!job) return null;
 
-  // CTA: реф не добавляем — используем cookie jf_ref
-  const applyHref = `/register/jobseeker?utm_source=job_lp&job=${encodeURIComponent(job.id)}`;
+const returnTo = slugId
+  ? `/vacancy/${slugId}`
+  : `/jobs/${job.id}`;
+
+const applyHref = `/register/jobseeker?utm_source=job_lp&job=${encodeURIComponent(job.id)}&return=${encodeURIComponent(returnTo)}`;
+
 
   // JSON-LD (минимальный JobPosting)
   const jsonLd = {
