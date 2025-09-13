@@ -5,6 +5,7 @@ import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import Loader from '../components/Loader';
 import { Link } from 'react-router-dom';
+import { verifyEmail } from '../services/api';
 
 const VerifyEmail: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -13,19 +14,50 @@ const VerifyEmail: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const token = searchParams.get('token');
-    console.log('Verification token:', token);
-    if (!token) {
-      setError('Invalid or missing verification token.');
-      setIsLoading(false);
-      return;
-    }
+useEffect(() => {
+  const token = searchParams.get('token');
 
-    // No api call, backend redirects to /auth/callback, this is fallback if direct access
-    setError('Verification link processed. If not redirected, please login.');
-    setTimeout(() => navigate('/login'), 5000);
-  }, [searchParams, navigate]);
+  if (!token) {
+    setError('Invalid or missing verification token.');
+    setIsLoading(false);
+    return;
+  }
+
+  (async () => {
+    try {
+      await verifyEmail(token); // подтверждаем e-mail на бэке
+      setMessage('Your email has been verified successfully.');
+
+      // читаем, куда вести после верификации
+      const role = localStorage.getItem('pendingRole');
+      const afterReturn = localStorage.getItem('afterVerifyReturn') || '';
+
+      // чистим временные ключи (e-mail можно оставить по желанию)
+      localStorage.removeItem('afterVerifyReturn');
+      localStorage.removeItem('pendingRole');
+
+      // правила:
+      // - если jobseeker и есть сохранённый return — ведём на вакансию
+      // - иначе по роли в соответствующий дашборд
+      const dest =
+        role === 'jobseeker' && afterReturn
+          ? afterReturn
+          : role === 'employer'
+            ? '/employer-dashboard'
+            : role === 'jobseeker'
+              ? '/jobseeker-dashboard'
+              : '/login';
+
+      // чуть показываем сообщение и уводим
+      setTimeout(() => navigate(dest, { replace: true }), 1500);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Verification failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  })();
+}, [searchParams, navigate]);
+
 
   if (isLoading) {
     return <Loader />;
