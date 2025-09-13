@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getJobBySlugOrId, applyToJobPost, incrementJobView, checkJobApplicationStatus, applyToJobPostExtended } from '../services/api';
+import { getJobBySlugOrId, applyToJobPost, incrementJobView, checkJobApplicationStatus, applyToJobPostExtended, getUserById } from '../services/api';
 import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import { FaEye, FaBriefcase, FaDollarSign, FaMapMarkerAlt, FaCalendarAlt, FaUserCircle, FaTools, FaFolder, FaSignInAlt, FaUserPlus } from 'react-icons/fa';
@@ -55,9 +55,57 @@ useEffect(() => {
       // 1) грузим вакансию по slug или id
       const jobData = await getJobBySlugOrId(slugOrId);
       if (!alive) return;
-      setJob(jobData);
+    setJob(jobData);
 
-      const jobId = jobData.id;
+if ((!jobData.employer || !jobData.employer.username) && jobData.employer_id) {
+  try {
+    const apiUser = await getUserById(jobData.employer_id);
+    if (alive && apiUser) {
+      setJob((prev): JobPost | null => {
+        if (!prev) return prev;
+
+        // Минимальный «свободный» тип для ответа API
+        type AnyUser = {
+          id?: string | number;
+          user_id?: string | number;
+          username?: string;
+          user_name?: string;
+          email?: string;
+        };
+        const u = apiUser as AnyUser;
+
+        // Берём user_id либо id из ответа
+        const sourceId = u.user_id ?? u.id;
+
+        // Приводим к тому же типу, что и у текущего employer.id
+        const prevIdSample = (prev as any).employer?.id;
+        const normalizedId =
+          typeof prevIdSample === 'number' ? Number(sourceId) :
+          typeof prevIdSample === 'string' ? String(sourceId) :
+          sourceId;
+
+        // Имя работодателя: username > user_name > часть email до @ > "Employer"
+        const resolvedUsername =
+          u.username ??
+          u.user_name ??
+          (u.email ? String(u.email).split('@')[0] : undefined) ??
+          'Employer';
+
+        return {
+          ...prev,
+          employer: {
+            ...(prev.employer as any),
+            id: normalizedId,
+            username: resolvedUsername,
+          } as any,
+        } as JobPost;
+      });
+    }
+  } catch { /* игнорим фейл подстановки */ }
+}
+
+const jobId = jobData.id;
+
 
       // 2) NEW: сохраняем реф из ?ref, зная реальный jobId
       const refFromUrl = new URLSearchParams(window.location.search).get('ref');
@@ -344,7 +392,14 @@ const backAfterReport =
             ) : (
               <FaUserCircle className="employer-avatar" />
             )}
-            <span className="employer-name">{job.employer?.username || 'Unknown'}</span>
+            {(() => {
+  const displayEmployer =
+    job.employer?.username ||
+    (job as any).employer_username ||   // если бэк кладёт плоско
+    (job as any).employer?.company_name ||
+    'Unknown';
+  return <span className="employer-name">{displayEmployer}</span>;
+})()}
 
           </div>
                    {!profile && (

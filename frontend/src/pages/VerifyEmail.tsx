@@ -15,47 +15,43 @@ const VerifyEmail: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
 useEffect(() => {
-  const token = searchParams.get('token');
+  const run = async () => {
+    const token = searchParams.get('token');
+    if (!token) {
+      setError('Invalid or missing verification token.');
+      setIsLoading(false);
+      return;
+    }
 
-  if (!token) {
-    setError('Invalid or missing verification token.');
-    setIsLoading(false);
-    return;
-  }
-
-  (async () => {
     try {
-      await verifyEmail(token); // подтверждаем e-mail на бэке
-      setMessage('Your email has been verified successfully.');
+      const res = await verifyEmail(token); // реальный вызов бэка
+      setMessage(res?.message || 'Email verified successfully.');
 
-      // читаем, куда вести после верификации
-      const role = localStorage.getItem('pendingRole');
-      const afterReturn = localStorage.getItem('afterVerifyReturn') || '';
+      // читаем, что сохранили при регистрации
+      const role   = localStorage.getItem('pendingRole') as 'employer' | 'jobseeker' | null;
+      const after  = localStorage.getItem('afterVerifyReturn') || '';
+      const hasAfter = after.startsWith('/') && !after.startsWith('//');
 
-      // чистим временные ключи (e-mail можно оставить по желанию)
-      localStorage.removeItem('afterVerifyReturn');
-      localStorage.removeItem('pendingRole');
+      // чистим
+      try { localStorage.removeItem('afterVerifyReturn'); } catch {}
+      try { localStorage.removeItem('pendingRole'); } catch {}
+      try { localStorage.removeItem('pendingEmail'); } catch {}
 
-      // правила:
-      // - если jobseeker и есть сохранённый return — ведём на вакансию
-      // - иначе по роли в соответствующий дашборд
-      const dest =
-        role === 'jobseeker' && afterReturn
-          ? afterReturn
-          : role === 'employer'
-            ? '/employer-dashboard'
-            : role === 'jobseeker'
-              ? '/jobseeker-dashboard'
-              : '/login';
-
-      // чуть показываем сообщение и уводим
-      setTimeout(() => navigate(dest, { replace: true }), 1500);
+      // редирект по правилам
+      if (role === 'jobseeker' && hasAfter) {
+        navigate(after, { replace: true });
+      } else if (role === 'employer') {
+        navigate('/employer-dashboard', { replace: true });
+      } else {
+        navigate('/jobseeker-dashboard', { replace: true });
+      }
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Verification failed. Please try again.');
+      setError(e?.response?.data?.message || 'Email verification failed. The link may be invalid or expired.');
     } finally {
       setIsLoading(false);
     }
-  })();
+  };
+  run();
 }, [searchParams, navigate]);
 
 
