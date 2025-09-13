@@ -782,7 +782,6 @@ export class AdminService {
       throw new BadRequestException('Notifications can only be sent for active job posts');
     }
 
-    // Подзапрос для получения jobSeeker с нужной категорией
     const subQuery = this.jobSeekerRepository
       .createQueryBuilder('js')
       .leftJoin('js.skills', 'skills')
@@ -796,7 +795,7 @@ export class AdminService {
       .andWhere('user.role = :role', { role: 'jobseeker' })
       .andWhere('user.status = :status', { status: 'active' })
       .andWhere('user.is_email_verified = :isEmailVerified', { isEmailVerified: true })
-      .setParameters(subQuery.getParameters()); // Передаем параметры из subQuery
+      .setParameters(subQuery.getParameters());
 
     const total = await query.getCount();
 
@@ -806,13 +805,17 @@ export class AdminService {
     } else if (orderBy === 'end') {
       query.orderBy('user.created_at', 'DESC');
     } else if (orderBy === 'random') {
-      query.addSelect('RANDOM()', 'randomOrder').orderBy('randomOrder', 'ASC'); // Добавляем RANDOM() в SELECT
+      query.addSelect('RANDOM()', 'randomOrder').orderBy('randomOrder', 'ASC');
     }
 
     const jobSeekers = await query.getMany();
 
     let sentCount = 0;
-    const sentEmails = [];
+    const sentEmails: string[] = [];
+
+    const siteBase = (this.configService.get<string>('BASE_URL') || 'https://jobforge.net').replace(/\/api\/?$/, '');
+    const slugOrId = (jobPost as any).slug_id || jobPost.id;
+    const jobUrl = `${siteBase}/job/${slugOrId}`;
 
     for (const jobSeeker of jobSeekers) {
       try {
@@ -821,10 +824,15 @@ export class AdminService {
           jobSeeker.user.username,
           jobPost.title,
           jobPost.description,
-          `${this.configService.get('BASE_URL')}/jobs/${jobPost.id}`,
+          jobUrl,
+          {
+            location: jobPost.location || (jobPost as any).work_mode || 'Remote',
+            salary: jobPost.salary ?? null,
+            salary_type: jobPost.salary_type as any,
+            job_type: jobPost.job_type as any,
+          }
         );
 
-        // Сохраняем уведомление в БД
         const notification = this.emailNotificationsRepository.create({
           job_post_id: jobPostId,
           recipient_email: jobSeeker.user.email,
@@ -836,7 +844,7 @@ export class AdminService {
 
         sentEmails.push(jobSeeker.user.email);
         sentCount++;
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Failed to send email to ${jobSeeker.user.email}:`, error.message);
       }
     }
@@ -918,17 +926,28 @@ export class AdminService {
     else qb.addSelect('RANDOM()', 'r').orderBy('r', 'ASC');
 
     const picked = await qb.getMany();
+
+    const siteBase = (this.configService.get<string>('BASE_URL') || 'https://jobforge.net').replace(/\/api\/?$/, '');
+    const slugOrId = (jobPost as any).slug_id || jobPost.id;
+    const jobUrl = `${siteBase}/job/${slugOrId}`;
+
     let sent = 0;
     for (const js of picked) {
       try {
-        const url = `${this.configService.get('BASE_URL')}/jobs/${jobPost.id}`;
         const resp = await this.emailService.sendJobNotification(
           js.user.email,
           js.user.username,
           jobPost.title,
           jobPost.description,
-          url,
+          jobUrl,
+          {
+            location: jobPost.location || (jobPost as any).work_mode || 'Remote',
+            salary: jobPost.salary ?? null,
+            salary_type: jobPost.salary_type as any,
+            job_type: jobPost.job_type as any,
+          }
         );
+
         await this.emailNotificationsRepository.save(
           this.emailNotificationsRepository.create({
             job_post_id: jobPostId,
@@ -939,8 +958,8 @@ export class AdminService {
           }),
         );
         sent++;
-      } catch (e) {
-        console.error(`NotifyReferralApplicants: failed to send to ${js.user.email}:`, (e as Error).message);
+      } catch (e: any) {
+        console.error(`NotifyReferralApplicants: failed to send to ${js.user.email}:`, e.message);
       }
     }
 
