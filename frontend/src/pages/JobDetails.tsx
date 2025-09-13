@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getJobBySlugOrId, applyToJobPost, incrementJobView, checkJobApplicationStatus, applyToJobPostExtended, getUserById } from '../services/api';
+import { getJobBySlugOrId, applyToJobPost, incrementJobView, checkJobApplicationStatus, applyToJobPostExtended} from '../services/api';
 import { JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import { FaEye, FaBriefcase, FaDollarSign, FaMapMarkerAlt, FaCalendarAlt, FaUserCircle, FaTools, FaFolder, FaSignInAlt, FaUserPlus } from 'react-icons/fa';
@@ -57,52 +57,7 @@ useEffect(() => {
       if (!alive) return;
     setJob(jobData);
 
-if ((!jobData.employer || !jobData.employer.username) && jobData.employer_id) {
-  try {
-    const apiUser = await getUserById(jobData.employer_id);
-    if (alive && apiUser) {
-      setJob((prev): JobPost | null => {
-        if (!prev) return prev;
 
-        // Минимальный «свободный» тип для ответа API
-        type AnyUser = {
-          id?: string | number;
-          user_id?: string | number;
-          username?: string;
-          user_name?: string;
-          email?: string;
-        };
-        const u = apiUser as AnyUser;
-
-        // Берём user_id либо id из ответа
-        const sourceId = u.user_id ?? u.id;
-
-        // Приводим к тому же типу, что и у текущего employer.id
-        const prevIdSample = (prev as any).employer?.id;
-        const normalizedId =
-          typeof prevIdSample === 'number' ? Number(sourceId) :
-          typeof prevIdSample === 'string' ? String(sourceId) :
-          sourceId;
-
-        // Имя работодателя: username > user_name > часть email до @ > "Employer"
-        const resolvedUsername =
-          u.username ??
-          u.user_name ??
-          (u.email ? String(u.email).split('@')[0] : undefined) ??
-          'Employer';
-
-        return {
-          ...prev,
-          employer: {
-            ...(prev.employer as any),
-            id: normalizedId,
-            username: resolvedUsername,
-          } as any,
-        } as JobPost;
-      });
-    }
-  } catch { /* игнорим фейл подстановки */ }
-}
 
 const jobId = jobData.id;
 

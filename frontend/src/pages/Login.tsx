@@ -38,15 +38,24 @@ const [cooldown, setCooldown] = useState(0);
       await refreshProfile();
       setIsAuthenticated(true);
 } catch (error: any) {
-  const msg = error.response?.data?.message || '';
-  if (error.response?.status === 401 && /confirm your email/i.test(msg)) {
-    // раньше было: navigate('/check-email', { state: { email } });
-    setUnverifiedEmail(email);                       // <-- показываем баннер
-    localStorage.setItem('pendingEmail', email);     // <-- пригодится для callback'а
-    setErrorMessage('Please confirm your email before logging in.');
+  const status = error?.response?.status;
+  const raw = String(error?.response?.data?.message || '');
+  const msg = raw.toLowerCase();
+
+  if (status === 401) {
+    // Не подтверждён email
+    if (msg.includes('confirm your email') || msg.includes('verify')) {
+      const em = email.trim();
+      setUnverifiedEmail(em);
+      localStorage.setItem('pendingEmail', em);
+      setErrorMessage('Please confirm your email before logging in.');
+      return;
+    }
+    // Неверные учётные данные
+    setErrorMessage('Invalid email or password.');
     return;
   }
-  setErrorMessage(msg || 'Login failed. Please try again.');
+   setErrorMessage(raw || 'Login failed. Please try again.');
 } finally {
       setIsRefreshing(false);
     }
