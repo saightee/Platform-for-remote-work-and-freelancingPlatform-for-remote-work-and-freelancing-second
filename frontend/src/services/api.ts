@@ -426,9 +426,30 @@ export const deleteReferralLink = async (linkId: string) => {
 
 // Job Posts
 export const createJobPost = async (data: Partial<JobPost>) => {
-  const response = await api.post<JobPost>('/job-posts', data);
+  // Нормализуем кейсы ключей, если вдруг прилетят camelCase
+  const body: any = { ...data };
+
+  if (body.categoryId && !body.category_id) {
+    body.category_id = body.categoryId;
+    delete body.categoryId;
+  }
+  if (body.salaryType && !body.salary_type) {
+    body.salary_type = body.salaryType;
+    delete body.salaryType;
+  }
+  if (body.excludedLocations && !body.excluded_locations) {
+    body.excluded_locations = body.excludedLocations;
+    delete body.excludedLocations;
+  }
+  if (body.jobType && !body.job_type) {
+    body.job_type = body.jobType;
+    delete body.jobType;
+  }
+
+  const response = await api.post<JobPost>('/job-posts', body);
   return response.data;
 };
+
 
 export const updateJobPost = async (id: string, data: Partial<JobPost>) => {
   const response = await api.put<JobPost>(`/job-posts/${id}`, data);
@@ -439,14 +460,26 @@ export const getJobPost = async (id: string) => {
   console.log(`Fetching job post with ID: ${id}`);
   try {
     const response = await api.get<JobPost>(`/job-posts/${id}`);
-    console.log(`Job post ${id} fetched:`, response.data);
-    return response.data;
+    const job = response.data as any;
+
+    // fallback: если category отсутствует, но есть category_id — достанем из кэша/дерева
+    if (!job?.category && job?.category_id != null) {
+      const cats = await __ensureCategories();
+      const cat = __findCatById(job.category_id, cats);
+      if (cat) {
+        job.category = { id: cat.id, name: cat.name };
+      }
+    }
+
+    console.log(`Job post ${id} fetched:`, job);
+    return job as JobPost;
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
     console.error(`Error fetching job post ${id}:`, axiosError.response?.data?.message || axiosError.message);
     throw axiosError;
   }
 };
+
 
 export const getMyJobPosts = async () => {
   const response = await api.get<JobPost[]>('/job-posts/my-posts');
@@ -467,9 +500,26 @@ export const searchJobPosts = async (params: {
   sort_by?: string;
   sort_order?: string;
 }) => {
-  const response = await api.get<PaginatedResponse<JobPost>>('/job-posts', { params });
-  return response.data;
+  const { data } = await api.get<PaginatedResponse<JobPost>>('/job-posts', { params });
+
+  // Поправим категории в выдаче, если их нет
+  try {
+    const cats = await __ensureCategories();
+    data.data = data.data.map(j => {
+      const job: any = { ...j };
+      if (!job.category && job.category_id != null) {
+        const cat = __findCatById(job.category_id, cats);
+        if (cat) job.category = { id: cat.id, name: cat.name };
+      }
+      return job as JobPost;
+    });
+  } catch {
+    // молча пропускаем, если категории не загрузились
+  }
+
+  return data;
 };
+
 
 export const searchJobseekers = async (params: {
   username?: string;
@@ -521,6 +571,7 @@ export const getCategories = async () => {
   try {
     const response = await api.get<Category[]>('/categories');
     console.log('Fetched categories:', response.data);
+    __categoriesCache = response.data || []; // <-- обновляем кэш
     return response.data;
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
@@ -528,6 +579,30 @@ export const getCategories = async () => {
     throw axiosError;
   }
 };
+
+
+// --- КЭШ И ХЕЛПЕРЫ ДЛЯ КАТЕГОРИЙ (добавить сразу после getCategories) ---
+let __categoriesCache: Category[] | null = null;
+
+const __flatCats = (cats: Category[]): Category[] =>
+  cats.flatMap(c => [c, ...(c.subcategories ? __flatCats(c.subcategories) : [])]);
+
+const __findCatById = (id: string | number, tree: Category[]): Category | undefined => {
+  const all = __flatCats(tree);
+  return all.find(c => String(c.id) === String(id));
+};
+
+const __ensureCategories = async (): Promise<Category[]> => {
+  if (__categoriesCache && __categoriesCache.length) return __categoriesCache;
+  try {
+    const { data } = await api.get<Category[]>('/categories');
+    __categoriesCache = data || [];
+  } catch {
+    __categoriesCache = [];
+  }
+  return __categoriesCache;
+};
+
 
 // Job Applications
 export const applyToJobPost = async (job_post_id: string, cover_letter: string) => {
@@ -1214,8 +1289,19 @@ export const notifyReferralApplicants = (
 
 export const getJobBySlugOrId = async (slugOrId: string) => {
   const { data } = await api.get<JobPost>(`/job-posts/by-slug-or-id/${slugOrId}`);
-  return data;
+  const job = data as any;
+
+  if (!job?.category && job?.category_id != null) {
+    const cats = await __ensureCategories();
+    const cat = __findCatById(job.category_id, cats);
+    if (cat) {
+      job.category = { id: cat.id, name: cat.name };
+    }
+  }
+
+  return job as JobPost;
 };
+
 
 // Track referral click once per visit
 export const trackReferralClick = async (ref: string) => {

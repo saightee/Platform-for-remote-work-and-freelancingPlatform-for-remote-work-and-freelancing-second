@@ -2759,6 +2759,7 @@ table th {
   flex-direction: column;
   min-height: 100vh;
   padding: 20px;
+  margin-top: 100px;
 }
 
 .forgot-password-container h2 {
@@ -8541,4 +8542,27 @@ html, body { overflow-x: hidden; }
     margin: 5px 0;
     transition: background-color 0.3s;
     text-decoration: none;
+}
+
+.form-group-forgot input {
+  padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 14px;
+    flex: 1;
+    min-width: 400px;
+}
+
+.form-group-forgot label {
+padding-bottom: 5px;
+}
+
+@media (max-width: 480px) {
+  .form-group-forgot input {
+    min-width: 320px;
+  }
+  .form-group-forgot{
+        display: flex;
+    flex-direction: column;
+  }
 }

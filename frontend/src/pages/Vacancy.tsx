@@ -158,7 +158,9 @@ const ogImage = `${ORIGIN}/static/og/jobforge.png`;
 
       <div style={{ marginTop: 16 }}>
         <Link
-          to={`/register/jobseeker?utm_source=vacancy&job=${encodeURIComponent(job.id)}`}
+           to={`/register/jobseeker?utm_source=vacancy&job=${encodeURIComponent(job.id)}&return=${encodeURIComponent(
+    slugId ? `/vacancy/${slugId}` : `/jobs/${job.id}`
+  )}`}
           style={{
             display: 'inline-flex',
             alignItems: 'center',

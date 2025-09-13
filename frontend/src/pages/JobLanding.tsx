@@ -48,8 +48,8 @@ export default function JobLanding({ prefetchedJob }: Props) {
   const pageUrl = `https://jobforge.net/job/${slugId}`;
 
   // Абсолютный OG-баннер
- const ORIGIN = import.meta.env.VITE_SITE_ORIGIN || 'https://jobforge.net';
-const ogImage = `${ORIGIN}/static/og/jobforge.png`;
+const ORIGIN = import.meta.env.VITE_SITE_ORIGIN || 'https://jobforge.net';
+const ogImage = `${ORIGIN}/public/static/og/jobforge.png`;
 
   // =========================
   // Загрузка данных (с поддержкой ?demo=1 и fallback)
@@ -63,7 +63,7 @@ const ogImage = `${ORIGIN}/static/og/jobforge.png`;
       description: '<p>We need a creative SMM specialist for TikTok/Instagram.</p>',
       location: 'LATAM',
       salary: 1200,
-      salary_type: 'per month', // из union: 'per hour' | 'per month' | 'negotiable'
+      salary_type: 'per month', // 'per hour' | 'per month' | 'negotiable'
       category_id: undefined,
       category_ids: [],
       category: null,
@@ -134,12 +134,13 @@ const ogImage = `${ORIGIN}/static/og/jobforge.png`;
 
   if (!job) return null;
 
-const returnTo = slugId
-  ? `/vacancy/${slugId}`
-  : `/jobs/${job.id}`;
+  // === возврат на страницу вакансии после регистрации ===
+  const returnTo = slugId ? `/vacancy/${slugId}` : `/jobs/${job.id}`;
 
-const applyHref = `/register/jobseeker?utm_source=job_lp&job=${encodeURIComponent(job.id)}&return=${encodeURIComponent(returnTo)}`;
-
+  // CTA: реф не добавляем — используем cookie jf_ref; передаём return
+  const applyHref = `/register/jobseeker?utm_source=job_lp&job=${encodeURIComponent(
+    job.id
+  )}&return=${encodeURIComponent(returnTo)}`;
 
   // JSON-LD (минимальный JobPosting)
   const jsonLd = {
@@ -149,13 +150,13 @@ const applyHref = `/register/jobseeker?utm_source=job_lp&job=${encodeURIComponen
     description: sanitizeHtml(job.description || '', { allowedTags: [], allowedAttributes: {} }),
     employmentType: job.job_type || undefined,
     datePosted: job.created_at,
-    validThrough: undefined, // при желании можно добавить срок
+    validThrough: undefined,
     hiringOrganization: {
       '@type': 'Organization',
       name: 'Jobforge',
       sameAs: 'https://jobforge.net',
     },
-    jobLocationType: 'TELECOMMUTE', // лендинг под удалёнку; если нужно — сделаем условие
+    jobLocationType: 'TELECOMMUTE',
     applicantLocationRequirements: job.location || undefined,
     url: pageUrl,
   };
@@ -182,11 +183,10 @@ const applyHref = `/register/jobseeker?utm_source=job_lp&job=${encodeURIComponen
         <meta property="og:image" content={ogImage} />
         <meta property="og:image:alt" content="Jobforge — remote jobs" />
 
-      
         {/* демо-страницу не индексируем */}
         {isDemo && <meta name="robots" content="noindex,nofollow" />}
 
-        {/* JSON-LD (по желанию) */}
+        {/* JSON-LD */}
         {job && (
           <script type="application/ld+json">
             {JSON.stringify(jsonLd).replace(/</g, '\\u003c')}
@@ -239,12 +239,16 @@ const applyHref = `/register/jobseeker?utm_source=job_lp&job=${encodeURIComponen
                 <FaBriefcase className="jl-ico" />
                 <strong>Title:</strong> {job.title}
               </li>
-              {job.salary_type && (
-                <li>
-                  <FaMoneyBillWave className="jl-ico" />
-                  <strong>Pay:</strong> {String(job.salary ?? 'Negotiable')} {job.salary_type}
-                </li>
-              )}
+             {job.salary_type && (
+  <li>
+    <FaMoneyBillWave className="jl-ico" />
+    <strong>Pay:</strong>{' '}
+    {job.salary_type.toLowerCase() === 'negotiable'
+      ? 'Negotiable'
+      : `${String(job.salary ?? 'Negotiable')} ${job.salary_type}`}
+  </li>
+)}
+
               {job.job_type && (
                 <li>
                   <FaClock className="jl-ico" />
