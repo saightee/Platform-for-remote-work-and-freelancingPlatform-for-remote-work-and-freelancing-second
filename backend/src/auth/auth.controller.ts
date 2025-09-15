@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res, Query, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res, Query, Req, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
@@ -13,6 +13,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
 import { ConfigService } from '@nestjs/config';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 @Controller('auth')
 export class AuthController {
@@ -25,18 +28,34 @@ export class AuthController {
   ) {}
 
   @Post('register')
+  @UseInterceptors(FileInterceptor('resume_file', {
+    storage: diskStorage({
+      destination: './uploads/resumes',
+      filename: (req, file, cb) => {
+        const rnd = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
+        cb(null, `${rnd}${extname(file.originalname)}`);
+      },
+    }),
+    fileFilter: (req, file, cb) => {
+      const allowed = /pdf|doc|docx/;
+      const ok = allowed.test(extname(file.originalname).toLowerCase()) && allowed.test(file.mimetype);
+      ok ? cb(null, true) : cb(new BadRequestException('Only PDF, DOC, and DOCX files are allowed'), false);
+    },
+    limits: { fileSize: 10 * 1024 * 1024 },
+  }))
   async register(
     @Body() registerDto: RegisterDto & { ref?: string },
     @Headers('x-forwarded-for') xForwardedFor?: string,
     @Headers('x-real-ip') xRealIp?: string,
     @Headers('x-fingerprint') fingerprint?: string,
     @Req() req?: any,
+    @UploadedFile() resumeFile?: Express.Multer.File,
   ) {
     const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
     const ip = ipHeader.split(',')[0].trim();
-    console.log('Client IP:', ip);
-    if (!fingerprint) {
-      throw new BadRequestException('Fingerprint is required');
+    if (!fingerprint) throw new BadRequestException('Fingerprint is required');
+    if (resumeFile) {
+      registerDto.resume = `/uploads/resumes/${resumeFile.filename}`;
     }
     return this.authService.register(registerDto, ip, fingerprint, registerDto.ref);
   }

@@ -30,6 +30,12 @@ export class JobSeeker {
   @Column({ type: 'varchar', nullable: true })
   facebook?: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  whatsapp?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  telegram?: string;
+
   @Column({ type: 'varchar', default: 'open_to_offers' })
   job_search_status: 'actively_looking' | 'open_to_offers' | 'hired';
 

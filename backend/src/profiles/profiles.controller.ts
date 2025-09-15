@@ -72,6 +72,8 @@ export class ProfilesController {
       linkedin?: string | null;
       instagram?: string | null;
       facebook?: string | null;
+      whatsapp?: string | null;
+      telegram?: string | null;
     },
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

@@ -53,7 +53,6 @@ import { CategoriesModule } from '../categories/categories.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => {
-        console.log('JWT_SECRET from ConfigService:', configService.get<string>('JWT_SECRET'));
         return {
           secret: configService.get<string>('JWT_SECRET'),
           signOptions: { expiresIn: '1h' },

@@ -57,6 +57,8 @@ export class ProfilesService {
         linkedin: jobSeeker.linkedin,
         instagram: jobSeeker.instagram,
         facebook: jobSeeker.facebook,
+        whatsapp: (jobSeeker as any).whatsapp ?? null,
+        telegram: (jobSeeker as any).telegram ?? null,
         reviews,
         avatar: user.avatar,
         identity_verified: user.identity_verified,
@@ -93,9 +95,7 @@ export class ProfilesService {
     }
 
     if (Object.prototype.hasOwnProperty.call(updateData, 'username')) {
-      if (typeof updateData.username !== 'string') {
-        throw new BadRequestException('Username must be a string');
-      }
+      if (typeof updateData.username !== 'string') throw new BadRequestException('Username must be a string');
       const newUsername = updateData.username.trim();
       if (!newUsername) throw new BadRequestException('Username cannot be empty');
       if (newUsername.length > 100) throw new BadRequestException('Username is too long (max 100)');
@@ -111,10 +111,12 @@ export class ProfilesService {
       if (!jobSeeker) throw new NotFoundException('JobSeeker profile not found');
 
       if (updateData.resume) jobSeeker.resume = updateData.resume;
+
       if (updateData.skillIds && Array.isArray(updateData.skillIds)) {
         const skills = await this.categoriesRepository.find({ where: { id: In(updateData.skillIds) } });
         jobSeeker.skills = skills;
       }
+
       if (updateData.experience) jobSeeker.experience = updateData.experience;
 
       if (Object.prototype.hasOwnProperty.call(updateData, 'description')) {
@@ -138,15 +140,15 @@ export class ProfilesService {
 
       if (Object.prototype.hasOwnProperty.call(updateData, 'expected_salary')) {
         const v = Number(updateData.expected_salary);
-        if (Number.isNaN(v) || v < 0) {
-          throw new BadRequestException('expected_salary must be a non-negative number');
-        }
+        if (Number.isNaN(v) || v < 0) throw new BadRequestException('expected_salary must be a non-negative number');
         (jobSeeker as any).expected_salary = v;
       }
 
-      if (Object.prototype.hasOwnProperty.call(updateData, 'linkedin')) jobSeeker.linkedin = updateData.linkedin || null;
+      if (Object.prototype.hasOwnProperty.call(updateData, 'linkedin'))  jobSeeker.linkedin  = updateData.linkedin  || null;
       if (Object.prototype.hasOwnProperty.call(updateData, 'instagram')) jobSeeker.instagram = updateData.instagram || null;
-      if (Object.prototype.hasOwnProperty.call(updateData, 'facebook')) jobSeeker.facebook = updateData.facebook || null;
+      if (Object.prototype.hasOwnProperty.call(updateData, 'facebook'))  jobSeeker.facebook  = updateData.facebook  || null;
+      if (Object.prototype.hasOwnProperty.call(updateData, 'whatsapp')) jobSeeker.whatsapp = updateData.whatsapp || null;
+      if (Object.prototype.hasOwnProperty.call(updateData, 'telegram')) jobSeeker.telegram = updateData.telegram || null;
 
       await this.jobSeekerRepository.save(jobSeeker);
       return this.getProfile(userId, true);

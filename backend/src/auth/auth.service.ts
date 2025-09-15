@@ -16,6 +16,14 @@ import { AdminService } from '../admin/admin.service';
 import { ConfigService } from '@nestjs/config';
 import { HttpException, HttpStatus } from '@nestjs/common';
 
+const normalizeEmail = (e: string) => (e || '').trim().toLowerCase();
+const isStrongPassword = (pw: string) =>
+  typeof pw === 'string' &&
+  pw.length >= 10 &&
+  /[a-z]/.test(pw) &&
+  /[A-Z]/.test(pw) &&
+  /\d/.test(pw) &&
+  /[^A-Za-z0-9]/.test(pw);
 @Injectable()
 export class AuthService {
   constructor(
@@ -31,22 +39,21 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto | CreateAdminDto | CreateModeratorDto, ip: string, fingerprint?: string, refCode?: string) {
-    console.log('Начало регистрации:', dto);
-    const { email, password, username } = dto;
+    const emailNorm = (dto.email || '').trim().toLowerCase();
+    const username = dto.username;
+    const password = dto.password;
 
     let country: string | null = null;
     if (ip) {
       const isBlocked = await this.blockedCountriesService.isCountryBlocked(ip);
-      if (isBlocked) {
-        throw new ForbiddenException('Registration is not allowed from your country');
-      }
-      const geo = geoip.lookup(ip);
+      if (isBlocked) throw new ForbiddenException('Registration is not allowed from your country');
+      const geo = (geoip as any).lookup(ip);
       country = geo?.country ?? null;
-      console.log('Detected country for IP', ip, ':', country);
     }
 
-    const existingUser = await this.usersService.findByEmail(email);
-    console.log('Existing User Check:', existingUser);
+    if (!isStrongPassword(password)) throw new BadRequestException('Weak password');
+
+    const existingUser = await this.usersService.findByEmail(emailNorm);
     if (existingUser) {
       if (!existingUser.is_email_verified) {
         const rlKey = `verify_resend:${existingUser.id}`;
@@ -55,11 +62,7 @@ export class AuthService {
           const token = uuidv4();
           await this.redisService.set(`verify:${token}`, String(existingUser.id), 3600);
           await this.redisService.set(`verify_latest:${existingUser.id}`, token, 3600);
-          await this.emailService.sendVerificationEmail(
-            existingUser.email,
-            existingUser.username,
-            token
-          );
+          await this.emailService.sendVerificationEmail(existingUser.email, existingUser.username, token);
           await this.redisService.set(rlKey, '1', 300);
         }
         return { message: 'Account exists but not verified. We sent a new confirmation link.' };
@@ -70,52 +73,31 @@ export class AuthService {
     let role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
     if ('secretKey' in dto) {
       const validSecretKey = this.configService.get<string>('ADMIN_SECRET_KEY');
-      if (dto.secretKey !== validSecretKey) {
-        throw new UnauthorizedException('Invalid secret key');
-      }
-      role = (dto as CreateModeratorDto).email.includes('moderator') ? 'moderator' : 'admin';
+      if ((dto as any).secretKey !== validSecretKey) throw new UnauthorizedException('Invalid secret key');
+      role = (dto as any).email.includes('moderator') ? 'moderator' : 'admin';
     } else {
       role = (dto as RegisterDto).role;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    console.log('Hashed Password:', hashedPassword);
 
     const userData = {
-      email,
-      username,
-      password: hashedPassword,
-      role,
-      country,
+      email: emailNorm, username, password: hashedPassword, role, country,
       is_email_verified: role === 'admin' || role === 'moderator',
       referral_source: refCode || null,
     };
 
-    const additionalData: {
-      timezone: string;
-      currency: string;
-      skills?: string[];
-      experience?: string;
-      resume?: string;
-      // только для jobseeker:
-      linkedin?: string | null;
-      instagram?: string | null;
-      facebook?: string | null;
-      description?: string | null;
-    } = {
-      timezone: 'UTC',
-      currency: 'USD',
-    };
-
+    const additionalData: any = { timezone: 'UTC', currency: 'USD' };
     if (role === 'jobseeker') {
       const r = dto as RegisterDto;
       if (r.skills) additionalData.skills = r.skills;
       if (r.experience) additionalData.experience = r.experience;
       if (r.resume) additionalData.resume = r.resume || null;
-
       additionalData.linkedin = r.linkedin || null;
       additionalData.instagram = r.instagram || null;
       additionalData.facebook = r.facebook || null;
+      additionalData.whatsapp = r.whatsapp || null;
+      additionalData.telegram = r.telegram || null;
 
       if (r.description) {
         const words = r.description.trim().split(/\s+/).slice(0, 150);
@@ -124,16 +106,8 @@ export class AuthService {
     }
 
     const newUser = await this.usersService.create(userData, additionalData);
-    console.log('New User Created:', newUser);
 
-    if (refCode) {
-      try {
-        await this.adminService.incrementRegistration(refCode, newUser.id);
-        console.log(`[AuthService] Incremented registration for refCode: ${refCode}, userId: ${newUser.id}`);
-      } catch (error) {
-        console.error(`[AuthService] Failed to increment registration for refCode ${refCode}:`, error);
-      }
-    }
+    if (refCode) { try { await this.adminService.incrementRegistration(refCode, newUser.id); } catch {} }
 
     if (role === 'admin' || role === 'moderator') {
       const payload = { email: newUser.email, sub: newUser.id, role: newUser.role };
@@ -143,14 +117,10 @@ export class AuthService {
 
     try {
       const verificationToken = uuidv4();
-      console.log('Сохранение токена верификации в Redis:', verificationToken);
       await this.redisService.set(`verify:${verificationToken}`, newUser.id, 3600);
       await this.redisService.set(`verify_latest:${newUser.id}`, verificationToken, 3600);
-      console.log('Отправка верификационного email:', newUser.email);
-      await this.emailService.sendVerificationEmail(email, username, verificationToken);
-      console.log('Email отправлен успешно');
-    } catch (error) {
-      console.error(`Ошибка отправки верификационного email для ${newUser.email}:`, error.message);
+      await this.emailService.sendVerificationEmail(emailNorm, username, verificationToken);
+    } catch {
       return { message: 'Регистрация успешна, но email не отправлен. Проверьте папку "Spam" или запросите повторно.' };
     }
 
@@ -206,15 +176,22 @@ export class AuthService {
     fingerprint: string,
     session: any,
   ) {
-    const user = await this.usersService.findByEmail(email);
+    const emailNorm = normalizeEmail(email);
+
+    const rlKey = `rl:login:${emailNorm}:${ip || 'noip'}:${fingerprint || 'nofp'}`;
+    const fails = Number(await this.redisService.get(rlKey) || 0);
+    if (fails >= 5) {
+      throw new UnauthorizedException('Too many attempts. Try later.');
+    }
+
+    const user = await this.usersService.findByEmail(emailNorm);
     if (!user || !(await bcrypt.compare(password, user.password))) {
+      await this.redisService.set(rlKey, String(fails + 1), 600);
       throw new UnauthorizedException('Invalid credentials');
     }
+    await this.redisService.del(rlKey);
 
-    if (user.status === 'blocked') {
-      throw new UnauthorizedException('User is blocked');
-    }
-
+    if (user.status === 'blocked') throw new UnauthorizedException('User is blocked');
     if (!user.is_email_verified && user.role !== 'admin' && user.role !== 'moderator') {
       throw new UnauthorizedException('Please confirm your email before logging in');
     }
@@ -228,27 +205,29 @@ export class AuthService {
     await this.redisService.setUserOnline(user.id, user.role as 'jobseeker' | 'employer');
 
     await this.usersService.setLastLoginAt(user.id);
-
     await this.usersService.touchLastSeen(user.id);
 
     return new Promise((resolve, reject) => {
       session.regenerate((err) => {
         if (err) {
-          console.error(`Login error: Failed to regenerate session for userId=${user.id}, error=${err.message}`);
           reject(new BadRequestException('Failed to regenerate session'));
           return;
         }
         session.user = { id: user.id, email: user.email, role: user.role };
-        console.log(`Login success: userId=${user.id}, sessionID=${session.id}, token=${token}`);
         resolve({ accessToken: token });
       });
     });
   }
 
-  async logout(userId: number) {
+  async logout(userId: string) {
     const token = await this.redisService.get(`token:${userId}`);
     if (token) {
-      await this.redisService.set(`blacklist:${token}`, 'true', 3600);
+      const decoded: any = this.jwtService.decode(token);
+      const now = Math.floor(Date.now() / 1000);
+      const exp = typeof decoded?.exp === 'number' ? decoded.exp : null;
+      const ttl = exp ? Math.max(exp - now, 0) : 3600;
+
+      await this.redisService.set(`blacklist:${token}`, 'true', ttl);
       await this.redisService.del(`token:${userId}`);
     }
     return { message: 'Logout successful' };
@@ -299,15 +278,13 @@ export class AuthService {
   }
 
   async forgotPassword(email: string) {
-    const user = await this.usersService.findByEmail(email);
+    const user = await this.usersService.findByEmail(normalizeEmail(email));
     if (!user) {
       throw new BadRequestException('User not found');
     }
-
     if (user.role === 'admin' || user.role === 'moderator') {
       throw new UnauthorizedException('Password reset is not allowed for admin or moderator roles');
     }
-
     const resetToken = uuidv4();
     await this.redisService.set(`reset:${resetToken}`, user.id.toString(), 3600);
     await this.emailService.sendPasswordResetEmail(user.email, user.username, resetToken);
@@ -315,45 +292,51 @@ export class AuthService {
   }
 
   async resetPassword(token: string, newPassword: string) {
-    const userId = await this.redisService.get(`reset:${token}`);
-    if (!userId) {
-      throw new BadRequestException('Invalid or expired reset token');
+    if (!isStrongPassword(newPassword)) {
+      throw new BadRequestException('Weak password');
     }
+
+    const userId = await this.redisService.get(`reset:${token}`);
+    if (!userId) throw new BadRequestException('Invalid or expired reset token');
 
     const user = await this.usersService.getUserById(userId);
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
-
+    if (!user) throw new BadRequestException('User not found');
     if (user.role === 'admin' || user.role === 'moderator') {
       throw new UnauthorizedException('Password reset is not allowed for admin or moderator roles');
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await this.usersService.updatePassword(userId, hashedPassword);
+
+    const old = await this.redisService.get(`token:${userId}`);
+    if (old) {
+      const decoded: any = this.jwtService.decode(old);
+      const now = Math.floor(Date.now() / 1000);
+      const exp = typeof decoded?.exp === 'number' ? decoded.exp : null;
+      const ttl = exp ? Math.max(exp - now, 0) : 3600;
+      await this.redisService.set(`blacklist:${old}`, 'true', ttl);
+      await this.redisService.del(`token:${userId}`);
+    }
+
     await this.redisService.del(`reset:${token}`);
     return { message: 'Password reset successful' };
   }
 
   async resendVerificationEmail(email: string) {
-  const user = await this.usersService.findByEmail(email);
-  if (!user) return;
+    const user = await this.usersService.findByEmail(normalizeEmail(email));
+    if (!user) return;
+    if (user.is_email_verified) return;
 
-  if (user.is_email_verified) {
-    return;
-  }
+    const rlKey = `verify_resend:${user.id}`;
+    const locked = await this.redisService.get(rlKey);
+    if (locked) {
+      throw new HttpException('Please wait before requesting another verification email', HttpStatus.TOO_MANY_REQUESTS);
+    }
+    await this.redisService.set(rlKey, '1', 300);
 
-  const rlKey = `verify_resend:${user.id}`;
-  const locked = await this.redisService.get(rlKey);
-  if (locked) {
-    throw new HttpException('Please wait before requesting another verification email', HttpStatus.TOO_MANY_REQUESTS);
-  }
-  await this.redisService.set(rlKey, '1', 300);
-
-  const token = uuidv4();
-  await this.redisService.set(`verify:${token}`, String(user.id), 3600);
-  await this.redisService.set(`verify_latest:${user.id}`, token, 3600);
-
-  await this.emailService.sendVerificationEmail(user.email, user.username, token);
+    const token = uuidv4();
+    await this.redisService.set(`verify:${token}`, String(user.id), 3600);
+    await this.redisService.set(`verify_latest:${user.id}`, token, 3600);
+    await this.emailService.sendVerificationEmail(user.email, user.username, token);
   }
 }
