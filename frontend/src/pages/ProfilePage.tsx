@@ -17,7 +17,7 @@ import { Profile, Category, JobSeekerProfile, EmployerProfile, Review } from '@t
 import { useRole } from '../context/RoleContext';
 import {
   FaUserCircle, FaFilePdf, FaPen, FaCheck, FaTimes,
-  FaLinkedin, FaInstagram, FaFacebook
+  FaLinkedin, FaInstagram, FaFacebook, FaWhatsapp, FaTelegramPlane
 } from 'react-icons/fa';
 import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
@@ -30,7 +30,10 @@ type JobSeekerExtended = JobSeekerProfile & {
   linkedin?: string | null;
   instagram?: string | null;
   facebook?: string | null;
+  whatsapp?: string | null;   // NEW
+  telegram?: string | null;   // NEW
 };
+
 const ProfilePage: React.FC = () => {
   const { profile, refreshProfile } = useRole();
   const [profileData, setProfileData] = useState<Profile | null>(null);
@@ -205,10 +208,13 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
         if (changed('video_intro', now.video_intro))         patch.video_intro      = now.video_intro;
         if (changed('resume', now.resume))                   patch.resume           = now.resume;
 
-        // соцсети (отправляем и пустоту как null, если очищают)
-        if (changed('linkedin' as any,  (now as any).linkedin))   patch.linkedin  = (now as any).linkedin  || null;
-        if (changed('instagram' as any, (now as any).instagram))  patch.instagram = (now as any).instagram || null;
-        if (changed('facebook' as any,  (now as any).facebook))   patch.facebook  = (now as any).facebook  || null;
+
+        if (changed('linkedin',  now.linkedin ?? null))    patch.linkedin  = now.linkedin  || null;
+        if (changed('instagram', now.instagram ?? null))   patch.instagram = now.instagram || null;
+        if (changed('facebook',  now.facebook ?? null))    patch.facebook  = now.facebook  || null;
+        if (changed('whatsapp',  now.whatsapp ?? null))    patch.whatsapp  = now.whatsapp  || null;   // NEW
+        if (changed('telegram',  now.telegram ?? null))    patch.telegram  = now.telegram  || null;   // NEW
+
 
         // если нечего менять — просто выходим из режима редактирования
         if (Object.keys(patch).length <= 1) { // только role
@@ -613,30 +619,42 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                       <div className="pf-kv-row"><span className="pf-k">Description</span><span className="pf-v">{(profileData as JobSeekerProfile).description || 'Not specified'}</span></div>
 
                       {/* Socials */}
-                      {(((profileData as any).linkedin) || ((profileData as any).instagram) || ((profileData as any).facebook)) && (
-                        <div className="pf-kv-row pf-socials-row">
-                          <span className="pf-k">Socials</span>
-                          <span className="pf-v">
-                            <div className="pf-socials">
-                              {(profileData as any).linkedin && (
-                                <a className="pf-soc pf-linkedin" href={(profileData as any).linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
-                                  <FaLinkedin />
-                                </a>
-                              )}
-                              {(profileData as any).instagram && (
-                                <a className="pf-soc pf-instagram" href={(profileData as any).instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-                                  <FaInstagram />
-                                </a>
-                              )}
-                              {(profileData as any).facebook && (
-                                <a className="pf-soc pf-facebook" href={(profileData as any).facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-                                  <FaFacebook />
-                                </a>
-                              )}
-                            </div>
-                          </span>
-                        </div>
-                      )}
+{(((profileData as any).linkedin) || ((profileData as any).instagram) || ((profileData as any).facebook) ||
+  ((profileData as any).whatsapp) || ((profileData as any).telegram)) && (
+  <div className="pf-kv-row pf-socials-row">
+    <span className="pf-k">Socials</span>
+    <span className="pf-v">
+      <div className="pf-socials">
+        {(profileData as any).linkedin && (
+          <a className="pf-soc pf-linkedin" href={(profileData as any).linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+            <FaLinkedin />
+          </a>
+        )}
+        {(profileData as any).instagram && (
+          <a className="pf-soc pf-instagram" href={(profileData as any).instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+            <FaInstagram />
+          </a>
+        )}
+        {(profileData as any).facebook && (
+          <a className="pf-soc pf-facebook" href={(profileData as any).facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+            <FaFacebook />
+          </a>
+        )}
+        {(profileData as any).whatsapp && (
+          <a className="pf-soc pf-whatsapp" href={(profileData as any).whatsapp} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
+            <FaWhatsapp />
+          </a>
+        )}
+        {(profileData as any).telegram && (
+          <a className="pf-soc pf-telegram" href={(profileData as any).telegram} target="_blank" rel="noopener noreferrer" aria-label="Telegram">
+            <FaTelegramPlane />
+          </a>
+        )}
+      </div>
+    </span>
+  </div>
+)}
+
 
                       <div className="pf-kv-row"><span className="pf-k">Portfolio</span><span className="pf-v">{(profileData as JobSeekerProfile).portfolio || 'Not specified'}</span></div>
                       <div className="pf-kv-row"><span className="pf-k">Video Intro</span><span className="pf-v">{(profileData as JobSeekerProfile).video_intro || 'Not specified'}</span></div>
@@ -846,48 +864,80 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                       </div>
 
                       {/* Socials (optional) */}
-                      <div className="pf-row">
-                        <label className="pf-label">Socials (optional)</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                          <div>
-                            <div className="pf-label" style={{ fontWeight: 700, fontSize: 12, opacity: .8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <FaLinkedin /> LinkedIn
-                            </div>
-                            <input
-                              className="pf-input"
-                              type="url"
-                              placeholder="https://www.linkedin.com/in/username"
-                              value={(profileData as any).linkedin || ''}
-                              onChange={(e) => setProfileData({ ...(profileData as any), linkedin: e.target.value } as any)}
-                            />
-                          </div>
-                          <div>
-                            <div className="pf-label" style={{ fontWeight: 700, fontSize: 12, opacity: .8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <FaInstagram /> Instagram
-                            </div>
-                            <input
-                              className="pf-input"
-                              type="url"
-                              placeholder="https://www.instagram.com/username"
-                              value={(profileData as any).instagram || ''}
-                              onChange={(e) => setProfileData({ ...(profileData as any), instagram: e.target.value } as any)}
-                            />
-                          </div>
-                        </div>
+                    <div className="pf-row">
+  <label className="pf-label">Socials (optional)</label>
 
-                        <div style={{ marginTop: 12 }}>
-                          <div className="pf-label" style={{ fontWeight: 700, fontSize: 12, opacity: .8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <FaFacebook /> Facebook
-                          </div>
-                          <input
-                            className="pf-input"
-                            type="url"
-                            placeholder="https://www.facebook.com/username"
-                            value={(profileData as any).facebook || ''}
-                            onChange={(e) => setProfileData({ ...(profileData as any), facebook: e.target.value } as any)}
-                          />
-                        </div>
-                      </div>
+  {/* 2 колонки: LinkedIn / Instagram */}
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+    <div>
+      <div className="pf-label" style={{ fontWeight: 700, fontSize: 12, opacity: .8, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <FaLinkedin /> LinkedIn
+      </div>
+      <input
+        className="pf-input"
+        type="url"
+        placeholder="https://www.linkedin.com/in/username"
+        value={(profileData as any).linkedin || ''}
+        onChange={(e) => setProfileData({ ...(profileData as any), linkedin: e.target.value } as any)}
+      />
+    </div>
+    <div>
+      <div className="pf-label" style={{ fontWeight: 700, fontSize: 12, opacity: .8, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <FaInstagram /> Instagram
+      </div>
+      <input
+        className="pf-input"
+        type="url"
+        placeholder="https://www.instagram.com/username"
+        value={(profileData as any).instagram || ''}
+        onChange={(e) => setProfileData({ ...(profileData as any), instagram: e.target.value } as any)}
+      />
+    </div>
+  </div>
+
+  {/* Facebook */}
+  <div style={{ marginTop: 12 }}>
+    <div className="pf-label" style={{ fontWeight: 700, fontSize: 12, opacity: .8, display: 'flex', alignItems: 'center', gap: 6 }}>
+      <FaFacebook /> Facebook
+    </div>
+    <input
+      className="pf-input"
+      type="url"
+      placeholder="https://www.facebook.com/username"
+      value={(profileData as any).facebook || ''}
+      onChange={(e) => setProfileData({ ...(profileData as any), facebook: e.target.value } as any)}
+    />
+  </div>
+
+  {/* NEW: WhatsApp / Telegram */}
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+    <div>
+      <div className="pf-label" style={{ fontWeight: 700, fontSize: 12, opacity: .8, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <FaWhatsapp /> WhatsApp
+      </div>
+      <input
+        className="pf-input"
+        type="text"
+        placeholder="+12025550123 or link"
+        value={(profileData as any).whatsapp || ''}
+        onChange={(e) => setProfileData({ ...(profileData as any), whatsapp: e.target.value } as any)}
+      />
+    </div>
+    <div>
+      <div className="pf-label" style={{ fontWeight: 700, fontSize: 12, opacity: .8, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <FaTelegramPlane /> Telegram
+      </div>
+      <input
+        className="pf-input"
+        type="text"
+        placeholder="@username or https://t.me/username"
+        value={(profileData as any).telegram || ''}
+        onChange={(e) => setProfileData({ ...(profileData as any), telegram: e.target.value } as any)}
+      />
+    </div>
+  </div>
+</div>
+
 
                       <div className="pf-row">
                         <label className="pf-label">Upload Resume File (PDF, DOC, DOCX)</label>

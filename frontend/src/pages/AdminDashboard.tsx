@@ -12,6 +12,8 @@ import { useRole } from '../context/RoleContext';
 import Loader from '../components/Loader';
 import sanitizeHtml from 'sanitize-html';
 import '../styles/admin-settings.css';
+import AdminChatTab from '../components/AdminChatTab';
+import ExportUsersPopover from '../components/ExportUsersPopover';
 import {
   getAllUsers, getUserById, updateUser, deleteUser, resetUserPassword,
   getAllJobPosts, updateJobPostAdmin, deleteJobPostAdmin, approveJobPost, flagJobPost,
@@ -25,7 +27,7 @@ import {
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
   logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, getChatNotificationSettings,
   updateChatNotificationSettings,
-  notifyReferralApplicants
+  notifyReferralApplicants, getRecentRegistrationsToday
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings } from '@types';
 import { AxiosError } from 'axios';
@@ -46,9 +48,35 @@ interface OnlineUsers {
 }
 
 interface RecentRegistrations {
-  jobseekers: { id: string; email: string; username: string; role: string; created_at: string }[];
-  employers: { id: string; email: string; username: string; role: string; created_at: string }[];
+  date?: string;
+  tzOffset?: number;
+  jobseekers_total?: number;
+  employers_total?: number;
+  jobseekers: Array<{
+    id: string;
+    email: string;
+    username: string;
+    role: string;
+    created_at: string;
+    referral_from_signup: string | null;
+    referral_link_description: string | null;
+    referral_job: { id: string; title: string } | null;
+    referral_job_description: string | null;
+  }>;
+  employers: Array<{
+    id: string;
+    email: string;
+    username: string;
+    role: string;
+    created_at: string;
+    referral_from_signup: string | null;
+    referral_link_description: string | null;
+    referral_job: { id: string; title: string } | null;
+    referral_job_description: string | null;
+  }>;
 }
+
+
 
 interface DecodedToken {
   email: string;
@@ -58,6 +86,28 @@ interface DecodedToken {
   iat: number;
   exp: number;
 }
+
+type AdminRecentUser = {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  created_at: string;
+
+  referral_from_signup?: string | null;
+  referral_link_description?: string | null;
+  referral_job?: { id: string; title: string } | null;
+  referral_job_description?: string | null;
+};
+
+type AdminRecentRegistrationsDTO = {
+  date?: string;
+  tzOffset?: number;
+  jobseekers_total?: number;
+  employers_total?: number;
+  jobseekers: AdminRecentUser[];
+  employers: AdminRecentUser[];
+};
 
 
 interface Complaint { 
@@ -132,6 +182,119 @@ const [chatNotif, setChatNotif] = useState<ChatNotificationsSettings | null>(nul
 const [chatNotifLoading, setChatNotifLoading] = useState(false);
 const [chatNotifSaving, setChatNotifSaving] = useState(false);
 const [chatNotifWarning, setChatNotifWarning] = useState<string | null>(null);
+// === Export CSV filters ===
+type RoleAll = 'All' | 'jobseeker' | 'employer' | 'admin' | 'moderator';
+type StatusAll = 'All' | 'active' | 'blocked';
+type OrderAll = 'ASC' | 'DESC';
+type SortByAll = 'created_at' | 'last_login_at';
+type JobSearchAll = 'All' | 'actively_looking' | 'open_to_offers' | 'hired';
+
+const LS_EXPORT_KEY = 'admin_export_filters_v1';
+
+const [exportBusy, setExportBusy] = useState(false);
+const [exportFilters, setExportFilters] = useState<{
+  role: RoleAll;
+  status: StatusAll;
+  q: string;
+  email: string;
+  username: string;
+  country: string;          // '' | 'unknown' | 'US' ...
+  provider: string;         // '' | 'none' | 'google' ...
+  referralSource: string;
+  isEmailVerified: boolean | '';
+  identityVerified: boolean | '';
+  hasAvatar: boolean | '';
+  hasResume: boolean | '';
+  jobSearchStatus: JobSearchAll;
+  companyName: string;
+  riskMin: string;          // храним строками, потом приводим
+  riskMax: string;
+  createdFrom: string;      // yyyy-mm-dd
+  createdTo: string;
+  lastLoginFrom: string;
+  lastLoginTo: string;
+  sortBy: SortByAll;
+  order: OrderAll;
+}>({
+  role: 'All',
+  status: 'All',
+  q: '',
+  email: '',
+  username: '',
+  country: '',
+  provider: '',
+  referralSource: '',
+  isEmailVerified: '',
+  identityVerified: '',
+  hasAvatar: '',
+  hasResume: '',
+  jobSearchStatus: 'All',
+  companyName: '',
+  riskMin: '',
+  riskMax: '',
+  createdFrom: '',
+  createdTo: '',
+  lastLoginFrom: '',
+  lastLoginTo: '',
+  sortBy: 'created_at',
+  order: 'DESC',
+});
+
+// загрузка из LS
+useEffect(() => {
+  try {
+    const raw = localStorage.getItem(LS_EXPORT_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      setExportFilters((prev) => ({ ...prev, ...parsed }));
+    }
+  } catch {}
+}, []);
+
+// сохранение в LS
+useEffect(() => {
+  try {
+    localStorage.setItem(LS_EXPORT_KEY, JSON.stringify(exportFilters));
+  } catch {}
+}, [exportFilters]);
+
+// хелпер для сборки параметров в API
+const buildExportParams = (): import('../services/api').AdminUserExportParams => {
+  const f = exportFilters;
+
+  const toBool = (v: boolean | '') => (v === '' ? undefined : !!v);
+  const toNum = (v: string) => (v.trim() === '' ? undefined : Number(v));
+  const toStr = (v: string) => (v.trim() === '' ? undefined : v.trim());
+
+  return {
+    role: f.role === 'All' ? undefined : (f.role as any),
+    status: f.status === 'All' ? undefined : (f.status as any),
+    q: toStr(f.q),
+    email: toStr(f.email),
+    username: toStr(f.username),
+    country: toStr(f.country),             // 'unknown' => бэк воспримет как NULL
+    provider: toStr(f.provider),           // 'none' => бэк воспримет как NULL
+    referralSource: toStr(f.referralSource),
+    isEmailVerified: toBool(f.isEmailVerified),
+    identityVerified: toBool(f.identityVerified),
+    hasAvatar: toBool(f.hasAvatar),
+    hasResume: toBool(f.hasResume),
+    jobSearchStatus: f.jobSearchStatus === 'All' ? undefined : (f.jobSearchStatus as any),
+    companyName: toStr(f.companyName),
+    riskMin: toNum(f.riskMin),
+    riskMax: toNum(f.riskMax),
+    createdFrom: toStr(f.createdFrom),
+    createdTo: toStr(f.createdTo),
+    lastLoginFrom: toStr(f.lastLoginFrom),
+    lastLoginTo: toStr(f.lastLoginTo),
+    sortBy: f.sortBy,
+    order: f.order,
+  };
+};
+
+// onChange хелперы
+const setFilter = <K extends keyof typeof exportFilters>(key: K, val: (typeof exportFilters)[K]) =>
+  setExportFilters(prev => ({ ...prev, [key]: val }));
 
   const [growthTrends, setGrowthTrends] = useState<{
     registrations: { period: string; count: number }[];
@@ -152,11 +315,21 @@ const [chatNotifWarning, setChatNotifWarning] = useState<string | null>(null);
       is_read: boolean;
     }[];
   }>({ total: 0, data: [] });
+
+  
   const [selectedJobApplicationId, setSelectedJobApplicationId] = useState<string>('');
   const [chatPage, setChatPage] = useState(1);
   const [chatLimit] = useState(10);
   const [onlineUsers, setOnlineUsers] = useState<OnlineUsers | null>(null);
-  const [recentRegistrations, setRecentRegistrations] = useState<RecentRegistrations>({ jobseekers: [], employers: [] });
+  const [recentRegistrations, setRecentRegistrations] = useState<AdminRecentRegistrationsDTO>({
+  date: '',
+  tzOffset: -new Date().getTimezoneOffset(),
+  jobseekers_total: 0,
+  employers_total: 0,
+  jobseekers: [],
+  employers: [],
+});
+
   const [globalLimit, setGlobalLimit] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchJobId, setSearchJobId] = useState('');
@@ -1006,9 +1179,24 @@ case 22:
           case 23:
             setOnlineUsers(value as OnlineUsers || null);
             break;
-          case 24:
-            setRecentRegistrations(value as RecentRegistrations || { jobseekers: [], employers: [] });
-            break;
+    case 24: {
+  try {
+    const data = await getRecentRegistrationsToday({ limit: 5 });
+    setRecentRegistrations(data as AdminRecentRegistrationsDTO);
+  } catch (e) {
+    console.error('recent-registrations failed', e);
+    setRecentRegistrations({
+      date: '',
+      tzOffset: -new Date().getTimezoneOffset(),
+      jobseekers_total: 0,
+      employers_total: 0,
+      jobseekers: [],
+      employers: [],
+    });
+  }
+  break;
+}
+
 
 
 case 25: {
@@ -1452,21 +1640,32 @@ useEffect(() => {
   });
 
   // быстрый тик: онлайн, последние регистрации, и TODAY для Business Overview
-  const fetchFast = async () => {
-    try {
-      const [online, recents, jsToday, bizToday] = await Promise.all([
-        getOnlineUsers(),
-        getRecentRegistrations({ limit: 5 }),
-        getGeographicDistribution({ role: 'jobseeker', startDate: today(), endDate: today() }),
-        getGeographicDistribution({ role: 'employer',  startDate: today(), endDate: today() }),
-      ]);
-      if (stop) return;
-      setOnlineUsers(online || null);
-      setRecentRegistrations(recents || { jobseekers: [], employers: [] });
-      setFreelancerSignupsToday(jsToday || []);
-      setBusinessSignupsToday(bizToday || []);
-    } catch { /* тихо игнорим */ }
-  };
+const fetchFast = async () => {
+  try {
+    const [online, recents, jsToday, bizToday] = await Promise.all([
+      getOnlineUsers(),
+      getRecentRegistrationsToday({ limit: 5 }), // ← новая функция с tzOffset внутри
+      getGeographicDistribution({ role: 'jobseeker', startDate: today(), endDate: today() }),
+      getGeographicDistribution({ role: 'employer',  startDate: today(), endDate: today() }),
+    ]);
+    if (stop) return;
+    setOnlineUsers(online || null);
+    setRecentRegistrations(
+      (recents as AdminRecentRegistrationsDTO) ?? {
+        date: '',
+        tzOffset: -new Date().getTimezoneOffset(),
+        jobseekers_total: 0,
+        employers_total: 0,
+        jobseekers: [],
+        employers: [],
+      }
+    );
+    setFreelancerSignupsToday(jsToday || []);
+    setBusinessSignupsToday(bizToday || []);
+  } catch {
+    // тихо
+  }
+};
 
   // медленный тик: Yesterday / Week / Month для Business Overview
   const fetchSlow = async () => {
@@ -1609,28 +1808,9 @@ const handleSetGlobalLimit = async () => {
     }
   };
 
-  const handleExportUsers = async () => {
-    try {
-      await exportUsersToCSV();
-      alert('Users exported successfully!');
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error exporting users:', axiosError);
-      alert(axiosError.response?.data?.message || 'Failed to export users.');
-    }
-  };
 
-  // const todayStr = new Date().toDateString();
-
-const todayMnl = formatInTimeZone(new Date(), 'Asia/Manila', 'yyyy-MM-dd');
-
-const todayRegs = recentRegistrations.jobseekers.filter(
-  u => formatInTimeZone(new Date(u.created_at), 'Asia/Manila', 'yyyy-MM-dd') === todayMnl
-);
-
-const todayBiz = recentRegistrations.employers.filter(
-  u => formatInTimeZone(new Date(u.created_at), 'Asia/Manila', 'yyyy-MM-dd') === todayMnl
-);
+const todayRegs = recentRegistrations.jobseekers || [];
+const todayBiz  = recentRegistrations.employers || [];
 
 if (isLoading) {
   return (
@@ -1837,28 +2017,45 @@ if (isLoading) {
                 <p><strong>Freelancers Online:</strong> {onlineUsers?.jobseekers ?? 'N/A'}</p>
                 <p><strong>Businesses Online:</strong> {onlineUsers?.employers ?? 'N/A'}</p>
               </div>
-              <div className="dashboard-section">
-                <h3>Recent Registrations</h3>
-               <details>
+          <div className="dashboard-section">
+  <h3>Recent Registrations</h3>
+  <details>
     <summary>
-      Last 5 Freelancer Registrations Today (Total: {todayRegs.length})
+      Freelancer Registrations Today — Total: {recentRegistrations.jobseekers_total ?? todayRegs.length}
     </summary>
     <table className="dashboard-table">
       <thead>
         <tr>
           <th>Username</th>
           <th>Email</th>
+          {/* новые 3 колонки после Email */}
+          <th>Referral Link Description</th>
+          <th>Referral from signup</th>
+          <th>Job</th>
+          {/* прежняя дата сдвигается вправо */}
           <th>Created At</th>
         </tr>
       </thead>
       <tbody>
         {todayRegs.length === 0 ? (
-          <tr><td colSpan={3}>No recent freelancer registrations today.</td></tr>
+          <tr><td colSpan={6}>No recent freelancer registrations today.</td></tr>
         ) : (
-          todayRegs.slice(0,5).map(u => (
+          todayRegs.map(u => (
             <tr key={u.id}>
               <td>{u.username}</td>
               <td>{u.email}</td>
+             <td>{u.referral_link_description ?? '—'}</td>
+<td>{u.referral_from_signup ?? '—'}</td>
+<td>
+  {u.referral_job
+    ? <a className="action-button-view-a"
+         href={`/job/${u.referral_job.id}`}
+         target="_blank" rel="noopener noreferrer">
+        {u.referral_job.title}
+      </a>
+    : '—'}
+</td>
+
               <td>{format(new Date(u.created_at), 'PP')}</td>
             </tr>
           ))
@@ -1866,33 +2063,52 @@ if (isLoading) {
       </tbody>
     </table>
   </details>
- <details>
-    <summary>
-      Last 5 Business Registrations Today (Total: {todayBiz.length})
-    </summary>
-    <table className="dashboard-table">
-      <thead>
-        <tr>
-          <th>Username</th>
-          <th>Email</th>
-          <th>Created At</th>
-        </tr>
-      </thead>
-      <tbody>
-        {todayBiz.length === 0 ? (
-          <tr><td colSpan={3}>No recent business registrations today.</td></tr>
-        ) : (
-          todayBiz.slice(0,5).map(u => (
-            <tr key={u.id}>
-              <td>{u.username}</td>
-              <td>{u.email}</td>
-              <td>{format(new Date(u.created_at), 'PP')}</td>
-            </tr>
-          ))
-        )}
-      </tbody>
-    </table>
-  </details>
+
+<details>
+  <summary>
+    Business Registrations Today — Total: {recentRegistrations.employers_total ?? todayBiz.length}
+  </summary>
+  <table className="dashboard-table">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Email</th>
+        {/* новые 3 колонки после Email */}
+        <th>Referral Link Description</th>
+        <th>Referral from signup</th>
+        <th>Job</th>
+        {/* прежняя дата сдвигается вправо */}
+        <th>Created At</th>
+      </tr>
+    </thead>
+    <tbody>
+      {todayBiz.length === 0 ? (
+        <tr><td colSpan={6}>No recent business registrations today.</td></tr>
+      ) : (
+        todayBiz.map(u => (
+          <tr key={u.id}>
+            <td>{u.username}</td>
+            <td>{u.email}</td>
+           <td>{u.referral_link_description ?? '—'}</td>
+<td>{u.referral_from_signup ?? '—'}</td>
+<td>
+  {u.referral_job
+    ? <a className="action-button-view-a"
+         href={`/job/${u.referral_job.id}`}
+         target="_blank" rel="noopener noreferrer">
+        {u.referral_job.title}
+      </a>
+    : '—'}
+</td>
+
+            <td>{format(new Date(u.created_at), 'PP')}</td>
+          </tr>
+        ))
+      )}
+    </tbody>
+  </table>
+</details>
+
 </div>
 <div className="dashboard-section">
   <h3>Job Postings with Applications</h3>
@@ -1954,9 +2170,12 @@ if (isLoading) {
 {activeTab === 'Users' && (
   <div>
   <h4>Users</h4>
-  <button onClick={handleExportUsers} className="action-button">
-    Export to CSV
-  </button>
+   <div className="users-toolbar">
+      <ExportUsersPopover
+        buttonLabel="Export to CSV"
+        buttonClassName="action-button"  // используем твой текущий стиль кнопки
+      />
+    </div>
   {fetchErrors.getAllUsers && <p className="error-message">{fetchErrors.getAllUsers}</p>}
   
   {/* Добавлено: search bar */}
@@ -2749,7 +2968,7 @@ if (isLoading) {
           {activeTab === 'Chat History' && (
   <div>
     <h4>Chat History</h4>
-    {error && <p className="error-message">{error}</p>}
+    {/* {error && <p className="error-message">{error}</p>}
 <div className="form-group">
   <label>Search by Job Post ID:</label>
   <input
@@ -2798,7 +3017,8 @@ if (isLoading) {
 </div>
        
       </>
-    )}
+    )} */}
+     <AdminChatTab />
   </div>
 )}
 

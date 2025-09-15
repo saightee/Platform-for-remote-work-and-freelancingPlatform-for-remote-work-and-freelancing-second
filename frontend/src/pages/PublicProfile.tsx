@@ -9,7 +9,7 @@ import { useRole } from '../context/RoleContext';
 import {
   FaUserCircle, FaEnvelope, FaGlobe, FaClock, FaStar, FaRegStar,
   FaBriefcase, FaLink, FaVideo, FaFilePdf, FaEye, FaShieldAlt, FaDollarSign,
-  FaLinkedin, FaInstagram, FaFacebook
+  FaLinkedin, FaInstagram, FaFacebook, FaWhatsapp, FaTelegramPlane
 } from 'react-icons/fa';
 import Loader from '../components/Loader';
 import '../styles/public-profile.css';
@@ -187,7 +187,8 @@ const PublicProfile: React.FC = () => {
                   ) : ('Not specified')}
                 </span>
               </li>
-              {(profile as any).linkedin || (profile as any).instagram || (profile as any).facebook ? (
+            {(profile as any).linkedin || (profile as any).instagram || (profile as any).facebook ||
+ (profile as any).whatsapp || (profile as any).telegram ? (
   <li>
     <span className="ppx-kv-icon"><FaLink /></span>
     <span className="ppx-kv-label">Socials</span>
@@ -208,10 +209,21 @@ const PublicProfile: React.FC = () => {
             <FaFacebook />
           </a>
         )}
+        {(profile as any).whatsapp && (
+          <a className="ppx-soc ppx-wa" href={(profile as any).whatsapp} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
+            <FaWhatsapp />
+          </a>
+        )}
+        {(profile as any).telegram && (
+          <a className="ppx-soc ppx-tg" href={(profile as any).telegram} target="_blank" rel="noopener noreferrer" aria-label="Telegram">
+            <FaTelegramPlane />
+          </a>
+        )}
       </div>
     </span>
   </li>
 ) : null}
+
             </ul>
 
             {profile.skills?.length ? (
