@@ -69,7 +69,7 @@ export class JobPostsService {
       jobPostData.salary = null;
     }
 
-    if (jobPostData.aiBrief) {
+    if (!jobPostData.description && jobPostData.aiBrief) {
       jobPostData.description = await this.generateDescription({
         aiBrief: jobPostData.aiBrief,
         title: jobPostData.title,
@@ -403,6 +403,7 @@ export class JobPostsService {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
+        timeout: 10000,
       });
       console.log('xAI response:', response.data);
 
