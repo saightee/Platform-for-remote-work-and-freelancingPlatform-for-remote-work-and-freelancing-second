@@ -17,49 +17,49 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const { profile, currentRole, refreshProfile } = useRole();
   const [isRefreshing, setIsRefreshing] = useState(false);
+const [submitCooldown, setSubmitCooldown] = useState(0);
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 const [cooldown, setCooldown] = useState(0);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isRefreshing) return;
-    if (!email.trim() || !password.trim()) {
-      setErrorMessage('Email and password cannot be empty.');
-      return;
-    }
-    try {
-      setIsRefreshing(true);
-      setErrorMessage(null);
-      console.log('Attempting login with:', { email, rememberMe });
-      const response = await login({ email, password, rememberMe });
-      console.log('Login response:', response);
-      localStorage.setItem('token', response.accessToken);
-      console.log('Token stored:', response.accessToken);
-      await refreshProfile();
-      setIsAuthenticated(true);
-} catch (error: any) {
-  const status = error?.response?.status;
-  const raw = String(error?.response?.data?.message || '');
-  const msg = raw.toLowerCase();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (isRefreshing || submitCooldown > 0) return;
 
-  if (status === 401) {
-    // Не подтверждён email
-    if (msg.includes('confirm your email') || msg.includes('verify')) {
-      const em = email.trim();
-      setUnverifiedEmail(em);
-      localStorage.setItem('pendingEmail', em);
-      setErrorMessage('Please confirm your email before logging in.');
-      return;
-    }
-    // Неверные учётные данные
-    setErrorMessage('Invalid email or password.');
+    if (!email.trim() || !password.trim()) {
+    setErrorMessage('Email and password cannot be empty.');
     return;
   }
-   setErrorMessage(raw || 'Login failed. Please try again.');
-} finally {
-      setIsRefreshing(false);
+  // короткий дебаунс 2 сек
+  setSubmitCooldown(2);
+
+  try {
+    setIsRefreshing(true);
+    setErrorMessage(null);
+    const response = await login({ email, password, rememberMe });
+    localStorage.setItem('token', response.accessToken);
+    await refreshProfile();
+    setIsAuthenticated(true);
+  } catch (error: any) {
+    const status = error?.response?.status;
+    const raw = String(error?.response?.data?.message || '');
+    const msg = raw.toLowerCase();
+
+    if (status === 401) {
+      if (msg.includes('confirm your email') || msg.includes('verify')) {
+        const em = email.trim().toLowerCase();
+        setUnverifiedEmail(em);
+        localStorage.setItem('pendingEmail', em);
+        setErrorMessage('Please confirm your email before logging in.');
+        return;
+      }
+      setErrorMessage('Invalid email or password.');
+      return;
     }
-  };
+    setErrorMessage(raw || 'Login failed. Please try again.');
+  } finally {
+    setIsRefreshing(false);
+  }
+};
 
   // useEffect(() => {
   //   console.log('Login useEffect, isAuthenticated:', isAuthenticated, 'profile:', profile, 'currentRole:', currentRole);
@@ -103,6 +103,11 @@ const [cooldown, setCooldown] = useState(0);
   }
 }, [isAuthenticated, currentRole, profile?.role, navigate]);
 
+useEffect(() => {
+  if (!submitCooldown) return;
+  const id = setInterval(() => setSubmitCooldown(s => (s > 0 ? s - 1 : 0)), 1000);
+  return () => clearInterval(id);
+}, [submitCooldown]);
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -140,19 +145,20 @@ const onResendFromLogin = async () => {
 <form onSubmit={handleSubmit} className="login-form">
   <div className="login-form-group">
     <label>Email</label>
-  <input
+<input
   type="email"
   id="login-email"
   name="email"
   value={email}
-  onChange={(e) => setEmail(e.target.value)}
+  onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
   placeholder="Enter your email"
   autoComplete="username"
   inputMode="email"
-  autoCapitalize="none"
+  autoCapitalize="off"
   spellCheck={false}
   required
 />
+
   </div>
   <div className="login-form-group login-password-container">
     <label>Password</label>
@@ -181,7 +187,9 @@ const onResendFromLogin = async () => {
     />
     <label htmlFor="login-remember-me">Remember Me</label>
   </div>
-  <button type="submit" className="login-button">Sign In</button>
+  <button type="submit" className="login-button" disabled={isRefreshing || submitCooldown > 0}>
+  {submitCooldown > 0 ? 'Please wait…' : 'Sign In'}
+</button>
 <div className="login-form-links">
   <p>
     Forgotten your password? <Link to="/forgot-password">Reset</Link>

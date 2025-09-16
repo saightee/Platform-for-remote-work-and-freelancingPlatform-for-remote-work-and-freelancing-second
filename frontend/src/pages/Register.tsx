@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { register, getCategories, searchCategories } from '../services/api';
 import { Category } from '@types';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
-
+import PasswordStrength, { isStrongPassword } from '../components/PasswordStrength';
 import '../styles/register-v2.css';
 
 const urlOk = (v: string) => /^https?:\/\/\S+$/i.test(v.trim());
@@ -30,9 +30,12 @@ const Register: React.FC = () => {
   // jobseeker specifics
   const [experience, setExperience] = useState('');
   const [resumeLink, setResumeLink] = useState('');
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [linkedin, setLinkedin]     = useState('');
   const [instagram, setInstagram]   = useState('');
   const [facebook, setFacebook]     = useState('');
+  const [whatsapp, setWhatsapp]     = useState('');   
+  const [telegram, setTelegram]     = useState('');   
   const [about, setAbout]           = useState('');
   // skills (jobseeker)
   const [categories, setCategories] = useState<Category[]>([]);
@@ -103,6 +106,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   if (!email.trim() || !emailRe.test(email.trim())) { setErr('Valid email is required.'); return; }
   if (!password) { setErr('Password is required.'); return; }
   if (password !== confirm) { setErr('Passwords do not match.'); return; }
+  if (!isStrongPassword(password)) { setErr('Password does not meet security requirements.'); return; }
   if (role === 'jobseeker' && !experience) { setErr('Please select your experience.'); return; }
 
   // URL validation (only if filled)
@@ -131,22 +135,50 @@ const handleSubmit = async (e: React.FormEvent) => {
   rawReturn.startsWith('/') && !rawReturn.startsWith('//') ? rawReturn : undefined;
 
 
-    const payload: any = { username, email, password, role };
-    if (role === 'jobseeker') {
-      if (experience)            payload.experience = experience;
-      if (selectedSkills.length) payload.skills     = selectedSkills.map(s => String(s.id));
-      if (resumeLink.trim())     payload.resume     = resumeLink.trim();
-      if (linkedin.trim())       payload.linkedin   = linkedin.trim();
-      if (instagram.trim())      payload.instagram  = instagram.trim();
-      if (facebook.trim())       payload.facebook   = facebook.trim();
-      if (about.trim())          payload.about      = about.trim();
-    }
-    if (refCode) payload.ref = refCode;
+// если есть файл — multipart, иначе как раньше JSON
+let payload: any;
 
-   await register(payload);
+if (role === 'jobseeker' && resumeFile) {
+  const fd = new FormData();
+  fd.append('username', username);
+  fd.append('email', email);
+  fd.append('password', password);
+  fd.append('role', role);
+  fd.append('resume_file', resumeFile); // ВАЖНО: имя поля из ТЗ
+
+  if (experience)            fd.append('experience', experience);
+  if (selectedSkills.length) selectedSkills.forEach(s => fd.append('skills[]', String(s.id)));
+  if (resumeLink.trim())     fd.append('resume', resumeLink.trim()); // бэк приоритезирует файл
+  if (linkedin.trim())       fd.append('linkedin', linkedin.trim());
+  if (instagram.trim())      fd.append('instagram', instagram.trim());
+  if (facebook.trim())       fd.append('facebook', facebook.trim());
+  if (whatsapp.trim())       fd.append('whatsapp', whatsapp.trim());   // NEW
+  if (telegram.trim())       fd.append('telegram', telegram.trim());   // NEW
+  if (about.trim())          fd.append('about', about.trim());
+  if (refCode)               fd.append('ref', refCode);
+
+  payload = fd;
+} else {
+  payload = { username, email, password, role };
+  if (role === 'jobseeker') {
+    if (experience)            payload.experience = experience;
+    if (selectedSkills.length) payload.skills     = selectedSkills.map(s => String(s.id));
+    if (resumeLink.trim())     payload.resume     = resumeLink.trim();
+    if (linkedin.trim())       payload.linkedin   = linkedin.trim();
+    if (instagram.trim())      payload.instagram  = instagram.trim();
+    if (facebook.trim())       payload.facebook   = facebook.trim();
+    if (whatsapp.trim())       payload.whatsapp   = whatsapp.trim();    // NEW
+    if (telegram.trim())       payload.telegram   = telegram.trim();    // NEW
+    if (about.trim())          payload.about      = about.trim();
+  }
+  if (refCode) payload.ref = refCode;
+}
+
+await register(payload);
+
 
 // запоминаем данные для ПОСЛЕ верификации
-localStorage.setItem('pendingEmail', email);
+localStorage.setItem('pendingEmail', email.trim().toLowerCase());
 localStorage.setItem('pendingRole', role); // чтобы VerifyEmail знал роль
 // если это jobseeker по рефке и есть валидный внутренний return — сохраним
 if (role === 'jobseeker' && refCode && safeReturn) {
@@ -159,14 +191,16 @@ if (role === 'jobseeker' && refCode && safeReturn) {
 if (refCode) { try { localStorage.removeItem('referralCode'); } catch {} }
 
 // НИКУДА не уводим — показываем страницу «проверьте почту»
-navigate('/check-email', { state: { email } });
+navigate('/check-email', { state: { email: email.trim().toLowerCase() } });
+
 
   } catch (error: any) {
     console.error('Register error', error);
     const msg = error?.response?.data?.message;
     if (msg?.includes('Account exists but not verified')) {
       // для уже существующего, но не верифицированного — оставляем переход на проверку почты
-      navigate('/check-email', { state: { email } });
+      navigate('/check-email', { state: { email: email.trim().toLowerCase() } });
+
       return;
     }
     if (error?.response?.status === 403 && msg === 'Registration is not allowed from your country') {
@@ -209,34 +243,40 @@ navigate('/check-email', { state: { email } });
 
           <div className="reg2-field">
             <label className="reg2-label">Email</label>
-            <input
-              className="reg2-input"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              autoComplete="email"
-              required
-            />
+      <input
+  className="reg2-input"
+  type="email"
+  value={email}
+  onChange={e => setEmail(e.target.value.trim().toLowerCase())}
+  placeholder="Enter your email"
+  autoComplete="email"
+  inputMode="email"
+  autoCapitalize="off"
+  spellCheck={false}
+  required
+/>
+
           </div>
 
-          <div className="reg2-field">
-            <label className="reg2-label">Password</label>
-            <div className="reg2-passwrap">
-              <input
-                className="reg2-input"
-                type={seePass ? 'text' : 'password'}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                autoComplete="new-password"
-                required
-              />
-              <button type="button" className="reg2-eye" onClick={() => setSeePass(s => !s)} aria-label="Toggle password">
-                {seePass ? <FaEyeSlash /> : <FaEye />}
-              </button>
-            </div>
-          </div>
+<div className="reg2-field">
+  <label className="reg2-label">Password</label>
+  <div className="reg2-passwrap">
+    <input
+      className="reg2-input"
+      type={seePass ? 'text' : 'password'}
+      value={password}
+      onChange={e => setPassword(e.target.value)}
+      placeholder="Enter your password"
+      autoComplete="new-password"
+      required
+    />
+    <button type="button" className="reg2-eye" onClick={() => setSeePass(s => !s)} aria-label="Toggle password">
+      {seePass ? <FaEyeSlash /> : <FaEye />}
+    </button>
+  </div>
+  {/* визуальный индикатор */}
+  <PasswordStrength value={password} />
+</div>
 
           <div className="reg2-field">
             <label className="reg2-label">Confirm Password</label>
@@ -276,19 +316,48 @@ navigate('/check-email', { state: { email } });
                 </select>
               </div>
 
-              <div className="reg2-field">
-                <label className="reg2-label">
-                  Resume Link <span className="reg2-opt">(optional)</span>
-                </label>
-                <input
-                  className="reg2-input"
-                  type="url"
-                  value={resumeLink}
-                  onChange={e => setResumeLink(e.target.value)}
-                  placeholder="https://example.com/resume.pdf"
-                />
-                <div className="reg2-note">You can upload a file after registration.</div>
-              </div>
+        <div className="reg2-field">
+  <label className="reg2-label">
+    Resume Link <span className="reg2-opt">(optional)</span>
+  </label>
+  <input
+    className="reg2-input"
+    type="url"
+    value={resumeLink}
+    onChange={e => setResumeLink(e.target.value)}
+    placeholder="https://example.com/resume.pdf"
+  />
+  <div className="reg2-note">You can upload a file after registration.</div>
+</div>
+<div className="reg2-field">
+  <label className="reg2-label">Resume File <span className="reg2-opt">(optional)</span></label>
+  <input
+    className="reg2-input"
+    type="file"
+    accept=".pdf,.doc,.docx"
+onChange={(e) => {
+  const f = e.target.files?.[0] || null;
+  if (!f) { setResumeFile(null); return; }
+
+  const mb10 = 10 * 1024 * 1024;
+  if (f.size > mb10) { alert('Max resume size is 10 MB'); return; }
+
+  const okTypes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ];
+  if (f.type && !okTypes.includes(f.type)) {
+    alert('Allowed file types: PDF, DOC, DOCX');
+    return;
+  }
+
+  setResumeFile(f);
+}}
+
+  />
+  <div className="reg2-note">PDF/DOC/DOCX, up to 10 MB.</div>
+</div>
 
               <div className="reg2-field reg2-span2">
                 <label className="reg2-label">Talents/Skills</label>
@@ -374,6 +443,33 @@ navigate('/check-email', { state: { email } });
                   placeholder="https://www.facebook.com/username"
                 />
               </div>
+
+              <div className="reg2-field">
+  <label className="reg2-label">
+    WhatsApp <span className="reg2-opt">(optional)</span>
+  </label>
+  <input
+    className="reg2-input"
+    type="text"
+    value={whatsapp}
+    onChange={e => setWhatsapp(e.target.value)}
+    placeholder="+12025550123 or link"
+  />
+</div>
+
+{/* NEW: Telegram */}
+<div className="reg2-field">
+  <label className="reg2-label">
+    Telegram <span className="reg2-opt">(optional)</span>
+  </label>
+  <input
+    className="reg2-input"
+    type="text"
+    value={telegram}
+    onChange={e => setTelegram(e.target.value)}
+    placeholder="@username or https://t.me/username"
+  />
+</div>
 
               <div className="reg2-field reg2-span2">
                 <label className="reg2-label">

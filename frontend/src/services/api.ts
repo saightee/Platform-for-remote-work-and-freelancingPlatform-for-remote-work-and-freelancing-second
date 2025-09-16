@@ -1,6 +1,6 @@
 
 
-import axios, { AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosResponse, AxiosError, AxiosHeaders } from 'axios';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { io, Socket } from 'socket.io-client';
 import { jwtDecode } from 'jwt-decode';
@@ -34,9 +34,21 @@ export async function contactSupport(payload: {
   captchaToken?: string;
   website?: string;
 }) {
-  const { data } = await api.post('/contact', payload); // baseURL уже /api
+  const { data } = await api.post('/contact', {
+    ...payload,
+    email: normalizeEmail(payload.email),
+  });
   return data;
 }
+
+// UI-helper: отразить те же правила, что и на бэке
+export const isStrongPassword = (pw: string) =>
+  typeof pw === 'string' &&
+  pw.length >= 10 &&
+  /[a-z]/.test(pw) &&
+  /[A-Z]/.test(pw) &&
+  /\d/.test(pw) &&
+  /[^A-Za-z0-9]/.test(pw);
 
 
 
@@ -55,11 +67,35 @@ interface DecodedToken {
   role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
 }
 
-const getFingerprint = async () => {
-  const fp = await FingerprintJS.load();
-  const result = await fp.get();
-  return result.visitorId;
+
+let __fpPromise: Promise<string> | null = null;
+const LS_FP_KEY = 'device_fingerprint_v1';
+
+export const getFingerprint = async (): Promise<string> => {
+  // 1) если есть сохранённый — вернём его
+  const cached = localStorage.getItem(LS_FP_KEY);
+  if (cached) return cached;
+
+  // 2) мемоизируем вычисление, чтобы не грузить FingerprintJS несколько раз
+  if (!__fpPromise) {
+    __fpPromise = (async () => {
+      try {
+        const fp = await FingerprintJS.load();
+        const result = await fp.get();
+        const id = result.visitorId;
+        localStorage.setItem(LS_FP_KEY, id);
+        return id;
+      } catch (e) {
+        // 3) fallback, если FingerprintJS не отработал (офлайн/блокировки и т.п.)
+        const fallback = crypto.randomUUID();
+        localStorage.setItem(LS_FP_KEY, fallback);
+        return fallback;
+      }
+    })();
+  }
+  return __fpPromise;
 };
+
 
 // const api = axios.create({
 //   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
@@ -72,12 +108,28 @@ const getFingerprint = async () => {
 
 
 api.interceptors.request.use(async (config) => {
+  const headers = (config.headers instanceof AxiosHeaders)
+    ? config.headers
+    : new AxiosHeaders(config.headers);
+
   const token = localStorage.getItem('token');
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    headers.set('Authorization', `Bearer ${token}`);
   }
+
+  // Всегда отправляем стабильный fingerprint (участвует в rate-limit логина, обязателен для регистрации)
+  try {
+    const fp = await getFingerprint();
+    headers.set('x-fingerprint', fp);
+  } catch {
+    // fallback реализован внутри getFingerprint, сюда почти не попадём
+  }
+
+  config.headers = headers;
   return config;
 });
+
+
 
 // Интерцептор ответов для обработки ошибок
 api.interceptors.response.use(
@@ -177,21 +229,44 @@ export const initializeWebSocket = (
 };
 
 // Authentication
-export const register = async (credentials: RegisterCredentials & { ref?: string }) => {
+const normalizeEmail = (e: string) => e?.trim().toLowerCase();
+
+
+
+export const register = async (payload: any) => {
   const fingerprint = await getFingerprint();
-  const response = await api.post<{ message: string }>('/auth/register', credentials, {
-    headers: {
-      'x-fingerprint': fingerprint,
-    },
+
+  const isFormData =
+    typeof FormData !== 'undefined' && payload instanceof FormData;
+
+  const headers: Record<string, any> = { 'x-fingerprint': fingerprint };
+  if (isFormData) headers['Content-Type'] = undefined; // <— ключевой момент
+
+  const { data } = await api.post<{ message: string }>(
+    '/auth/register',
+    payload,
+    { headers }
+  );
+  return data;
+};
+
+
+
+
+export const login = async (credentials: LoginCredentials) => {
+  const fingerprint = await getFingerprint();
+  const body = {
+    ...credentials,
+    email: normalizeEmail(credentials.email),
+  };
+
+  // интерцептор тоже поставит x-fingerprint, но локально явно укажем (участвует в rate-limit)
+  const response = await api.post<{ accessToken: string }>('/auth/login', body, {
+    headers: { 'x-fingerprint': fingerprint },
   });
   return response.data;
 };
 
-
-export const login = async (credentials: LoginCredentials) => {
-  const response = await api.post<{ accessToken: string }>('/auth/login', credentials);
-  return response.data;
-};
 
 export const logout = async () => {
   try {
@@ -206,7 +281,7 @@ export const logout = async () => {
 };
 
 export const requestPasswordReset = async (email: string) => {
-  const response = await api.post<{ message: string }>('/auth/reset-password-request', { email });
+  const response = await api.post<{ message: string }>('/auth/reset-password-request', { email: normalizeEmail(email) });
   return response.data;
 };
 
@@ -216,9 +291,10 @@ export const confirmPasswordReset = async (token: string, newPassword: string) =
 };
 
 export const forgotPassword = async (email: string) => {
-  const response = await api.post<{ message: string }>('/auth/forgot-password', { email });
+  const response = await api.post<{ message: string }>('/auth/forgot-password', { email: normalizeEmail(email) });
   return response.data;
 };
+
 
 export const verifyEmail = async (token: string) => {
   const response = await api.get<{ message: string }>('/auth/verify-email', { params: { token } });
@@ -757,16 +833,67 @@ export const getUserRiskScore = async (id: string) => {
   return response.data;
 };
 
-export const exportUsersToCSV = async () => {
-  const response = await api.get('/admin/users/export-csv', { responseType: 'blob' });
-  const url = window.URL.createObjectURL(new Blob([response.data]));
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', 'users.csv');
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
+// services/api.ts
+
+// 1) Тип всех поддерживаемых бэком параметров экспорта
+export interface AdminUserExportParams {
+  role?: 'jobseeker' | 'employer' | 'admin' | 'moderator';
+  status?: 'active' | 'blocked';
+  q?: string;
+  email?: string;
+  username?: string;
+  country?: string;            // 'unknown' для NULL
+  provider?: string;           // 'none' для NULL
+  referralSource?: string;
+  isEmailVerified?: boolean;
+  identityVerified?: boolean;
+  hasAvatar?: boolean;
+  hasResume?: boolean;         // для соискателей
+  jobSearchStatus?: 'actively_looking' | 'open_to_offers' | 'hired';
+  companyName?: string;        // для работодателей
+  riskMin?: number;
+  riskMax?: number;
+  createdFrom?: string;        // YYYY-MM-DD
+  createdTo?: string;          // YYYY-MM-DD (inclusive на бэке)
+  lastLoginFrom?: string;      // YYYY-MM-DD
+  lastLoginTo?: string;        // YYYY-MM-DD (inclusive на бэке)
+  sortBy?: 'created_at' | 'last_login_at';
+  order?: 'ASC' | 'DESC';
+}
+
+// 2) Хелпер: вытащить имя файла из Content-Disposition
+const __filenameFromContentDisposition = (cd?: string | null) => {
+  if (!cd) return null;
+  // варианты: attachment; filename="users_20250915.csv"
+  const m = /filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i.exec(cd);
+  const raw = decodeURIComponent(m?.[1] || m?.[2] || m?.[3] || '').trim();
+  return raw || null;
 };
+
+// 3) Обновлённая функция с params
+export const exportUsersToCSV = async (params: AdminUserExportParams = {}) => {
+  // ничего не переводим вручную — бэку ок со строковым query; booleans/числа axios сериализует нормально
+  const res = await api.get('/admin/users/export-csv', {
+    params,
+    responseType: 'blob',
+  });
+
+  const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' });
+  const url = window.URL.createObjectURL(blob);
+
+  // имя файла из заголовка
+  const cd = (res.headers as any)?.['content-disposition'] || (res.headers as any)?.['Content-Disposition'];
+  const fname = __filenameFromContentDisposition(cd) || 'users.csv';
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
+
 
 export const getUserOnlineStatus = async (id: string) => {
   const response = await api.get<{ userId: string; isOnline: boolean }>(`/users/${id}/online`);
@@ -967,6 +1094,17 @@ export const getChatHistory = async (jobApplicationId: string, params: { page?: 
   console.log('Fetching chat history with endpoint:', endpoint); // Добавлено: лог для отладки
   const response = await api.get<{ total: number; data: Message[] }>(endpoint, { params });
   return response.data;
+};
+
+export const getAdminChatHistory = async (
+  jobApplicationId: string,
+  params: { page?: number; limit?: number } = {}
+) => {
+  const { data } = await api.get<{ total: number; data: Message[] }>(
+    `/admin/chat/${jobApplicationId}`,
+    { params }
+  );
+  return data; // { total, data: Message[] } — сортировка ASC по created_at
 };
 
 export const verifyIdentity = async (id: string, verify: boolean) => {
@@ -1256,9 +1394,10 @@ export const unpublishPlatformFeedback = async (id: string) => {
 
 
 export const resendVerification = async (email: string) => {
-  const { data } = await api.post('/auth/resend-verification', { email });
+  const { data } = await api.post('/auth/resend-verification', { email: normalizeEmail(email) });
   return data;
 };
+
 
 
 
@@ -1311,3 +1450,26 @@ export const trackReferralClick = async (ref: string) => {
     console.warn('ref track failed', e);
   }
 };
+
+// либо импортируй сюда AdminRecentRegistrationsDTO,
+// либо просто убери generic, чтобы не тянуть конфликтующее имя
+
+export async function getRecentRegistrationsToday(opts?: { date?: string; tzOffset?: number; limit?: number }) {
+  const tzOffset = opts?.tzOffset ?? -new Date().getTimezoneOffset();
+  const today = (() => {
+    if (opts?.date) return opts.date;
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  })();
+
+  const limit = opts?.limit ?? 5;
+
+  const { data } = await api.get('/admin/analytics/recent-registrations', {
+    params: { date: today, tzOffset, limit },
+  });
+  return data; 
+}
+
