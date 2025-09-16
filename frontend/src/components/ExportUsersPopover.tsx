@@ -170,158 +170,258 @@ const ExportUsersPopover: React.FC<Props> = ({
       </button>
 
       {open && (
-        <div className="exu-popover" role="dialog" aria-label="Export users filters">
-          <div className="exu-head">
-            <div className="exu-title">Export Users</div>
-            <div className="exu-tip">Leave filters empty to export <b>all users</b>.</div>
-          </div>
+        <>
+          {/* затемнение фона */}
+          <div
+            className="exu-backdrop"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="exu-popover" role="dialog" aria-label="Export users filters">
+            <div className="exu-head">
+              <div className="exu-title">Export Users</div>
+              <div className="exu-tip">
+                Leave filters empty to export <b>all users</b>.
+              </div>
+            </div>
 
-          <div className="exu-grid exu-grid-4">
-            <div>
-              <label className="exu-label">Role</label>
-              <select className="exu-input" value={filters.role} onChange={e => setFilter('role', e.target.value as RoleAll)}>
-                <option>All</option>
-                <option value="jobseeker">jobseeker</option>
-                <option value="employer">employer</option>
-                <option value="admin">admin</option>
-                <option value="moderator">moderator</option>
-              </select>
-            </div>
-            <div>
-              <label className="exu-label">Status</label>
-              <select className="exu-input" value={filters.status} onChange={e => setFilter('status', e.target.value as StatusAll)}>
-                <option>All</option>
-                <option value="active">active</option>
-                <option value="blocked">blocked</option>
-              </select>
-            </div>
-            <div>
-              <label className="exu-label">Sort</label>
-              <div className="exu-dual">
-                <select className="exu-input" value={filters.sortBy} onChange={e => setFilter('sortBy', e.target.value as SortByAll)}>
-                  <option value="created_at">created_at</option>
-                  <option value="last_login_at">last_login_at</option>
+            <div className="exu-grid exu-grid-4">
+              <div>
+                <label className="exu-label">Role</label>
+                <select className="exu-input" value={filters.role} onChange={e => setFilter('role', e.target.value as RoleAll)}>
+                  <option>All</option>
+                  <option value="jobseeker">jobseeker</option>
+                  <option value="employer">employer</option>
+                  <option value="admin">admin</option>
+                  <option value="moderator">moderator</option>
                 </select>
-                <select className="exu-input" value={filters.order} onChange={e => setFilter('order', e.target.value as OrderAll)}>
-                  <option value="DESC">DESC</option>
-                  <option value="ASC">ASC</option>
+              </div>
+              <div>
+                <label className="exu-label">Status</label>
+                <select className="exu-input" value={filters.status} onChange={e => setFilter('status', e.target.value as StatusAll)}>
+                  <option>All</option>
+                  <option value="active">active</option>
+                  <option value="blocked">blocked</option>
+                </select>
+              </div>
+              <div>
+                <label className="exu-label">Sort</label>
+                <div className="exu-dual">
+                  <select className="exu-input" value={filters.sortBy} onChange={e => setFilter('sortBy', e.target.value as SortByAll)}>
+                    <option value="created_at">created_at</option>
+                    <option value="last_login_at">last_login_at</option>
+                  </select>
+                  <select className="exu-input" value={filters.order} onChange={e => setFilter('order', e.target.value as OrderAll)}>
+                    <option value="DESC">DESC</option>
+                    <option value="ASC">ASC</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="exu-label">Company (employer)</label>
+                <input
+                  className="exu-input"
+                  value={filters.companyName}
+                  onChange={e => setFilter('companyName', e.target.value)}
+                  placeholder="Acme"
+                />
+              </div>
+            </div>
+
+            <div className="exu-grid exu-grid-4">
+              <div>
+                <label className="exu-label">q</label>
+                <input
+                  className="exu-input"
+                  value={filters.q}
+                  onChange={e => setFilter('q', e.target.value)}
+                  placeholder="substring (email/username)"
+                />
+              </div>
+              <div>
+                <label className="exu-label">email</label>
+                <input
+                  className="exu-input"
+                  value={filters.email}
+                  onChange={e => setFilter('email', e.target.value)}
+                  placeholder="user@example.com"
+                />
+              </div>
+              <div>
+                <label className="exu-label">username</label>
+                <input
+                  className="exu-input"
+                  value={filters.username}
+                  onChange={e => setFilter('username', e.target.value)}
+                  placeholder="john_doe"
+                />
+              </div>
+              <div>
+                <label className="exu-label">referralSource</label>
+                <input
+                  className="exu-input"
+                  value={filters.referralSource}
+                  onChange={e => setFilter('referralSource', e.target.value)}
+                  placeholder="utm / campaign"
+                />
+              </div>
+            </div>
+
+            <div className="exu-grid exu-grid-3">
+              <div>
+                <label className="exu-label">country</label>
+                <input
+                  className="exu-input"
+                  value={filters.country}
+                  onChange={e => setFilter('country', e.target.value)}
+                  placeholder="US / PH / unknown"
+                />
+              </div>
+              <div>
+                <label className="exu-label">provider</label>
+                <input
+                  className="exu-input"
+                  value={filters.provider}
+                  onChange={e => setFilter('provider', e.target.value)}
+                  placeholder="google / github / none"
+                />
+              </div>
+
+              <div className="exu-checks">
+                <label className="exu-check">
+                  <input
+                    type="checkbox"
+                    checked={filters.isEmailVerified === true}
+                    onChange={e => setFilter('isEmailVerified', e.target.checked ? true : '')}
+                  />
+                  <span>Email verified</span>
+                </label>
+                <label className="exu-check">
+                  <input
+                    type="checkbox"
+                    checked={filters.identityVerified === true}
+                    onChange={e => setFilter('identityVerified', e.target.checked ? true : '')}
+                  />
+                  <span>Identity verified</span>
+                </label>
+                <label className="exu-check">
+                  <input
+                    type="checkbox"
+                    checked={filters.hasAvatar === true}
+                    onChange={e => setFilter('hasAvatar', e.target.checked ? true : '')}
+                  />
+                  <span>With avatar</span>
+                </label>
+                <label className={`exu-check ${showJobseekerFields ? '' : 'exu-disabled'}`}>
+                  <input
+                    type="checkbox"
+                    disabled={!showJobseekerFields}
+                    checked={filters.hasResume === true}
+                    onChange={e => setFilter('hasResume', e.target.checked ? true : '')}
+                  />
+                  <span>With resume</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="exu-grid exu-grid-4">
+              <div>
+                <label className="exu-label">createdFrom</label>
+                <input
+                  type="date"
+                  className="exu-input"
+                  value={filters.createdFrom}
+                  onChange={e => setFilter('createdFrom', e.target.value)}
+                  placeholder="YYYY-MM-DD"
+                  title="YYYY-MM-DD"
+                />
+              </div>
+              <div>
+                <label className="exu-label">createdTo</label>
+                <input
+                  type="date"
+                  className="exu-input"
+                  value={filters.createdTo}
+                  onChange={e => setFilter('createdTo', e.target.value)}
+                  placeholder="YYYY-MM-DD"
+                  title="YYYY-MM-DD"
+                />
+              </div>
+              <div>
+                <label className="exu-label">lastLoginFrom</label>
+                <input
+                  type="date"
+                  className="exu-input"
+                  value={filters.lastLoginFrom}
+                  onChange={e => setFilter('lastLoginFrom', e.target.value)}
+                  placeholder="YYYY-MM-DD"
+                  title="YYYY-MM-DD"
+                />
+              </div>
+              <div>
+                <label className="exu-label">lastLoginTo</label>
+                <input
+                  type="date"
+                  className="exu-input"
+                  value={filters.lastLoginTo}
+                  onChange={e => setFilter('lastLoginTo', e.target.value)}
+                  placeholder="YYYY-MM-DD"
+                  title="YYYY-MM-DD"
+                />
+              </div>
+            </div>
+
+            <div className="exu-grid exu-grid-3">
+              <div>
+                <label className="exu-label">riskMin</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="exu-input"
+                  value={filters.riskMin}
+                  onChange={e => setFilter('riskMin', e.target.value)}
+                  placeholder="min"
+                />
+              </div>
+              <div>
+                <label className="exu-label">riskMax</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="exu-input"
+                  value={filters.riskMax}
+                  onChange={e => setFilter('riskMax', e.target.value)}
+                  placeholder="max"
+                />
+              </div>
+              <div>
+                <label className="exu-label">jobSearchStatus</label>
+                <select
+                  className="exu-input"
+                  disabled={!showJobseekerFields}
+                  value={filters.jobSearchStatus}
+                  onChange={e => setFilter('jobSearchStatus', e.target.value as JobSearchAll)}
+                >
+                  <option>All</option>
+                  <option value="actively_looking">actively_looking</option>
+                  <option value="open_to_offers">open_to_offers</option>
+                  <option value="hired">hired</option>
                 </select>
               </div>
             </div>
-            <div>
-              <label className="exu-label">Company (employer)</label>
-              <input className="exu-input" value={filters.companyName} onChange={e => setFilter('companyName', e.target.value)} placeholder="Acme" />
-            </div>
-          </div>
 
-          <div className="exu-grid exu-grid-4">
-            <div>
-              <label className="exu-label">q</label>
-              <input className="exu-input" value={filters.q} onChange={e => setFilter('q', e.target.value)} placeholder="substring (email/username)" />
-            </div>
-            <div>
-              <label className="exu-label">email</label>
-              <input className="exu-input" value={filters.email} onChange={e => setFilter('email', e.target.value)} />
-            </div>
-            <div>
-              <label className="exu-label">username</label>
-              <input className="exu-input" value={filters.username} onChange={e => setFilter('username', e.target.value)} />
-            </div>
-            <div>
-              <label className="exu-label">referralSource</label>
-              <input className="exu-input" value={filters.referralSource} onChange={e => setFilter('referralSource', e.target.value)} />
+            <div className="exu-actions">
+              <button className="exu-secondary" onClick={() => setFilters(defaultFilters)} disabled={busy}>
+                Reset
+              </button>
+              <div style={{ flex: 1 }} />
+              <button className="exu-primary" onClick={onExport} disabled={busy}>
+                {busy ? <span className="exu-spinner" aria-hidden /> : null}
+                {busy ? 'Exporting…' : 'Export CSV'}
+              </button>
             </div>
           </div>
-
-          <div className="exu-grid exu-grid-3">
-            <div>
-              <label className="exu-label">country</label>
-              <input className="exu-input" value={filters.country} onChange={e => setFilter('country', e.target.value)} placeholder="US / PH / unknown" />
-            </div>
-            <div>
-              <label className="exu-label">provider</label>
-              <input className="exu-input" value={filters.provider} onChange={e => setFilter('provider', e.target.value)} placeholder="google / github / none" />
-            </div>
-            <div className="exu-checks">
-              <label className="exu-check">
-                <input type="checkbox" checked={filters.isEmailVerified === true} onChange={e => setFilter('isEmailVerified', e.target.checked ? true : '')} />
-                <span>isEmailVerified</span>
-              </label>
-              <label className="exu-check">
-                <input type="checkbox" checked={filters.identityVerified === true} onChange={e => setFilter('identityVerified', e.target.checked ? true : '')} />
-                <span>identityVerified</span>
-              </label>
-              <label className="exu-check">
-                <input type="checkbox" checked={filters.hasAvatar === true} onChange={e => setFilter('hasAvatar', e.target.checked ? true : '')} />
-                <span>hasAvatar</span>
-              </label>
-              <label className={`exu-check ${showJobseekerFields ? '' : 'exu-disabled'}`}>
-                <input
-                  type="checkbox"
-                  disabled={!showJobseekerFields}
-                  checked={filters.hasResume === true}
-                  onChange={e => setFilter('hasResume', e.target.checked ? true : '')}
-                />
-                <span>hasResume</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="exu-grid exu-grid-4">
-            <div>
-              <label className="exu-label">createdFrom</label>
-              <input type="date" className="exu-input" value={filters.createdFrom} onChange={e => setFilter('createdFrom', e.target.value)} />
-            </div>
-            <div>
-              <label className="exu-label">createdTo</label>
-              <input type="date" className="exu-input" value={filters.createdTo} onChange={e => setFilter('createdTo', e.target.value)} />
-            </div>
-            <div>
-              <label className="exu-label">lastLoginFrom</label>
-              <input type="date" className="exu-input" value={filters.lastLoginFrom} onChange={e => setFilter('lastLoginFrom', e.target.value)} />
-            </div>
-            <div>
-              <label className="exu-label">lastLoginTo</label>
-              <input type="date" className="exu-input" value={filters.lastLoginTo} onChange={e => setFilter('lastLoginTo', e.target.value)} />
-            </div>
-          </div>
-
-          <div className="exu-grid exu-grid-3">
-            <div>
-              <label className="exu-label">riskMin</label>
-              <input type="number" step="0.01" className="exu-input" value={filters.riskMin} onChange={e => setFilter('riskMin', e.target.value)} />
-            </div>
-            <div>
-              <label className="exu-label">riskMax</label>
-              <input type="number" step="0.01" className="exu-input" value={filters.riskMax} onChange={e => setFilter('riskMax', e.target.value)} />
-            </div>
-            <div>
-              <label className="exu-label">jobSearchStatus</label>
-              <select
-                className="exu-input"
-                disabled={!showJobseekerFields}
-                value={filters.jobSearchStatus}
-                onChange={e => setFilter('jobSearchStatus', e.target.value as JobSearchAll)}
-              >
-                <option>All</option>
-                <option value="actively_looking">actively_looking</option>
-                <option value="open_to_offers">open_to_offers</option>
-                <option value="hired">hired</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="exu-actions">
-            <button className="exu-secondary" onClick={() => setFilters(defaultFilters)} disabled={busy}>
-              Reset
-            </button>
-            <div style={{ flex: 1 }} />
-            <button className="exu-primary" onClick={onExport} disabled={busy}>
-              {busy ? <span className="exu-spinner" aria-hidden /> : null}
-              {busy ? 'Exporting…' : 'Export CSV'}
-            </button>
-          </div>
-        </div>
+        </>
       )}
     </div>
   );
