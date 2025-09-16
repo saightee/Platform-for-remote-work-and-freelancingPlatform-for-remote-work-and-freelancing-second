@@ -403,7 +403,6 @@ export class JobPostsService {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        timeout: 10000,
       });
       console.log('xAI response:', response.data);
 
