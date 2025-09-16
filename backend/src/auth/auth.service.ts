@@ -107,6 +107,14 @@ export class AuthService {
 
     const newUser = await this.usersService.create(userData, additionalData);
 
+    try {
+      if (fingerprint) {
+        await this.antiFraudService.calculateRiskScore(newUser.id, fingerprint, ip);
+      }
+    } catch (e) {
+      console.error('[AntiFraud] calc on register failed:', e?.message || e);
+    }
+
     if (refCode) { try { await this.adminService.incrementRegistration(refCode, newUser.id); } catch {} }
 
     if (role === 'admin' || role === 'moderator') {
@@ -206,6 +214,14 @@ export class AuthService {
 
     await this.usersService.setLastLoginAt(user.id);
     await this.usersService.touchLastSeen(user.id);
+
+    try {
+      if (fingerprint && ip) {
+        await this.antiFraudService.calculateRiskScore(user.id, fingerprint, ip);
+      }
+    } catch (e) {
+      console.error('[AntiFraud] calc on login failed:', e?.message || e);
+    }
 
     return new Promise((resolve, reject) => {
       session.regenerate((err) => {
