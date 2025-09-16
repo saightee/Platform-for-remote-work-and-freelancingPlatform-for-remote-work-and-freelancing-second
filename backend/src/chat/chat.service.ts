@@ -77,20 +77,55 @@ export class ChatService {
     });
   }
 
-  async getChatHistoryForAdmin(jobApplicationId: string, page: number = 1, limit: number = 10): Promise<{ total: number; data: Message[] }> {
-    const query = this.messagesRepository.createQueryBuilder('message')
-      .where('message.job_application_id = :jobApplicationId', { jobApplicationId })
+  async getChatHistoryForAdmin(
+    jobApplicationId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ total: number; data: any[] }> {
+    const application = await this.jobApplicationsRepository.findOne({
+      where: { id: jobApplicationId },
+      relations: ['job_post', 'job_post.employer', 'job_seeker'],
+    });
+    if (!application) {
+      throw new NotFoundException('Job application not found');
+    }
+
+    const qb = this.messagesRepository
+      .createQueryBuilder('message')
       .leftJoinAndSelect('message.sender', 'sender')
       .leftJoinAndSelect('message.recipient', 'recipient')
+      .where('message.job_application_id = :jobApplicationId', { jobApplicationId })
       .orderBy('message.created_at', 'ASC');
 
-    const total = await query.getCount();
-    const skip = (page - 1) * limit;
-    query.skip(skip).take(limit);
+    const total = await qb.getCount();
+    const skip = (Math.max(1, page) - 1) * Math.max(1, limit);
+    qb.skip(skip).take(Math.max(1, limit));
 
-    const messages = await query.getMany();
+    const rawMessages = await qb.getMany();
 
-    return { total, data: messages };
+    const data = rawMessages.map(m => ({
+      id: m.id,
+      job_application_id: m.job_application_id,
+      sender_id: m.sender_id,
+      recipient_id: m.recipient_id,
+      content: m.content,
+      created_at: m.created_at,
+      is_read: m.is_read,
+      sender: m.sender ? {
+        id: m.sender.id,
+        username: m.sender.username,
+        email: m.sender.email,
+        role: m.sender.role,
+      } : null,
+      recipient: m.recipient ? {
+        id: m.recipient.id,
+        username: m.recipient.username,
+        email: m.recipient.email,
+        role: m.recipient.role,
+      } : null,
+    }));
+
+    return { total, data };
   }
 
   async getChatHistoryForUser(userId: string, jobApplicationId: string, page: number = 1, limit: number = 10): Promise<{ total: number; data: Message[] }> {

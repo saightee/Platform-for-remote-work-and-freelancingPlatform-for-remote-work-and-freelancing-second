@@ -15,16 +15,18 @@
   ```json
   {
     "email": "test@example.com",
-    "password": "password",
+    "password": "StrongP@ssw0rd",
     "username": "test",
     "role": "jobseeker",
-      "linkedin": "https://www.linkedin.com/in/username",  // Optional
-    "instagram": "https://www.instagram.com/username",  // Optional
-    "facebook": "https://www.facebook.com/username",  // Optional
-    "description": "Кратко о себе до 50 слов",  // Optional
-    "skills": ["<categoryId1>", "<categoryId2>"],  // Optional, array of category IDs
-    "experience": "3 years",  // Optional
-    "resume": "https://example.com/resume.pdf" // Optional, link to resume Для файла используй /profile/upload-resume после рега
+    "skills": ["<categoryId1>", "<categoryId2>"],
+    "experience": "3 years",
+    "resume": "https://example.com/resume.pdf",
+    "linkedin": "https://www.linkedin.com/in/username",
+    "instagram": "https://www.instagram.com/username",
+    "facebook": "https://www.facebook.com/username",
+    "whatsapp": "+12025550123",
+    "telegram": "@username",
+    "description": "Up to 150 words"
   }
 
 - **Response (Success - 200)**:
@@ -949,9 +951,12 @@
 
 ### 13.2. Get Categories (Public)
 - **Endpoint**: `GET /api/categories`
-- **Description**: Retrieves all categories in a hierarchical tree structure, accessible to all users (including unauthenticated).
+- **Description**: Returns the hierarchical tree of categories. Optionally includes the total number of active, approved job posts per category (including all descendants).
 - **Headers**: None
-- **Response (Success - 200)**:
+- **Query Parameters (optional)**:
+  - `includeCounts` — true|false (default false). When true, each category object includes jobs_count.
+  - `onlyTopLevel` — true|false (default false). When true, returns only root categories (useful for the homepage widget).
+- **Response (200) — when includeCounts=true**:
   ```json
   [
     {
@@ -960,6 +965,7 @@
       "parent_id": null,
       "created_at": "2025-05-13T18:00:00.000Z",
       "updated_at": "2025-05-13T18:00:00.000Z",
+      "jobs_count": 124,
       "subcategories": [
         {
           "id": "<subcategoryId>",
@@ -967,23 +973,7 @@
           "parent_id": "<categoryId>",
           "created_at": "2025-05-13T18:00:00.000Z",
           "updated_at": "2025-05-13T18:00:00.000Z",
-          "subcategories": []
-        }
-      ]
-    },
-    {
-      "id": "<categoryId>",
-      "name": "Writing",
-      "parent_id": null,
-      "created_at": "2025-05-13T18:00:00.000Z",
-      "updated_at": "2025-05-13T18:00:00.000Z",
-      "subcategories": [
-        {
-          "id": "<subcategoryId>",
-          "name": "Content Writers",
-          "parent_id": "<categoryId>",
-          "created_at": "2025-05-13T18:00:00.000Z",
-          "updated_at": "2025-05-13T18:00:00.000Z",
+          "jobs_count": 37,
           "subcategories": []
         }
       ]
@@ -2570,14 +2560,46 @@
 
 ### 56. Export Users to CSV (Admin)
 - **Endpoint**: `GET /api/admin/users/export-csv`
-- **Description**: Exports all users to a CSV file (admin only).
+- **Description**: Exports users to a CSV file. If no query parameters are provided, all users are exported (backward compatible).
 - **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters (all optional)**:
+  - `role`: (string): jobseeker | employer | admin | moderator. Filter by user role.
+  - `status`: (string): active | blocked. Filter by account status.
+  - `q`: (string): any. Substring search across email and username (case-insensitive).
+  - `email`: (string): any. Case-insensitive match on email (ILIKE).
+  - `username`: (string): any. Case-insensitive match on username (ILIKE).
+  - `country`: (string): any or unknown. Match by country; unknown matches NULL.
+  - `provider`: (string): any or none. Match by OAuth provider; none matches NULL.
+  - `referralSource`: (string): any. Substring match on referral_source
+  - `isEmailVerified`: (boolean): true | false. Filter by email verification flag.
+  - `identityVerified`: (boolean): jtrue | false. Filter by identity verification flag.
+  - `hasAvatar`: (boolean): true | false. Users with/non avatar.
+  - `hasResume`: (boolean): true | false. For jobseekers: presence of resume.
+  - `jobSearchStatus`: (string): actively_looking | open_to_offers | hired. Jobseeker status.
+  - `companyName`: (string): any. Employer’s company name (substring).
+  - `riskMin`: (number): integer/float. risk_score >= riskMin.
+  - `riskMax`: (number): integer/float. risk_score <= riskMax.
+  - `createdFrom`: (date): ISO (e.g., 2025-01-01). Registered on/after this date..
+  - `createdTo`: (date): ISO. Registered on/before this date (inclusive).
+  - `lastLoginFrom`: (date): ISO. Last login on/after this date.
+  - `lastLoginToe`: (date): ISO. Last login on/before this date (inclusive).
+  - `sortBy`: (string): created_at | last_login_at. Sort field. Default: created_at.
+  - `order`: (string): ASC | DESC. Sort order. Default: DESC.
+- **Notes**:
+  - `createdTo` / `lastLoginTo` are treated as inclusive (end of day).
+  - If role-specific columns don’t apply (e.g., employer fields for jobseekers), those CSV cells are left empty.
+  - `provider=none` and `country=unknown` match `NULL` values.
+
 - **Response (Success - 200)**:
   - Content-Type: `text/csv`
-  - Content-Disposition: `attachment; filename="users.csv"`
-  - Example file content: User ID,Email,Username,Role,Status,Created At,Updated At
-  <userid1>,user1@example.com,user1,jobseeker,active,2025-05-22T10:00:00.000Z,2025-05-22T10:00:00.000Z
-  <userid2>,user2@example.com,user2,employer,blocked,2025-05-22T11:00:00.000Z,2025-05-22T11:00:00.000Z
+  - Content-Disposition: `attachment`; `filename="users_YYYYMMDD[_role-…].csv"`
+- **CSV Columns**:
+  - User ID,Email,Username,Role,Status,Country,Provider,Email Verified,Identity Verified,
+    Referral Source,Risk Score,Created At,Updated At,Last Login At,Last Seen At,Has Avatar,
+    JS Job Search Status,JS Expected Salary,JS Currency,JS Avg Rating,JS Has Resume,
+    EM Company Name,EM Avg Rating
+
+
 
 - **Response (Error - 401, if token is invalid or user is not an admin)**:  
     ```json
@@ -2586,6 +2608,14 @@
     "message": "Invalid token",
     "error": "Unauthorized"
   }
+
+- **Response (Error - 400 Bad Request (invalid query values, e.g., malformed dates))**:  
+    ```json
+  {
+    "statusCode": 400,
+    "message": "Invalid query parameters",
+    "error": "Bad Request"
+  }  
 
 ### 57. Get Top Employers by Job Posts (Admin)
 - **Endpoint**: `GET /api/admin/leaderboards/top-employers-by-posts`
@@ -2651,19 +2681,31 @@
 
 ### 59. Get Recent Registrations (Admin)
 - **Endpoint**: `GET /api/admin/analytics/recent-registrations`
-- **Description**: Retrieves the last 5 registrations of jobseekers and employers (admin only).
+- **Description**: Returns registrations for a single day (jobseekers and employers), plus referral metadata. Admin only.
 - **Headers**: `Authorization: Bearer <token>`
-- **Query Parameters**: `limit` (number, optional): Number of results per role (default: 5).
+- **Query Parameters**: 
+  - `date (string, optional)` — Day to fetch in `YYYY-MM-DD` (admin’s local date). If omitted, “today” is used based on `tzOffset`.
+  - `tzOffset` (number, optional; default `0`) — Minutes east of UTC (e.g., UTC+3 → `180`, UTC−4 → `-240`). Used to compute the day window.
+  - `limit` (number, optional; default `5`) — Max rows per role to return (useful for the dashboard table). Note: the response also includes totals.
 - **Response (Success - 200)**:
   ```json
   {
+    "date": "2025-09-15",
+    "tzOffset": 180,
+    "jobseekers_total": 3,
+    "employers_total": 1,
     "jobseekers": [
       {
         "id": "<userId>",
         "email": "jobseeker@example.com",
         "username": "john_doe",
         "role": "jobseeker",
-        "created_at": "2025-05-27T06:00:00.000Z"
+        "created_at": "2025-09-15T06:00:00.000Z",
+
+        "referral_from_signup": "facebook_ads_campaign_12",
+        "referral_link_description": "Promo link for Data Analyst opening",
+        "referral_job": { "id": "<jobPostId>", "title": "Data Analyst (Remote)" },
+        "referral_job_description": "We are looking for a data analyst to ..."
       }
     ],
     "employers": [
@@ -2672,7 +2714,12 @@
         "email": "employer@example.com",
         "username": "jane_smith",
         "role": "employer",
-        "created_at": "2025-05-27T06:00:00.000Z"
+        "created_at": "2025-09-15T05:21:00.000Z",
+
+        "referral_from_signup": null,
+        "referral_link_description": null,
+        "referral_job": null,
+        "referral_job_description": null
       }
     ]
   }
@@ -3360,7 +3407,7 @@
 
 ### 75. Get Chat History (Admin)
 - **Endpoint**: `GET /api/admin/chat/:jobApplicationId`
-- **Description**: Retrieves the chat history for a specific job application. Accessible only to users with the admin role.
+- **Description**: Retrieves the chat history for a specific job application. Admin-only.
 - **Headers**: `Authorization: Bearer <token>` (Required, JWT token).
 - **Path Parameters**: `jobApplicationId` (string, required): The ID of the job application.
 - **Query Parameters**:
@@ -3375,19 +3422,9 @@
         "id": "<messageId>",
         "job_application_id": "<jobApplicationId>",
         "sender_id": "<userId>",
-        "sender": {
-          "id": "<userId>",
-          "username": "john_doe",
-          "email": "john@example.com",
-          "role": "jobseeker"
-        },
+        "sender": { "id": "<userId>", "username": "john_doe", "email": "john@example.com", "role": "jobseeker" },
         "recipient_id": "<userId>",
-        "recipient": {
-          "id": "<userId>",
-          "username": "jane_smith",
-          "email": "jane@example.com",
-          "role": "employer"
-        },
+        "recipient": { "id": "<userId>", "username": "jane_smith", "email": "jane@example.com", "role": "employer" },
         "content": "Hello, let's discuss the project!",
         "created_at": "2025-06-16T05:47:00.000Z",
         "is_read": false
