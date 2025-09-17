@@ -1473,3 +1473,18 @@ export async function getRecentRegistrationsToday(opts?: { date?: string; tzOffs
   return data; 
 }
 
+export async function adminFindJobPostsByTitle(title: string) {
+  // сначала пытаемся админским списком (полнее), если что — публичным
+  try {
+    const res = await getAllJobPosts({ title, limit: 10, page: 1 });
+    return res.data; // JobPost[]
+  } catch {
+    const res = await searchJobPosts({ title, limit: 10, page: 1 });
+    return res.data; // JobPost[]
+  }
+}
+
+// Список откликов по вакансии (использует уже существующий эндпоинт)
+export async function adminListApplicationsForJob(jobPostId: string) {
+  return getApplicationsForJobPost(jobPostId); // JobApplicationDetails[]
+}
