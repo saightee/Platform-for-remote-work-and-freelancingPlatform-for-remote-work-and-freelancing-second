@@ -19,9 +19,11 @@ export class StatsService {
     const [jobSeekerCount, employerCount, jobPostCount] = await Promise.all([
       this.usersRepository.count({ where: { role: 'jobseeker' } }),
       this.usersRepository.count({ where: { role: 'employer' } }),
-      this.jobPostsRepository.count(),
+      this.jobPostsRepository.count({
+        where: { status: 'Active', pending_review: false },
+      }),
     ]);
-
+  
     return {
       totalResumes: jobSeekerCount,
       totalJobPosts: jobPostCount,
