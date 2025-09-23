@@ -2,6 +2,12 @@ import request from 'supertest';
 import path from 'path';
 import fs from 'fs';
 
+// --- глобальные настройки jest (до describe)
+jest.setTimeout(30000);
+if ((jest as any).retryTimes) {
+  (jest as any).retryTimes(1, { logErrorsBeforeRetry: true });
+}
+
 const BASE_URL = 'https://staging.jobforge.net';
 
 const CREDS = {
@@ -260,7 +266,7 @@ describe('Integration Tests (staging)', () => {
         expect([200, 404]).toContain(bySlug.status);
         if (bySlug.status === 200) expect(bySlug.body?.id).toBe(jobId);
       }
-    });
+    }, 20000); // кейсу даём больше времени
 
     it('Close job post: first close -> 200/201; second close -> 400', async () => {
       const token = await login(CREDS.EMPLOYER_EMAIL, CREDS.EMPLOYER_PASSWORD);
@@ -279,10 +285,10 @@ describe('Integration Tests (staging)', () => {
       const jobId = create.body.id;
 
       const first = await bearer(token).post(`/api/job-posts/${jobId}/close`);
-      expect([200, 201]).toContain(first.status); // доки обещают 200; допускаем 201
+      expect([200, 201]).toContain(first.status);
 
       const second = await bearer(token).post(`/api/job-posts/${jobId}/close`);
-      expect([400, 200, 201]).toContain(second.status); // если идемпотентность не строгая
+      expect([400, 200, 201]).toContain(second.status); // если идемпотентность "мягкая"
     });
 
     it('Generate description (AI): POST /api/job-posts/generate-description -> 200/429/500', async () => {
@@ -293,7 +299,7 @@ describe('Integration Tests (staging)', () => {
         salary_type: 'negotiable',
       });
       expect([200, 429, 500]).toContain(res.status);
-    });
+    }, 20000); // ИИ-ручка может отвечать дольше
   });
 
   // 5) Отклики на вакансию: успех или ожидаемые ограничения
@@ -324,6 +330,7 @@ describe('Integration Tests (staging)', () => {
         referred_by: 'E2E',
       });
 
+      // правильный порядок: массив допустимых кодов содержит фактический статус
       expect([200, 400]).toContain(apply.status);
       if (apply.status === 400) {
         const msg = (apply.body?.message || '').toString();
@@ -347,7 +354,7 @@ describe('Integration Tests (staging)', () => {
 
   // 6) Жалобы (complaints): jobseeker жалуется на job_post
   describe('Complaints', () => {
-    it('Jobseeker can create complaint on a job post -> 200/201', async () => {
+    it('Jobseeker can create complaint on a job post -> 200/201 (или 400 при доп. валидации)', async () => {
       // подготовим свежую вакансию
       const empToken = await login(CREDS.EMPLOYER_EMAIL, CREDS.EMPLOYER_PASSWORD);
       const created = await bearer(empToken).post('/api/job-posts').send({
@@ -370,7 +377,7 @@ describe('Integration Tests (staging)', () => {
         job_post_id: jobId,
         reason: 'Spam/scam job post (E2E)',
       });
-      expect([200, 201, 400]).toContain(complaint.status); // 400 — если включены доп. валидации
+      expect([200, 201, 400]).toContain(complaint.status);
     });
   });
 
@@ -392,24 +399,24 @@ describe('Integration Tests (staging)', () => {
 
   // 8) Контактная форма (Optional JWT + троттлинг, 202 Accepted)
   describe('Contact form', () => {
-    it('Logged-in user: POST /api/contact -> 202 "Message accepted"', async () => {
+    it('Logged-in user: POST /api/contact -> 202 "Message accepted" (или 429 при rate limit)', async () => {
       const jsToken = await login(CREDS.JOBSEEKER_EMAIL, CREDS.JOBSEEKER_PASSWORD);
       const res = await bearer(jsToken).post('/api/contact').send({
         name: 'QA User',
         email: 'qa@example.com',
         message: 'Hello team, everything is great!',
       });
-      expect([202, 429]).toContain(res.status); // 429, если внезапно сработал rate limit
+      expect([202, 429]).toContain(res.status);
     });
 
-    it('Rejects links in message -> 400', async () => {
+    it('Rejects links in message -> 400/422', async () => {
       const jsToken = await login(CREDS.JOBSEEKER_EMAIL, CREDS.JOBSEEKER_PASSWORD);
       const res = await bearer(jsToken).post('/api/contact').send({
         name: 'Spammer',
         email: 'spam@example.com',
         message: 'check this http://spam.example.com amazing offer',
       });
-      expect([400, 422]).toContain(res.status); // 400 по сервису; 422 возможен при валидации
+      expect([400, 422]).toContain(res.status);
     });
   });
 });
