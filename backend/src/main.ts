@@ -82,7 +82,7 @@ async function bootstrap() {
     if (serviceUrl) prerender.set('prerenderServiceUrl', serviceUrl);
 
     // пререндерим ТОЛЬКО /job/*
-    prerender.whitelisted('^/job/.*');
+    prerender.whitelisted(['^/$', '^/job/.*']);
 
     // и НИКОГДА не трогаем API/сокеты/статику
     prerender.blacklisted([

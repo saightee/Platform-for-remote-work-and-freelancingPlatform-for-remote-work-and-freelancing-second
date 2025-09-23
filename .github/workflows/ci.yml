@@ -4,8 +4,8 @@ on:
   push:
     branches: [develop]
   schedule:
-    - cron: '0 0 * * *' # Каждые 24 часа в 00:00
-  workflow_dispatch: # Ручной запуск
+    - cron: '0 0 * * *' # каждый день в 00:00 UTC
+  workflow_dispatch:
 
 jobs:
   test:
@@ -27,7 +27,7 @@ jobs:
       - name: Run tests
         working-directory: backend
         env:
-          BASE_URL: https://jobforge.net
+          BASE_URL: https://staging.jobforge.net
         run: npm run test:report
 
       - name: Upload test report
