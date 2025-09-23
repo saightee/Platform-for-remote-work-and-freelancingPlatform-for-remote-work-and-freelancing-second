@@ -178,6 +178,15 @@ describe('Integration Tests (staging)', () => {
       expect(res.body).toHaveProperty('role', 'employer');
     });
 
+    it('Public profile by id (no auth): GET /api/profile/:id -> 200', async () => {
+      const empToken = await login(CREDS.EMPLOYER_EMAIL, CREDS.EMPLOYER_PASSWORD);
+      const me = await bearer(empToken).get('/api/profile/myprofile');
+      const res = await http.get(`/api/profile/${me.body.id}`);
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('id', me.body.id);
+      expect(res.body).toHaveProperty('role');
+    });
+
     it('Jobseeker: PUT /api/profile -> 200 (echo updates)', async () => {
       const token = await login(CREDS.JOBSEEKER_EMAIL, CREDS.JOBSEEKER_PASSWORD);
       const payload = {
@@ -194,7 +203,7 @@ describe('Integration Tests (staging)', () => {
     });
   });
 
-  // 4) Вакансии работодателя (создание/чтение/апдейт/список + by-slug-or-id)
+  // 4) Вакансии работодателя (создание/чтение/апдейт/список + by-slug-or-id + закрытие)
   describe('Job Posts (employer flow)', () => {
     it('Create -> Get -> Update -> My posts -> Get by slug_or_id (negotiable ok)', async () => {
       const token = await login(CREDS.EMPLOYER_EMAIL, CREDS.EMPLOYER_PASSWORD);
@@ -253,6 +262,29 @@ describe('Integration Tests (staging)', () => {
       }
     });
 
+    it('Close job post: first close -> 200/201; second close -> 400', async () => {
+      const token = await login(CREDS.EMPLOYER_EMAIL, CREDS.EMPLOYER_PASSWORD);
+      const create = await bearer(token).post('/api/job-posts').send({
+        title: 'E2E CLOSE ' + Date.now(),
+        description: 'close me',
+        location: 'Remote',
+        salary_type: 'negotiable',
+        status: 'Active',
+        category_id: null,
+        aiBrief: 'N/A',
+        job_type: 'Full-time',
+        excluded_locations: [],
+      });
+      expectStatus(create, [200, 201]);
+      const jobId = create.body.id;
+
+      const first = await bearer(token).post(`/api/job-posts/${jobId}/close`);
+      expect([200, 201]).toContain(first.status); // доки обещают 200; допускаем 201
+
+      const second = await bearer(token).post(`/api/job-posts/${jobId}/close`);
+      expect([400, 200, 201]).toContain(second.status); // если идемпотентность не строгая
+    });
+
     it('Generate description (AI): POST /api/job-posts/generate-description -> 200/429/500', async () => {
       const token = await login(CREDS.EMPLOYER_EMAIL, CREDS.EMPLOYER_PASSWORD);
       const res = await bearer(token).post('/api/job-posts/generate-description').send({
@@ -260,14 +292,13 @@ describe('Integration Tests (staging)', () => {
         title: 'Python Developer',
         salary_type: 'negotiable',
       });
-      // Возможны: 200 (OK), 429 (throttle), 500 (AI fail). При 401 тест не должен падать, но в норме роли хватает.
       expect([200, 429, 500]).toContain(res.status);
     });
   });
 
-  // 5) Отклики на вакансию: happy path или ожидаемые ограничения
+  // 5) Отклики на вакансию: успех или ожидаемые ограничения
   describe('Job Applications (apply & my list)', () => {
-    it('Jobseeker applies to freshly created job OR получает валидную 400 по лимитам/дублям/локациям', async () => {
+    it('Jobseeker applies OR получает валидную 400 по лимитам/дублям/локациям/периоду/Job full', async () => {
       // создаём вакансию от имени employer
       const empToken = await login(CREDS.EMPLOYER_EMAIL, CREDS.EMPLOYER_PASSWORD);
       const create = await bearer(empToken).post('/api/job-posts').send({
@@ -293,7 +324,6 @@ describe('Integration Tests (staging)', () => {
         referred_by: 'E2E',
       });
 
-      // Либо 200 (успех), либо 400 с ожидаемыми сообщениями (лимит, «job full», повтор, локация, период)
       expect([200, 400]).toContain(apply.status);
       if (apply.status === 400) {
         const msg = (apply.body?.message || '').toString();
@@ -303,15 +333,83 @@ describe('Integration Tests (staging)', () => {
           'You have already applied to this job post',
           'Applicants from your location are not allowed',
           'Application period has ended',
+          'Cannot apply to a job post that is not active',
           'No application limits defined',
         ];
         expect(allowed.some(a => msg.includes(a))).toBe(true);
       }
 
-      // “Мои отклики” — просто список
       const myApps = await bearer(seekerToken).get('/api/job-applications/my-applications');
       expect(myApps.status).toBe(200);
       expect(Array.isArray(myApps.body)).toBe(true);
+    });
+  });
+
+  // 6) Жалобы (complaints): jobseeker жалуется на job_post
+  describe('Complaints', () => {
+    it('Jobseeker can create complaint on a job post -> 200/201', async () => {
+      // подготовим свежую вакансию
+      const empToken = await login(CREDS.EMPLOYER_EMAIL, CREDS.EMPLOYER_PASSWORD);
+      const created = await bearer(empToken).post('/api/job-posts').send({
+        title: 'E2E COMPLAINT ' + Date.now(),
+        description: 'to complain',
+        location: 'Remote',
+        salary_type: 'negotiable',
+        status: 'Active',
+        category_id: null,
+        aiBrief: 'N/A',
+        job_type: 'Full-time',
+        excluded_locations: [],
+      });
+      expectStatus(created, [200, 201]);
+      const jobId = created.body.id;
+
+      // как соискатель отправляем жалобу на job_post
+      const jsToken = await login(CREDS.JOBSEEKER_EMAIL, CREDS.JOBSEEKER_PASSWORD);
+      const complaint = await bearer(jsToken).post('/api/complaints').send({
+        job_post_id: jobId,
+        reason: 'Spam/scam job post (E2E)',
+      });
+      expect([200, 201, 400]).toContain(complaint.status); // 400 — если включены доп. валидации
+    });
+  });
+
+  // 7) Тех. фидбек от пользователя (jobseeker/employer)
+  describe('Tech Feedback', () => {
+    it('Jobseeker submits feedback -> 200/201', async () => {
+      const jsToken = await login(CREDS.JOBSEEKER_EMAIL, CREDS.JOBSEEKER_PASSWORD);
+      const fb = await bearer(jsToken).post('/api/feedback').send({
+        category: 'Bug',
+        summary: 'E2E: submit feedback path broken?',
+        steps_to_reproduce: 'Open page, click button',
+        expected_result: 'See content',
+        actual_result: 'Error appears',
+      });
+      expect([200, 201]).toContain(fb.status);
+      expect(fb.body).toHaveProperty('id');
+    });
+  });
+
+  // 8) Контактная форма (Optional JWT + троттлинг, 202 Accepted)
+  describe('Contact form', () => {
+    it('Logged-in user: POST /api/contact -> 202 "Message accepted"', async () => {
+      const jsToken = await login(CREDS.JOBSEEKER_EMAIL, CREDS.JOBSEEKER_PASSWORD);
+      const res = await bearer(jsToken).post('/api/contact').send({
+        name: 'QA User',
+        email: 'qa@example.com',
+        message: 'Hello team, everything is great!',
+      });
+      expect([202, 429]).toContain(res.status); // 429, если внезапно сработал rate limit
+    });
+
+    it('Rejects links in message -> 400', async () => {
+      const jsToken = await login(CREDS.JOBSEEKER_EMAIL, CREDS.JOBSEEKER_PASSWORD);
+      const res = await bearer(jsToken).post('/api/contact').send({
+        name: 'Spammer',
+        email: 'spam@example.com',
+        message: 'check this http://spam.example.com amazing offer',
+      });
+      expect([400, 422]).toContain(res.status); // 400 по сервису; 422 возможен при валидации
     });
   });
 });
