@@ -41,30 +41,42 @@ useEffect(() => {
   if (!profile) return; // ждём профиль
 
   const doRedirect = async () => {
-    if (profile.role === 'jobseeker') {
-      const refJobId = localStorage.getItem('referralJobId');
+if (profile.role === 'jobseeker') {
+  const refJobId = localStorage.getItem('referralJobId');            // кейс: человек заходил на /jobs/:id?ref=...
+  const afterVerifyReturn = localStorage.getItem('afterVerifyReturn'); // кейс: человек пришёл с LP (/job/:slug) и мы сохранили return
+  const hasRef = Boolean(localStorage.getItem('referralCode') || document.cookie.includes('jf_ref='));
+  const safe = (p?: string | null) => (p && p.startsWith('/') && !p.startsWith('//')) ? p : null;
 
-      if (refJobId) {
-        try {
-          // проверяем, что вакансия существует (по желанию — ещё и активна)
-          const job = await getJobPost(refJobId);
-          // необязательно, но можно перепроверить статус
-          // if (job?.status !== 'Active') throw new Error('Job not active');
+  // 1) приоритет — точный jobId из job-страницы с ?ref
+  if (refJobId) {
+    try {
+      await getJobPost(refJobId); // опциональная проверка доступности вакансии
+      localStorage.removeItem('referralJobId');
+      localStorage.removeItem('afterVerifyReturn');
+      navigate(`/jobs/${refJobId}`, { replace: true });
+      return;
+    } catch (e) {
+      console.warn('Referral job invalid, fallback', e);
+      localStorage.removeItem('referralJobId');
+      // пойдём дальше — вдруг есть валидный return
+    }
+  }
 
-          localStorage.removeItem('referralJobId'); // чтобы не зацикливаться в будущем
-          navigate(`/jobs/${refJobId}`, { replace: true });
-          return;
-        } catch (e) {
-          console.warn('Referral job invalid, fallback to dashboard', e);
-          localStorage.removeItem('referralJobId'); // чистим битую ссылку
-          navigate('/jobseeker-dashboard', { replace: true });
-          return;
-        }
-      }
-
-      navigate('/jobseeker-dashboard', { replace: true });
+  // 2) если человек пришёл по рефке с LP — уважаем сохранённый безопасный return
+  if (hasRef) {
+    const dest = safe(afterVerifyReturn);
+    if (dest) {
+      localStorage.removeItem('afterVerifyReturn');
+      navigate(dest, { replace: true }); // например, /vacancy/:slug
       return;
     }
+  }
+
+  // 3) дефолт
+  navigate('/jobseeker-dashboard', { replace: true });
+  return;
+}
+
 
     if (profile.role === 'employer') {
       navigate('/employer-dashboard', { replace: true });

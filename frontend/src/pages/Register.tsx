@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { register, getCategories, searchCategories } from '../services/api';
 import { Category } from '@types';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
@@ -300,7 +300,7 @@ navigate('/check-email', { state: { email: email.trim().toLowerCase() } });
           {isJobseeker && (
             <>
               <div className="reg2-field">
-                <label className="reg2-label">Experience</label>
+                <label className="reg2-label">Online Work Experience</label>
                 <select
                   className="reg2-input"
                   value={experience}

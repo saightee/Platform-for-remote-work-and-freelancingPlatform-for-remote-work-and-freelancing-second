@@ -233,45 +233,50 @@ const testimonials: Testimonial[] = [
 
   const maxSlide = Math.max(0, categoryGroups.length - 1);
 
-  // свайп на мобилке
-  useEffect(() => {
-    const vp = viewportRef.current;
-    if (!vp) return;
+// --- свайп на мобилке: Pointer Events надёжнее в Safari/iOS ---
+const startXRef = useRef(0);
+const draggingRef = useRef(false);
+const swipedRef = useRef(false); // чтобы не кликались ссылки при свайпе
+const THRESHOLD = 50;
 
-    let startX = 0;
-    let deltaX = 0;
-    let touching = false;
-    const THRESHOLD = 50;
+const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  if (e.pointerType !== 'touch') return;
+  draggingRef.current = true;
+  swipedRef.current = false;
+  startXRef.current = e.clientX;
+};
 
-    const onStart = (e: TouchEvent) => {
-      if (e.touches.length !== 1) return;
-      touching = true;
-      startX = e.touches[0].clientX;
-      deltaX = 0;
-    };
-    const onMove = (e: TouchEvent) => {
-      if (!touching) return;
-      deltaX = e.touches[0].clientX - startX;
-    };
-    const onEnd = () => {
-      if (!touching) return;
-      touching = false;
-      if (Math.abs(deltaX) > THRESHOLD) {
-        if (deltaX < 0 && currentSlide < maxSlide) setCurrentSlide(s => Math.min(maxSlide, s + 1));
-        if (deltaX > 0 && currentSlide > 0)       setCurrentSlide(s => Math.max(0, s - 1));
-      }
-    };
+const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+  if (!draggingRef.current || e.pointerType !== 'touch') return;
+  const dx = e.clientX - startXRef.current;
+  if (Math.abs(dx) > 8) swipedRef.current = true; // помечаем, что был жест
+};
 
-    vp.addEventListener('touchstart', onStart, { passive: true });
-    vp.addEventListener('touchmove',  onMove,  { passive: true });
-    vp.addEventListener('touchend',   onEnd);
+const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+  if (!draggingRef.current || e.pointerType !== 'touch') return;
+  draggingRef.current = false;
+  const dx = e.clientX - startXRef.current;
 
-    return () => {
-      vp.removeEventListener('touchstart', onStart);
-      vp.removeEventListener('touchmove',  onMove);
-      vp.removeEventListener('touchend',   onEnd);
-    };
-  }, [currentSlide, maxSlide]);
+  if (Math.abs(dx) > THRESHOLD) {
+    setCurrentSlide(prev => (dx < 0 ? Math.min(maxSlide, prev + 1) : Math.max(0, prev - 1)));
+  }
+};
+
+// Блокируем клик по ссылкам, если прямо перед этим был свайп
+useEffect(() => {
+  const vp = viewportRef.current;
+  if (!vp) return;
+  const onClickCapture = (e: MouseEvent) => {
+    if (swipedRef.current) {
+      e.stopPropagation();
+      e.preventDefault();
+      swipedRef.current = false;
+    }
+  };
+  vp.addEventListener('click', onClickCapture, true);
+  return () => vp.removeEventListener('click', onClickCapture, true);
+}, []);
+
 
   // ——— Testimonials pager
   const tViewportRef = useRef<HTMLDivElement | null>(null);
@@ -352,19 +357,19 @@ const testimonials: Testimonial[] = [
                 <span className="hb-num">
                   {isLoading ? 'Loading...' : <CountUp end={stats.totalResumes} duration={2} separator="," />}
                 </span>
-                <span className="hb-label">resumes</span>
+                <span className="hb-label">Freelancers</span>
               </div>
               <div className="hb-stat">
                 <span className="hb-num">
                   {isLoading ? 'Loading...' : <CountUp end={stats.totalJobPosts} duration={2} separator="," />}
                 </span>
-                <span className="hb-label">vacancies</span>
+                <span className="hb-label">Job Openings</span>
               </div>
               <div className="hb-stat">
                 <span className="hb-num">
                   {isLoading ? 'Loading...' : <CountUp end={stats.totalEmployers} duration={2} separator="," />}
                 </span>
-                <span className="hb-label">employers</span>
+                <span className="hb-label">Employers</span>
               </div>
             </div>
           </div>
@@ -396,11 +401,17 @@ const testimonials: Testimonial[] = [
               <FaChevronLeft />
             </button>
 
-            <div className="cc-viewport" ref={viewportRef}>
-              <div
-                className="cc-track"
-                style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-              >
+           <div
+  className="cc-viewport"
+  ref={viewportRef}
+  onPointerDown={onPointerDown}
+  onPointerMove={onPointerMove}
+  onPointerUp={onPointerUp}
+>
+  <div
+    className="cc-track"
+    style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+  >
                 {categoryGroups.map((group, groupIndex) => (
                   <div className="cc-group" key={groupIndex}>
                     {group.map((category) => {

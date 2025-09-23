@@ -22,6 +22,11 @@ import {
 import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
 import '../styles/profile-page.css';
+import {
+  normalizeTelegram, normalizeWhatsApp,
+  normalizeLinkedIn, normalizeInstagram, normalizeFacebook
+} from '../utils/socials';
+
 
 const USERNAME_RGX = /^[a-zA-Z0-9_.-]{3,20}$/; // простая валидация
 type JobSeekerExtended = JobSeekerProfile & {
@@ -625,31 +630,32 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
     <span className="pf-k">Socials</span>
     <span className="pf-v">
       <div className="pf-socials">
-        {(profileData as any).linkedin && (
-          <a className="pf-soc pf-linkedin" href={(profileData as any).linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
-            <FaLinkedin />
-          </a>
-        )}
-        {(profileData as any).instagram && (
-          <a className="pf-soc pf-instagram" href={(profileData as any).instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-            <FaInstagram />
-          </a>
-        )}
-        {(profileData as any).facebook && (
-          <a className="pf-soc pf-facebook" href={(profileData as any).facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-            <FaFacebook />
-          </a>
-        )}
-        {(profileData as any).whatsapp && (
-          <a className="pf-soc pf-whatsapp" href={(profileData as any).whatsapp} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
-            <FaWhatsapp />
-          </a>
-        )}
-        {(profileData as any).telegram && (
-          <a className="pf-soc pf-telegram" href={(profileData as any).telegram} target="_blank" rel="noopener noreferrer" aria-label="Telegram">
-            <FaTelegramPlane />
-          </a>
-        )}
+  {(profileData as any).linkedin && (
+  <a className="pf-soc pf-linkedin" href={normalizeLinkedIn((profileData as any).linkedin)} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+    <FaLinkedin />
+  </a>
+)}
+{(profileData as any).instagram && (
+  <a className="pf-soc pf-instagram" href={normalizeInstagram((profileData as any).instagram)} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+    <FaInstagram />
+  </a>
+)}
+{(profileData as any).facebook && (
+  <a className="pf-soc pf-facebook" href={normalizeFacebook((profileData as any).facebook)} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+    <FaFacebook />
+  </a>
+)}
+{(profileData as any).whatsapp && (
+  <a className="pf-soc pf-whatsapp" href={normalizeWhatsApp((profileData as any).whatsapp)} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
+    <FaWhatsapp />
+  </a>
+)}
+{(profileData as any).telegram && (
+  <a className="pf-soc pf-telegram" href={normalizeTelegram((profileData as any).telegram)} target="_blank" rel="noopener noreferrer" aria-label="Telegram">
+    <FaTelegramPlane />
+  </a>
+)}
+
       </div>
     </span>
   </div>

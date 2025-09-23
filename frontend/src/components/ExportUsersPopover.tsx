@@ -190,7 +190,7 @@ const ExportUsersPopover: React.FC<Props> = ({
                 <label className="exu-label">Role</label>
                 <select className="exu-input" value={filters.role} onChange={e => setFilter('role', e.target.value as RoleAll)}>
                   <option>All</option>
-                  <option value="jobseeker">jobseeker</option>
+                  <option value="jobseeker">job seeker</option>
                   <option value="employer">employer</option>
                   <option value="admin">admin</option>
                   <option value="moderator">moderator</option>
@@ -199,21 +199,21 @@ const ExportUsersPopover: React.FC<Props> = ({
               <div>
                 <label className="exu-label">Status</label>
                 <select className="exu-input" value={filters.status} onChange={e => setFilter('status', e.target.value as StatusAll)}>
-                  <option>All</option>
+                  <option>All statuses</option>
                   <option value="active">active</option>
                   <option value="blocked">blocked</option>
                 </select>
               </div>
               <div>
-                <label className="exu-label">Sort</label>
+                <label className="exu-label">Sort by</label>
                 <div className="exu-dual">
                   <select className="exu-input" value={filters.sortBy} onChange={e => setFilter('sortBy', e.target.value as SortByAll)}>
-                    <option value="created_at">created_at</option>
-                    <option value="last_login_at">last_login_at</option>
+                    <option value="created_at">date joined</option>
+                    <option value="last_login_at">last login</option>
                   </select>
                   <select className="exu-input" value={filters.order} onChange={e => setFilter('order', e.target.value as OrderAll)}>
-                    <option value="DESC">DESC</option>
-                    <option value="ASC">ASC</option>
+                    <option value="DESC">newest first</option>
+                    <option value="ASC">oldest first</option>
                   </select>
                 </div>
               </div>
@@ -230,7 +230,7 @@ const ExportUsersPopover: React.FC<Props> = ({
 
             <div className="exu-grid exu-grid-4">
               <div>
-                <label className="exu-label">q</label>
+                <label className="exu-label">search</label>
                 <input
                   className="exu-input"
                   value={filters.q}
@@ -257,7 +257,7 @@ const ExportUsersPopover: React.FC<Props> = ({
                 />
               </div>
               <div>
-                <label className="exu-label">referralSource</label>
+                <label className="exu-label">referral source</label>
                 <input
                   className="exu-input"
                   value={filters.referralSource}
@@ -326,7 +326,7 @@ const ExportUsersPopover: React.FC<Props> = ({
 
             <div className="exu-grid exu-grid-4">
               <div>
-                <label className="exu-label">createdFrom</label>
+                <label className="exu-label">created From</label>
                 <input
                   type="date"
                   className="exu-input"
@@ -337,7 +337,7 @@ const ExportUsersPopover: React.FC<Props> = ({
                 />
               </div>
               <div>
-                <label className="exu-label">createdTo</label>
+                <label className="exu-label">created To</label>
                 <input
                   type="date"
                   className="exu-input"
@@ -348,7 +348,7 @@ const ExportUsersPopover: React.FC<Props> = ({
                 />
               </div>
               <div>
-                <label className="exu-label">lastLoginFrom</label>
+                <label className="exu-label">last login from</label>
                 <input
                   type="date"
                   className="exu-input"
@@ -359,7 +359,7 @@ const ExportUsersPopover: React.FC<Props> = ({
                 />
               </div>
               <div>
-                <label className="exu-label">lastLoginTo</label>
+                <label className="exu-label">last login to</label>
                 <input
                   type="date"
                   className="exu-input"
@@ -373,7 +373,7 @@ const ExportUsersPopover: React.FC<Props> = ({
 
             <div className="exu-grid exu-grid-3">
               <div>
-                <label className="exu-label">riskMin</label>
+                <label className="exu-label">risk score min</label>
                 <input
                   type="number"
                   step="0.01"
@@ -384,7 +384,7 @@ const ExportUsersPopover: React.FC<Props> = ({
                 />
               </div>
               <div>
-                <label className="exu-label">riskMax</label>
+                <label className="exu-label">risk score max</label>
                 <input
                   type="number"
                   step="0.01"
@@ -395,7 +395,7 @@ const ExportUsersPopover: React.FC<Props> = ({
                 />
               </div>
               <div>
-                <label className="exu-label">jobSearchStatus</label>
+                <label className="exu-label">job search status</label>
                 <select
                   className="exu-input"
                   disabled={!showJobseekerFields}
@@ -403,8 +403,8 @@ const ExportUsersPopover: React.FC<Props> = ({
                   onChange={e => setFilter('jobSearchStatus', e.target.value as JobSearchAll)}
                 >
                   <option>All</option>
-                  <option value="actively_looking">actively_looking</option>
-                  <option value="open_to_offers">open_to_offers</option>
+                  <option value="actively_looking">actively looking</option>
+                  <option value="open_to_offers">open to offers</option>
                   <option value="hired">hired</option>
                 </select>
               </div>

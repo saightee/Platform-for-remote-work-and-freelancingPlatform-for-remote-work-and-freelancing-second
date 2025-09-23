@@ -6,13 +6,15 @@ import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import '../styles/jsd-bridge.css';
 
+
 import {
   FaTachometerAlt,
   FaUser,
   FaClipboardList,
   FaComments,
   FaEnvelopeOpenText,
-  FaSearch
+  FaSearch,
+  FaQuoteLeft  
 } from 'react-icons/fa';
 
 const JobseekerDashboard: React.FC = () => {
@@ -186,6 +188,14 @@ const handleLogout = async () => {
             <FaEnvelopeOpenText className="jsd-nav__ico" />
             <span className="jsd-nav__text">Report tech issue</span>
           </NavLink>
+          <NavLink
+  to="/jobseeker-dashboard/share-story"
+  className={({ isActive }) => `jsd-nav__link ${isActive ? 'active' : ''}`}
+>
+  <FaQuoteLeft className="jsd-nav__ico" />
+  <span className="jsd-nav__text">Write Testimonial</span>
+</NavLink>
+
         </nav>
       </aside>
 
