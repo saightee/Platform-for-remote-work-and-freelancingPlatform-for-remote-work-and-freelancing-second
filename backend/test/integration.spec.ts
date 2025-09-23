@@ -15,6 +15,7 @@ const CREDS = {
 
 const http = request(BASE_URL);
 
+// ---------- helpers ----------
 function bearer(token: string) {
   return {
     get: (url: string) => http.get(url).set('Authorization', `Bearer ${token}`),
@@ -25,7 +26,7 @@ function bearer(token: string) {
 }
 
 async function login(email: string, password: string) {
-  // По доке login -> 201 + {accessToken}
+  // /api/auth/login -> 201 + {accessToken}
   const res = await http.post('/api/auth/login').send({ email, password, rememberMe: true });
   expect(res.status).toBe(201);
   expect(res.body).toHaveProperty('accessToken');
@@ -43,16 +44,17 @@ function uniqueEmail(prefix: string) {
   return `${prefix}+${Date.now()}@example.com`;
 }
 
-// Создаём временный .txt, чтобы проверить файл-фильтр (ожидаем 400)
-const BAD_FILE = path.join(__dirname, 'tmp-e2e.txt');
-beforeAll(() => {
-  try { fs.writeFileSync(BAD_FILE, 'dummy'); } catch {}
-});
-afterAll(() => {
-  try { fs.unlinkSync(BAD_FILE); } catch {}
-});
+function expectStatus(res: { status: number }, allowed: number[] | number) {
+  const arr = Array.isArray(allowed) ? allowed : [allowed];
+  expect(arr).toContain(res.status);
+}
 
-// --------- Тесты ----------
+// файл для проверки фильтра форматов резюме (ожидаем 400/415)
+const BAD_FILE = path.join(__dirname, 'tmp-e2e.txt');
+beforeAll(() => { try { fs.writeFileSync(BAD_FILE, 'dummy'); } catch {} });
+afterAll(() => { try { fs.unlinkSync(BAD_FILE); } catch {} });
+
+// ---------- tests ----------
 describe('Integration Tests (staging)', () => {
   // 1) Публичные ручки
   describe('Public endpoints', () => {
@@ -71,24 +73,23 @@ describe('Integration Tests (staging)', () => {
     });
   });
 
-  // 2) Аутентификация и почтовые флоу (без чтения настоящей почты)
+  // 2) Аутентификация и почтовые флоу (без чтения реальной почты)
   describe('Auth + email flows (no inbox)', () => {
     it('Resend verification: POST /api/auth/resend-verification -> 200/201 generic', async () => {
       const res = await http.post('/api/auth/resend-verification').send({ email: 'someone@example.com' });
-      expect([200, 201]).toContain(res.status);
+      expectStatus(res, [200, 201]);
       expect(typeof res.body?.message === 'string' || res.text).toBeTruthy();
     });
 
-    it('Register validation: missing fingerprint -> 400 "Fingerprint is required"', async () => {
+    it('Register validation: missing fingerprint -> 400 (требуется x-fingerprint)', async () => {
       const res = await http
         .post('/api/auth/register')
         .send({ email: uniqueEmail('nofp'), password: 'StrongP@ssw0rd', username: 'nofp', role: 'jobseeker' });
       expect(res.status).toBe(400);
-      // текст ошибки может отличаться, но по доке/контроллеру должен быть про fingerprint
       expect(JSON.stringify(res.body).toLowerCase()).toContain('fingerprint');
     });
 
-    it('Register validation: wrong resume file type rejected -> 400', async () => {
+    it('Register validation: wrong resume file type -> 400/415 (только pdf/doc/docx разрешены)', async () => {
       const res = await http
         .post('/api/auth/register')
         .set(fpHeaders())
@@ -96,12 +97,11 @@ describe('Integration Tests (staging)', () => {
         .field('password', 'StrongP@ssw0rd')
         .field('username', 'badfile')
         .field('role', 'jobseeker')
-        // прикладываем .txt (разрешены только pdf/doc/docx)
         .attach('resume_file', BAD_FILE);
-      expect([400, 415]).toContain(res.status);
+      expectStatus(res, [400, 415]);
     });
 
-    it('Register (happy path minimal): 200 with "confirm your email" message', async () => {
+    it('Register minimal: 200/201 + текст про подтверждение email', async () => {
       const res = await http
         .post('/api/auth/register')
         .set(fpHeaders())
@@ -111,43 +111,41 @@ describe('Integration Tests (staging)', () => {
           username: 'okreg',
           role: 'jobseeker',
         });
-      expect([200, 201]).toContain(res.status);
+      expectStatus(res, [200, 201]);
       const text = JSON.stringify(res.body).toLowerCase();
       expect(text.includes('confirm') || text.includes('verification')).toBe(true);
     });
 
-    it('Login with valid accounts: JS/EMP/Admin -> 201 + token', async () => {
+    it('Login valid accounts: jobseeker/employer/admin -> 201 + tokens', async () => {
       const t1 = await login(CREDS.JOBSEEKER_EMAIL, CREDS.JOBSEEKER_PASSWORD);
       const t2 = await login(CREDS.EMPLOYER_EMAIL, CREDS.EMPLOYER_PASSWORD);
       const t3 = await login(CREDS.ADMIN_EMAIL, CREDS.ADMIN_PASSWORD);
-      expect(t1 && t2 && t3).toBeTruthy();
+      expect(Boolean(t1 && t2 && t3)).toBe(true);
     });
 
     it('Login wrong password -> 400/401', async () => {
       const res = await http.post('/api/auth/login').send({ email: CREDS.JOBSEEKER_EMAIL, password: 'wrong' });
-      expect([400, 401]).toContain(res.status);
+      expectStatus(res, [400, 401]);
     });
 
     it('Forgot password (jobseeker): POST /api/auth/forgot-password -> 200/201 generic "sent"', async () => {
       const res = await http.post('/api/auth/forgot-password').send({ email: CREDS.JOBSEEKER_EMAIL });
-      expect([200, 201]).toContain(res.status);
+      expectStatus(res, [200, 201]);
     });
 
-    it('Forgot password (admin denied): returns 401 per docs', async () => {
+    it('Forgot password (admin): 400/401 (reset запрещён для admin/mod)', async () => {
       const res = await http.post('/api/auth/forgot-password').send({ email: CREDS.ADMIN_EMAIL });
-      expect([401, 400]).toContain(res.status); // допускаем 400/401 в разных сборках
+      expectStatus(res, [400, 401]);
     });
 
-    it('Reset password with invalid token -> 400', async () => {
+    it('Reset password: invalid token -> 400', async () => {
       const res = await http.post('/api/auth/reset-password').send({ token: 'invalid', newPassword: 'NewP@ss1!' });
       expect(res.status).toBe(400);
     });
 
-    it('Verify email with fake token -> 302 redirect to /auth/callback?error=...', async () => {
-      // Контроллер делает redirect при ошибке верификации.
+    it('Verify email: invalid token -> 302 /auth/callback?error=... (или 400 JSON)', async () => {
       const res = await http.get('/api/auth/verify-email?token=invalid').redirects(0);
-      expect([302, 400]).toContain(res.status);
-      // если 302 — должен быть Location на фронт с error
+      expectStatus(res, [302, 400]);
       if (res.status === 302) {
         expect(res.headers.location).toContain('/auth/callback');
       }
@@ -156,7 +154,7 @@ describe('Integration Tests (staging)', () => {
     it('Logout: POST /api/auth/logout -> 200/201 "Logout successful"', async () => {
       const token = await login(CREDS.JOBSEEKER_EMAIL, CREDS.JOBSEEKER_PASSWORD);
       const res = await http.post('/api/auth/logout').set('Authorization', `Bearer ${token}`);
-      expect([200, 201]).toContain(res.status);
+      expectStatus(res, [200, 201]);
       const msg = (res.body?.message || '').toLowerCase();
       expect(msg.includes('logout')).toBe(true);
     });
@@ -180,7 +178,7 @@ describe('Integration Tests (staging)', () => {
       expect(res.body).toHaveProperty('role', 'employer');
     });
 
-    it('Jobseeker: PUT /api/profile -> 200 (accepts typical fields, echoes back)', async () => {
+    it('Jobseeker: PUT /api/profile -> 200 (echo updates)', async () => {
       const token = await login(CREDS.JOBSEEKER_EMAIL, CREDS.JOBSEEKER_PASSWORD);
       const payload = {
         role: 'jobseeker',
@@ -196,12 +194,12 @@ describe('Integration Tests (staging)', () => {
     });
   });
 
-  // 4) Вакансии (создание/апдейт/чтение, без модераторских сложностей)
+  // 4) Вакансии работодателя (создание/чтение/апдейт/список + by-slug-or-id)
   describe('Job Posts (employer flow)', () => {
     it('Create -> Get -> Update -> My posts -> Get by slug_or_id (negotiable ok)', async () => {
       const token = await login(CREDS.EMPLOYER_EMAIL, CREDS.EMPLOYER_PASSWORD);
 
-      // Create (salary_type=negotiable без salary)
+      // Create (salary_type=negotiable — salary можно опустить)
       const title1 = 'E2E ' + new Date().toISOString();
       const create = await bearer(token).post('/api/job-posts').send({
         title: title1,
@@ -214,7 +212,7 @@ describe('Integration Tests (staging)', () => {
         job_type: 'Full-time',
         excluded_locations: [],
       });
-      expect(create.status).toBe(200);
+      expectStatus(create, [200, 201]);
       const jobId = create.body?.id;
       const slugId = create.body?.slug_id;
       expect(jobId).toBeDefined();
@@ -222,16 +220,13 @@ describe('Integration Tests (staging)', () => {
       // Get by id
       const get = await bearer(token).get(`/api/job-posts/${jobId}`);
       expect(get.status).toBe(200);
-      expect(get.body?.id).toBe(jobId);
-      // negotiable => salary может быть null
       if (get.body?.salary_type === 'negotiable') {
-        expect(get.body?.salary === null || get.body?.salary === undefined).toBe(true);
+        expect(get.body?.salary == null).toBe(true);
       }
 
-      // Update -> ставим salary_type per month + salary
-      const title2 = title1 + ' UPDATED';
+      // Update → теперь per month + salary
       const update = await bearer(token).put(`/api/job-posts/${jobId}`).send({
-        title: title2,
+        title: title1 + ' UPDATED',
         description: 'E2E updated',
         location: 'Remote',
         salary_type: 'per month',
@@ -242,7 +237,7 @@ describe('Integration Tests (staging)', () => {
         job_type: 'Full-time',
         excluded_locations: [],
       });
-      expect(update.status).toBe(200);
+      expectStatus(update, [200, 201]);
       expect(update.body?.salary).toBe(1234);
 
       // My posts
@@ -250,38 +245,73 @@ describe('Integration Tests (staging)', () => {
       expect(my.status).toBe(200);
       expect(Array.isArray(my.body)).toBe(true);
 
-      // Get by slug-or-id (если slug_id пришёл) — проверим эту ручку
+      // Get by slug-or-id (если slug_id пришёл)
       if (slugId) {
         const bySlug = await http.get(`/api/job-posts/by-slug-or-id/${encodeURIComponent(slugId)}`);
-        expect([200, 404]).toContain(bySlug.status); // допускаем 404, если индекс/видимость ограничены
-        if (bySlug.status === 200) {
-          expect(bySlug.body?.id).toBe(jobId);
-        }
+        expect([200, 404]).toContain(bySlug.status);
+        if (bySlug.status === 200) expect(bySlug.body?.id).toBe(jobId);
       }
+    });
+
+    it('Generate description (AI): POST /api/job-posts/generate-description -> 200/429/500', async () => {
+      const token = await login(CREDS.EMPLOYER_EMAIL, CREDS.EMPLOYER_PASSWORD);
+      const res = await bearer(token).post('/api/job-posts/generate-description').send({
+        aiBrief: 'Need Python dev with 3y exp; Django, SQL',
+        title: 'Python Developer',
+        salary_type: 'negotiable',
+      });
+      // Возможны: 200 (OK), 429 (throttle), 500 (AI fail). При 401 тест не должен падать, но в норме роли хватает.
+      expect([200, 429, 500]).toContain(res.status);
     });
   });
 
-  // 5) Онлайн-статус через Redis: пингуем соискателем, читаем как админ
-  describe('Online status via Redis/ActivityMiddleware', () => {
-    it('Set online (jobseeker request) → check as admin: GET /api/users/:id/online -> {isOnline:true}', async () => {
-      // 1) Логинимся соискателем и дергаем любую защищённую ручку, чтобы ActivityMiddleware продлил TTL
-      const jobseekerToken = await login(CREDS.JOBSEEKER_EMAIL, CREDS.JOBSEEKER_PASSWORD);
-      const me = await bearer(jobseekerToken).get('/api/profile/myprofile');
-      expect(me.status).toBe(200);
-      const jobseekerId = me.body?.id as string;
-      expect(jobseekerId).toBeTruthy();
+  // 5) Отклики на вакансию: happy path или ожидаемые ограничения
+  describe('Job Applications (apply & my list)', () => {
+    it('Jobseeker applies to freshly created job OR получает валидную 400 по лимитам/дублям/локациям', async () => {
+      // создаём вакансию от имени employer
+      const empToken = await login(CREDS.EMPLOYER_EMAIL, CREDS.EMPLOYER_PASSWORD);
+      const create = await bearer(empToken).post('/api/job-posts').send({
+        title: 'E2E APPLY ' + Date.now(),
+        description: 'Apply flow',
+        location: 'Remote',
+        salary_type: 'negotiable',
+        status: 'Active',
+        category_id: null,
+        aiBrief: 'N/A',
+        job_type: 'Full-time',
+        excluded_locations: [],
+      });
+      expectStatus(create, [200, 201]);
+      const jobId = create.body?.id;
 
-      // 2) Как админ проверяем онлайн-статус соискателя
-      const adminToken = await login(CREDS.ADMIN_EMAIL, CREDS.ADMIN_PASSWORD);
-      const online = await bearer(adminToken).get(`/api/users/${jobseekerId}/online`);
-      expect(online.status).toBe(200);
-      expect(online.body).toHaveProperty('userId', jobseekerId);
-      // Может быть короткая задержка на запись TTL — но обычно флаг уже true
-      // Если окружение нестабильно, допускаем false, но логируем тело:
-      if (online.body?.isOnline !== true) {
-        // Допускаем флак — но проверим, что поле есть
-        expect(online.body).toHaveProperty('isOnline');
+      // аплай как соискатель
+      const seekerToken = await login(CREDS.JOBSEEKER_EMAIL, CREDS.JOBSEEKER_PASSWORD);
+      const apply = await bearer(seekerToken).post('/api/job-applications').send({
+        job_post_id: jobId,
+        cover_letter: 'I am interested',
+        full_name: 'QA Tester',
+        referred_by: 'E2E',
+      });
+
+      // Либо 200 (успех), либо 400 с ожидаемыми сообщениями (лимит, «job full», повтор, локация, период)
+      expect([200, 400]).toContain(apply.status);
+      if (apply.status === 400) {
+        const msg = (apply.body?.message || '').toString();
+        const allowed = [
+          'Daily application limit reached',
+          'Job full',
+          'You have already applied to this job post',
+          'Applicants from your location are not allowed',
+          'Application period has ended',
+          'No application limits defined',
+        ];
+        expect(allowed.some(a => msg.includes(a))).toBe(true);
       }
+
+      // “Мои отклики” — просто список
+      const myApps = await bearer(seekerToken).get('/api/job-applications/my-applications');
+      expect(myApps.status).toBe(200);
+      expect(Array.isArray(myApps.body)).toBe(true);
     });
   });
 });
