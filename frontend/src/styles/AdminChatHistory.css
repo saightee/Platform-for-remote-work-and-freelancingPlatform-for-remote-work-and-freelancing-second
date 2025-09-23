@@ -1,0 +1,50 @@
+.ach-card {
+  background:#fff; border:1px solid #e5e7eb; border-radius:12px;
+  box-shadow:0 10px 28px rgba(2,6,23,.06);
+  padding:14px;
+}
+
+.ach-head { margin-bottom:10px; }
+.ach-title { font-weight:800; color:#111827; margin-bottom:6px; }
+.ach-meta { display:grid; gap:4px; color:#374151; font-size:14px; }
+.ach-cap { color:#6b7280; font-weight:700; margin-right:6px; }
+
+.ach-controls {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 0; border-top:1px dashed #e5e7eb; border-bottom:1px dashed #e5e7eb; margin:10px 0;
+}
+.ach-counter { font-size:14px; color:#374151; }
+.ach-pager { display:flex; align-items:center; gap:10px; }
+.ach-btn {
+  background:#f3f4f6; color:#111827; border:1px solid #e5e7eb;
+  padding:8px 12px; border-radius:8px; font-weight:700; cursor:pointer;
+}
+.ach-btn:disabled { opacity:.6; cursor:not-allowed; }
+.ach-page { color:#374151; font-size:14px; }
+
+.ach-loading, .ach-empty, .ach-error { padding:18px; color:#374151; }
+.ach-error { color:#991b1b; background:#fee2e2; border:1px solid #fecaca; border-radius:8px; }
+
+.ach-list { display:flex; flex-direction:column; gap:10px; padding-top:6px; }
+.ach-item { border:1px solid #e5e7eb; border-radius:10px; padding:10px; }
+.ach-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.ach-author { display:flex; align-items:center; gap:8px; color:#111827; }
+.ach-email { color:#6b7280; }
+
+.ach-badge {
+  border-radius:999px; padding:2px 8px; font-size:12px; font-weight:800; color:#111827; background:#e5e7eb;
+}
+.ach-jobseeker { background:#44a358; }
+.ach-employer { background:#5a7de1; }
+.ach-admin { background:#a7f3d0; }
+.ach-moderator { background:#fca5a5; }
+
+.ach-time { color:#6b7280; font-size:12px; }
+.ach-content { margin-top:8px; white-space:pre-wrap; word-break: break-word; }
+
+.ach-spinner {
+  width:18px; height:18px; border-radius:50%;
+  border:2px solid #4f46e5; border-top-color:transparent; display:inline-block;
+  animation: ach-spin .8s linear infinite;
+}
+@keyframes ach-spin { to { transform: rotate(360deg) } }

@@ -26,9 +26,9 @@ h4 {
   font-weight: 700;
   text-transform: uppercase;
 }
-p {
+/* p {
   color: #666;
-}
+} */
 
 .typing-indicator {
   display: block; /* Убедитесь, что visible */
@@ -4884,7 +4884,7 @@ font-weight: bold;
 }
 
 .job-card-home h3 {
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   color: #333;
   margin: 0;
   flex: 1; /* Заголовок занимает оставшееся пространство */
@@ -7336,6 +7336,7 @@ header nav.mobile-menu-open .find-job {
   background-repeat: no-repeat;
   background-position: 0 90%;
   font-weight: 800;
+  font-size: 42px;
 }
 
 .hb-sub {
@@ -7834,10 +7835,13 @@ header nav.mobile-menu-open .find-job {
 
 .cc-viewport {
   overflow: hidden;
-  touch-action: pan-y;           /* свайп по X, вертикальный скролл остаётся */
-  -webkit-overflow-scrolling: touch;
+ touch-action: pan-y;             /* уже есть — ок */
+  overscroll-behavior-x: contain;
 }
-
+.cc-viewport .cc-item {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: pan-y;
+}
 .cc-track {
   display: flex;
   transition: transform .45s ease;

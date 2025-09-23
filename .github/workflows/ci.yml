@@ -4,8 +4,11 @@ on:
   push:
     branches: [develop]
   schedule:
-    - cron: '0 0 * * *' # Каждые 24 часа в 00:00
-  workflow_dispatch: # Ручной запуск
+    - cron: '0 0 * * *' # раз в день в 00:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   test:
@@ -24,10 +27,10 @@ jobs:
         working-directory: backend
         run: npm ci
 
-      - name: Run tests
+      - name: Run tests (staging)
         working-directory: backend
         env:
-          BASE_URL: https://jobforge.net
+          BASE_URL: https://staging.jobforge.net
         run: npm run test:report
 
       - name: Upload test report
@@ -42,6 +45,6 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./backend/test-report
           publish_branch: gh-pages
+          publish_dir: ./backend/test-report
           destination_dir: .

@@ -212,15 +212,17 @@ const jobData: Partial<JobPost> & { aiBrief?: string } = {
   excluded_locations: excludedCountries,
   status: 'Active',
   job_type: jobType,
-  // ВАЖНО: snake_case как в API
   category_id: categoryId || undefined,
 };
 
-if (isEdited || !aiBrief.trim()) {
-  jobData.description = description;
-} else {
+// ВСЕГДА отправляем description — тогда бэк НЕ будет заново генерировать
+jobData.description = description;
+
+// опционально добавляем aiBrief, если пользователь не редактировал и он есть
+if (!isEdited && aiBrief.trim()) {
   jobData.aiBrief = aiBrief;
 }
+
 
 await createJobPost(jobData);
 

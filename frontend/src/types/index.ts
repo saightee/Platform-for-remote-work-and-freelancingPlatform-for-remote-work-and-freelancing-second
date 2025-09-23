@@ -308,3 +308,27 @@ export interface ChatNotificationsSettings {
   };
   throttle: { perChatCount: number; perMinutes: number };   // count 1..100, minutes 1..10080
 }
+
+// рядом с компонентом админ-дашборда или в твоём локальном types-файле ЭТОГО модуля
+type AdminRecentUser = {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  created_at: string;
+
+  // опционально — чтобы не падать, если где-то ещё приходит старый ответ
+  referral_from_signup?: string | null;
+  referral_link_description?: string | null;
+  referral_job?: { id: string; title: string } | null;
+  referral_job_description?: string | null;
+};
+
+type AdminRecentRegistrationsDTO = {
+  date?: string;
+  tzOffset?: number;
+  jobseekers_total?: number;
+  employers_total?: number;
+  jobseekers: AdminRecentUser[];
+  employers: AdminRecentUser[];
+};

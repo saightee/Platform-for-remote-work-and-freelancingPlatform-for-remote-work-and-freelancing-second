@@ -26,6 +26,28 @@ export class AdminController {
   async exportUsersToCsv(
     @Headers('authorization') authHeader: string,
     @Res() res: Response,
+    @Query('role') role?: 'employer'|'jobseeker'|'admin'|'moderator',
+    @Query('status') status?: 'active'|'blocked',
+    @Query('q') q?: string,
+    @Query('email') email?: string,
+    @Query('username') username?: string,
+    @Query('country') country?: string,
+    @Query('isEmailVerified') isEmailVerified?: string,
+    @Query('identityVerified') identityVerified?: string,
+    @Query('provider') provider?: string,
+    @Query('referralSource') referralSource?: string,
+    @Query('hasAvatar') hasAvatar?: string,
+    @Query('hasResume') hasResume?: string,
+    @Query('jobSearchStatus') jobSearchStatus?: 'actively_looking'|'open_to_offers'|'hired',
+    @Query('companyName') companyName?: string,
+    @Query('riskMin') riskMin?: string,
+    @Query('riskMax') riskMax?: string,
+    @Query('createdFrom') createdFrom?: string,
+    @Query('createdTo') createdTo?: string,
+    @Query('lastLoginFrom') lastLoginFrom?: string,
+    @Query('lastLoginTo') lastLoginTo?: string,
+    @Query('sortBy') sortBy: 'created_at'|'last_login_at' = 'created_at',
+    @Query('order') order: 'ASC'|'DESC' = 'DESC',
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
@@ -34,14 +56,32 @@ export class AdminController {
     const payload = this.jwtService.verify(token);
     const adminId = payload.sub;
 
-    const csvData = await this.adminService.exportUsersToCsv(adminId);
+    const toBool = (v?: string) => (v === undefined ? undefined : v === 'true' ? true : v === 'false' ? false : undefined);
+    const toNum = (v?: string) => (v === undefined ? undefined : Number.isFinite(+v) ? +v : undefined);
+    const validDate = (v?: string) => (v ? new Date(v) : undefined);
+
+    const filters = {
+      role, status, q, email, username, country, provider, referralSource, companyName, jobSearchStatus,
+      isEmailVerified: toBool(isEmailVerified),
+      identityVerified: toBool(identityVerified),
+      hasAvatar: toBool(hasAvatar),
+      hasResume: toBool(hasResume),
+      riskMin: toNum(riskMin),
+      riskMax: toNum(riskMax),
+      createdFrom: validDate(createdFrom),
+      createdTo: validDate(createdTo),
+      lastLoginFrom: validDate(lastLoginFrom),
+      lastLoginTo: validDate(lastLoginTo),
+      sortBy, order,
+    } as const;
+
+    const { csv, suggestedFilename } = await this.adminService.exportUsersToCsv(adminId, filters);
 
     res.set({
       'Content-Type': 'text/csv',
-      'Content-Disposition': 'attachment; filename="users.csv"',
+      'Content-Disposition': `attachment; filename="${suggestedFilename}"`,
     });
-
-    res.send(csvData);
+    res.send(csv);
   }
 
   @Get('users')
@@ -609,7 +649,8 @@ export class AdminController {
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Get('analytics/recent-registrations')
   async getRecentRegistrations(
-    @Query('limit') limit: string,
+    @Query('date') date: string | undefined,
+    @Query('tzOffset') tzOffsetStr: string | undefined,
     @Headers('authorization') authHeader: string,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -618,8 +659,10 @@ export class AdminController {
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const adminId = payload.sub;
-    const parsedLimit = limit ? parseInt(limit, 10) : 5;
-    return this.adminService.getRecentRegistrations(adminId, parsedLimit);
+  
+    const tzOffset = tzOffsetStr !== undefined ? parseInt(tzOffsetStr, 10) : 0;
+  
+    return this.adminService.getRecentRegistrationsByDay(adminId, { date, tzOffset });
   }
 
   @UseGuards(AuthGuard('jwt'), AdminGuard)

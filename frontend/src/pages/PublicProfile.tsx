@@ -9,10 +9,15 @@ import { useRole } from '../context/RoleContext';
 import {
   FaUserCircle, FaEnvelope, FaGlobe, FaClock, FaStar, FaRegStar,
   FaBriefcase, FaLink, FaVideo, FaFilePdf, FaEye, FaShieldAlt, FaDollarSign,
-  FaLinkedin, FaInstagram, FaFacebook
+  FaLinkedin, FaInstagram, FaFacebook, FaWhatsapp, FaTelegramPlane
 } from 'react-icons/fa';
 import Loader from '../components/Loader';
 import '../styles/public-profile.css';
+import {
+  normalizeTelegram, normalizeWhatsApp,
+  normalizeLinkedIn, normalizeInstagram, normalizeFacebook
+} from '../utils/socials';
+
 
 const makeAbs = (url: string) =>
   url?.startsWith('http') ? url : `https://jobforge.net/backend${url}`;
@@ -187,31 +192,44 @@ const PublicProfile: React.FC = () => {
                   ) : ('Not specified')}
                 </span>
               </li>
-              {(profile as any).linkedin || (profile as any).instagram || (profile as any).facebook ? (
+            {(profile as any).linkedin || (profile as any).instagram || (profile as any).facebook ||
+ (profile as any).whatsapp || (profile as any).telegram ? (
   <li>
     <span className="ppx-kv-icon"><FaLink /></span>
     <span className="ppx-kv-label">Socials</span>
     <span className="ppx-kv-value">
       <div className="ppx-socials">
-        {(profile as any).linkedin && (
-          <a className="ppx-soc ppx-ln" href={(profile as any).linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
-            <FaLinkedin />
-          </a>
-        )}
-        {(profile as any).instagram && (
-          <a className="ppx-soc ppx-ig" href={(profile as any).instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-            <FaInstagram />
-          </a>
-        )}
-        {(profile as any).facebook && (
-          <a className="ppx-soc ppx-fb" href={(profile as any).facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-            <FaFacebook />
-          </a>
-        )}
+      {(profile as any).linkedin && (
+  <a className="ppx-soc ppx-ln" href={normalizeLinkedIn((profile as any).linkedin)} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+    <FaLinkedin />
+  </a>
+)}
+{(profile as any).instagram && (
+  <a className="ppx-soc ppx-ig" href={normalizeInstagram((profile as any).instagram)} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+    <FaInstagram />
+  </a>
+)}
+{(profile as any).facebook && (
+  <a className="ppx-soc ppx-fb" href={normalizeFacebook((profile as any).facebook)} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+    <FaFacebook />
+  </a>
+)}
+{(profile as any).whatsapp && (
+  <a className="ppx-soc ppx-wa" href={normalizeWhatsApp((profile as any).whatsapp)} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">
+    <FaWhatsapp />
+  </a>
+)}
+{(profile as any).telegram && (
+  <a className="ppx-soc ppx-tg" href={normalizeTelegram((profile as any).telegram)} target="_blank" rel="noopener noreferrer" aria-label="Telegram">
+    <FaTelegramPlane />
+  </a>
+)}
+
       </div>
     </span>
   </li>
 ) : null}
+
             </ul>
 
             {profile.skills?.length ? (

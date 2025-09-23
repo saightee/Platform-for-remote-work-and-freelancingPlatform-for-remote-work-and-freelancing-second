@@ -20,37 +20,27 @@ export class UsersService {
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
   ) {}
 
-  async create(
-    userData: Partial<User> & { email: string; username: string; role: 'employer' | 'jobseeker' | 'admin' | 'moderator' },
-    additionalData: any,
-    refCode?: string,
-  ): Promise<User> {
-    console.log('Creating user with data:', userData);
+  async create(userData: Partial<User> & { email: string; username: string; role: 'employer'|'jobseeker'|'admin'|'moderator' },   additionalData: any): Promise<User> {
     const userEntity: DeepPartial<User> = {
-      email: userData.email,
-      username: userData.username,
-      password: userData.password || '',
-      role: userData.role,
-      provider: userData.provider || null,
-      country: userData.country || null,
+      email: userData.email, username: userData.username, password: userData.password || '',
+      role: userData.role, provider: userData.provider || null, country: userData.country || null,
       is_email_verified: userData.is_email_verified || false,
     };
     const user = this.usersRepository.create(userEntity);
     const savedUser = await this.usersRepository.save(user);
-    console.log('User saved to database:', savedUser);
 
     if (userData.role === 'jobseeker') {
       const jobSeekerEntity: DeepPartial<JobSeeker> = {
         user_id: savedUser.id,
         timezone: additionalData.timezone || 'UTC',
         currency: additionalData.currency || 'USD',
-        ...(additionalData.job_search_status
-          ? { job_search_status: additionalData.job_search_status }
-          : { job_search_status: 'open_to_offers' }),
+        ...(additionalData.job_search_status ? { job_search_status: additionalData.job_search_status } : { job_search_status:   'open_to_offers' }),
         linkedin: additionalData.linkedin || null,
         instagram: additionalData.instagram || null,
         facebook: additionalData.facebook || null,
         description: additionalData.description || null,
+        whatsapp: additionalData.whatsapp || null,
+        telegram: additionalData.telegram || null,
       };
       jobSeekerEntity.resume = additionalData.resume || null;
       jobSeekerEntity.experience = additionalData.experience || null;
@@ -63,7 +53,6 @@ export class UsersService {
 
       const jobSeeker = this.jobSeekerRepository.create(jobSeekerEntity);
       await this.jobSeekerRepository.save(jobSeeker);
-      console.log('JobSeeker profile created:', jobSeeker);
 
     } else if (userData.role === 'employer') {
       const employerEntity: DeepPartial<Employer> = {
@@ -165,21 +154,18 @@ export class UsersService {
   }
 
   async updatePassword(userId: string, newPassword: string): Promise<void> {
-    console.log('Updating password for userId:', userId, 'with new hashed password:', newPassword);
     const user = await this.usersRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    
+    if (!user) throw new NotFoundException('User not found');
+  
     user.password = newPassword;
     await this.usersRepository.save(user);
-    
-    const updatedUser = await this.usersRepository.findOne({ where: { id: userId } });
-    console.log('Updated user password in DB:', updatedUser?.password);
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { email } });
+    const norm = (email || '').trim().toLowerCase();
+    return this.usersRepository.createQueryBuilder('u')
+      .where('LOWER(u.email) = :email', { email: norm })
+      .getOne();
   }
 
   async getRegistrationStats(

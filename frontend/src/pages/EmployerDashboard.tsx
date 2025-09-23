@@ -12,14 +12,15 @@ import {
   FaListUl,
   FaPlus,
   FaComments,
-  FaEnvelopeOpenText
+  FaEnvelopeOpenText,
+  FaQuoteLeft
 } from 'react-icons/fa';
 
 const EmployerDashboard: React.FC = () => {
   const { profile } = useRole();
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
-
+  const location = useLocation();
 
 
 const [unreadTotal, setUnreadTotal] = useState(0);
@@ -68,6 +69,21 @@ useEffect(() => {
   localStorage.removeItem('token');
   navigate('/');
 };
+
+
+
+useEffect(() => {               // +++
+  const root = document.querySelector('.edb-content');
+  if (!root) return;
+  // убрать футеры/копирайты из вложенной страницы
+  root.querySelectorAll('footer, .copyright, .copyright-container')
+      .forEach(el => el.remove());
+  // срезать верхние отступы первого блока
+  const first = Array.from(root.children).find(
+    el => el instanceof HTMLElement && getComputedStyle(el).display !== 'none'
+  ) as HTMLElement | undefined;
+  if (first) { first.style.marginTop = '0'; first.style.paddingTop = '0'; }
+}, [location.pathname]);
 
 
   const closeDrawer = () => setIsOpen(false);
@@ -133,6 +149,14 @@ useEffect(() => {
             <FaUserCog aria-hidden className="edb-nav__ico" />
             <span className="edb-nav__text">Profile</span>
           </NavLink>
+          <NavLink
+  to="/employer-dashboard/share-story"
+  className={({ isActive }) => `edb-nav__link ${isActive ? 'active' : ''}`}
+>
+  <FaQuoteLeft aria-hidden className="edb-nav__ico" />
+  <span className="edb-nav__text">Write Testimonial</span>
+</NavLink>
+
         </nav>
       </aside>
 

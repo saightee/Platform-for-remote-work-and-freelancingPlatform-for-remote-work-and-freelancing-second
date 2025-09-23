@@ -629,11 +629,156 @@ export class AdminService {
     return this.leaderboardsService.getTopJobseekersByViews(adminId, limit);
   }
 
-  async exportUsersToCsv(adminId: string): Promise<string> {
+  async exportUsersToCsv(
+    adminId: string,
+    filters?: {
+      role?: 'employer'|'jobseeker'|'admin'|'moderator';
+      status?: 'active'|'blocked';
+      q?: string;
+      email?: string;
+      username?: string;
+      country?: string;            // 'unknown' => IS NULL
+      provider?: string;           // 'none' => IS NULL
+      referralSource?: string;
+      companyName?: string;
+      jobSearchStatus?: 'actively_looking'|'open_to_offers'|'hired';
+      isEmailVerified?: boolean;
+      identityVerified?: boolean;
+      hasAvatar?: boolean;
+      hasResume?: boolean;         // for jobseekers
+      riskMin?: number;
+      riskMax?: number;
+      createdFrom?: Date;
+      createdTo?: Date;
+      lastLoginFrom?: Date;
+      lastLoginTo?: Date;
+      sortBy?: 'created_at'|'last_login_at';
+      order?: 'ASC'|'DESC';
+    }
+  ): Promise<{ csv: string; suggestedFilename: string }> {
     await this.checkAdminRole(adminId);
-    
-    const users = await this.usersRepository.find();
-    
+
+    const qb = this.usersRepository
+      .createQueryBuilder('u')
+      .leftJoin(JobSeeker, 'js', 'js.user_id = u.id')
+      .leftJoin(Employer, 'em', 'em.user_id = u.id');
+
+    // === Фильтры по User ===
+    if (filters?.role)   qb.andWhere('u.role = :role', { role: filters.role });
+    if (filters?.status) qb.andWhere('u.status = :status', { status: filters.status });
+
+    if (filters?.isEmailVerified !== undefined) {
+      qb.andWhere('u.is_email_verified = :isv', { isv: filters.isEmailVerified });
+    }
+    if (filters?.identityVerified !== undefined) {
+      qb.andWhere('u.identity_verified = :iv', { iv: filters.identityVerified });
+    }
+
+    if (filters?.provider) {
+      if (filters.provider === 'none') qb.andWhere('u.provider IS NULL');
+      else qb.andWhere('u.provider ILIKE :prov', { prov: `%${filters.provider}%` });
+    }
+
+    if (filters?.country) {
+      if (filters.country.toLowerCase() === 'unknown') qb.andWhere('u.country IS NULL');
+      else qb.andWhere('u.country ILIKE :country', { country: `%${filters.country}%` });
+    }
+
+    if (filters?.q) {
+      qb.andWhere('(u.email ILIKE :q OR u.username ILIKE :q)', { q: `%${filters.q}%` });
+    }
+    if (filters?.email) {
+      qb.andWhere('u.email ILIKE :email', { email: `%${filters.email}%` });
+    }
+    if (filters?.username) {
+      qb.andWhere('u.username ILIKE :username', { username: `%${filters.username}%` });
+    }
+    if (filters?.referralSource) {
+      qb.andWhere('u.referral_source ILIKE :refsrc', { refsrc: `%${filters.referralSource}%` });
+    }
+
+    if (typeof filters?.riskMin === 'number') {
+      qb.andWhere('u.risk_score >= :rmin', { rmin: filters.riskMin });
+    }
+    if (typeof filters?.riskMax === 'number') {
+      qb.andWhere('u.risk_score <= :rmax', { rmax: filters.riskMax });
+    }
+
+    if (filters?.createdFrom) {
+      qb.andWhere('u.created_at >= :cfrom', { cfrom: filters.createdFrom });
+    }
+    if (filters?.createdTo) {
+      // включительно по дате — установим 23:59:59.999
+      const to = new Date(filters.createdTo);
+      to.setHours(23,59,59,999);
+      qb.andWhere('u.created_at <= :cto', { cto: to });
+    }
+
+    if (filters?.lastLoginFrom) {
+      qb.andWhere('u.last_login_at IS NOT NULL AND u.last_login_at >= :llfrom', { llfrom: filters.lastLoginFrom });
+    }
+    if (filters?.lastLoginTo) {
+      const to = new Date(filters.lastLoginTo);
+      to.setHours(23,59,59,999);
+      qb.andWhere('u.last_login_at IS NOT NULL AND u.last_login_at <= :llto', { llto: to });
+    }
+
+    if (filters?.hasAvatar !== undefined) {
+      if (filters.hasAvatar) qb.andWhere('(u.avatar IS NOT NULL AND u.avatar <> \'\')');
+      else qb.andWhere('(u.avatar IS NULL OR u.avatar = \'\')');
+    }
+
+    // === Фильтры по JobSeeker / Employer ===
+    if (filters?.hasResume !== undefined) {
+      if (filters.hasResume) qb.andWhere('(u.role = \'jobseeker\' AND js.resume IS NOT NULL AND js.resume <> \'\')');
+      else qb.andWhere('(u.role = \'jobseeker\' AND (js.resume IS NULL OR js.resume = \'\'))');
+    }
+    if (filters?.jobSearchStatus) {
+      qb.andWhere('(u.role = \'jobseeker\' AND js.job_search_status = :jss)', { jss: filters.jobSearchStatus });
+    }
+    if (filters?.companyName) {
+      qb.andWhere('(u.role = \'employer\' AND em.company_name ILIKE :cname)', { cname: `%${filters.companyName}%` });
+    }
+
+    // Сортировка
+    const sortField = filters?.sortBy === 'last_login_at' ? 'u.last_login_at' : 'u.created_at';
+    const sortOrder = filters?.order === 'ASC' ? 'ASC' : 'DESC';
+    qb.orderBy(sortField, sortOrder);
+
+    // Подтягиваем нужные поля для CSV
+    qb.select([
+      'u.id AS id',
+      'u.email AS email',
+      'u.username AS username',
+      'u.role AS role',
+      'u.status AS status',
+      'u.country AS country',
+      'u.provider AS provider',
+      'u.is_email_verified AS is_email_verified',
+      'u.identity_verified AS identity_verified',
+      'u.referral_source AS referral_source',
+      'u.risk_score AS risk_score',
+      'u.created_at AS created_at',
+      'u.updated_at AS updated_at',
+      'u.last_login_at AS last_login_at',
+      'u.last_seen_at AS last_seen_at',
+      'u.avatar AS avatar',
+
+      // jobseeker
+      'js.job_search_status AS js_job_search_status',
+      'js.expected_salary AS js_expected_salary',
+      'js.currency AS js_currency',
+      'js.average_rating AS js_average_rating',
+      'js.resume AS js_resume',
+
+      // employer
+      'em.company_name AS em_company_name',
+      'em.average_rating AS em_average_rating',
+    ]);
+
+    const rows = await qb.getRawMany();
+
+    // Формируем CSV
     const csvStringifier = createObjectCsvStringifier({
       header: [
         { id: 'id', title: 'User ID' },
@@ -641,23 +786,71 @@ export class AdminService {
         { id: 'username', title: 'Username' },
         { id: 'role', title: 'Role' },
         { id: 'status', title: 'Status' },
+        { id: 'country', title: 'Country' },
+        { id: 'provider', title: 'Provider' },
+        { id: 'is_email_verified', title: 'Email Verified' },
+        { id: 'identity_verified', title: 'Identity Verified' },
+        { id: 'referral_source', title: 'Referral Source' },
+        { id: 'risk_score', title: 'Risk Score' },
         { id: 'created_at', title: 'Created At' },
         { id: 'updated_at', title: 'Updated At' },
+        { id: 'last_login_at', title: 'Last Login At' },
+        { id: 'last_seen_at', title: 'Last Seen At' },
+        { id: 'has_avatar', title: 'Has Avatar' },
+
+        // jobseeker доп.колонки
+        { id: 'js_job_search_status', title: 'JS Job Search Status' },
+        { id: 'js_expected_salary', title: 'JS Expected Salary' },
+        { id: 'js_currency', title: 'JS Currency' },
+        { id: 'js_average_rating', title: 'JS Avg Rating' },
+        { id: 'has_resume', title: 'JS Has Resume' },
+
+        // employer доп.колонки
+        { id: 'em_company_name', title: 'EM Company Name' },
+        { id: 'em_average_rating', title: 'EM Avg Rating' },
       ],
     });
-  
-    const records = users.map(user => ({
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      role: user.role,
-      status: user.status,
-      created_at: user.created_at.toISOString(),
-      updated_at: user.updated_at.toISOString(),
+
+    const records = rows.map(r => ({
+      id: r.id,
+      email: r.email,
+      username: r.username,
+      role: r.role,
+      status: r.status,
+      country: r.country || '',
+      provider: r.provider || '',
+      is_email_verified: r.is_email_verified ? 'true' : 'false',
+      identity_verified: r.identity_verified ? 'true' : 'false',
+      referral_source: r.referral_source || '',
+      risk_score: r.risk_score ?? 0,
+      created_at: r.created_at ? new Date(r.created_at).toISOString() : '',
+      updated_at: r.updated_at ? new Date(r.updated_at).toISOString() : '',
+      last_login_at: r.last_login_at ? new Date(r.last_login_at).toISOString() : '',
+      last_seen_at: r.last_seen_at ? new Date(r.last_seen_at).toISOString() : '',
+      has_avatar: r.avatar && String(r.avatar).trim() !== '' ? 'true' : 'false',
+
+      js_job_search_status: r.js_job_search_status || '',
+      js_expected_salary: r.js_expected_salary ?? '',
+      js_currency: r.js_currency || '',
+      js_average_rating: r.js_average_rating ?? '',
+      has_resume: r.js_resume && String(r.js_resume).trim() !== '' ? 'true' : 'false',
+
+      em_company_name: r.em_company_name || '',
+      em_average_rating: r.em_average_rating ?? '',
     }));
-  
-    const csvData = csvStringifier.getHeaderString() + csvStringifier.stringifyRecords(records);
-    return csvData;
+
+    const csv = csvStringifier.getHeaderString() + csvStringifier.stringifyRecords(records);
+
+    const date = new Date();
+    const y = date.getFullYear().toString();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    const parts: string[] = ['users', `${y}${m}${d}`];
+    if (filters?.role) parts.push(`role-${filters.role}`);
+    if (filters?.status) parts.push(`status-${filters.status}`);
+    const suggestedFilename = `${parts.join('_')}.csv`;
+
+    return { csv, suggestedFilename };
   }
 
   async getGrowthTrends(adminId: string, period: '7d' | '30d') {
@@ -683,28 +876,80 @@ export class AdminService {
     };
   }
 
-  async getRecentRegistrations(adminId: string, limit: number = 5) {
+  async getRecentRegistrationsByDay(
+    adminId: string,
+    opts: { date?: string; tzOffset?: number },
+  ) {
     await this.checkAdminRole(adminId);
-    const users = await this.usersRepository.find({
-      where: [{ role: 'jobseeker' }, { role: 'employer' }],
-      order: { created_at: 'DESC' },
-      take: limit * 2,
-    });
+  
+    const tzOffset = Number.isFinite(opts.tzOffset) ? opts.tzOffset! : 0;
+    const todayLocal = (() => {
+      if (opts.date) return opts.date;
+      const now = new Date();
+      const local = new Date(now.getTime() + tzOffset * 60_000);
+      const y = local.getUTCFullYear();
+      const m = String(local.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(local.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    })();
+  
+    const [Y, M, D] = todayLocal.split('-').map(Number);
+    const startUtc = new Date(Date.UTC(Y, M - 1, D, 0, 0, 0) - tzOffset * 60_000);
+    const endUtc   = new Date(Date.UTC(Y, M - 1, D + 1, 0, 0, 0) - tzOffset * 60_000);
+  
+    const baseWhere = (qb, role: 'jobseeker' | 'employer') =>
+      qb.where('u.role = :role', { role })
+        .andWhere('u.created_at >= :from AND u.created_at < :to', { from: startUtc, to: endUtc });
+  
+    const jsQb = this.usersRepository.createQueryBuilder('u');
+    baseWhere(jsQb, 'jobseeker');
+    const emQb = this.usersRepository.createQueryBuilder('u');
+    baseWhere(emQb, 'employer');
+  
+    const [jsTotal, emTotal] = await Promise.all([jsQb.getCount(), emQb.getCount()]);
+  
+    // Больше НЕ ограничиваем .take(limit) — берём все за день
+    jsQb.orderBy('u.created_at', 'DESC');
+    emQb.orderBy('u.created_at', 'DESC');
+  
+    const [jsUsers, empUsers] = await Promise.all([jsQb.getMany(), emQb.getMany()]);
+  
+    const enrich = async (u: User) => {
+      const latestReg = await this.referralRegistrationsRepository.findOne({
+        where: { user: { id: u.id } },
+        relations: ['referral_link', 'referral_link.job_post'],
+        order: { created_at: 'DESC' },
+      });
+    
+      const link = latestReg?.referral_link;
+      const job  = link?.job_post;
+    
+      return {
+        id: u.id,
+        email: u.email,
+        username: u.username,
+        role: u.role,
+        created_at: u.created_at,
+      
+        referral_from_signup: u.referral_source || null,
+        referral_link_description: link?.description || null,
+        referral_job: job ? { id: job.id, title: job.title } : null,
+        referral_job_description: job?.description || null,
+      };
+    };
+  
+    const [jobseekers, employers] = await Promise.all([
+      Promise.all(jsUsers.map(enrich)),
+      Promise.all(empUsers.map(enrich)),
+    ]);
+  
     return {
-      jobseekers: users.filter(u => u.role === 'jobseeker').slice(0, limit).map(u => ({
-        id: u.id,
-        email: u.email,
-        username: u.username,
-        role: u.role,
-        created_at: u.created_at,
-      })),
-      employers: users.filter(u => u.role === 'employer').slice(0, limit).map(u => ({
-        id: u.id,
-        email: u.email,
-        username: u.username,
-        role: u.role,
-        created_at: u.created_at,
-      })),
+      date: todayLocal,
+      tzOffset,
+      jobseekers_total: jsTotal,
+      employers_total: emTotal,
+      jobseekers,
+      employers,
     };
   }
 
