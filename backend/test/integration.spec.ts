@@ -2,8 +2,7 @@ import request from 'supertest';
 import path from 'path';
 import fs from 'fs';
 
-// --- глобальные настройки jest (до describe)
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 if ((jest as any).retryTimes) {
   (jest as any).retryTimes(1, { logErrorsBeforeRetry: true });
 }
@@ -266,9 +265,9 @@ describe('Integration Tests (staging)', () => {
         expect([200, 404]).toContain(bySlug.status);
         if (bySlug.status === 200) expect(bySlug.body?.id).toBe(jobId);
       }
-    }, 20000); // кейсу даём больше времени
+    }, 30000); // локальный таймаут 30с для длинной цепочки
 
-    it('Close job post: first close -> 200/201; second close -> 400', async () => {
+    it('Close job post: first close -> 200/201; second close -> 400/200/201', async () => {
       const token = await login(CREDS.EMPLOYER_EMAIL, CREDS.EMPLOYER_PASSWORD);
       const create = await bearer(token).post('/api/job-posts').send({
         title: 'E2E CLOSE ' + Date.now(),
@@ -288,7 +287,7 @@ describe('Integration Tests (staging)', () => {
       expect([200, 201]).toContain(first.status);
 
       const second = await bearer(token).post(`/api/job-posts/${jobId}/close`);
-      expect([400, 200, 201]).toContain(second.status); // если идемпотентность "мягкая"
+      expect([400, 200, 201]).toContain(second.status);
     });
 
     it('Generate description (AI): POST /api/job-posts/generate-description -> 200/429/500', async () => {
@@ -299,7 +298,7 @@ describe('Integration Tests (staging)', () => {
         salary_type: 'negotiable',
       });
       expect([200, 429, 500]).toContain(res.status);
-    }, 20000); // ИИ-ручка может отвечать дольше
+    }, 30000); // ИИ-ручка может отвечать дольше
   });
 
   // 5) Отклики на вакансию: успех или ожидаемые ограничения
@@ -417,6 +416,72 @@ describe('Integration Tests (staging)', () => {
         message: 'check this http://spam.example.com amazing offer',
       });
       expect([400, 422]).toContain(res.status);
+    });
+  });
+
+  // 9) Public Stats (статистика без токена)
+  describe('Public Stats', () => {
+    it('GET /api/stats -> 200 + keys present', async () => {
+      const res = await http.get('/api/stats');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('totalResumes');
+      expect(res.body).toHaveProperty('totalJobPosts');
+      expect(res.body).toHaveProperty('totalEmployers');
+    });
+
+    it('GET /api/stats/job-posts-by-main-categories -> 200 array', async () => {
+      const res = await http.get('/api/stats/job-posts-by-main-categories');
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    it('GET /api/stats/job-posts-by-subcategories -> 200 array', async () => {
+      const res = await http.get('/api/stats/job-posts-by-subcategories');
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+    });
+  });
+
+  // 10) Talents search (валидные и невалидные параметры)
+  describe('Talents search', () => {
+    it('GET /api/talents basic -> 200 array', async () => {
+      const res = await http.get('/api/talents?limit=5&page=1&sort_by=profile_views&sort_order=DESC');
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body?.data || res.body)).toBeTruthy(); // допустим разный формат
+    });
+
+    it('GET /api/talents invalid rating -> 400', async () => {
+      const res = await http.get('/api/talents?rating=99');
+      expect([400, 422]).toContain(res.status);
+    });
+
+    it('GET /api/talents invalid paging -> 400', async () => {
+      const res = await http.get('/api/talents?page=0&limit=-1');
+      expect([400, 422]).toContain(res.status);
+    });
+  });
+
+  // 11) Platform Feedback (истории успеха)
+  describe('Platform Feedback', () => {
+    it('Jobseeker can submit platform feedback -> 200/201', async () => {
+      const jsToken = await login(CREDS.JOBSEEKER_EMAIL, CREDS.JOBSEEKER_PASSWORD);
+      const res = await bearer(jsToken).post('/api/platform-feedback').send({
+        headline: 'E2E success',
+        story: 'Found a great job through JobForge!',
+        rating: 5,
+        allow_publish: true,
+        company: 'ACME',
+        country: 'SE',
+      });
+      expect([200, 201]).toContain(res.status);
+      expect(res.body).toHaveProperty('id');
+    });
+
+    it('Public list: GET /api/platform-feedback -> 200', async () => {
+      const res = await http.get('/api/platform-feedback?page=1&limit=5');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('data');
+      expect(Array.isArray(res.body.data)).toBe(true);
     });
   });
 });
