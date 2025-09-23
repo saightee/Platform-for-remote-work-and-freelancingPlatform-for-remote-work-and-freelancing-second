@@ -878,10 +878,10 @@ export class AdminService {
 
   async getRecentRegistrationsByDay(
     adminId: string,
-    opts: { date?: string; tzOffset?: number; limit?: number },
+    opts: { date?: string; tzOffset?: number },
   ) {
     await this.checkAdminRole(adminId);
-
+  
     const tzOffset = Number.isFinite(opts.tzOffset) ? opts.tzOffset! : 0;
     const todayLocal = (() => {
       if (opts.date) return opts.date;
@@ -892,58 +892,57 @@ export class AdminService {
       const d = String(local.getUTCDate()).padStart(2, '0');
       return `${y}-${m}-${d}`;
     })();
-
+  
     const [Y, M, D] = todayLocal.split('-').map(Number);
     const startUtc = new Date(Date.UTC(Y, M - 1, D, 0, 0, 0) - tzOffset * 60_000);
     const endUtc   = new Date(Date.UTC(Y, M - 1, D + 1, 0, 0, 0) - tzOffset * 60_000);
-
-    const limit = Math.max(1, opts.limit ?? 5);
-
+  
     const baseWhere = (qb, role: 'jobseeker' | 'employer') =>
       qb.where('u.role = :role', { role })
         .andWhere('u.created_at >= :from AND u.created_at < :to', { from: startUtc, to: endUtc });
-
+  
     const jsQb = this.usersRepository.createQueryBuilder('u');
     baseWhere(jsQb, 'jobseeker');
     const emQb = this.usersRepository.createQueryBuilder('u');
     baseWhere(emQb, 'employer');
-
+  
     const [jsTotal, emTotal] = await Promise.all([jsQb.getCount(), emQb.getCount()]);
-
-    jsQb.orderBy('u.created_at', 'DESC').take(limit);
-    emQb.orderBy('u.created_at', 'DESC').take(limit);
-
+  
+    // Больше НЕ ограничиваем .take(limit) — берём все за день
+    jsQb.orderBy('u.created_at', 'DESC');
+    emQb.orderBy('u.created_at', 'DESC');
+  
     const [jsUsers, empUsers] = await Promise.all([jsQb.getMany(), emQb.getMany()]);
-
+  
     const enrich = async (u: User) => {
       const latestReg = await this.referralRegistrationsRepository.findOne({
         where: { user: { id: u.id } },
         relations: ['referral_link', 'referral_link.job_post'],
         order: { created_at: 'DESC' },
       });
-
+    
       const link = latestReg?.referral_link;
       const job  = link?.job_post;
-
+    
       return {
         id: u.id,
         email: u.email,
         username: u.username,
         role: u.role,
         created_at: u.created_at,
-
+      
         referral_from_signup: u.referral_source || null,
         referral_link_description: link?.description || null,
         referral_job: job ? { id: job.id, title: job.title } : null,
         referral_job_description: job?.description || null,
       };
     };
-
+  
     const [jobseekers, employers] = await Promise.all([
       Promise.all(jsUsers.map(enrich)),
       Promise.all(empUsers.map(enrich)),
     ]);
-
+  
     return {
       date: todayLocal,
       tzOffset,
