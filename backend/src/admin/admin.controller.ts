@@ -651,7 +651,6 @@ export class AdminController {
   async getRecentRegistrations(
     @Query('date') date: string | undefined,
     @Query('tzOffset') tzOffsetStr: string | undefined,
-    @Query('limit') limitStr: string | undefined,
     @Headers('authorization') authHeader: string,
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -660,11 +659,10 @@ export class AdminController {
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const adminId = payload.sub;
-
-    const limit = limitStr ? Math.max(1, parseInt(limitStr, 10)) : 5;
+  
     const tzOffset = tzOffsetStr !== undefined ? parseInt(tzOffsetStr, 10) : 0;
-
-    return this.adminService.getRecentRegistrationsByDay(adminId, { date, tzOffset, limit });
+  
+    return this.adminService.getRecentRegistrationsByDay(adminId, { date, tzOffset });
   }
 
   @UseGuards(AuthGuard('jwt'), AdminGuard)
