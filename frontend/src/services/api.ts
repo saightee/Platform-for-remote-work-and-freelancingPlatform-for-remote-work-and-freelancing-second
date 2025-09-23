@@ -538,12 +538,25 @@ export const getJobPost = async (id: string) => {
     const response = await api.get<JobPost>(`/job-posts/${id}`);
     const job = response.data as any;
 
-    // fallback: если category отсутствует, но есть category_id — достанем из кэша/дерева
+    // category fallback
     if (!job?.category && job?.category_id != null) {
       const cats = await __ensureCategories();
       const cat = __findCatById(job.category_id, cats);
-      if (cat) {
-        job.category = { id: cat.id, name: cat.name };
+      if (cat) job.category = { id: cat.id, name: cat.name };
+    }
+
+    // employer fallback
+    if ((!job?.employer || !job.employer?.username) && job?.employer_id != null) {
+      try {
+        const p = await getUserProfileById(String(job.employer_id));
+        job.employer = {
+          id: String((p as any).id ?? job.employer_id),
+          username: p.username || 'Unknown',
+          avatar: p.avatar || null,
+          company_name: (p as any).company_name || undefined,
+        };
+      } catch (e) {
+        console.warn(`Employer fallback failed for job ${id}`, e);
       }
     }
 
@@ -555,6 +568,8 @@ export const getJobPost = async (id: string) => {
     throw axiosError;
   }
 };
+
+
 
 
 export const getMyJobPosts = async () => {
@@ -578,22 +593,38 @@ export const searchJobPosts = async (params: {
 }) => {
   const { data } = await api.get<PaginatedResponse<JobPost>>('/job-posts', { params });
 
-  // Поправим категории в выдаче, если их нет
-  try {
-    const cats = await __ensureCategories();
-    data.data = data.data.map(j => {
+try {
+  const cats = await __ensureCategories();
+  data.data = await Promise.all(
+    data.data.map(async (j) => {
       const job: any = { ...j };
+
+      // category fallback
       if (!job.category && job.category_id != null) {
         const cat = __findCatById(job.category_id, cats);
         if (cat) job.category = { id: cat.id, name: cat.name };
       }
-      return job as JobPost;
-    });
-  } catch {
-    // молча пропускаем, если категории не загрузились
-  }
 
-  return data;
+      // ✅ employer fallback
+      if ((!job.employer || !job.employer?.username) && job.employer_id != null) {
+        try {
+          const p = await getUserProfileById(String(job.employer_id));
+          job.employer = {
+            id: String((p as any).id ?? job.employer_id),
+            username: p.username || 'Unknown',
+            avatar: p.avatar || null,
+            company_name: (p as any).company_name || undefined,
+          };
+        } catch { /* ignore */ }
+      }
+
+      return job as JobPost;
+    })
+  );
+} catch {
+  // молча пропускаем
+}
+return data;
 };
 
 

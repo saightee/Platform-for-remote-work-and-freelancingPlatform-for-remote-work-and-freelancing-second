@@ -113,6 +113,14 @@ const jobId = jobData.id;
   // profile нужен из-за проверки роли; pathname/hash — для очистки URL без ?ref
 }, [slugOrId, profile, location.pathname, location.hash]);
 
+const [hasReferral, setHasReferral] = useState(false);
+useEffect(() => {
+  const qs = new URLSearchParams(location.search);
+  const refQ = qs.get('ref');
+  const refLS = localStorage.getItem('referralCode');
+  const refCookie = document.cookie.split('; ').some(s => s.startsWith('jf_ref='));
+  setHasReferral(Boolean(refQ || refLS || refCookie));
+}, [location.search]);
 
 const handleApply = async () => {
   if (hasApplied) return;
@@ -364,13 +372,17 @@ const backAfterReport =
       <Link to="/login" className="lp-btn lp-primary"><FaSignInAlt /> Log in</Link>
       <span>or</span>
       <Link
-        to={`/register/jobseeker?return=${encodeURIComponent(
-          slugId ? `/vacancy/${slugId}` : `/jobs/${job.id}`
-        )}`}
-        className="lp-btn lp-outline"
-      >
-        <FaUserPlus /> Register
-      </Link>
+  to={
+    hasReferral
+      ? `/register/jobseeker?utm_source=job_details&job=${encodeURIComponent(job?.id || '')}&return=${encodeURIComponent(
+          slugId ? `/vacancy/${slugId}` : `/jobs/${job!.id}`
+        )}`
+      : `/register/jobseeker?utm_source=job_details`
+  }
+  className="lp-btn lp-outline"
+>
+  <FaUserPlus /> Register
+</Link>
       <span>as jobseeker to apply for this job.</span>
     </p>
   </div>
@@ -404,11 +416,15 @@ const backAfterReport =
           {!profile && job.status === 'Active' && (
   <div style={{ display: 'flex', justifyContent: 'center', fontWeight: 'bold' }}>
     <button
-       onClick={() => navigate(
-    `/register/jobseeker?utm_source=job_details&job=${encodeURIComponent(job?.id || '')}&return=${encodeURIComponent(
-      slugId ? `/vacancy/${slugId}` : (job?.id ? `/jobs/${job.id}` : '/find-job')
-    )}`
-  )}
+      onClick={() => {
+  const base = '/register/jobseeker';
+  const ret = slugId ? `/vacancy/${slugId}` : (job?.id ? `/jobs/${job.id}` : '/find-job');
+  const url = hasReferral
+    ? `${base}?utm_source=job_details&job=${encodeURIComponent(job?.id || '')}&return=${encodeURIComponent(ret)}`
+    : `${base}?utm_source=job_details`;
+  navigate(url);
+}}
+
   className="action-button"
           style={{
             fontSize: '15px',

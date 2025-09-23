@@ -83,6 +83,7 @@ const App: React.FC = () => {
   <Route path="post-job" element={<PostJob />} />
   <Route path="messages" element={<Messages />} />
   <Route path="report-issue" element={<ReportIssue />} />
+  <Route path="share-story" element={<ShareStory />} />
 </Route>
 
 <Route path="/jobseeker-dashboard" element={<JobseekerDashboard />}>
@@ -91,6 +92,7 @@ const App: React.FC = () => {
   <Route path="my-applications" element={<MyApplications />} />
   <Route path="messages" element={<Messages />} />
   <Route path="report-issue" element={<ReportIssue />} />
+  <Route path="share-story" element={<ShareStory />} />
 </Route>
 
          

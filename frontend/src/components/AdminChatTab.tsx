@@ -2,16 +2,28 @@ import React, { useEffect, useState } from 'react';
 import AdminChatHistory from './AdminChatHistory';
 import { adminFindJobPostsByTitle, adminListApplicationsForJob } from '../services/api';
 
-const LS_KEY = 'admin_chat_jobApplicationId';
+const LS_APP_ID = 'admin_chat_jobApplicationId';
+const LS_JOB_ID = 'admin_chat_lastJobId';
+const LS_TITLE = 'admin_chat_lastTitle';
+
+type FoundJob = {
+  id: string;
+  title: string;
+  employer?: { username?: string; email?: string } | null;
+};
 
 const AdminChatTab: React.FC = () => {
   // шаг 1 — поиск вакансии по title
-  const [titleQuery, setTitleQuery] = useState('');
-  const [jobs, setJobs] = useState<Array<{ id: string; title: string }>>([]);
+  const [titleQuery, setTitleQuery] = useState<string>(() => {
+    try { return localStorage.getItem(LS_TITLE) || ''; } catch { return ''; }
+  });
+  const [jobs, setJobs] = useState<Array<FoundJob>>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
 
   // шаг 2 — выбор вакансии → подгрузка откликов
-  const [selectedJobId, setSelectedJobId] = useState<string>('');
+  const [selectedJobId, setSelectedJobId] = useState<string>(() => {
+    try { return localStorage.getItem(LS_JOB_ID) || ''; } catch { return ''; }
+  });
   const [apps, setApps] = useState<Array<{ applicationId: string; username?: string; email?: string }>>([]);
   const [appsLoading, setAppsLoading] = useState(false);
 
@@ -21,7 +33,7 @@ const AdminChatTab: React.FC = () => {
   // восстановление последнего jobApplicationId (как раньше)
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(LS_KEY);
+      const saved = localStorage.getItem(LS_APP_ID);
       if (saved) setCurrentId(saved);
     } catch {}
   }, []);
@@ -29,11 +41,22 @@ const AdminChatTab: React.FC = () => {
   // поиск вакансий при вводе
   useEffect(() => {
     const t = setTimeout(async () => {
-      if (!titleQuery.trim()) { setJobs([]); return; }
+      const q = titleQuery.trim();
+      try { localStorage.setItem(LS_TITLE, q); } catch {}
+      if (!q) { setJobs([]); return; }
+
       try {
         setJobsLoading(true);
-        const list = await adminFindJobPostsByTitle(titleQuery.trim());
-        setJobs(list.map(j => ({ id: String(j.id), title: j.title })));
+        const list = await adminFindJobPostsByTitle(q);
+        // бережно достаем employer, если бэк отдаёт
+        const mapped: FoundJob[] = (list || []).map((j: any) => ({
+          id: String(j.id),
+          title: j.title,
+          employer: j.employer
+            ? { username: j.employer.username, email: j.employer.email }
+            : (j.user ? { username: j.user.username, email: j.user.email } : null),
+        }));
+        setJobs(mapped);
       } finally {
         setJobsLoading(false);
       }
@@ -48,10 +71,10 @@ const AdminChatTab: React.FC = () => {
       try {
         setAppsLoading(true);
         const list = await adminListApplicationsForJob(selectedJobId);
-        setApps(list.map(a => ({
-          applicationId: String((a as any).applicationId || (a as any).id),
-          username: (a as any).username,
-          email: (a as any).email,
+        setApps((list || []).map((a: any) => ({
+          applicationId: String(a.applicationId || a.id),
+          username: a.username,
+          email: a.email,
         })));
       } finally {
         setAppsLoading(false);
@@ -63,8 +86,25 @@ const AdminChatTab: React.FC = () => {
   // выбрать отклик → открыть чат и запомнить
   const loadChat = (appId: string) => {
     setCurrentId(appId);
-    try { localStorage.setItem(LS_KEY, appId); } catch {}
+    try { localStorage.setItem(LS_APP_ID, appId); } catch {}
   };
+
+  // выбрать вакансию → загрузить отклики и запомнить
+  const onPickJob = (jobId: string) => {
+    setSelectedJobId(jobId);
+    try { localStorage.setItem(LS_JOB_ID, jobId); } catch {}
+    // сбросим выбранный чат при смене вакансии
+    setCurrentId('');
+    try { localStorage.removeItem(LS_APP_ID); } catch {}
+  };
+
+  // сколько показывать строк у селекта (автораскрытие)
+  const jobSelectSize = Math.min(8, (jobs?.length || 0) + 1);
+
+  const selectedJob = jobs.find(j => j.id === selectedJobId) || null;
+  const employerLabel = selectedJob
+    ? (selectedJob.employer?.username || selectedJob.employer?.email || '')
+    : '';
 
   return (
     <div>
@@ -78,16 +118,43 @@ const AdminChatTab: React.FC = () => {
           placeholder="Start typing job title…"
           style={{ minWidth:260, border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 10px' }}
         />
-        {jobsLoading ? <div style={{ color:'#6b7280' }}>Searching…</div> : null}
-        {jobs.length > 0 && (
+
+        {/* селект показываем, когда есть хоть какой-то ввод */}
+        {titleQuery.trim() && (
           <select
             value={selectedJobId}
-            onChange={e => setSelectedJobId(e.target.value)}
-            style={{ border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 10px' }}
+            onChange={e => onPickJob(e.target.value)}
+            size={jobs.length ? jobSelectSize : 1} // авто-раскрытие при наличии результатов
+            style={{
+              border:'1px solid #e5e7eb',
+              borderRadius:8,
+              padding:'8px 10px',
+              width:'100%',
+            }}
           >
-            <option value="">Select a job…</option>
-            {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
+            <option value="">
+              {jobsLoading
+                ? 'Ищу вакансии…'
+                : `Найдено: ${jobs.length}`}
+            </option>
+
+            {jobs.map(j => {
+              const emp = j.employer?.username || j.employer?.email;
+              return (
+                <option key={j.id} value={j.id}>
+                  {j.title}{emp ? ` — ${emp}` : ''}
+                </option>
+              );
+            })}
           </select>
+        )}
+
+        {/* выбранный job — строка-подтверждение (удобно при длинном списке) */}
+        {selectedJobId && selectedJob && (
+          <div style={{ fontSize:13, color:'#374151' }}>
+            Job Post: <b>{selectedJob.title}</b>
+            {employerLabel ? <span style={{ color:'#6b7280' }}>{' '} / {employerLabel}</span> : null}
+          </div>
         )}
       </div>
 
@@ -105,10 +172,12 @@ const AdminChatTab: React.FC = () => {
               defaultValue=""
               style={{ border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 10px' }}
             >
-              <option value="" disabled>Pick an application…</option>
+              <option value="" disabled>
+                Pick an application… ({apps.length})
+              </option>
               {apps.map(a => (
                 <option key={a.applicationId} value={a.applicationId}>
-                  {a.username || '—'} {a.email ? ` <${a.email}>` : ''}
+                  {a.username || '—'}{a.email ? ` <${a.email}>` : ''}
                 </option>
               ))}
             </select>
