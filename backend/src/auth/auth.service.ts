@@ -135,7 +135,7 @@ export class AuthService {
     return { message: 'Registration is successful. Please confirm your email.' };
   }
 
-  async verifyEmail(token: string): Promise<{ message: string; accessToken: string }> {  
+  async verifyEmail(token: string): Promise<{ message: string; accessToken: string }> {
       console.log(`[verifyEmail] Start verification with token: ${token}`);
       const userId = await this.redisService.get(`verify:${token}`);
       if (!userId) throw new BadRequestException('Invalid or expired verification token');
@@ -169,10 +169,10 @@ export class AuthService {
       await this.redisService.del(`verify:${token}`);
       await this.redisService.del(`verify_latest:${userId}`);
       console.log(`[verifyEmail] Token removed from Redis: verify:${token}`);
-
+    
       const payload = { email: user.email, sub: user.id, role: user.role };
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' }); 
-
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+      await this.redisService.set(`token:${user.id}`, accessToken, 7 * 24 * 60 * 60);
       return { message: 'Email successfully confirmed', accessToken };
     }
 
@@ -187,7 +187,7 @@ export class AuthService {
     const emailNorm = normalizeEmail(email);
 
     const rlKey = `rl:login:${emailNorm}:${ip || 'noip'}:${fingerprint || 'nofp'}`;
-    const fails = Number(await this.redisService.get(rlKey) || 0);
+    const fails = Number((await this.redisService.get(rlKey)) || 0);
     if (fails >= 5) {
       throw new UnauthorizedException('Too many attempts. Try later.');
     }
@@ -205,9 +205,9 @@ export class AuthService {
     }
 
     const payload = { email: user.email, sub: user.id, role: user.role };
-    const expiresIn = rememberMe ? '7d' : '1h';
+    const expiresIn = rememberMe ? '30d' : '7d';
     const token = this.jwtService.sign(payload, { expiresIn });
-    const expirySeconds = rememberMe ? 7 * 24 * 60 * 60 : 3600;
+    const expirySeconds = rememberMe ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60;
 
     await this.redisService.set(`token:${user.id}`, token, expirySeconds);
     await this.redisService.setUserOnline(user.id, user.role as 'jobseeker' | 'employer');
@@ -229,6 +229,10 @@ export class AuthService {
           reject(new BadRequestException('Failed to regenerate session'));
           return;
         }
+        session.cookie.maxAge = rememberMe
+          ? 30 * 24 * 60 * 60 * 1000
+          : 7 * 24 * 60 * 60 * 1000;
+
         session.user = { id: user.id, email: user.email, role: user.role };
         resolve({ accessToken: token });
       });
@@ -287,8 +291,8 @@ export class AuthService {
     }
 
     const payload = { email: existingUser.email, sub: existingUser.id, role: existingUser.role };
-    const token = this.jwtService.sign(payload, { expiresIn: '1h' });
-    await this.redisService.set(`token:${existingUser.id}`, token, 3600);
+    const token = this.jwtService.sign(payload, { expiresIn: '7d' });
+    await this.redisService.set(`token:${existingUser.id}`, token, 7 * 24 * 60 * 60);
     await this.redisService.del(`oauth:${tempToken}`);
     return { accessToken: token };
   }

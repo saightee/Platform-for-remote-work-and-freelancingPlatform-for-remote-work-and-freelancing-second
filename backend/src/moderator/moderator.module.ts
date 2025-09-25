@@ -21,7 +21,6 @@ import { PlatformFeedbackService } from '../platform-feedback/platform-feedback.
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '1h' },
       }),
       inject: [ConfigService],
     }),

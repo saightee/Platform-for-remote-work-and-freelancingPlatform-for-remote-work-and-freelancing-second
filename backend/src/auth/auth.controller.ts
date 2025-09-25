@@ -97,11 +97,11 @@ export class AuthController {
       if (!user || user.provider !== 'google') {
         throw new UnauthorizedException('Invalid credentials');
       }
-
+    
       const newPayload = { email: user.email, sub: user.id, role: user.role };
-      const newToken = this.jwtService.sign(newPayload, { expiresIn: '1h' });
-      await this.redisService.set(`token:${user.id}`, newToken, 3600);
-
+      const newToken = this.jwtService.sign(newPayload, { expiresIn: '7d' });
+      await this.redisService.set(`token:${user.id}`, newToken, 7 * 24 * 60 * 60);
+    
       return { accessToken: newToken };
     } catch (error) {
       throw new UnauthorizedException('Invalid token');
