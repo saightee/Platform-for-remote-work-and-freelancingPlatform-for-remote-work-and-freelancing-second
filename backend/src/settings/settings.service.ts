@@ -33,19 +33,39 @@ export class SettingsService {
 
   async getChatNotificationSettings() {
     const row = await this.settingsRepository.findOne({ where: { key: this.CHAT_KEY } });
+  
     const defaults = {
       enabled: true,
       onEmployerMessage: {
         immediate: true,
         delayedIfUnread: { enabled: true, minutes: 60 },
+        after24hIfUnread: { enabled: true, hours: 24 }, // NEW
         onlyFirstMessageInThread: false,
       },
       throttle: { perChatCount: 2, perMinutes: 60 },
     };
-    if (!row) return defaults;
+  
+    if (!row?.value) return defaults;
+  
     try {
-      const parsed = JSON.parse(row.value);
-      return { ...defaults, ...parsed };
+      const parsed = JSON.parse(row.value) || {};
+      return {
+        ...defaults,
+        ...parsed,
+        onEmployerMessage: {
+          ...defaults.onEmployerMessage,
+          ...(parsed.onEmployerMessage || {}),
+          delayedIfUnread: {
+            ...defaults.onEmployerMessage.delayedIfUnread,
+            ...(parsed.onEmployerMessage?.delayedIfUnread || {}),
+          },
+          after24hIfUnread: {
+            ...defaults.onEmployerMessage.after24hIfUnread,
+            ...(parsed.onEmployerMessage?.after24hIfUnread || {}),
+          },
+        },
+        throttle: { ...defaults.throttle, ...(parsed.throttle || {}) },
+      };
     } catch {
       return defaults;
     }

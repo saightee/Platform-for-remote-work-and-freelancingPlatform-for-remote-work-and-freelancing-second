@@ -1131,13 +1131,15 @@ export class AdminController {
 
   @Post('settings/chat-notifications')
   @UseGuards(AuthGuard('jwt'), AdminGuard)
-  async setChatNotifications(
-    @Body() body: any,
-    @Headers('authorization') authHeader: string,
-  ) {
+  async setChatNotifications(@Body() body: any, @Headers('authorization') authHeader: string) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
     }
+
+    const intPos = (v: any, def: number) => {
+      const n = Number(v);
+      return Number.isInteger(n) && n > 0 ? n : def;
+    };
 
     const normalized = {
       enabled: Boolean(body?.enabled),
@@ -1145,13 +1147,17 @@ export class AdminController {
         immediate: Boolean(body?.onEmployerMessage?.immediate),
         delayedIfUnread: {
           enabled: Boolean(body?.onEmployerMessage?.delayedIfUnread?.enabled),
-          minutes: Math.max(1, Number(body?.onEmployerMessage?.delayedIfUnread?.minutes ?? 60)),
+          minutes: intPos(body?.onEmployerMessage?.delayedIfUnread?.minutes, 60),
+        },
+        after24hIfUnread: {                                          // NEW
+          enabled: Boolean(body?.onEmployerMessage?.after24hIfUnread?.enabled),
+          hours: intPos(body?.onEmployerMessage?.after24hIfUnread?.hours, 24),
         },
         onlyFirstMessageInThread: Boolean(body?.onEmployerMessage?.onlyFirstMessageInThread),
       },
       throttle: {
-        perChatCount: Math.max(1, Number(body?.throttle?.perChatCount ?? 2)),
-        perMinutes: Math.max(1, Number(body?.throttle?.perMinutes ?? 60)),
+        perChatCount: intPos(body?.throttle?.perChatCount, 2),
+        perMinutes: intPos(body?.throttle?.perMinutes, 60),
       },
     };
 
@@ -1159,5 +1165,4 @@ export class AdminController {
     return { message: 'Chat notification settings updated', settings: normalized };
   }
 
-  
 }

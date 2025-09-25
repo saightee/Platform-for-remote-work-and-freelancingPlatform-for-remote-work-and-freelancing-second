@@ -4164,6 +4164,7 @@
     "onEmployerMessage": {
       "immediate": true,
       "delayedIfUnread": { "enabled": true, "minutes": 60 },
+      "after24hIfUnread": { "enabled": true, "hours": 24 },   // NEW
       "onlyFirstMessageInThread": false
     },
     "throttle": { "perChatCount": 2, "perMinutes": 60 }
@@ -4184,6 +4185,7 @@
     "onEmployerMessage": {
       "immediate": true,
       "delayedIfUnread": { "enabled": true, "minutes": 60 },
+      "after24hIfUnread": { "enabled": true, "hours": 24 },   // NEW
       "onlyFirstMessageInThread": false
     },
     "throttle": { "perChatCount": 2, "perMinutes": 60 }

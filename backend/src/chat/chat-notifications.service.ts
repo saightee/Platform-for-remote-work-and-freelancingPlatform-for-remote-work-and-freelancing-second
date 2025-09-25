@@ -14,6 +14,7 @@ export interface ChatNotificationSettings {
   onEmployerMessage: {
     immediate: boolean;
     delayedIfUnread: { enabled: boolean; minutes: number };
+    after24hIfUnread: { enabled: boolean; hours: number }; // NEW
     onlyFirstMessageInThread?: boolean;
   };
   throttle: { perChatCount: number; perMinutes: number };
@@ -44,38 +45,30 @@ export class ChatNotificationsService {
     setInterval(() => this.processDueJobs().catch(() => {}), this.QUEUE_POLL_MS);
   }
 
-  /** Вызывать из ChatService.createMessage сразу после save() */
   async onNewMessage(saved: Message, application: JobApplication) {
     const settings = await this.settingsService.getChatNotificationSettings();
     if (!settings.enabled) return;
 
-    // уведомляем только при направлении работодатель -> соискатель
     const senderIsEmployer = saved.sender_id === application.job_post.employer_id;
     const recipientIsJobSeeker = saved.recipient_id === application.job_seeker_id;
     if (!senderIsEmployer || !recipientIsJobSeeker) return;
 
     if (settings.onEmployerMessage.onlyFirstMessageInThread) {
-      // если это не первое сообщение в чате — пропускаем (отложенное всё равно можем поставить)
-      const cnt = await this.messagesRepository.count({
-        where: { job_application_id: saved.job_application_id },
-      });
-      if (cnt > 1 && !settings.onEmployerMessage.delayedIfUnread.enabled) return;
+      const cnt = await this.messagesRepository.count({ where: { job_application_id: saved.job_application_id } });
+      if (cnt > 1 && !settings.onEmployerMessage.delayedIfUnread.enabled && !settings.onEmployerMessage.after24hIfUnread.enabled) {
+        return;
+      }
     }
 
-    const employerName =
-      application.job_post?.employer?.username || 'Employer'; // ← У нас employer — User, без company_name/user. :contentReference[oaicite:2]{index=2}
-    const jobTitle = application.job_post?.title || 'Job';
-
-    const online = await this.isRecipientOnline(saved.recipient_id); // если онлайн — не шлём email (экономим нервы) :contentReference[oaicite:3]{index=3}
-
-    // Мгновенно
-    if (settings.onEmployerMessage.immediate && !online) {
-      const ok = await this.maybeSendEmailWithThrottle(
+    if (settings.onEmployerMessage.immediate) {
+      await this.maybeSendEmailWithThrottle(
         saved.job_application_id,
         saved.recipient_id,
         async () => {
           const recipient = await this.usersRepository.findOne({ where: { id: saved.recipient_id } });
           if (!recipient?.email) return;
+          const employerName = application.job_post?.employer?.username || 'Employer';
+          const jobTitle = application.job_post?.title || 'Job';
           await this.emailService.sendChatNewMessageNotification({
             toEmail: recipient.email,
             username: recipient.username || 'there',
@@ -86,36 +79,43 @@ export class ChatNotificationsService {
         },
         settings,
       );
-      if (!ok) {
-        // дросселирование — молча выходим
-      }
     }
 
-    // Отложенно
+    // Delayed N minutes if unread
     if (settings.onEmployerMessage.delayedIfUnread.enabled) {
-      const dueAtMs =
-        Date.now() + settings.onEmployerMessage.delayedIfUnread.minutes * 60_000;
-      await this.enqueueDelayedIfUnread(saved, dueAtMs);
+      const dueAtMs = Date.now() + settings.onEmployerMessage.delayedIfUnread.minutes * 60_000;
+      await this.enqueueReminder(saved, dueAtMs, 'delayedIfUnread');
+    }
+
+    // NEW: After 24h if unread (configurable hours)
+    if (settings.onEmployerMessage.after24hIfUnread.enabled) {
+      const dueAtMs = Date.now() + settings.onEmployerMessage.after24hIfUnread.hours * 3_600_000;
+      await this.enqueueReminder(saved, dueAtMs, 'after24hIfUnread');
     }
   }
 
-  private async enqueueDelayedIfUnread(saved: Message, dueAtMs: number) {
+  private async enqueueReminder(
+    saved: Message,
+    dueAtMs: number,
+    type: 'delayedIfUnread' | 'after24hIfUnread',
+  ) {
     const client = this.redis.getClient();
-    const pendingKey = this.PENDING_KEY(saved.job_application_id, saved.recipient_id);
+    const base = this.PENDING_KEY(saved.job_application_id, saved.recipient_id);
+    const pendingKey = `${base}:${type}`;
 
-    // === заменили небезопасный типами SET NX PX на setnx + pexpire
     const created = await client.setnx(pendingKey, '1');
-    if (!created) return; // уже есть задача
+    if (!created) return; // уже есть такая задача
     const ttlMs = Math.max(dueAtMs - Date.now(), 60_000);
     await client.pexpire(pendingKey, ttlMs + 300_000);
 
     const payload = JSON.stringify({
-      type: 'delayedIfUnread',
+      type,
       jobApplicationId: saved.job_application_id,
       recipientId: saved.recipient_id,
       messageId: saved.id,
       createdAt: saved.created_at?.toISOString() || new Date().toISOString(),
     });
+
     await client.zadd(this.ZSET_KEY, String(dueAtMs), payload);
   }
 
@@ -128,7 +128,7 @@ export class ChatNotificationsService {
     for (const payload of due) {
       try {
         const job = JSON.parse(payload) as {
-          type: 'delayedIfUnread';
+          type: 'delayedIfUnread' | 'after24hIfUnread';
           jobApplicationId: string;
           recipientId: string;
           messageId: string;
@@ -136,9 +136,8 @@ export class ChatNotificationsService {
         };
 
         await client.zrem(this.ZSET_KEY, payload);
-        await client.del(this.PENDING_KEY(job.jobApplicationId, job.recipientId));
+        await client.del(`${this.PENDING_KEY(job.jobApplicationId, job.recipientId)}:${job.type}`);
 
-        // есть ли непрочитанные?
         const unreadCount = await this.messagesRepository.count({
           where: {
             job_application_id: job.jobApplicationId,
@@ -159,18 +158,17 @@ export class ChatNotificationsService {
         if (!recipient?.email) continue;
 
         const settings = await this.settingsService.getChatNotificationSettings();
-        if (!settings.enabled || !settings.onEmployerMessage.delayedIfUnread.enabled) continue;
+        if (!settings.enabled) continue;
 
-        const online = await this.isRecipientOnline(job.recipientId);
-        if (online) continue;
+        if (job.type === 'delayedIfUnread' && !settings.onEmployerMessage.delayedIfUnread.enabled) continue;
+        if (job.type === 'after24hIfUnread' && !settings.onEmployerMessage.after24hIfUnread.enabled) continue;
 
         await this.maybeSendEmailWithThrottle(
           job.jobApplicationId,
           job.recipientId,
           async () => {
-            const employerName = app.job_post?.employer?.username || 'Employer'; // ← фикс
+            const employerName = app.job_post?.employer?.username || 'Employer';
             const jobTitle = app.job_post?.title || 'Job';
-
             await this.emailService.sendChatNewMessageNotification({
               toEmail: recipient.email,
               username: recipient.username || 'there',
