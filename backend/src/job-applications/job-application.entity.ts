@@ -24,6 +24,9 @@ export class JobApplication {
   @Column({ type: 'varchar', length: 150, nullable: true })
   referred_by?: string;
 
+  @Column({ type: 'text', nullable: true })
+  relevant_experience?: string;
+
   @Column()
   job_seeker_id: string;
 

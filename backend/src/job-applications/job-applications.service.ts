@@ -11,6 +11,7 @@ import { Inject } from '@nestjs/common';
 import { ChatGateway } from '../chat/chat.gateway';
 import { EmailService } from '../email/email.service';
 import { ReferralLink } from '../referrals/entities/referral-link.entity';
+import { ChatService } from '../chat/chat.service';
 
 @Injectable()
 export class JobApplicationsService {
@@ -27,28 +28,26 @@ export class JobApplicationsService {
     private applicationLimitsService: ApplicationLimitsService,
     @Inject('SOCKET_IO_SERVER') private server: Server,
     private emailService: EmailService, 
+    private chatService: ChatService,
   ) {}
 
   async applyToJob(
     userId: string,
     jobPostId: string,
     coverLetter: string,
+    relevantExperience: string,
     fullName?: string,
     referredBy?: string,
     refCode?: string,
   ) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    if (!user) throw new NotFoundException('User not found');
     if (user.role !== 'jobseeker') {
       throw new UnauthorizedException('Only jobseekers can apply to job posts');
     }
 
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
-    if (!jobPost) {
-      throw new NotFoundException('Job post not found');
-    }
+    if (!jobPost) throw new NotFoundException('Job post not found');
     if (jobPost.status !== 'Active') {
       throw new BadRequestException('Cannot apply to a job post that is not active');
     }
@@ -72,6 +71,9 @@ export class JobApplicationsService {
     if (!coverLetter || !coverLetter.trim()) {
       throw new BadRequestException('Cover letter is required');
     }
+    if (!relevantExperience || !relevantExperience.trim()) {
+      throw new BadRequestException('Relevant experience is required');
+    }
 
     let referralLink: ReferralLink | null = null;
     if (refCode) {
@@ -79,23 +81,43 @@ export class JobApplicationsService {
         where: { ref_code: refCode },
         relations: ['job_post'],
       });
-      // игнорируем кривые/чужие refCode: пишем только если реально к этой вакансии
       if (!referralLink || referralLink.job_post?.id !== jobPostId) {
         referralLink = null;
       }
     }
+
     const application = this.jobApplicationsRepository.create({
       job_post_id: jobPostId,
       job_seeker_id: userId,
       status: 'Pending',
       cover_letter: coverLetter.trim(),
+      relevant_experience: relevantExperience.trim(),
       full_name: fullName?.trim() || null,
       referred_by: referredBy?.trim() || null,
       referral_link_id: referralLink?.id || null,
     });
-    const saved = await this.jobApplicationsRepository.save(application);
 
+    const saved = await this.jobApplicationsRepository.save(application);
     await this.applicationLimitsService.incrementApplicationCount(jobPostId);
+
+    const parts: string[] = [];
+    parts.push(`Why I'm a good fit:\n${coverLetter.trim()}`);
+    parts.push(`\n\nRelevant experience:\n${relevantExperience.trim()}`);
+    if (fullName?.trim()) parts.push(`\n\nFull name: ${fullName.trim()}`);
+    if (referredBy?.trim()) parts.push(`\nReferred by: ${referredBy.trim()}`);
+    const initialText = parts.join('');
+
+    try {
+      const msg = await this.chatService.createMessage(userId, saved.id, initialText);
+
+      const chatRoom = `chat:${saved.id}`;
+      const recipientRoom = `user:${msg.recipient_id}`;
+      this.server.to(chatRoom).emit('newMessage', msg);
+      this.server.to(recipientRoom).except(chatRoom).emit('newMessage', msg);
+    } catch (e) {
+      console.error('Failed to send initial chat message for application', saved.id, e);
+    }
+
     return saved;
   }
 

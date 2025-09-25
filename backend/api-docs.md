@@ -1093,7 +1093,8 @@
   ```json
   {
     "job_post_id": "<jobPostId>",
-    "cover_letter": "Your cover letter text here",
+    "cover_letter": "Why I'm a good fit...",
+    "relevant_experience": "Describe relevant experience (companies, roles, stack, achievements...)",
     "full_name": "Jane Mary Doe",
     "referred_by": "Alex Petrov / john@company.com"
   }
@@ -1104,11 +1105,12 @@
     "job_post_id": "<jobPostId>",
     "job_seeker_id": "<userId>",
     "status": "Pending",
-    "cover_letter": "Your cover letter text here",
+    "cover_letter": "Why I'm a good fit...",
+    "relevant_experience": "Describe relevant experience...",
     "full_name": "Jane Mary Doe",
     "referred_by": "Alex Petrov / john@company.com",
-    "created_at": "2025-08-26T08:00:00.000Z",
-    "updated_at": "2025-08-26T08:00:00.000Z"
+    "created_at": "2025-09-25T12:00:00.000Z",
+    "updated_at": "2025-09-25T12:00:00.000Z"
   }
 - **Response (Error - 400, if daily limit reached)**:
   ```json
