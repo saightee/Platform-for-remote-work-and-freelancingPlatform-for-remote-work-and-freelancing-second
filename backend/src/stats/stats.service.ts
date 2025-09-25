@@ -33,78 +33,66 @@ export class StatsService {
 
   async getJobPostsByMainCategories() {
     const categoriesTree = await this.categoriesService.getCategories();
-
-    const jobCounts = await this.jobPostsRepository.createQueryBuilder('jobPost')
-      .select('jobPost.category_id', 'categoryId')
-      .addSelect('COUNT(jobPost.id)', 'count')
-      .where('jobPost.status = :status', { status: 'Active' })
-      .andWhere('jobPost.pending_review = :pendingReview', { pendingReview: false })
-      .groupBy('jobPost.category_id')
-      .getRawMany();
-
-    const countMap = new Map<string, number>(
-      jobCounts.map(c => [c.categoryId, parseInt(c.count, 10)])
+  
+    const rows = await this.jobPostsRepository.query(
+      `
+      SELECT jpc.category_id, COUNT(*)::int AS cnt
+      FROM job_post_categories jpc
+      JOIN job_posts jp ON jp.id = jpc.job_post_id
+      WHERE jp.status = $1
+        AND jp.pending_review = $2
+      GROUP BY jpc.category_id
+      `,
+      ['Active', false]
     );
-
-    function addCounts(node: any): number {
-      let total = countMap.get(node.id) || 0;
-      if (node.subcategories && node.subcategories.length > 0) {
-        for (const sub of node.subcategories) {
-          total += addCounts(sub);
-        }
-      }
-      node.count = total;
-      return total;
+  
+    const countMap = new Map<string, number>();
+    for (const r of rows) countMap.set(r.category_id, Number(r.cnt) || 0);
+  
+    function rollup(node: any): number {
+      const self = countMap.get(node.id) || 0;
+      const subs = (node.subcategories || []).reduce((sum: number, n: any) => sum + rollup(n), 0);
+      node.count = self + subs;
+      return node.count;
     }
-
-    const filteredTree = categoriesTree
-      .map((node: any) => {
-        const total = addCounts(node);
-        return total > 0 ? { ...node, count: total } : null;
+  
+    const rolled = categoriesTree
+      .map((n: any) => {
+        const total = rollup(n);
+        return total > 0 ? { ...n, count: total } : null;
       })
-      .filter((node: any) => node !== null);
-
-    filteredTree.sort((a: any, b: any) => b.count - a.count);
-
-    return filteredTree.map(node => ({
-      categoryId: node.id,
-      categoryName: node.name,
-      count: node.count,
+      .filter(Boolean) as any[];
+    
+    rolled.sort((a, b) => b.count - a.count);
+    
+    return rolled.map(n => ({
+      categoryId: n.id,
+      categoryName: n.name,
+      count: n.count,
     }));
   }
 
   async getJobPostsBySubcategories() {
-    const categories = await this.categoriesService.getCategories();
-    const allCategories = flattenCategories(categories);
-
-    const jobCounts = await this.jobPostsRepository.createQueryBuilder('jobPost')
-      .select('jobPost.category_id', 'categoryId')
-      .addSelect('category.name', 'categoryName')
-      .addSelect('COUNT(jobPost.id)', 'count')
-      .leftJoin('jobPost.category', 'category')
-      .where('jobPost.status = :status', { status: 'Active' })
-      .andWhere('jobPost.pending_review = :pendingReview', { pendingReview: false })
-      .andWhere('category.parent_id IS NOT NULL')
-      .groupBy('jobPost.category_id, category.name')
-      .having('COUNT(jobPost.id) > 0')
-      .orderBy('COUNT(jobPost.id)', 'DESC')
-      .getRawMany();
-
-    return jobCounts.map(result => ({
-      categoryId: result.categoryId,
-      categoryName: result.categoryName,
-      count: parseInt(result.count, 10),
+    const rows = await this.jobPostsRepository.query(
+      `
+      SELECT c.id as "categoryId", c.name as "categoryName", COUNT(*)::int as "count"
+      FROM job_post_categories jpc
+      JOIN categories c ON c.id = jpc.category_id
+      JOIN job_posts jp ON jp.id = jpc.job_post_id
+      WHERE jp.status = $1
+        AND jp.pending_review = $2
+        AND c.parent_id IS NOT NULL
+      GROUP BY c.id, c.name
+      HAVING COUNT(*) > 0
+      ORDER BY COUNT(*) DESC
+      `,
+      ['Active', false]
+    );
+  
+    return rows.map((r: any) => ({
+      categoryId: r.categoryId,
+      categoryName: r.categoryName,
+      count: Number(r.count) || 0,
     }));
-
-    function flattenCategories(categories: any[]): any[] {
-      let result: any[] = [];
-      for (const category of categories) {
-        result.push(category);
-        if (category.subcategories && category.subcategories.length > 0) {
-          result = result.concat(flattenCategories(category.subcategories));
-        }
-      }
-      return result;
-    }
   }
 }

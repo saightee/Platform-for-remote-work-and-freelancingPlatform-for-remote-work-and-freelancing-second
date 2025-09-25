@@ -34,12 +34,12 @@ export class JobApplication {
   @Column({ type: 'varchar', length: 20 })
   status: 'Pending' | 'Accepted' | 'Rejected';
 
-@Column({ type: 'uuid', nullable: true })
-referral_link_id?: string;
-
-@ManyToOne(() => ReferralLink, { nullable: true })
-@JoinColumn({ name: 'referral_link_id' })
-referral_link?: ReferralLink;
+  @Column({ type: 'uuid', nullable: true })
+  referral_link_id?: string;
+  
+  @ManyToOne(() => ReferralLink, { nullable: true })
+  @JoinColumn({ name: 'referral_link_id' })
+  referral_link?: ReferralLink;
 
   @CreateDateColumn()
   created_at: Date;

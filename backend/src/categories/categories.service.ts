@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Category } from './category.entity';
 import { JobPost } from '../job-posts/job-post.entity';
 
@@ -12,6 +12,11 @@ export class CategoriesService {
     @InjectRepository(JobPost)
     private jobPostsRepository: Repository<JobPost>,
   ) {}
+
+  async findManyByIds(ids: string[]) {
+    if (!ids.length) return [];
+    return this.categoriesRepository.find({ where: { id: In(ids) } as any });
+  }
 
   async createCategory(name: string, parentId?: string) {
     const existingCategory = await this.categoriesRepository.findOne({ where: { name } });
@@ -37,16 +42,20 @@ export class CategoriesService {
     });
 
     let countsMap: Map<string, number> | undefined;
+
     if (includeCounts) {
-      const raw = await this.jobPostsRepository
-        .createQueryBuilder('jp')
-        .select('jp.category_id', 'category_id')
-        .addSelect('COUNT(*)', 'cnt')
-        .where('jp.status = :st', { st: 'Active' })
-        .andWhere('jp.pending_review = :pr', { pr: false })
-        .andWhere('jp.category_id IS NOT NULL')
-        .groupBy('jp.category_id')
-        .getRawMany();
+      // считаем КАЖДОЕ присвоение вакансии категории
+      const raw = await this.jobPostsRepository.query(
+        `
+        SELECT jpc.category_id, COUNT(*) AS cnt
+        FROM job_post_categories jpc
+        JOIN job_posts jp ON jp.id = jpc.job_post_id
+        WHERE jp.status = $1
+          AND jp.pending_review = $2
+        GROUP BY jpc.category_id
+        `,
+        ['Active', false]
+      );
 
       const parentMap = new Map<string, string | null>();
       categories.forEach(c => parentMap.set(c.id, c.parent_id || null));
@@ -67,9 +76,7 @@ export class CategoriesService {
     }
 
     const tree = this.buildCategoryTree(categories, countsMap);
-
-    if (onlyTopLevel) return tree;
-    return tree;
+    return onlyTopLevel ? tree : tree;
   }
 
   async getCategoryById(categoryId: string) {

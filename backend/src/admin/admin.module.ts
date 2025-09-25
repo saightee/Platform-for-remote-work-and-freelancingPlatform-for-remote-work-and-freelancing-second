@@ -34,6 +34,7 @@ import { EmailNotification } from '../email-notifications/email-notification.ent
 import { ReferralLink } from '../referrals/entities/referral-link.entity';
 import { ReferralRegistration } from '../referrals/entities/referral-registration.entity';
 import { AuthModule } from '../auth/auth.module';
+import { JobPostCategory } from '../job-posts/job-post-category.entity';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { AuthModule } from '../auth/auth.module';
       Message,
       EmailNotification,
       ReferralLink,
+      JobPostCategory,
       ReferralRegistration,
     ]),
     JwtModule.registerAsync({

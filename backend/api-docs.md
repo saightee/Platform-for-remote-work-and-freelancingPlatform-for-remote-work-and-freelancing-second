@@ -523,41 +523,61 @@
 
 ### 8. Create Job Post
 - **Endpoint**: `POST /api/job-posts`
-- **Description**: Creates a new job post for an authenticated employer. Salary is optional if salary_type is 'negotiable'.
+- **Description**: Creates a new job post for an authenticated employer. Supports multiple categories via category_ids. salary may be null if salary_type = 'negotiable'
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
   ```json
   {
     "title": "Software Engineer",
-    "description": "We are looking for a skilled software engineer...",
+    "description": "We are looking for a skilled software engineer.",
     "location": "Remote",
-    "salary": 50000,  // Optional if salary_type is 'negotiable'
+    "salary": 50000,
     "status": "Active",
-    "category_id": "<categoryId>",
-    "aiBrief": "Develop web apps using React and Node.js",
     "job_type": "Full-time",
-    "salary_type": "per month",  // Optional, one of: 'per hour', 'per month', 'negotiable'
-    "excluded_locations": ["Country1", "Country2"]
+    "salary_type": "per month",
+    "excluded_locations": ["India"],
+    "category_ids": ["<catId1>", "<catId2>"],   // NEW (multi)
+    "category_id": "<catId1>",                   // deprecated (для совместимости)
+    "aiBrief": "Build and maintain web apps"
   }
 - **Response (Success - 200)**:
   ```json
   {
     "id": "<jobPostId>",
     "title": "Software Engineer",
-    "description": "Develop and maintain web applications.",
+    "description": "We are looking for a skilled software engineer.",
     "location": "Remote",
     "salary": 50000,
     "status": "Active",
-    "category_id": "<categoryId>",
     "job_type": "Full-time",
     "salary_type": "per month",
-    "employer_id": "<userId>",
-    "views": 0,
+    "excluded_locations": ["India"],
     "pending_review": true,
+    "category_id": "<categoryId>",                 // legacy
+    "category": {
+      "id": "<categoryId>",
+      "name": "Software Development",
+      "created_at": "2025-05-15T06:12:00.000Z",
+      "updated_at": "2025-05-15T06:12:00.000Z"
+    },
+    "category_ids": ["<catId1>", "<catId2>"],      // NEW
+    "categories": [                                // NEW
+      { "id": "<catId1>", "name": "Software Development" },
+      { "id": "<catId2>", "name": "DevOps" }
+    ],
+    "employer_id": "<employerId>",
+    "employer": {
+      "id": "<employerId>",
+      "email": "employer100@example.com",
+      "username": "jane_smith100",
+      "role": "employer"
+    },
+    "views": 0,
+    "required_skills": ["JavaScript", "TypeScript"],
     "slug": "software-engineer-remote",
     "slug_id": "software-engineer-remote--8df3b0be",
-    "created_at": "2025-07-08T07:00:00.000Z",
-    "updated_at": "2025-07-08T07:00:00.000Z"
+    "created_at": "2025-05-15T06:12:00.000Z",
+    "updated_at": "2025-05-15T06:12:00.000Z"
   }
 - **Response (Error - 400, if salary is missing and salary_type is not 'negotiable')**:
   ```json
@@ -596,35 +616,56 @@
   ```json
   {
     "title": "Senior Software Engineer",
-    "description": "Develop and maintain web applications.",
+    "description": "Updated description.",
     "location": "Remote",
-    "salary": 60000,  // Optional if salary_type is 'negotiable'
+    "salary": 60000,
     "status": "Active",
-    "category_id": "<categoryId>",
-    "aiBrief": "Develop web apps using React and Node.js",
     "job_type": "Full-time",
-    "salary_type": "per month",  // Optional, one of: 'per hour', 'per month', 'negotiable'
-    "excluded_locations": ["Country1"]
+    "salary_type": "per month",
+    "excluded_locations": ["India"],
+    "category_ids": ["<catId1>", "<catId2>"],  // NEW
+    "category_id": "<catId1>"                  // deprecated
   }
 - **Response (Success - 200)**:
   ```json
   {
     "id": "<jobPostId>",
     "title": "Senior Software Engineer",
-    "description": "Develop and maintain web applications.",
+    "description": "Updated description.",
     "location": "Remote",
     "salary": 60000,
     "status": "Active",
-    "category_id": "<categoryId>",
     "job_type": "Full-time",
     "salary_type": "per month",
-    "employer_id": "<userId>",
+    "excluded_locations": ["India"],
+    "pending_review": false,
+
+    "category_id": "<categoryId>",                  // legacy
+    "category": {
+      "id": "<categoryId>",
+      "name": "Software Development",
+      "created_at": "2025-05-15T06:12:00.000Z",
+      "updated_at": "2025-05-15T06:12:00.000Z"
+    },
+    "category_ids": ["<catId1>", "<catId2>"],       // NEW
+    "categories": [                                  // NEW
+      { "id": "<catId1>", "name": "Software Development" },
+      { "id": "<catId2>", "name": "DevOps" }
+    ],
+
+    "employer_id": "<employerId>",
+    "employer": {
+      "id": "<employerId>",
+      "email": "employer100@example.com",
+      "username": "jane_smith100",
+      "role": "employer"
+    },
     "views": 0,
-    "pending_review": true,
+    "required_skills": ["JavaScript", "TypeScript"],
     "slug": "senior-software-engineer-remote",
     "slug_id": "senior-software-engineer-remote--8df3b0be",
-    "created_at": "2025-07-08T07:00:00.000Z",
-    "updated_at": "2025-07-08T07:00:00.000Z"
+    "created_at": "2025-05-15T06:12:00.000Z",
+    "updated_at": "2025-05-15T06:30:00.000Z"
   }
 - **Response (Error - 400, if salary is missing and salary_type is not 'negotiable')**:
   ```json
@@ -691,26 +732,31 @@
     "location": "Remote",
     "salary": null,
     "status": "Active",
-    "category_id": "<categoryId>",
     "job_type": "Full-time",
     "salary_type": "negotiable",
-    "employer_id": "<userId>",
-    "views": 10,
+    "excluded_locations": ["India"],
     "pending_review": false,
-    "slug": "software-engineer-remote",
-    "slug_id": "software-engineer-remote--8df3b0be",
-    "created_at": "2025-07-08T07:00:00.000Z",
-    "updated_at": "2025-07-08T07:00:00.000Z",
+
+    "category_id": "<categoryId>",                 // legacy
+    "category": { "id": "<categoryId>", "name": "Development" },
+    "category_ids": ["<catId1>", "<catId2>"],      // NEW
+    "categories": [                                 // NEW
+      { "id": "<catId1>", "name": "Development" },
+      { "id": "<catId2>", "name": "Writing" }
+    ],
+
+    "employer_id": "<userId>",
     "employer": {
       "id": "<userId>",
       "username": "employer1",
       "email": "employer@example.com",
       "role": "employer"
     },
-    "category": {
-      "id": "<categoryId>",
-      "name": "Development"
-    }
+    "views": 10,
+    "slug": "software-engineer-remote",
+    "slug_id": "software-engineer-remote--8df3b0be",
+    "created_at": "2025-07-08T07:00:00.000Z",
+    "updated_at": "2025-07-08T07:00:00.000Z"
   }
 - **Response (Error - 404, if job post not found)**:  
   ```json
@@ -720,7 +766,7 @@
     "error": "Not Found"
   }
 
-### 10. Get Job Post by Slug or ID
+### 10.1 Get Job Post by Slug or ID
 - **Endpoint**: `GET /api/job-posts/by-slug-or-id/:slugOrId`
 - **Description**: Возвращает вакансию по slug_id, slug или по UUID id. Приоритет: slug_id → slug → id.
 - **Request Parameters**: `id`: The ID of the job post.
@@ -733,7 +779,12 @@
     "location": "Remote",
     "salary": null,
     "status": "Active",
-    "category_id": "<categoryId>",
+    "category_id": "<catId1>",                    // legacy
+    "category_ids": ["<catId1>", "<catId2>"],     // NEW
+    "categories": [
+      { "id": "<catId1>", "name": "Development" },
+      { "id": "<catId2>", "name": "Writing" }
+    ],
     "job_type": "Full-time",
     "salary_type": "negotiable",
     "employer_id": "<userId>",
@@ -742,17 +793,7 @@
     "slug": "software-engineer-remote",
     "slug_id": "software-engineer-remote--8df3b0be",
     "created_at": "2025-07-08T07:00:00.000Z",
-    "updated_at": "2025-07-08T07:00:00.000Z",
-    "employer": {
-      "id": "<userId>",
-      "username": "employer1",
-      "email": "employer@example.com",
-      "role": "employer"
-    },
-    "category": {
-      "id": "<categoryId>",
-      "name": "Development"
-    }
+    "updated_at": "2025-07-08T07:00:00.000Z"
   }
 - **Response (Error - 404, if job post not found)**:  
   ```json
@@ -772,20 +813,27 @@
     {
       "id": "<jobPostId>",
       "title": "Senior Software Engineer",
-      "description": "Updated description...",
+      "description": "Updated description.",
       "location": "Remote",
       "salary": 60000,
       "salary_type": "per month",
       "excluded_locations": ["India"],
       "status": "Closed",
-      "category_id": "<categoryId>",
+      "job_type": "Full-time",
+      "pending_review": false,
+      "category_id": "<categoryId>",                 // legacy
       "category": {
         "id": "<categoryId>",
         "name": "Software Development",
         "created_at": "2025-05-13T18:00:00.000Z",
         "updated_at": "2025-05-13T18:00:00.000Z"
       },
-      "job_type": "Full-time",
+      "category_ids": ["<catId1>", "<catId2>"],      // NEW
+      "categories": [                                 // NEW
+        { "id": "<catId1>", "name": "Software Development" },
+        { "id": "<catId2>", "name": "DevOps" }
+      ],
+
       "employer_id": "<userId>",
       "employer": {
         "id": "<userId>",
@@ -1395,13 +1443,13 @@
   - `salary_min` (optional): Filter by minimum salary (ignored if salary_type is 'negotiable').
   - `salary_max` (optional): Filter by maximum salary (ignored if salary_type is 'negotiable').
   - `salary_type` (optional): Filter by salary type ('per hour', 'per month', 'negotiable').
-  - `category_id` (string, optional): Filter by category ID.
+  - `category_ids` (array или comma-list, optional): Filter by category ID. Примеры: ?category_ids[]=<id1>&category_ids[]=<id2> или ?category_ids=<id1>,<id2>
   - `required_skills` (string or string[], optional): Filter by required skills (e.g., "required_skills=JavaScript" or "required_skills[]=JavaScript&required_skills[]=Python").
   - `page` (number, optional): Page number for pagination (default: 1).
   - `limit` (number, optional): Number of items per page (default: 10).
   - `sort_by` (string, optional): Field to sort by ("created_at" or "salary", default: "created_at").
   - `sort_order` (string, optional): Sort order ("ASC" or "DESC", default: "DESC").
-- **Example Request**: `/api/job-posts/search?title=Engineer&location=Remote&salaryMin=40000&salaryMax=60000&job_type=Full-time&category_id=<categoryId>&salary_type=per%20hour`
+- **Example Request**: `/api/job-posts?title=Engineer&location=Remote&job_type=Full-time&category_ids=<id1>,<id2>&salary_type=per%20hour`
 - **Response (Success - 200)**:
   ```json
   {
@@ -1412,26 +1460,33 @@
         "title": "Software Engineer",
         "description": "Develop and maintain web applications.",
         "location": "Remote",
-        "salary": null,  // Can be null if salary_type is 'negotiable'
+        "salary": null,
         "status": "Active",
-        "category_id": "<categoryId>",
         "job_type": "Full-time",
         "salary_type": "negotiable",
-        "employer_id": "<userId>",
-        "views": 10,
+        "excluded_locations": ["India"],
         "pending_review": false,
-        "created_at": "2025-07-08T07:00:00.000Z",
-        "updated_at": "2025-07-08T07:00:00.000Z",
+
+        "category_id": "<catId1>",                    // legacy
+        "category": { "id": "<catId1>", "name": "Development" },
+        "category_ids": ["<catId1>", "<catId2>"],     // NEW
+        "categories": [                                // NEW
+          { "id": "<catId1>", "name": "Development" },
+          { "id": "<catId2>", "name": "Writing" }
+        ],
+
+        "employer_id": "<userId>",
         "employer": {
           "id": "<userId>",
           "username": "employer1",
           "email": "employer@example.com",
           "role": "employer"
         },
-        "category": {
-          "id": "<categoryId>",
-          "name": "Development"
-        }
+        "views": 10,
+        "slug": "software-engineer-remote",
+        "slug_id": "software-engineer-remote--8df3b0be",
+        "created_at": "2025-07-08T07:00:00.000Z",
+        "updated_at": "2025-07-08T07:00:00.000Z"
       }
     ]
   }
@@ -1718,7 +1773,8 @@
   - `pendingReview` (string, optional): Filter by pending review status ("true" or "false").
   - `title` (string, optional): Filter by job title (partial match, case-insensitive).
   - `employer_id` (string, optional): Filter by employer ID.
-  - `category_id` (string, optional): Filter by category ID.
+  - `category_id` - deprecated (одна категория, сохраняется)
+  - `category_ids` — NEW (array или comma-list), примеры: ?category_ids[]=<id1>&category_ids[]=<id2>  ?category_ids=<id1>,<id2>
   - `employer_username` (string, optional): Filter by employer username (partial match, case-insensitive).
   - `id` (string, optional): Filter by job post ID.
   - `page` (number, optional): Page number for pagination (default: 1).
@@ -1727,37 +1783,42 @@
 - **Response (Success - 200)**: 
   ```json
   {
-    "total": 50,
+    "total": 2,
     "data": [
       {
         "id": "<jobPostId>",
         "title": "Software Engineer",
-        "description": "We are looking for a skilled software engineer...",
+        "description": "Develop and maintain web applications.",
         "location": "Remote",
-        "salary": 50000,
-        "salary_type": "per hour",
-        "excluded_locations": ["India", "Pakistan"],
+        "salary": null,
         "status": "Active",
-        "pending_review": false,
-        "category_id": "<categoryId>",
-        "category": {
-          "id": "<categoryId>",
-          "name": "Software Development",
-          "created_at": "2025-05-15T06:12:00.000Z",
-          "updated_at": "2025-05-15T06:12:00.000Z"
-        },
         "job_type": "Full-time",
-        "employer_id": "<employerId>",
+        "salary_type": "negotiable",
+        "excluded_locations": [],
+        "pending_review": false,
+
+        "category_id": "<catId1>",                    // legacy
+        "category": { "id": "<catId1>", "name": "Development" },
+        "category_ids": ["<catId1>", "<catId2>"],     // NEW
+        "categories": [
+          { "id": "<catId1>", "name": "Development" },
+          { "id": "<catId2>", "name": "Writing" }
+        ],
+
+        "employer_id": "<userId>",
         "employer": {
-          "id": "<employerId>",
+          "id": "<userId>",
           "email": "employer100@example.com",
           "username": "jane_smith100",
           "role": "employer"
         },
-        "views": 0,
-        "required_skills": ["JavaScript", "TypeScript"],
-        "created_at": "2025-05-15T06:12:00.000Z",
-        "updated_at": "2025-05-15T06:12:00.000Z"
+        "views": 10,
+        "slug": "software-engineer-remote",
+        "slug_id": "software-engineer-remote--8df3b0be",
+        "created_at": "2025-07-08T07:00:00.000Z",
+        "updated_at": "2025-07-08T07:00:00.000Z",
+
+        "emailStats": { "sent": 20, "opened": 7, "clicked": 3 }
       }
     ]
   }
@@ -1792,8 +1853,10 @@
     "salary": 60000,
     "status": "Closed",
     "job_type": "Full-time",
-    "category_id": "<categoryId>",
-    "applicationLimit": 50
+    "salary_type": "per month",
+    "excluded_locations": ["Country1"],
+    "category_ids": ["<catId1>", "<catId2>"],  // NEW
+    "category_id": "<catId1>"                  // deprecated
   }
 
 - **Response (Success - 200)**: 
@@ -1805,10 +1868,26 @@
     "location": "Remote",
     "salary": 60000,
     "status": "Closed",
-    "category_id": "<categoryId>",
     "job_type": "Full-time",
+    "salary_type": "per month",
+    "excluded_locations": ["Country1"],
+    "pending_review": false,
+  
+    "category_id": "<categoryId>",                    // legacy
+    "category": { "id": "<categoryId>", "name": "Software Development" },
+    "category_ids": ["<catId1>", "<catId2>"],         // NEW
+    "categories": [
+      { "id": "<catId1>", "name": "Software Development" },
+      { "id": "<catId2>", "name": "DevOps" }
+    ],
+  
     "employer_id": "<userId>",
-    "applicationLimit": 50,
+    "employer": {
+      "id": "<userId>",
+      "email": "test15@example.com",
+      "username": "test15",
+      "role": "employer"
+    },
     "created_at": "2025-05-13T18:00:00.000Z",
     "updated_at": "2025-05-13T18:30:00.000Z"
   }
@@ -4008,16 +4087,7 @@
 - **Response (Success - 200)**:
   ```json
   [
-    {
-      "categoryId": "<categoryId>",
-      "categoryName": "Development",
-      "count": 25
-    },
-    {
-      "categoryId": "<categoryId>",
-      "categoryName": "Design",
-      "count": 10
-    }
+    { "categoryId": "<mainCatId>", "categoryName": "Development", "count": 42 }
   ]
 
 - **Response (Error - 500, if internal error)**:
@@ -4036,16 +4106,7 @@
 - **Response (Success - 200)**:
   ```json
   [
-    {
-      "categoryId": "<categoryId>",
-      "categoryName": "Web Development",
-      "count": 15
-    },
-    {
-      "categoryId": "<categoryId>",
-      "categoryName": "Graphic Design",
-      "count": 8
-    }
+    { "categoryId": "<subCatId>", "categoryName": "Frontend", "count": 17 }
   ]
 
 - **Response (Error - 500, if internal error)**:
