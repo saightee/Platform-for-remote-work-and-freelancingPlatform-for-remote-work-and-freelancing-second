@@ -32,7 +32,7 @@ async function bootstrap() {
       secret: sessionSecret,
       resave: false,
       saveUninitialized: false,
-      name: 'jobforge.sid',
+      name: 'sid',
       rolling: true,
       cookie: {
         maxAge: 7 * 24 * 60 * 60 * 1000,

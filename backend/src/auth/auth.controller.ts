@@ -65,10 +65,10 @@ export class AuthController {
       try {
         const { message, accessToken } = await this.authService.verifyEmail(token);  
 
-        const frontendUrl = this.configService.get<string>('BASE_URL') || 'https://jobforge.net/';  
+        const frontendUrl = this.configService.get<string>('BASE_URL')!;
         res.redirect(`${frontendUrl}/auth/callback?token=${accessToken}&verified=true`);
       } catch (error) {
-        const frontendUrl = this.configService.get<string>('BASE_URL') || 'https://jobforge.net/';
+        const frontendUrl = this.configService.get<string>('BASE_URL')!;
         if (error instanceof BadRequestException) {
           res.redirect(`${frontendUrl}/auth/callback?error=invalid_token`);
         } else {
@@ -122,7 +122,12 @@ export class AuthController {
     const userId = payload.sub;
     await this.authService.logout(userId); 
     req.session.destroy((err) => { if (err) console.error(err); });
-    res.clearCookie('jobforge.sid', { path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
+    res.clearCookie('sid', {
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
     return res.json({ message: 'Logout successful' });
   }
 

@@ -4,16 +4,19 @@ import { Repository } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { JobPost } from '../job-posts/job-post.entity';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class SeoService {
   constructor(
     @InjectRepository(JobPost) private readonly jobs: Repository<JobPost>,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    private readonly config: ConfigService,
   ) {}
 
   private baseUrl() {
-    return 'https://jobforge.net'; // можно захардкодить
+    const b = this.config.get<string>('BASE_URL')!;
+    return b.replace(/\/api\/?$/, '');
   }
 
   private staticRoutes() {

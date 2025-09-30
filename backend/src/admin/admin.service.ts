@@ -1147,7 +1147,7 @@ export class AdminService {
     let sentCount = 0;
     const sentEmails: string[] = [];
 
-    const siteBase = (this.configService.get<string>('BASE_URL') || 'https://jobforge.net').replace(/\/api\/?$/, '');
+    const siteBase = this.configService.get<string>('BASE_URL')!.replace(/\/api\/?$/, '');
     const slugOrId = (jobPost as any).slug_id || jobPost.id;
     const jobUrl = `${siteBase}/job/${slugOrId}`;
 
@@ -1259,7 +1259,7 @@ export class AdminService {
 
     const picked = await qb.getMany();
 
-    const siteBase = (this.configService.get<string>('BASE_URL') || 'https://jobforge.net').replace(/\/api\/?$/, '');
+    const siteBase = this.configService.get<string>('BASE_URL')!.replace(/\/api\/?$/, '');
     const slugOrId = (jobPost as any).slug_id || jobPost.id;
     const jobUrl = `${siteBase}/job/${slugOrId}`;
 
@@ -1518,7 +1518,7 @@ export class AdminService {
     });
     await this.referralLinksRepository.save(referralLink);
 
-    const baseUrl = this.configService.get<string>('BASE_URL', 'https://jobforge.net');
+    const baseUrl = this.configService.get<string>('BASE_URL')!;
 
     const baseSlug = (jobPost.slug && jobPost.slug.trim().length > 0)
       ? jobPost.slug
@@ -1559,7 +1559,7 @@ export class AdminService {
       relations: ['job_post', 'registrationsDetails', 'registrationsDetails.user'],
       order: { created_at: 'DESC' },
     });
-    const baseUrl = this.configService.get<string>('BASE_URL', 'https://jobforge.net');
+    const baseUrl = this.configService.get<string>('BASE_URL')!;
 
     return links.map(link => {
       const jp = link.job_post;
@@ -1613,7 +1613,7 @@ export class AdminService {
     }
 
     const links = await query.getMany();
-    const baseUrl = this.configService.get<string>('BASE_URL', 'https://jobforge.net');
+    const baseUrl = this.configService.get<string>('BASE_URL')!;
 
     return links.map(link => {
       const jp = link.job_post;
