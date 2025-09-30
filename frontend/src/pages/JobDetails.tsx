@@ -28,6 +28,7 @@ const slugOrId = (slugId || id || '').trim();
   const [loading, setLoading] = useState(true);
   const [hasApplied, setHasApplied] = useState<boolean | null>(null);
   const [coverLetter, setCoverLetter] = useState('');
+  const [relevantExperience, setRelevantExperience] = useState('');
 const [fullName, setFullName] = useState<string>('');        // NEW
 const [referredBy, setReferredBy] = useState<string>('');    // NEW
 const [applyError, setApplyError] = useState<string | null>(null); // NEW (ошибки модалки)
@@ -53,9 +54,25 @@ useEffect(() => {
       setHasApplied(null);
 
       // 1) грузим вакансию по slug или id
-      const jobData = await getJobBySlugOrId(slugOrId);
-      if (!alive) return;
-    setJob(jobData);
+     const jobData = await getJobBySlugOrId(slugOrId);
+if (!alive) return;
+
+// 👇 привели форму к той же, что у списка
+const normalizeJob = (raw: any): JobPost => ({
+  ...raw,
+  employer: raw.employer ?? (
+    (raw.employer_id || raw.employer_username || raw.employer_avatar)
+      ? {
+          id: raw.employer_id ?? raw.employer?.id,
+          username: raw.employer_username ?? raw.employer?.username,
+          avatar: raw.employer_avatar ?? raw.employer?.avatar ?? null,
+        }
+      : undefined
+  ),
+});
+
+setJob(normalizeJob(jobData));
+
 
 
 
@@ -148,25 +165,31 @@ const submitApply = async () => {
     setApplyError('Cover letter is required.');
     return;
   }
-
-try {
-  const jobId = job?.id;                 // ← всегда есть после загрузки
-  if (jobId) {
-    await applyToJobPostExtended({
-      job_post_id: jobId,
-      cover_letter: coverLetter,
-      full_name: fullName.trim() || undefined,
-      referred_by: referredBy.trim() || undefined,
-    });
-    setHasApplied(true);
-    setIsApplyModalOpen(false);
-    // чтобы Back не возвращал в модалку — можно заменить history запись
-    navigate('/jobseeker-dashboard/my-applications', {
-      replace: true,
-      state: { justApplied: jobId },     // опционально: подсветить заявку на той странице
-    });
+  if (!relevantExperience.trim()) {
+    setApplyError('Relevant experience is required.');
+    return;
   }
-} catch (err: any) {
+
+  try {
+    const jobId = job?.id;
+    if (jobId) {
+      await applyToJobPostExtended({
+        job_post_id: jobId,
+        cover_letter: coverLetter.trim(),
+        relevant_experience: relevantExperience.trim(),   // NEW
+        full_name: fullName.trim() || undefined,
+        referred_by: referredBy.trim() || undefined,
+      });
+      setHasApplied(true);
+      setIsApplyModalOpen(false);
+
+      // опционально: сразу в Messages и подсветить новый чат
+      navigate('/messages', { replace: true, state: { jobPostId: jobId } });
+
+      // Если предпочитаешь сохранять старое поведение:
+      // navigate('/jobseeker-dashboard/my-applications', { replace: true, state: { justApplied: jobId } });
+    }
+  } catch (err: any) {
   console.error('Error applying to job:', err);
   const msg: string = err?.response?.data?.message || '';
 
@@ -345,26 +368,34 @@ const backAfterReport =
             Back to search results
           </a>
           <h1>{job.title}</h1>
-          <div className="employer-info">
-            {job.employer?.avatar ? (
-              <img
-                src={`https://jobforge.net/backend${job.employer.avatar}`}
-                alt="Employer Avatar"
-                className="employer-avatar"
-              />
-            ) : (
-              <FaUserCircle className="employer-avatar" />
-            )}
-            {(() => {
-  const displayEmployer =
-    job.employer?.username ||
-    (job as any).employer_username ||   // если бэк кладёт плоско
-    (job as any).employer?.company_name ||
-    'Unknown';
-  return <span className="employer-name">{displayEmployer}</span>;
-})()}
+<div className="employer-info">
+  {(() => {
+    const avatar =
+      job.employer?.avatar ??
+      (job as any).employer_avatar ?? null;
 
-          </div>
+    return avatar ? (
+      <img
+        src={avatar.startsWith('http') ? avatar : `https://jobforge.net/backend${avatar}`}
+        alt="Employer Avatar"
+        className="employer-avatar"
+      />
+    ) : (
+      <FaUserCircle className="employer-avatar" />
+    );
+  })()}
+
+  {(() => {
+    const displayEmployer =
+      job.employer?.username ??
+      (job as any).employer_username ??
+      (job as any).employer?.name ??
+      (job as any).employer?.company_name ??
+      'Unknown';
+    return <span className="employer-name">{displayEmployer}</span>;
+  })()}
+</div>
+
                    {!profile && (
   <div>
     <p className="login-prompt">
@@ -487,7 +518,6 @@ const backAfterReport =
   <div
     className="modal"
     onClick={(e) => {
-      // клик по «подложке» закрывает модалку
       if (e.target === e.currentTarget) setIsApplyModalOpen(false);
     }}
   >
@@ -496,7 +526,7 @@ const backAfterReport =
       role="dialog"
       aria-modal="true"
       aria-labelledby="applyTitle"
-      onClick={(e) => e.stopPropagation()} // не даём всплывать клику по контенту
+      onClick={(e) => e.stopPropagation()}
     >
       <button className="close" onClick={() => setIsApplyModalOpen(false)} aria-label="Close">×</button>
       <h3 id="applyTitle">Apply</h3>
@@ -518,14 +548,14 @@ const backAfterReport =
         {/* Full Name (optional) */}
         <div className="apply-row">
           <label className="apply-label" htmlFor="fullName">Full Name (optional)</label>
-     <input
-  id="fullName"
-  type="text"
-  className="apply-input"
-  value={fullName}
-  onChange={(e) => { setFullName(e.target.value); if (applyError) setApplyError(null); }}
-  placeholder="Your full name"
-/>
+          <input
+            id="fullName"
+            type="text"
+            className="apply-input"
+            value={fullName}
+            onChange={(e) => { setFullName(e.target.value); if (applyError) setApplyError(null); }}
+            placeholder="Your full name"
+          />
         </div>
 
         {/* Referred By (optional) */}
@@ -537,25 +567,48 @@ const backAfterReport =
             className="apply-input"
             value={referredBy}
             onChange={(e) => setReferredBy(e.target.value)}
-            placeholder="The name/email of the person who recommended you"
+            placeholder="The name/email/ref code of who recommended you"
+          />
+        </div>
+
+        {/* Relevant experience (required) */}
+        <div className="apply-row">
+          <label className="apply-label" htmlFor="relevantExperience">
+            Relevant experience *
+            <span className="apply-hint" style={{ display: 'block', fontSize: 12, opacity: .8 }}>
+              Describe relevant experience: companies, roles, tasks, stack, achievements.
+            </span>
+          </label>
+          <textarea
+            id="relevantExperience"
+            className="apply-textarea"
+            rows={6}
+            value={relevantExperience}
+            onChange={(e) => setRelevantExperience(e.target.value)}
+            placeholder="Describe relevant experience (companies, roles, tasks, stack, achievements…)"
+            required
           />
         </div>
 
         {/* Cover Letter (required) */}
         <div className="apply-row">
-          <label className="apply-label" htmlFor="coverLetter">Cover Letter *</label>
+          <label className="apply-label" htmlFor="coverLetter">
+            Why are you a good fit for this role? *
+          </label>
           <textarea
             id="coverLetter"
             className="apply-textarea"
             rows={6}
             value={coverLetter}
             onChange={(e) => setCoverLetter(e.target.value)}
-            placeholder="Write your cover letter here…"
+            placeholder="Explain why you’re a strong fit for the role…"
             required
           />
         </div>
 
-        <p className="apply-help">Your resume from profile will be attached automatically.</p>
+        <p className="apply-help">
+          Your resume from profile will be attached automatically.
+        </p>
 
         <div className="apply-actions">
           <button type="submit" className="apply-btn">
@@ -566,6 +619,7 @@ const backAfterReport =
     </div>
   </div>
 )}
+
       </div>
       <Footer />
       <Copyright />

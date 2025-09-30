@@ -138,7 +138,24 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
 
         <p className="jc-location"><FaMapMarkerAlt /> {job.location || 'Not specified'}</p>
 
-        <p className="jc-category"><strong>Category:</strong> {job.category?.name || 'Not specified'}</p>
+                {(() => {
+          // back-compat mapping per spec:
+          const categories =
+            (job as any).categories?.length
+              ? (job as any).categories as { id: string; name?: string }[]
+              : ((job as any).category_id ? [{ id: (job as any).category_id, name: (job as any).category?.name }] : []);
+
+          if (!categories.length) return null;
+
+          return (
+            <div className="jc-tags" aria-label="categories" style={{ marginTop: 8 }}>
+              {categories.map((c) => (
+                <span key={c.id} className="jc-tag">{c.name || 'Category'}</span>
+              ))}
+            </div>
+          );
+        })()}
+
 
         {job.required_skills && job.required_skills.length > 0 && (
           <div className="jc-tags" aria-label="required skills">

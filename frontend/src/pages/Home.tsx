@@ -26,6 +26,7 @@ import ReactCountryFlag from 'react-country-flag';
 import { Helmet } from 'react-helmet-async';
 import { jwtDecode } from 'jwt-decode';
 import TestimonialsCarousel, { Testimonial } from "../components/TestimonialsCarousel";
+import { brand } from '../brand';
 
 
 type JwtPayload = { exp?: number };
@@ -234,32 +235,74 @@ const testimonials: Testimonial[] = [
   const maxSlide = Math.max(0, categoryGroups.length - 1);
 
 // --- свайп на мобилке: Pointer Events надёжнее в Safari/iOS ---
+// --- свайп на мобилке: Pointer Events + pointer capture + cancel (iOS Safari fix) ---
 const startXRef = useRef(0);
 const draggingRef = useRef(false);
-const swipedRef = useRef(false); // чтобы не кликались ссылки при свайпе
+const swipedRef = useRef(false);        // чтобы не кликались ссылки при свайпе
+const pointerIdRef = useRef<number | null>(null);
 const THRESHOLD = 50;
 
+const resetSwipe = () => {
+  draggingRef.current = false;
+  pointerIdRef.current = null;
+  // swipedRef сбрасываем не здесь, а после предотвращённого клика — см. onClickCapture ниже
+};
+
 const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  // работаем только с тачами; мышь/стилус не трогаем
   if (e.pointerType !== 'touch') return;
+
   draggingRef.current = true;
   swipedRef.current = false;
   startXRef.current = e.clientX;
+
+  // захватываем указатель — iOS тогда продолжит слать move/up даже при лёгких скроллах
+  try {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    pointerIdRef.current = e.pointerId;
+  } catch {
+    // старые браузеры могут не поддерживать — ок
+    pointerIdRef.current = null;
+  }
 };
 
 const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
   if (!draggingRef.current || e.pointerType !== 'touch') return;
+  // гарантируем, что это тот же pointer, который мы захватили
+  if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current) return;
+
   const dx = e.clientX - startXRef.current;
-  if (Math.abs(dx) > 8) swipedRef.current = true; // помечаем, что был жест
+  // отметим, что был горизонтальный жест — чтобы не срабатывали клики по ссылкам
+  if (Math.abs(dx) > 8) swipedRef.current = true;
+  // можно добавить визуальный подыгрывающий drag (не обязательно):
+  // e.currentTarget.querySelector('.cc-track')?.setAttribute('style', `transform: translateX(calc(-${currentSlide * 100}% + ${dx}px))`);
 };
 
 const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
   if (!draggingRef.current || e.pointerType !== 'touch') return;
-  draggingRef.current = false;
-  const dx = e.clientX - startXRef.current;
+  if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current) return;
 
+  // отпускаем захват
+  try {
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+  } catch {}
+
+  const dx = e.clientX - startXRef.current;
   if (Math.abs(dx) > THRESHOLD) {
-    setCurrentSlide(prev => (dx < 0 ? Math.min(maxSlide, prev + 1) : Math.max(0, prev - 1)));
+    setCurrentSlide(prev =>
+      dx < 0 ? Math.min(maxSlide, prev + 1) : Math.max(0, prev - 1)
+    );
   }
+  resetSwipe();
+};
+
+const onPointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+  // iOS часто кидает cancel при вертикальном скролле — нужно почистить состояние
+  if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current) return;
+  try {
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+  } catch {}
+  resetSwipe();
 };
 
 // Блокируем клик по ссылкам, если прямо перед этим был свайп
@@ -268,14 +311,15 @@ useEffect(() => {
   if (!vp) return;
   const onClickCapture = (e: MouseEvent) => {
     if (swipedRef.current) {
-      e.stopPropagation();
       e.preventDefault();
-      swipedRef.current = false;
+      e.stopPropagation();
+      swipedRef.current = false; // Сброс после «съеденного» клика
     }
   };
   vp.addEventListener('click', onClickCapture, true);
   return () => vp.removeEventListener('click', onClickCapture, true);
 }, []);
+
 
 
   // ——— Testimonials pager
@@ -318,16 +362,13 @@ useEffect(() => {
 
   return (
     <div>
-      <Helmet>
-  <title>Jobforge — The Simplest Path to Connect Talent and Opportunities</title>
-  <meta
-    name="description"
-    content="Join a growing community of candidates and employers. Create a standout profile, apply with one click, and chat directly."
-  />
-  <link rel="canonical" href="https://jobforge.net/" />
-  <meta property="og:title" content="Jobforge — Remote Work & Global Hiring" />
-  <meta property="og:description" content="Find remote jobs or hire global talent today." />
-  <meta property="og:url" content="https://jobforge.net/" />
+<Helmet>
+  <title>{brand.name} — {brand.heroTitle}</title>
+  <meta name="description" content={brand.heroSubtitle} />
+  <link rel="canonical" href={`https://${brand.domain}/`} />
+  <meta property="og:title" content={`${brand.name} — Remote Work & Global Hiring`} />
+  <meta property="og:description" content={brand.heroSubtitle} />
+  <meta property="og:url" content={`https://${brand.domain}/`} />
 </Helmet>
 
       <Header />
@@ -407,6 +448,7 @@ useEffect(() => {
   onPointerDown={onPointerDown}
   onPointerMove={onPointerMove}
   onPointerUp={onPointerUp}
+  onPointerCancel={onPointerCancel}
 >
   <div
     className="cc-track"
@@ -502,7 +544,7 @@ useEffect(() => {
       {/* Features */}
       <div className="container">
         <div className="features">
-          <h2>Why Choose JobForge</h2>
+          <h2>{brand.whyChooseTitle}</h2>
           <div className="feature-grid">
             <FeatureCard
               icon={<FaSearch />}

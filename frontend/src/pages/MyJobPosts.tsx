@@ -53,6 +53,35 @@ const MyJobPosts: React.FC = () => {
   const [skillInput, setSkillInput] = useState('');
   const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const flattenCategories = (cats: Category[]): Category[] =>
+    cats.flatMap((c) => [c, ...(c.subcategories ? flattenCategories(c.subcategories) : [])]);
+
+  const allFlattened = () => {
+    const base = flattenCategories(categories);
+    const extra = filteredSkills.filter(
+      x => !base.some(b => String(b.id) === String(x.id))
+    );
+    return base.concat(extra);
+  };
+
+  const addCategoryToEditing = (id: string) => {
+    if (!editingJob) return;
+    const current = (editingJob as any).category_ids as string[] | undefined;
+    const next = current ? (current.includes(id) ? current : [...current, id]) : [id];
+    setEditingJob({ ...editingJob, category_ids: next } as any);
+    // UX: clear input to allow picking the next category quickly
+    setSkillInput('');
+    setIsDropdownOpen(false);
+  };
+
+  const removeCategoryFromEditing = (id: string) => {
+    if (!editingJob) return;
+    const current = (editingJob as any).category_ids as string[] | undefined;
+    const next = (current || []).filter(x => x !== id);
+    setEditingJob({ ...editingJob, category_ids: next } as any);
+  };
+
   const [appDetails, setAppDetails] = useState<{ fullName?: string | null; referredBy?: string | null; coverLetter: string; } | null>(null);
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [applicantCounts, setApplicantCounts] = useState<Record<string, number | undefined>>({});
@@ -233,7 +262,18 @@ const handleViewApplications = async (jobPostId: string) => {
 
 
 
-  const handleEditJob = (job: JobPost) => setEditingJob({ ...job });
+    const handleEditJob = (job: JobPost) => {
+    // Prefill: category_ids из ответа, иначе fallback на legacy category_id
+    const fromArray = (job as any).category_ids as string[] | undefined;
+    const fromLegacy = job.category_id ? [String(job.category_id)] : [];
+    const prefilled = fromArray && fromArray.length ? fromArray : fromLegacy;
+
+    setEditingJob({
+      ...job,
+      category_ids: prefilled, // сохраняем в стейте редактирования
+    } as any);
+  };
+
 
   const handleSaveEdit = async (id: string) => {
     if (!editingJob) return;
@@ -248,7 +288,7 @@ const handleViewApplications = async (jobPostId: string) => {
       }
     }
 
-    try {
+        try {
       const payload: Partial<JobPost> = {
         title: editingJob.title,
         description: editingJob.description,
@@ -261,8 +301,10 @@ const handleViewApplications = async (jobPostId: string) => {
               ? editingJob.salary
               : null,
         job_type: editingJob.job_type ?? null,
-        category_id: editingJob.category_id || undefined,
-      };
+        // --- changed: send multi-select categories ---
+        category_ids: ((editingJob as any).category_ids as string[] | undefined) ?? [],
+        // legacy field not needed anymore
+      } as any;
       await handleUpdate(id, payload);
       setEditingJob(null);
     } catch (err: any) {
@@ -487,8 +529,8 @@ const handleViewApplications = async (jobPostId: string) => {
                         </select>
                       </div>
 
-                      <div className="mjp-row">
-                        <label className="mjp-label"><FaSearch /> Category</label>
+                       <div className="mjp-row">
+                        <label className="mjp-label"><FaSearch /> Categories</label>
                         <div className="mjp-auto">
                           <FaSearch className="mjp-auto-icon" />
                           <input
@@ -506,11 +548,7 @@ const handleViewApplications = async (jobPostId: string) => {
                                 <React.Fragment key={category.id}>
                                   <li
                                     className="mjp-item"
-                                    onMouseDown={() => {
-                                      setEditingJob({ ...editingJob!, category_id: category.id });
-                                      setSkillInput(category.name);
-                                      setIsDropdownOpen(false);
-                                    }}
+                                    onMouseDown={() => addCategoryToEditing(category.id)}
                                   >
                                     {category.name}
                                   </li>
@@ -518,11 +556,7 @@ const handleViewApplications = async (jobPostId: string) => {
                                     <li
                                       key={sub.id}
                                       className="mjp-item mjp-sub"
-                                      onMouseDown={() => {
-                                        setEditingJob({ ...editingJob!, category_id: sub.id });
-                                        setSkillInput(`${category.name} > ${sub.name}`);
-                                        setIsDropdownOpen(false);
-                                      }}
+                                      onMouseDown={() => addCategoryToEditing(sub.id)}
                                     >
                                       {`${category.name} > ${sub.name}`}
                                     </li>
@@ -532,7 +566,42 @@ const handleViewApplications = async (jobPostId: string) => {
                             </ul>
                           )}
                         </div>
+
+                        {/* chips of selected categories for the currently editing job */}
+                        {editingJob && Array.isArray((editingJob as any).category_ids) && (editingJob as any).category_ids.length > 0 && (() => {
+                          const all = allFlattened();
+                          const ids = (editingJob as any).category_ids as string[];
+                          const chips = ids.map((id) => {
+                            const cat = all.find((c) => String(c.id) === String(id));
+                            if (!cat) return { id, label: 'Unknown Category' };
+                            const parent = cat.parent_id
+                              ? all.find((c) => String(c.id) === String(cat.parent_id))
+                              : undefined;
+                            return {
+                              id,
+                              label: parent ? `${parent.name} > ${cat.name}` : cat.name,
+                            };
+                          });
+                          return (
+                            <div className="mjp-chips" style={{ marginTop: 8 }}>
+                              {chips.map(({ id, label }) => (
+                                <span key={id} className="mjp-chip">
+                                  {label}
+                                  <button
+                                    type="button"
+                                    className="mjp-chip-x"
+                                    onClick={() => removeCategoryFromEditing(id)}
+                                    aria-label="Remove category"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
+
 
                       <div className="mjp-actions-row">
                         <button onClick={() => handleSaveEdit(post.id)} className="mjp-btn mjp-success">

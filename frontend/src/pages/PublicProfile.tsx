@@ -276,7 +276,9 @@ const PublicProfile: React.FC = () => {
                       </div>
                       <div className="ppx-review-body">
                         <div className="ppx-review-line"><b>Comment:</b> {rv.comment}</div>
-                        <div className="ppx-review-line"><b>Job Application ID:</b> {rv.job_application?.id || 'Not specified'}</div>
+                        <div className="ppx-review-line">
+  <b>Job:</b> {rv.job_application?.job_post?.title || 'Not specified'}
+</div>
                         <div className="ppx-review-line"><b>Date:</b> {new Date(rv.created_at).toLocaleString()}</div>
                       </div>
                     </li>

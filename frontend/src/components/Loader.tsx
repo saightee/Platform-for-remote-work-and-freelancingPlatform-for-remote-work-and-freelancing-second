@@ -13,6 +13,7 @@
 
 import React from 'react';
 import '../styles/loader.css';
+import { brand } from '../brand';
 
 type LoaderVariant = 'wordmark' | 'typing' | 'anvil' | 'bar';
 type LoaderSize = 'sm' | 'md' | 'lg';
@@ -39,7 +40,7 @@ const Loader: React.FC<Props> = ({
         <div className={`jf-ldr jf-ldr--${size}`} role="status" aria-label="Loading">
           <div className="jf-ldr-wordmark">
             {/* ТЕКСТ — один цвет, без градиентов */}
-            <span className="jf-wm-text">Jobforge</span>
+            <span className="jf-wm-text">{brand.name}</span>
             {/* «Подчёркивание» — живёт своей жизнью, но не трогаем буквы */}
             <span className="jf-wm-underscore" aria-hidden="true" />
           </div>
@@ -49,7 +50,7 @@ const Loader: React.FC<Props> = ({
       {variant === 'typing' && (
         <div className={`jf-ldr jf-ldr--${size}`} role="status" aria-label="Loading">
           <div className="jf-ldr-typing">
-            <span className="jf-typing" data-text="Jobforge">Jobforge</span>
+            <span className="jf-typing" data-text={brand.name}>{brand.name}</span>
             <span className="jf-caret">_</span>
           </div>
         </div>
@@ -79,7 +80,7 @@ const Loader: React.FC<Props> = ({
         <div className={`jf-ldr jf-ldr--${size}`} role="status" aria-label="Loading">
           <div className="jf-ldr-bar">
             {/* ТЕКСТ — один цвет */}
-            <div className="jf-bar-title">Jobforge_</div>
+             <div className="jf-bar-title">{brand.wordmark}</div>
             <div className="jf-bar-track">
               <div className="jf-bar-fill" />
             </div>
