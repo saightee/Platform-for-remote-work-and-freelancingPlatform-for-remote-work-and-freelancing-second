@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import { jwtDecode } from 'jwt-decode'; // ⬅️ добавили
 import '../styles/footer.css';
+import { brand } from '../brand'; 
 
 type JwtPayload = { exp?: number };
 
@@ -37,7 +38,7 @@ const Footer: React.FC = () => {
         <div className="jf2-grid jf2-grid--5">
           {/* BRAND / ABOUT */}
           <div className="jf2-col jf2-col--brand">
-            <a className="jf2-logo">Jobforge_</a>
+            <a className="jf2-logo">{brand.wordmark}</a>
             <p className="jf2-desc">
               The leading platform for connecting businesses with professional
               virtual assistants worldwide.

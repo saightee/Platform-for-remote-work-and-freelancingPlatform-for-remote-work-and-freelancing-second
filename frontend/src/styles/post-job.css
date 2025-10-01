@@ -221,3 +221,39 @@
 .pjx-head-actions{display:flex;align-items:center;gap:8px}
 .pjx-regenerate{display:inline-flex;align-items:center;gap:8px}
 .pjx-regenerate svg{margin:0}
+
+/* === Previous Jobs picker (на базе уже существующих стилей авто-комплита) === */
+.pjx-prev { margin: 0 0 16px; }
+.pjx-prev .pjx-prev-title {
+  display: inline-block;
+  max-width: 72%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pjx-prev .pjx-prev-date {
+  float: right;
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .pjx-prev .pjx-prev-title { max-width: 60%; }
+}
+.pjx-prev .pjx-headrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.pjx-prev .pjx-clear {
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.pjx-dropdown .is-selected {
+  outline: 2px solid rgba(0,0,0,.08);
+}

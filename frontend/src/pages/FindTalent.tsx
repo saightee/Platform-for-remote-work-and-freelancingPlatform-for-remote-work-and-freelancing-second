@@ -202,13 +202,42 @@ const debouncedAutoSkillsKey = useDebouncedValue(autoSkillsKey, 400);
   // навигатор стабилен — в зависимостях не нужен
 }, [debouncedFilters, searchType, debouncedAutoSkillsKey]);
 
+// useEffect(() => {
+//   if (firstRunRef.current) { firstRunRef.current = false; return; }
+
+//   const t = setTimeout(() => {
+    
+//     if (selectedSkillId) return;
+
+//     const useAutoSkills = autoSkillIds.length > 0;
+//     const nextDesc = useAutoSkills ? undefined : (searchInput || undefined);
+
+//     setFilters(prev =>
+//       prev.description === nextDesc ? prev : { ...prev, description: nextDesc, page: 1 }
+//     );
+//   }, 400);
+
+//   return () => clearTimeout(t);
+// }, [searchInput, selectedSkillId, autoSkillIds]);
+
+const skipAutoOnInitRef = useRef(true);
+
 useEffect(() => {
-  if (firstRunRef.current) { firstRunRef.current = false; return; }
+  if (firstRunRef.current) { 
+    firstRunRef.current = false; 
+    return; 
+  }
+
+  // не реагируем на автоскиллы сразу после загрузки категорий
+  if (skipAutoOnInitRef.current) {
+    skipAutoOnInitRef.current = false;
+    return;
+  }
 
   const t = setTimeout(() => {
-    
     if (selectedSkillId) return;
 
+    // ВАЖНО: autoSkillIds тут больше не в зависимостях!
     const useAutoSkills = autoSkillIds.length > 0;
     const nextDesc = useAutoSkills ? undefined : (searchInput || undefined);
 
@@ -218,8 +247,7 @@ useEffect(() => {
   }, 400);
 
   return () => clearTimeout(t);
-}, [searchInput, selectedSkillId, autoSkillIds]);
-
+}, [searchInput, selectedSkillId]); 
 
 
   // автокомплит категорий
@@ -592,7 +620,7 @@ const handlePageChange = (newPage: number) => {
     if (!v) return null;
     const label = v === 'actively_looking' ? 'Actively looking' : v === 'hired' ? 'Hired' : 'Open to offers';
     const color = v === 'actively_looking' ? '#14804a' : v === 'hired' ? '#6b7280' : '#4e74c8';
-    return <span style={{ padding: '5px 8px', borderRadius: 999, background: `${color}20`, color, fontSize: 12, fontWeight: 'bold',  }}>{label}</span>;
+    return <span style={{ padding: '5px 8px', margin: '0 6px', borderRadius: 999, background: `${color}20`, color, fontSize: 12, fontWeight: 'bold',  }}>{label}</span>;
   })()}
                                 {typeof rating === 'number' && (
                                   <span className="ftl-stars" aria-label={`rating ${rating}/5`}>

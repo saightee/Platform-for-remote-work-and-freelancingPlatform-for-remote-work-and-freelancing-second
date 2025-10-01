@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useRole } from '../context/RoleContext';
 import { logout } from '../services/api';
 import { FaBars, FaTimes, FaChevronDown, FaEnvelope } from 'react-icons/fa';
+import { brand } from '../brand';
 
 const Header: React.FC = () => {
   const { profile, isLoading, currentRole } = useRole();
@@ -79,7 +80,7 @@ useEffect(() => {
     return (
       <header className="hm-header">
         <div className="hm-container">
-          <Link to="/" className="hm-logo">Jobforge_</Link>
+          <Link to="/" className="hm-logo">{brand.wordmark}</Link>
           <button className="hm-burger" aria-label="Menu" onClick={toggleMobileMenu}>
             <FaBars />
           </button>
@@ -91,7 +92,9 @@ useEffect(() => {
   return (
     <header className="hm-header">
       <div className="hm-container">
-        <Link to="/" className="hm-logo" onClick={closeMobileMenu}>Jobforge_</Link>
+        <Link to="/" className="hm-logo" onClick={closeMobileMenu}>
+          {brand.wordmark} 
+        </Link>
 
         <button
           className="hm-burger"

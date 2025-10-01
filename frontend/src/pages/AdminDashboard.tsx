@@ -31,6 +31,8 @@ import {
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings } from '@types';
 import { AxiosError } from 'axios';
+import '../styles/referral-links.css';
+
 // import {
 //   mockUsers, mockJobPosts, mockJobPostsWithApps, mockReviews, mockFeedback,
 //   mockBlockedCountries, mockCategories, mockAnalytics, mockRegistrationStats,
@@ -127,6 +129,19 @@ interface Complaint {
 interface EnrichedComplaint extends Complaint {
   targetUsername: string;
 }
+const shortenReferralUrl = (url: string, max = 45) => {
+  if (!url) return '';
+  if (url.length <= max) return url;
+  try {
+    const u = new URL(url);
+    // показываем origin + первые ~20 символов пути, затем …
+    const path = u.pathname || '/';
+    const slice = path.slice(0, 20).replace(/\/$/, '');
+    return `${u.origin}${slice}...`;
+  } catch {
+    return `${url.slice(0, max)}...`;
+  }
+};
 
 
 const AdminDashboard: React.FC = () => {
@@ -157,6 +172,10 @@ const [newParentCategoryId, setNewParentCategoryId] = useState<string>('');
 const [autoRefresh, setAutoRefresh] = useState(false);
 const [notifyAudience, setNotifyAudience] = useState<'all' | 'referral'>('all');
 const [notifyTitleFilter, setNotifyTitleFilter] = useState<string>(''); // опционально
+const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
+const toggleJob = (jobId: string) =>
+  setExpandedJobs(prev => ({ ...prev, [jobId]: !prev[jobId] }));
+
 
 const [growthLimit] = useState(10); // Лимит на страницу
 const [stories, setStories] = useState<PlatformFeedbackAdminItem[]>([]);
@@ -382,7 +401,17 @@ const [username, setUsername] = useState<string>('Admin');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [storyDetails, setStoryDetails] = useState<PlatformFeedbackAdminItem | null>(null);
+const [rejectModal, setRejectModal] = useState<{ id: string | null; title?: string }>({ id: null, title: '' });
+const [rejectReason, setRejectReason] = useState('');
 
+const openRejectModal = (id: string, title?: string) => {
+  setRejectModal({ id, title });
+  setRejectReason('');
+};
+const closeRejectModal = () => {
+  setRejectModal({ id: null, title: '' });
+  setRejectReason('');
+};
 
   const [showProfileModal, setShowProfileModal] = useState<string | null>(null); // Добавлено: state для модалки Profile
 const [selectedProfile, setSelectedProfile] = useState<JobSeekerProfile | null>(null);
@@ -416,6 +445,7 @@ const handleSort = (column: 'id' | 'applicationCount' | 'created_at') => {
 
 const [showEmailStatsModal, setShowEmailStatsModal] = useState<{
   jobPostId: string;
+  jobTitle?: string;  
   loading: boolean;
   data: {
     sent: number;
@@ -436,22 +466,39 @@ const [showEmailStatsModal, setShowEmailStatsModal] = useState<{
 
 
 const openEmailStats = async (jobPostId: string) => {
-  setShowEmailStatsModal({ jobPostId, loading: true, data: null });
+  // пробуем локально найти заголовок
+  const localTitle =
+    jobPosts.find(p => p.id === jobPostId)?.title ||
+    jobPostsWithApps.find(p => p.id === jobPostId)?.title;
+
+  setShowEmailStatsModal({ jobPostId, jobTitle: localTitle, loading: true, data: null });
+
   try {
+    // если локально не нашли — подтянем пост (тихо, без фейла UI)
+    let ensuredTitle = localTitle;
+    if (!ensuredTitle) {
+      try {
+        const jp = await getJobPost(jobPostId);
+        ensuredTitle = jp?.title || undefined;
+        setShowEmailStatsModal(prev => prev ? { ...prev, jobTitle: ensuredTitle } : prev);
+      } catch {/* no-op */}
+    }
+
     const data = await getEmailStatsForJob(jobPostId);
-    setShowEmailStatsModal({
-      jobPostId,
+    setShowEmailStatsModal(prev => prev && prev.jobPostId === jobPostId ? {
+      ...prev,
       loading: false,
       data: {
         ...data,
-        details: data.details.map(d => ({ ...d, job_post_id: jobPostId }))
+        details: data.details.map(d => ({ ...d, job_post_id: jobPostId })),
       }
-    });
+    } : prev);
   } catch (e) {
     alert('Failed to load email stats');
     setShowEmailStatsModal(null);
   }
 };
+
 
 
 const submitResolveComplaint = async () => {
@@ -571,10 +618,12 @@ useEffect(() => {
 
 useEffect(() => {
   if (!chatNotif) return;
+  const { immediate, delayedIfUnread, after24hIfUnread } = chatNotif.onEmployerMessage as any;
   if (
     chatNotif.enabled &&
-    !chatNotif.onEmployerMessage.immediate &&
-    !chatNotif.onEmployerMessage.delayedIfUnread.enabled
+    !immediate &&
+    !delayedIfUnread?.enabled &&
+    !after24hIfUnread?.enabled
   ) {
     setChatNotifWarning('Warning: nothing will be sent with current settings.');
   } else {
@@ -582,13 +631,25 @@ useEffect(() => {
   }
 }, [chatNotif]);
 
+
 // save handler
 const saveChatNotif = async () => {
   if (!chatNotif) return;
   setChatNotifSaving(true);
   try {
-    // можно отправлять полный объект — бэку ок; частичный тоже поддерживается
-    const saved = await updateChatNotificationSettings(chatNotif);
+    const payload = {
+      ...chatNotif,
+      onEmployerMessage: {
+        ...chatNotif.onEmployerMessage,
+        after24hIfUnread: chatNotif.onEmployerMessage.after24hIfUnread
+          ? {
+              enabled: !!chatNotif.onEmployerMessage.after24hIfUnread.enabled,
+              hours: clamp(Number(chatNotif.onEmployerMessage.after24hIfUnread.hours) || 24, 1, 168),
+            }
+          : { enabled: false, hours: 24 },
+      },
+    };
+    const saved = await updateChatNotificationSettings(payload as ChatNotificationsSettings);
     setChatNotif(normalizeCN(saved || {}));
     alert('Chat notification settings saved.');
   } catch (e: any) {
@@ -598,6 +659,7 @@ const saveChatNotif = async () => {
     setChatNotifSaving(false);
   }
 };
+
 
 
 useEffect(() => {
@@ -1347,21 +1409,22 @@ const handleRefresh = async () => {
 //   }
 // };
 
-const handleRejectJobPost = async (id: string) => {
-  const reason = prompt('Enter reason for rejection:');
-  if (reason && reason.trim()) {
-    try {
-      await rejectJobPost(id, reason);
-      setJobPosts(jobPosts.filter((post) => post.id !== id));
-      setJobPostsWithApps(jobPostsWithApps.filter((post) => post.id !== id));
-      alert('Job post rejected successfully!');
-    } catch (error) {
-      const axiosError = error as AxiosError<{ message?: string }>;
-      console.error('Error rejecting job post:', axiosError);
-      alert(axiosError.response?.data?.message || 'Failed to reject job post.');
-    }
-  } else {
+const submitReject = async () => {
+  if (!rejectModal.id) return;
+  const reason = rejectReason.trim();
+  if (!reason) {
     alert('Reason is required.');
+    return;
+  }
+  try {
+    await rejectJobPost(rejectModal.id, reason);
+    setJobPosts(prev => prev.filter(p => p.id !== rejectModal.id));
+    setJobPostsWithApps(prev => prev.filter(p => p.id !== rejectModal.id));
+    closeRejectModal();
+    alert('Job post rejected successfully!');
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    alert(axiosError.response?.data?.message || 'Failed to reject job post.');
   }
 };
 
@@ -1418,6 +1481,13 @@ const normalizeCN = (raw: any): ChatNotificationsSettings => ({
         1, 10080
       ),
     },
+    after24hIfUnread: { // NEW
+      enabled: !!raw?.onEmployerMessage?.after24hIfUnread?.enabled,
+      hours: clamp(
+        Number(raw?.onEmployerMessage?.after24hIfUnread?.hours) || 24,
+        1, 168 // 1..168ч
+      ),
+    },
     onlyFirstMessageInThread: !!raw?.onEmployerMessage?.onlyFirstMessageInThread,
   },
   throttle: {
@@ -1425,6 +1495,7 @@ const normalizeCN = (raw: any): ChatNotificationsSettings => ({
     perMinutes: clamp(Number(raw?.throttle?.perMinutes) || 60, 1, 10080),
   },
 });
+
 
 
 const handleUnblockUser = async (id: string, username: string) => {
@@ -2424,9 +2495,9 @@ if (isLoading) {
                 <button onClick={() => handleFlagJobPost(post.id)} className="action-button warning">
                   Flag
                 </button>
-                <button onClick={() => handleRejectJobPost(post.id)} className="action-button danger">
-                  Reject
-                </button>
+                <button onClick={() => openRejectModal(post.id, post.title)} className="action-button danger">
+  Reject
+</button>
                 <button onClick={() => setShowJobModal(post.id)} className="action-button">
                   View Job
                 </button>
@@ -2944,13 +3015,13 @@ if (isLoading) {
   )}
 
     {showJobModal && jobPosts.find(post => post.id === showJobModal) && (
-      <div className="modal">
+      <div className="modal is-admin-jobpost">
         <div className="modal-content">
           <span className="close" onClick={() => setShowJobModal(null)}>×</span>
           <h3 className='job-post-details'>Job Post Details</h3>
           <p><strong>Title:</strong> {jobPosts.find(post => post.id === showJobModal)?.title}</p>
          <p><strong>Description:</strong></p>
-<div
+<div className="job-modal__richtext"
   dangerouslySetInnerHTML={{ __html: safeDescription }}
 />
           {jobPosts.find(post => post.id === showJobModal)?.pending_review && (
@@ -3351,32 +3422,48 @@ if (isLoading) {
 )}
 
 {activeTab === 'Referral Links' && (
-  <div>
-    <h4>Referral Links</h4>
-    <div className="form-group">
-      <label>Filter by Job ID:</label>
-      <input value={referralFilterJobId} onChange={(e) => setReferralFilterJobId(e.target.value)} />
+  <div className="ref-links">
+    <div className="ref-links__head">
+      <h4 className="ref-links__title">Referral Links</h4>
+
+      <div className="ref-links__filters">
+        <div className="ref-links__field">
+          <label htmlFor="f-jobid">Filter by Job ID:</label>
+          <input
+            id="f-jobid"
+            value={referralFilterJobId}
+            onChange={(e) => setReferralFilterJobId(e.target.value)}
+            placeholder="e.g. 123e4567-e89b..."
+          />
+        </div>
+        <div className="ref-links__field">
+          <label htmlFor="f-jobtitle">Filter by Job Title:</label>
+          <input
+            id="f-jobtitle"
+            value={referralFilterJobTitle}
+            onChange={(e) => setReferralFilterJobTitle(e.target.value)}
+            placeholder="e.g. Virtual assistant"
+          />
+        </div>
+
+        <button
+          onClick={async () => {
+            const data = await getReferralLinks({
+              jobId: referralFilterJobId.trim() || undefined,
+              jobTitle: referralFilterJobTitle.trim() || undefined,
+            });
+            setReferralLinks(data || []);
+            setExpandedJobs({}); // свернём группы при новом поиске
+          }}
+          className="ref-links__btn ref-links__btn--primary"
+        >
+          Search
+        </button>
+      </div>
     </div>
-    <div className="form-group">
-      <label>Filter by Job Title:</label>
-      <input value={referralFilterJobTitle} onChange={(e) => setReferralFilterJobTitle(e.target.value)} />
-    </div>
-    <button
-      onClick={async () => {
-        const data = await getReferralLinks({
-          jobId: referralFilterJobId.trim() || undefined,
-          jobTitle: referralFilterJobTitle.trim() || undefined, // <-- правильное имя фильтра
-        });
-        console.log('Referral Links data:', data);
-        setReferralLinks(data || []);
-      }}
-      className="action-button"
-    >
-      Search
-    </button>
 
     {(() => {
-      // Группируем по вакансии
+      // Группировка по вакансии
       const groups: Record<string, { title: string; links: typeof referralLinks }> = {};
       referralLinks.forEach((link) => {
         const jId = link.job_post?.id || link.jobPostId;
@@ -3388,117 +3475,153 @@ if (isLoading) {
 
       if (jobIds.length === 0) {
         return (
-          <table className="dashboard-table">
-            <tbody>
-              <tr>
-                <td>No referral links found.</td>
-              </tr>
-            </tbody>
-          </table>
+          <div className="ref-links__empty">
+            No referral links found.
+          </div>
         );
       }
 
-      return jobIds.map((jid) => (
-        <div key={jid} style={{ marginTop: 16, border: '1px solid #eee', borderRadius: 6, padding: 12 }}>
-          <div className="table-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h5 style={{ margin: 0 }}>Job: {groups[jid].title}</h5>
-            <button className="action-button success" onClick={() => openCreateReferralModal(jid)}>+ New referral link</button>
-          </div>
-          <table className="dashboard-table" style={{ marginTop: 8 }}>
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Full Link</th>
-                <th>Clicks</th>
-                <th>Registrations</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups[jid].links.map((link) => (
-                <Fragment key={link.id}>
-                  <tr>
-                    <td>{link.description || <i>—</i>}</td>
-                    <td>
-                      {link.fullLink}
-                      <button
-                        onClick={() => navigator.clipboard.writeText(link.fullLink)}
-                        className="action-button"
-                        title="Copy link"
-                        style={{ marginLeft: 8 }}
-                      >
-                        <FaCopy /> Copy
-                      </button>
-                    </td>
-                    <td>{link.clicks}</td>
-                    <td>{link.registrations}</td>
-                    <td>
-                      <button className="action-button" onClick={() => handleEditReferral(link.id, link.description || '')}>Edit</button>
-                      <button className="action-button danger" onClick={() => handleDeleteReferral(link.id)}>Delete</button>
-                      <button
-                        onClick={() => setExpandedReferral(expandedReferral === link.id ? null : link.id)}
-                        className="action-button"
-                        style={{ marginLeft: 8 }}
-                      >
-                        {expandedReferral === link.id ? 'Hide details' : 'View regs'}
-                      </button>
-                    </td>
-                  </tr>
+      return jobIds.map((jid) => {
+        const { title, links } = groups[jid];
+        const opened = !!expandedJobs[jid];
+        return (
+          <section key={jid} className={`ref-links__job ${opened ? 'is-open' : ''}`}>
+            <header className="ref-links__job-head" onClick={() => toggleJob(jid)}>
+              <div className="ref-links__job-title">
+                <span className="ref-links__chev">{opened ? '▾' : '▸'}</span>
+                <span className="ref-links__job-name">Job: {title}</span>
+                <span className="ref-links__count">({links.length})</span>
+              </div>
+              <button
+                className="ref-links__btn ref-links__btn--success"
+                onClick={(e) => { e.stopPropagation(); openCreateReferralModal(jid); }}
+              >
+                + New referral link
+              </button>
+            </header>
 
-                  {expandedReferral === link.id && (
-                    <tr>
-                      <td colSpan={5}>
-                        <details open>
-                          <summary>Registrations Details</summary>
-                          <table>
-                            <thead>
-                              <tr>
-                                <th>User ID</th>
-                                <th>Username</th>
-                                <th>Email</th>
-                                <th>Role</th>
-                                <th>Created At</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {link.registrationsDetails?.length
-                                ? link.registrationsDetails.map((reg, i) => (
-                                    <tr key={i}>
-                                      <td>{reg.user.id}</td>
-                                      <td>{reg.user.username}</td>
-                                      <td>{reg.user.email}</td>
-                                      <td>{reg.user.role}</td>
-                                      <td>{format(new Date(reg.user.created_at), 'PP')}</td>
-                                    </tr>
-                                  ))
-                                : (
-                                  <tr>
-                                    <td colSpan={5}>No registrations.</td>
-                                  </tr>
-                                )}
-                            </tbody>
-                          </table>
-                        </details>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ));
+            {opened && (
+              <div className="ref-links__job-body">
+                <div className="ref-links__table-wrap">
+                  <table className="ref-links__table">
+                    <thead>
+                      <tr>
+                        <th>Description</th>
+                        <th>Link</th>
+                        <th>Clicks</th>
+                        <th>Regs</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {links.map((link) => (
+                        <Fragment key={link.id}>
+                          <tr>
+                            <td className="ref-links__desc">
+                              {link.description || <i>—</i>}
+                            </td>
+
+                            <td className="ref-links__url">
+                              <span
+                                title={link.fullLink}
+                                className="ref-links__url-text"
+                              >
+                                {shortenReferralUrl(link.fullLink)}
+                              </span>
+                              <button
+                                onClick={() => navigator.clipboard.writeText(link.fullLink)}
+                                className="ref-links__btn ref-links__btn--ghost"
+                                title="Copy link"
+                              >
+                                <FaCopy style={{ marginRight: 6 }} />
+                                Copy
+                              </button>
+                            </td>
+
+                            <td className="ref-links__num">{link.clicks}</td>
+                            <td className="ref-links__num">{link.registrations}</td>
+                            <td className="ref-links__actions">
+                              <button
+                                className="ref-links__btn"
+                                onClick={() => handleEditReferral(link.id, link.description || '')}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="ref-links__btn ref-links__btn--danger"
+                                onClick={() => handleDeleteReferral(link.id)}
+                              >
+                                Delete
+                              </button>
+                              <button
+                                onClick={() => setExpandedReferral(expandedReferral === link.id ? null : link.id)}
+                                className="ref-links__btn ref-links__btn--primary"
+                              >
+                                {expandedReferral === link.id ? 'Hide regs' : 'View regs'}
+                              </button>
+                            </td>
+                          </tr>
+
+                          {expandedReferral === link.id && (
+                            <tr className="ref-links__expand">
+                              <td colSpan={5}>
+                                <div className="ref-links__regs">
+                                  <div className="ref-links__regs-head">Registrations</div>
+                                  <div className="ref-links__regs-tablewrap">
+                                    <table className="ref-links__regs-table">
+                                      <thead>
+                                        <tr>
+                                          <th>User ID</th>
+                                          <th>Username</th>
+                                          <th>Email</th>
+                                          <th>Role</th>
+                                          <th>Created At</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {link.registrationsDetails?.length ? (
+                                          link.registrationsDetails.map((reg, i) => (
+                                            <tr key={i}>
+                                              <td>{reg.user.id}</td>
+                                              <td>{reg.user.username}</td>
+                                              <td>{reg.user.email}</td>
+                                              <td>{reg.user.role}</td>
+                                              <td>{format(new Date(reg.user.created_at), 'PP')}</td>
+                                            </tr>
+                                          ))
+                                        ) : (
+                                          <tr><td colSpan={5}>No registrations.</td></tr>
+                                        )}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </section>
+        );
+      });
     })()}
   </div>
 )}
 
 
 
+
 {showEmailStatsModal && (
-  <div className="modal">
-    <div className="modal-content">
+  <div className="modal modal--emailstats">
+    <div className="modal-content modal-content--emailstats">
       <span className="close" onClick={() => setShowEmailStatsModal(null)}>×</span>
-      <h3>Email Notifications — Job Post ID: {showEmailStatsModal.jobPostId}</h3>
+      <h3>Email Notifications — {showEmailStatsModal.jobTitle || showEmailStatsModal.jobPostId}</h3>
+
       {showEmailStatsModal.loading ? (
         <p>Loading...</p>
       ) : (
@@ -3542,6 +3665,32 @@ if (isLoading) {
     </div>
   </div>
 )}
+
+{rejectModal.id && (
+  <div className="modal">
+    <div className="modal-content">
+      <span className="close" onClick={closeRejectModal}>×</span>
+      <h3>Reject Job Post</h3>
+      <p><strong>Job:</strong> {rejectModal.title || rejectModal.id}</p>
+
+      <div className="form-group">
+        <label>Reason</label>
+        <textarea
+          rows={4}
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+          placeholder="Write the reason for rejection…"
+        />
+      </div>
+
+      <div className="modal-actions">
+        <button onClick={submitReject} className="action-button danger">Reject</button>
+        <button onClick={closeRejectModal} className="action-button">Cancel</button>
+      </div>
+    </div>
+  </div>
+)}
+
 
 {storyDetails && (
   <div className="modal" onClick={() => setStoryDetails(null)}>
@@ -3840,6 +3989,64 @@ if (isLoading) {
                 </div>
               </div>
             </div>
+
+
+            {/* NEW: another email after N hours if unread */}
+<div className="bo-row bo-row--switch">
+  <label className="bo-row__label">Send another email after N hours if unread</label>
+  <div className="bo-row__control bo-inline">
+    <label className="bo-switch">
+      <input
+        type="checkbox"
+        checked={!!chatNotif.onEmployerMessage.after24hIfUnread?.enabled}
+        onChange={(e) =>
+          updateCN(p => ({
+            ...p,
+            onEmployerMessage: {
+              ...p.onEmployerMessage,
+              after24hIfUnread: {
+                ...(p.onEmployerMessage as any).after24hIfUnread,
+                enabled: e.target.checked,
+                hours: (p.onEmployerMessage as any).after24hIfUnread?.hours ?? 24,
+              },
+            },
+          }))
+        }
+      />
+      <span className="bo-switch__slider" />
+    </label>
+
+    <div className="bo-field">
+      <label className="bo-field__label">Hours</label>
+      <input
+        className="bo-input bo-input--sm"
+        type="number"
+        min={1}
+        max={168}
+        value={(chatNotif.onEmployerMessage as any).after24hIfUnread?.hours ?? 24}
+        disabled={
+          !chatNotif.enabled ||
+          !(chatNotif.onEmployerMessage as any).after24hIfUnread?.enabled
+        }
+        onChange={(e) => {
+          const n = clamp(parseInt(e.target.value || '0', 10) || 0, 1, 168);
+          updateCN(p => ({
+            ...p,
+            onEmployerMessage: {
+              ...p.onEmployerMessage,
+              after24hIfUnread: {
+                ...(p.onEmployerMessage as any).after24hIfUnread,
+                enabled: !!(p.onEmployerMessage as any).after24hIfUnread?.enabled,
+                hours: n,
+              },
+            },
+          }));
+        }}
+      />
+    </div>
+  </div>
+</div>
+
 
             <div className="bo-row bo-row--switch">
               <label className="bo-row__label">Only first message in thread</label>

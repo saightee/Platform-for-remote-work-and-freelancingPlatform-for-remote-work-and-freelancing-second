@@ -11,7 +11,7 @@ const TermsOfService: React.FC = () => {
         <p>Last updated: May 20, 2025</p>
         <h2>Acceptance of Terms</h2>
         <p>
-          By accessing or using HireValve ("Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, please do not use our Service.
+          By accessing or using Jobforge ("Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, please do not use our Service.
         </p>
         <h2>Use of the Service</h2>
         <p>
@@ -32,7 +32,7 @@ const TermsOfService: React.FC = () => {
         </p>
         <h2>Limitation of Liability</h2>
         <p>
-          HireValve shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Service.
+          Jobforge shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Service.
         </p>
         <h2>Changes to Terms</h2>
         <p>
@@ -40,7 +40,7 @@ const TermsOfService: React.FC = () => {
         </p>
         <h2>Contact Us</h2>
         <p>
-          If you have any questions about these Terms, please contact us at support@hirevalve.com.
+          If you have any questions about these Terms, please contact us at support@Jobforge.com.
         </p>
       </div>
       <Footer />
