@@ -1148,7 +1148,7 @@ export class AdminService {
 
     const siteBase = this.configService.get<string>('BASE_URL')!.replace(/\/api\/?$/, '');
     const slugOrId = (jobPost as any).slug_id || jobPost.id;
-    const jobUrl = `${siteBase}/job/${slugOrId}`;
+    const jobUrl = `${siteBase}/vacancy/${slugOrId}`;
 
     for (const js of jobSeekers) {
       try {
@@ -1259,7 +1259,7 @@ export class AdminService {
 
     const siteBase = this.configService.get<string>('BASE_URL')!.replace(/\/api\/?$/, '');
     const slugOrId = (jobPost as any).slug_id || jobPost.id;
-    const jobUrl = `${siteBase}/job/${slugOrId}`;
+    const jobUrl = `${siteBase}/vacancy/${slugOrId}`;
 
     let sent = 0;
     for (const js of picked) {
