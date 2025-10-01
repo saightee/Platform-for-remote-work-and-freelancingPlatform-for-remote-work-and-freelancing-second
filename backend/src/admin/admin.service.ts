@@ -1125,12 +1125,11 @@ export class AdminService {
       // не слать тем, кто уже подался на ЭТУ вакансию
       .andWhere(`NOT EXISTS (
         SELECT 1 FROM job_applications a2
-        WHERE a2.job_post_id = :thisJob AND a2.job_seeker_id = jobSeeker.user_id
+        WHERE a2.job_post_id = :thisJob AND a2.job_seeker_id = "jobSeeker"."user_id"
       )`, { thisJob: jobPostId })
-      // и не слать тем, кому уже отправляли по ЭТОЙ вакансии
       .andWhere(`NOT EXISTS (
         SELECT 1 FROM email_notifications en
-        WHERE en.job_post_id = :thisJob AND en.recipient_email = user.email
+        WHERE en.job_post_id = :thisJob AND en.recipient_email = "user"."email"
       )`, { thisJob: jobPostId })
       .setParameters(subQuery.getParameters());
 
@@ -1240,12 +1239,11 @@ export class AdminService {
       // не слать тем, кто уже подался на ЭТУ вакансию
       .andWhere(`NOT EXISTS (
         SELECT 1 FROM job_applications a2
-        WHERE a2.job_post_id = :thisJob AND a2.job_seeker_id = js.user_id
+        WHERE a2.job_post_id = :thisJob AND a2.job_seeker_id = "js"."user_id"
       )`, { thisJob: jobPostId })
-      // и не слать тем, кому уже отправляли по ЭТОЙ вакансии
       .andWhere(`NOT EXISTS (
         SELECT 1 FROM email_notifications en
-        WHERE en.job_post_id = :thisJob AND en.recipient_email = u.email
+        WHERE en.job_post_id = :thisJob AND en.recipient_email = "u"."email"
       )`, { thisJob: jobPostId })
       .setParameters(subRegs.getParameters());
 
