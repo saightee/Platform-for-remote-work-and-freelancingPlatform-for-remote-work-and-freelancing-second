@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, UnauthorizedException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { JobPost } from './job-post.entity';
 import { User } from '../users/entities/user.entity';
 import { CategoriesService } from '../categories/categories.service';
@@ -12,6 +12,7 @@ import axios from 'axios';
 import { marked } from 'marked';
 import sanitizeHtml from 'sanitize-html';
 import { randomBytes } from 'crypto';
+import { JobPostCategory } from './job-post-category.entity';
 
 @Injectable()
 export class JobPostsService {
@@ -38,36 +39,66 @@ export class JobPostsService {
       .replace(/-{2,}/g, '-');
   }
 
-  async createJobPost(userId: string, jobPostData: { 
-    title: string; 
-    description: string; 
-    location: string; 
-    salary?: number; 
-    status: 'Active' | 'Draft' | 'Closed'; 
-    aiBrief?: string;
-    category_id?: string; 
-    job_type?: 'Full-time' | 'Part-time' | 'Project-based';
-    salary_type?: 'per hour' | 'per month' | 'negotiable';  
-    excluded_locations?: string[];  
-  }) {
-    const user = await this.usersRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    if (user.role !== 'employer') {
-      throw new UnauthorizedException('Only employers can create job posts');
+  private async setJobCategories(jobPostId: string, categoryIds: string[] | undefined) {
+    if (!categoryIds) return;
+
+    await this.jobPostsRepository.manager
+      .createQueryBuilder()
+      .delete()
+      .from(JobPostCategory)
+      .where('job_post_id = :id', { id: jobPostId })
+      .execute();
+
+    const unique = Array.from(new Set(categoryIds.filter(Boolean)));
+    if (unique.length) {
+      const rows = unique.map((cid) => {
+        const jpc = new JobPostCategory();
+        jpc.job_post_id = jobPostId;
+        jpc.category_id = cid;
+        return jpc;
+      });
+      await this.jobPostsRepository.manager.save(rows);
     }
 
-    if (jobPostData.category_id) {
-      await this.categoriesService.getCategoryById(jobPostData.category_id);
+    const legacy = unique.length ? unique[0] : null;
+    await this.jobPostsRepository.update({ id: jobPostId }, { category_id: legacy });
+  }
+
+  async createJobPost(
+    userId: string,
+    jobPostData: {
+      title: string;
+      description?: string;
+      location: string;
+      salary?: number;
+      status: 'Active' | 'Draft' | 'Closed';
+      aiBrief?: string;
+      category_id?: string;
+      category_ids?: string[];
+      job_type?: 'Full-time' | 'Part-time' | 'Project-based';
+      salary_type?: 'per hour' | 'per month' | 'negotiable';
+      excluded_locations?: string[];
+    }
+  ) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role !== 'employer') throw new UnauthorizedException('Only employers can create job posts');
+
+    const incomingIds = jobPostData.category_ids?.length
+      ? jobPostData.category_ids
+      : (jobPostData.category_id ? [jobPostData.category_id] : []);
+
+    if (incomingIds.length) {
+      const found = await this.categoriesService.findManyByIds(incomingIds);
+      if (found.length !== incomingIds.length) {
+        throw new BadRequestException('One or more categories not found');
+      }
     }
 
     if (jobPostData.salary_type !== 'negotiable' && !jobPostData.salary) {
       throw new BadRequestException('Salary is required unless salary_type is negotiable');
     }
-    if (jobPostData.salary_type === 'negotiable') {
-      jobPostData.salary = null;
-    }
+    if (jobPostData.salary_type === 'negotiable') jobPostData.salary = null;
 
     if (!jobPostData.description && jobPostData.aiBrief) {
       jobPostData.description = await this.generateDescription({
@@ -82,27 +113,34 @@ export class JobPostsService {
 
     const limitObj = await this.settingsService.getGlobalApplicationLimit();
     let globalLimit = limitObj.globalApplicationLimit;
-    if (!Number.isFinite(globalLimit) || globalLimit < 0) {
-      globalLimit = 100; 
-    }
+    if (!Number.isFinite(globalLimit) || globalLimit < 0) globalLimit = 100;
 
     const jobPost = this.jobPostsRepository.create({
-      ...jobPostData,
+      title: jobPostData.title,
+      description: jobPostData.description!,
+      location: jobPostData.location,
+      salary: jobPostData.salary ?? null,
+      salary_type: jobPostData.salary_type,
+      status: jobPostData.status,
+      job_type: jobPostData.job_type,
+      excluded_locations: jobPostData.excluded_locations,
       employer_id: userId,
       pending_review: true,
     });
-    const savedJobPost = await this.jobPostsRepository.save(jobPost);
 
-    const baseSlug = this.slugify(savedJobPost.title || '');
-    const shortId = (savedJobPost.id || '').replace(/-/g, '').slice(0, 8);
-    savedJobPost.slug = baseSlug || null;
-    savedJobPost.slug_id = baseSlug && shortId ? `${baseSlug}--${shortId}` : null;
+    const saved = await this.jobPostsRepository.save(jobPost);
 
-    await this.jobPostsRepository.save(savedJobPost);
+    const baseSlug = this.slugify(saved.title || '');
+    const shortId = (saved.id || '').replace(/-/g, '').slice(0, 8);
+    saved.slug = baseSlug || null;
+    saved.slug_id = baseSlug && shortId ? `${baseSlug}--${shortId}` : null;
+    await this.jobPostsRepository.save(saved);
 
-    await this.applicationLimitsService.initializeLimits(savedJobPost.id, globalLimit);
+    await this.applicationLimitsService.initializeLimits(saved.id, globalLimit);
 
-    return savedJobPost;
+    await this.setJobCategories(saved.id, incomingIds);
+
+    return this.getJobPost(saved.id);
   }
 
   async updateJobPost(
@@ -115,23 +153,28 @@ export class JobPostsService {
       salary?: number;
       status?: 'Active' | 'Draft' | 'Closed';
       category_id?: string;
+      category_ids?: string[];
       aiBrief?: string;
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
       salary_type?: 'per hour' | 'per month' | 'negotiable';
       excluded_locations?: string[];
-    },
+    }
   ) {
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: userId } });
-    if (!jobPost) {
-      throw new NotFoundException('Job post not found or you do not have permission to update it');
-    }
-
-    if (updates.category_id) {
-      await this.categoriesService.getCategoryById(updates.category_id);
-    }
+    if (!jobPost) throw new NotFoundException('Job post not found or you do not have permission to update it');
 
     if (updates.status === 'Closed') {
       throw new BadRequestException('Use Close Job endpoint to close a job post');
+    }
+
+    const incomingIds = updates.category_ids?.length
+      ? updates.category_ids
+      : (updates.category_id ? [updates.category_id] : undefined);
+    if (incomingIds) {
+      const found = await this.categoriesService.findManyByIds(incomingIds);
+      if (found.length !== incomingIds.length) {
+        throw new BadRequestException('One or more categories not found');
+      }
     }
 
     const effectiveSalaryType = updates.salary_type ?? jobPost.salary_type;
@@ -153,13 +196,11 @@ export class JobPostsService {
     }
 
     const titleChanged = !!updates.title && updates.title !== jobPost.title;
-
     if (updates.title) jobPost.title = updates.title;
     if (updates.description) jobPost.description = updates.description;
     if (updates.location) jobPost.location = updates.location;
     if (updates.salary !== undefined) jobPost.salary = updates.salary;
     if (updates.status) jobPost.status = updates.status;
-    if (updates.category_id) jobPost.category_id = updates.category_id;
     if (updates.job_type) jobPost.job_type = updates.job_type;
     if (updates.salary_type) jobPost.salary_type = updates.salary_type;
     if (updates.excluded_locations) jobPost.excluded_locations = updates.excluded_locations;
@@ -171,7 +212,13 @@ export class JobPostsService {
       jobPost.slug_id = baseSlug && shortId ? `${baseSlug}--${shortId}` : null;
     }
 
-    return await this.jobPostsRepository.save(jobPost);
+    await this.jobPostsRepository.save(jobPost);
+
+    if (incomingIds) {
+      await this.setJobCategories(jobPost.id, incomingIds);
+    }
+
+    return this.getJobPost(jobPost.id);
   }
 
   async getBySlugOrId(slugOrId: string) {
@@ -189,29 +236,60 @@ export class JobPostsService {
   }
 
   async getJobPost(jobPostId: string) {
-    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId }, relations: ['employer', 'category'] });
-    if (!jobPost) {
-      throw new NotFoundException('Job post not found');
-    }
-    return jobPost;
+    const jobPost = await this.jobPostsRepository.findOne({
+      where: { id: jobPostId },
+      relations: ['employer'],
+    });
+    if (!jobPost) throw new NotFoundException('Job post not found');
+
+    const rows = await this.jobPostsRepository.manager.find(JobPostCategory, {
+      where: { job_post_id: jobPostId },
+      relations: ['category'],
+    });
+    const categories = rows.map(r => ({ id: r.category_id, name: r.category?.name }));
+
+    return {
+      ...jobPost,
+      category_id: jobPost.category_id ?? null,
+      categories,
+      category_ids: categories.map(c => c.id),
+    };
   }
 
   async getJobPostsByEmployer(userId: string) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    if (user.role !== 'employer') {
-      throw new UnauthorizedException('Only employers can view their job posts');
-    }
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role !== 'employer') throw new UnauthorizedException('Only employers can view their job posts');
 
-    const jobPosts = await this.jobPostsRepository.find({
+    const posts = await this.jobPostsRepository.find({
       where: { employer_id: userId },
-      relations: ['category'],
+      order: { created_at: 'DESC' },
     });
 
-    console.log('Job Posts:', JSON.stringify(jobPosts, null, 2));
-    return jobPosts;
+    const ids = posts.map(p => p.id);
+    const jpcs = ids.length
+      ? await this.jobPostsRepository.manager.find(JobPostCategory, {
+          where: { job_post_id: In(ids) },
+          relations: ['category'],
+        })
+      : [];
+
+    const byPost = new Map<string, { id: string; name?: string }[]>();
+    jpcs.forEach(row => {
+      const arr = byPost.get(row.job_post_id) || [];
+      arr.push({ id: row.category_id, name: row.category?.name });
+      byPost.set(row.job_post_id, arr);
+    });
+
+    return posts.map(p => {
+      const cats = byPost.get(p.id) || [];
+      return {
+        ...p,
+        category_id: p.category_id ?? null,
+        categories: cats,
+        category_ids: cats.map(c => c.id),
+      };
+    });
   }
 
   async searchJobPosts(filters: {
@@ -221,6 +299,7 @@ export class JobPostsService {
     salary_min?: number;
     salary_max?: number;
     category_id?: string;
+    category_ids?: string[];
     required_skills?: string[];
     page?: number;
     limit?: number;
@@ -228,55 +307,68 @@ export class JobPostsService {
     sort_order?: 'ASC' | 'DESC';
     salary_type?: 'per hour' | 'per month' | 'negotiable';
   }) {
-    const query = this.jobPostsRepository.createQueryBuilder('jobPost')
-      .leftJoinAndSelect('jobPost.employer', 'employer')
-      .leftJoinAndSelect('jobPost.category', 'category')
-      .where('jobPost.status = :status', { status: 'Active' })
-      .andWhere('jobPost.pending_review = :pendingReview', { pendingReview: false });
+    const page = Math.max(1, Number(filters.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(filters.limit) || 10));
+    const offset = (page - 1) * limit;
 
-    if (filters.title) {
-      query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.title}%` });
-    }
-    if (filters.location) {
-      query.andWhere('jobPost.location ILIKE :location', { location: `%${filters.location}%` });
-    }
-    if (filters.job_type) {
-      query.andWhere('jobPost.job_type = :job_type', { job_type: filters.job_type });
-    }
-    if (filters.salary_min) {
-      query.andWhere('jobPost.salary >= :salary_min', { salary_min: filters.salary_min });
-    }
-    if (filters.salary_max) {
-      query.andWhere('jobPost.salary <= :salary_max', { salary_max: filters.salary_max });
-    }
-    if (filters.category_id) {
-      const catIds = await this.categoriesService.getDescendantIdsIncludingSelf(filters.category_id);
-      query.andWhere('jobPost.category_id IN (:...catIds)', { catIds });
-    }
-    if (filters.required_skills && filters.required_skills.length > 0) {
-      query.andWhere('jobPost.required_skills && :required_skills', { required_skills: filters.required_skills });
-    }
-    if (filters.salary_type) { 
-      query.andWhere('jobPost.salary_type = :salary_type', { salary_type: filters.salary_type });
+    const qb = this.jobPostsRepository
+      .createQueryBuilder('jp')
+      .where('jp.status = :st', { st: 'Active' })
+      .andWhere('jp.pending_review = :pr', { pr: false });
+
+    if (filters.title) qb.andWhere('jp.title ILIKE :title', { title: `%${filters.title}%` });
+    if (filters.location) qb.andWhere('jp.location ILIKE :loc', { loc: `%${filters.location}%` });
+    if (filters.job_type) qb.andWhere('jp.job_type = :jt', { jt: filters.job_type });
+    if (filters.salary_type) qb.andWhere('jp.salary_type = :stp', { stp: filters.salary_type });
+
+    if (Number.isFinite(filters.salary_min)) qb.andWhere('jp.salary >= :smin', { smin: filters.salary_min });
+    if (Number.isFinite(filters.salary_max)) qb.andWhere('jp.salary <= :smax', { smax: filters.salary_max });
+
+    const catIds = filters.category_ids?.length
+      ? filters.category_ids
+      : (filters.category_id ? [filters.category_id] : []);
+
+    if (catIds.length) {
+      qb.innerJoin('job_post_categories', 'jpc', 'jpc.job_post_id = jp.id')
+        .andWhere('jpc.category_id = ANY(:catIds)', { catIds });
     }
 
-    const total = await query.getCount();
+    if (filters.required_skills?.length) {
+      qb.andWhere('(jp.required_skills && :skills)', { skills: filters.required_skills });
+    }
 
-    const page = filters.page || 1;
-    const limit = filters.limit || 10;
-    const skip = (page - 1) * limit;
-    query.skip(skip).take(limit);
+    const sortBy = filters.sort_by ?? 'created_at';
+    const sortOrder = filters.sort_order ?? 'DESC';
+    qb.orderBy(`jp.${sortBy}`, sortOrder as 'ASC' | 'DESC');
 
-    const sortBy = filters.sort_by || 'created_at';
-    const sortOrder = filters.sort_order || 'DESC';
-    query.orderBy(`jobPost.${sortBy}`, sortOrder);
+    const [rows, total] = await qb.distinct(true).offset(offset).limit(limit).getManyAndCount();
 
-    const jobPosts = await query.getMany();
+    const ids = rows.map(r => r.id);
+    const jpcs = ids.length
+      ? await this.jobPostsRepository.manager.find(JobPostCategory, {
+          where: { job_post_id: In(ids) },
+          relations: ['category'],
+        })
+      : [];
 
-    return {
-      total,
-      data: jobPosts,
-    };
+    const byPost = new Map<string, { id: string; name?: string }[]>();
+    jpcs.forEach(row => {
+      const arr = byPost.get(row.job_post_id) || [];
+      arr.push({ id: row.category_id, name: row.category?.name });
+      byPost.set(row.job_post_id, arr);
+    });
+
+    const data = rows.map(r => {
+      const cats = byPost.get(r.id) || [];
+      return {
+        ...r,
+        category_id: r.category_id ?? null,
+        categories: cats,
+        category_ids: cats.map(c => c.id),
+      };
+    });
+
+    return { total, data };
   }
 
   async applyToJob(userId: string, jobPostId: string) {

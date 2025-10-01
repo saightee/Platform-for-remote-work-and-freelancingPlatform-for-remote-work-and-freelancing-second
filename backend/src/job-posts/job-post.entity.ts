@@ -1,23 +1,18 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { Category } from '../categories/category.entity';
-import { JobApplication } from '../job-applications/job-application.entity'; 
+import { JobApplication } from '../job-applications/job-application.entity';
 import { ReferralLink } from '../referrals/entities/referral-link.entity';
-import { Index } from 'typeorm';
+import { JobPostCategory } from './job-post-category.entity';
 
 @Entity('job_posts')
 export class JobPost {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  title: string;
-
-  @Column('text')
-  description: string;
-
-  @Column()
-  location: string;
+  @Column() title: string;
+  @Column('text') description: string;
+  @Column() location: string;
 
   @Column('int', { nullable: true })
   salary?: number;
@@ -35,7 +30,7 @@ export class JobPost {
   pending_review: boolean;
 
   @Column({ nullable: true })
-  category_id: string;
+  category_id: string | null;
 
   @ManyToOne(() => Category)
   @JoinColumn({ name: 'category_id' })
@@ -44,8 +39,7 @@ export class JobPost {
   @Column({ nullable: true })
   job_type: 'Full-time' | 'Part-time' | 'Project-based';
 
-  @Column()
-  employer_id: string;
+  @Column() employer_id: string;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'employer_id' })
@@ -57,23 +51,23 @@ export class JobPost {
   @Column('text', { array: true, nullable: true })
   required_skills?: string[];
 
-  @OneToMany(() => JobApplication, application => application.job_post) 
+  @OneToMany(() => JobApplication, (a) => a.job_post)
   applications: JobApplication[];
 
-  @OneToMany(() => ReferralLink, (link) => link.job_post)
+  @OneToMany(() => ReferralLink, (l) => l.job_post)
   referralLinks: ReferralLink[];
+
+  @OneToMany(() => JobPostCategory, (jpc) => jpc.job_post, { cascade: true })
+  jobPostCategories: JobPostCategory[];
+
+  @CreateDateColumn() created_at: Date;
+  @UpdateDateColumn() updated_at: Date;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   slug: string | null;
 
   @Column({ type: 'varchar', length: 300, unique: true, nullable: true })
   slug_id: string | null;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 
   @Column({ type: 'timestamp', nullable: true })
   closed_at?: Date;

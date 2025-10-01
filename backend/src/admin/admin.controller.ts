@@ -233,6 +233,7 @@ export class AdminController {
     @Query('employer_id') employer_id: string,
     @Query('employer_username') employer_username: string,
     @Query('category_id') category_id: string, 
+    @Query('category_ids') category_ids_raw: string | string[],   // NEW
     @Query('limit') limit: string, 
     @Query('id') id: string,
     @Query('salary_type') salary_type: 'per hour' | 'per month' | 'negotiable',
@@ -245,13 +246,21 @@ export class AdminController {
     const payload = this.jwtService.verify(token);
     const userIdAdmin = payload.sub;
 
+    let category_ids: string[] | undefined = undefined;
+    if (Array.isArray(category_ids_raw)) {
+      category_ids = category_ids_raw as string[];
+    } else if (typeof category_ids_raw === 'string' && category_ids_raw.trim().length) {
+      category_ids = category_ids_raw.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
     const filters: { 
       status?: 'Active' | 'Draft' | 'Closed'; 
       pendingReview?: boolean; 
       title?: string;
       employer_id?: string;
       employer_username?: string;
-      category_id?: string;
+      category_id?: string;        // legacy
+      category_ids?: string[];     // NEW
       page?: number;
       limit?: number;
       id?: string; 
@@ -263,8 +272,10 @@ export class AdminController {
     if (employer_id) filters.employer_id = employer_id;
     if (employer_username) filters.employer_username = employer_username;
     if (category_id) filters.category_id = category_id;
+    if (category_ids?.length) filters.category_ids = category_ids;
     if (id) filters.id = id;
     if (salary_type) filters.salary_type = salary_type;
+
     if (page) {
       const parsedPage = parseInt(page, 10);
       if (isNaN(parsedPage) || parsedPage < 1) {
@@ -295,6 +306,8 @@ export class AdminController {
       status?: 'Active' | 'Draft' | 'Closed';
       salary_type?: 'per hour' | 'per month' | 'negotiable';  
       excluded_locations?: string[];  
+      category_id?: string;        // legacy (оставляем)
+      category_ids?: string[];     // NEW
     },
     @Headers('authorization') authHeader: string,
   ) {
@@ -304,7 +317,7 @@ export class AdminController {
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const userIdAdmin = payload.sub;
-
+  
     return this.adminService.updateJobPost(userIdAdmin, jobPostId, body);
   }
 
@@ -1118,13 +1131,15 @@ export class AdminController {
 
   @Post('settings/chat-notifications')
   @UseGuards(AuthGuard('jwt'), AdminGuard)
-  async setChatNotifications(
-    @Body() body: any,
-    @Headers('authorization') authHeader: string,
-  ) {
+  async setChatNotifications(@Body() body: any, @Headers('authorization') authHeader: string) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
     }
+
+    const intPos = (v: any, def: number) => {
+      const n = Number(v);
+      return Number.isInteger(n) && n > 0 ? n : def;
+    };
 
     const normalized = {
       enabled: Boolean(body?.enabled),
@@ -1132,13 +1147,17 @@ export class AdminController {
         immediate: Boolean(body?.onEmployerMessage?.immediate),
         delayedIfUnread: {
           enabled: Boolean(body?.onEmployerMessage?.delayedIfUnread?.enabled),
-          minutes: Math.max(1, Number(body?.onEmployerMessage?.delayedIfUnread?.minutes ?? 60)),
+          minutes: intPos(body?.onEmployerMessage?.delayedIfUnread?.minutes, 60),
+        },
+        after24hIfUnread: {                                          // NEW
+          enabled: Boolean(body?.onEmployerMessage?.after24hIfUnread?.enabled),
+          hours: intPos(body?.onEmployerMessage?.after24hIfUnread?.hours, 24),
         },
         onlyFirstMessageInThread: Boolean(body?.onEmployerMessage?.onlyFirstMessageInThread),
       },
       throttle: {
-        perChatCount: Math.max(1, Number(body?.throttle?.perChatCount ?? 2)),
-        perMinutes: Math.max(1, Number(body?.throttle?.perMinutes ?? 60)),
+        perChatCount: intPos(body?.throttle?.perChatCount, 2),
+        perMinutes: intPos(body?.throttle?.perMinutes, 60),
       },
     };
 
@@ -1146,5 +1165,4 @@ export class AdminController {
     return { message: 'Chat notification settings updated', settings: normalized };
   }
 
-  
 }

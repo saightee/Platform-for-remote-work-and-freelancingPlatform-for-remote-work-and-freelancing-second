@@ -30,7 +30,7 @@ import { ReferralRegistration } from '../referrals/entities/referral-registratio
 import { ReferralLink } from '../referrals/entities/referral-link.entity';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
-
+import { JobPostCategory } from '../job-posts/job-post-category.entity';
 
 @Injectable()
 export class AdminService {
@@ -88,6 +88,58 @@ export class AdminService {
       throw new UnauthorizedException('Only admins can access this resource');
     }
   }
+
+  private async setJobCategories(jobPostId: string, categoryIds?: string[]) {
+    if (!categoryIds) return;
+
+    await this.jobPostsRepository.manager
+      .createQueryBuilder()
+      .delete()
+      .from(JobPostCategory)
+      .where('job_post_id = :id', { id: jobPostId })
+      .execute();
+
+    const unique = Array.from(new Set(categoryIds.filter(Boolean)));
+    if (unique.length) {
+      const rows = unique.map((cid) => {
+        const jpc = new JobPostCategory();
+        jpc.job_post_id = jobPostId;
+        jpc.category_id = cid;
+        return jpc;
+      });
+      await this.jobPostsRepository.manager.save(rows);
+    }
+
+    const legacy = unique.length ? unique[0] : null;
+    await this.jobPostsRepository.update({ id: jobPostId }, { category_id: legacy });
+  }
+
+  private async getJobCategoryIds(jobPostId: string): Promise<string[]> {
+    const rows = await this.jobPostsRepository.manager.find(JobPostCategory, {
+      where: { job_post_id: jobPostId },
+    });
+    if (!rows.length) {
+      const jp = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
+      return jp?.category_id ? [jp.category_id] : [];
+    }
+    return Array.from(new Set(rows.map(r => r.category_id)));
+  }
+
+  private async expandCategoryIdsForMatching(categoryIds: string[]): Promise<string[]> {
+    const out = new Set<string>();
+    for (const cid of categoryIds) {
+      const cat = await this.categoriesService.getCategoryById(cid);
+      if (!cat) continue;
+      if (!cat.parent_id) {
+        const all = await this.categoriesService.getDescendantIdsIncludingSelf(cid);
+        all.forEach(id => out.add(id));
+      } else {
+        out.add(cid);
+        out.add(cat.parent_id);
+      }
+    }
+    return Array.from(out);
+  }  
 
   async getUsers(
     adminId: string,
@@ -272,7 +324,8 @@ export class AdminService {
     title?: string;
     employer_id?: string;
     employer_username?: string; 
-    category_id?: string;
+    category_id?: string;         // legacy
+    category_ids?: string[];      // NEW
     page?: number;
     limit?: number;
     id?: string;
@@ -280,53 +333,56 @@ export class AdminService {
   }) {
     await this.checkAdminRole(adminId);
 
-    const query = this.jobPostsRepository.createQueryBuilder('jobPost')
-      .leftJoinAndSelect('jobPost.category', 'category')
+    const qb = this.jobPostsRepository.createQueryBuilder('jobPost')
       .leftJoinAndSelect('jobPost.employer', 'employer');
 
-    if (filters.status) {
-      query.andWhere('jobPost.status = :status', { status: filters.status });
-    }
-    if (filters.pendingReview !== undefined) {
-      query.andWhere('jobPost.pending_review = :pendingReview', { pendingReview: filters.pendingReview });
-    }
-    if (filters.employer_id) {
-      query.andWhere('jobPost.employer_id = :employer_id', { employer_id: filters.employer_id });
-    }
-    if (filters.employer_username) {
-      query.andWhere('employer.username ILIKE :employer_username', { employer_username: `%${filters.employer_username}%` });
-    }
     if (filters.category_id) {
-      query.andWhere('jobPost.category_id = :category_id', { category_id: filters.category_id });
-    }
-    if (filters.title) {
-      query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.title}%` });
-    }
-    if (filters.id) {
-      query.andWhere('jobPost.id = :id', { id: filters.id });
-    }
-    if (filters.salary_type) {
-      query.andWhere('jobPost.salary_type = :salary_type', { salary_type: filters.salary_type });
+      qb.andWhere('jobPost.category_id = :category_id', { category_id: filters.category_id });
     }
 
-    const total = await query.getCount();
+    if (filters.category_ids?.length) {
+      qb.innerJoin('job_post_categories', 'jpc', 'jpc.job_post_id = jobPost.id')
+        .andWhere('jpc.category_id = ANY(:catIds)', { catIds: filters.category_ids });
+    }
+
+    if (filters.status) qb.andWhere('jobPost.status = :status', { status: filters.status });
+    if (filters.pendingReview !== undefined) qb.andWhere('jobPost.pending_review = :pendingReview', { pendingReview: filters. pendingReview });
+    if (filters.employer_id) qb.andWhere('jobPost.employer_id = :employer_id', { employer_id: filters.employer_id });
+    if (filters.employer_username) qb.andWhere('employer.username ILIKE :employer_username', { employer_username: `%${filters.  employer_username}%` });
+    if (filters.title) qb.andWhere('jobPost.title ILIKE :title', { title: `%${filters.title}%` });
+    if (filters.id) qb.andWhere('jobPost.id = :id', { id: filters.id });
+    if (filters.salary_type) qb.andWhere('jobPost.salary_type = :salary_type', { salary_type: filters.salary_type });
 
     const page = filters.page || 1;
     const limit = filters.limit || 10;
     const skip = (page - 1) * limit;
-    query.skip(skip).take(limit);
 
-    query.orderBy('jobPost.created_at', 'DESC');
+    qb.orderBy('jobPost.created_at', 'DESC').skip(skip).take(limit).distinct(true);
 
-    const jobPosts = await query.getMany();
+    const [jobPosts, total] = await qb.getManyAndCount();
 
-    const enhancedJobPosts = await Promise.all(jobPosts.map(async (post) => {
+    const ids = jobPosts.map(p => p.id);
+    const jpcs = ids.length
+      ? await this.jobPostsRepository.manager.find(JobPostCategory, { where: { job_post_id: In(ids) }, relations: ['category'] })
+      : [];
+    const byPost = new Map<string, { id: string; name?: string }[]>();
+    jpcs.forEach(row => {
+      const arr = byPost.get(row.job_post_id) || [];
+      arr.push({ id: row.category_id, name: row.category?.name });
+      byPost.set(row.job_post_id, arr);
+    });
+
+    const enhanced = await Promise.all(jobPosts.map(async (post) => {
       const stats = await this.emailNotificationsRepository.createQueryBuilder('n')
-        .select('COUNT(*) as sent, SUM(CASE WHEN n.opened THEN 1 ELSE 0 END) as opened, SUM(CASE WHEN n.clicked THEN 1 ELSE 0 END) as clicked')
+        .select('COUNT(*) as sent, SUM(CASE WHEN n.opened THEN 1 ELSE 0 END) as opened, SUM(CASE WHEN n.clicked THEN 1 ELSE 0 END) as   clicked')
         .where('n.job_post_id = :id', { id: post.id })
         .getRawOne();
+
+      const cats = byPost.get(post.id) || [];
       return {
         ...post,
+        category_ids: cats.map(c => c.id),
+        categories: cats,
         emailStats: {
           sent: parseInt(stats.sent) || 0,
           opened: parseInt(stats.opened) || 0,
@@ -335,10 +391,7 @@ export class AdminService {
       };
     }));
 
-    return {
-      total,
-      data: enhancedJobPosts,
-    };
+    return { total, data: enhanced };
   }
 
   async updateJobPost(adminId: string, jobPostId: string, updates: { 
@@ -349,20 +402,31 @@ export class AdminService {
     status?: 'Active' | 'Draft' | 'Closed'; 
     salary_type?: 'per hour' | 'per month' | 'negotiable';  
     excluded_locations?: string[];  
+    category_id?: string;        // legacy (оставляем)
+    category_ids?: string[];     // NEW
   }) {
     await this.checkAdminRole(adminId);
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
     if (!jobPost) {
       throw new NotFoundException('Job post not found');
     }
-  
-  const effectiveSalaryType = updates.salary_type ?? jobPost.salary_type;
 
-  if (effectiveSalaryType === 'negotiable') {
-    jobPost.salary = null;
-  } else if (updates.salary === undefined && jobPost.salary === null) {
-    throw new BadRequestException('Salary is required unless salary_type is negotiable');
-  }
+    const incomingIds = updates.category_ids?.length
+      ? updates.category_ids
+      : (updates.category_id ? [updates.category_id] : undefined);
+    if (incomingIds) {
+      const found = await this.categoriesRepository.find({ where: { id: In(incomingIds) } });
+      if (found.length !== incomingIds.length) {
+        throw new BadRequestException('One or more categories not found');
+      }
+    }
+
+    const effectiveSalaryType = updates.salary_type ?? jobPost.salary_type;
+    if (effectiveSalaryType === 'negotiable') {
+      jobPost.salary = null;
+    } else if (updates.salary === undefined && jobPost.salary === null) {
+      throw new BadRequestException('Salary is required unless salary_type is negotiable');
+    }
 
     if (updates.title) jobPost.title = updates.title;
     if (updates.description) jobPost.description = updates.description;
@@ -372,7 +436,23 @@ export class AdminService {
     if (updates.salary_type) jobPost.salary_type = updates.salary_type;
     if (updates.excluded_locations) jobPost.excluded_locations = updates.excluded_locations;
 
-    return this.jobPostsRepository.save(jobPost);
+    await this.jobPostsRepository.save(jobPost);
+
+    if (incomingIds) {
+      await this.setJobCategories(jobPost.id, incomingIds);
+    }
+
+    const rows = await this.jobPostsRepository.manager.find(JobPostCategory, {
+      where: { job_post_id: jobPost.id },
+      relations: ['category'],
+    });
+    const cats = rows.map(r => ({ id: r.category_id, name: r.category?.name }));
+
+    return {
+      ...jobPost,
+      category_ids: cats.map(c => c.id),
+      categories: cats,
+    };
   }
 
   async deleteJobPost(adminId: string, jobPostId: string) {
@@ -1017,56 +1097,65 @@ export class AdminService {
       where: { id: jobPostId },
       relations: ['employer', 'category'],
     });
-    if (!jobPost) {
-      throw new NotFoundException('Job post not found');
-    }
-    if (!jobPost.category_id) {
-      throw new BadRequestException('Job post has no category assigned');
-    }
+    if (!jobPost) throw new NotFoundException('Job post not found');
     if (jobPost.status !== 'Active') {
       throw new BadRequestException('Notifications can only be sent for active job posts');
     }
 
+    // подтягиваем ВСЕ категории вакансии (много), и расширяем на потомков
+    const attachedCatIds = await this.getJobCategoryIds(jobPostId);
+    if (!attachedCatIds.length) {
+      throw new BadRequestException('Job post has no categories assigned');
+    }
+    const matchCatIds = await this.expandCategoryIdsForMatching(attachedCatIds);
+
     const subQuery = this.jobSeekerRepository
       .createQueryBuilder('js')
       .leftJoin('js.skills', 'skills')
-      .where('skills.id = :categoryId', { categoryId: jobPost.category_id })
+      .where('skills.id IN (:...catIds)', { catIds: matchCatIds })
       .select('js.user_id');
 
-    const query = this.jobSeekerRepository
+    const qb = this.jobSeekerRepository
       .createQueryBuilder('jobSeeker')
       .leftJoinAndSelect('jobSeeker.user', 'user')
-      .where('jobSeeker.user_id IN (' + subQuery.getQuery() + ')')
+      .where(`jobSeeker.user_id IN (${subQuery.getQuery()})`)
       .andWhere('user.role = :role', { role: 'jobseeker' })
       .andWhere('user.status = :status', { status: 'active' })
       .andWhere('user.is_email_verified = :isEmailVerified', { isEmailVerified: true })
+      // не слать тем, кто уже подался на ЭТУ вакансию
+      .andWhere(`NOT EXISTS (
+        SELECT 1 FROM job_applications a2
+        WHERE a2.job_post_id = :thisJob AND a2.job_seeker_id = jobSeeker.user_id
+      )`, { thisJob: jobPostId })
+      // и не слать тем, кому уже отправляли по ЭТОЙ вакансии
+      .andWhere(`NOT EXISTS (
+        SELECT 1 FROM email_notifications en
+        WHERE en.job_post_id = :thisJob AND en.recipient_email = user.email
+      )`, { thisJob: jobPostId })
       .setParameters(subQuery.getParameters());
 
-    const total = await query.getCount();
+    const total = await qb.getCount();
 
-    query.take(limit);
-    if (orderBy === 'beginning') {
-      query.orderBy('user.created_at', 'ASC');
-    } else if (orderBy === 'end') {
-      query.orderBy('user.created_at', 'DESC');
-    } else if (orderBy === 'random') {
-      query.addSelect('RANDOM()', 'randomOrder').orderBy('randomOrder', 'ASC');
-    }
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 1000) : 200;
+    qb.take(safeLimit);
+    if (orderBy === 'beginning') qb.orderBy('user.created_at', 'ASC');
+    else if (orderBy === 'end') qb.orderBy('user.created_at', 'DESC');
+    else qb.addSelect('RANDOM()', 'r').orderBy('r', 'ASC');
 
-    const jobSeekers = await query.getMany();
+    const jobSeekers = await qb.getMany();
 
     let sentCount = 0;
     const sentEmails: string[] = [];
 
-    const siteBase = (this.configService.get<string>('BASE_URL') || 'https://jobforge.net').replace(/\/api\/?$/, '');
+    const siteBase = this.configService.get<string>('BASE_URL')!.replace(/\/api\/?$/, '');
     const slugOrId = (jobPost as any).slug_id || jobPost.id;
     const jobUrl = `${siteBase}/job/${slugOrId}`;
 
-    for (const jobSeeker of jobSeekers) {
+    for (const js of jobSeekers) {
       try {
         const response = await this.emailService.sendJobNotification(
-          jobSeeker.user.email,
-          jobSeeker.user.username,
+          js.user.email,
+          js.user.username,
           jobPost.title,
           jobPost.description,
           jobUrl,
@@ -1080,17 +1169,17 @@ export class AdminService {
 
         const notification = this.emailNotificationsRepository.create({
           job_post_id: jobPostId,
-          recipient_email: jobSeeker.user.email,
-          recipient_username: jobSeeker.user.username,
-          message_id: response.messageId,
+          recipient_email: js.user.email,
+          recipient_username: js.user.username,
+          message_id: response?.messageId,
           sent_at: new Date(),
         });
         await this.emailNotificationsRepository.save(notification);
 
-        sentEmails.push(jobSeeker.user.email);
+        sentEmails.push(js.user.email);
         sentCount++;
       } catch (error: any) {
-        console.error(`Failed to send email to ${jobSeeker.user.email}:`, error.message);
+        console.error(`Failed to send email to ${js.user.email}:`, error.message);
       }
     }
 
@@ -1122,25 +1211,23 @@ export class AdminService {
 
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
     if (!jobPost) throw new NotFoundException('Job post not found');
-    if (!jobPost.category_id) throw new BadRequestException('Job post has no category assigned');
     if (jobPost.status !== 'Active') {
       throw new BadRequestException('Notifications can only be sent for active job posts');
     }
 
-    const currentCategory = await this.categoriesService.getCategoryById(jobPost.category_id);
-    let categoryIdsToMatch: string[];
-    if (!currentCategory.parent_id) {
-      categoryIdsToMatch = await this.categoriesService.getDescendantIdsIncludingSelf(jobPost.category_id);
-    } else {
-      categoryIdsToMatch = [jobPost.category_id, currentCategory.parent_id];
+    const attachedCatIds = await this.getJobCategoryIds(jobPostId);
+    if (!attachedCatIds.length) {
+      throw new BadRequestException('Job post has no categories assigned');
     }
+    const matchCatIds = await this.expandCategoryIdsForMatching(attachedCatIds);
 
     const subRegs = this.referralRegistrationsRepository
       .createQueryBuilder('rr')
       .innerJoin('rr.referral_link', 'rl')
       .innerJoin('rl.job_post', 'jp')
+      .innerJoin(JobPostCategory, 'jpc2', 'jpc2.job_post_id = jp.id')
       .innerJoin('rr.user', 'ru')
-      .where('jp.category_id IN (:...catIds)', { catIds: categoryIdsToMatch })
+      .where('jpc2.category_id IN (:...catIds)', { catIds: matchCatIds })
       .select('DISTINCT ru.id');
 
     const qb = this.jobSeekerRepository
@@ -1172,7 +1259,7 @@ export class AdminService {
 
     const picked = await qb.getMany();
 
-    const siteBase = (this.configService.get<string>('BASE_URL') || 'https://jobforge.net').replace(/\/api\/?$/, '');
+    const siteBase = this.configService.get<string>('BASE_URL')!.replace(/\/api\/?$/, '');
     const slugOrId = (jobPost as any).slug_id || jobPost.id;
     const jobUrl = `${siteBase}/job/${slugOrId}`;
 
@@ -1431,7 +1518,7 @@ export class AdminService {
     });
     await this.referralLinksRepository.save(referralLink);
 
-    const baseUrl = this.configService.get<string>('BASE_URL', 'https://jobforge.net');
+    const baseUrl = this.configService.get<string>('BASE_URL')!;
 
     const baseSlug = (jobPost.slug && jobPost.slug.trim().length > 0)
       ? jobPost.slug
@@ -1472,7 +1559,7 @@ export class AdminService {
       relations: ['job_post', 'registrationsDetails', 'registrationsDetails.user'],
       order: { created_at: 'DESC' },
     });
-    const baseUrl = this.configService.get<string>('BASE_URL', 'https://jobforge.net');
+    const baseUrl = this.configService.get<string>('BASE_URL')!;
 
     return links.map(link => {
       const jp = link.job_post;
@@ -1526,7 +1613,7 @@ export class AdminService {
     }
 
     const links = await query.getMany();
-    const baseUrl = this.configService.get<string>('BASE_URL', 'https://jobforge.net');
+    const baseUrl = this.configService.get<string>('BASE_URL')!;
 
     return links.map(link => {
       const jp = link.job_post;

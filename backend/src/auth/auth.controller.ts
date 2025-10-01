@@ -65,10 +65,10 @@ export class AuthController {
       try {
         const { message, accessToken } = await this.authService.verifyEmail(token);  
 
-        const frontendUrl = this.configService.get<string>('BASE_URL') || 'https://jobforge.net/';  
+        const frontendUrl = this.configService.get<string>('BASE_URL')!;
         res.redirect(`${frontendUrl}/auth/callback?token=${accessToken}&verified=true`);
       } catch (error) {
-        const frontendUrl = this.configService.get<string>('BASE_URL') || 'https://jobforge.net/';
+        const frontendUrl = this.configService.get<string>('BASE_URL')!;
         if (error instanceof BadRequestException) {
           res.redirect(`${frontendUrl}/auth/callback?error=invalid_token`);
         } else {
@@ -97,11 +97,11 @@ export class AuthController {
       if (!user || user.provider !== 'google') {
         throw new UnauthorizedException('Invalid credentials');
       }
-
+    
       const newPayload = { email: user.email, sub: user.id, role: user.role };
-      const newToken = this.jwtService.sign(newPayload, { expiresIn: '1h' });
-      await this.redisService.set(`token:${user.id}`, newToken, 3600);
-
+      const newToken = this.jwtService.sign(newPayload, { expiresIn: '7d' });
+      await this.redisService.set(`token:${user.id}`, newToken, 7 * 24 * 60 * 60);
+    
       return { accessToken: newToken };
     } catch (error) {
       throw new UnauthorizedException('Invalid token');
@@ -122,7 +122,12 @@ export class AuthController {
     const userId = payload.sub;
     await this.authService.logout(userId); 
     req.session.destroy((err) => { if (err) console.error(err); });
-    res.clearCookie('jobforge.sid', { path: '/', httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
+    res.clearCookie('sid', {
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
     return res.json({ message: 'Logout successful' });
   }
 

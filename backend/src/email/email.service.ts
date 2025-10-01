@@ -4,30 +4,52 @@ import axios from 'axios';
 
 @Injectable()
 export class EmailService {
-  constructor(private configService: ConfigService) {}
+  private readonly sender: { name: string; email: string };
+  private readonly brandName: string;
 
-  async sendVerificationEmail(toEmail: string, username: string, verificationToken: string): Promise<void> {
+  constructor(private readonly config: ConfigService) {
+    this.sender = {
+      name: this.config.get<string>('EMAIL_FROM_NAME')!,
+      email: this.config.get<string>('EMAIL_FROM_ADDRESS')!,
+    };
+    const base = new URL(this.config.get<string>('BASE_URL')!);
+    this.brandName = this.config.get<string>('BRAND_NAME') ?? base.hostname.replace(/^www\./, '');
+  }
+
+  private stripHtml(html: string): string {
+    return html.replace(/<[^>]*>/g, '');
+  }
+
+  async sendVerificationEmail(
+    toEmail: string,
+    username: string,
+    verificationToken: string,
+  ): Promise<void> {
     const maxRetries = 3;
     let attempt = 1;
 
     while (attempt <= maxRetries) {
       try {
         console.log(`Attempt ${attempt} to send verification email to ${toEmail}`);
-        const verificationLink = `${this.configService.get<string>('BASE_URL')}/api/auth/verify-email?token=${verificationToken}`;
+        const verificationLink = `${this.config.get<string>('BASE_URL')!}/api/auth/verify-email?token=${verificationToken}`;
+
         const response = await axios.post(
           'https://api.brevo.com/v3/smtp/email',
           {
-            sender: { name: 'JobForge', email: 'support@jobforge.net' },
+            sender: this.sender,
             to: [{ email: toEmail, name: username }],
-            templateId: 2, 
+            templateId: 2,
             params: {
-              username: username,
-              verificationLink: verificationLink,
+              username,
+              verificationLink,
+              brandName: this.brandName,
+              supportEmail: this.sender.email,
+              year: new Date().getFullYear(),
             },
           },
           {
             headers: {
-              'api-key': this.configService.get<string>('BREVO_API_KEY'),
+              'api-key': this.config.get<string>('BREVO_API_KEY')!,
               'Content-Type': 'application/json',
             },
             timeout: 15000,
@@ -35,39 +57,47 @@ export class EmailService {
         );
         console.log(`Verification email sent to ${toEmail}:`, response.data);
         return;
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Attempt ${attempt} failed for ${toEmail}:`, error.message);
         if (attempt === maxRetries) {
           throw new Error(`Failed to send verification email after ${maxRetries} attempts: ${error.message}`);
         }
         attempt++;
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+        await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
       }
     }
   }
 
-  async sendPasswordResetEmail(toEmail: string, username: string, resetToken: string): Promise<void> {
+  async sendPasswordResetEmail(
+    toEmail: string,
+    username: string,
+    resetToken: string,
+  ): Promise<void> {
     const maxRetries = 3;
     let attempt = 1;
 
     while (attempt <= maxRetries) {
       try {
         console.log(`Attempt ${attempt} to send password reset email to ${toEmail}`);
-        const resetLink = `${this.configService.get<string>('BASE_URL')}/reset-password/confirm?token=${resetToken}`;
+        const resetLink = `${this.config.get<string>('BASE_URL')!}/reset-password/confirm?token=${resetToken}`;
+
         const response = await axios.post(
           'https://api.brevo.com/v3/smtp/email',
           {
-            sender: { name: 'JobForge', email: 'support@jobforge.net' },
+            sender: this.sender,
             to: [{ email: toEmail, name: username }],
             templateId: 3,
             params: {
-              username: username,
-              resetLink: resetLink,
+              username,
+              resetLink,
+              brandName: this.brandName,
+              supportEmail: this.sender.email,
+              year: new Date().getFullYear(),
             },
           },
           {
             headers: {
-              'api-key': this.configService.get<string>('BREVO_API_KEY'),
+              'api-key': this.config.get<string>('BREVO_API_KEY')!,
               'Content-Type': 'application/json',
             },
             timeout: 15000,
@@ -75,19 +105,15 @@ export class EmailService {
         );
         console.log(`Password reset email sent to ${toEmail}:`, response.data);
         return;
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Attempt ${attempt} failed for ${toEmail}:`, error.message);
         if (attempt === maxRetries) {
           throw new Error(`Failed to send password reset email after ${maxRetries} attempts: ${error.message}`);
         }
         attempt++;
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+        await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
       }
     }
-  }
-
-  private stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '');
   }
 
   async sendJobNotification(
@@ -101,7 +127,7 @@ export class EmailService {
       salary?: number | null;
       salary_type?: 'per hour' | 'per month' | 'negotiable';
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
-    }
+    },
   ): Promise<any> {
     const maxRetries = 3;
     let attempt = 1;
@@ -109,29 +135,28 @@ export class EmailService {
     const raw = this.stripHtml(jobDescriptionHtml || '');
     const cleaned = raw
       .replace(/\s+/g, ' ')
-      .replace(/\b(Work Details|Work Mode|Salary|Job Type)\s*:.*?(?=(Work Details|Work Mode|Salary|Job Type|$))/gi, '')
+      .replace(
+        /\b(Work Details|Work Mode|Salary|Job Type)\s*:.*?(?=(Work Details|Work Mode|Salary|Job Type|$))/gi,
+        '',
+      )
       .replace(/\s{2,}/g, ' ')
       .trim();
 
     const salaryDisplay =
       options?.salary_type === 'negotiable'
         ? 'Negotiable'
-        : (options?.salary != null
-            ? `${options.salary} ${
-                options?.salary_type === 'per hour'
-                  ? 'per hour'
-                  : options?.salary_type === 'per month'
-                  ? 'per month'
-                  : ''
-              }`.trim()
-            : 'Not specified');
+        : options?.salary != null
+        ? `${options.salary} ${
+            options?.salary_type === 'per hour' ? 'per hour' : options?.salary_type === 'per month' ? 'per month' : ''
+          }`.trim()
+        : 'Not specified';
 
     while (attempt <= maxRetries) {
       try {
         const response = await axios.post(
           'https://api.brevo.com/v3/smtp/email',
           {
-            sender: { name: 'JobForge', email: 'support@jobforge.net' },
+            sender: this.sender,
             to: [{ email: toEmail, name: username }],
             templateId: 4,
             params: {
@@ -142,11 +167,14 @@ export class EmailService {
               location: options?.location || 'Not specified',
               jobType: options?.job_type || 'Not specified',
               salaryDisplay,
+              brandName: this.brandName,
+              supportEmail: this.sender.email,
+              year: new Date().getFullYear(),
             },
           },
           {
             headers: {
-              'api-key': this.configService.get('BREVO_API_KEY'),
+              'api-key': this.config.get<string>('BREVO_API_KEY')!,
               'Content-Type': 'application/json',
             },
             timeout: 15000,
@@ -155,14 +183,10 @@ export class EmailService {
         return response.data;
       } catch (error: any) {
         if (attempt === maxRetries) {
-          throw new Error(
-            `Failed to send job notification email after ${maxRetries} attempts: ${error.message}`,
-          );
+          throw new Error(`Failed to send job notification email after ${maxRetries} attempts: ${error.message}`);
         }
         attempt++;
-        await new Promise((resolve) =>
-          setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)),
-        );
+        await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
       }
     }
   }
@@ -171,12 +195,12 @@ export class EmailService {
     toEmail: string,
     username: string,
     jobTitle: string,
-    reason: string
+    reason: string,
   ): Promise<void> {
     const maxRetries = 3;
     let attempt = 1;
 
-    const base = this.configService.get<string>('BASE_URL') || 'https://jobforge.net';
+    const base = this.config.get<string>('BASE_URL')!;
     const dashboardLink = base.replace(/\/api\/?$/, '') + '/employer-dashboard/post-job';
 
     while (attempt <= maxRetries) {
@@ -185,7 +209,7 @@ export class EmailService {
         const response = await axios.post(
           'https://api.brevo.com/v3/smtp/email',
           {
-            sender: { name: 'JobForge', email: 'support@jobforge.net' },
+            sender: this.sender,
             to: [{ email: toEmail, name: username }],
             templateId: 5,
             params: {
@@ -193,11 +217,14 @@ export class EmailService {
               jobTitle,
               reason,
               dashboardLink,
+              brandName: this.brandName,
+              supportEmail: this.sender.email,
+              year: new Date().getFullYear(),
             },
           },
           {
             headers: {
-              'api-key': this.configService.get('BREVO_API_KEY'),
+              'api-key': this.config.get<string>('BREVO_API_KEY')!,
               'Content-Type': 'application/json',
             },
             timeout: 15000,
@@ -205,38 +232,52 @@ export class EmailService {
         );
         console.log(`Job post rejection email sent to ${toEmail}:`, response.data);
         return;
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Attempt ${attempt} failed for ${toEmail}:`, error.message);
         if (attempt === maxRetries) {
-          throw new Error(`Failed to send job post rejection email after ${maxRetries} attempts: ${error.message}`);
+          throw new Error(
+            `Failed to send job post rejection email after ${maxRetries} attempts: ${error.message}`,
+          );
         }
         attempt++;
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+        await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
       }
     }
   }
 
-  async sendContactEmailViaTemplate(fromName: string, fromEmail: string, message: string): Promise<void> {
+  async sendContactEmailViaTemplate(
+    fromName: string,
+    fromEmail: string,
+    message: string,
+  ): Promise<void> {
     const maxRetries = 3;
     let attempt = 1;
-  
-    const toInbox = 'support@jobforge.net'; 
-    const templateId = 6; 
-  
+
+    const toInbox =
+      this.config.get<string>('CONTACT_INBOX') || this.config.get<string>('EMAIL_FROM_ADDRESS')!;
+    const templateId = 6;
+
     while (attempt <= maxRetries) {
       try {
         const res = await axios.post(
           'https://api.brevo.com/v3/smtp/email',
           {
-            sender: { name: 'JobForge', email: toInbox },
+            sender: this.sender,
             to: [{ email: toInbox, name: 'Support' }],
             replyTo: { email: fromEmail, name: fromName },
             templateId,
-            params: { fromName, fromEmail, message },
+            params: {
+              fromName,
+              fromEmail,
+              message,
+              brandName: this.brandName,
+              supportEmail: this.sender.email,
+              year: new Date().getFullYear(),
+            },
           },
           {
             headers: {
-              'api-key': this.configService.get<string>('BREVO_API_KEY'),
+              'api-key': this.config.get<string>('BREVO_API_KEY')!,
               'Content-Type': 'application/json',
             },
             timeout: 15000,
@@ -250,7 +291,7 @@ export class EmailService {
           throw new Error(`Failed after ${maxRetries} attempts: ${error.message}`);
         }
         attempt++;
-        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+        await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
       }
     }
   }
@@ -263,7 +304,7 @@ export class EmailService {
     const maxRetries = 3;
     let attempt = 1;
 
-    const base = this.configService.get<string>('BASE_URL') || 'https://jobforge.net';
+    const base = this.config.get<string>('BASE_URL')!;
     const dashboardLink = base.replace(/\/api\/?$/, '') + '/jobseeker-dashboard/my-applications';
 
     while (attempt <= maxRetries) {
@@ -272,18 +313,21 @@ export class EmailService {
         await axios.post(
           'https://api.brevo.com/v3/smtp/email',
           {
-            sender: { name: 'JobForge', email: 'support@jobforge.net' },
+            sender: this.sender,
             to: [{ email: toEmail, name: username }],
             templateId: 7,
             params: {
               username,
               jobTitle,
               dashboardLink,
+              brandName: this.brandName,
+              supportEmail: this.sender.email,
+              year: new Date().getFullYear(),
             },
           },
           {
             headers: {
-              'api-key': this.configService.get<string>('BREVO_API_KEY'),
+              'api-key': this.config.get<string>('BREVO_API_KEY')!,
               'Content-Type': 'application/json',
             },
             timeout: 15000,
@@ -294,7 +338,9 @@ export class EmailService {
       } catch (error: any) {
         console.error(`Attempt ${attempt} failed for ${toEmail}:`, error.message);
         if (attempt === maxRetries) {
-          throw new Error(`Failed to send jobseeker accepted email after ${maxRetries} attempts: ${error.message}`);
+          throw new Error(
+            `Failed to send jobseeker accepted email after ${maxRetries} attempts: ${error.message}`,
+          );
         }
         attempt++;
         await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
@@ -312,18 +358,18 @@ export class EmailService {
     const maxRetries = 3;
     let attempt = 1;
 
-    const preview = this.stripHtml ? this.stripHtml(args.messageSnippet || '') : (args.messageSnippet || '');
-    const base = this.configService.get<string>('BASE_URL') || 'https://jobforge.net';
+    const preview = this.stripHtml(args.messageSnippet || '');
+    const base = this.config.get<string>('BASE_URL')!;
     const chatLink = base.replace(/\/api\/?$/, '') + '/jobseeker-dashboard/messages';
 
-    const templateId = Number(process.env.BREVO_TEMPLATE_CHAT_NEW_MESSAGE || 8);
+    const templateId = Number(this.config.get<string>('BREVO_TEMPLATE_CHAT_NEW_MESSAGE') ?? 8);
 
     while (attempt <= maxRetries) {
       try {
         const res = await axios.post(
           'https://api.brevo.com/v3/smtp/email',
           {
-            sender: { name: 'JobForge', email: 'support@jobforge.net' },
+            sender: this.sender,
             to: [{ email: args.toEmail, name: args.username }],
             templateId,
             params: {
@@ -332,15 +378,18 @@ export class EmailService {
               jobTitle: args.jobTitle,
               chatLink,
               preview,
+              brandName: this.brandName,
+              supportEmail: this.sender.email,
+              year: new Date().getFullYear(),
             },
           },
           {
             headers: {
-              'api-key': this.configService.get<string>('BREVO_API_KEY'),
+              'api-key': this.config.get<string>('BREVO_API_KEY')!,
               'Content-Type': 'application/json',
             },
             timeout: 15000,
-          }
+          },
         );
         console.log('Chat notification sent:', res.data);
         return;
@@ -348,7 +397,7 @@ export class EmailService {
         console.error(`Attempt ${attempt} failed (chat email):`, error.message);
         if (attempt === maxRetries) throw error;
         attempt++;
-        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+        await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
       }
     }
   }
