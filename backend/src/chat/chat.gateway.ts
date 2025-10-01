@@ -7,9 +7,12 @@ import { UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
 import { createAdapter } from '@socket.io/redis-adapter';
 
+const BASE = process.env.BASE_URL || '';
+const ORIGIN = BASE.replace(/\/api\/?$/, '');
+
 @WebSocketGateway({
   cors: {
-    origin: ['https://jobforge.net', 'http://localhost:3000'],
+    origin: [ORIGIN, 'http://localhost:3000'],
     methods: ['GET', 'POST'],
     credentials: true,
   },

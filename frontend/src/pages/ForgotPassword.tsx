@@ -1,72 +1,67 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
-import Copyright from '../components/Copyright';
 import { forgotPassword } from '../services/api';
-import Loader from '../components/Loader';
-
+import '../styles/CheckEmail.css'; // ⬅️ используем тот же css, что и CheckEmail
 
 const ForgotPassword: React.FC = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setMsg(null);
+    setErr(null);
+
     if (!email.trim()) {
-      setError('Please enter your email address.');
+      setErr('Please enter your email.');
       return;
     }
 
     try {
       setIsLoading(true);
-      setError(null);
-      const response = await forgotPassword(email.trim());
-      setMessage(response.message || 'Password reset link sent to your email.');
+      const res = await forgotPassword(email.trim());
+      setMsg(res.message || 'If the email exists, we’ve sent a reset link.');
       setEmail('');
-      setTimeout(() => navigate('/login'), 3000); // Редирект на логин через 3 секунды
-    } catch (err: any) {
-      console.error('Error requesting password reset:', err);
-      setError(err.response?.data?.message || 'Failed to send reset link. Please try again.');
+      setTimeout(() => navigate('/login'), 3000);
+    } catch (e: any) {
+      setErr(e?.response?.data?.message || 'Failed to send reset link. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (isLoading) {
-    return <Loader />; 
-  }
-
   return (
-    <div>
-      <Header />
-    
-    <div className="container forgot-password-container">
-      
-      <h2>Forgot Password</h2>
-      {message && <p className="success-message">{message}</p>}
-      {error && <p className="error-message">{error}</p>}
-      <form onSubmit={handleSubmit} className="forgot-password-form">
-        <div className="form-group-forgot">
-          <label>Email Address:</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Enter your email"
-          />
-        </div>
-        <button type="submit" className="action-button" disabled={isLoading}>
-          {isLoading ? 'Sending...' : 'Send Reset Link'}
-        </button>
-      </form>
-     
-    </div>
-     <Footer />
-      <Copyright />
+    <div className="ce">
+      <div className="ce__box">
+        <h2 className="ce__title">Reset your password</h2>
+        <p className="ce__desc">
+          Enter your account email and we’ll send you a password reset link.
+        </p>
+
+        <form onSubmit={handleSubmit}>
+          <div className="ce__group">
+            <label className="ce__label">Email</label>
+            <input
+              type="email"
+              value={email}
+              className="ce__input"
+              placeholder="you@example.com"
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={isLoading}
+            />
+          </div>
+
+          <button type="submit" className="ce__btn" disabled={isLoading}>
+            {isLoading ? 'Sending…' : 'Send reset link'}
+          </button>
+
+          {msg && <p className="ce__msg ce__msg--success">{msg}</p>}
+          {err && <p className="ce__msg ce__msg--error">{err}</p>}
+        </form>
+      </div>
     </div>
   );
 };

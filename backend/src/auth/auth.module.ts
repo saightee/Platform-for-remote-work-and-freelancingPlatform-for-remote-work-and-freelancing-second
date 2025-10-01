@@ -55,7 +55,6 @@ import { CategoriesModule } from '../categories/categories.module';
       useFactory: async (configService: ConfigService) => {
         return {
           secret: configService.get<string>('JWT_SECRET'),
-          signOptions: { expiresIn: '1h' },
         };
       },
       inject: [ConfigService],

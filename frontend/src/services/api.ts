@@ -720,12 +720,14 @@ export const applyToJobPost = async (job_post_id: string, cover_letter: string) 
 export const applyToJobPostExtended = async (payload: {
   job_post_id: string;
   cover_letter: string;
+  relevant_experience: string;     // NEW (required)
   full_name?: string;
   referred_by?: string;
 }) => {
   const response = await api.post<JobApplication>('/job-applications', payload);
   return response.data;
 };
+
 
 export const getMyApplications = async () => {
   const token = localStorage.getItem('token');
@@ -1432,10 +1434,31 @@ export const resendVerification = async (email: string) => {
 
 
 
+const normalizeChatSettings = (s: any): ChatNotificationsSettings => ({
+  enabled: !!s?.enabled,
+  onEmployerMessage: {
+    immediate: !!s?.onEmployerMessage?.immediate,
+    delayedIfUnread: {
+      enabled: !!s?.onEmployerMessage?.delayedIfUnread?.enabled,
+      minutes: Number(s?.onEmployerMessage?.delayedIfUnread?.minutes ?? 60),
+    },
+    after24hIfUnread: {                                   // NEW
+      enabled: !!s?.onEmployerMessage?.after24hIfUnread?.enabled,
+      hours: Number(s?.onEmployerMessage?.after24hIfUnread?.hours ?? 24),
+    },
+    onlyFirstMessageInThread: !!s?.onEmployerMessage?.onlyFirstMessageInThread,
+  },
+  throttle: {
+    perChatCount: Number(s?.throttle?.perChatCount ?? 2),
+    perMinutes: Number(s?.throttle?.perMinutes ?? 60),
+  },
+});
+
 export const getChatNotificationSettings = async (): Promise<ChatNotificationsSettings> => {
   const { data } = await api.get('/admin/settings/chat-notifications');
-  return data;
+  return normalizeChatSettings(data);
 };
+
 
 export const updateChatNotificationSettings = async (
   payload: Partial<ChatNotificationsSettings>

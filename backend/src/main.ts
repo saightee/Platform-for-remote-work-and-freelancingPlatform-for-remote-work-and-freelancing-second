@@ -28,14 +28,14 @@ async function bootstrap() {
     session({
       store: new RedisStore({
         client: redisClient,
-        ttl: 24 * 60 * 60,
       }),
       secret: sessionSecret,
       resave: false,
       saveUninitialized: false,
-      name: 'jobforge.sid',
+      name: 'sid',
+      rolling: true,
       cookie: {
-        maxAge: 24 * 60 * 60 * 1000,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
         httpOnly: true,
         secure: configService.get('NODE_ENV') === 'production',
         sameSite: 'lax',

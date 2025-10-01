@@ -8,7 +8,7 @@
 .pf-shell {
   max-width: 1100px;
   margin: 32px auto 56px;
-  padding: 0 16px;
+  padding: 0 2px;
 }
 
 .pf-card {
@@ -305,12 +305,10 @@
 .pf-soc {
   width: 36px; height: 36px;
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 8px; border: 1px solid #e3e6ef;
-  color: #374151; background: #fff;
-  box-shadow: var(--cs-shadow-sm);
-  transition: transform .05s ease, box-shadow .15s ease, opacity .15s ease;
+  font-size: 23px;
+  
 }
-.pf-soc:hover { transform: translateY(-1px); box-shadow: var(--cs-shadow); }
+
 .pf-linkedin  { color: #0a66c2; }
 .pf-instagram { color: #d62976; }
 .pf-facebook  { color: #1877f2; }

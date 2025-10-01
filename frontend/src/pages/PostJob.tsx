@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { createJobPost, getCategories, searchCategories, generateDescription } from '../services/api';
+import { createJobPost, getCategories, searchCategories, generateDescription, getMyJobPosts, getJobPost   } from '../services/api';
 import { Category, JobPost, SalaryType } from '@types';
 import { useRole } from '../context/RoleContext';
 import ReactQuill from 'react-quill';
@@ -13,7 +13,7 @@ import 'react-quill/dist/quill.snow.css';
 import Loader from '../components/Loader';
 import {
   FaBriefcase, FaMapMarkerAlt, FaMoneyBillWave, FaListUl,
-  FaBolt, FaRedo, FaSearch, FaTimes, FaLightbulb, FaInfoCircle
+  FaBolt, FaRedo, FaSearch, FaTimes, FaLightbulb, FaInfoCircle, FaHistory, FaTimesCircle
 } from 'react-icons/fa';
 import '../styles/post-job.css';
 
@@ -41,13 +41,45 @@ const PostJob: React.FC = () => {
   const [jobType, setJobType] = useState<JobPost['job_type'] | undefined>(undefined);
   const [aiBrief, setAiBrief] = useState('');
   const [isEdited, setIsEdited] = useState(false);
+  const [prevSelectedId, setPrevSelectedId] = useState<string | null>(null);
   const [requestTimes, setRequestTimes] = useState<number[]>([]);
+  const [prevJobs, setPrevJobs] = useState<{ id: string; title: string; created_at: string }[]>([]);
+const [prevOpen, setPrevOpen] = useState(false);
+const [prevQuery, setPrevQuery] = useState('');
+  // src/pages/PostJob.tsx
   const [salary, setSalary] = useState<number | null>(null);
-  const [categoryId, setCategoryId] = useState('');
+  // --- changed: support multiple categories ---
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // helper: flatten categories for quick lookup
+  const flattenCategories = (cats: Category[]): Category[] =>
+    cats.flatMap((c) => [c, ...(c.subcategories ? flattenCategories(c.subcategories) : [])]);
+
+  const allFlattened = () => {
+    // merge tree categories + filtered (из поиска), чтобы показывать корректные ярлыки
+    const base = flattenCategories(categories);
+    const extra = filteredSkills.filter(
+      x => !base.some(b => String(b.id) === String(x.id))
+    );
+    return base.concat(extra);
+  };
+
+  // helper: add/remove
+  const addCategoryId = (id: string) => {
+    setSelectedCategoryIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    // clear the input so employer can pick the next category right away
+    setSkillInput('');
+    setIsDropdownOpen(false);
+  };
+
+  const removeCategoryId = (id: string) => {
+    setSelectedCategoryIds((prev) => prev.filter((x) => x !== id));
+  };
+
 
   // исключения по странам
   const [excludedCountries, setExcludedCountries] = useState<string[]>([]);
@@ -135,6 +167,74 @@ const PostJob: React.FC = () => {
     }
   };
 
+  // +++ Подставить данные из выбранной прошлой вакансии
+const fillFromPrevious = async (jobId: string) => {
+  try {
+    const j = await getJobPost(jobId);
+
+    // === подстановка полей из выбранной вакансии ===
+    setTitle(j.title || '');
+    setLocationMode(j.location || '');
+    setSalaryType((j.salary_type as SalaryType) ?? 'per hour');
+    setSalary(j.salary_type === 'negotiable' ? null : (j.salary ?? null));
+    setJobType(j.job_type ?? undefined);
+
+    // категории
+    const ids = (j as any).category_ids ?? (j.category_id ? [String(j.category_id)] : []);
+    setSelectedCategoryIds(ids.map(String));
+
+    // исключённые страны
+    setExcludedCountries(j.excluded_locations ?? []);
+
+    // описание в редактор (и в стейт)
+    const html = j.description || '';
+    if (quillRef.current) {
+      const editor = quillRef.current.getEditor();
+      editor.setContents(editor.clipboard.convert(html));
+    }
+    setDescription(html);
+
+    // вспомогательные флаги
+    setIsEdited(true);
+    setPrevSelectedId(jobId);               // запомнили выбор
+  } catch (e) {
+    console.error('fillFromPrevious error', e);
+    setError('Failed to load selected job.');
+  } finally {
+    setPrevOpen(false);
+    setPrevQuery('');
+  }
+};
+const clearPrevSelection = () => {
+  setPrevSelectedId(null);
+  setPrevQuery('');
+  setPrevOpen(false);
+
+  // очищаем ВСЕ вставленные поля формы
+  setTitle('');
+  setLocationMode('');
+  setSalaryType('per hour');
+  setSalary(null);
+  setJobType(undefined);
+  setSelectedCategoryIds([]);
+  setExcludedCountries([]);
+  setSkillInput('');        // строка поиска категорий
+  setCountryInput('');      // строка поиска стран
+  setFilteredSkills([]);
+  setFilteredCountries([]);
+
+  // описание и редактор
+  setDescription('');
+  if (quillRef.current) {
+    const editor = quillRef.current.getEditor();
+    editor.setContents(editor.clipboard.convert(''));
+  }
+
+  // сбрасываем AI brief и флаги редактирования (по желанию)
+  setAiBrief('');
+  setIsEdited(false);
+};
+
   useEffect(() => {
     if (salaryType === 'negotiable') setSalary(null);
   }, [salaryType]);
@@ -160,6 +260,25 @@ const PostJob: React.FC = () => {
     if (profile?.role === 'employer') fetchCategories();
     else setIsLoading(false);
   }, [profile]);
+
+ 
+useEffect(() => {
+  if (profile?.role !== 'employer') return;
+  (async () => {
+    try {
+      const rows = await getMyJobPosts();
+      const mapped = rows.map((j: any) => ({
+        id: String(j.id),
+        title: j.title,
+        created_at: j.created_at,
+      }));
+      setPrevJobs(mapped.sort((a, b) => (a.created_at < b.created_at ? 1 : -1)));
+    } catch (e) {
+      console.warn('getMyJobPosts failed', e);
+    }
+  })();
+}, [profile]);
+
 
   useEffect(() => {
     const search = async () => {
@@ -212,7 +331,8 @@ const jobData: Partial<JobPost> & { aiBrief?: string } = {
   excluded_locations: excludedCountries,
   status: 'Active',
   job_type: jobType,
-  category_id: categoryId || undefined,
+  // --- changed: send multi-select values ---
+  category_ids: selectedCategoryIds,
 };
 
 // ВСЕГДА отправляем description — тогда бэк НЕ будет заново генерировать
@@ -284,6 +404,67 @@ await createJobPost(jobData);
           <h1 className="pjx-title"><FaBriefcase /> Post a Job</h1>
           <p className="pjx-subtitle">Create a great listing — or let AI draft the description for you.</p>
         </div>
+
+      <div className="pjx-prev">
+  <div className="pjx-headrow">
+    <label className="pjx-label">
+      <FaHistory /> Use previous job
+      <InfoTip tip="You can select any previously created job. All fields will be filled automatically." />
+    </label>
+
+    {/* Кнопка «Clear selection» — видна, когда есть выбор или введён запрос */}
+    {(prevSelectedId || prevQuery) && (
+      <button
+        type="button"
+        className="cs-button pjx-clear"
+        onClick={clearPrevSelection}
+        title="Clear previous job selection and remove pre-filled data"
+      >
+        <FaTimesCircle style={{ marginRight: 6 }} />
+        Clear selection
+      </button>
+    )}
+  </div>
+
+  <div className="pjx-auto">
+    <FaSearch className="pjx-auto-icon" />
+    <input
+      className="pjx-input pjx-auto-input"
+      type="text"
+      value={prevQuery}
+      onChange={(e) => setPrevQuery(e.target.value)}
+      onFocus={() => setPrevOpen(true)}
+      onBlur={() => setTimeout(() => setPrevOpen(false), 150)}
+      placeholder="Search your previous jobs…"
+    />
+    {prevOpen && (
+      <ul className="pjx-dropdown">
+        {prevJobs
+          .filter(j => !prevQuery.trim() || j.title.toLowerCase().includes(prevQuery.toLowerCase()))
+          .slice(0, 20)
+          .map(j => (
+            <li
+              key={j.id}
+              className={`pjx-item ${prevSelectedId === j.id ? 'is-selected' : ''}`}
+              onMouseDown={() => fillFromPrevious(j.id)}
+              title={j.title}
+            >
+              <span className="pjx-prev-title">{j.title}</span>
+              <span className="pjx-prev-date">
+                {new Date(j.created_at).toLocaleDateString()}
+              </span>
+            </li>
+          ))}
+        {prevJobs.length === 0 && <li className="pjx-item pjx-empty">No previous jobs</li>}
+        {prevJobs.length > 0 &&
+         prevJobs.filter(j => j.title.toLowerCase().includes(prevQuery.toLowerCase())).length === 0 && (
+          <li className="pjx-item pjx-empty">No matches</li>
+        )}
+      </ul>
+    )}
+  </div>
+</div>
+
 
         {error && <div className="cs-alert cs-err">{error}</div>}
 
@@ -420,8 +601,8 @@ await createJobPost(jobData);
 
               <div className="pjx-row">
                 <label className="pjx-label">
-                  <FaListUl /> Category{' '}
-                  <InfoTip tip="Pick the closest match so candidates can find your post faster." />
+                  <FaListUl /> Categories{' '}
+                  <InfoTip tip="Choose one or more categories. After selecting, the field clears so you can add another." />
                 </label>
                 <div className="pjx-auto">
                   <FaSearch className="pjx-auto-icon" />
@@ -440,11 +621,7 @@ await createJobPost(jobData);
                         <React.Fragment key={category.id}>
                           <li
                             className="pjx-item"
-                            onMouseDown={() => {
-                              setCategoryId(category.id);
-                              setSkillInput(category.name);
-                              setIsDropdownOpen(false);
-                            }}
+                            onMouseDown={() => addCategoryId(category.id)}
                           >
                             {category.name}
                           </li>
@@ -452,11 +629,7 @@ await createJobPost(jobData);
                             <li
                               key={sub.id}
                               className="pjx-item pjx-sub"
-                              onMouseDown={() => {
-                                setCategoryId(sub.id);
-                                setSkillInput(`${category.name} > ${sub.name}`);
-                                setIsDropdownOpen(false);
-                              }}
+                              onMouseDown={() => addCategoryId(sub.id)}
                             >
                               {`${category.name} > ${sub.name}`}
                             </li>
@@ -467,38 +640,42 @@ await createJobPost(jobData);
                   )}
                 </div>
 
-{categoryId && (() => {
-  const flat = (cats: Category[]): Category[] =>
-    cats.flatMap(c => [c, ...(c.subcategories ? flat(c.subcategories) : [])]);
+                {/* chips with all selected categories */}
+                {selectedCategoryIds.length > 0 && (() => {
+                  const all = allFlattened();
+                  const chips = selectedCategoryIds
+                    .map((id) => {
+                      const cat = all.find((c) => String(c.id) === String(id));
+                      if (!cat) return { id, label: 'Unknown Category' };
+                      const parent = cat.parent_id
+                        ? all.find((c) => String(c.id) === String(cat.parent_id))
+                        : undefined;
+                      return {
+                        id,
+                        label: parent ? `${parent.name} > ${cat.name}` : cat.name,
+                      };
+                    });
 
-  const all = flat(categories).concat(filteredSkills);
-  const cat = all.find(c => String(c.id) === String(categoryId));
-  const parent = cat?.parent_id
-    ? all.find(c => String(c.id) === String(cat.parent_id))
-    : undefined;
-
-  const label = cat
-    ? (parent ? `${parent.name} > ${cat.name}` : cat.name)
-    : 'Unknown Category';
-
-  return (
-    <div className="pjx-chips">
-      <span className="pjx-chip">
-        {label}
-        <button
-          type="button"
-          className="pjx-chip-x"
-          onClick={() => setCategoryId('')}
-          aria-label="Remove category"
-        >
-          ×
-        </button>
-      </span>
-    </div>
-  );
-})()}
-
+                  return (
+                    <div className="pjx-chips">
+                      {chips.map(({ id, label }) => (
+                        <span key={id} className="pjx-chip">
+                          {label}
+                          <button
+                            type="button"
+                            className="pjx-chip-x"
+                            onClick={() => removeCategoryId(id)}
+                            aria-label="Remove category"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
+
 
               <div className="pjx-row">
                 <label className="pjx-label">

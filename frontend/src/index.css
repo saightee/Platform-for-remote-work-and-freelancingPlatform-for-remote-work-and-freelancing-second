@@ -4267,7 +4267,7 @@ summary:hover {
   border-radius: 5px;
   cursor: pointer;
   font-size: 14px;
-  margin: 5px 0;
+  margin: 5px 2px;
   transition: background-color 0.3s;
 }
 
@@ -7978,6 +7978,25 @@ header nav.mobile-menu-open .find-job {
   .cc-group { grid-template-columns: 1fr; }
 }
 
+.cc-viewport {
+  position: relative;
+  overflow: hidden;              /* не даём iOS уезжать в стороны */
+  touch-action: pan-y;           /* вертикальный скролл — браузеру, горизонталь — нам */
+  -webkit-user-select: none;     /* чтобы длинный тап не вызывал выделение */
+  -webkit-touch-callout: none;   /* отключаем системное меню по долгому тапу */
+}
+
+.cc-track {
+  display: flex;                 /* важно: чтобы каждый слайд шёл в строку */
+  width: 100%;
+  touch-action: pan-y;           /* на всякий случай и тут */
+  will-change: transform;        /* плавнее анимация translateX */
+}
+
+/* каждый .cc-group — это «слайд» шириной во весь вьюпорт карусели */
+.cc-group {
+  min-width: 100%;
+}
 
 /* Cookie banner */
 
@@ -8569,4 +8588,43 @@ padding-bottom: 5px;
         display: flex;
     flex-direction: column;
   }
+}
+
+@media (max-width: 480px) {
+.hb-title span {
+ 
+  font-size: 30px;
+}
+}
+
+/* базовый цвет текста только для этой модалки */
+.modal.is-admin-jobpost .modal-content {
+  color: #333;               /* твой нужный цвет */
+}
+
+/* === Email Stats modal (Job Posts → View details) === */
+.modal--emailstats {
+  /* если контейнер модалки у тебя flex — пусть контент не ужимается */
+  align-items: flex-start; /* чтобы не ломалось по вертикали при большой ширине */
+}
+
+.modal-content--emailstats {
+  max-width: none;          /* снимаем ограничение общей ширины */
+  width: max-content;       /* под размер контента */
+  max-inline-size: 95vw;    /* но не шире вьюпорта */
+  overflow-x: visible;      /* убираем горизонтальный скролл */
+}
+
+/* таблица внутри пусть занимает свою естественную ширину */
+.modal-content--emailstats .dashboard-table {
+  table-layout: auto;
+  width: max-content;
+  max-width: none;
+  overflow-x: visible;
+}
+
+/* если у тебя где-то на .modal-content глобально стоит overflow:auto; 
+   этот селектор перебьёт именно для этой модалки */
+.modal--emailstats .modal-content {
+  overflow-x: visible;
 }

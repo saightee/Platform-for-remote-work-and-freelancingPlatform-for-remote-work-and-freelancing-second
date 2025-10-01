@@ -18,7 +18,7 @@ const PrivacyPolicy: React.FC = () => {
         <p>Last updated: May 20, 2025</p>
         <h2>Introduction</h2>
         <p>
-          HireValve ("we", "us", or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website or use our services.
+          Jobforge ("we", "us", or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website or use our services.
         </p>
         <h2>Information We Collect</h2>
         <p>
@@ -59,7 +59,7 @@ const PrivacyPolicy: React.FC = () => {
         </p>
         <h2>Contact Us</h2>
         <p>
-          If you have any questions about this Privacy Policy, please contact us at support@hirevalve.com.
+          If you have any questions about this Privacy Policy, please contact us at support@Jobforge.com.
         </p>
       </div>
       <Footer />

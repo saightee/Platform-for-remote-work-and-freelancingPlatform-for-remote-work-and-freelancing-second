@@ -1,0 +1,70 @@
+/* Контейнер секции */
+.ref-links { --blue:#3498db; --green:#24a148; --danger:#e74c3c; }
+.ref-links__title { margin: 0 0 10px 0; }
+
+/* Фильтры */
+.ref-links__head { display:flex; flex-direction:column; gap:12px; }
+.ref-links__filters {
+  display:grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap:12px;
+  align-items:end;
+}
+.ref-links__field { grid-column: span 4; display:flex; flex-direction:column; gap:6px; }
+.ref-links__field input {
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ddd; border-radius: 8px;
+}
+.ref-links__btn { 
+  padding:8px 12px; border-radius:8px; border:1px solid transparent; cursor:pointer;
+  background:#f3f4f6;
+}
+.ref-links__btn--primary { background: var(--blue); color:#fff; }
+.ref-links__btn--success { background: var(--green); color:#fff; }
+.ref-links__btn--danger { background: var(--danger); color:#fff; }
+.ref-links__btn--ghost { background: transparent; border-color:#ddd; }
+
+/* Аккордеон по работе */
+.ref-links__job { border:1px solid #eee; border-radius:10px; margin-top:14px; overflow:hidden; }
+.ref-links__job-head {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 14px; background:#fafafa; cursor:pointer;
+}
+.ref-links__job-title { display:flex; align-items:center; gap:10px; font-weight:600; }
+.ref-links__chev { width: 16px; display:inline-block; }
+.ref-links__count { font-weight:400; color:#666; }
+.ref-links__job-body { padding: 8px 10px 12px; }
+
+/* Таблица ссылок */
+.ref-links__table-wrap { width:100%; overflow:auto; }
+.ref-links__table { width:100%; border-collapse: collapse; }
+.ref-links__table th, .ref-links__table td {
+  border-bottom:1px solid #eee; padding:10px 8px; text-align:left;
+}
+.ref-links__desc { max-width: 340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ref-links__url { display:flex; align-items:center; gap:8px; }
+.ref-links__url-text { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.ref-links__num { width: 90px; }
+.ref-links__actions { white-space:nowrap; display:flex; gap:6px; }
+
+/* Встроенное раскрытие регистраций */
+.ref-links__expand td { background:#fcfcfc; }
+.ref-links__regs { padding:10px 6px; }
+.ref-links__regs-head { font-weight:600; margin-bottom:8px; }
+.ref-links__regs-tablewrap { overflow:auto; max-width:100%; }
+.ref-links__regs-table { width:100%; border-collapse:collapse; }
+.ref-links__regs-table th, .ref-links__regs-table td {
+  border-bottom:1px solid #f0f0f0; padding:8px 6px; text-align:left;
+}
+
+/* Пустое состояние */
+.ref-links__empty { margin-top:12px; padding:16px; border:1px dashed #ddd; border-radius:10px; color:#666; }
+
+/* Мобильная адаптация */
+@media (max-width: 960px) {
+  .ref-links__filters { grid-template-columns: 1fr; }
+  .ref-links__field { grid-column: 1 / -1; }
+  .ref-links__actions { flex-wrap: wrap; }
+  .ref-links__desc { max-width: 220px; }
+}

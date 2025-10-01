@@ -201,6 +201,22 @@ export class ChatService {
     );
 
     const saved = await this.messagesRepository.save(toSave);
+
+    const appIds = saved.map(m => m.job_application_id);
+    const fullApps = await this.jobApplicationsRepository.find({
+      where: appIds.map(id => ({ id })),
+      relations: ['job_post', 'job_post.employer', 'job_seeker'],
+    });
+    const byId = new Map(fullApps.map(a => [a.id, a]));
+
+    await Promise.allSettled(
+      saved.map(msg => {
+        const app = byId.get(msg.job_application_id);
+        if (!app) return Promise.resolve();
+        return this.chatNotifications.onNewMessage(msg, app);
+      }),
+    );
+
     return saved;
   }
 }

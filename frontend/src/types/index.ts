@@ -303,11 +303,13 @@ export interface ChatNotificationsSettings {
   enabled: boolean;
   onEmployerMessage: {
     immediate: boolean;
-    delayedIfUnread: { enabled: boolean; minutes: number }; // 1..10080
+    delayedIfUnread: { enabled: boolean; minutes: number };
+    after24hIfUnread: { enabled: boolean; hours: number }; // NEW
     onlyFirstMessageInThread: boolean;
   };
-  throttle: { perChatCount: number; perMinutes: number };   // count 1..100, minutes 1..10080
+  throttle: { perChatCount: number; perMinutes: number };
 }
+
 
 // рядом с компонентом админ-дашборда или в твоём локальном types-файле ЭТОГО модуля
 type AdminRecentUser = {

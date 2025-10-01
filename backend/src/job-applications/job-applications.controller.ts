@@ -12,10 +12,11 @@ export class JobApplicationsController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post()
-    async applyToJob(
+  async applyToJob(
     @Headers('authorization') authHeader: string,
     @Body('job_post_id') jobPostId: string,
     @Body('cover_letter') coverLetter: string,
+    @Body('relevant_experience') relevantExperience: string,
     @Body('full_name') fullName?: string,
     @Body('referred_by') referredBy?: string,
     @Body('ref') ref?: string,
@@ -27,11 +28,12 @@ export class JobApplicationsController {
       const token = authHeader.replace('Bearer ', '');
       const payload = this.jwtService.verify(token);
       const userId = payload.sub;
-
+    
       return this.jobApplicationsService.applyToJob(
         userId,
         jobPostId,
         coverLetter,
+        relevantExperience,
         fullName,
         referredBy,
         ref || refCode,

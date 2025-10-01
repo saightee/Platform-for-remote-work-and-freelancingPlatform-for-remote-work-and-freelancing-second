@@ -91,11 +91,11 @@ const Messages: React.FC = () => {
   }>({});
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [broadcastText, setBroadcastText] = useState('');
-  const [appDetails, setAppDetails] = useState<{
-  fullName?: string | null;
-  referredBy?: string | null;
-  coverLetter?: string | null;
-} | null>(null);
+//   const [appDetails, setAppDetails] = useState<{
+//   fullName?: string | null;
+//   referredBy?: string | null;
+//   coverLetter?: string | null;
+// } | null>(null);
 
 const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
 
@@ -899,7 +899,7 @@ useEffect(() => {
               {chatList.length > 0 ? (
                 <ul className="ch-chatlist">
                   {chatList.map((chat) => (
-                  <li
+              <li
   key={chat.id}
   className={`ch-chatlist__item ${selectedChat === chat.id ? 'is-active' : ''}
     ${chat.unreadCount > 0 ? 'has-unread' : ''}
@@ -909,10 +909,14 @@ useEffect(() => {
 >
   <div className="ch-chatlist__meta">
     <div className="ch-chatlist__row">
-  
-   <span className="ch-chatlist__partner">{chat.partner}</span>
+      {/* имя — занимает доступную ширину и укорачивается с … */}
+      <span className="ch-chatlist__partner">{chat.partner}</span>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {/* справа — не сжимается и не растягивает строку */}
+      <div
+        className="ch-chatlist__right"
+        style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}
+      >
         {chat.status === 'Accepted' && <span className="ch-chip">Interview</span>}
         {chat.unreadCount > 0 && (
           <span className="ch-chatlist__badge">{chat.unreadCount}</span>
@@ -927,6 +931,7 @@ useEffect(() => {
     )}
   </div>
 </li>
+
 
                   ))}
                 </ul>
@@ -967,7 +972,7 @@ useEffect(() => {
               )}
 
               {/* Cover Letter modal */}
-  {appDetails && (
+  {/* {appDetails && (
   <div className="ch-modal">
     <div className="ch-modal__content">
       <button
@@ -1002,7 +1007,7 @@ useEffect(() => {
       )}
     </div>
   </div>
-)}
+)} */}
 
 
               {/* Review modal */}
@@ -1126,7 +1131,7 @@ useEffect(() => {
           </li>
 
           {/* View details */}
-          <li>
+          {/* <li>
             <button
               className="ch-dd__item"
               onClick={() => {
@@ -1141,7 +1146,7 @@ useEffect(() => {
             >
               View details
             </button>
-          </li>
+          </li> */}
 
           {/* Accept / Reject только для Pending */}
           {currentApp.status === 'Pending' && (
