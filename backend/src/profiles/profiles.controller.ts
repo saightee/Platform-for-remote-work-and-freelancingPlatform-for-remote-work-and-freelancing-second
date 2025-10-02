@@ -59,6 +59,8 @@ export class ProfilesController {
     @Body() body: {
       role?: string;
       username?: string;
+      country?: string;
+      // jobseeker:
       skillIds?: string[];
       experience?: string;
       description?: string;
@@ -74,6 +76,7 @@ export class ProfilesController {
       facebook?: string | null;
       whatsapp?: string | null;
       telegram?: string | null;
+      languages?: string[];
     },
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
