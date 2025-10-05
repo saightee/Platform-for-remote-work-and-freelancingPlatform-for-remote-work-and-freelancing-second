@@ -12,7 +12,7 @@ import { parseISO } from 'date-fns';
 import sanitizeHtml from 'sanitize-html';
 import Loader from '../components/Loader';
 import { Helmet } from 'react-helmet-async';
-
+import { brand, brandOrigin, brandBackendOrigin } from '../brand';
 
 
 
@@ -58,18 +58,52 @@ useEffect(() => {
 if (!alive) return;
 
 // 👇 привели форму к той же, что у списка
-const normalizeJob = (raw: any): JobPost => ({
-  ...raw,
-  employer: raw.employer ?? (
-    (raw.employer_id || raw.employer_username || raw.employer_avatar)
-      ? {
-          id: raw.employer_id ?? raw.employer?.id,
-          username: raw.employer_username ?? raw.employer?.username,
-          avatar: raw.employer_avatar ?? raw.employer?.avatar ?? null,
-        }
-      : undefined
-  ),
-});
+// JobDetails.tsx
+const normalizeJob = (raw: any): JobPost => {
+  const empObj =
+    raw.employer ??
+    raw.owner ??
+    raw.created_by ??
+    raw.createdBy ??
+    raw.posted_by ??
+    raw.postedBy ??
+    (
+      (raw.employer_id || raw.employer_username || raw.employer_avatar ||
+       raw.owner_id || raw.owner_username || raw.owner_avatar ||
+       raw.created_by_id || raw.created_by_username || raw.created_by_avatar ||
+       raw.posted_by_id || raw.posted_by_username || raw.posted_by_avatar)
+        ? {
+            id:
+              raw.employer_id ??
+              raw.owner_id ??
+              raw.created_by_id ??
+              raw.posted_by_id ??
+              raw.employer?.id ??
+              null,
+            username:
+              raw.employer_username ??
+              raw.owner_username ??
+              raw.created_by_username ??
+              raw.posted_by_username ??
+              raw.employer?.username ??
+              null,
+            avatar:
+              raw.employer_avatar ??
+              raw.owner_avatar ??
+              raw.created_by_avatar ??
+              raw.posted_by_avatar ??
+              raw.employer?.avatar ??
+              null,
+          }
+        : undefined
+    );
+
+  return {
+    ...raw,
+    employer: empObj,
+  };
+};
+
 
 setJob(normalizeJob(jobData));
 
@@ -184,7 +218,10 @@ const submitApply = async () => {
       setIsApplyModalOpen(false);
 
       // опционально: сразу в Messages и подсветить новый чат
-      navigate('/messages', { replace: true, state: { jobPostId: jobId } });
+      navigate('/jobseeker-dashboard/messages', {
+  replace: true,
+  state: { jobPostId: jobId },
+});
 
       // Если предпочитаешь сохранять старое поведение:
       // navigate('/jobseeker-dashboard/my-applications', { replace: true, state: { justApplied: jobId } });
@@ -271,7 +308,8 @@ const j = job as typeof job & JobExtras;
 const companyName =
   j.company_name ??
   j.companyName ??
-  'Jobforge Employer';
+  `${brand.name} Employer`;
+
 
 const validThrough = j.expires_at;
 
@@ -288,10 +326,11 @@ const jsonLd = {
     ? { "applicantLocationRequirements": [{ "@type": "Country", "name": "Remote" }] }
     : {}),
   "hiringOrganization": {
-    "@type": "Organization",
-    "name": companyName,
-    "sameAs": "https://jobforge.net/"
-  },
+  "@type": "Organization",
+  "name": companyName,
+  "sameAs": `${brandOrigin()}/`
+},
+
   ...(validThrough ? { "validThrough": validThrough } : {}),
   ...(salary
     ? {
@@ -320,40 +359,23 @@ const backAfterReport =
 
   return (
     <div>
-      <Helmet>
-  <title>{job.title} | Jobforge</title>
-  <meta name="description" content={cleanedDesc.slice(0, 160)} />
+<Helmet>
+  <title>{`${job.title} | ${brand.name}`}</title>
+  ...
   {(() => {
-  const canonical = slugId
-    ? `https://jobforge.net/vacancy/${slugId}`
-    : `https://jobforge.net/jobs/${job.id}`;
-
-  return (
-    <>
-      <link rel="canonical" href={canonical} />
-      <meta property="og:title" content={`${job.title} | Jobforge`} />
-      <meta property="og:description" content={cleanedDesc.slice(0, 160)} />
-      <meta property="og:url" content={canonical} />
-    </>
-  );
-})()}
-{(() => {
-  const canonical = slugId
-    ? `https://jobforge.net/vacancy/${slugId}`
-    : `https://jobforge.net/jobs/${job.id}`;
-
-  return (
-    <script type="application/ld+json">{JSON.stringify({
-      "@context":"https://schema.org",
-      "@type":"BreadcrumbList",
-      "itemListElement":[
-        {"@type":"ListItem","position":1,"name":"Jobs","item":"https://jobforge.net/find-job"},
-        {"@type":"ListItem","position":2,"name":job.title,"item": canonical}
-      ]
-    })}</script>
-  );
-})()}
-
+    const canonical = slugId
+      ? `${brandOrigin()}/vacancy/${slugId}`
+      : `${brandOrigin()}/jobs/${job.id}`;
+    return (
+      <>
+        <link rel="canonical" href={canonical} />
+        <meta property="og:title" content={`${job.title} | ${brand.name}`} />
+        <meta property="og:description" content={cleanedDesc.slice(0, 160)} />
+        <meta property="og:url" content={canonical} />
+        <meta property="og:site_name" content={brand.name} />
+      </>
+    );
+  })()}
 </Helmet>
 
       <Header />
@@ -372,29 +394,39 @@ const backAfterReport =
   {(() => {
     const avatar =
       job.employer?.avatar ??
-      (job as any).employer_avatar ?? null;
+      (job as any).employer_avatar ??
+      (job as any).owner_avatar ??
+      (job as any).created_by_avatar ??
+      (job as any).posted_by_avatar ??
+      null;
 
     return avatar ? (
-      <img
-        src={avatar.startsWith('http') ? avatar : `https://jobforge.net/backend${avatar}`}
-        alt="Employer Avatar"
-        className="employer-avatar"
-      />
-    ) : (
-      <FaUserCircle className="employer-avatar" />
-    );
+  <img
+    src={String(avatar).startsWith('http') ? avatar : `${brandBackendOrigin()}${avatar}`}
+    alt="Employer Avatar"
+    className="employer-avatar"
+  />
+) : (
+  <FaUserCircle className="employer-avatar" />
+);
+
   })()}
 
   {(() => {
     const displayEmployer =
       job.employer?.username ??
       (job as any).employer_username ??
+      (job as any).owner_username ??
+      (job as any).created_by_username ??
+      (job as any).posted_by_username ??
       (job as any).employer?.name ??
       (job as any).employer?.company_name ??
       'Unknown';
+
     return <span className="employer-name">{displayEmployer}</span>;
   })()}
 </div>
+
 
                    {!profile && (
   <div>

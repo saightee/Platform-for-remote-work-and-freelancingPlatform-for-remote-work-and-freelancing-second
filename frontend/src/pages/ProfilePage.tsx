@@ -26,6 +26,7 @@ import {
   normalizeTelegram, normalizeWhatsApp,
   normalizeLinkedIn, normalizeInstagram, normalizeFacebook
 } from '../utils/socials';
+import { brandOrigin } from '../brand';
 
 
 const USERNAME_RGX = /^[a-zA-Z0-9_.-]{3,20}$/; // простая валидация
@@ -384,11 +385,11 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                 title="Click to upload avatar"
               >
                 {profileData.avatar ? (
-                  <img
-                    src={`https://jobforge.net/backend${profileData.avatar}`}
-                    alt="Avatar"
-                    className="pf-avatar"
-                  />
+               <img
+  src={`${brandOrigin()}/backend${profileData.avatar}`}
+  alt="Avatar"
+  className="pf-avatar"
+/>
                 ) : (
                   <div className="pf-avatar-placeholder">
                     <FaUserCircle className="pf-avatar-icon" />
@@ -671,8 +672,8 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                             (() => {
                               const resume = (profileData as JobSeekerProfile).resume ?? '';
                               const href = resume.startsWith('http')
-                                ? resume
-                                : `https://jobforge.net/backend${resume}`;
+  ? resume
+  : `${brandOrigin()}/backend${resume}`;
                               return (
                                 <a
                                   href={href}

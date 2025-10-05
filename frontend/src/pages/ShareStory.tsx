@@ -5,7 +5,7 @@ import Copyright from '../components/Copyright';
 import RatingPicker from '../components/RatingPicker';
 import { submitSuccessStory } from '../services/api';
 import '../styles/contact-support.css';
-
+import { brand } from '../brand';
 
 const ShareStory: React.FC = () => {
   const [headline, setHeadline] = useState('');
@@ -66,7 +66,7 @@ const ShareStory: React.FC = () => {
       <div className="cs-shell">
         <div className="cs-card">
           <h1 className="cs-title">Share Your Success</h1>
-          <p className="cs-subtitle">Tell others how Jobforge helped — the best stories get featured.</p>
+          <p className="cs-subtitle">Tell others how {brand.name} helped — the best stories get featured.</p>
 
           {ok && <div className="cs-alert cs-ok">{ok}</div>}
           {err && <div className="cs-alert cs-err">{err}</div>}
@@ -88,14 +88,15 @@ const ShareStory: React.FC = () => {
             <div className="cs-row">
               <label className="cs-label">Your story</label>
               <textarea
-                className="cs-textarea"
-                rows={6}
-                placeholder="What challenge did you have? How did Jobforge help? What results did you get?"
-                value={story}
-                onChange={(e) => setStory(e.target.value)}
-                required
-                maxLength={2000}
-              />
+  className="cs-textarea"
+  rows={6}
+  placeholder={`What challenge did you have? How did ${brand.name} help? What results did you get?`}
+  value={story}
+  onChange={(e) => setStory(e.target.value)}
+  required
+  maxLength={2000}
+/>
+
               <div className="cs-hint">{story.trim().length}/2000</div>
             </div>
 

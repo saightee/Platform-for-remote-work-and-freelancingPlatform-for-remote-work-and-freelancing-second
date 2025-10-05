@@ -3,6 +3,7 @@ import { JobPost } from '@types';
 import { formatDateInTimezone } from '../utils/dateUtils';
 import { FaEye, FaUserCircle, FaMapMarkerAlt, FaCalendarAlt, FaBriefcase, FaBuilding } from 'react-icons/fa';
 import sanitizeHtml from 'sanitize-html';
+import { brandBackendOrigin } from '../brand';
 
 interface JobCardProps {
   job: JobPost;
@@ -107,10 +108,11 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
       <div className="jc-avatar">
         {job.employer?.avatar ? (
           <img
-            src={`https://jobforge.net/backend${job.employer.avatar}`}
-            alt="Employer Avatar"
-            className="jc-avatar-img"
-          />
+  src={`${brandBackendOrigin()}${job.employer.avatar}`}
+  alt="Employer Avatar"
+  className="jc-avatar-img"
+/>
+
         ) : (
           <FaUserCircle className="jc-avatar-icon" />
         )}
