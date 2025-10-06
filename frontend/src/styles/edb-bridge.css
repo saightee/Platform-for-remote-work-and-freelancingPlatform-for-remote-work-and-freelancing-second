@@ -679,3 +679,7 @@
     height: calc(100dvh - var(--edb-topbar-h) - 16px);
   }
 }
+.jsd-shell input, .jsd-shell textarea, .jsd-shell select,
+.edb-shell input, .edb-shell textarea, .edb-shell select{
+  font-size:16px;
+}

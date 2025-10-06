@@ -146,7 +146,7 @@
 }
 .ch-input{
   width:100%; border:1px solid #e3e6ef; border-radius:10px;
-  padding:12px 14px; font-size:15px; outline:none;
+  padding:12px 14px; font-size:16px; outline:none;
   transition: box-shadow .15s ease, border-color .15s ease;
 }
 .ch-input:focus{ border-color:var(--ch-accent); box-shadow:0 0 0 4px rgba(78,116,200,.12); }
@@ -179,7 +179,7 @@
 .ch-label{ font-size:14px; font-weight:600; color:var(--ch-text); }
 .ch-textarea{
   width:100%; border:1px solid #e3e6ef; border-radius:10px;
-  padding:10px 12px; font-size:15px; outline:none; resize:vertical;
+  padding:10px 12px; font-size:16px; outline:none; resize:vertical;
 }
 .ch-textarea:focus{ border-color:var(--ch-accent); box-shadow:0 0 0 4px rgba(78,116,200,.12); }
 .ch-btn{
@@ -362,3 +362,30 @@
 
 .ch-layout,
 .ch-chat { min-height: 0; }   /* родителям ленты разрешаем сжиматься */
+.ch-thread{ overflow-x:hidden; }
+
+/* ломаем сверхдлинные токены (ссылки, смайлы, безпробельный текст) */
+.ch-bubble__text{
+  overflow-wrap:anywhere;   /* современный, лучше всего работает на мобилках */
+  word-break:break-word;    /* подстраховка для старых вебкитов */
+}
+
+@media (max-width:900px){
+  .ch-layout{ grid-template-columns:1fr; }
+  .ch-sidebar{ order:2; }
+  .ch-chat{ order:1; min-height:480px; } /* было ~420 */
+}
+
+@media (max-width:640px){
+  .ch-shell{ margin:10px 0; padding:0 12px; }
+  .ch-card{ padding:18px; height:auto; min-height:calc(100dvh - 120px); }
+  .ch-chat{
+    margin:0 -12px;
+    border-left:0; border-right:0; border-radius:0;
+    min-height:calc(100dvh - 140px); /* было -160 => стало заметно выше */
+  }
+  .ch-chat__head{ padding:10px 12px; }
+  .ch-thread{ padding:10px 12px; gap:6px; }
+  .ch-composer{ padding:10px; gap:6px; }
+  .ch-send{ width:42px; height:42px; }
+}

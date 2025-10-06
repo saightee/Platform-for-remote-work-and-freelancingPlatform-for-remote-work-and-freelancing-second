@@ -1264,6 +1264,9 @@ useEffect(() => {
                       onChange={handleTyping}
                       placeholder={selectedChat ? 'Type a message…' : 'No chat selected'}
                       disabled={!selectedChat}
+                      autoComplete="off"
+    autoCorrect="on"
+    inputMode="text"
                     />
                     <button
                       type="submit"
