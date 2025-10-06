@@ -204,7 +204,7 @@ const handleLogout = async () => {
       {isOpen && <button className="jsd-overlay" onClick={closeDrawer} aria-label="Close menu" />}
 
       <main className="jsd-main">
-        <div className="jsd-content">
+        <div className="jsd-content jsd-embed">
           <Outlet />
         </div>
       </main>

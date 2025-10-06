@@ -836,7 +836,7 @@ useEffect(() => {
   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}
 >
   <details className="ch-dd">
-    <summary title={selectedLabel}>{selectedLabel}</summary>
+    <summary title={selectedLabel} className="one-line">{selectedLabel}</summary>
     <div className="ch-dd__menu">
      <ul className="ch-dd__ul">
   {currentRole === 'employer' ? (
