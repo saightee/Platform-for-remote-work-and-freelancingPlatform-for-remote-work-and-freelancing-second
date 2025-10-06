@@ -325,3 +325,7 @@
 
 .jsd-content .jf2-copy, .jsd-content .copyright, .jsd-content footer { display:none!important; }
 /* и т.д. */
+.jsd-shell input, .jsd-shell textarea, .jsd-shell select,
+.edb-shell input, .edb-shell textarea, .edb-shell select{
+  font-size:16px;
+}
