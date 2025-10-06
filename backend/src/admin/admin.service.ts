@@ -1677,5 +1677,75 @@ export class AdminService {
     await this.referralRegistrationsRepository.save(referralRegistration);
   }
 
+  async getBrandBreakdown(
+  adminId: string,
+  startDate?: Date,
+  endDate?: Date,
+  ): Promise<{
+    range: { startDate?: string; endDate?: string };
+    byBrand: Array<{ brand: string; total: number; employers: number; jobseekers: number }>;
+    overall: { total: number; employers: number; jobseekers: number };
+  }> {
+    await this.checkAdminRole(adminId);
+  
+    let adjustedEndDate: Date | undefined = endDate
+      ? new Date(endDate)
+      : undefined;
+    if (adjustedEndDate) {
+      adjustedEndDate.setHours(23, 59, 59, 999);
+    }
+  
+    const qb = this.usersRepository
+      .createQueryBuilder('u')
+      .select(`COALESCE(u.brand, 'unknown')`, 'brand')
+      .addSelect(`SUM(CASE WHEN u.role = 'employer' THEN 1 ELSE 0 END)`, 'employers')
+      .addSelect(`SUM(CASE WHEN u.role = 'jobseeker' THEN 1 ELSE 0 END)`, 'jobseekers')
+      .groupBy(`COALESCE(u.brand, 'unknown')`);
+  
+    if (startDate) {
+      qb.andWhere('u.created_at >= :startDate', { startDate });
+    }
+    if (adjustedEndDate) {
+      qb.andWhere('u.created_at <= :endDate', { endDate: adjustedEndDate });
+    }
+  
+    const raw = await qb.getRawMany<{
+      brand: string;
+      employers: string;
+      jobseekers: string;
+    }>();
+  
+    const byBrand = raw.map(r => {
+      const employers = parseInt(r.employers, 10) || 0;
+      const jobseekers = parseInt(r.jobseekers, 10) || 0;
+      const total = employers + jobseekers;
+      return {
+        brand: r.brand || 'unknown',
+        total,
+        employers,
+        jobseekers,
+      };
+    })
+    .sort((a, b) => b.total - a.total);
+  
+    const overall = byBrand.reduce(
+      (acc, row) => {
+        acc.employers += row.employers;
+        acc.jobseekers += row.jobseekers;
+        acc.total += row.total;
+        return acc;
+      },
+      { total: 0, employers: 0, jobseekers: 0 },
+    );
+  
+    return {
+      range: {
+        startDate: startDate ? startDate.toISOString().slice(0, 10) : undefined,
+        endDate: endDate ? endDate.toISOString().slice(0, 10) : undefined,
+      },
+      byBrand,
+      overall,
+    };
+  }
   
 }

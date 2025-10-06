@@ -40,11 +40,13 @@ export class AuthService {
 
   async register(dto: RegisterDto | CreateAdminDto | CreateModeratorDto, ip: string, fingerprint?: string, refCode?: string) {
     const emailNorm = (dto.email || '').trim().toLowerCase();
-    const username = dto.username;
-    const password = dto.password;
+    const username = (dto as any).username;
+    const password = (dto as any).password;
 
     let country: string | null = null;
-    if (ip) {
+    if ('country' in dto && typeof (dto as any).country === 'string' && (dto as any).country.trim()) {
+      country = (dto as any).country.trim().toUpperCase();
+    } else if (ip) {
       const isBlocked = await this.blockedCountriesService.isCountryBlocked(ip);
       if (isBlocked) throw new ForbiddenException('Registration is not allowed from your country');
       const geo = (geoip as any).lookup(ip);
@@ -82,12 +84,18 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const userData = {
-      email: emailNorm, username, password: hashedPassword, role, country,
+      email: emailNorm,
+      username,
+      password: hashedPassword,
+      role,
+      country,
       is_email_verified: role === 'admin' || role === 'moderator',
       referral_source: refCode || null,
-    };
+      brand: (dto as any).__brand || null,
+    } as any;
 
     const additionalData: any = { timezone: 'UTC', currency: 'USD' };
+
     if (role === 'jobseeker') {
       const r = dto as RegisterDto;
       if (r.skills) additionalData.skills = r.skills;
@@ -98,10 +106,12 @@ export class AuthService {
       additionalData.facebook = r.facebook || null;
       additionalData.whatsapp = r.whatsapp || null;
       additionalData.telegram = r.telegram || null;
-
       if (r.description) {
         const words = r.description.trim().split(/\s+/).slice(0, 150);
         additionalData.description = words.join(' ');
+      }
+      if (Array.isArray(r.languages)) {
+        additionalData.languages = r.languages;
       }
     }
 
