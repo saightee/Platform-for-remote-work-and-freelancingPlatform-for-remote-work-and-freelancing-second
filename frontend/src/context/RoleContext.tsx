@@ -10,7 +10,7 @@ import {
 import { Profile } from '@types';
 import type { Socket } from 'socket.io-client';
 import { jwtDecode } from 'jwt-decode';
-
+import { brand, brandEvent } from '../brand';
 
 interface Message {
   id: string;
@@ -224,7 +224,11 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } catch {}
             map[m.job_application_id] = (map[m.job_application_id] || 0) + 1;
             localStorage.setItem(key, JSON.stringify(map));
-            window.dispatchEvent(new Event('jobforge:unreads-updated'));
+
+// legacy (на время миграции)
+window.dispatchEvent(new Event('jobforge:unreads-updated'));
+// брендовый (новый)
+window.dispatchEvent(new Event(brandEvent('unreads-updated')));
           }
           playNewMessageSound(m);
         });
@@ -281,15 +285,24 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
   const onSelected = (e: Event) => {
     const id = (e as CustomEvent<string | null>).detail ?? null;
     activeChatRef.current = id;
   };
-  // касты для TS, чтобы не ругался на кастомное событие
-  window.addEventListener('jobforge:selected-chat-changed' as any, onSelected as any);
-  return () => window.removeEventListener('jobforge:selected-chat-changed' as any, onSelected as any);
+
+  const legacy = 'jobforge:selected-chat-changed';
+  const branded = brandEvent('selected-chat-changed');
+
+  window.addEventListener(legacy as any, onSelected as any);
+  window.addEventListener(branded as any, onSelected as any);
+
+  return () => {
+    window.removeEventListener(legacy as any, onSelected as any);
+    window.removeEventListener(branded as any, onSelected as any);
+  };
 }, []);
+
 
     // NEW: воспроизведение с троттлингом и игнором своих сообщений
 const playNewMessageSound = (msg: Message) => {

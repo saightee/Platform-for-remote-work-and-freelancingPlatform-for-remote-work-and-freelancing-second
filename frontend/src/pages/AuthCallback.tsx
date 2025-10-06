@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Loader from '../components/Loader';
 import { useRole } from '../context/RoleContext';
 import { getJobPost } from '../services/api';
+import { brand } from '../brand';
 
 const AuthCallback: React.FC = () => {
   const { search } = useLocation();
@@ -20,12 +21,14 @@ const AuthCallback: React.FC = () => {
   useEffect(() => {
     if (token && verified === 'true') {
       // подчистим старую сессию из cookie, как и было
-      document.cookie = 'jobforge.sid=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+      document.cookie = `${brand.id}.sid=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+
       localStorage.setItem('token', token);
       // тянем профиль (заполнит useRole.profile)
       refreshProfile().catch(() => {
         localStorage.removeItem('token');
-        document.cookie = 'jobforge.sid=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+        document.cookie = `${brand.id}.sid=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+
         navigate('/login', { replace: true });
       });
       return;

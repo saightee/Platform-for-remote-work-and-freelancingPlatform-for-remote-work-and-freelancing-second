@@ -38,12 +38,17 @@ useEffect(() => {
   calc();
   const onStorage = (e: StorageEvent) => { if (e.key === unreadKey) calc(); };
   const onLocal = () => calc();
-  window.addEventListener('storage', onStorage);
-  window.addEventListener('jobforge:unreads-updated', onLocal);
-  return () => {
-    window.removeEventListener('storage', onStorage);
-    window.removeEventListener('jobforge:unreads-updated', onLocal);
-  };
+window.addEventListener('storage', onStorage);
+const evtName = `${brand.id}:unreads-updated`;
+window.addEventListener('jobforge:unreads-updated', onLocal); // legacy
+window.addEventListener(evtName, onLocal);
+
+return () => {
+  window.removeEventListener('storage', onStorage);
+  window.removeEventListener('jobforge:unreads-updated', onLocal);
+  window.removeEventListener(evtName, onLocal);
+};
+
 }, [unreadKey]);
 
   useEffect(() => { setIsMobileMenuOpen(false); setIsDropdownOpen(false); }, [location.pathname]);

@@ -17,6 +17,34 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 
+function mapBrandFromReq(req: any): string | null {
+  const explicit = req.headers['x-site-brand'];
+  if (explicit && typeof explicit === 'string') {
+    return explicit.trim().toLowerCase();
+  }
+
+  const domainFrom = (urlStr?: string) => {
+    try { return new URL(urlStr!).hostname.toLowerCase(); } catch { return ''; }
+  };
+
+  const origin = domainFrom(req.headers.origin);
+  const referer = domainFrom(req.headers.referer);
+  const host = (req.headers.host || '').toLowerCase();
+
+  const hostLike = origin || referer || host;
+
+  if (!hostLike) return null;
+
+  if (hostLike.includes('22resumes.com')) return '22resumes';
+  if (hostLike.includes('jobforge.net')) return 'jobforge';
+
+  const parts = hostLike.split('.').filter(Boolean);
+  if (parts.length >= 2) {
+    return parts[parts.length - 2];
+  }
+  return null;
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -57,6 +85,11 @@ export class AuthController {
     if (resumeFile) {
       registerDto.resume = `/uploads/resumes/${resumeFile.filename}`;
     }
+
+    const brand = mapBrandFromReq(req) || null;
+
+    (registerDto as any).__brand = brand;
+
     return this.authService.register(registerDto, ip, fingerprint, registerDto.ref);
   }
 

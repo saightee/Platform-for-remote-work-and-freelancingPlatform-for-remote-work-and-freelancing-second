@@ -146,7 +146,7 @@
 }
 .ch-input{
   width:100%; border:1px solid #e3e6ef; border-radius:10px;
-  padding:12px 14px; font-size:15px; outline:none;
+  padding:12px 14px; font-size:16px; outline:none;
   transition: box-shadow .15s ease, border-color .15s ease;
 }
 .ch-input:focus{ border-color:var(--ch-accent); box-shadow:0 0 0 4px rgba(78,116,200,.12); }
@@ -179,7 +179,7 @@
 .ch-label{ font-size:14px; font-weight:600; color:var(--ch-text); }
 .ch-textarea{
   width:100%; border:1px solid #e3e6ef; border-radius:10px;
-  padding:10px 12px; font-size:15px; outline:none; resize:vertical;
+  padding:10px 12px; font-size:16px; outline:none; resize:vertical;
 }
 .ch-textarea:focus{ border-color:var(--ch-accent); box-shadow:0 0 0 4px rgba(78,116,200,.12); }
 .ch-btn{
@@ -342,4 +342,142 @@
   font-size:12px;
   color:var(--ch-muted);
   white-space:nowrap;
+}
+
+
+/* контейнер селекта в топбаре может сжиматься */
+.ch-topbar .ch-dd{
+  flex: 1 1 320px;   /* можно меньше/больше при желании */
+  min-width: 0;      /* главное для ellipsis */
+}
+
+/* сам summary — одна строка + обрезка */
+.ch-dd > summary{
+  display: block;           /* чтобы max-width работал */
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ch-layout,
+.ch-chat { min-height: 0; }   /* родителям ленты разрешаем сжиматься */
+.ch-thread{ overflow-x:hidden; }
+
+/* ломаем сверхдлинные токены (ссылки, смайлы, безпробельный текст) */
+.ch-bubble__text{
+  overflow-wrap:anywhere;   /* современный, лучше всего работает на мобилках */
+  word-break:break-word;    /* подстраховка для старых вебкитов */
+}
+
+@media (max-width:900px){
+  .ch-layout{ grid-template-columns:1fr; }
+  .ch-sidebar{ order:2; }
+  .ch-chat{ order:1; min-height:480px; } /* было ~420 */
+}
+
+@media (max-width:640px){
+  .ch-shell{ margin:10px 0; padding:0 12px; }
+  .ch-card{ padding:18px; height:auto; min-height:calc(100dvh - 120px); }
+  .ch-chat{
+    margin:0 -12px;
+    border-left:0; border-right:0; border-radius:0;
+    min-height:calc(100dvh - 140px); /* было -160 => стало заметно выше */
+  }
+  .ch-chat__head{ padding:10px 12px; }
+  .ch-thread{ padding:10px 12px; gap:6px; }
+  .ch-composer{ padding:10px; gap:6px; }
+  .ch-send{ width:42px; height:42px; }
+}
+
+
+/* --- универсально: не допускаем горизонтальный скролл --- */
+html, body { overflow-x: hidden; }
+
+/* длинные строки/слова: безопасный перенос */
+.ch-bubble__text,
+.ch-chat__title,
+.ch-dd__item > span,
+.ch-dd > summary {
+  overflow-wrap: anywhere;   /* современный перенос */
+  word-break: break-word;    /* страховка для очень длинных слов */
+}
+
+/* сайдбарный айтем: имя партнёра уже с ellipsis есть, дожмём job title */
+.ch-chatlist__job,
+.ch-dd > summary {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* iOS zoom fix: шрифт >=16px на инпутах/текстэриях/селектах */
+@supports (-webkit-touch-callout: none) {
+  input, textarea, select, .ch-input, .ch-textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ——— мобильная раскладка: делаем карточку шире и выше, без "ухода вправо" ——— */
+
+/* задаём переменную паддинга карточки, чтобы отрицательный margin
+   у чата всегда «компенсировал» фактический паддинг */
+:root { --ch-card-pad: 24px; }
+
+.ch-card { padding: var(--ch-card-pad); }
+
+/* базовые высоты внутри дашборда (embed) — чат всегда высокий и скроллится внутри */
+.edb-embed .ch-card { 
+  height: calc(100dvh - var(--edb-topbar-h) - 16px);
+  min-height: 480px;
+}
+.jsd-embed .ch-card {
+  height: calc(100dvh - var(--jsd-topbar-h) - 16px);
+  min-height: 480px;
+}
+
+@media (max-width: 640px){
+  /* карточка компактней, но повыше */
+  .ch-shell { padding: 0; margin: 0; }
+  :root { --ch-card-pad: 12px; }
+  .ch-card{
+    padding: var(--ch-card-pad);
+    height: calc(100dvh - 100px);   /* заметно выше, чем было */
+    min-height: 560px;              /* гарантированная высота на маленьких экранах */
+  }
+
+  /* растягиваем окно чата в край БЕЗ смещения —
+     отрицательный отступ равен текущему pad карточки */
+  .ch-chat{
+    margin-inline: calc(-1 * var(--ch-card-pad));
+    border-left: 0; border-right: 0; border-radius: 0;
+    min-height: calc(100dvh - 180px); /* само окно чата выше */
+  }
+
+  /* лента сообщений должна занимать всё оставшееся пространство и скроллиться */
+  .ch-thread{
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* немного компактнее внутренности, но без уменьшения шрифтов (во избежание зума) */
+  .ch-chat__head{ padding: 10px 12px; }
+  .ch-composer{ padding: 10px; gap: 8px; }
+  .ch-send{ width: 46px; height: 46px; }
+}
+
+/* на очень узких (360px) дополнительно: убираем любые потенциальные «выпирания» */
+@media (max-width: 380px){
+  .ch-dd__menu{ max-width: 92vw; }
+  .ch-chatlist{ overflow-x: hidden; }
+}
+.one-line{
+  display:block;
+  max-width:100%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }

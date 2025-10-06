@@ -17,15 +17,19 @@ import {
 import '../styles/promo-latam.css';
 import heroImgGirl from '../assets/85247.png';
 import { Helmet } from 'react-helmet-async';
+import { brand, brandOrigin } from '../brand';
 
 const PromoPhilippinoFreelancer: React.FC = () => {
   return (
     <div className="plf-root">
-      <Helmet>
-  <title>Philippino freelancers: Remote jobs with USD pay | Jobforge_</title>
-  <meta name="description" content="Find well-paid remote projects. Apply fast and chat directly with employers on Jobforge_" />
-  <link rel="canonical" href="https://jobforge.net/philippino-freelancer/" />
-  <meta property="og:url" content="https://jobforge.net/philippino-freelancer/" />
+   <Helmet>
+  <title>Filipino freelancers: Remote jobs with USD pay | {brand.name}</title>
+  <meta
+    name="description"
+    content={`Find well-paid remote projects. Apply fast and chat directly with employers on ${brand.name}.`}
+  />
+  <link rel="canonical" href={`${brandOrigin()}/filipino-freelancer/`} />
+  <meta property="og:url" content={`${brandOrigin()}/filipino-freelancer/`} />
 </Helmet>
 
       {/* <Header /> */}
@@ -36,29 +40,28 @@ const PromoPhilippinoFreelancer: React.FC = () => {
           <div className="plf-hero-grid">
             {/* LEFT: content */}
             <div className="plf-hero-left">
-              <Link to="/" className="plf-brand" aria-label="Go to JobForge home">
-                <div className="plf-brand-text">Jobforge_ </div>
-              </Link>
+              <Link to="/" className="plf-brand" aria-label={`Go to ${brand.name} home`}>
+  <div className="plf-brand-text">{brand.wordmark}</div>
+</Link>
 
-              <h1 className="plf-title">
-                Philippino freelancers: <span>Work remotely. Earn globally.</span>
-              </h1>
 
-              <p className="plf-sub">
-                JobForge helps top talent from Philippines, well-paid remote projects.
-                Create a standout profile, apply with one click, and chat directly with employers.
-                
-              </p>
+            <h1 className="plf-title">
+  Filipino freelancers: <span>Work remotely. Earn globally.</span>
+</h1>
+<p className="plf-sub">
+  {brand.name} helps top talent from the Philippines land well-paid remote projects.
+  Create a standout profile, apply with one click, and chat directly with employers.
+</p>
 
               <div className="plf-cta">
                 <Link
-                  to="/register/jobseeker?utm_source=latam_lp"
+                  to="/register/jobseeker?utm_source=ph_lp"
                   className="plf-btn plf-btn--primary plf-btn--xl plf-btn--pulse"
                 >
                   Register now <FaArrowRight />
                 </Link>
                 <Link
-                  to="/find-job?utm_source=latam_lp"
+                  to="/find-job?utm_source=ph_lp"
                   className="plf-btn plf-btn--ghost plf-btn--lg"
                 >
                   Browse jobs
@@ -80,7 +83,7 @@ const PromoPhilippinoFreelancer: React.FC = () => {
       {/* BENEFITS */}
       <section className="plf-benefits">
         <div className="plf-shell">
-          <h2 className="plf-h2">Why freelancers from Philippines choose JobForge</h2>
+          <h2 className="plf-h2">Why freelancers from the Philippines choose {brand.name}</h2>
           <div className="plf-cards">
             <div className="plf-card">
               <div className="plf-card-ico"><FaBolt /></div>
@@ -145,7 +148,7 @@ const PromoPhilippinoFreelancer: React.FC = () => {
           <div className="plf-cta-text">
             <span className="plf-cta-eyebrow">Fresh remote roles weekly</span>
             <h3>Ready to work with global clients?</h3>
-            <p>Join JobForge today and access remote opportunities from anywhere in LATAM.</p>
+           <p>Join {brand.name} today and access remote opportunities from anywhere in the Philippines.</p>
           </div>
           <div className="plf-cta-actions">
             <Link

@@ -623,3 +623,63 @@
 .edb-table .edb-thead > div {
   white-space: nowrap;
 }
+
+/* --- MOBILE TOPBAR: чистый двухрядный грид --- */
+@media (max-width: 680px) {
+  .edb-topbar{
+    display: grid;
+    grid-template-columns: auto 1fr auto; /* [burger] [logo/greet] [cta/logout] */
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 8px 12px;
+    height: auto;           /* вместо фиксированной */
+    padding: 8px 12px;
+  }
+  .edb-topbar__spacer{ display:none; }
+
+  /* размещение по ячейкам грида */
+  .edb-topbar__burger { grid-column: 1; grid-row: 1; }
+  .edb-topbar__logo   { grid-column: 2; grid-row: 1; font-size: 22px; margin-left: 6px; }
+  .edb-topbar__cta    { grid-column: 3; grid-row: 1; justify-self: end; padding: 8px 10px; font-size: 13px; }
+  .edb-topbar__greet  { grid-column: 1 / 3; grid-row: 2; min-width: 0; font-size: 14px; }
+  .edb-topbar__logout { grid-column: 3; grid-row: 2; justify-self: end; padding: 8px 10px; }
+}
+
+/* --- DRAWER поверх топбара и кликается полностью --- */
+.edb-topbar{ z-index: 100; }     /* хедер */
+.edb-sidebar{ 
+  z-index: 140;                  /* СТРОГО выше топбара */
+  inset: 0 auto 0 0;             /* от края экрана */
+  padding-top: var(--edb-topbar-h); /* чтобы контент начинался под хедером */
+}
+.edb-sidebar.is-open{ transform: translateX(0); }
+.edb-overlay{ z-index: 130; }    /* фон под сайдбаром, над хедером */
+
+/* на десктопе оверлей всё равно скрыт выше по коду, оставляем как есть */
+
+/* --- косметика пунктов меню, чтобы не липли к верху под шапкой --- */
+.edb-nav{ padding-top: 10px; }
+
+/* --- бейдж в меню сообщений остаётся как был --- */
+
+
+/* ЧАТ ВНУТРИ ДАШБОРДА: фиксируем высоту карточки под вьюпорт,
+   чтобы .ch-thread всегда скроллился, а не растягивал страницу. */
+.edb-embed .ch-card{
+  height: calc(100dvh - var(--edb-topbar-h) - 32px); /* учли высоту топбара и отступы */
+  min-height: 420px;
+}
+.edb-embed .ch-layout{ min-height: 0; }
+.edb-embed .ch-chat{   min-height: 0; }
+.edb-embed .ch-thread{ overflow-y: auto; }
+
+/* На очень узких — немного выше, чтобы композер поместился */
+@media (max-width: 640px){
+  .edb-embed .ch-card{
+    height: calc(100dvh - var(--edb-topbar-h) - 16px);
+  }
+}
+.jsd-shell input, .jsd-shell textarea, .jsd-shell select,
+.edb-shell input, .edb-shell textarea, .edb-shell select{
+  font-size:16px;
+}

@@ -678,6 +678,39 @@ export class AdminController {
     return this.adminService.getRecentRegistrationsByDay(adminId, { date, tzOffset });
   }
 
+  @Get('analytics/brands')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async getBrandAnalytics(
+    @Query('startDate') startDate: string | undefined,
+    @Query('endDate') endDate: string | undefined,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+
+    let start: Date | undefined;
+    let end: Date | undefined;
+
+    if (startDate) {
+      start = new Date(startDate);
+      if (isNaN(start.getTime())) {
+        throw new BadRequestException('Invalid startDate format');
+      }
+    }
+    if (endDate) {
+      end = new Date(endDate);
+      if (isNaN(end.getTime())) {
+        throw new BadRequestException('Invalid endDate format');
+      }
+    }
+
+    return this.adminService.getBrandBreakdown(adminId, start, end);
+  }
+
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Get('job-posts/applications')
   async getJobPostsWithApplications(

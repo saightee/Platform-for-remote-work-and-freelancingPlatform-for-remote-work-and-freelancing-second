@@ -21,6 +21,9 @@ export class JobSeeker {
   @Column('text', { nullable: true })
   description?: string;
 
+  @Column({ type: 'text', array: true, nullable: true })
+  languages?: string[];
+
   @Column({ type: 'varchar', nullable: true })
   linkedin?: string;
 

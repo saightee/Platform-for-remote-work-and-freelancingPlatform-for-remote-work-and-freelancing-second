@@ -42,6 +42,7 @@ export class ProfilesService {
         role: user.role,
         email: isAuthenticated ? user.email : undefined,
         username: user.username,
+        country: user.country,
         skills: jobSeeker.skills,
         experience: jobSeeker.experience,
         description: jobSeeker.description,
@@ -59,6 +60,7 @@ export class ProfilesService {
         facebook: jobSeeker.facebook,
         whatsapp: (jobSeeker as any).whatsapp ?? null,
         telegram: (jobSeeker as any).telegram ?? null,
+        languages: jobSeeker.languages || [],
         reviews,
         avatar: user.avatar,
         identity_verified: user.identity_verified,
@@ -100,6 +102,12 @@ export class ProfilesService {
       if (!newUsername) throw new BadRequestException('Username cannot be empty');
       if (newUsername.length > 100) throw new BadRequestException('Username is too long (max 100)');
       user.username = newUsername;
+      await this.usersRepository.save(user);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updateData, 'country')) {
+      const c = (updateData.country ?? '').toString().trim().toUpperCase();
+      (user as any).country = c || null;
       await this.usersRepository.save(user);
     }
 
@@ -149,6 +157,11 @@ export class ProfilesService {
       if (Object.prototype.hasOwnProperty.call(updateData, 'facebook'))  jobSeeker.facebook  = updateData.facebook  || null;
       if (Object.prototype.hasOwnProperty.call(updateData, 'whatsapp')) jobSeeker.whatsapp = updateData.whatsapp || null;
       if (Object.prototype.hasOwnProperty.call(updateData, 'telegram')) jobSeeker.telegram = updateData.telegram || null;
+
+      if (Object.prototype.hasOwnProperty.call(updateData, 'languages')) {
+          const langs = Array.isArray(updateData.languages) ? updateData.languages : [];
+          jobSeeker.languages = langs;
+      }
 
       await this.jobSeekerRepository.save(jobSeeker);
       return this.getProfile(userId, true);

@@ -18,6 +18,7 @@ import { JobApplication, JobPost, JobApplicationDetails } from '@types';
 import { format } from 'date-fns';
 import { FaComments, FaPaperPlane, FaUsers } from 'react-icons/fa';
 import '../styles/chat-hub.css';
+import { brand } from '../brand';
 
 interface Message {
   id: string;
@@ -835,7 +836,7 @@ useEffect(() => {
   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}
 >
   <details className="ch-dd">
-    <summary>{selectedLabel}</summary>
+    <summary title={selectedLabel} className="one-line">{selectedLabel}</summary>
     <div className="ch-dd__menu">
      <ul className="ch-dd__ul">
   {currentRole === 'employer' ? (
@@ -1263,6 +1264,9 @@ useEffect(() => {
                       onChange={handleTyping}
                       placeholder={selectedChat ? 'Type a message…' : 'No chat selected'}
                       disabled={!selectedChat}
+                      autoComplete="off"
+    autoCorrect="on"
+    inputMode="text"
                     />
                     <button
                       type="submit"

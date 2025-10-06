@@ -12,6 +12,7 @@ import {
   FaClock,
   FaMapMarkerAlt,
 } from 'react-icons/fa';
+import { brand, brandOrigin } from '../brand';
 
 import { getJobBySlugOrId, trackReferralClick } from '../services/api';
 import type { JobPost } from '@types';
@@ -44,12 +45,8 @@ export default function JobLanding({ prefetchedJob }: Props) {
     [job?.description]
   );
 
-  // Канонический URL лендинга (без query)
-  const pageUrl = `https://jobforge.net/job/${slugId}`;
-
-  // Абсолютный OG-баннер
-const ORIGIN = import.meta.env.VITE_SITE_ORIGIN || 'https://jobforge.net';
-const ogImage = `${ORIGIN}/public/static/og/jobforge.png`;
+const pageUrl = `${brandOrigin()}/job/${slugId}`;
+const ogImage = `${brandOrigin()}${brand.ogImagePath}`;
 
   // =========================
   // Загрузка данных (с поддержкой ?demo=1 и fallback)
@@ -153,8 +150,8 @@ const ogImage = `${ORIGIN}/public/static/og/jobforge.png`;
     validThrough: undefined,
     hiringOrganization: {
       '@type': 'Organization',
-      name: 'Jobforge',
-      sameAs: 'https://jobforge.net',
+      name: brand.name,
+      sameAs: brandOrigin(),
     },
     jobLocationType: 'TELECOMMUTE',
     applicantLocationRequirements: job.location || undefined,
@@ -164,24 +161,24 @@ const ogImage = `${ORIGIN}/public/static/og/jobforge.png`;
   return (
     <div className="jl-root">
       <Helmet>
-        <title>{`${job.title} — Remote Job | Jobforge`}</title>
-        <meta
-          name="description"
-          content={descText || `${job.title} remote job on Jobforge.`}
-        />
+       <title>{`${job.title} — Remote Job | ${brand.name}`}</title>
+<meta
+  name="description"
+  content={descText || `${job.title} remote job on ${brand.name}.`}
+/>
 
         {/* Canonical/OG — без ?ref */}
         <link rel="canonical" href={pageUrl} />
         <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="Jobforge" />
+        <meta property="og:site_name" content={brand.name} />
         <meta property="og:url" content={pageUrl} />
         <meta property="og:title" content={`${job.title} — Remote Job`} />
         <meta
-          property="og:description"
-          content={descText || `${job.title} on Jobforge.`}
-        />
+  property="og:description"
+  content={descText || `${job.title} on ${brand.name}.`}
+/>
         <meta property="og:image" content={ogImage} />
-        <meta property="og:image:alt" content="Jobforge — remote jobs" />
+<meta property="og:image:alt" content={`${brand.name} — remote jobs`} />
 
         {/* демо-страницу не индексируем */}
         {isDemo && <meta name="robots" content="noindex,nofollow" />}
@@ -199,9 +196,9 @@ const ogImage = `${ORIGIN}/public/static/og/jobforge.png`;
         <div className="jl-shell">
           <div className="jl-hero-grid">
             <div className="jl-hero-left">
-              <Link to="/" className="plf-brand" aria-label="Go to Jobforge home">
-                <div className="plf-brand-text">Jobforge_</div>
-              </Link>
+              <Link to="/" className="plf-brand" aria-label={`Go to ${brand.name} home`}>
+  <div className="plf-brand-text">{brand.wordmark}</div>
+</Link>
 
               <h1 className="plf-title">{job.title}</h1>
 
@@ -280,7 +277,7 @@ const ogImage = `${ORIGIN}/public/static/og/jobforge.png`;
       {/* BENEFITS */}
       <section className="plf-benefits">
         <div className="plf-shell">
-          <h2 className="plf-h2">Why freelancers choose Jobforge</h2>
+          <h2 className="plf-h2">Why freelancers choose {brand.name}</h2>
           <div className="plf-cards">
             <div className="plf-card">
               <div className="plf-card-ico">
@@ -353,7 +350,7 @@ const ogImage = `${ORIGIN}/public/static/og/jobforge.png`;
           <div className="plf-cta-text">
             <span className="plf-cta-eyebrow">Fresh remote roles weekly</span>
             <h3>Ready to work with global clients?</h3>
-            <p>Join Jobforge today and access remote opportunities from anywhere.</p>
+            <p>Join {brand.name} today and access remote opportunities from anywhere.</p>
           </div>
           <div className="plf-cta-actions">
             <Link to={applyHref} className="plf-btn plf-btn--inverse plf-btn--xl">

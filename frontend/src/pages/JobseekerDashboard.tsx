@@ -5,7 +5,7 @@ import { logout } from '../services/api';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import '../styles/jsd-bridge.css';
-
+import { brand } from '../brand';
 
 import {
   FaTachometerAlt,
@@ -125,7 +125,9 @@ const handleLogout = async () => {
           onClick={() => setIsOpen(v => !v)}
         >☰</button>
 
-        <a href="/" className="jsd-topbar__logo" onClick={closeDrawer}>Jobforge_</a>
+        <a href="/" className="jsd-topbar__logo" onClick={closeDrawer} aria-label={brand.name}>
+          {brand.wordmark}
+        </a>
 
         <div className="jsd-topbar__spacer" />
 
@@ -202,7 +204,7 @@ const handleLogout = async () => {
       {isOpen && <button className="jsd-overlay" onClick={closeDrawer} aria-label="Close menu" />}
 
       <main className="jsd-main">
-        <div className="jsd-content">
+        <div className="jsd-content jsd-embed">
           <Outlet />
         </div>
       </main>

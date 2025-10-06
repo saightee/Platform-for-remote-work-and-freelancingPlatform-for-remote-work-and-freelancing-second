@@ -5,8 +5,7 @@ import sanitizeHtml from 'sanitize-html';
 
 import { getJobBySlugOrId } from '../services/api';
 import type { JobPost } from '@types';
-
-const OG_IMAGE = 'https://jobforge.net/static/og/jobforge.png'; // абсолютный URL для соцсетей
+import { brand, brandOrigin } from '../brand';
 
 const Vacancy: React.FC = () => {
   const { slugId = '' } = useParams();
@@ -15,10 +14,9 @@ const Vacancy: React.FC = () => {
   const [job, setJob] = useState<JobPost | null>(null);
 
   const isDemo = new URLSearchParams(location.search).has('demo');
-  const pageUrl = `https://jobforge.net/vacancy/${slugId}`;
-  const ORIGIN = import.meta.env.VITE_SITE_ORIGIN || 'https://jobforge.net';
-const ogImage = `${ORIGIN}/static/og/jobforge.png`;
-
+  const origin = brandOrigin();
+  const pageUrl = `${origin}/vacancy/${slugId}`;
+  const ogImage = `${origin}${brand.ogImagePath || '/static/og/default.png'}`;
 
   const descText = useMemo(
     () =>
@@ -29,7 +27,7 @@ const ogImage = `${ORIGIN}/static/og/jobforge.png`;
     [job?.description]
   );
 
-  // Загрузка данных (демо-режим по ?demo=1)
+  // Load job (with demo fallback)
   useEffect(() => {
     const mkDemoJob = (): JobPost => ({
       id: 'demo1',
@@ -78,7 +76,7 @@ const ogImage = `${ORIGIN}/static/og/jobforge.png`;
 
   if (!job) return null;
 
-  // Опциональный JSON-LD (без рефов)
+  // JSON-LD (no referral params)
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'JobPosting',
@@ -88,8 +86,8 @@ const ogImage = `${ORIGIN}/static/og/jobforge.png`;
     datePosted: job.created_at,
     hiringOrganization: {
       '@type': 'Organization',
-      name: 'Jobforge',
-      sameAs: 'https://jobforge.net',
+      name: brand.name,
+      sameAs: origin,
     },
     jobLocationType: 'TELECOMMUTE',
     applicantLocationRequirements: job.location || undefined,
@@ -99,28 +97,26 @@ const ogImage = `${ORIGIN}/static/og/jobforge.png`;
   return (
     <div className="vacancy-shell" style={{ maxWidth: 960, margin: '24px auto', padding: '0 16px' }}>
       <Helmet>
-        <title>{`${job.title} | Jobforge`}</title>
+        <title>{`${job.title} | ${brand.name}`}</title>
         <meta
           name="description"
-          content={descText || `${job.title} vacancy on Jobforge.`}
+          content={descText || `${job.title} vacancy on ${brand.name}.`}
         />
 
-        {/* canonical/OG url — чистый URL без query */}
+        {/* canonical/OG url — clean URL without query */}
         <link rel="canonical" href={pageUrl} />
         <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="Jobforge" />
+        <meta property="og:site_name" content={brand.name} />
         <meta property="og:url" content={pageUrl} />
-        <meta property="og:title" content={`${job.title} | Jobforge`} />
+        <meta property="og:title" content={`${job.title} | ${brand.name}`} />
         <meta
           property="og:description"
-          content={descText || `${job.title} vacancy on Jobforge.`}
+          content={descText || `${job.title} vacancy on ${brand.name}.`}
         />
-        <meta property="og:image" content={OG_IMAGE} />
-        <meta property="og:image:alt" content="Jobforge — remote jobs" />
+        <meta property="og:image" content={ogImage} />
+        <meta property="og:image:alt" content={`${brand.name} — remote jobs`} />
 
-
-
-        {/* демо-страницу не индексируем */}
+        {/* demo page: noindex */}
         {isDemo && <meta name="robots" content="noindex,nofollow" />}
 
         {/* JSON-LD */}
@@ -132,17 +128,36 @@ const ogImage = `${ORIGIN}/static/og/jobforge.png`;
       </Helmet>
 
       <header style={{ marginBottom: 16 }}>
-        <Link to="/" style={{ textDecoration: 'none', color: '#4e74c8', fontWeight: 800 }}>Jobforge_</Link>
+        <Link
+          to="/"
+          style={{ textDecoration: 'none', color: '#4e74c8', fontWeight: 800 }}
+          aria-label={`Go to ${brand.name} home`}
+          title={brand.name}
+        >
+          {brand.wordmark || brand.name}
+        </Link>
         <h1 style={{ margin: '8px 0 6px' }}>{job.title}</h1>
         <div style={{ color: '#64748b', fontSize: 14 }}>
-          {job.location && <span><strong>Location:</strong> {job.location}</span>}
-          {job.job_type && <span style={{ marginLeft: 12 }}><strong>Type:</strong> {job.job_type}</span>}
+          {job.location && (
+            <span>
+              <strong>Location:</strong> {job.location}
+            </span>
+          )}
+          {job.job_type && (
+            <span style={{ marginLeft: 12 }}>
+              <strong>Type:</strong> {job.job_type}
+            </span>
+          )}
           {job.salary_type && (
             <span style={{ marginLeft: 12 }}>
               <strong>Pay:</strong> {String(job.salary ?? 'Negotiable')} {job.salary_type}
             </span>
           )}
-          {job.status && <span style={{ marginLeft: 12 }}><strong>Status:</strong> {job.status}</span>}
+          {job.status && (
+            <span style={{ marginLeft: 12 }}>
+              <strong>Status:</strong> {job.status}
+            </span>
+          )}
         </div>
       </header>
 
@@ -158,9 +173,9 @@ const ogImage = `${ORIGIN}/static/og/jobforge.png`;
 
       <div style={{ marginTop: 16 }}>
         <Link
-           to={`/register/jobseeker?utm_source=vacancy&job=${encodeURIComponent(job.id)}&return=${encodeURIComponent(
-    slugId ? `/vacancy/${slugId}` : `/jobs/${job.id}`
-  )}`}
+          to={`/register/jobseeker?utm_source=vacancy&job=${encodeURIComponent(
+            job.id
+          )}&return=${encodeURIComponent(slugId ? `/vacancy/${slugId}` : `/jobs/${job.id}`)}`}
           style={{
             display: 'inline-flex',
             alignItems: 'center',

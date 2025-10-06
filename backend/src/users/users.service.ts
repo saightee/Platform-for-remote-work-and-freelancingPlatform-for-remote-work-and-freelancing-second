@@ -22,9 +22,14 @@ export class UsersService {
 
   async create(userData: Partial<User> & { email: string; username: string; role: 'employer'|'jobseeker'|'admin'|'moderator' },   additionalData: any): Promise<User> {
     const userEntity: DeepPartial<User> = {
-      email: userData.email, username: userData.username, password: userData.password || '',
-      role: userData.role, provider: userData.provider || null, country: userData.country || null,
+      email: userData.email,
+      username: userData.username,
+      password: userData.password || '',
+      role: userData.role,
+      provider: userData.provider || null,
+      country: userData.country || null,
       is_email_verified: userData.is_email_verified || false,
+      brand: userData.brand || null,
     };
     const user = this.usersRepository.create(userEntity);
     const savedUser = await this.usersRepository.save(user);
@@ -34,7 +39,7 @@ export class UsersService {
         user_id: savedUser.id,
         timezone: additionalData.timezone || 'UTC',
         currency: additionalData.currency || 'USD',
-        ...(additionalData.job_search_status ? { job_search_status: additionalData.job_search_status } : { job_search_status:   'open_to_offers' }),
+        job_search_status: additionalData.job_search_status || 'open_to_offers',
         linkedin: additionalData.linkedin || null,
         instagram: additionalData.instagram || null,
         facebook: additionalData.facebook || null,
@@ -42,8 +47,13 @@ export class UsersService {
         whatsapp: additionalData.whatsapp || null,
         telegram: additionalData.telegram || null,
       };
+
       jobSeekerEntity.resume = additionalData.resume || null;
       jobSeekerEntity.experience = additionalData.experience || null;
+    
+      if (Array.isArray(additionalData.languages)) {
+        jobSeekerEntity.languages = additionalData.languages;
+      }
 
       if (additionalData.skills && Array.isArray(additionalData.skills)) {
         jobSeekerEntity.skills = await this.categoriesRepository.findByIds(additionalData.skills);

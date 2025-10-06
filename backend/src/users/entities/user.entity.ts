@@ -22,6 +22,9 @@ export class User {
   provider: string | null;
 
   @Column({ type: 'varchar', nullable: true })
+  brand: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
   country: string | null;
 
   @Column({ type: 'varchar', nullable: true })

@@ -1480,15 +1480,44 @@ export const notifyReferralApplicants = (
 
 
 
+// export const getJobBySlugOrId = async (slugOrId: string) => {
+//   const { data } = await api.get<JobPost>(`/job-posts/by-slug-or-id/${slugOrId}`);
+//   const job = data as any;
+
+//   if (!job?.category && job?.category_id != null) {
+//     const cats = await __ensureCategories();
+//     const cat = __findCatById(job.category_id, cats);
+//     if (cat) {
+//       job.category = { id: cat.id, name: cat.name };
+//     }
+//   }
+
+//   return job as JobPost;
+// };
+
 export const getJobBySlugOrId = async (slugOrId: string) => {
   const { data } = await api.get<JobPost>(`/job-posts/by-slug-or-id/${slugOrId}`);
   const job = data as any;
 
+  // Категории — как было
   if (!job?.category && job?.category_id != null) {
     const cats = await __ensureCategories();
     const cat = __findCatById(job.category_id, cats);
-    if (cat) {
-      job.category = { id: cat.id, name: cat.name };
+    if (cat) job.category = { id: cat.id, name: cat.name };
+  }
+
+  // 🔧 ДОБАВИТЬ: fallback по работодателю
+  if ((!job?.employer || !job.employer?.username) && job?.employer_id != null) {
+    try {
+      const p = await getUserProfileById(String(job.employer_id));
+      job.employer = {
+        id: String((p as any).id ?? job.employer_id),
+        username: p.username || 'Unknown',
+        avatar: p.avatar || null,
+        company_name: (p as any).company_name || undefined,
+      };
+    } catch {
+      // ignore
     }
   }
 
