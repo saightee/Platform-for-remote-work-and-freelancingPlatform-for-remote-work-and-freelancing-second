@@ -223,16 +223,15 @@ export class JobPostsService {
 
   async getBySlugOrId(slugOrId: string) {
     let post = await this.jobPostsRepository.findOne({ where: { slug_id: slugOrId } });
-    if (post) return post;
-
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (uuidRegex.test(slugOrId)) {
-      post = await this.jobPostsRepository.findOne({ where: { id: slugOrId } });
-    }
     if (!post) {
-      throw new NotFoundException('Job post not found');
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(slugOrId)) {
+        post = await this.jobPostsRepository.findOne({ where: { id: slugOrId } });
+      }
     }
-    return post;
+    if (!post) throw new NotFoundException('Job post not found');
+
+    return this.getJobPost(post.id);
   }
 
   async getJobPost(jobPostId: string) {
