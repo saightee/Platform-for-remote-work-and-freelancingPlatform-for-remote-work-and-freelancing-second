@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { JobApplication } from './job-application.entity';
 import { JobPost } from '../job-posts/job-post.entity';
 import { User } from '../users/entities/user.entity';
@@ -12,10 +12,13 @@ import { ChatGateway } from '../chat/chat.gateway';
 import { EmailService } from '../email/email.service';
 import { ReferralLink } from '../referrals/entities/referral-link.entity';
 import { ChatService } from '../chat/chat.service';
+import { JobInvitation } from './job-invitation.entity';
 
 @Injectable()
 export class JobApplicationsService {
   constructor(
+    @InjectRepository(JobInvitation)
+    private jobInvitationsRepository: Repository<JobInvitation>,
     @InjectRepository(JobApplication)
     private jobApplicationsRepository: Repository<JobApplication>,
     @InjectRepository(JobPost)
@@ -283,4 +286,201 @@ export class JobApplicationsService {
       },
     };
   }
+
+  async inviteJobSeeker(
+    employerId: string,
+    jobPostId: string,
+    jobSeekerId: string,
+    message?: string,
+  ) {
+    const employer = await this.usersRepository.findOne({ where: { id: employerId } });
+    if (!employer) throw new NotFoundException('User not found');
+    if (employer.role !== 'employer') {
+      throw new UnauthorizedException('Only employers can send invitations');
+    }
+
+    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: employerId } });
+    if (!jobPost) {
+      throw new NotFoundException('Job post not found or you do not have permission to invite for it');
+    }
+    if (jobPost.status !== 'Active' || jobPost.pending_review) {
+      throw new BadRequestException('You can invite only for active and approved job posts');
+    }
+    if (jobPost.employer_id === jobSeekerId) {
+      throw new BadRequestException('Cannot invite yourself');
+    }
+
+    const jobSeeker = await this.usersRepository.findOne({ where: { id: jobSeekerId } });
+    if (!jobSeeker || jobSeeker.role !== 'jobseeker') {
+      throw new NotFoundException('Jobseeker not found');
+    }
+
+    const alreadyApplied = await this.jobApplicationsRepository.findOne({
+      where: { job_post_id: jobPostId, job_seeker_id: jobSeekerId },
+    });
+    if (alreadyApplied) {
+      throw new BadRequestException('Candidate has already applied to this job');
+    }
+
+    let invite = await this.jobInvitationsRepository.findOne({
+      where: { job_post_id: jobPostId, job_seeker_id: jobSeekerId },
+    });
+
+    if (invite && invite.status === 'Pending') {
+      return invite;
+    }
+
+    if (!invite) {
+      invite = this.jobInvitationsRepository.create({
+        job_post_id: jobPostId,
+        employer_id: employerId,
+        job_seeker_id: jobSeekerId,
+        status: 'Pending',
+        message: message?.trim() || null,
+      });
+    } else {
+      invite.status = 'Pending';
+      invite.message = message?.trim() || null;
+    }
+
+    const saved = await this.jobInvitationsRepository.save(invite);
+
+    return saved;
+  }
+
+  async getMyInvitations(jobSeekerId: string, includeAll = false) {
+    const user = await this.usersRepository.findOne({ where: { id: jobSeekerId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role !== 'jobseeker') return [];
+
+    const where = includeAll ? { job_seeker_id: jobSeekerId } : { job_seeker_id: jobSeekerId, status: 'Pending' as const };
+    const rows = await this.jobInvitationsRepository.find({
+      where,
+      relations: ['job_post', 'job_post.employer', 'employer'],
+      order: { created_at: 'DESC' },
+    });
+
+    return rows.map(r => ({
+      id: r.id,
+      status: r.status,
+      message: r.message || null,
+      created_at: r.created_at,
+      job_post: r.job_post ? {
+        id: r.job_post.id,
+        title: r.job_post.title,
+        location: r.job_post.location,
+        salary: r.job_post.salary,
+        salary_type: r.job_post.salary_type,
+        job_type: r.job_post.job_type,
+        slug: r.job_post.slug,
+        slug_id: r.job_post.slug_id,
+        employer: r.job_post.employer ? {
+          id: r.job_post.employer.id,
+          username: r.job_post.employer.username,
+        } : null,
+      } : null,
+      employer: r.employer ? { id: r.employer.id, username: r.employer.username } : null,
+    }));
+  }
+
+  async declineInvitation(jobSeekerId: string, invitationId: string) {
+    const user = await this.usersRepository.findOne({ where: { id: jobSeekerId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role !== 'jobseeker') throw new UnauthorizedException('Only jobseekers can decline invitations');
+
+    const invite = await this.jobInvitationsRepository.findOne({
+      where: { id: invitationId },
+      relations: ['job_post'],
+    });
+    if (!invite || invite.job_seeker_id !== jobSeekerId) {
+      throw new NotFoundException('Invitation not found');
+    }
+    if (invite.status !== 'Pending') return invite;
+
+    invite.status = 'Declined';
+    return this.jobInvitationsRepository.save(invite);
+  }
+
+  async acceptInvitation(
+    jobSeekerId: string,
+    invitationId: string,
+    {
+      cover_letter,
+      relevant_experience,
+      full_name,
+      referred_by,
+    }: {
+      cover_letter: string;
+      relevant_experience: string;
+      full_name?: string;
+      referred_by?: string;
+    },
+  ) {
+    const user = await this.usersRepository.findOne({ where: { id: jobSeekerId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role !== 'jobseeker') throw new UnauthorizedException('Only jobseekers can accept invitations');
+
+    const invite = await this.jobInvitationsRepository.findOne({
+      where: { id: invitationId },
+      relations: ['job_post'],
+    });
+    if (!invite || invite.job_seeker_id !== jobSeekerId) {
+      throw new NotFoundException('Invitation not found');
+    }
+    if (invite.status !== 'Pending') {
+      throw new BadRequestException('Invitation is not pending');
+    }
+
+    const jobPostId = invite.job_post_id;
+
+    const alreadyApplied = await this.jobApplicationsRepository.findOne({
+      where: { job_post_id: jobPostId, job_seeker_id: jobSeekerId },
+    });
+    if (alreadyApplied) {
+      invite.status = 'Accepted';
+      await this.jobInvitationsRepository.save(invite);
+      return alreadyApplied;
+    }
+
+    const app = await this.applyToJob(
+      jobSeekerId,
+      jobPostId,
+      cover_letter,
+      relevant_experience,
+      full_name,
+      referred_by,
+    );
+
+    invite.status = 'Accepted';
+    await this.jobInvitationsRepository.save(invite);
+
+    return app;
+  }
+
+  async bulkRejectApplications(
+    employerId: string,
+    applicationIds: string[],
+  ): Promise<{ updated: number; updatedIds: string[] }> {
+    const user = await this.usersRepository.findOne({ where: { id: employerId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role !== 'employer') {
+      throw new UnauthorizedException('Only employers can update application status');
+    }
+
+    const apps = await this.jobApplicationsRepository.find({
+      where: { id: In([...new Set(applicationIds)]) },
+      relations: ['job_post'],
+    });
+    if (!apps.length) return { updated: 0, updatedIds: [] };
+
+    const targets = apps.filter(
+      a => a.job_post?.employer_id === employerId && a.status === 'Pending',
+    );
+    const ids = targets.map(a => a.id);
+    if (!ids.length) return { updated: 0, updatedIds: [] };
+
+    await this.jobApplicationsRepository.update({ id: In(ids) }, { status: 'Rejected' });
+    return { updated: ids.length, updatedIds: ids };
+  }
+
 }

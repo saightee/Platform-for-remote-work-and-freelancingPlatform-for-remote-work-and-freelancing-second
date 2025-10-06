@@ -70,4 +70,47 @@ export class ChatController {
 
     return { sent: saved.length };
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('broadcast-selected/:jobPostId')
+  async broadcastToSelected(
+    @Headers('authorization') authHeader: string,
+    @Param('jobPostId') jobPostId: string,
+    @Body('content') content: string,
+    @Body('applicationIds') applicationIds: string[],
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    if (!Array.isArray(applicationIds) || applicationIds.length === 0) {
+      throw new BadRequestException('applicationIds must be a non-empty array');
+    }
+    if (applicationIds.length > 500) {
+      throw new BadRequestException('Too many applicationIds (max 500)');
+    }
+    if (!content || !content.trim()) {
+      throw new BadRequestException('Content is required');
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+
+    const saved = await this.chatService.broadcastToSelectedApplicants(
+      userId,
+      jobPostId,
+      applicationIds,
+      content,
+    );
+
+    for (const msg of saved) {
+      const chatRoom = `chat:${msg.job_application_id}`;
+      const recipientRoom = `user:${msg.recipient_id}`;
+      this.chatGateway.server.to(chatRoom).emit('newMessage', msg);
+      this.chatGateway.server.to(recipientRoom).except(chatRoom).emit('newMessage', msg);
+    }
+
+    return { sent: saved.length };
+  }
+
 }

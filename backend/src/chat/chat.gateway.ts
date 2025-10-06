@@ -218,4 +218,37 @@ export class ChatGateway {
   
     return { sent: saved.length };
   }
+
+  @SubscribeMessage('broadcastToSelected')
+  async handleBroadcastSelected(
+    @MessageBody() data: { jobPostId: string; applicationIds: string[]; content: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const employerId = client.data.userId;
+    const { jobPostId, applicationIds, content } = data;
+  
+    if (!Array.isArray(applicationIds) || applicationIds.length === 0) {
+      throw new Error('applicationIds must be a non-empty array');
+    }
+    if (!content || !content.trim()) {
+      throw new Error('Content is required');
+    }
+  
+    const saved = await this.chatService.broadcastToSelectedApplicants(
+      employerId,
+      jobPostId,
+      applicationIds,
+      content,
+    );
+  
+    for (const msg of saved) {
+      const chatRoom = `chat:${msg.job_application_id}`;
+      const recipientRoom = `user:${msg.recipient_id}`;
+      this.server.to(chatRoom).emit('newMessage', msg);
+      this.server.to(recipientRoom).except(chatRoom).emit('newMessage', msg);
+    }
+  
+    return { sent: saved.length };
+  }
+
 }
