@@ -10,6 +10,7 @@ import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
 import '../styles/find-talent.css';
 import { Helmet } from 'react-helmet-async';
+import { brand, brandBackendOrigin } from '../brand';
 
 function useDebouncedValue<T>(value: T, delay = 400) {
   const [debounced, setDebounced] = useState(value);
@@ -337,11 +338,12 @@ const handlePageChange = (newPage: number) => {
 
   return (
     <div>
-      <Helmet>
-  <title>Hire Remote Talent | Jobforge</title>
+<Helmet>
+  <title>Hire Remote Talent | {brand.name}</title>
   <meta name="description" content="Post a job and reach vetted remote talent worldwide." />
-  <link rel="canonical" href="https://jobforge.net/find-talent" />
+  <link rel="canonical" href={`https://${brand.domain}/find-talent`} />
 </Helmet>
+
 
       <Header />
 
@@ -597,18 +599,18 @@ const handlePageChange = (newPage: number) => {
                           <article key={talent.id} className="ftl-card-item" role="article">
                       <div className={`ftl-avatar ${talent.avatar ? 'has-img' : ''}`}>
   {talent.avatar && (
-    <img
-      src={`https://jobforge.net/backend${talent.avatar}`}
-      alt="Talent Avatar"
-      className="ftl-avatar-img"
-      onError={(e) => {
-        // если картинка не загрузилась — показываемfallback
-        const box = e.currentTarget.parentElement as HTMLElement | null;
-        box?.classList.remove('has-img');
-        e.currentTarget.style.display = 'none';
-      }}
-    />
-  )}
+  <img
+    src={`${brandBackendOrigin()}${talent.avatar}`}
+    alt="Talent Avatar"
+    className="ftl-avatar-img"
+    onError={(e) => {
+      const box = e.currentTarget.parentElement as HTMLElement | null;
+      box?.classList.remove('has-img');
+      e.currentTarget.style.display = 'none';
+    }}
+  />
+)}
+
   <FaUserCircle className="ftl-avatar-fallback" />
 </div>
 
@@ -664,15 +666,16 @@ const handlePageChange = (newPage: number) => {
                                   <p className="ftl-line">
                                     <strong>Resume:</strong>{' '}
                                     {(talent as any).resume ? (
-                                      <a
-                                        href={(talent as any).resume.startsWith('http')
-                                          ? (talent as any).resume
-                                          : `https://jobforge.net/backend${(talent as any).resume}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                      >
-                                        Download Resume
-                                      </a>
+                            <a
+  href={(talent as any).resume.startsWith('http')
+    ? (talent as any).resume
+    : `${brandBackendOrigin()}${(talent as any).resume}`}
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  Download Resume
+</a>
+
                                     ) : 'Not provided'}
                                   </p>
                                 </div>

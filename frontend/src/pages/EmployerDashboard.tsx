@@ -5,6 +5,7 @@ import { logout } from '../services/api';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
 import '../styles/edb-bridge.css';
+import { brand, brandEvent } from '../brand';
 
 import {
   FaTachometerAlt,
@@ -52,13 +53,17 @@ useEffect(() => {
   // обновления из текущего таба (Messages шлёт событие)
   const onLocal = () => calc();
 
-  window.addEventListener('storage', onStorage);
-  window.addEventListener('jobforge:unreads-updated', onLocal);
+window.addEventListener('storage', onStorage);
+window.addEventListener('jobforge:unreads-updated', onLocal); // legacy
+const evtName = brandEvent('unreads-updated');
+window.addEventListener(evtName, onLocal);
 
-  return () => {
-    window.removeEventListener('storage', onStorage);
-    window.removeEventListener('jobforge:unreads-updated', onLocal);
-  };
+return () => {
+  window.removeEventListener('storage', onStorage);
+  window.removeEventListener('jobforge:unreads-updated', onLocal);
+  window.removeEventListener(evtName, onLocal);
+};
+
 }, [unreadKey]);
 
   
@@ -99,7 +104,8 @@ useEffect(() => {               // +++
           onClick={() => setIsOpen(v => !v)}
         >☰</button>
 
-        <a href="/" className="edb-topbar__logo" onClick={closeDrawer}>Jobforge_</a>
+        <a href="/" className="edb-topbar__logo" onClick={closeDrawer}>{brand.wordmark}</a>
+
         
         <div className="edb-topbar__spacer" />
         <Link to="/find-talent" className="edb-topbar__cta">Find Talent</Link>

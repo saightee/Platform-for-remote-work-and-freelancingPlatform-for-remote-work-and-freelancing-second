@@ -11,6 +11,7 @@ import { useRole } from '../context/RoleContext';
 import Loader from '../components/Loader';
 import '../styles/find-job.css';
 import { Helmet } from 'react-helmet-async';
+import { brand, brandEvent } from '../brand';
 
 const FindJob: React.FC = () => {
   const { profile } = useRole();
@@ -266,11 +267,12 @@ setSearchParams(nextParams, { replace: true });
 
   return (
     <div>
-      <Helmet>
-  <title>Find Remote Jobs | Jobforge_</title>
+ <Helmet>
+  <title>Find Remote Jobs | {brand.name}</title>
   <meta name="robots" content="noindex,follow" />
-  <link rel="canonical" href="https://jobforge.net/find-job" />
+  <link rel="canonical" href={`https://${brand.domain}/find-job`} />
 </Helmet>
+
       <Header />
 
       {isLoading && (

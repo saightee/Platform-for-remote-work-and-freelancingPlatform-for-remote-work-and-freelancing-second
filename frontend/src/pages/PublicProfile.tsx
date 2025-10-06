@@ -17,10 +17,11 @@ import {
   normalizeTelegram, normalizeWhatsApp,
   normalizeLinkedIn, normalizeInstagram, normalizeFacebook
 } from '../utils/socials';
+import { brandOrigin } from '../brand';
 
 
 const makeAbs = (url: string) =>
-  url?.startsWith('http') ? url : `https://jobforge.net/backend${url}`;
+  url?.startsWith('http') ? url : `${brandOrigin()}/backend${url}`;
 
 const PublicProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();

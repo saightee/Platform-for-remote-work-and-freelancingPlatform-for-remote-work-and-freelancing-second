@@ -52,6 +52,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import Vacancy from './pages/Vacancy';
 import JobLanding from './pages/JobLanding';
 import ScrollToTop from "./components/ScrollToTop";
+import RegistrationPending from './pages/RegistrationPending';
 
 
 const App: React.FC = () => {
@@ -99,6 +100,7 @@ const App: React.FC = () => {
           <Route path="/admin/email-notifications" element={<EmailNotifications />} />
           <Route path="/public-profile/:id" element={<PublicProfile />} />
           <Route path="/check-email" element={<CheckEmail />} />
+          <Route path="/registration-pending" element={<RegistrationPending />} />
           <Route path="/post-job" element={<PostJob />} />
           <Route path="/my-job-posts" element={<MyJobPosts />} />
           <Route path="/my-applications" element={<MyApplications />} />

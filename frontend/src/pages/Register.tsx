@@ -191,18 +191,18 @@ if (role === 'jobseeker' && refCode && safeReturn) {
 if (refCode) { try { localStorage.removeItem('referralCode'); } catch {} }
 
 // НИКУДА не уводим — показываем страницу «проверьте почту»
-navigate('/check-email', { state: { email: email.trim().toLowerCase() } });
+navigate('/registration-pending', { state: { email: email.trim().toLowerCase() } });
 
 
-  } catch (error: any) {
-    console.error('Register error', error);
-    const msg = error?.response?.data?.message;
-    if (msg?.includes('Account exists but not verified')) {
-      // для уже существующего, но не верифицированного — оставляем переход на проверку почты
-      navigate('/check-email', { state: { email: email.trim().toLowerCase() } });
+} catch (error: any) {
+  console.error('Register error', error);
+  const msg = error?.response?.data?.message;
+  if (msg?.includes('Account exists but not verified')) {
+    // для уже существующего, но не верифицированного — ведём на ту же страницу «проверьте почту»
+    navigate('/registration-pending', { state: { email: email.trim().toLowerCase() } });
 
-      return;
-    }
+    return;
+  }
     if (error?.response?.status === 403 && msg === 'Registration is not allowed from your country') {
       setErr('Registration is not allowed from your country.');
     } else {

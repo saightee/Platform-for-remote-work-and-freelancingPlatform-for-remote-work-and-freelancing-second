@@ -8628,3 +8628,9 @@ padding-bottom: 5px;
 .modal--emailstats .modal-content {
   overflow-x: visible;
 }
+
+.pending_btn a {
+  background-color: #4e74c8;
+  color: white;
+  font-weight: bold;
+}

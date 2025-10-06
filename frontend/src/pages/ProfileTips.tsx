@@ -21,15 +21,20 @@ import {
 
 import '../styles/profile-tips.css';
 import { Helmet } from 'react-helmet-async';
+import { brand, brandOrigin } from '../brand';
 
 const ProfileTips: React.FC = () => {
   return (
     <div className="pt-root">
-      <Helmet>
-  <title>Profile Tips for Jobseekers | Jobforge</title>
-  <meta name="description" content="How to complete your Jobforge profile, add a strong bio, skills, and portfolio." />
-  <link rel="canonical" href="https://jobforge.net/profile-tips" />
+  <Helmet>
+  <title>Profile Tips for Jobseekers | {brand.name}</title>
+  <meta
+    name="description"
+    content={`How to complete your ${brand.name} profile, add a strong bio, skills, and portfolio.`}
+  />
+  <link rel="canonical" href={`${brandOrigin()}/profile-tips`} />
 </Helmet>
+
 
       <Header />
 
@@ -39,10 +44,11 @@ const ProfileTips: React.FC = () => {
           <div className="pt-card pt-hero-card">
             <div className="pt-hero-head">
               <h1 className="pt-title">Profile Tips for Jobseekers</h1>
-              <p className="pt-sub">
-                Make your profile stand out and increase your chances of getting hired on JobForge.
-                Follow this quick checklist and use our examples to polish your profile today.
-              </p>
+             <p className="pt-sub">
+  Make your profile stand out and increase your chances of getting hired on {brand.name}.
+  Follow this quick checklist...
+</p>
+
 
               <div className="pt-chips">
                 <span className="pt-chip"><FaClock /> 10–15 min</span>

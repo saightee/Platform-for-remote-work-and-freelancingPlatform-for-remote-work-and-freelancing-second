@@ -2,45 +2,42 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- <link rel="icon" type="image/svg+xml" href="/favicon2.png" /> -->
+
+    <!-- Favicons / PWA -->
     <link rel="icon" href="/favicon.ico" sizes="any" />
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-<link rel="mask-icon" href="/safari-pinned-tab.svg" color="#4d73c7" />
-<link rel="manifest" href="/site.webmanifest" />
-<meta name="theme-color" content="#4d73c7" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#4d73c7" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#4d73c7" />
+
+    <!-- Viewport -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jobforge - Connecting Talent with Opportunity</title>
-    <meta name="description" content="Jobforge helps remote talent and employers connect through clear listings, smart search, and direct chat. Find work or hire global talent today." />
-    <link rel="canonical" href="https://jobforge.net/" />
 
-<!-- ✅ Open Graph -->
-<meta property="og:type" content="website" />
-<meta property="og:url" content="https://jobforge.net/" />
-<meta property="og:site_name" content="Jobforge" />
-<meta property="og:title" content="Jobforge — Find Remote Work & Hire Global Talent" />
-<meta property="og:description" content="Remote jobs and global hiring made simple. Create a profile, apply with one click, and chat directly with employers." />
-<meta property="og:locale" content="en_US" />
+    <!-- Базовый title/description — перезаписываются на страницах через react-helmet-async -->
+    <title>Job platform</title>
+    <meta
+      name="description"
+      content="Find remote jobs and hire talent. This description will be overridden on each page."
+    />
 
-
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  "name": "Jobforge",
-  "url": "https://jobforge.net/",
-  "potentialAction": {
-    "@type": "SearchAction",
-    "target": "https://jobforge.net/find-job?title={search_term_string}",
-    "query-input": "required name=search_term_string"
-  }
-}
-</script>
+    <!-- ВАЖНО:
+         1) Не ставим здесь <link rel="canonical"> и OG-мета, чтобы не перебивать каноникал и OG,
+            которые задаются на уровне страниц (Helmet).
+         2) Не изменяем head через inline JS — это снижает предсказуемость рендеринга и может дублировать теги.
+    -->
   </head>
+
   <body>
+    <noscript>
+      JavaScript is required to run this application.
+    </noscript>
+
     <div id="root"></div>
+
+    <!-- Основной бандл -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

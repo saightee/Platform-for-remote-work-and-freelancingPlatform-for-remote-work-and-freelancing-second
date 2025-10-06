@@ -343,3 +343,22 @@
   color:var(--ch-muted);
   white-space:nowrap;
 }
+
+
+/* контейнер селекта в топбаре может сжиматься */
+.ch-topbar .ch-dd{
+  flex: 1 1 320px;   /* можно меньше/больше при желании */
+  min-width: 0;      /* главное для ellipsis */
+}
+
+/* сам summary — одна строка + обрезка */
+.ch-dd > summary{
+  display: block;           /* чтобы max-width работал */
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ch-layout,
+.ch-chat { min-height: 0; }   /* родителям ленты разрешаем сжиматься */

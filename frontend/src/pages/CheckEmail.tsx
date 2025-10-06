@@ -52,9 +52,9 @@ export default function CheckEmail() {
   return (
     <div className="ce">
       <div className="ce__box">
-        <h2 className="ce__title">Check your email</h2>
+        <h2 className="ce__title">Didn’t get the verification email?</h2>
         <p className="ce__desc">
-          We sent you a verification link. Click it to finish registration.
+          We'll send you a confirmation link. Click it to complete your registration.
         </p>
 
         <div className="ce__group">
