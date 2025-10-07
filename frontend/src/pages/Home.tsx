@@ -758,7 +758,7 @@ useEffect(() => {
           <div className="hv-final-cta-content">
             <h2 className="hv-final-cta-title">Ready to Transform Your Career or Team?</h2>
            <p className="hv-final-cta-subtitle">
-  Whether you're seeking top remote talent or your next virtual opportunity,
+  Whether you're seeking top remote talent or your next virtual opportunity, 
   {brand.name} connects you to endless possibilities worldwide.
 </p>
                 {!authed && (

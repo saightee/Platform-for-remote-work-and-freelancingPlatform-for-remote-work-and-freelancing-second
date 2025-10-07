@@ -10,7 +10,7 @@
 }
 
 /* контейнер страницы */
-.ch-shell{ max-width:1100px; margin:10px -32px; padding:0 16px; }
+.ch-shell{ max-width:1100px; margin:10px -32px; padding:0 0px; }
 
 /* белая карточка-обёртка на всю высоту вьюпорта */
 .ch-card{

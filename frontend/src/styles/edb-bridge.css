@@ -648,7 +648,7 @@
 /* --- DRAWER поверх топбара и кликается полностью --- */
 .edb-topbar{ z-index: 100; }     /* хедер */
 .edb-sidebar{ 
-  z-index: 140;                  /* СТРОГО выше топбара */
+  z-index: 80;                  /* СТРОГО выше топбара */
   inset: 0 auto 0 0;             /* от края экрана */
   padding-top: var(--edb-topbar-h); /* чтобы контент начинался под хедером */
 }
@@ -682,4 +682,24 @@
 .jsd-shell input, .jsd-shell textarea, .jsd-shell select,
 .edb-shell input, .edb-shell textarea, .edb-shell select{
   font-size:16px;
+}
+
+@media (max-width: 905px){
+.edb-thead {
+  display: none;
+}
+
+.edb-row__head {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+}
+
+}
+
+@media (max-width: 680px){
+.edb-topbar__cta{
+
+  margin-right:0px;
+  
+}
 }

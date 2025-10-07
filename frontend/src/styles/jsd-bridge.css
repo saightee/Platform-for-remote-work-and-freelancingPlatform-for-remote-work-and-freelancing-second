@@ -303,7 +303,7 @@
 }
 
 
-.edb-nav__link, .jsd-nav__link { position: relative; }
+.jsd-nav__link, .jsd-nav__link { position: relative; }
 
 .nav-badge{
   position: absolute;
@@ -325,7 +325,46 @@
 
 .jsd-content .jf2-copy, .jsd-content .copyright, .jsd-content footer { display:none!important; }
 /* и т.д. */
-.jsd-shell input, .jsd-shell textarea, .jsd-shell select,
-.edb-shell input, .edb-shell textarea, .edb-shell select{
+.jsd-shell input, .jsd-shell textarea, .jsd-shell select
+{
   font-size:16px;
 }
+
+
+/* --- MOBILE TOPBAR: чистый двухрядный грид --- */
+@media (max-width: 680px) {
+  .jsd-topbar{
+    display: grid;
+    grid-template-columns: auto 1fr auto; /* [burger] [logo/greet] [cta/logout] */
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 8px 12px;
+    height: auto;           /* вместо фиксированной */
+    padding: 8px 12px;
+  }
+  .jsd-topbar__spacer{ display:none; }
+
+  /* размещение по ячейкам грида */
+  .jsd-topbar__burger { grid-column: 1; grid-row: 1; }
+  .jsd-topbar__logo   { grid-column: 2; grid-row: 1; font-size: 22px; margin-left: 6px; }
+  .jsd-topbar__cta    { grid-column: 3; grid-row: 1; justify-self: end; padding: 8px 10px; font-size: 13px; }
+  .jsd-topbar__greet  { grid-column: 1 / 3; grid-row: 2; min-width: 0; font-size: 14px; }
+  .jsd-topbar__logout { grid-column: 3; grid-row: 2; justify-self: end; padding: 8px 10px; }
+}
+
+/* --- DRAWER поверх топбара и кликается полностью --- */
+.jsd-topbar{ z-index: 100; }     /* хедер */
+.jsd-sidebar{ 
+  z-index: 80;                  /* СТРОГО выше топбара */
+  inset: 0 auto 0 0;             /* от края экрана */
+  padding-top: var(--jsd-topbar-h); /* чтобы контент начинался под хедером */
+}
+.jsd-sidebar.is-open{ transform: translateX(0); }
+.jsd-overlay{ z-index: 130; }    /* фон под сайдбаром, над хедером */
+
+/* на десктопе оверлей всё равно скрыт выше по коду, оставляем как есть */
+
+/* --- косметика пунктов меню, чтобы не липли к верху под шапкой --- */
+.jsd-nav{ padding-top: 10px; }
+
+/* --- бейдж в меню сообщений остаётся как был --- */
