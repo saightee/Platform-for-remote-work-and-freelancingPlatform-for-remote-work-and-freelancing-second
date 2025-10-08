@@ -85,7 +85,7 @@
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px; margin-bottom: 8px;
 }
-.mjp-card-title { margin: 0; font-size: 20px; font-weight: 800; color: var(--cs-text); }
+.mjp-card-title { margin: 0; font-size: 16px; font-weight: 800; color: var(--cs-text); }
 .mjp-status {
   display: inline-flex; align-items: center; gap: 8px;
   font-size: 12px; font-weight: 700;

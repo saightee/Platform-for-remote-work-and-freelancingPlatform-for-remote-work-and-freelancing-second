@@ -53,6 +53,7 @@ import Vacancy from './pages/Vacancy';
 import JobLanding from './pages/JobLanding';
 import ScrollToTop from "./components/ScrollToTop";
 import RegistrationPending from './pages/RegistrationPending';
+import Toaster from './components/Toaster';
 
 
 const App: React.FC = () => {
@@ -61,6 +62,7 @@ const App: React.FC = () => {
     <RoleProvider>
       <Router>
         <ScrollToTop />
+        <Toaster />  
         {/* <ErrorBoundary fallback={<div>Error loading app</div>}></ErrorBoundary> */}
         <Routes>
           <Route path="/" element={<Home />} />

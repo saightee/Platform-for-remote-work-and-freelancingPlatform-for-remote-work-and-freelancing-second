@@ -30,6 +30,10 @@ export interface EmployerProfile {
   role: 'employer';
   email: string;
   username: string;
+
+  // NEW
+  country?: string;
+
   company_name?: string;
   company_info?: string;
   referral_link?: string;
@@ -45,8 +49,22 @@ export interface EmployerProfile {
 export interface JobSeekerProfile {
   id: string;
   role: 'jobseeker';
-  email?: string; // Оставлено как необязательное для публичного профиля
+  email?: string;
   username: string;
+
+  // NEW
+  country?: string;         // ISO-3166 alpha-2
+  languages?: string[];     // произвольные строки
+  expected_salary?: number | null;
+  job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired' | string | null;
+
+  // соцсети (чтобы не было any)
+  linkedin?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
+  whatsapp?: string | null;
+  telegram?: string | null;
+
   skills?: Category[];
   experience?: string;
   description?: string;
@@ -59,7 +77,7 @@ export interface JobSeekerProfile {
   avatar?: string | null;
   identity_verified: boolean;
   identity_document?: string | null;
-  resume?: string; // Добавлено: link или path к resume (optional, как в docs)
+  resume?: string;
   reviews: Review[];
 }
 
@@ -68,6 +86,10 @@ export interface AdminProfile {
   role: 'admin';
   email: string;
   username: string;
+
+  // NEW — чтобы union Profile видел поле
+  country?: string;
+
   timezone?: string;
   currency?: string;
   avatar?: string | null;
@@ -80,6 +102,10 @@ export interface ModeratorProfile {
   role: 'moderator';
   email: string;
   username: string;
+
+  // NEW
+  country?: string;
+
   timezone?: string;
   currency?: string;
   avatar?: string | null;

@@ -1,0 +1,20 @@
+/* styles/country-langs.css */
+.cl-field { margin: 12px 0; }
+.cl-label { display:block; font-weight:700; font-size:13px; margin-bottom:6px; }
+.cl-combo { display:grid; grid-template-columns: 120px 1fr; gap:8px; }
+.cl-input,.cl-search,.cl-chip-input { width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:8px; }
+.cl-list { margin-top:8px; max-height:180px; overflow:auto; border:1px solid #eef0f3; border-radius:10px; }
+.cl-row { width:100%; display:flex; gap:10px; align-items:center; padding:8px 10px; border:0; background:#fff; text-align:left; cursor:pointer; }
+.cl-row:hover { background:#f7f8fb; }
+.cl-row.is-active { background:#eaf0ff; }
+.cl-code { font-weight:700; width:40px; }
+.cl-name { opacity:.9; }
+.cl-tags { display:flex; flex-wrap:wrap; gap:8px; align-items:center; border:1px solid #e5e7eb; border-radius:8px; padding:8px; min-height:44px; }
+.cl-tag { background:#f2f6ff; border:1px solid #d9e2ff; border-radius:9999px; padding:4px 10px; display:flex; align-items:center; gap:6px; }
+.cl-x { background:transparent; border:0; font-size:14px; line-height:1; cursor:pointer; }
+.cl-hint { font-size:12px; color:#6b7280; margin-top:6px; }
+
+/* mobile */
+@media (max-width:640px){
+  .cl-combo { grid-template-columns: 1fr; }
+}

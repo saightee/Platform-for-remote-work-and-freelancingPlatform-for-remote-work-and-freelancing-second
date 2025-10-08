@@ -1,0 +1,111 @@
+/* Backdrop */
+.invmd-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 16px;
+}
+
+/* Card inherits mjp-modal-content visual style; keep class for reuse */
+.invmd-card.mjp-modal-content {
+  position: relative;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: var(--cs-shadow);
+  width: min(720px, 96vw);
+  padding: 20px 22px;
+  max-height: 88vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Head */
+.invmd-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.invmd-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.invmd-x {
+  border: 0;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+}
+.invmd-x:hover { color: #111827; }
+
+/* Body */
+.invmd-body { display: grid; gap: 14px; }
+.invmd-row { display: grid; gap: 6px; }
+.invmd-label { font-weight: 600; }
+.invmd-opt { color: #6b7280; font-weight: 400; }
+.invmd-value { padding: 10px 12px; background: #f9fafb; border-radius: 8px; }
+
+.invmd-input,
+.invmd-textarea {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+  outline: none;
+}
+.invmd-input:focus,
+.invmd-textarea:focus {
+  border-color: #4e74c8;
+  box-shadow: 0 0 0 3px rgba(78, 116, 200, .18);
+}
+.invmd-textarea { resize: vertical; min-height: 96px; }
+
+.invmd-note { color: #6b7280; font-size: 14px; }
+
+/* Footer */
+.invmd-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+.invmd-btn {
+  appearance: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.invmd-primary {
+  background: #4e74c8;
+  color: #fff;
+}
+.invmd-primary:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+.invmd-secondary {
+  background: #eef2ff;
+  color: #1f2937;
+}
+
+/* Mobile tweaks */
+@media (max-width: 480px) {
+  .invmd-card.mjp-modal-content {
+    padding: 16px;
+    width: 96vw;
+    max-height: 90vh;
+  }
+  .invmd-title { font-size: 16px; }
+}
