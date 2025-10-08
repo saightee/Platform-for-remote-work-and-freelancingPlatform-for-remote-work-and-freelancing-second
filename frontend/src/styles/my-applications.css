@@ -10,7 +10,7 @@
 }
 
 /* shell & card */
-.ma-shell{max-width:1100px;margin:32px auto 56px;padding:0 16px;}
+.ma-shell{max-width:1100px;margin:32px auto 56px;padding:0 0px;}
 .ma-card{background:var(--cs-white);border-radius:var(--cs-radius);box-shadow:var(--cs-shadow);padding:28px;}
 
 .ma-title{margin:0 0 6px;font-size:28px;font-weight:800;color:var(--cs-text);letter-spacing:.2px;display:flex;align-items:center;gap:10px}
@@ -90,3 +90,13 @@
 .ma-tab.is-active { background:#4e74c8; color:#fff; }
 
 
+@media (max-width: 484px){
+.ma-tabs {
+
+  flex-direction: column;
+  
+}
+.ma-tab {
+  margin-bottom: 7px;
+}
+}

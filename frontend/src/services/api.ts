@@ -1572,18 +1572,18 @@ export async function adminListApplicationsForJob(jobPostId: string) {
   return getApplicationsForJobPost(jobPostId); // JobApplicationDetails[]
 }
 
-export const broadcastToSelected = async (jobPostId: string, payload: {
-  applicationIds: string[];
-  content: string;
-}) => {
-  const { data } = await api.post<{ sent: number }>(`/chat/broadcast-selected/${jobPostId}`, payload);
-  return data;
-};
+// export const broadcastToSelected = async (jobPostId: string, payload: {
+//   applicationIds: string[];
+//   content: string;
+// }) => {
+//   const { data } = await api.post<{ sent: number }>(`/chat/broadcast-selected/${jobPostId}`, payload);
+//   return data;
+// };
 
-export const bulkRejectApplications = async (applicationIds: string[]) => {
-  const { data } = await api.post<{ updated: number; updatedIds: string[] }>(
-    `/job-applications/bulk-reject`,
-    { applicationIds }
-  );
-  return data;
-};
+// export const bulkRejectApplications = async (applicationIds: string[]) => {
+//   const { data } = await api.post<{ updated: number; updatedIds: string[] }>(
+//     `/job-applications/bulk-reject`,
+//     { applicationIds }
+//   );
+//   return data;
+// };

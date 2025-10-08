@@ -7,8 +7,8 @@
 /* layout */
 .pf-shell {
   max-width: 1100px;
-  margin: 32px auto 56px;
-  padding: 0 2px;
+  margin: 10px auto 56px;
+  padding: 0 0px;
 }
 
 .pf-card {
