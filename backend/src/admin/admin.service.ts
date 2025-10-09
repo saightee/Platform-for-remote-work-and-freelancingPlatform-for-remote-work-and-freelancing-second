@@ -167,6 +167,7 @@ export class AdminService {
         'user.risk_score',
         'user.created_at',
         'user.last_seen_at',
+        'user.brand',
       ]);
 
     let hasSearch = false;
