@@ -4288,3 +4288,105 @@
   - `delayedIfUnread`: also send if still unread after minutes.
   - `onlyFirstMessageInThread`: if true, notify only on the first message in a given chat thread.
   - `throttle`: не чаще X раз в N минут для одного чата и получателя (anti-spam).
+
+### 93. Employer: Invite a candidate
+- **Endpoint:** `POST /api/job-applications/invitations`
+- **Headers**: `Bearer (role=employer)`
+- **Request Body:**:
+  ```json
+  {
+    "job_post_id": "<jobPostId>",
+    "job_seeker_id": "<userId>",
+    "message": "We think you’re a great fit for this role"
+  }
+- **Response (200)**:
+  ```json
+  {
+    "id": "<invitationId>",
+    "job_post_id": "<jobPostId>",
+    "employer_id": "<employerId>",
+    "job_seeker_id": "<userId>",
+    "status": "Pending",
+    "message": "We think you’re a great fit for this role",
+    "created_at": "2025-10-06T10:00:00.000Z",
+    "updated_at": "2025-10-06T10:00:00.000Z"
+  }
+- **Response 401**:
+  ```json
+  { "statusCode": 401, "message": "Only employers can send invitations", "error": "Only employers can send invitations" }
+- **Response 404**:
+  ```json
+  { "statusCode": 404, "message": "Job post not found or not yours / Jobseeker not found", "error": "Job post not found or not yours / Jobseeker not found" }
+- **Response 400**:
+  ```json
+  { "statusCode": 400, "message": "Job not active/approved / already applied / cannot invite yourself", "error": "Job not active/approved / already applied / cannot invite yourself" }
+
+### 94. Jobseeker: List invitations
+- **Endpoint:** `GET /api/job-applications/invitations?includeAll=false`
+- **Headers**: `Bearer (role=jobseeker)`
+- **Response (200)**:
+  ```json
+  [
+    {
+      "id": "<invitationId>",
+      "status": "Pending",
+      "message": "We think you’re a great fit...",
+      "created_at": "2025-10-06T10:00:00.000Z",
+      "job_post": {
+        "id": "<jobPostId>",
+        "title": "Software Engineer",
+        "location": "Remote",
+        "salary": 5000,
+        "salary_type": "per month",
+        "job_type": "Full-time",
+        "slug": "software-engineer-remote",
+        "slug_id": "software-engineer-remote--8df3b0be",
+        "employer": { "id": "<employerId>", "username": "acme_hr" }
+      },
+      "employer": { "id": "<employerId>", "username": "acme_hr" }
+    }
+  ]
+
+### 95. Jobseeker: Decline invitation
+- **Endpoint:** `POST /api/job-applications/invitations/:id/decline`
+- **Headers**: `Bearer (role=jobseeker)`
+- **Response (200)**:
+  ```json
+  { "id": "<invitationId>", "status": "Declined", ... }
+
+### 96. Jobseeker: Accept invitation (starts application flow)
+- **Endpoint:** `POST /api/job-applications/invitations/:id/accept`
+- **Headers**: `Bearer (role=jobseeker)`
+- **Request Body: same shape as regular application**:
+  ```json
+  {
+  "cover_letter": "Why I'm a good fit...",
+  "relevant_experience": "3 years with Django, SQL...",
+  "full_name": "Jane Doe",
+  "referred_by": "Alex P."
+  } 
+
+### 97. Send message to selected applicants
+- **Endpoint:** `POST /api/chat/broadcast-selected/:jobPostId`
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body:**:
+  ```json
+  {
+    "applicationIds": ["<applicationId1>", "<applicationId2>", "..."],
+    "content": "Short update for you all..."
+  }
+- **Response (200)**:
+  ```json
+  { "sent": 2 }
+
+### 98. Bulk reject applications
+- **Endpoint:** `POST /api/job-applications/bulk-reject`
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body:**:
+  ```json
+  {
+    "applicationIds": ["<applicationId1>", "<applicationId2>", "..."]
+  }
+- **Response (200)**:
+  ```json
+  { "updated": 2, "updatedIds": ["<applicationId1>", "<applicationId2>"] }

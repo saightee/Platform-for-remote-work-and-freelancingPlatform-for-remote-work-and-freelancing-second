@@ -163,3 +163,15 @@
         "message": "No access to this chat",
         "error": "Unauthorized"
       }
+
+- **broadcastToSelected**:
+  - **Emit from client (employer):**:
+    ```json
+  {
+    "jobPostId": "<jobPostId>",
+    "applicationIds": ["<applicationId1>", "<applicationId2>"],
+    "content": "Hello! Next round is tomorrow 10:00 UTC."
+  }
+- **Ack/response:**:
+    ```json
+  { "sent": 2 }

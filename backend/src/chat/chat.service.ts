@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Message } from './entities/message.entity';
 import { JobApplication } from '../job-applications/job-application.entity';
 import { User } from '../users/entities/user.entity';
 import { JobPost } from '../job-posts/job-post.entity';
 import { ChatNotificationsService } from './chat-notifications.service';
+
 
 @Injectable()
 export class ChatService {
@@ -196,6 +197,57 @@ export class ChatService {
         sender_id: employerId,
         recipient_id: app.job_seeker_id,
         content,
+        is_read: false,
+      }),
+    );
+
+    const saved = await this.messagesRepository.save(toSave);
+
+    const appIds = saved.map(m => m.job_application_id);
+    const fullApps = await this.jobApplicationsRepository.find({
+      where: appIds.map(id => ({ id })),
+      relations: ['job_post', 'job_post.employer', 'job_seeker'],
+    });
+    const byId = new Map(fullApps.map(a => [a.id, a]));
+
+    await Promise.allSettled(
+      saved.map(msg => {
+        const app = byId.get(msg.job_application_id);
+        if (!app) return Promise.resolve();
+        return this.chatNotifications.onNewMessage(msg, app);
+      }),
+    );
+
+    return saved;
+  }
+
+  async broadcastToSelectedApplicants(
+    employerId: string,
+    jobPostId: string,
+    applicationIds: string[],
+    content: string,
+  ): Promise<Message[]> {
+    if (!content || !content.trim()) return [];
+
+    const jobPost = await this.jobApplicationsRepository.manager
+      .getRepository(JobPost)
+      .findOne({ where: { id: jobPostId, employer_id: employerId } });
+    if (!jobPost) throw new UnauthorizedException('You do not own this job post');
+
+    const apps = await this.jobApplicationsRepository.find({
+      where: { id: In([...new Set(applicationIds)]), job_post_id: jobPostId },
+      select: ['id', 'job_seeker_id', 'status'],
+    });
+
+    const targets = apps.filter(a => ['Pending', 'Accepted'].includes(a.status));
+    if (!targets.length) return [];
+
+    const toSave = targets.map(app =>
+      this.messagesRepository.create({
+        job_application_id: app.id,
+        sender_id: employerId,
+        recipient_id: app.job_seeker_id,
+        content: content.trim(),
         is_read: false,
       }),
     );
