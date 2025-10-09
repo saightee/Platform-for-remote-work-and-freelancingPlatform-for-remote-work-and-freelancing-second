@@ -207,46 +207,99 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!hasApplications) return;
 
-        const newSocket = initializeWebSocket(
-          () => {},
-          (error: WebSocketError) => {
-            setSocketStatus('disconnected');
-            setError(error.message || 'WebSocket error occurred.');
-          }
-        );
+//         const newSocket = initializeWebSocket(
+//           () => {},
+//           (error: WebSocketError) => {
+//             setSocketStatus('disconnected');
+//             setError(error.message || 'WebSocket error occurred.');
+//           }
+//         );
 
-        newSocket.on('newMessage', (m: Message) => {
-          if (profile && m.recipient_id === profile.id && !m.is_read) {
-            const key = `unreads_${profile.id}`;
-            let map: Record<string, number> = {};
-            try {
-              map = JSON.parse(localStorage.getItem(key) || '{}');
-            } catch {}
-            map[m.job_application_id] = (map[m.job_application_id] || 0) + 1;
-            localStorage.setItem(key, JSON.stringify(map));
+//         newSocket.on('newMessage', (m: Message) => {
+//           if (profile && m.recipient_id === profile.id && !m.is_read) {
+//             const key = `unreads_${profile.id}`;
+//             let map: Record<string, number> = {};
+//             try {
+//               map = JSON.parse(localStorage.getItem(key) || '{}');
+//             } catch {}
+//             map[m.job_application_id] = (map[m.job_application_id] || 0) + 1;
+//             localStorage.setItem(key, JSON.stringify(map));
 
-// legacy (на время миграции)
-window.dispatchEvent(new Event('jobforge:unreads-updated'));
-// брендовый (новый)
-window.dispatchEvent(new Event(brandEvent('unreads-updated')));
-          }
-          playNewMessageSound(m);
-        });
 
-        newSocket.on('connect', () => setSocketStatus('connected'));
-        newSocket.on('disconnect', () => setSocketStatus('disconnected'));
-        newSocket.on('connect_error', (err: any) => {
-          setSocketStatus('reconnecting');
-          setError('Failed to connect to real-time updates. Retrying...');
-          if (typeof err?.message === 'string' && err.message.includes('401')) {
-            localStorage.removeItem('token');
-            window.location.href = '/login';
-          }
-        });
+// window.dispatchEvent(new Event('jobforge:unreads-updated'));
 
-        setSocket(newSocket);
+// window.dispatchEvent(new Event(brandEvent('unreads-updated')));
+//           }
+//           playNewMessageSound(m);
+//         });
+
+//         newSocket.on('connect', () => setSocketStatus('connected'));
+//         newSocket.on('disconnect', () => setSocketStatus('disconnected'));
+//         newSocket.on('connect_error', (err: any) => {
+//           setSocketStatus('reconnecting');
+//           setError('Failed to connect to real-time updates. Retrying...');
+//           if (typeof err?.message === 'string' && err.message.includes('401')) {
+//             localStorage.removeItem('token');
+//             window.location.href = '/login';
+//           }
+//         });
+
+//         setSocket(newSocket);
+
+const newSocket = initializeWebSocket(
+  () => {},
+  (error: WebSocketError) => {
+    setSocketStatus('disconnected');
+    setError(error.message || 'WebSocket error occurred.');
+  }
+);
+
+newSocket.on('newMessage', (m: Message) => {
+  if (profile && m.recipient_id === profile.id && !m.is_read) {
+    const key = `unreads_${profile.id}`;
+    let map: Record<string, number> = {};
+    try {
+      map = JSON.parse(localStorage.getItem(key) || '{}');
+    } catch {}
+    map[m.job_application_id] = (map[m.job_application_id] || 0) + 1;
+    localStorage.setItem(key, JSON.stringify(map));
+
+    // legacy (на время миграции)
+    window.dispatchEvent(new Event('jobforge:unreads-updated'));
+    // брендовый (новый)
+    window.dispatchEvent(new Event(brandEvent('unreads-updated')));
+  }
+  playNewMessageSound(m);
+});
+
+newSocket.on('connect', () => {
+  setSocketStatus('connected');
+
+  // ⬇️ ВАЖНО: СРАЗУ ИНИЦИАЛИЗИРУЕМ ВСЕ ЧАТЫ ПОЛЬЗОВАТЕЛЯ
+  // Чтобы сервер подготовил комнаты/историю/счётчики и чтобы бейджи были видны
+  // в дашборде, даже если вкладку "Messages" ещё не открывали.
+  try {
+    if (profile?.id) {
+      newSocket.emit('initAllChats', { userId: profile.id });
+    }
+  } catch {}
+});
+
+newSocket.on('disconnect', () => setSocketStatus('disconnected'));
+newSocket.on('connect_error', (err: any) => {
+  setSocketStatus('reconnecting');
+  setError('Failed to connect to real-time updates. Retrying...');
+  if (typeof err?.message === 'string' && err.message.includes('401')) {
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+  }
+});
+
+setSocket(newSocket);
+
+
       } catch {
-        // no-op
+      
       }
     };
 

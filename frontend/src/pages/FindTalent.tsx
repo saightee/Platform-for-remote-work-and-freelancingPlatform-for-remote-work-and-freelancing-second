@@ -3,14 +3,18 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { searchTalents, searchJobseekers, getCategories, searchCategories } from '../services/api';
-import { Profile, Category } from '@types';
+import { searchTalents, searchJobseekers, getCategories, searchCategories, getMyJobPosts, sendInvitation } from '../services/api';
+import { Profile, Category, JobPost } from '@types';
 import { FaUserCircle, FaFilter } from 'react-icons/fa';
 import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
 import '../styles/find-talent.css';
+import '../styles/invite-modal.css';
 import { Helmet } from 'react-helmet-async';
 import { brand, brandBackendOrigin } from '../brand';
+import { useRole } from '../context/RoleContext';
+import { toast } from '../utils/toast';
+
 
 function useDebouncedValue<T>(value: T, delay = 400) {
   const [debounced, setDebounced] = useState(value);
@@ -72,6 +76,59 @@ const [filters, setFilters] = useState<{
   const [error, setError] = useState<string | null>(null);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const navigate = useNavigate();
+
+  // Invite modal state
+const { profile: currentUser } = useRole();
+const [inviteOpen, setInviteOpen] = useState(false);
+const [inviteTarget, setInviteTarget] = useState<Profile | null>(null);
+const [myActiveJobs, setMyActiveJobs] = useState<JobPost[]>([]);
+const [selectedJobId, setSelectedJobId] = useState('');
+const [inviteMessage, setInviteMessage] = useState('');
+const [loadingJobs, setLoadingJobs] = useState(false);
+const [sendingInvite, setSendingInvite] = useState(false);
+
+const openInvite = async (talent: Profile) => {
+  setInviteTarget(talent);
+  setInviteOpen(true);
+  setSelectedJobId('');
+  setInviteMessage('');
+  try {
+    setLoadingJobs(true);
+    const jobs = await getMyJobPosts();
+    const active = (jobs || []).filter((j: any) => j.status === 'Active' && !j.pending_review);
+    setMyActiveJobs(active);
+  } catch (e) {
+    console.error('getMyJobPosts error', e);
+    setMyActiveJobs([]);
+  } finally {
+    setLoadingJobs(false);
+  }
+};
+
+const closeInvite = () => {
+  setInviteOpen(false);
+  setInviteTarget(null);
+};
+
+const submitInvite = async () => {
+  if (!inviteTarget || !selectedJobId) return;
+  try {
+    setSendingInvite(true);
+    await sendInvitation({
+      job_post_id: selectedJobId,
+      job_seeker_id: String(inviteTarget.id),
+      message: inviteMessage || undefined,
+    });
+    toast.success('Invitation sent');
+    closeInvite();
+  } catch (e: any) {
+    const msg = e?.response?.data?.message || e?.message || 'Failed to send invitation';
+    toast.error(msg);
+  } finally {
+    setSendingInvite(false);
+  }
+};
+
 
   // ---- autocomplete state
   const [skillInput, setSkillInput] = useState('');
@@ -647,6 +704,14 @@ const handlePageChange = (newPage: number) => {
                                   <p className="ftl-line">
                                     <strong>Experience:</strong> {experience || 'Not specified'}
                                   </p>
+                                  <p className="ftl-line">
+  <strong>Country:</strong> {(talent as any).country || 'Not specified'}
+</p>
+{Array.isArray((talent as any).languages) && (talent as any).languages.length > 0 && (
+  <p className="ftl-line">
+    <strong>Languages:</strong> {(talent as any).languages.join(', ')}
+  </p>
+)}
                                 </div>
                                 <div className="ftl-col">
                                   <p className="ftl-line">
@@ -681,12 +746,23 @@ const handlePageChange = (newPage: number) => {
                                 </div>
                               </div>
 
-                              <div className="ftl-foot">
-                                <div className="ftl-spacer" />
-                                <Link to={`/public-profile/${talent.id}`}>
-                                  <button className="ftl-btn ftl-outline">View Profile</button>
-                                </Link>
-                              </div>
+                             <div className="ftl-foot">
+  <div className="ftl-spacer" />
+  {currentUser?.role === 'employer' && currentUser.id !== talent.id && (
+    <button
+      type="button"
+      className="ftl-btn ftl-primary"
+      onClick={() => openInvite(talent)}
+      title="Invite to job"
+    >
+      Invite to interview
+    </button>
+  )}
+  <Link to={`/public-profile/${talent.id}`}>
+    <button className="ftl-btn ftl-outline">View Profile</button>
+  </Link>
+</div>
+
                             </div>
                           </article>
                         );
@@ -724,6 +800,70 @@ const handlePageChange = (newPage: number) => {
           </div>
         </div>
       </div>
+{inviteOpen && (
+  <div className="invmd-backdrop" onClick={closeInvite}>
+    <div className="invmd-card mjp-modal-content" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="invmd-title">
+      <div className="invmd-head">
+        <h3 id="invmd-title" className="invmd-title">Select Job to invite</h3>
+        <button className="invmd-x" onClick={closeInvite} aria-label="Close">×</button>
+      </div>
+
+      <div className="invmd-body">
+        <div className="invmd-row">
+          <label className="invmd-label">Candidate</label>
+          <div className="invmd-value">{inviteTarget?.username}</div>
+        </div>
+
+        <div className="invmd-row">
+          <label className="invmd-label" htmlFor="invmd-job">Job Post</label>
+          {loadingJobs ? (
+            <div className="invmd-note">Loading your active jobs…</div>
+          ) : myActiveJobs.length ? (
+            <select
+              id="invmd-job"
+              className="invmd-input"
+              value={selectedJobId}
+              onChange={(e) => setSelectedJobId(e.target.value)}
+            >
+              <option value="" disabled>Select a job post</option>
+              {myActiveJobs.map((j) => (
+                <option key={j.id} value={String(j.id)}>
+                  {j.title}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="invmd-note">You have no active jobs available.</div>
+          )}
+        </div>
+
+        <div className="invmd-row">
+          <label className="invmd-label" htmlFor="invmd-msg">Message to candidate <span className="invmd-opt">(optional)</span></label>
+          <textarea
+            id="invmd-msg"
+            className="invmd-textarea"
+            rows={4}
+            value={inviteMessage}
+            onChange={(e) => setInviteMessage(e.target.value)}
+            placeholder="We think you’re a great fit for this role…"
+          />
+        </div>
+      </div>
+
+      <div className="invmd-foot">
+        <button className="invmd-btn invmd-secondary" type="button" onClick={closeInvite}>Cancel</button>
+        <button
+          className="invmd-btn invmd-primary"
+          type="button"
+          onClick={submitInvite}
+          disabled={!selectedJobId || sendingInvite}
+        >
+          {sendingInvite ? 'Sending…' : 'Send Invitation'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       <Footer />
       <Copyright />

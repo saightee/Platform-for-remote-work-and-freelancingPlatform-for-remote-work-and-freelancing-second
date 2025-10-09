@@ -244,3 +244,18 @@ input[type="password"]::-ms-clear{
 @supports (-webkit-touch-callout: none) {
   .reg2-shell { min-height: -webkit-fill-available; }
 }
+
+.reg2-input[data-invalid] {
+  border-color: #ef4444 !important;            /* красный */
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, .15) !important;
+}
+
+/* Подпись-ошибка под полем */
+.reg2-hint {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.reg2-hint--err {
+  color: #b91c1c;       /* тёмно-красный */
+}

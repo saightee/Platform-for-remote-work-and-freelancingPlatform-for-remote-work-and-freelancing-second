@@ -27,7 +27,7 @@ import {
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
   logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, getChatNotificationSettings,
   updateChatNotificationSettings,
-  notifyReferralApplicants, getRecentRegistrationsToday
+  notifyReferralApplicants, getRecentRegistrationsToday, getBrandsAnalytics
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings } from '@types';
 import { AxiosError } from 'axios';
@@ -152,6 +152,16 @@ const AdminDashboard: React.FC = () => {
   const [userTotal, setUserTotal] = useState<number>(0);
   const [jobStatusFilter, setJobStatusFilter] = useState<'All' | 'Active' | 'Draft' | 'Closed'>('All');
   const [selectedInterval, setSelectedInterval] = useState<'day' | 'week' | 'month'>('month');
+  // BRAND ANALYTICS
+const [brandsLoading, setBrandsLoading] = useState(false);
+const [brandsError, setBrandsError] = useState<string | null>(null);
+const [brandsRange, setBrandsRange] = useState<{ startDate?: string; endDate?: string }>({});
+const [brandsData, setBrandsData] = useState<{
+  range: { startDate: string; endDate: string };
+  byBrand: Array<{ brand: string; total: number; employers: number; jobseekers: number }>;
+  overall: { total: number; employers: number; jobseekers: number };
+} | null>(null);
+
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Resolved' | 'Rejected'>('All');
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [jobPostsWithApps, setJobPostsWithApps] = useState<JobPostWithApplications[]>([]);
@@ -369,7 +379,8 @@ const [jobPostsWithAppsPage, setJobPostsWithAppsPage] = useState(1);
 const [jobPostsWithAppsLimit] = useState(10);
 const [sortColumn, setSortColumn] = useState<'id' | 'applicationCount' | 'created_at' | null>('created_at'); 
 const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc'); // Изменено: дефолт 'desc' для новых сверху
-const [userSortColumn, setUserSortColumn] = useState<'id' | 'role' | 'is_blocked' | null>(null);
+const [userSortColumn, setUserSortColumn] =
+  useState<'id' | 'role' | 'is_blocked' | 'brand' | null>(null);
 const [userSortDirection, setUserSortDirection] = useState<'asc' | 'desc'>('asc');
 const [complaintSortColumn, setComplaintSortColumn] = useState<'created_at' | 'status' | null>(null);
 const [complaintSortDirection, setComplaintSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -422,6 +433,10 @@ const renderDateCell = (iso?: string | null) => {
   const human = formatDistanceToNow(d, { addSuffix: true }); // “5 minutes ago”
   return <span title={human}>{full}</span>; // человекочитаемое во всплывающей подсказке
 };
+
+const getBrand = (u: User) =>
+  (u as any)?.brand ?? (u as any)?.siteBrand ?? '—';
+
 const [referralFilterJobId, setReferralFilterJobId] = useState(''); // Добавлено: filter by jobId
 const [referralFilterJobTitle, setReferralFilterJobTitle] = useState(''); // Добавлено: filter by title
 const [expandedReferral, setExpandedReferral] = useState<string | null>(null); // Добавлено: для expandable registrations
@@ -738,7 +753,7 @@ const sortedJobPostsWithApps = [...jobPostsWithApps].sort((a, b) => {
   return 0;
 });
 
-const handleUserSort = (column: 'id' | 'role' | 'is_blocked') => {
+const handleUserSort = (column: 'id' | 'role' | 'is_blocked' | 'brand') => {
   if (userSortColumn === column) {
     setUserSortDirection(userSortDirection === 'asc' ? 'desc' : 'asc');
   } else {
@@ -750,8 +765,13 @@ const handleUserSort = (column: 'id' | 'role' | 'is_blocked') => {
 const sortedUsers = [...users].sort((a, b) => {
   if (!userSortColumn) return 0;
   const direction = userSortDirection === 'asc' ? 1 : -1;
+
   if (userSortColumn === 'id') {
     return a.id.localeCompare(b.id) * direction;
+  } else if (userSortColumn === 'brand') {            // ← ОТДЕЛЬНАЯ ВЕТКА
+    const aBrand = getBrand(a).toLowerCase();
+    const bBrand = getBrand(b).toLowerCase();
+    return aBrand.localeCompare(bBrand) * direction;
   } else if (userSortColumn === 'role') {
     return (a.role || '').localeCompare(b.role || '') * direction;
   } else if (userSortColumn === 'is_blocked') {
@@ -761,6 +781,7 @@ const sortedUsers = [...users].sort((a, b) => {
   }
   return 0;
 });
+
 
 const usersToRender = sortedUsers;
 
@@ -989,6 +1010,25 @@ useEffect(() => {
   fetchUsers(buildUserSearch(userPage));
 }, [userPage, userLimit, fetchUsers]);
 
+useEffect(() => {
+  if (activeTab !== 'Analytics') return;
+
+  (async () => {
+    try {
+      setBrandsLoading(true);
+      setBrandsError(null);
+      const data = await getBrandsAnalytics({
+        startDate: brandsRange.startDate,
+        endDate: brandsRange.endDate,
+      });
+      setBrandsData(data);
+    } catch (e: any) {
+      setBrandsError(e?.message || 'Failed to load brands analytics');
+    } finally {
+      setBrandsLoading(false);
+    }
+  })();
+}, [activeTab, brandsRange.startDate, brandsRange.endDate]);
 
 
 // useEffect(() => {
@@ -2284,6 +2324,9 @@ if (isLoading) {
       </th> */}
       <th>Username</th>
       <th>Email</th>
+      <th onClick={() => handleUserSort('brand')} style={{ cursor: 'pointer' }}>
+  Brand {userSortColumn === 'brand' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+</th>
       <th onClick={() => handleUserSort('role')} style={{ cursor: 'pointer' }}>
         Role {userSortColumn === 'role' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
       </th>
@@ -2303,6 +2346,7 @@ if (isLoading) {
       {/* <td>{user.id}</td> */}
       <td>{user.username}</td>
       <td>{user.email}</td>
+      <td>{getBrand(user)}</td>
       <td>{user.role}</td>
       <td>{user.status === 'blocked' ? 'Blocked' : 'Active'}</td>
       <td>{onlineStatuses[user.id] ? 'Online' : 'Offline'}</td>
@@ -2357,7 +2401,7 @@ if (isLoading) {
       </tr>
     )) : (
       <tr>
-        <td colSpan={9}>No users found.</td>
+        <td colSpan={10}>No users found.</td>
       </tr>
     )}
   </tbody>
@@ -3190,6 +3234,62 @@ if (isLoading) {
       </tbody>
     </table>
     
+    <h4>Registrations by Brand</h4>
+
+<div className="filters-row" style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+  <label>
+    Start:&nbsp;
+    <input
+      type="date"
+      value={brandsRange.startDate || ''}
+      onChange={(e) => setBrandsRange(r => ({ ...r, startDate: e.target.value || undefined }))}
+    />
+  </label>
+  <label>
+    End:&nbsp;
+    <input
+      type="date"
+      value={brandsRange.endDate || ''}
+      onChange={(e) => setBrandsRange(r => ({ ...r, endDate: e.target.value || undefined }))}
+    />
+  </label>
+  <button className="action-button" onClick={() => setBrandsRange({})}>Clear</button>
+</div>
+
+{brandsLoading && <p>Loading brand stats…</p>}
+{brandsError && <p className="error-message">{brandsError}</p>}
+
+{!brandsLoading && !brandsError && brandsData && (
+  <>
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>Brand</th>
+          <th>Total</th>
+          <th>Employers</th>
+          <th>Jobseekers</th>
+        </tr>
+      </thead>
+      <tbody>
+        {brandsData.byBrand.map(b => (
+          <tr key={b.brand}>
+            <td>{b.brand}</td>
+            <td>{b.total}</td>
+            <td>{b.employers}</td>
+            <td>{b.jobseekers}</td>
+          </tr>
+        ))}
+        <tr>
+          <td><strong>Overall</strong></td>
+          <td><strong>{brandsData.overall.total}</strong></td>
+          <td><strong>{brandsData.overall.employers}</strong></td>
+          <td><strong>{brandsData.overall.jobseekers}</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </>
+)}
+
    <h4>Growth Trends</h4>
 {fetchErrors.getGrowthTrends && <p className="error-message">{fetchErrors.getGrowthTrends}</p>}
 <h5>Registrations</h5>

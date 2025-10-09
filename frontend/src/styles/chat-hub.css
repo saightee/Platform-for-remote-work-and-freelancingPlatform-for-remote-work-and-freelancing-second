@@ -481,3 +481,48 @@ html, body { overflow-x: hidden; }
   overflow:hidden;
   text-overflow:ellipsis;
 }
+
+/* iOS: использовать безопасные viewport-юниты (учитывают адресную строку) */
+@supports (-webkit-touch-callout: none) {
+  .ch-card {
+    /* высота всей карточки: поджать от header/footer */
+    height: calc(100svh - 88px) !important;
+    min-height: 560px !important;
+  }
+  .ch-chat {
+    /* само окно чата — ещё выше */
+    min-height: calc(100svh - 130px) !important;
+  }
+}
+
+/* гарантируем, что центральная колонка — флекс; лента забирает всё пространство */
+.ch-chat { display: flex !important; flex-direction: column !important; min-height: 0; }
+.ch-thread {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* крупнее на мобилке */
+@media (max-width: 640px) {
+  .ch-composer { padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); gap: 10px; }
+  .ch-send {
+    width: 56px !important;
+    height: 56px !important;
+    font-size: 26px !important; /* <FaPaperPlane/> масштабируется от font-size */
+    border-radius: 12px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ch-input { padding: 14px 14px; } /* чтобы высоты выровнялись с кнопкой */
+  .ch-chat__head { padding: 8px 12px; }
+  .ch-topbar { margin: 4px 0 6px !important; }
+  .ch-headrow { margin-bottom: 6px !important; }
+}
+/* чтобы композер не прилипал к home-бару на iPhone */
+.ch-composer {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+}
+@media (max-width: 640px) {
+  .ch-bubble { max-width: 86% !important; }
+}

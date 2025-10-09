@@ -13,6 +13,8 @@ import {
   broadcastToApplicants,
   closeJobPost,
   updateApplicationStatus,
+  broadcastToSelected,
+  bulkRejectApplications,
 } from '../services/api';
 import { JobApplication, JobPost, JobApplicationDetails } from '@types';
 import { format } from 'date-fns';
@@ -40,6 +42,8 @@ type ChatListItem = {
   userId?: string;
   job_post_id?: string;
   appliedAt?: string; 
+  lastMessage?: string;
+  lastActivity?: number; 
 };
 
 
@@ -59,12 +63,20 @@ const Messages: React.FC = () => {
     [jobPostId: string]: JobApplicationDetails[];
   }>({});
 
-  const [activeJobId, setActiveJobId] = useState<string | null>(
-    preselectJobPostId || null
-  );
-  const [selectedChat, setSelectedChat] = useState<string | null>(
-    preselectApplicationId || null
-  );
+const [activeJobId, setActiveJobId] = useState<string | null>(
+  preselectJobPostId || localStorage.getItem('lastActiveJobId') || null
+);
+const [selectedChat, setSelectedChat] = useState<string | null>(
+  preselectApplicationId || localStorage.getItem('lastSelectedChat') || null
+);
+
+useEffect(() => {
+  if (activeJobId) localStorage.setItem('lastActiveJobId', activeJobId);
+}, [activeJobId]);
+
+useEffect(() => {
+  if (selectedChat) localStorage.setItem('lastSelectedChat', selectedChat);
+}, [selectedChat]);
 
   const [messages, setMessages] = useState<{
     [jobApplicationId: string]: Message[];
@@ -80,6 +92,20 @@ const Messages: React.FC = () => {
   }>({});
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [broadcastText, setBroadcastText] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+const toggleSelect = (id: string) => {
+  setSelectedIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
+};
+const clearSelection = () => setSelectedIds(new Set());
+
+// МОДАЛКА ДЛЯ "MESSAGE SELECTED"
+const [selModalOpen, setSelModalOpen] = useState(false);
+const [selText, setSelText] = useState('');
 //   const [appDetails, setAppDetails] = useState<{
 //   fullName?: string | null;
 //   referredBy?: string | null;
@@ -213,9 +239,21 @@ joinAllMyChats(allAppIds);
       }
     };
 
-    if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole)) {
-      fetchData();
-    }
+   if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole)) {
+  fetchData().then(() => {
+    // ЕСЛИ ЧАТ ЕЩЁ НЕ ВЫБРАН — ВЫБИРАЕМ ПЕРВЫЙ ДОСТУПНЫЙ
+    try {
+      if (!selectedChat) {
+        if (currentRole === 'employer') {
+          const list: string[] = (activeJobId ? (jobPostApplications[activeJobId] || []) : Object.values(jobPostApplications).flat()).map(a => a.applicationId);
+          if (list[0]) setSelectedChat(list[0]);
+        } else if (currentRole === 'jobseeker') {
+          if (applications[0]?.id) setSelectedChat(applications[0].id);
+        }
+      }
+    } catch {}
+  });
+}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, currentRole]);
 
@@ -415,26 +453,29 @@ const chatList = useMemo<ChatListItem[]>(() => {
       ? (jobPostApplications[activeJobId] || [])
       : [];
 
-    return list
-      // ← тут была лишняя закрывающая скобка — из-за неё ругался useMemo
-      .filter(app => app.status === 'Pending' || app.status === 'Accepted')
-      .map((app): ChatListItem => ({
-        id: app.applicationId,
-        title: jobPosts.find(p => p.id === app.job_post_id)?.title || 'Unknown Job',
-        partner: app.username,
-        status: app.status,
-        unreadCount: unreadCounts[app.applicationId] ?? 0,
-        coverLetter: app.coverLetter ?? null,
-        userId: app.userId,
-        job_post_id: app.job_post_id,
-        appliedAt: app.appliedAt,
-      }))
-      .sort((a, b) => {
-        const byAccepted =
-          (b.status === 'Accepted' ? 1 : 0) - (a.status === 'Accepted' ? 1 : 0);
-        if (byAccepted !== 0) return byAccepted;
-        return getLastTs(b.id) - getLastTs(a.id);
-      });
+return list
+  .filter(app => app.status === 'Pending' || app.status === 'Accepted')
+  .map((app): ChatListItem => {
+    const msgs = messages[app.applicationId] || [];
+    const lastMsg = msgs.length ? msgs[msgs.length - 1] : undefined;
+    const lastTs = lastMsg ? new Date(lastMsg.created_at).getTime() : 0;
+    return {
+      id: app.applicationId,
+      title: jobPosts.find(p => p.id === app.job_post_id)?.title || 'Unknown Job',
+      partner: app.username,
+      status: app.status,
+      unreadCount: unreadCounts[app.applicationId] ?? 0,
+      coverLetter: app.coverLetter ?? null,
+      userId: app.userId,
+      job_post_id: app.job_post_id,
+      appliedAt: app.appliedAt,
+      lastMessage: lastMsg?.content || '',
+      lastActivity: lastTs,
+    };
+  })
+  // ВСЕГДА СОРТИРУЕМ ПО ПОСЛЕДНЕЙ АКТИВНОСТИ — БЕЗ «СКАЧКОВ» ПРИ ПРОСТОМ ВЫБОРЕ
+  .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+
   }
 
   // jobseeker
@@ -705,14 +746,25 @@ useEffect(() => {
     <summary title={selectedLabel} className="one-line">{selectedLabel}</summary>
     <div className="ch-dd__menu">
      <ul className="ch-dd__ul">
-  {currentRole === 'employer' ? (
-    jobPosts.map((post) => (
+{currentRole === 'employer' ? (
+  [...jobPosts]
+    .sort((a, b) => {
+      const atA = a.created_at ? new Date(a.created_at as any).getTime() : 0;
+      const atB = b.created_at ? new Date(b.created_at as any).getTime() : 0;
+      return atB - atA;
+    })
+    .map((post) => (
       <li key={post.id}>
         <button
           className="ch-dd__item"
           onClick={() => { setActiveJobId(post.id); closeAllMenus(); }}
         >
-          <span>{post.title}</span>
+          <span>
+            {post.title}
+            <small style={{ display: 'block', fontWeight: 400, fontSize: 11, opacity: 0.75 }}>
+              {post.created_at ? format(new Date(post.created_at as any), 'PP') : ''}
+            </small>
+          </span>
           {getUnreadForJob(post.id) > 0 && (
             <span className="ch-dd__badge">{getUnreadForJob(post.id)}</span>
           )}
@@ -735,26 +787,66 @@ useEffect(() => {
 </ul>
     </div>
   </details>
-   {currentRole === 'employer' && activeJobId && (
-    <div style={{ display: 'flex', gap: 8 }}>
-      <button
-        className="ch-btn"
-        onClick={() => setBroadcastOpen(true)}
-        title="Send a message to all applicants of this job"
-      >
-        <FaUsers />&nbsp;Message to all applicants
-      </button>
+{currentRole === 'employer' && activeJobId && (
+  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+    <button
+      className="ch-btn"
+      onClick={() => setBroadcastOpen(true)}
+      title="Send a message to all applicants of this job"
+    >
+      <FaUsers />&nbsp;Message to all applicants
+    </button>
 
-<button
-  className="ch-btn"
-  onClick={() => setConfirmCloseOpen(true)}
-  title="Close this job"
->
-  Close job
-</button>
+    <button
+      className="ch-btn"
+      onClick={() => setConfirmCloseOpen(true)}
+      title="Close this job"
+    >
+      Close job
+    </button>
 
-    </div>
-  )}
+    {/* ПОЯВЛЯЮТСЯ ТОЛЬКО ЕСЛИ ЕСТЬ ВЫБРАННЫЕ ЧАТЫ */}
+    {selectedIds.size > 0 && (
+      <>
+        <button
+          className="ch-btn"
+          onClick={() => setSelModalOpen(true)}
+          title="Send message to selected"
+        >
+          Message Selected ({selectedIds.size})
+        </button>
+        <button
+          className="ch-btn"
+          onClick={async () => {
+            if (!activeJobId) return;
+            const ids = Array.from(selectedIds);
+            if (!ids.length) return;
+            if (!confirm(`Reject ${ids.length} selected applicant(s)? This will remove their chats.`)) return;
+            try {
+              const res = await bulkRejectApplications(ids);
+              // локально скрываем отклонённых из списка
+              setJobPostApplications(prev => {
+                const copy = { ...prev };
+                Object.keys(copy).forEach(jobId => {
+                  copy[jobId] = (copy[jobId] || []).filter(a => !ids.includes(a.applicationId));
+                });
+                return copy;
+              });
+              clearSelection();
+              alert(`Rejected ${res.updated} applicants.`);
+            } catch (err: any) {
+              alert(err?.response?.data?.message || 'Failed to bulk reject.');
+            }
+          }}
+          title="Reject selected"
+        >
+          Reject Selected ({selectedIds.size})
+        </button>
+      </>
+    )}
+  </div>
+)}
+
 
   
           </div>
@@ -766,7 +858,7 @@ useEffect(() => {
               {chatList.length > 0 ? (
                 <ul className="ch-chatlist">
                   {chatList.map((chat) => (
-              <li
+<li
   key={chat.id}
   className={`ch-chatlist__item ${selectedChat === chat.id ? 'is-active' : ''}
     ${chat.unreadCount > 0 ? 'has-unread' : ''}
@@ -774,30 +866,42 @@ useEffect(() => {
   onClick={() => handleSelectChat(chat.id)}
   title={chat.partner}
 >
-  <div className="ch-chatlist__meta">
-    <div className="ch-chatlist__row">
-      {/* имя — занимает доступную ширину и укорачивается с … */}
-      <span className="ch-chatlist__partner">{chat.partner}</span>
+  {/* ЧЕКБОКС ВЫБОРА — НЕ МЕШАЕТ ОТКРЫТИЮ ЧАТА */}
+  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+    <input
+      type="checkbox"
+      checked={selectedIds.has(chat.id)}
+      onChange={(e) => {
+        e.stopPropagation();
+        toggleSelect(chat.id);
+      }}
+      onClick={(e) => e.stopPropagation()}
+      style={{ marginTop: 2 }}
+    />
 
-      {/* справа — не сжимается и не растягивает строку */}
-      <div
-        className="ch-chatlist__right"
-        style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}
-      >
-        {chat.status === 'Accepted' && <span className="ch-chip">Interview</span>}
-        {chat.unreadCount > 0 && (
-          <span className="ch-chatlist__badge">{chat.unreadCount}</span>
-        )}
+    <div className="ch-chatlist__meta" style={{ flex: 1 }}>
+      <div className="ch-chatlist__row">
+        <span className="ch-chatlist__partner">{chat.partner}</span>
+        <div
+          className="ch-chatlist__right"
+          style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}
+        >
+          {chat.status === 'Accepted' && <span className="ch-chip">Interview</span>}
+          {chat.unreadCount > 0 && (
+            <span className="ch-chatlist__badge">{chat.unreadCount}</span>
+          )}
+        </div>
+      </div>
+
+      <div className="ch-chatlist__applied" title="Last activity">
+        {chat.lastActivity ? `${format(new Date(chat.lastActivity), 'PPpp')} — ` : ''}
+        {chat.lastMessage ? chat.lastMessage : (chat.appliedAt ? `Applied: ${format(new Date(chat.appliedAt), 'PPpp')}` : '')}
       </div>
     </div>
-
-    {chat.appliedAt && (
-      <div className="ch-chatlist__applied" title="Application submitted">
-        Applied: {format(new Date(chat.appliedAt), 'PPpp')}
-      </div>
-    )}
   </div>
 </li>
+
+
 
 
                   ))}
@@ -838,7 +942,54 @@ useEffect(() => {
                 </div>
               )}
 
-
+{selModalOpen && (
+  <div className="ch-modal">
+    <div className="ch-modal__content">
+      <button
+        className="ch-modal__close"
+        onClick={() => setSelModalOpen(false)}
+      >
+        ×
+      </button>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (!activeJobId) return;
+          const ids = Array.from(selectedIds);
+          if (!ids.length) return;
+          const text = selText.trim();
+          if (!text) return;
+          try {
+            const res = await broadcastToSelected(activeJobId, {
+              applicationIds: ids,
+              content: text,
+            });
+            alert(`Sent to ${res.sent} applicants.`);
+            setSelText('');
+            setSelModalOpen(false);
+          } catch (err: any) {
+            alert(err?.response?.data?.message || 'Failed to send to selected.');
+          }
+        }}
+        className="ch-form"
+      >
+        <div className="ch-form__row">
+          <label className="ch-label">Message to selected applicants</label>
+          <textarea
+            className="ch-textarea"
+            value={selText}
+            onChange={(e) => setSelText(e.target.value)}
+            rows={4}
+            placeholder="Type your message — it will be sent only to selected applicants"
+          />
+        </div>
+        <button type="submit" className="ch-btn">
+          <FaPaperPlane /> Send to selected ({selectedIds.size})
+        </button>
+      </form>
+    </div>
+  </div>
+)}
 
               {/* Review modal */}
               {reviewForm && (

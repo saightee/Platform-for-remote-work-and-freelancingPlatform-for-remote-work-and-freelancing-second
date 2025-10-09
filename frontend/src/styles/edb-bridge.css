@@ -686,13 +686,20 @@
 
 @media (max-width: 905px){
 .edb-thead {
-  display: none;
+  display: none!important;
 }
 
-.edb-row__head {
-  display: grid;
-  grid-template-columns: 3fr 1fr;
-}
+ .edb-row__head {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px 12px;
+    align-items: center;
+  }
+  .edb-row__head > :nth-child(1) { grid-column: 1; grid-row: 1; }
+  .edb-row__head > :nth-child(5) { grid-column: 2; grid-row: 1; justify-self: end; align-self: start; }
+  .edb-row__head > :nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+  .edb-row__head > :nth-child(3) { grid-column: 1; grid-row: 3; }
+  .edb-row__head > :nth-child(4) { grid-column: 2; grid-row: 3; justify-self: end; }
 
 }
 

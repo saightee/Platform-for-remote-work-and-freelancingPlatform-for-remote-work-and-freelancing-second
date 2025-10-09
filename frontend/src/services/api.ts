@@ -492,6 +492,18 @@ export const broadcastToApplicants = async (jobPostId: string, content: string) 
   return res.data;
 };
 
+export const broadcastToSelected = async (
+  jobPostId: string,
+  payload: { applicationIds: string[]; content: string }
+) => {
+  const res = await api.post(`/chat/broadcast-selected/${jobPostId}`, payload);
+  return res.data as { sent: number };
+};
+
+export const bulkRejectApplications = async (applicationIds: string[]) => {
+  const res = await api.post('/job-applications/bulk-reject', { applicationIds });
+  return res.data as { updated: number; updatedIds: string[] };
+};
 
 // Delete referral link
 export const deleteReferralLink = async (linkId: string) => {
@@ -728,6 +740,74 @@ export const applyToJobPostExtended = async (payload: {
   return response.data;
 };
 
+/* ===================== Invitations API (93–96) ===================== */
+
+/** Employer: send invitation to jobseeker (93) */
+export const sendInvitation = async (payload: {
+  job_post_id: string;
+  job_seeker_id: string;
+  message?: string;
+}) => {
+  const { data } = await api.post<{
+    id: string;
+    job_post_id: string;
+    employer_id: string;
+    job_seeker_id: string;
+    status: 'Pending' | 'Accepted' | 'Declined';
+    message?: string | null;
+    created_at: string;
+    updated_at: string;
+  }>('/job-applications/invitations', payload);
+  return data;
+};
+
+/** Jobseeker: list invitations (94) */
+export const listInvitations = async (includeAll = false) => {
+  const { data } = await api.get<Array<{
+    id: string;
+    status: 'Pending' | 'Accepted' | 'Declined';
+    message?: string | null;
+    created_at: string;
+    job_post: {
+      id: string;
+      title: string;
+      location?: string | null;
+      salary?: number | null;
+      salary_type?: 'per hour' | 'per month' | 'negotiable' | null;
+      job_type?: 'Full-time' | 'Part-time' | 'Project-based' | null;
+      slug?: string | null;
+      slug_id?: string | null;
+      employer?: { id: string; username: string } | null;
+    };
+    employer?: { id: string; username: string } | null;
+  }>>('/job-applications/invitations', { params: { includeAll } });
+  return data;
+};
+
+/** Jobseeker: decline invitation (95) */
+export const declineInvitation = async (invitationId: string) => {
+  const { data } = await api.post<{ id: string; status: 'Declined' }>(
+    `/job-applications/invitations/${invitationId}/decline`
+  );
+  return data;
+};
+
+/** Jobseeker: accept invitation — starts application flow (96) */
+export const acceptInvitation = async (
+  invitationId: string,
+  payload: {
+    cover_letter?: string;
+    relevant_experience?: string;
+    full_name?: string;
+    referred_by?: string;
+  }
+) => {
+  const { data } = await api.post<{ id: string; status: 'Accepted' }>(
+    `/job-applications/invitations/${invitationId}/accept`,
+    payload
+  );
+  return data;
+};
 
 export const getMyApplications = async () => {
   const token = localStorage.getItem('token');
@@ -1572,18 +1652,14 @@ export async function adminListApplicationsForJob(jobPostId: string) {
   return getApplicationsForJobPost(jobPostId); // JobApplicationDetails[]
 }
 
-// export const broadcastToSelected = async (jobPostId: string, payload: {
-//   applicationIds: string[];
-//   content: string;
-// }) => {
-//   const { data } = await api.post<{ sent: number }>(`/chat/broadcast-selected/${jobPostId}`, payload);
-//   return data;
-// };
-
-// export const bulkRejectApplications = async (applicationIds: string[]) => {
-//   const { data } = await api.post<{ updated: number; updatedIds: string[] }>(
-//     `/job-applications/bulk-reject`,
-//     { applicationIds }
-//   );
-//   return data;
-// };
+export const getBrandsAnalytics = async (params?: {
+  startDate?: string; // 'YYYY-MM-DD'
+  endDate?: string;   // 'YYYY-MM-DD'
+}) => {
+  const res = await api.get('/admin/analytics/brands', { params });
+  return res.data as {
+    range: { startDate: string; endDate: string };
+    byBrand: Array<{ brand: string; total: number; employers: number; jobseekers: number }>;
+    overall: { total: number; employers: number; jobseekers: number };
+  };
+};
