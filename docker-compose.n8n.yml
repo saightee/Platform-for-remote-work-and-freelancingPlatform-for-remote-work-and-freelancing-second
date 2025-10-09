@@ -1,0 +1,25 @@
+# docker-compose.n8n.yml
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5688:5678"   # если 5688 занят, поменяй на свободный
+    environment:
+      - NODE_ENV=production
+      - GENERIC_TIMEZONE=Europe/Riga
+      # ОБЯЗАТЕЛЬНО: задал один раз и больше не меняй, иначе потеряешь зашифрованные креды
+      - N8N_ENCRYPTION_KEY=0f3d5a06d9c14e9da0a2e7b3c8f14a2c9c3f7b1e6d9245cbb2a1e8f4d6c79a1f
+      # базовая авторизация на сам UI n8n
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=S9uC6p!v4rFh3dZkA7qN2wXyB5mQ8tLp
+    volumes:
+      - n8n_data:/home/node/.n8n
+    # позволит из контейнера достучаться до Postgres на хосте по имени host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  n8n_data:
