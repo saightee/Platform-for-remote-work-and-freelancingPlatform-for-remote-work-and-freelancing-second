@@ -20,7 +20,7 @@ import { JobApplication, JobPost, JobApplicationDetails } from '@types';
 import { format } from 'date-fns';
 import { FaComments, FaPaperPlane, FaUsers } from 'react-icons/fa';
 import '../styles/chat-hub.css';
-import { brand } from '../brand';
+import { toast } from '../utils/toast';
 
 interface Message {
   id: string;
@@ -101,6 +101,7 @@ const toggleSelect = (id: string) => {
     return next;
   });
 };
+
 const clearSelection = () => setSelectedIds(new Set());
 
 // МОДАЛКА ДЛЯ "MESSAGE SELECTED"
@@ -113,7 +114,7 @@ const [selText, setSelText] = useState('');
 // } | null>(null);
 
 const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
-
+const [multiMode, setMultiMode] = useState(false);
 
   const [reviewForm, setReviewForm] = useState<{
     applicationId: string;
@@ -207,30 +208,38 @@ useEffect(() => {
       try {
         setIsLoading(true);
 
-        if (currentRole === 'jobseeker') {
-          const apps = await getMyApplications();
-          setApplications(
-            apps.filter((a) => ['Pending', 'Accepted'].includes(a.status as any))
-          );
-          joinAllMyChats(apps.map(a => a.id));
-        } else if (currentRole === 'employer') {
-          const posts = await getMyJobPosts();
-          const active = posts.filter(isActiveJob);
-          setJobPosts(active);
+if (currentRole === 'jobseeker') {
+  const all = await getMyApplications();
+  const filtered = all.filter(a => ['Pending','Accepted'].includes(a.status as any));
+  setApplications(filtered);
+  joinAllMyChats(filtered.map(a => a.id));
 
-          const appsArrays = await Promise.all(
-            active.map((post) => getApplicationsForJobPost(post.id))
-          );
-          const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
-          active.forEach((post, index) => {
-            appsMap[post.id] = appsArrays[index];
-          });
-          setJobPostApplications(appsMap);
-const allAppIds = appsArrays.flat().map(a => a.applicationId);
-joinAllMyChats(allAppIds);
-          if (!activeJobId && active[0]) setActiveJobId(active[0].id);
-          if (preselectApplicationId) setSelectedChat(preselectApplicationId);
-        }
+  // автоселект без гонок
+  if (!preselectApplicationId && !selectedChat && filtered[0]) {
+    setSelectedChat(filtered[0].id);
+  } else if (preselectApplicationId) {
+    setSelectedChat(preselectApplicationId);
+  }
+} else if (currentRole === 'employer') {
+  const posts = await getMyJobPosts();
+  const active = posts.filter(isActiveJob);
+  setJobPosts(active);
+
+  const arrays = await Promise.all(active.map(p => getApplicationsForJobPost(p.id)));
+  const map: Record<string, JobApplicationDetails[]> = {};
+  active.forEach((p, i) => { map[p.id] = arrays[i]; });
+  setJobPostApplications(map);
+
+  const allIds = arrays.flat().map(a => a.applicationId);
+  joinAllMyChats(allIds);
+
+  if (!activeJobId && active[0]) setActiveJobId(active[0].id);
+  if (!selectedChat) {
+    const first = preselectApplicationId ?? arrays.flat()[0]?.applicationId;
+    if (first) setSelectedChat(first);
+  }
+}
+
       } catch (e) {
         console.error('Error fetching applications:', e);
         setError('Failed to load applications.');
@@ -239,20 +248,8 @@ joinAllMyChats(allAppIds);
       }
     };
 
-   if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole)) {
-  fetchData().then(() => {
-    // ЕСЛИ ЧАТ ЕЩЁ НЕ ВЫБРАН — ВЫБИРАЕМ ПЕРВЫЙ ДОСТУПНЫЙ
-    try {
-      if (!selectedChat) {
-        if (currentRole === 'employer') {
-          const list: string[] = (activeJobId ? (jobPostApplications[activeJobId] || []) : Object.values(jobPostApplications).flat()).map(a => a.applicationId);
-          if (list[0]) setSelectedChat(list[0]);
-        } else if (currentRole === 'jobseeker') {
-          if (applications[0]?.id) setSelectedChat(applications[0].id);
-        }
-      }
-    } catch {}
-  });
+if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole)) {
+  fetchData(); 
 }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, currentRole]);
@@ -262,6 +259,8 @@ joinAllMyChats(allAppIds);
   // при смене выбранной вакансии — снимаем выделение чата
   useEffect(() => {
     setSelectedChat(null);
+    setMultiMode(false);
+  clearSelection();
   }, [activeJobId]);
 
   const scrollToBottom = useCallback((smooth: boolean = false) => {
@@ -427,21 +426,18 @@ if (
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedChat || !newMessage.trim()) return;
-
-
-
-    if (!socket) return;
+if (!selectedChat || !newMessage.trim()) return;
+if (!socket || !socket.connected) {
+  setError('Connecting to chat server… Try again in a moment.');
+  return;
+}
 
     if (typingTimeoutRef.current[selectedChat]) {
       clearTimeout(typingTimeoutRef.current[selectedChat]);
     }
     socket.emit('typing', { jobApplicationId: selectedChat, isTyping: false });
 
-    socket.emit('sendMessage', {
-      jobApplicationId: selectedChat,
-      content: newMessage.trim(),
-    });
+socket.emit('sendMessage', { jobApplicationId: selectedChat, content: newMessage.trim() });
 
     setNewMessage('');
   };
@@ -479,16 +475,21 @@ return list
   }
 
   // jobseeker
-  return applications
-    .map((app): ChatListItem => ({
-      id: app.id,
-      title: app.job_post?.title || 'Unknown Job',
-      partner: app.job_post?.employer?.username || 'Unknown',
-      unreadCount: unreadCounts[app.id] ?? 0,
-      status: app.status,
-      // userId / appliedAt опциональны — их тут нет, и это ок
-    }))
-    .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));
+let source = applications;
+if (currentRole === 'jobseeker' && selectedChat) {
+  source = applications.filter(a => a.id === selectedChat);
+}
+
+return source
+  .map((app): ChatListItem => ({
+    id: app.id,
+    title: app.job_post?.title || 'Unknown Job',
+    partner: app.job_post?.employer?.username || 'Unknown',
+    unreadCount: unreadCounts[app.id] ?? 0,
+    status: app.status,
+  }))
+  .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));
+
 }, [
   activeJobId,
   jobPostApplications,
@@ -539,7 +540,7 @@ return list
   return pool.find((x) => x.id === selectedChat)?.label || 'Chats…';
 }, [currentRole, jobPosts, activeJobId, applications, selectedChat]);
 
-  const handleSelectChat = (jobApplicationId: string) => {
+  const handleSelectChat = async (jobApplicationId: string) => {
     const exists = [...chatList, ...allChats].some((c: any) => c.id === jobApplicationId);
     if (!exists) {
       setSelectedChat(null);
@@ -563,19 +564,38 @@ return list
       setError('Connecting to chat server... Please wait.');
     }
 
-    getChatHistory(jobApplicationId, { page: 1, limit: 100 }, currentRole!)
-      .then((history) => {
-        setMessages((prev) => ({
-          ...prev,
-          [jobApplicationId]: history.data.sort(
-            (a, b) =>
-              new Date(a.created_at).getTime() -
-              new Date(b.created_at).getTime()
-          ),
-        }));
-        setUnreadCounts((prev) => ({ ...prev, [jobApplicationId]: 0 }));
-      })
-      .catch(() => setError('Failed to load chat history.'));
+const fetchHistory = async () => {
+  const history = await getChatHistory(jobApplicationId, { page: 1, limit: 100 }, currentRole!);
+  setMessages(prev => ({
+    ...prev,
+    [jobApplicationId]: history.data.sort(
+      (a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    ),
+  }));
+  setUnreadCounts(prev => ({ ...prev, [jobApplicationId]: 0 }));
+};
+
+try {
+  await fetchHistory();
+} catch (err: any) {
+  const msg: string = err?.response?.data?.message || err?.message || '';
+  if (/not initialized/i.test(msg) || /инициал/i.test(msg)) {
+    setError('Initializing chat…');
+    const onInit = (d: { jobApplicationId: string }) => {
+      if (d.jobApplicationId === jobApplicationId) {
+        socket?.off('chatInitialized', onInit);
+        socket?.emit('joinChat', { jobApplicationId });
+        fetchHistory().finally(() => setError(null));
+      }
+    };
+    socket?.on('chatInitialized', onInit);
+    // если бэк поддерживает явный init — пробуем
+    socket?.emit('initChat', { jobApplicationId });
+  } else {
+    setError('Failed to load chat history.');
+  }
+}
+
   };
 
   // текущая заявка (для действий работодателя)
@@ -608,6 +628,25 @@ return list
     }, 3000);
   };
 
+  useEffect(() => {
+  const mark = () => {
+    if (!selectedChat || !socket?.connected) return;
+    socket.emit('markMessagesAsRead', { jobApplicationId: selectedChat });
+    setUnreadCounts(prev => ({ ...prev, [selectedChat]: 0 }));
+  };
+
+  const onFocus = () => mark();
+  const onVisible = () => { if (document.visibilityState === 'visible') mark(); };
+
+  window.addEventListener('focus', onFocus);
+  document.addEventListener('visibilitychange', onVisible);
+  return () => {
+    window.removeEventListener('focus', onFocus);
+    document.removeEventListener('visibilitychange', onVisible);
+  };
+}, [selectedChat, socket]);
+
+
   const groupedByJob = useMemo(() => {
   if (currentRole !== 'employer') return [];
   return jobPosts.map(post => {
@@ -628,11 +667,12 @@ return list
     if (!activeJobId || !broadcastText.trim()) return;
     try {
       const res = await broadcastToApplicants(activeJobId, broadcastText.trim());
-      alert(`Sent: ${res.sent}`);
+      toast.success(`Sent to ${res.sent} applicants.`);
       setBroadcastOpen(false);
       setBroadcastText('');
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Failed to send broadcast.');
+     toast.error(err?.response?.data?.message || 'Failed to send broadcast.');
+
     }
   };
 
@@ -656,10 +696,14 @@ return list
     // если сейчас открыт чат по этой вакансии — сбросим выбор
     if (selectedChat) setSelectedChat(null);
     setActiveJobId(null);
+    setMultiMode(false);
+clearSelection();
+toast.success('Job closed successfully.');
 
-    alert('Job closed successfully.');
+
+    toast.success('Job closed successfully.');
   } catch (err: any) {
-    alert(err?.response?.data?.message || 'Failed to close job.');
+    toast.error(err?.response?.data?.message || 'Failed to close job.');
   }
 };
 
@@ -788,31 +832,30 @@ useEffect(() => {
     </div>
   </details>
 {currentRole === 'employer' && activeJobId && (
-  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-    <button
-      className="ch-btn"
-      onClick={() => setBroadcastOpen(true)}
-      title="Send a message to all applicants of this job"
-    >
+  <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+    <button className="ch-btn" onClick={() => setBroadcastOpen(true)}>
       <FaUsers />&nbsp;Message to all applicants
     </button>
 
-    <button
-      className="ch-btn"
-      onClick={() => setConfirmCloseOpen(true)}
-      title="Close this job"
-    >
+    <button className="ch-btn" onClick={() => setConfirmCloseOpen(true)}>
       Close job
     </button>
 
-    {/* ПОЯВЛЯЮТСЯ ТОЛЬКО ЕСЛИ ЕСТЬ ВЫБРАННЫЕ ЧАТЫ */}
-    {selectedIds.size > 0 && (
+    {!multiMode && chatList.length > 0 && (
+      <button className="ch-btn" onClick={() => { setMultiMode(true); clearSelection(); }}>
+        Select candidates
+      </button>
+    )}
+
+    {multiMode && selectedIds.size === 0 && (
+      <button className="ch-btn" onClick={() => { setMultiMode(false); clearSelection(); }}>
+        Cancel selection
+      </button>
+    )}
+
+    {multiMode && selectedIds.size > 0 && (
       <>
-        <button
-          className="ch-btn"
-          onClick={() => setSelModalOpen(true)}
-          title="Send message to selected"
-        >
+        <button className="ch-btn" onClick={() => setSelModalOpen(true)}>
           Message Selected ({selectedIds.size})
         </button>
         <button
@@ -824,7 +867,6 @@ useEffect(() => {
             if (!confirm(`Reject ${ids.length} selected applicant(s)? This will remove their chats.`)) return;
             try {
               const res = await bulkRejectApplications(ids);
-              // локально скрываем отклонённых из списка
               setJobPostApplications(prev => {
                 const copy = { ...prev };
                 Object.keys(copy).forEach(jobId => {
@@ -833,19 +875,23 @@ useEffect(() => {
                 return copy;
               });
               clearSelection();
-              alert(`Rejected ${res.updated} applicants.`);
+              setMultiMode(false);            // ← выходим из режима
+              toast.success(`Rejected ${res.updated} applicants.`);
             } catch (err: any) {
-              alert(err?.response?.data?.message || 'Failed to bulk reject.');
+              toast.error(err?.response?.data?.message || 'Failed to bulk reject.');
             }
           }}
-          title="Reject selected"
         >
           Reject Selected ({selectedIds.size})
+        </button>
+        <button className="ch-btn" onClick={() => { setMultiMode(false); clearSelection(); }}>
+          Cancel
         </button>
       </>
     )}
   </div>
 )}
+
 
 
   
@@ -868,16 +914,16 @@ useEffect(() => {
 >
   {/* ЧЕКБОКС ВЫБОРА — НЕ МЕШАЕТ ОТКРЫТИЮ ЧАТА */}
   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-    <input
-      type="checkbox"
-      checked={selectedIds.has(chat.id)}
-      onChange={(e) => {
-        e.stopPropagation();
-        toggleSelect(chat.id);
-      }}
-      onClick={(e) => e.stopPropagation()}
-      style={{ marginTop: 2 }}
-    />
+{currentRole === 'employer' && multiMode && (
+  <input
+    type="checkbox"
+    checked={selectedIds.has(chat.id)}
+    onChange={(e) => { e.stopPropagation(); toggleSelect(chat.id); }}
+    onClick={(e) => e.stopPropagation()}
+    style={{ marginTop: 2 }}
+  />
+)}
+
 
     <div className="ch-chatlist__meta" style={{ flex: 1 }}>
       <div className="ch-chatlist__row">
@@ -893,10 +939,18 @@ useEffect(() => {
         </div>
       </div>
 
-      <div className="ch-chatlist__applied" title="Last activity">
-        {chat.lastActivity ? `${format(new Date(chat.lastActivity), 'PPpp')} — ` : ''}
-        {chat.lastMessage ? chat.lastMessage : (chat.appliedAt ? `Applied: ${format(new Date(chat.appliedAt), 'PPpp')}` : '')}
-      </div>
+    <div className="ch-chatlist__applied" title="Last activity">
+  {chat.lastActivity
+    ? format(new Date(chat.lastActivity), 'PPpp')
+    : (chat.appliedAt ? `Applied: ${format(new Date(chat.appliedAt), 'PPpp')}` : '')
+  }
+</div>
+{chat.lastMessage && (
+  <div className="ch-chatlist__last one-line" title={chat.lastMessage}>
+    {chat.lastMessage}
+  </div>
+)}
+
     </div>
   </div>
 </li>
@@ -964,11 +1018,14 @@ useEffect(() => {
               applicationIds: ids,
               content: text,
             });
-            alert(`Sent to ${res.sent} applicants.`);
-            setSelText('');
-            setSelModalOpen(false);
+           toast.success(`Sent to ${res.sent} applicants.`);
+setSelText('');
+setSelModalOpen(false);
+setMultiMode(false);     // ← выходим из режима
+clearSelection();        // ← сбрасываем чекбоксы
+
           } catch (err: any) {
-            alert(err?.response?.data?.message || 'Failed to send to selected.');
+            toast.error(err?.response?.data?.message || 'Failed to send to selected.');
           }
         }}
         className="ch-form"
@@ -1020,7 +1077,7 @@ useEffect(() => {
                             rating: reviewForm.rating,
                             comment: reviewForm.comment,
                           });
-                          alert('Review submitted successfully!');
+                          toast.success('Review submitted successfully!');
                           setReviewForm(null);
                         } catch (err: any) {
                           setFormError(
@@ -1148,7 +1205,7 @@ useEffect(() => {
                         return { ...prev, [currentApp.job_post_id]: updated };
                       });
                     } catch (e: any) {
-                      alert(e?.response?.data?.message || 'Failed to accept.');
+                      toast.error(e?.response?.data?.message || 'Failed to accept.');
                     } finally {
                       closeAllMenus();
                     }
@@ -1178,7 +1235,7 @@ useEffect(() => {
                       });
                       setSelectedChat(null);
                     } catch (e: any) {
-                      alert(e?.response?.data?.message || 'Failed to reject.');
+                      toast.error(e?.response?.data?.message || 'Failed to reject.');
                     } finally {
                       closeAllMenus();
                     }
@@ -1286,16 +1343,19 @@ useEffect(() => {
             if (!activeJobId) return;
             try {
               await closeJobPost(activeJobId);
-              setJobPosts((prev) => prev.filter((p) => p.id !== activeJobId));
-              setJobPostApplications((prev) => {
+              setJobPosts(prev => prev.filter(p => p.id !== activeJobId));
+              setJobPostApplications(prev => {
                 const next = { ...prev };
                 delete next[activeJobId];
                 return next;
               });
               if (selectedChat) setSelectedChat(null);
               setActiveJobId(null);
+              setMultiMode(false);
+              clearSelection();
+              toast.success('Job closed successfully.');
             } catch (err: any) {
-              alert(err?.response?.data?.message || 'Failed to close job.');
+              toast.error(err?.response?.data?.message || 'Failed to close job.');
             } finally {
               setConfirmCloseOpen(false);
             }

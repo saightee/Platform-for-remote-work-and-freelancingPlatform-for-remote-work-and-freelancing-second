@@ -462,9 +462,20 @@ const backAfterReport =
           <div className="job-detail-item">
             <FaMapMarkerAlt /> <strong>Location:</strong> {job.location || 'Not specified'}
           </div>
-          <div className="job-detail-item">
-            <FaFolder /> <strong>Category:</strong> {job.category?.name || 'Not specified'}
-          </div>
+        <div className="job-detail-item">
+  <FaFolder /> <strong>Category:</strong>{' '}
+  {Array.isArray((job as any).categories) && (job as any).categories.length > 0 ? (
+    <div className="jd-cats">
+      <span className="jd-cat-main">{(job as any).categories[0].name}</span>
+      {(job as any).categories.slice(1).map((c: any, i: number) => (
+        <span key={i} className="jd-cat-sub">{c.name}</span>
+      ))}
+    </div>
+  ) : (
+    job.category?.name || 'Not specified'
+  )}
+</div>
+
           <div className="job-detail-item">
             <FaCalendarAlt /> <strong>Date Updated:</strong>{' '}
             {formatDateInTimezone(job.updated_at, profile?.timezone) || 'Not specified'}

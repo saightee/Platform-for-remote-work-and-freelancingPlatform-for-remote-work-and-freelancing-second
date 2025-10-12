@@ -1100,12 +1100,13 @@ useEffect(() => {
       getJobPostsWithApplications: '',
     }));
 
-      const today = format(new Date(), 'yyyy-MM-dd'); // Используем date-fns для форматирования
-      const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-      const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-      const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-      const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
-      const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+ const tzOffset = -new Date().getTimezoneOffset();                // ← единый оффсет пользователя
+const today = format(new Date(), 'yyyy-MM-dd');
+const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+const monthStart = format(subDays(new Date(), 29), 'yyyy-MM-dd'); // ← rolling 30d
+const monthEnd = today;                                           // ← до «сегодня»
 
     const requests = [
       getAllJobPosts({ page: jobPostPage, limit: jobPostLimit }),
@@ -1116,14 +1117,14 @@ useEffect(() => {
       getAdminCategories(),
       getAnalytics(),
       getRegistrationStats({ startDate: '2023-01-01', endDate: new Date().toISOString().split('T')[0], interval: selectedInterval }),
-      getGeographicDistribution({ role: 'jobseeker', startDate: today, endDate: today }),
-      getGeographicDistribution({ role: 'jobseeker', startDate: yesterday, endDate: yesterday }),
-      getGeographicDistribution({ role: 'jobseeker', startDate: weekStart, endDate: weekEnd }),
-      getGeographicDistribution({ role: 'jobseeker', startDate: monthStart, endDate: monthEnd }),
-      getGeographicDistribution({ role: 'employer', startDate: today, endDate: today }),
-      getGeographicDistribution({ role: 'employer', startDate: yesterday, endDate: yesterday }),
-      getGeographicDistribution({ role: 'employer', startDate: weekStart, endDate: weekEnd }),
-      getGeographicDistribution({ role: 'employer', startDate: monthStart, endDate: monthEnd }),
+    getGeographicDistribution({ role: 'jobseeker', startDate: today,     endDate: today,      tzOffset }),
+  getGeographicDistribution({ role: 'jobseeker', startDate: yesterday, endDate: yesterday,  tzOffset }),
+  getGeographicDistribution({ role: 'jobseeker', startDate: weekStart, endDate: weekEnd,    tzOffset }),
+  getGeographicDistribution({ role: 'jobseeker', startDate: monthStart,endDate: monthEnd,   tzOffset }),
+  getGeographicDistribution({ role: 'employer',  startDate: today,     endDate: today,      tzOffset }),
+  getGeographicDistribution({ role: 'employer',  startDate: yesterday, endDate: yesterday,  tzOffset }),
+  getGeographicDistribution({ role: 'employer',  startDate: weekStart, endDate: weekEnd,    tzOffset }),
+  getGeographicDistribution({ role: 'employer',  startDate: monthStart,endDate: monthEnd,   tzOffset }),
       getTopEmployers(5),
       getTopJobseekers(5),
       getTopJobseekersByViews(5),
@@ -1745,10 +1746,12 @@ useEffect(() => {
     start: format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
     end: format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
   });
-  const monthRange = () => ({
-    start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
-    end: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
-  });
+const tzOffset = -new Date().getTimezoneOffset();
+
+const monthRange = () => ({
+  start: format(subDays(new Date(), 29), 'yyyy-MM-dd'),  // ← rolling 30d
+  end: format(new Date(), 'yyyy-MM-dd'),
+});
 
   // быстрый тик: онлайн, последние регистрации, и TODAY для Business Overview
 const fetchFast = async () => {
@@ -1756,8 +1759,8 @@ const fetchFast = async () => {
     const [online, recents, jsToday, bizToday] = await Promise.all([
       getOnlineUsers(),
       getRecentRegistrationsToday({ limit: 5 }), // ← новая функция с tzOffset внутри
-      getGeographicDistribution({ role: 'jobseeker', startDate: today(), endDate: today() }),
-      getGeographicDistribution({ role: 'employer',  startDate: today(), endDate: today() }),
+      getGeographicDistribution({ role: 'jobseeker', startDate: today(), endDate: today(), tzOffset }),
+      getGeographicDistribution({ role: 'employer',  startDate: today(), endDate: today(), tzOffset }),
     ]);
     if (stop) return;
     setOnlineUsers(online || null);
@@ -1787,14 +1790,14 @@ const fetchFast = async () => {
       const { start: ws, end: we } = weekRange();
       const { start: ms, end: me } = monthRange();
 
-      const [jsY, jsW, jsM, bizY, bizW, bizM] = await Promise.all([
-        getGeographicDistribution({ role: 'jobseeker', startDate: y,  endDate: y }),
-        getGeographicDistribution({ role: 'jobseeker', startDate: ws, endDate: we }),
-        getGeographicDistribution({ role: 'jobseeker', startDate: ms, endDate: me }),
-        getGeographicDistribution({ role: 'employer',  startDate: y,  endDate: y }),
-        getGeographicDistribution({ role: 'employer',  startDate: ws, endDate: we }),
-        getGeographicDistribution({ role: 'employer',  startDate: ms, endDate: me }),
-      ]);
+const [jsY, jsW, jsM, bizY, bizW, bizM] = await Promise.all([
+  getGeographicDistribution({ role: 'jobseeker', startDate: y,  endDate: y,  tzOffset }),
+  getGeographicDistribution({ role: 'jobseeker', startDate: ws, endDate: we, tzOffset }),
+  getGeographicDistribution({ role: 'jobseeker', startDate: ms, endDate: me, tzOffset }),
+  getGeographicDistribution({ role: 'employer',  startDate: y,  endDate: y,  tzOffset }),
+  getGeographicDistribution({ role: 'employer',  startDate: ws, endDate: we, tzOffset }),
+  getGeographicDistribution({ role: 'employer',  startDate: ms, endDate: me, tzOffset }),
+]);
 
       if (stop) return;
       setFreelancerSignupsYesterday(jsY || []);
@@ -2074,7 +2077,7 @@ if (isLoading) {
         <th>Today</th>
         <th>Yesterday</th>
         <th>Week (Mon-Sun)</th>
-        <th>Month </th>
+        <th>Last 30 days</th>
       </tr>
     </thead>
     <tbody>
@@ -2242,7 +2245,16 @@ if (isLoading) {
     <tr key={post.id}>
       <td>{post.username || 'N/A'}</td>
       <td>{post.title}</td>
-      <td>{typeof post.category === 'string' ? post.category : post.category?.name || 'N/A'}</td>
+      <td>
+        {Array.isArray(post.categories) && post.categories.length > 0 ? (
+          <div className="adm-cats">
+            <span>{post.categories[0]}</span>
+            {post.categories.slice(1).map((name, idx) => (
+              <span key={idx} className="adm-cat-sub">{name}</span>
+            ))}
+          </div>
+        ) : (typeof post.category === 'string' ? post.category : post.category?.name || 'N/A')}
+      </td>
       <td>{post.applicationCount}</td>
       <td>{format(new Date(post.created_at), 'PP')}</td>
     </tr>
@@ -2252,6 +2264,7 @@ if (isLoading) {
     </tr>
   )}
 </tbody>
+
 
   </table>
   <div className="pagination">
