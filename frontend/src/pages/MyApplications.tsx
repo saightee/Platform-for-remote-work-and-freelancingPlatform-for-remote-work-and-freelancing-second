@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { getMyApplications, createReview, listInvitations } from '../services/api';
+import { getMyApplications, createReview, listInvitations, acceptInvitation,
+  declineInvitation } from '../services/api';
 import { JobApplication } from '@types';
 import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
@@ -50,6 +51,19 @@ const MyApplications: React.FC = () => {
 
   // NEW: текущий таб
   const [tab, setTab] = useState<TabKey>('all');
+  const [invActionLoading, setInvActionLoading] = useState<string | null>(null); // loader на Decline/Accept (per-card)
+
+// модалка Accept (форма подачи)
+const [isAcceptModalOpen, setIsAcceptModalOpen] = useState(false);
+const [acceptLoading, setAcceptLoading] = useState(false);
+const [acceptError, setAcceptError] = useState<string | null>(null);
+const [acceptForm, setAcceptForm] = useState<{
+  invitationId: string;
+  cover_letter: string;
+  relevant_experience: string;
+  full_name?: string;
+  referred_by?: string;
+} | null>(null);
 
 useEffect(() => {
   const fetchData = async () => {
@@ -67,8 +81,14 @@ useEffect(() => {
       listInvitations(),
     ]);
 
+    
+
     setApplications(appsRes.status === 'fulfilled' ? appsRes.value : []);
     setInvitations(invsRes.status === 'fulfilled' ? invsRes.value : []);
+
+
+
+
 
     // Если оба запроса отвалились — покажем ошибку; иначе — работаем молча
     if (appsRes.status === 'rejected' && invsRes.status === 'rejected') {
@@ -79,6 +99,74 @@ useEffect(() => {
   };
   if (!roleLoading) fetchData();
 }, [currentRole, roleLoading]);
+
+
+// === Invitation handlers (должны быть ВНУТРИ компонента MyApplications) ===
+
+// Отклонить приглашение -> POST /job-applications/invitations/:id/decline
+const handleDeclineInvitation = async (id: string) => {
+  try {
+    setInvActionLoading(id);
+    await declineInvitation(id);
+    // убираем карточку из Invitations
+    setInvitations((prev) => prev.filter((i) => i.id !== id));
+  } catch (e: any) {
+    setError(e?.response?.data?.message || 'Failed to decline invitation.');
+  } finally {
+    setInvActionLoading(null);
+  }
+};
+
+// Открыть модалку Accept (форма подачи)
+const openAcceptForm = (id: string) => {
+  setAcceptError(null);
+  setAcceptForm({
+    invitationId: id,
+    cover_letter: '',
+    relevant_experience: '',
+    full_name: profile?.username || '',
+    referred_by: '',
+  });
+  setIsAcceptModalOpen(true);
+};
+
+// Сабмит формы Accept -> POST /job-applications/invitations/:id/accept
+const submitAccept = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!acceptForm) return;
+
+  const cover = acceptForm.cover_letter?.trim() || '';
+  const exp = acceptForm.relevant_experience?.trim() || '';
+  if (!cover || !exp) {
+    setAcceptError('Cover letter и Relevant experience обязательны.');
+    return;
+  }
+
+  try {
+    setAcceptLoading(true);
+    setAcceptError(null);
+
+    await acceptInvitation(acceptForm.invitationId, {
+      cover_letter: cover,
+      relevant_experience: exp,
+      full_name: acceptForm.full_name?.trim(),
+      referred_by: acceptForm.referred_by?.trim(),
+    });
+
+    // после успеха — обновляем список заявок, убираем инвайт и переключаемся на Pending
+    const updatedApps = await getMyApplications();
+    setApplications(updatedApps);
+    setInvitations((prev) => prev.filter((i) => i.id !== acceptForm.invitationId));
+
+    setIsAcceptModalOpen(false);
+    setAcceptForm(null);
+    setTab('pending');
+  } catch (err: any) {
+    setAcceptError(err?.response?.data?.message || 'Failed to accept invitation.');
+  } finally {
+    setAcceptLoading(false);
+  }
+};
 
 
 
@@ -265,16 +353,37 @@ const filteredApps = useMemo(() => {
             </div>
           </div>
 
-          {inv.job_post?.id && (
-            <div className="ma-actions-row">
-              <Link
-                className="ma-btn ma-secondary"
-                to={`/vacancy/${inv.job_post.slug_id || inv.job_post.id}`}
-              >
-                View Job Post
-              </Link>
-            </div>
-          )}
+{inv.job_post?.id && (
+  <div className="ma-actions-row">
+    <Link
+      className="ma-btn ma-secondary"
+      to={`/vacancy/${inv.job_post.slug_id || inv.job_post.id}`}
+    >
+      View Job Post
+    </Link>
+
+    <button
+      type="button"
+      className="ma-btn ma-secondary ma-accept"
+      onClick={() => openAcceptForm(inv.id)}
+      disabled={invActionLoading === inv.id}
+      title="Accept invitation and apply"
+    >
+      Accept
+    </button>
+
+    <button
+      type="button"
+      className="ma-btn ma-secondary ma-decline"
+      onClick={() => handleDeclineInvitation(inv.id)}
+      disabled={invActionLoading === inv.id}
+      title="Decline invitation"
+    >
+      Decline
+    </button>
+  </div>
+)}
+
         </div>
       ))}
     </div>
@@ -392,6 +501,99 @@ const filteredApps = useMemo(() => {
 
         </div>
       </div>
+{/* Accept Invitation Modal */}
+{isAcceptModalOpen && acceptForm && (
+  <div
+    className="ma-modal"
+    onClick={(e) => {
+      if (e.target === e.currentTarget) {
+        setIsAcceptModalOpen(false);
+        setAcceptForm(null);
+        setAcceptError(null);
+      }
+    }}
+  >
+    <div className="ma-modal-content" onClick={(e) => e.stopPropagation()}>
+      <button
+        className="ma-modal-close"
+        onClick={() => { setIsAcceptModalOpen(false); setAcceptForm(null); setAcceptError(null); }}
+      >
+        ×
+      </button>
+
+      <form onSubmit={submitAccept} className="ma-review-form">
+        <h3 className="ma-title" style={{ marginBottom: 8 }}>Accept Invitation</h3>
+        <p className="ma-sub" style={{ marginTop: 0 }}>Fill the application details and submit.</p>
+
+        {acceptError && <p className="ma-alert ma-err">{acceptError}</p>}
+
+        <div className="ma-form-group">
+          <label className="ma-label">Full name</label>
+          <input
+            type="text"
+            className="ma-input"
+            value={acceptForm.full_name || ''}
+            onChange={(e) => setAcceptForm({ ...acceptForm, full_name: e.target.value })}
+            placeholder="Your full name"
+          />
+        </div>
+
+        <div className="ma-form-group">
+          <label className="ma-label">Cover letter *</label>
+          <textarea
+            className="ma-textarea"
+            rows={5}
+            required
+            value={acceptForm.cover_letter}
+            onChange={(e) => setAcceptForm({ ...acceptForm, cover_letter: e.target.value })}
+            placeholder="Short motivation letter"
+          />
+        </div>
+
+        <div className="ma-form-group">
+          <label className="ma-label">Relevant experience *</label>
+          <textarea
+            className="ma-textarea"
+            rows={4}
+            required
+            value={acceptForm.relevant_experience}
+            onChange={(e) => setAcceptForm({ ...acceptForm, relevant_experience: e.target.value })}
+            placeholder="Describe relevant experience"
+          />
+        </div>
+
+        <div className="ma-form-group">
+          <label className="ma-label">Referred by (optional)</label>
+          <input
+            type="text"
+            className="ma-input"
+            value={acceptForm.referred_by || ''}
+            onChange={(e) => setAcceptForm({ ...acceptForm, referred_by: e.target.value })}
+            placeholder="Who referred you?"
+          />
+        </div>
+
+        <div className="ma-actions">
+          <button
+            type="submit"
+            className="ma-btn ma-accept"
+            disabled={acceptLoading}
+          >
+            {acceptLoading ? 'Submitting…' : 'Submit & Accept'}
+          </button>
+
+          <button
+            type="button"
+            className="ma-btn"
+            onClick={() => { setIsAcceptModalOpen(false); setAcceptForm(null); setAcceptError(null); }}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
 
       {/* Review Modal (оставил твою логику) */}
       {isReviewModalOpen && reviewForm && (
