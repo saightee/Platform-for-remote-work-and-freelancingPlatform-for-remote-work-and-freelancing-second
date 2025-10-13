@@ -384,7 +384,9 @@ if (Array.isArray(now.languages))                    patch.languages = now.langu
       <div className="pf-shell">
         <div className="pf-card">
           <div className="pf-header">
-            <h1 className="pf-title">My Profile <span className="pf-role">| {profileData.role}</span></h1>
+           <h1 className="pf-title">
+  {profileData.username} <span className="pf-role">| {profileData.role}</span>
+</h1>
             {!isEditing && (
               <div className="pf-actions-top">
                 <button className="pf-button" onClick={() => setIsEditing(true)}>Edit Profile</button>
@@ -441,12 +443,14 @@ if (Array.isArray(now.languages))                    patch.languages = now.langu
               <div className="pf-section">
                 {!isEditing ? (
                   <div className="pf-kv">
-                    <div className="pf-kv-row"><span className="pf-k">Username</span><span className="pf-v">{profileData.username}</span></div>
+                    
                     <div className="pf-kv-row"><span className="pf-k">Timezone</span><span className="pf-v">{profileData.timezone || 'Not specified'}</span></div>
                     <div className="pf-kv-row"><span className="pf-k">Currency</span><span className="pf-v">{profileData.currency || 'Not specified'}</span></div>
                    <div className="pf-kv-row">
   <span className="pf-k">Country</span>
-  <span className="pf-v">{(profileData as any).country || 'Not specified'}</span>
+  <span className="pf-v">
+    {(profileData as any).country_name || (profileData as any).country || 'Not specified'}
+  </span>
 </div>
 
 {Array.isArray((profileData as any).languages) && (profileData as any).languages.length > 0 && (

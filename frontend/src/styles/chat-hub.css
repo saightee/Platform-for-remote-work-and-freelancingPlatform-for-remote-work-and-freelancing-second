@@ -203,7 +203,7 @@
 .ch-thread, .ch-chatlist{ scrollbar-width:thin; scrollbar-color:#dfe6ff transparent; }
 
 /* кастомные dropdown'ы (всегда вниз) */
-.ch-dd{ position:relative; display:inline-block; }
+.ch-dd{ position:relative; display:inline-block; margin-bottom: 0px; }
 .ch-dd > summary{
   list-style:none;
   height:36px; line-height:36px;
@@ -526,3 +526,17 @@ html, body { overflow-x: hidden; }
 @media (max-width: 640px) {
   .ch-bubble { max-width: 86% !important; }
 }
+/* meta-блок в айтеме точно сжимается, не ломая сетку */
+.ch-chatlist__meta{ min-width:0; }
+
+/* отдельная строка «последнего сообщения» с троеточием */
+.ch-chatlist__last{
+  font-size:12px;
+  color:var(--ch-muted);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+/* подстрахуем сам айтем — пусть можно сжимать */
+.ch-chatlist__item{ min-width:0; }

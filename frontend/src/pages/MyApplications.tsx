@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { getMyApplications, createReview } from '../services/api';
+import { getMyApplications, createReview, listInvitations } from '../services/api';
 import { JobApplication } from '@types';
 import { useRole } from '../context/RoleContext';
 import Copyright from '../components/Copyright';
@@ -18,11 +18,25 @@ import {
 } from 'react-icons/fa';
 import '../styles/my-applications.css';
 
-type TabKey = 'all' | 'pending' | 'accepted' | 'closed';
+type TabKey = 'all' | 'pending' | 'accepted' | 'rejected' | 'invitations';
+
 
 const MyApplications: React.FC = () => {
   const { profile } = useRole();
   const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [invitations, setInvitations] = useState<Array<{
+  id: string;
+  status: 'Pending' | 'Accepted' | 'Declined';
+  message?: string | null;
+  created_at: string;
+  job_post: {
+    id: string;
+    title: string;
+    slug?: string | null;
+    slug_id?: string | null;
+    employer?: { id: string; username: string } | null;
+  };
+}>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reviewForm, setReviewForm] = useState<{ applicationId: string; rating: number; comment: string } | null>(null);
@@ -33,28 +47,33 @@ const MyApplications: React.FC = () => {
   // NEW: текущий таб
   const [tab, setTab] = useState<TabKey>('all');
 
-  useEffect(() => {
-    const fetchApplications = async () => {
-      if (!profile || profile.role !== 'jobseeker') {
-        setError('This page is only available for jobseekers.');
-        setIsLoading(false);
-        return;
-      }
+useEffect(() => {
+  const fetchData = async () => {
+    if (!profile || profile.role !== 'jobseeker') {
+      setError('This page is only available for jobseekers.');
+      setIsLoading(false);
+      return;
+    }
 
-      try {
-        setIsLoading(true);
-        setError(null);
-        const data = await getMyApplications();
-        setApplications(data);
-      } catch (err: any) {
-        console.error('Error fetching applications:', err);
-        setError(err.response?.data?.message || 'Failed to load applications. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchApplications();
-  }, [profile]);
+    try {
+      setIsLoading(true);
+      setError(null);
+      const [apps, invs] = await Promise.all([
+        getMyApplications(),
+        listInvitations(true) // includeAll=true — берём все приглашения, не только pending
+      ]);
+      setApplications(apps);
+      setInvitations(invs || []);
+    } catch (err: any) {
+      console.error('Error fetching applications/invitations:', err);
+      setError(err.response?.data?.message || 'Failed to load applications. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  fetchData();
+}, [profile]);
+
 
   const handleCreateReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,28 +133,29 @@ const MyApplications: React.FC = () => {
     return s.includes('closed') || s.includes('archiv') || s.includes('inactive');
   };
 
-  // NEW: счётчики для табов
-  const counts = useMemo(() => {
-    const pending = applications.filter(a => a.status === 'Pending').length;
-    const accepted = applications.filter(a => a.status === 'Accepted').length;
-    const closed = applications.filter(a => isJobClosed(a)).length;
-    const all = applications.length;
-    return { all, pending, accepted, closed };
-  }, [applications]);
+const counts = useMemo(() => {
+  const pending = applications.filter(a => a.status === 'Pending').length;
+  const accepted = applications.filter(a => a.status === 'Accepted').length;
+  const rejected = applications.filter(a => a.status === 'Rejected').length;
+  const all = applications.length;
+  const invitationsCount = invitations.length;
+  return { all, pending, accepted, rejected, invitations: invitationsCount };
+}, [applications, invitations]);
 
-  // NEW: отфильтрованный список
-  const filteredApps = useMemo(() => {
-    switch (tab) {
-      case 'pending':
-        return applications.filter(a => a.status === 'Pending');
-      case 'accepted':
-        return applications.filter(a => a.status === 'Accepted');
-      case 'closed':
-        return applications.filter(a => isJobClosed(a));
-      default:
-        return applications;
-    }
-  }, [tab, applications]);
+
+const filteredApps = useMemo(() => {
+  switch (tab) {
+    case 'pending':
+      return applications.filter(a => a.status === 'Pending');
+    case 'accepted':
+      return applications.filter(a => a.status === 'Accepted');
+    case 'rejected':
+      return applications.filter(a => a.status === 'Rejected');
+    default:
+      return applications;
+  }
+}, [tab, applications]);
+
 
   if (isLoading) {
     return (
@@ -175,145 +195,194 @@ const MyApplications: React.FC = () => {
 
           {error && <div className="ma-alert ma-err">{error}</div>}
 
-          {/* NEW: табы-фильтры */}
-          <div className="ma-tabs">
-            <button
-              className={`ma-tab ${tab === 'all' ? 'is-active' : ''}`}
-              onClick={() => setTab('all')}
+        
+<div className="ma-tabs">
+  <button className={`ma-tab ${tab === 'all' ? 'is-active' : ''}`} onClick={() => setTab('all')}>
+    All ({counts.all})
+  </button>
+  <button className={`ma-tab ${tab === 'pending' ? 'is-active' : ''}`} onClick={() => setTab('pending')}>
+    Pending ({counts.pending})
+  </button>
+  <button className={`ma-tab ${tab === 'accepted' ? 'is-active' : ''}`} onClick={() => setTab('accepted')}>
+    Accepted ({counts.accepted})
+  </button>
+  <button className={`ma-tab ${tab === 'rejected' ? 'is-active' : ''}`} onClick={() => setTab('rejected')}>
+    Rejected ({counts.rejected})
+  </button>
+  <button className={`ma-tab ${tab === 'invitations' ? 'is-active' : ''}`} onClick={() => setTab('invitations')}>
+    Invitations ({counts.invitations})
+  </button>
+</div>
+
+
+{tab === 'invitations' ? (
+  invitations.length > 0 ? (
+    <div className="ma-grid">
+      {invitations.map((inv) => (
+        <div key={inv.id} className="ma-item">
+          <div className="ma-item-head">
+            <h3 className="ma-item-title">
+              {inv.job_post?.title || 'Invitation'}
+            </h3>
+            <span
+              className={`ma-badge ${
+                inv.status === 'Accepted'
+                  ? 'ma-accepted'
+                  : inv.status === 'Declined'
+                  ? 'ma-rejected'
+                  : 'ma-pending'
+              }`}
             >
-              All ({counts.all})
-            </button>
-            <button
-              className={`ma-tab ${tab === 'pending' ? 'is-active' : ''}`}
-              onClick={() => setTab('pending')}
-            >
-              Pending ({counts.pending})
-            </button>
-            <button
-              className={`ma-tab ${tab === 'accepted' ? 'is-active' : ''}`}
-              onClick={() => setTab('accepted')}
-            >
-              Accepted ({counts.accepted})
-            </button>
-            <button
-              className={`ma-tab ${tab === 'closed' ? 'is-active' : ''}`}
-              onClick={() => setTab('closed')}
-            >
-              Closed ({counts.closed})
-            </button>
+              {inv.status}
+            </span>
           </div>
 
-          {filteredApps.length > 0 ? (
-            <div className="ma-grid">
-              {filteredApps.map((app) => (
-                <div key={app.id} className="ma-item">
-                  <div className="ma-item-head">
-                    <h3 className="ma-item-title">{app.job_post?.title || 'Unknown Job'}</h3>
-                    {badge(app.status)}
-                  </div>
+          <div className="ma-rows">
+            <div className="ma-row">
+              <span className="ma-key">From</span>
+              <span className="ma-val">
+                {inv.job_post?.employer?.username || 'Employer'}
+              </span>
+            </div>
 
-                  <div className="ma-rows">
-                    <div className="ma-row">
-                      <span className="ma-key"><FaClock /> Applied</span>
-                      <span className="ma-val">
-                        {formatDateInTimezone(app.created_at, profile.timezone)}
-                      </span>
-                    </div>
+            <div className="ma-row">
+              <span className="ma-key">Message</span>
+              <span className="ma-val">{inv.message || '—'}</span>
+            </div>
 
-                    <div className="ma-row">
-                      <span className="ma-key"><FaBriefcase /> Status</span>
-                      <span className="ma-val">{app.status}</span>
-                    </div>
-                  </div>
+            <div className="ma-row">
+              <span className="ma-key">Date</span>
+              <span className="ma-val">
+                {formatDateInTimezone(inv.created_at, profile.timezone)}
+              </span>
+            </div>
+          </div>
 
-              {app.job_post?.id && (
-  <div className="ma-actions-row">
-    {/* новый роут: /vacancy/<slug_or_id> */}
-    <Link
-      className="ma-btn ma-secondary"
-      to={`/vacancy/${(app.job_post as any).slug_id || app.job_post!.id}`}
-    >
-      View Job Post
-    </Link>
+          {inv.job_post?.id && (
+            <div className="ma-actions-row">
+              <Link
+                className="ma-btn ma-secondary"
+                to={`/vacancy/${inv.job_post.slug_id || inv.job_post.id}`}
+              >
+                View Job Post
+              </Link>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div className="ma-empty">
+      <FaInbox className="ma-empty-ico" />
+      <div className="ma-empty-title">No invitations</div>
+      <div className="ma-empty-sub">Employers can invite you to apply here.</div>
+    </div>
+  )
+) : filteredApps.length > 0 ? (
+  <div className="ma-grid">
+    {filteredApps.map((app) => (
+      <div key={app.id} className="ma-item">
+        <div className="ma-item-head">
+          <h3 className="ma-item-title">{app.job_post?.title || 'Unknown Job'}</h3>
+          {badge(app.status)}
+        </div>
 
-    {/* Кнопка "Leave Review" для джобсикера */}
-    {(() => {
-      const alreadyReviewed =
-        (app.reviews && app.reviews.length > 0) ||
-        !!leftReviews[app.id];
+        <div className="ma-rows">
+          <div className="ma-row">
+            <span className="ma-key"><FaClock /> Applied</span>
+            <span className="ma-val">
+              {formatDateInTimezone(app.created_at, profile.timezone)}
+            </span>
+          </div>
 
-      if (alreadyReviewed) {
-        return (
-          <button
-            type="button"
-            className="ma-btn"
-            disabled
-            title="You have already left a review for this application"
-          >
-            Review submitted
-          </button>
-        );
-      }
+          <div className="ma-row">
+            <span className="ma-key"><FaBriefcase /> Status</span>
+            <span className="ma-val">{app.status}</span>
+          </div>
+        </div>
 
-      // если хочешь ограничить только Accepted/Closed — добавь условие здесь
-      // const canLeave = app.status === 'Accepted' || isJobClosed(app);
-      // if (!canLeave) return null;
+        {app.job_post?.id && (
+          <div className="ma-actions-row">
+            <Link
+              className="ma-btn ma-secondary"
+              to={`/vacancy/${(app.job_post as any).slug_id || app.job_post!.id}`}
+            >
+              View Job Post
+            </Link>
 
-      return (
-        <button
-          type="button"
-          className="ma-btn ma-secondary"
-          onClick={() => {
-            setFormError(null);
-            setReviewForm({ applicationId: app.id, rating: 5, comment: '' });
-            setIsReviewModalOpen(true);
-          }}
-        >
-          Leave Review
-        </button>
-      );
-    })()}
+            {(() => {
+              const alreadyReviewed =
+                (app.reviews && app.reviews.length > 0) ||
+                !!leftReviews[app.id];
+
+              if (alreadyReviewed) {
+                return (
+                  <button
+                    type="button"
+                    className="ma-btn"
+                    disabled
+                    title="You have already left a review for this application"
+                  >
+                    Review submitted
+                  </button>
+                );
+              }
+
+              return (
+                <button
+                  type="button"
+                  className="ma-btn ma-secondary"
+                  onClick={() => {
+                    setFormError(null);
+                    setReviewForm({ applicationId: app.id, rating: 5, comment: '' });
+                    setIsReviewModalOpen(true);
+                  }}
+                >
+                  Leave Review
+                </button>
+              );
+            })()}
+          </div>
+        )}
+
+        {app.status === 'Accepted' && (
+          <div className="ma-note ma-ok">
+            <strong>Congratulations!</strong> Your application has been accepted.
+            {app.reviews && app.reviews.length > 0 ? (
+              <div className="ma-left-review">
+                <div className="ma-left-title">Your Review</div>
+                <div className="ma-stars">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <FaStar key={i} className={i < (app.reviews![0].rating || 0) ? 'ma-star filled' : 'ma-star'} />
+                  ))}
+                </div>
+                <div className="ma-left-text">{app.reviews[0].comment}</div>
+                <div className="ma-left-foot">You have already left a review for this application.</div>
+              </div>
+            ) : (
+              <div className="ma-left-foot">Leave your review directly in the chat with the employer.</div>
+            )}
+          </div>
+        )}
+
+        {app.status === 'Rejected' && (
+          <div className="ma-note ma-warn">
+            {isJobClosed(app)
+              ? 'This job post was closed, so your application can no longer be considered.'
+              : 'Unfortunately, your application was rejected.'}
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
+) : (
+  <div className="ma-empty">
+    <FaInbox className="ma-empty-ico" />
+    <div className="ma-empty-title">No applications found</div>
+    <div className="ma-empty-sub">Apply to jobs to see them listed here.</div>
   </div>
 )}
 
-
-                  {app.status === 'Accepted' && (
-                    <div className="ma-note ma-ok">
-                      <strong>Congratulations!</strong> Your application has been accepted.
-                      {app.reviews && app.reviews.length > 0 ? (
-                        <div className="ma-left-review">
-                          <div className="ma-left-title">Your Review</div>
-                          <div className="ma-stars">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <FaStar key={i} className={i < (app.reviews![0].rating || 0) ? 'ma-star filled' : 'ma-star'} />
-                            ))}
-                          </div>
-                          <div className="ma-left-text">{app.reviews[0].comment}</div>
-                          <div className="ma-left-foot">You have already left a review for this application.</div>
-                        </div>
-                      ) : (
-                        <div className="ma-left-foot">Leave your review directly in the chat with the employer.</div>
-                      )}
-                    </div>
-                  )}
-
-                  {app.status === 'Rejected' && (
-                    <div className="ma-note ma-warn">
-                      {isJobClosed(app)
-                        ? 'This job post was closed, so your application can no longer be considered.'
-                        : 'Unfortunately, your application was rejected.'}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="ma-empty">
-              <FaInbox className="ma-empty-ico" />
-              <div className="ma-empty-title">No applications found</div>
-              <div className="ma-empty-sub">Apply to jobs to see them listed here.</div>
-            </div>
-          )}
         </div>
       </div>
 

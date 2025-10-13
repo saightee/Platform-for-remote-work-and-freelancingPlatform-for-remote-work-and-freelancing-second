@@ -164,11 +164,14 @@ const submitInvite = async () => {
                 <span className="ppx-kv-label">Timezone</span>
                 <span className="ppx-kv-value">{profile.timezone || 'Not specified'}</span>
               </li>
-           <li>
-  <span className="ppx-kv-icon"><FaGlobe /></span>
+<li>
   <span className="ppx-kv-label">Country</span>
-  <span className="ppx-kv-value">{(profile as any).country || 'Not specified'}</span>
+  <span className="ppx-kv-value">
+    {(profile as any).country_name || (profile as any).country || 'Not specified'}
+  </span>
 </li>
+
+
 {Array.isArray((profile as any).languages) && (profile as any).languages.length > 0 && (
   <li>
     <span className="ppx-kv-icon"><FaGlobe /></span>
@@ -350,9 +353,9 @@ const submitInvite = async () => {
                       </div>
                       <div className="ppx-review-body">
                         <div className="ppx-review-line"><b>Comment:</b> {rv.comment}</div>
-                        <div className="ppx-review-line">
+                        {/* <div className="ppx-review-line">
   <b>Job:</b> {rv.job_application?.job_post?.title || 'Not specified'}
-</div>
+</div> */}
                         <div className="ppx-review-line"><b>Date:</b> {new Date(rv.created_at).toLocaleString()}</div>
                       </div>
                     </li>
