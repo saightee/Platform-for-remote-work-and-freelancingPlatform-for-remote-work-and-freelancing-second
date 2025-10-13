@@ -55,24 +55,27 @@ useEffect(() => {
       return;
     }
 
-    try {
-      setIsLoading(true);
-      setError(null);
-      const [apps, invs] = await Promise.all([
-        getMyApplications(),
-        listInvitations(true) // includeAll=true — берём все приглашения, не только pending
-      ]);
-      setApplications(apps);
-      setInvitations(invs || []);
-    } catch (err: any) {
-      console.error('Error fetching applications/invitations:', err);
-      setError(err.response?.data?.message || 'Failed to load applications. Please try again.');
-    } finally {
-      setIsLoading(false);
+    setIsLoading(true);
+    setError(null);
+
+    const [appsRes, invsRes] = await Promise.allSettled([
+      getMyApplications(),
+      listInvitations(true),
+    ]);
+
+    setApplications(appsRes.status === 'fulfilled' ? appsRes.value : []);
+    setInvitations(invsRes.status === 'fulfilled' ? invsRes.value : []);
+
+    // Если оба запроса отвалились — покажем ошибку; иначе — работаем молча
+    if (appsRes.status === 'rejected' && invsRes.status === 'rejected') {
+      const err: any = (appsRes as any).reason || (invsRes as any).reason;
+      setError(err?.response?.data?.message || 'Failed to load applications. Please try again.');
     }
+    setIsLoading(false);
   };
   fetchData();
 }, [profile]);
+
 
 
   const handleCreateReview = async (e: React.FormEvent) => {

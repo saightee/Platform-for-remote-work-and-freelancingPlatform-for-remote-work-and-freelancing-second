@@ -329,9 +329,11 @@ useEffect(() => {
     el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
   };
 
-  const handlePrev = () => setCurrentSlide((prev) => Math.max(0, prev - 1));
-  const handleNext = () => setCurrentSlide((prev) => Math.min(maxSlide, prev + 1));
-  const handleDotClick = (index: number) => setCurrentSlide(index);
+// вместо setCurrentSlide(...) 
+const handlePrev  = () => scrollToSlide(currentSlide - 1);
+const handleNext  = () => scrollToSlide(currentSlide + 1);
+const handleDotClick = (i: number) => scrollToSlide(i);
+
 
   const handleSearch = (searchFilters: { title?: string }) => {
     setFilters(searchFilters);
