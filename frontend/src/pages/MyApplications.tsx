@@ -60,7 +60,7 @@ useEffect(() => {
 
     const [appsRes, invsRes] = await Promise.allSettled([
       getMyApplications(),
-      listInvitations(true),
+      listInvitations(),
     ]);
 
     setApplications(appsRes.status === 'fulfilled' ? appsRes.value : []);

@@ -795,25 +795,27 @@ export const sendInvitation = async (payload: {
 };
 
 /** Jobseeker: list invitations (94) */
-export const listInvitations = async (includeAll = false) => {
-  try {
-    const { data } = await api.get<Array<{
-      id: string;
-      status: 'Pending' | 'Accepted' | 'Declined';
-      message?: string | null;
-      created_at: string;
-      job_post: {
-        id: string; title: string; slug?: string | null; slug_id?: string | null;
-        employer?: { id: string; username: string } | null;
-      };
+// services/api.ts
+export const listInvitations = async (includeAll?: boolean) => {
+  const res = await api.get('/job-applications/invitations', {
+    params: includeAll ? { includeAll } : undefined,
+    // считаем 401 «нормальным» для этого запроса — разрулим локально
+    validateStatus: (s) => (s >= 200 && s < 300) || s === 401,
+  });
+  if (res.status === 401) return []; // просто показываем «No invitations»
+  return res.data as Array<{
+    id: string;
+    status: 'Pending' | 'Accepted' | 'Declined';
+    message?: string | null;
+    created_at: string;
+    job_post: {
+      id: string; title: string; slug?: string | null; slug_id?: string | null;
       employer?: { id: string; username: string } | null;
-    }>>('/job-applications/invitations', { params: { includeAll } });
-    return data;
-  } catch (e: any) {
-    if (e?.response?.status === 401) return []; // не показываем баннер — просто пусто
-    throw e;
-  }
+    };
+    employer?: { id: string; username: string } | null;
+  }>;
 };
+
 
 
 /** Jobseeker: decline invitation (95) */
