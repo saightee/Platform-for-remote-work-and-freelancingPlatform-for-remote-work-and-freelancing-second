@@ -796,26 +796,25 @@ export const sendInvitation = async (payload: {
 
 /** Jobseeker: list invitations (94) */
 export const listInvitations = async (includeAll = false) => {
-  const { data } = await api.get<Array<{
-    id: string;
-    status: 'Pending' | 'Accepted' | 'Declined';
-    message?: string | null;
-    created_at: string;
-    job_post: {
+  try {
+    const { data } = await api.get<Array<{
       id: string;
-      title: string;
-      location?: string | null;
-      salary?: number | null;
-      salary_type?: 'per hour' | 'per month' | 'negotiable' | null;
-      job_type?: 'Full-time' | 'Part-time' | 'Project-based' | null;
-      slug?: string | null;
-      slug_id?: string | null;
+      status: 'Pending' | 'Accepted' | 'Declined';
+      message?: string | null;
+      created_at: string;
+      job_post: {
+        id: string; title: string; slug?: string | null; slug_id?: string | null;
+        employer?: { id: string; username: string } | null;
+      };
       employer?: { id: string; username: string } | null;
-    };
-    employer?: { id: string; username: string } | null;
-  }>>('/job-applications/invitations', { params: { includeAll } });
-  return data;
+    }>>('/job-applications/invitations', { params: { includeAll } });
+    return data;
+  } catch (e: any) {
+    if (e?.response?.status === 401) return []; // не показываем баннер — просто пусто
+    throw e;
+  }
 };
+
 
 /** Jobseeker: decline invitation (95) */
 export const declineInvitation = async (invitationId: string) => {

@@ -19,7 +19,7 @@
 }
 
 .reg2-card{
-  width:min(620px, 96vw);
+  width:min(620px, 94vw);
   background:var(--r2-white);
   border-radius:var(--r2-radius);
   box-shadow:var(--r2-shadow);
@@ -285,3 +285,37 @@ input[type="password"]::-ms-clear{
 }
 
 /* На мобильных (≤640px) всё остаётся в одну колонку — у тебя уже есть это правило */
+/* ===== LanguagesInput: плюсик внутри инпута ===== */
+.reg2-inputwrap { position: relative; }
+
+.reg2-input--has-addon { padding-right: 48px; }
+
+.reg2-addon{
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--r2-border);
+  border-radius: 8px;
+  background: #fff;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--r2-shadow-sm);
+  color: #333;
+}
+
+.reg2-addon:disabled{
+  opacity: .5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.reg2-addon:active{
+  transform: translateY(-50%) scale(0.98);
+}

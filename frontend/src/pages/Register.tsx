@@ -366,9 +366,10 @@ const handleSubmit = async (e: React.FormEvent) => {
   <CountrySelect value={country} onChange={(code) => setCountry(code || '')} />
 </div>
 
-<div className="reg2-field">
+<div className="reg2-span2">
   <LanguagesInput value={languages} onChange={setLanguages} />
 </div>
+
 
 
         <div className="reg2-field">

@@ -130,6 +130,19 @@ const [multiMode, setMultiMode] = useState(false);
     {}
   );
   // const devSeededRef = useRef(false);
+// --- helpers for timestamps & picking latest application (jobseeker) ---
+const ts = (d?: any) => (d ? new Date(d as any).getTime() : 0);
+
+const pickLatestJobseekerApplicationId = (apps: JobApplication[]): string | null => {
+  if (!apps || !apps.length) return null;
+  // берём самую «свежую» по updated_at -> created_at
+  const sorted = [...apps].sort(
+    (a, b) =>
+      ts((b as any).updated_at || (b as any).created_at) -
+      ts((a as any).updated_at || (a as any).created_at)
+  );
+  return sorted[0]?.id || null;
+};
 
 
   const closeAllMenus = useCallback(() => {
@@ -212,15 +225,25 @@ if (currentRole === 'jobseeker') {
   const all = await getMyApplications();
   const filtered = all.filter(a => ['Pending','Accepted'].includes(a.status as any));
   setApplications(filtered);
+
+  // подписываемся на все чаты (для превью/истории)
   joinAllMyChats(filtered.map(a => a.id));
 
-  // автоселект без гонок
-  if (!preselectApplicationId && !selectedChat && filtered[0]) {
-    setSelectedChat(filtered[0].id);
-  } else if (preselectApplicationId) {
+  // авто-выбор: 1) если пришли с preselect — он, 2) иначе из localStorage,
+  // 3) иначе самая свежая заявка (last)
+  if (preselectApplicationId && filtered.some(a => a.id === preselectApplicationId)) {
     setSelectedChat(preselectApplicationId);
+  } else {
+    const ls = localStorage.getItem('lastSelectedChat');
+    if (ls && filtered.some(a => a.id === ls)) {
+      setSelectedChat(ls);
+    } else {
+      const latestId = pickLatestJobseekerApplicationId(filtered);
+      if (latestId) setSelectedChat(latestId);
+    }
   }
-} else if (currentRole === 'employer') {
+}
+ else if (currentRole === 'employer') {
   const posts = await getMyJobPosts();
   const active = posts.filter(isActiveJob);
   setJobPosts(active);
@@ -475,20 +498,34 @@ return list
   }
 
   // jobseeker
+// jobseeker
 let source = applications;
 if (currentRole === 'jobseeker' && selectedChat) {
   source = applications.filter(a => a.id === selectedChat);
 }
 
 return source
-  .map((app): ChatListItem => ({
-    id: app.id,
-    title: app.job_post?.title || 'Unknown Job',
-    partner: app.job_post?.employer?.username || 'Unknown',
-    unreadCount: unreadCounts[app.id] ?? 0,
-    status: app.status,
-  }))
-  .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));
+  .map((app): ChatListItem => {
+    const msgs = messages[app.id] || [];
+    const lastMsg = msgs.length ? msgs[msgs.length - 1] : undefined;
+    const lastTs =
+      lastMsg ? ts(lastMsg.created_at)
+              : ts((app as any).updated_at || (app as any).created_at);
+
+    return {
+      id: app.id,
+      title: app.job_post?.title || 'Unknown Job',
+      partner: app.job_post?.employer?.username || 'Unknown',
+      unreadCount: unreadCounts[app.id] ?? 0,
+      status: app.status,
+      lastMessage: lastMsg?.content || '',
+      lastActivity: lastTs,
+      appliedAt: (app as any).created_at,
+    };
+  })
+  // единая сортировка по последней активности, чтобы превью не «скакали»
+  .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+
 
 }, [
   activeJobId,
@@ -833,57 +870,55 @@ useEffect(() => {
   </details>
 {currentRole === 'employer' && activeJobId && (
   <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-    <button className="ch-btn" onClick={() => setBroadcastOpen(true)}>
-      <FaUsers />&nbsp;Message to all applicants
-    </button>
-
-    <button className="ch-btn" onClick={() => setConfirmCloseOpen(true)}>
-      Close job
-    </button>
-
-    {!multiMode && chatList.length > 0 && (
-      <button className="ch-btn" onClick={() => { setMultiMode(true); clearSelection(); }}>
-        Select candidates
-      </button>
-    )}
-
-    {multiMode && selectedIds.size === 0 && (
-      <button className="ch-btn" onClick={() => { setMultiMode(false); clearSelection(); }}>
-        Cancel selection
-      </button>
-    )}
-
-    {multiMode && selectedIds.size > 0 && (
+    {!multiMode ? (
       <>
-        <button className="ch-btn" onClick={() => setSelModalOpen(true)}>
-          Message Selected ({selectedIds.size})
+        <button className="ch-btn" onClick={() => setBroadcastOpen(true)}>
+          <FaUsers />&nbsp;Message to all applicants
         </button>
-        <button
-          className="ch-btn"
-          onClick={async () => {
-            if (!activeJobId) return;
-            const ids = Array.from(selectedIds);
-            if (!ids.length) return;
-            if (!confirm(`Reject ${ids.length} selected applicant(s)? This will remove their chats.`)) return;
-            try {
-              const res = await bulkRejectApplications(ids);
-              setJobPostApplications(prev => {
-                const copy = { ...prev };
-                Object.keys(copy).forEach(jobId => {
-                  copy[jobId] = (copy[jobId] || []).filter(a => !ids.includes(a.applicationId));
-                });
-                return copy;
-              });
-              clearSelection();
-              setMultiMode(false);            // ← выходим из режима
-              toast.success(`Rejected ${res.updated} applicants.`);
-            } catch (err: any) {
-              toast.error(err?.response?.data?.message || 'Failed to bulk reject.');
-            }
-          }}
-        >
-          Reject Selected ({selectedIds.size})
+        <button className="ch-btn" onClick={() => setConfirmCloseOpen(true)}>
+          Close job
         </button>
+        {chatList.length > 0 && (
+          <button className="ch-btn" onClick={() => { setMultiMode(true); clearSelection(); }}>
+            Select candidates
+          </button>
+        )}
+      </>
+    ) : (
+      <>
+        {selectedIds.size > 0 && (
+          <>
+            <button className="ch-btn" onClick={() => setSelModalOpen(true)}>
+              Message Selected ({selectedIds.size})
+            </button>
+            <button
+              className="ch-btn"
+              onClick={async () => {
+                if (!activeJobId) return;
+                const ids = Array.from(selectedIds);
+                if (!ids.length) return;
+                if (!confirm(`Reject ${ids.length} selected applicant(s)? This will remove their chats.`)) return;
+                try {
+                  const res = await bulkRejectApplications(ids);
+                  setJobPostApplications(prev => {
+                    const copy = { ...prev };
+                    Object.keys(copy).forEach(jobId => {
+                      copy[jobId] = (copy[jobId] || []).filter(a => !ids.includes(a.applicationId));
+                    });
+                    return copy;
+                  });
+                  clearSelection();
+                  setMultiMode(false);
+                  toast.success(`Rejected ${res.updated} applicants.`);
+                } catch (err: any) {
+                  toast.error(err?.response?.data?.message || 'Failed to bulk reject.');
+                }
+              }}
+            >
+              Reject Selected ({selectedIds.size})
+            </button>
+          </>
+        )}
         <button className="ch-btn" onClick={() => { setMultiMode(false); clearSelection(); }}>
           Cancel
         </button>
@@ -891,6 +926,7 @@ useEffect(() => {
     )}
   </div>
 )}
+
 
 
 

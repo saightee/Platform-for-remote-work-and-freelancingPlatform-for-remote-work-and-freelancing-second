@@ -26,11 +26,12 @@ import { AxiosError } from 'axios';
 import sanitizeHtml from 'sanitize-html';
 import Loader from '../components/Loader';
 import ReactQuill from 'react-quill';
+import '../styles/post-job.css';
 
 import {
   FaBriefcase, FaEdit, FaEye, FaCheckCircle, FaTimesCircle,
   FaFolderOpen, FaChevronDown, FaChevronUp, FaSyncAlt, FaUser,
-  FaEnvelope, FaSearch, FaTimes, FaStar, FaComments
+  FaEnvelope, FaSearch, FaTimes, FaStar, FaComments, FaListUl
 } from 'react-icons/fa';
 
 import '../styles/my-job-posts.css';
@@ -529,78 +530,84 @@ const handleViewApplications = async (jobPostId: string) => {
                         </select>
                       </div>
 
-                       <div className="mjp-row">
-                        <label className="mjp-label"><FaSearch /> Categories</label>
-                        <div className="mjp-auto">
-                          <FaSearch className="mjp-auto-icon" />
-                          <input
-                            className="mjp-input mjp-auto-input"
-                            type="text"
-                            value={skillInput}
-                            onChange={(e) => setSkillInput(e.target.value)}
-                            placeholder="Type to search categories..."
-                            onFocus={() => setIsDropdownOpen(true)}
-                            onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                          />
-                          {isDropdownOpen && (
-                            <ul className="mjp-dropdown">
-                              {(skillInput.trim() ? filteredSkills : categories).map((category) => (
-                                <React.Fragment key={category.id}>
-                                  <li
-                                    className="mjp-item"
-                                    onMouseDown={() => addCategoryToEditing(category.id)}
-                                  >
-                                    {category.name}
-                                  </li>
-                                  {category.subcategories?.map((sub) => (
-                                    <li
-                                      key={sub.id}
-                                      className="mjp-item mjp-sub"
-                                      onMouseDown={() => addCategoryToEditing(sub.id)}
-                                    >
-                                      {`${category.name} > ${sub.name}`}
-                                    </li>
-                                  ))}
-                                </React.Fragment>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
+<div className="mjp-row">
+  <label className="mjp-label">
+    {/* как в PostJob: FaListUl и wording */}
+    <FaListUl /> Categories
+  </label>
 
-                        {/* chips of selected categories for the currently editing job */}
-                        {editingJob && Array.isArray((editingJob as any).category_ids) && (editingJob as any).category_ids.length > 0 && (() => {
-                          const all = allFlattened();
-                          const ids = (editingJob as any).category_ids as string[];
-                          const chips = ids.map((id) => {
-                            const cat = all.find((c) => String(c.id) === String(id));
-                            if (!cat) return { id, label: 'Unknown Category' };
-                            const parent = cat.parent_id
-                              ? all.find((c) => String(c.id) === String(cat.parent_id))
-                              : undefined;
-                            return {
-                              id,
-                              label: parent ? `${parent.name} > ${cat.name}` : cat.name,
-                            };
-                          });
-                          return (
-                            <div className="mjp-chips" style={{ marginTop: 8 }}>
-                              {chips.map(({ id, label }) => (
-                                <span key={id} className="mjp-chip">
-                                  {label}
-                                  <button
-                                    type="button"
-                                    className="mjp-chip-x"
-                                    onClick={() => removeCategoryFromEditing(id)}
-                                    aria-label="Remove category"
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </div>
+  {/* === авто-комплит, стили 1-в-1 как в PostJob === */}
+  <div className="pjx-auto">
+    <FaSearch className="pjx-auto-icon" />
+    <input
+      className="pjx-input pjx-auto-input"
+      type="text"
+      value={skillInput}
+      onChange={(e) => setSkillInput(e.target.value)}
+      placeholder="Start typing to search categories…"
+      onFocus={() => setIsDropdownOpen(true)}
+      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+    />
+    {isDropdownOpen && (
+      <ul className="pjx-dropdown">
+        {(skillInput.trim() ? filteredSkills : categories).map((category) => (
+          <React.Fragment key={category.id}>
+            <li
+              className="pjx-item"
+              onMouseDown={() => addCategoryToEditing(String(category.id))}
+            >
+              {category.name}
+            </li>
+            {category.subcategories?.map((sub) => (
+              <li
+                key={sub.id}
+                className="pjx-item pjx-sub"
+                onMouseDown={() => addCategoryToEditing(String(sub.id))}
+              >
+                {`${category.name} > ${sub.name}`}
+              </li>
+            ))}
+          </React.Fragment>
+        ))}
+      </ul>
+    )}
+  </div>
+
+  {/* === чипсы выбранных категорий с теми же классами, что и в PostJob === */}
+  {editingJob && Array.isArray((editingJob as any).category_ids) && (editingJob as any).category_ids.length > 0 && (() => {
+    const all = allFlattened();
+    const ids = (editingJob as any).category_ids as string[];
+    const chips = ids.map((id) => {
+      const cat = all.find((c) => String(c.id) === String(id));
+      if (!cat) return { id, label: 'Unknown Category' };
+      const parent = cat.parent_id
+        ? all.find((c) => String(c.id) === String(cat.parent_id))
+        : undefined;
+      return {
+        id,
+        label: parent ? `${parent.name} > ${cat.name}` : cat.name,
+      };
+    });
+    return (
+      <div className="pjx-chips" style={{ marginTop: 8 }}>
+        {chips.map(({ id, label }) => (
+          <span key={id} className="pjx-chip">
+            {label}
+            <button
+              type="button"
+              className="pjx-chip-x"
+              onClick={() => removeCategoryFromEditing(String(id))}
+              aria-label="Remove category"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+    );
+  })()}
+</div>
+
 
 
                       <div className="mjp-actions-row">

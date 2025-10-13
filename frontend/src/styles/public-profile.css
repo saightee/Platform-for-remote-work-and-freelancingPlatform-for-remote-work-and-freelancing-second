@@ -97,3 +97,16 @@
 .ppx-fb{ color:#1877f2; }
 .ppx-wa{ color:#25d366; }
 .ppx-tg{ color:#0088cc; }
+
+
+.ppx-actions-line{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:12px;
+}
+.ppx-actions-line .ppx-report{ margin-left:auto; }  /* Report уезжает вправо */
+@media (max-width: 520px){
+  .ppx-actions-line{ flex-direction:column; align-items:stretch; }
+  .ppx-actions-line .ppx-report{ margin-left:0; }
+}

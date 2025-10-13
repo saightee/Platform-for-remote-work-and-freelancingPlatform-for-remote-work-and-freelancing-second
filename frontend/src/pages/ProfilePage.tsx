@@ -268,7 +268,7 @@ if (Array.isArray(now.languages))                    patch.languages = now.langu
         if (changed('company_name', now.company_name))        patch.company_name = now.company_name;
         if (changed('company_info', now.company_info))        patch.company_info = now.company_info;
         if (changed('referral_link', now.referral_link))      patch.referral_link = now.referral_link;
-
+         if (Array.isArray((now as any).languages))            patch.languages    = (now as any).languages;
         if (Object.keys(patch).length <= 1) {
           setIsEditing(false);
           setUsernameEditMode(false);
@@ -595,6 +595,7 @@ if (Array.isArray(now.languages))                    patch.languages = now.langu
     onChange={(langs) => setProfileData({ ...(profileData as any), languages: langs } as any)}
   />
 </div>
+
 
                   </>
                 )}

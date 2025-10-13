@@ -540,3 +540,4 @@ html, body { overflow-x: hidden; }
 
 /* подстрахуем сам айтем — пусть можно сжимать */
 .ch-chatlist__item{ min-width:0; }
+.ch-topbar { min-height: 44px; }

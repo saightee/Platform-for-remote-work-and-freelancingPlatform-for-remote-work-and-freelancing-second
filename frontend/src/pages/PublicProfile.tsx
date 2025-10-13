@@ -9,7 +9,7 @@ import { useRole } from '../context/RoleContext';
 import {
   FaUserCircle, FaEnvelope, FaGlobe, FaClock, FaStar, FaRegStar,
   FaBriefcase, FaLink, FaVideo, FaFilePdf, FaEye, FaShieldAlt, FaDollarSign,
-  FaLinkedin, FaInstagram, FaFacebook, FaWhatsapp, FaTelegramPlane
+  FaLinkedin, FaInstagram, FaFacebook, FaWhatsapp, FaTelegramPlane, FaFlag
 } from 'react-icons/fa';
 import Loader from '../components/Loader';
 import '../styles/public-profile.css';
@@ -165,6 +165,7 @@ const submitInvite = async () => {
                 <span className="ppx-kv-value">{profile.timezone || 'Not specified'}</span>
               </li>
 <li>
+  <span className="ppx-kv-icon"><FaFlag /></span>
   <span className="ppx-kv-label">Country</span>
   <span className="ppx-kv-value">
     {(profile as any).country_name || (profile as any).country || 'Not specified'}
@@ -308,25 +309,29 @@ const submitInvite = async () => {
               </div>
             ) : null}
 
-{currentUser?.role === 'employer' && currentUser.id !== profile.id && (
-  <button
-    type="button"
-    className="ppx-btn"
-    style={{ background: '#4e74c8', color: '#fff' }}
-    onClick={openInvite}
-  >
-    Invite to interview
-  </button>
+{/* actions row (invite + report) */}
+{currentUser && currentUser.id !== profile.id && (
+  <div className="ppx-actions-line">
+    {currentUser.role === 'employer' && (
+      <button
+        type="button"
+        className="ppx-btn"
+        style={{ background: '#4e74c8', color: '#fff' }}
+        onClick={openInvite}
+      >
+        Invite to interview
+      </button>
+    )}
+
+    <Link
+      className="ppx-btn ppx-outline ppx-report"
+      to={`/complaint?type=profile&id=${profile.id}&return=${encodeURIComponent(backAfterReport)}`}
+    >
+      Report Profile
+    </Link>
+  </div>
 )}
 
-            {currentUser && currentUser.id !== profile.id && (
-              <Link
-                className="ppx-btn ppx-outline ppx-report"
-                to={`/complaint?type=profile&id=${profile.id}&return=${encodeURIComponent(backAfterReport)}`}
-              >
-                Report Profile
-              </Link>
-            )}
             
           </aside>
 

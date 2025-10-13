@@ -8733,3 +8733,32 @@ color: #333!important;
 .job-modal__richtext {
 color: #333!important;
 }
+
+/* было: touch-action: pan-y;  — запрещал горизонтальный свайп */
+.cc-viewport{
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scroll-snap-stop: always;
+  touch-action: pan-x;              /* ← разрешаем горизонтальный свайп */
+  overscroll-behavior-x: contain;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+
+  /* Скрываем полосы прокрутки во всех браузерах */
+  scrollbar-width: none;            /* Firefox */
+  -ms-overflow-style: none;         /* IE/Edge legacy */
+}
+.cc-viewport::-webkit-scrollbar {   /* Chrome/Safari/Android/iOS */
+  width: 0; height: 0; display: none;
+}
+
+/* карточкам не надо ограничивать жесты */
+.cc-viewport .cc-item{ 
+  -webkit-tap-highlight-color: transparent;
+  touch-action: auto;               /* было pan-y — убираем */
+}
+
+.cc-viewport{ scrollbar-gutter: stable both-edges; }
