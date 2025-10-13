@@ -502,9 +502,10 @@ const filteredApps = useMemo(() => {
         </div>
       </div>
 {/* Accept Invitation Modal */}
+{/* Accept Invitation Modal (унифицированная как в Job Details) */}
 {isAcceptModalOpen && acceptForm && (
   <div
-    className="ma-modal"
+    className="modal"
     onClick={(e) => {
       if (e.target === e.currentTarget) {
         setIsAcceptModalOpen(false);
@@ -513,75 +514,106 @@ const filteredApps = useMemo(() => {
       }
     }}
   >
-    <div className="ma-modal-content" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="modal-content"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="applyTitle"
+      onClick={(e) => e.stopPropagation()}
+    >
       <button
-        className="ma-modal-close"
+        className="close"
         onClick={() => { setIsAcceptModalOpen(false); setAcceptForm(null); setAcceptError(null); }}
+        aria-label="Close"
       >
         ×
       </button>
 
-      <form onSubmit={submitAccept} className="ma-review-form">
-        <h3 className="ma-title" style={{ marginBottom: 8 }}>Accept Invitation</h3>
-        <p className="ma-sub" style={{ marginTop: 0 }}>Fill the application details and submit.</p>
+      <h3 id="applyTitle">Apply</h3>
 
-        {acceptError && <p className="ma-alert ma-err">{acceptError}</p>}
+      {acceptError && (
+        <div className="alert alert-error" role="alert" style={{ marginBottom: 12 }}>
+          {acceptError}
+        </div>
+      )}
 
-        <div className="ma-form-group">
-          <label className="ma-label">Full name</label>
+      <form
+        className="apply-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submitAccept(e);
+        }}
+        noValidate
+      >
+        {/* Full Name (optional) */}
+        <div className="apply-row">
+          <label className="apply-label" htmlFor="fullName">Full Name (optional)</label>
           <input
+            id="fullName"
             type="text"
-            className="ma-input"
+            className="apply-input"
             value={acceptForm.full_name || ''}
             onChange={(e) => setAcceptForm({ ...acceptForm, full_name: e.target.value })}
             placeholder="Your full name"
           />
         </div>
 
-        <div className="ma-form-group">
-          <label className="ma-label">Cover letter *</label>
-          <textarea
-            className="ma-textarea"
-            rows={5}
-            required
-            value={acceptForm.cover_letter}
-            onChange={(e) => setAcceptForm({ ...acceptForm, cover_letter: e.target.value })}
-            placeholder="Short motivation letter"
-          />
-        </div>
-
-        <div className="ma-form-group">
-          <label className="ma-label">Relevant experience *</label>
-          <textarea
-            className="ma-textarea"
-            rows={4}
-            required
-            value={acceptForm.relevant_experience}
-            onChange={(e) => setAcceptForm({ ...acceptForm, relevant_experience: e.target.value })}
-            placeholder="Describe relevant experience"
-          />
-        </div>
-
-        <div className="ma-form-group">
-          <label className="ma-label">Referred by (optional)</label>
+        {/* Referred By (optional) */}
+        <div className="apply-row">
+          <label className="apply-label" htmlFor="referredBy">Referred By (optional)</label>
           <input
+            id="referredBy"
             type="text"
-            className="ma-input"
+            className="apply-input"
             value={acceptForm.referred_by || ''}
             onChange={(e) => setAcceptForm({ ...acceptForm, referred_by: e.target.value })}
-            placeholder="Who referred you?"
+            placeholder="The name/email/ref code of who recommended you"
           />
         </div>
 
-        <div className="ma-actions">
-          <button
-            type="submit"
-            className="ma-btn ma-accept"
-            disabled={acceptLoading}
-          >
-            {acceptLoading ? 'Submitting…' : 'Submit & Accept'}
-          </button>
+        {/* Relevant experience (required) */}
+        <div className="apply-row">
+          <label className="apply-label" htmlFor="relevantExperience">
+            Relevant experience *
+            <span className="apply-hint" style={{ display: 'block', fontSize: 12, opacity: .8 }}>
+              Describe relevant experience: companies, roles, tasks, stack, achievements.
+            </span>
+          </label>
+          <textarea
+            id="relevantExperience"
+            className="apply-textarea"
+            rows={6}
+            value={acceptForm.relevant_experience}
+            onChange={(e) => setAcceptForm({ ...acceptForm, relevant_experience: e.target.value })}
+            placeholder="Describe relevant experience (companies, roles, tasks, stack, achievements…)"
+            required
+          />
+        </div>
 
+        {/* Cover Letter (required) */}
+        <div className="apply-row">
+          <label className="apply-label" htmlFor="coverLetter">
+            Why are you a good fit for this role? *
+          </label>
+          <textarea
+            id="coverLetter"
+            className="apply-textarea"
+            rows={6}
+            value={acceptForm.cover_letter}
+            onChange={(e) => setAcceptForm({ ...acceptForm, cover_letter: e.target.value })}
+            placeholder="Explain why you’re a strong fit for the role…"
+            required
+          />
+        </div>
+
+        <p className="apply-help">
+          Your resume from profile will be attached automatically.
+        </p>
+
+        <div className="apply-actions">
+          <button type="submit" className="apply-btn" disabled={acceptLoading}>
+            {acceptLoading ? 'Submitting…' : 'Submit Application'}
+          </button>
           <button
             type="button"
             className="ma-btn"
@@ -594,6 +626,7 @@ const filteredApps = useMemo(() => {
     </div>
   </div>
 )}
+
 
       {/* Review Modal (оставил твою логику) */}
       {isReviewModalOpen && reviewForm && (
