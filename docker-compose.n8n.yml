@@ -1,4 +1,3 @@
-# docker-compose.n8n.yml
 services:
   n8n:
     image: n8nio/n8n:latest
@@ -11,6 +10,7 @@ services:
       - N8N_PROTOCOL=https
       - N8N_PATH=/n8n/
       - WEBHOOK_URL=https://staging.jobforge.net/n8n/
+      - N8N_EDITOR_BASE_URL=https://staging.jobforge.net/n8n/
       - N8N_SECURE_COOKIE=true
       - NODE_ENV=production
       - GENERIC_TIMEZONE=Europe/Riga
