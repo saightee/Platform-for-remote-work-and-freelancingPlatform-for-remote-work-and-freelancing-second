@@ -17,7 +17,7 @@ import { Profile, Category, JobSeekerProfile, EmployerProfile, Review } from '@t
 import { useRole } from '../context/RoleContext';
 import {
   FaUserCircle, FaFilePdf, FaPen, FaCheck, FaTimes,
-  FaLinkedin, FaInstagram, FaFacebook, FaWhatsapp, FaTelegramPlane
+  FaLinkedin, FaInstagram, FaFacebook, FaWhatsapp, FaTelegramPlane, FaLanguage, FaMapMarkerAlt
 } from 'react-icons/fa';
 import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
@@ -27,18 +27,33 @@ import {
   normalizeLinkedIn, normalizeInstagram, normalizeFacebook
 } from '../utils/socials';
 import { brandOrigin } from '../brand';
+import TagsInput from '../components/TagsInput';
+import CountrySelect from '../components/inputs/CountrySelect';
+import LanguagesInput from '../components/inputs/LanguagesInput';
+import '../styles/country-langs.css';
+
 
 
 const USERNAME_RGX = /^[a-zA-Z0-9_.-]{3,20}$/; // простая валидация
 type JobSeekerExtended = JobSeekerProfile & {
+  // сохраняем возможность строки из инпута
   expected_salary?: number | string | null;
+
+  // дублируем совместимый тип
   job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired' | string | null;
+
+  // явно описываем поля, чтобы не было any
+  country?: string | null;
+  languages?: string[];
+
   linkedin?: string | null;
   instagram?: string | null;
   facebook?: string | null;
-  whatsapp?: string | null;   // NEW
-  telegram?: string | null;   // NEW
+  whatsapp?: string | null;
+  telegram?: string | null;
 };
+
+
 
 const ProfilePage: React.FC = () => {
   const { profile, refreshProfile } = useRole();
@@ -213,6 +228,10 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
         if (changed('portfolio', now.portfolio))             patch.portfolio        = now.portfolio;
         if (changed('video_intro', now.video_intro))         patch.video_intro      = now.video_intro;
         if (changed('resume', now.resume))                   patch.resume           = now.resume;
+        if (changed('country', now.country ?? undefined))    patch.country   = now.country ?? undefined;
+if (Array.isArray(now.languages))                    patch.languages = now.languages!;
+
+
 
 
         if (changed('linkedin',  now.linkedin ?? null))    patch.linkedin  = now.linkedin  || null;
@@ -249,7 +268,7 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
         if (changed('company_name', now.company_name))        patch.company_name = now.company_name;
         if (changed('company_info', now.company_info))        patch.company_info = now.company_info;
         if (changed('referral_link', now.referral_link))      patch.referral_link = now.referral_link;
-
+         if (Array.isArray((now as any).languages))            patch.languages    = (now as any).languages;
         if (Object.keys(patch).length <= 1) {
           setIsEditing(false);
           setUsernameEditMode(false);
@@ -365,7 +384,9 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
       <div className="pf-shell">
         <div className="pf-card">
           <div className="pf-header">
-            <h1 className="pf-title">My Profile <span className="pf-role">| {profileData.role}</span></h1>
+           <h1 className="pf-title">
+  {profileData.username} <span className="pf-role">| {profileData.role}</span>
+</h1>
             {!isEditing && (
               <div className="pf-actions-top">
                 <button className="pf-button" onClick={() => setIsEditing(true)}>Edit Profile</button>
@@ -422,9 +443,21 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
               <div className="pf-section">
                 {!isEditing ? (
                   <div className="pf-kv">
-                    <div className="pf-kv-row"><span className="pf-k">Username</span><span className="pf-v">{profileData.username}</span></div>
+                    
                     <div className="pf-kv-row"><span className="pf-k">Timezone</span><span className="pf-v">{profileData.timezone || 'Not specified'}</span></div>
                     <div className="pf-kv-row"><span className="pf-k">Currency</span><span className="pf-v">{profileData.currency || 'Not specified'}</span></div>
+                   <div className="pf-kv-row">
+  <span className="pf-k">Country</span>
+  <span className="pf-v">
+    {(profileData as any).country_name || (profileData as any).country || 'Not specified'}
+  </span>
+</div>
+
+{Array.isArray((profileData as any).languages) && (profileData as any).languages.length > 0 && (
+  <div className="pf-kv-row"><span className="pf-k">Languages</span><span className="pf-v">{(profileData as any).languages.join(', ')}</span></div>
+)}
+
+ 
                     {(profileData as any).expected_salary != null &&
                       (profileData as any).expected_salary !== '' &&
                       Number((profileData as any).expected_salary) !== 0 && (
@@ -546,6 +579,24 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                     <p className="pf-help" style={{ marginTop: 6 }}>
                       Enter your expected salary amount. Currency is selected above. No automatic currency conversion is applied.
                     </p>
+<div className="pf-row">
+<CountrySelect
+  value={(profileData as any).country ?? undefined}
+  onChange={(code) =>
+    setProfileData({ ...(profileData as any), country: code } as any)
+  }
+/>
+
+</div>
+
+<div className="pf-row">
+  <LanguagesInput
+    value={Array.isArray((profileData as any).languages) ? (profileData as any).languages : []}
+    onChange={(langs) => setProfileData({ ...(profileData as any), languages: langs } as any)}
+  />
+</div>
+
+
                   </>
                 )}
               </div>

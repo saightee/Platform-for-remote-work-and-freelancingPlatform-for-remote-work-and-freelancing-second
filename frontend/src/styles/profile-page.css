@@ -7,8 +7,8 @@
 /* layout */
 .pf-shell {
   max-width: 1100px;
-  margin: 32px auto 56px;
-  padding: 0 2px;
+  margin: 10px auto 56px;
+  padding: 0 0px;
 }
 
 .pf-card {
@@ -314,3 +314,5 @@
 .pf-facebook  { color: #1877f2; }
 .pf-whatsapp  { color: #25d366; }
 .pf-telegram  { color: #0088cc; }
+.pf-tags-input-row{display:flex;gap:8px;margin-top:8px}
+.pf-tags-input .pf-tags{display:flex;flex-wrap:wrap;gap:8px}

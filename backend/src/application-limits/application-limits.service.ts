@@ -2,13 +2,22 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApplicationLimit } from './application-limit.entity';
+import { Between } from 'typeorm';
+import { JobApplication } from '../job-applications/job-application.entity';
+import { JobPost } from '../job-posts/job-post.entity';
+import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
-export class ApplicationLimitsService {
-  constructor(
-    @InjectRepository(ApplicationLimit)
-    private applicationLimitsRepository: Repository<ApplicationLimit>,
-  ) {}
+  export class ApplicationLimitsService {
+    constructor(
+      @InjectRepository(ApplicationLimit) private applicationLimitsRepository: Repository<ApplicationLimit>,
+      @InjectRepository(JobApplication) private jobApplicationsRepository: Repository<JobApplication>,
+      @InjectRepository(JobPost) private jobPostsRepository: Repository<JobPost>,
+      private settingsService: SettingsService,
+    ) {}
+
+  private startOfDay(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0,0); }
+  private endOfDay(d: Date)   { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59,999); }
 
   async initializeLimits(jobPostId: string, totalLimit: number): Promise<void> {
     const distribution = [0.6, 0.8, 0.9, 1.0]; 
@@ -37,56 +46,50 @@ export class ApplicationLimitsService {
 
   async canApply(jobPostId: string): Promise<{ canApply: boolean; message?: string }> {
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
+    const { globalApplicationLimit } = await this.settingsService.getGlobalApplicationLimit();
+    const totalLimit = Number(globalApplicationLimit ?? 0);
 
-    const limits = await this.applicationLimitsRepository.find({ where: { job_post_id: jobPostId } });
-    if (!limits.length) {
-      return { canApply: false, message: 'No application limits defined' };
-    }
+    const totalApplications = await this.jobApplicationsRepository.count({ where: { job_post_id: jobPostId } });
 
-    const totalApplications = limits.reduce((sum, limit) => sum + limit.current_applications, 0);
-    const totalLimit = limits[limits.length - 1].cumulative_limit; 
-
-    if (totalApplications >= totalLimit) {
+    if (totalLimit > 0 && totalApplications >= totalLimit) {
       return { canApply: false, message: 'Job full' };
     }
 
-    
-    const currentLimit = limits.find(limit => {
-      const limitDate = new Date(limit.date);
-      return limitDate.getFullYear() === today.getFullYear() &&
-             limitDate.getMonth() === today.getMonth() &&
-             limitDate.getDate() === today.getDate();
+    const limits = await this.applicationLimitsRepository.find({
+      where: { job_post_id: jobPostId },
+      order: { day: 'ASC' },
     });
-
-    
-    if (currentLimit) {
-      if (totalApplications >= currentLimit.cumulative_limit) {
-        return { canApply: false, message: 'Daily application limit reached' };
-      }
+    if (!limits.length) {
       return { canApply: true };
     }
 
-    
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0,0,0,0);
+    const end   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23,59,59,999);
+
+    const todayRow = await this.applicationLimitsRepository.findOne({
+      where: { job_post_id: jobPostId, date: Between(start, end) },
+    });
+
+    if (todayRow && totalApplications >= todayRow.cumulative_limit) {
+      return { canApply: false, message: 'Daily application limit reached' };
+    }
+
     return { canApply: true };
   }
 
   async incrementApplicationCount(jobPostId: string): Promise<void> {
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayStart = this.startOfDay(now);
+    const todayEnd = this.endOfDay(now);
 
-    const limit = await this.applicationLimitsRepository.findOne({
-      where: {
-        job_post_id: jobPostId,
-        date: today,
-      },
+    const todayRow = await this.applicationLimitsRepository.findOne({
+      where: { job_post_id: jobPostId, date: Between(todayStart, todayEnd) },
     });
 
-    if (limit) {
-      limit.current_applications += 1;
-      await this.applicationLimitsRepository.save(limit);
+    if (todayRow) {
+      todayRow.current_applications += 1;
+      await this.applicationLimitsRepository.save(todayRow);
     }
-    
   }
 }

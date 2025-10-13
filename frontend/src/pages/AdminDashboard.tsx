@@ -27,7 +27,7 @@ import {
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
   logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, getChatNotificationSettings,
   updateChatNotificationSettings,
-  notifyReferralApplicants, getRecentRegistrationsToday
+  notifyReferralApplicants, getRecentRegistrationsToday, getBrandsAnalytics
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings } from '@types';
 import { AxiosError } from 'axios';
@@ -152,6 +152,16 @@ const AdminDashboard: React.FC = () => {
   const [userTotal, setUserTotal] = useState<number>(0);
   const [jobStatusFilter, setJobStatusFilter] = useState<'All' | 'Active' | 'Draft' | 'Closed'>('All');
   const [selectedInterval, setSelectedInterval] = useState<'day' | 'week' | 'month'>('month');
+  // BRAND ANALYTICS
+const [brandsLoading, setBrandsLoading] = useState(false);
+const [brandsError, setBrandsError] = useState<string | null>(null);
+const [brandsRange, setBrandsRange] = useState<{ startDate?: string; endDate?: string }>({});
+const [brandsData, setBrandsData] = useState<{
+  range: { startDate: string; endDate: string };
+  byBrand: Array<{ brand: string; total: number; employers: number; jobseekers: number }>;
+  overall: { total: number; employers: number; jobseekers: number };
+} | null>(null);
+
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Resolved' | 'Rejected'>('All');
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [jobPostsWithApps, setJobPostsWithApps] = useState<JobPostWithApplications[]>([]);
@@ -369,7 +379,8 @@ const [jobPostsWithAppsPage, setJobPostsWithAppsPage] = useState(1);
 const [jobPostsWithAppsLimit] = useState(10);
 const [sortColumn, setSortColumn] = useState<'id' | 'applicationCount' | 'created_at' | null>('created_at'); 
 const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc'); // Изменено: дефолт 'desc' для новых сверху
-const [userSortColumn, setUserSortColumn] = useState<'id' | 'role' | 'is_blocked' | null>(null);
+const [userSortColumn, setUserSortColumn] =
+  useState<'id' | 'role' | 'is_blocked' | 'brand' | null>(null);
 const [userSortDirection, setUserSortDirection] = useState<'asc' | 'desc'>('asc');
 const [complaintSortColumn, setComplaintSortColumn] = useState<'created_at' | 'status' | null>(null);
 const [complaintSortDirection, setComplaintSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -422,6 +433,10 @@ const renderDateCell = (iso?: string | null) => {
   const human = formatDistanceToNow(d, { addSuffix: true }); // “5 minutes ago”
   return <span title={human}>{full}</span>; // человекочитаемое во всплывающей подсказке
 };
+
+const getBrand = (u: User) =>
+  (u as any)?.brand ?? (u as any)?.siteBrand ?? '—';
+
 const [referralFilterJobId, setReferralFilterJobId] = useState(''); // Добавлено: filter by jobId
 const [referralFilterJobTitle, setReferralFilterJobTitle] = useState(''); // Добавлено: filter by title
 const [expandedReferral, setExpandedReferral] = useState<string | null>(null); // Добавлено: для expandable registrations
@@ -738,7 +753,7 @@ const sortedJobPostsWithApps = [...jobPostsWithApps].sort((a, b) => {
   return 0;
 });
 
-const handleUserSort = (column: 'id' | 'role' | 'is_blocked') => {
+const handleUserSort = (column: 'id' | 'role' | 'is_blocked' | 'brand') => {
   if (userSortColumn === column) {
     setUserSortDirection(userSortDirection === 'asc' ? 'desc' : 'asc');
   } else {
@@ -750,8 +765,13 @@ const handleUserSort = (column: 'id' | 'role' | 'is_blocked') => {
 const sortedUsers = [...users].sort((a, b) => {
   if (!userSortColumn) return 0;
   const direction = userSortDirection === 'asc' ? 1 : -1;
+
   if (userSortColumn === 'id') {
     return a.id.localeCompare(b.id) * direction;
+  } else if (userSortColumn === 'brand') {            // ← ОТДЕЛЬНАЯ ВЕТКА
+    const aBrand = getBrand(a).toLowerCase();
+    const bBrand = getBrand(b).toLowerCase();
+    return aBrand.localeCompare(bBrand) * direction;
   } else if (userSortColumn === 'role') {
     return (a.role || '').localeCompare(b.role || '') * direction;
   } else if (userSortColumn === 'is_blocked') {
@@ -761,6 +781,7 @@ const sortedUsers = [...users].sort((a, b) => {
   }
   return 0;
 });
+
 
 const usersToRender = sortedUsers;
 
@@ -989,6 +1010,25 @@ useEffect(() => {
   fetchUsers(buildUserSearch(userPage));
 }, [userPage, userLimit, fetchUsers]);
 
+useEffect(() => {
+  if (activeTab !== 'Analytics') return;
+
+  (async () => {
+    try {
+      setBrandsLoading(true);
+      setBrandsError(null);
+      const data = await getBrandsAnalytics({
+        startDate: brandsRange.startDate,
+        endDate: brandsRange.endDate,
+      });
+      setBrandsData(data);
+    } catch (e: any) {
+      setBrandsError(e?.message || 'Failed to load brands analytics');
+    } finally {
+      setBrandsLoading(false);
+    }
+  })();
+}, [activeTab, brandsRange.startDate, brandsRange.endDate]);
 
 
 // useEffect(() => {
@@ -1060,12 +1100,13 @@ useEffect(() => {
       getJobPostsWithApplications: '',
     }));
 
-      const today = format(new Date(), 'yyyy-MM-dd'); // Используем date-fns для форматирования
-      const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-      const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-      const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-      const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
-      const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+ const tzOffset = -new Date().getTimezoneOffset();                // ← единый оффсет пользователя
+const today = format(new Date(), 'yyyy-MM-dd');
+const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+const monthStart = format(subDays(new Date(), 29), 'yyyy-MM-dd'); // ← rolling 30d
+const monthEnd = today;                                           // ← до «сегодня»
 
     const requests = [
       getAllJobPosts({ page: jobPostPage, limit: jobPostLimit }),
@@ -1076,14 +1117,14 @@ useEffect(() => {
       getAdminCategories(),
       getAnalytics(),
       getRegistrationStats({ startDate: '2023-01-01', endDate: new Date().toISOString().split('T')[0], interval: selectedInterval }),
-      getGeographicDistribution({ role: 'jobseeker', startDate: today, endDate: today }),
-      getGeographicDistribution({ role: 'jobseeker', startDate: yesterday, endDate: yesterday }),
-      getGeographicDistribution({ role: 'jobseeker', startDate: weekStart, endDate: weekEnd }),
-      getGeographicDistribution({ role: 'jobseeker', startDate: monthStart, endDate: monthEnd }),
-      getGeographicDistribution({ role: 'employer', startDate: today, endDate: today }),
-      getGeographicDistribution({ role: 'employer', startDate: yesterday, endDate: yesterday }),
-      getGeographicDistribution({ role: 'employer', startDate: weekStart, endDate: weekEnd }),
-      getGeographicDistribution({ role: 'employer', startDate: monthStart, endDate: monthEnd }),
+    getGeographicDistribution({ role: 'jobseeker', startDate: today,     endDate: today,      tzOffset }),
+  getGeographicDistribution({ role: 'jobseeker', startDate: yesterday, endDate: yesterday,  tzOffset }),
+  getGeographicDistribution({ role: 'jobseeker', startDate: weekStart, endDate: weekEnd,    tzOffset }),
+  getGeographicDistribution({ role: 'jobseeker', startDate: monthStart,endDate: monthEnd,   tzOffset }),
+  getGeographicDistribution({ role: 'employer',  startDate: today,     endDate: today,      tzOffset }),
+  getGeographicDistribution({ role: 'employer',  startDate: yesterday, endDate: yesterday,  tzOffset }),
+  getGeographicDistribution({ role: 'employer',  startDate: weekStart, endDate: weekEnd,    tzOffset }),
+  getGeographicDistribution({ role: 'employer',  startDate: monthStart,endDate: monthEnd,   tzOffset }),
       getTopEmployers(5),
       getTopJobseekers(5),
       getTopJobseekersByViews(5),
@@ -1705,10 +1746,12 @@ useEffect(() => {
     start: format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
     end: format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd'),
   });
-  const monthRange = () => ({
-    start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
-    end: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
-  });
+const tzOffset = -new Date().getTimezoneOffset();
+
+const monthRange = () => ({
+  start: format(subDays(new Date(), 29), 'yyyy-MM-dd'),  // ← rolling 30d
+  end: format(new Date(), 'yyyy-MM-dd'),
+});
 
   // быстрый тик: онлайн, последние регистрации, и TODAY для Business Overview
 const fetchFast = async () => {
@@ -1716,8 +1759,8 @@ const fetchFast = async () => {
     const [online, recents, jsToday, bizToday] = await Promise.all([
       getOnlineUsers(),
       getRecentRegistrationsToday({ limit: 5 }), // ← новая функция с tzOffset внутри
-      getGeographicDistribution({ role: 'jobseeker', startDate: today(), endDate: today() }),
-      getGeographicDistribution({ role: 'employer',  startDate: today(), endDate: today() }),
+      getGeographicDistribution({ role: 'jobseeker', startDate: today(), endDate: today(), tzOffset }),
+      getGeographicDistribution({ role: 'employer',  startDate: today(), endDate: today(), tzOffset }),
     ]);
     if (stop) return;
     setOnlineUsers(online || null);
@@ -1747,14 +1790,14 @@ const fetchFast = async () => {
       const { start: ws, end: we } = weekRange();
       const { start: ms, end: me } = monthRange();
 
-      const [jsY, jsW, jsM, bizY, bizW, bizM] = await Promise.all([
-        getGeographicDistribution({ role: 'jobseeker', startDate: y,  endDate: y }),
-        getGeographicDistribution({ role: 'jobseeker', startDate: ws, endDate: we }),
-        getGeographicDistribution({ role: 'jobseeker', startDate: ms, endDate: me }),
-        getGeographicDistribution({ role: 'employer',  startDate: y,  endDate: y }),
-        getGeographicDistribution({ role: 'employer',  startDate: ws, endDate: we }),
-        getGeographicDistribution({ role: 'employer',  startDate: ms, endDate: me }),
-      ]);
+const [jsY, jsW, jsM, bizY, bizW, bizM] = await Promise.all([
+  getGeographicDistribution({ role: 'jobseeker', startDate: y,  endDate: y,  tzOffset }),
+  getGeographicDistribution({ role: 'jobseeker', startDate: ws, endDate: we, tzOffset }),
+  getGeographicDistribution({ role: 'jobseeker', startDate: ms, endDate: me, tzOffset }),
+  getGeographicDistribution({ role: 'employer',  startDate: y,  endDate: y,  tzOffset }),
+  getGeographicDistribution({ role: 'employer',  startDate: ws, endDate: we, tzOffset }),
+  getGeographicDistribution({ role: 'employer',  startDate: ms, endDate: me, tzOffset }),
+]);
 
       if (stop) return;
       setFreelancerSignupsYesterday(jsY || []);
@@ -2034,7 +2077,7 @@ if (isLoading) {
         <th>Today</th>
         <th>Yesterday</th>
         <th>Week (Mon-Sun)</th>
-        <th>Month </th>
+        <th>Last 30 days</th>
       </tr>
     </thead>
     <tbody>
@@ -2202,7 +2245,16 @@ if (isLoading) {
     <tr key={post.id}>
       <td>{post.username || 'N/A'}</td>
       <td>{post.title}</td>
-      <td>{typeof post.category === 'string' ? post.category : post.category?.name || 'N/A'}</td>
+      <td>
+        {Array.isArray(post.categories) && post.categories.length > 0 ? (
+          <div className="adm-cats">
+            <span>{post.categories[0]}</span>
+            {post.categories.slice(1).map((name, idx) => (
+              <span key={idx} className="adm-cat-sub">{name}</span>
+            ))}
+          </div>
+        ) : (typeof post.category === 'string' ? post.category : post.category?.name || 'N/A')}
+      </td>
       <td>{post.applicationCount}</td>
       <td>{format(new Date(post.created_at), 'PP')}</td>
     </tr>
@@ -2212,6 +2264,7 @@ if (isLoading) {
     </tr>
   )}
 </tbody>
+
 
   </table>
   <div className="pagination">
@@ -2284,6 +2337,9 @@ if (isLoading) {
       </th> */}
       <th>Username</th>
       <th>Email</th>
+      <th onClick={() => handleUserSort('brand')} style={{ cursor: 'pointer' }}>
+  Brand {userSortColumn === 'brand' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+</th>
       <th onClick={() => handleUserSort('role')} style={{ cursor: 'pointer' }}>
         Role {userSortColumn === 'role' ? (userSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
       </th>
@@ -2303,6 +2359,7 @@ if (isLoading) {
       {/* <td>{user.id}</td> */}
       <td>{user.username}</td>
       <td>{user.email}</td>
+      <td>{getBrand(user)}</td>
       <td>{user.role}</td>
       <td>{user.status === 'blocked' ? 'Blocked' : 'Active'}</td>
       <td>{onlineStatuses[user.id] ? 'Online' : 'Offline'}</td>
@@ -2357,7 +2414,7 @@ if (isLoading) {
       </tr>
     )) : (
       <tr>
-        <td colSpan={9}>No users found.</td>
+        <td colSpan={10}>No users found.</td>
       </tr>
     )}
   </tbody>
@@ -3190,6 +3247,62 @@ if (isLoading) {
       </tbody>
     </table>
     
+    <h4>Registrations by Brand</h4>
+
+<div className="filters-row" style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+  <label>
+    Start:&nbsp;
+    <input
+      type="date"
+      value={brandsRange.startDate || ''}
+      onChange={(e) => setBrandsRange(r => ({ ...r, startDate: e.target.value || undefined }))}
+    />
+  </label>
+  <label>
+    End:&nbsp;
+    <input
+      type="date"
+      value={brandsRange.endDate || ''}
+      onChange={(e) => setBrandsRange(r => ({ ...r, endDate: e.target.value || undefined }))}
+    />
+  </label>
+  <button className="action-button" onClick={() => setBrandsRange({})}>Clear</button>
+</div>
+
+{brandsLoading && <p>Loading brand stats…</p>}
+{brandsError && <p className="error-message">{brandsError}</p>}
+
+{!brandsLoading && !brandsError && brandsData && (
+  <>
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>Brand</th>
+          <th>Total</th>
+          <th>Employers</th>
+          <th>Jobseekers</th>
+        </tr>
+      </thead>
+      <tbody>
+        {brandsData.byBrand.map(b => (
+          <tr key={b.brand}>
+            <td>{b.brand}</td>
+            <td>{b.total}</td>
+            <td>{b.employers}</td>
+            <td>{b.jobseekers}</td>
+          </tr>
+        ))}
+        <tr>
+          <td><strong>Overall</strong></td>
+          <td><strong>{brandsData.overall.total}</strong></td>
+          <td><strong>{brandsData.overall.employers}</strong></td>
+          <td><strong>{brandsData.overall.jobseekers}</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </>
+)}
+
    <h4>Growth Trends</h4>
 {fetchErrors.getGrowthTrends && <p className="error-message">{fetchErrors.getGrowthTrends}</p>}
 <h5>Registrations</h5>

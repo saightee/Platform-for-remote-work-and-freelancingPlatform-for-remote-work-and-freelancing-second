@@ -261,91 +261,46 @@ const testimonials: Testimonial[] = [
 
   const maxSlide = Math.max(0, categoryGroups.length - 1);
 
-// --- свайп на мобилке: Pointer Events надёжнее в Safari/iOS ---
-// --- свайп на мобилке: Pointer Events + pointer capture + cancel (iOS Safari fix) ---
-const startXRef = useRef(0);
-const draggingRef = useRef(false);
-const swipedRef = useRef(false);        // чтобы не кликались ссылки при свайпе
-const pointerIdRef = useRef<number | null>(null);
-const THRESHOLD = 50;
 
-const resetSwipe = () => {
-  draggingRef.current = false;
-  pointerIdRef.current = null;
-  // swipedRef сбрасываем не здесь, а после предотвращённого клика — см. onClickCapture ниже
-};
-
-const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-  // работаем только с тачами; мышь/стилус не трогаем
-  if (e.pointerType !== 'touch') return;
-
-  draggingRef.current = true;
-  swipedRef.current = false;
-  startXRef.current = e.clientX;
-
-  // захватываем указатель — iOS тогда продолжит слать move/up даже при лёгких скроллах
-  try {
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    pointerIdRef.current = e.pointerId;
-  } catch {
-    // старые браузеры могут не поддерживать — ок
-    pointerIdRef.current = null;
-  }
-};
-
-const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-  if (!draggingRef.current || e.pointerType !== 'touch') return;
-  // гарантируем, что это тот же pointer, который мы захватили
-  if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current) return;
-
-  const dx = e.clientX - startXRef.current;
-  // отметим, что был горизонтальный жест — чтобы не срабатывали клики по ссылкам
-  if (Math.abs(dx) > 8) swipedRef.current = true;
-  // можно добавить визуальный подыгрывающий drag (не обязательно):
-  // e.currentTarget.querySelector('.cc-track')?.setAttribute('style', `transform: translateX(calc(-${currentSlide * 100}% + ${dx}px))`);
-};
-
-const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-  if (!draggingRef.current || e.pointerType !== 'touch') return;
-  if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current) return;
-
-  // отпускаем захват
-  try {
-    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-  } catch {}
-
-  const dx = e.clientX - startXRef.current;
-  if (Math.abs(dx) > THRESHOLD) {
-    setCurrentSlide(prev =>
-      dx < 0 ? Math.min(maxSlide, prev + 1) : Math.max(0, prev - 1)
-    );
-  }
-  resetSwipe();
-};
-
-const onPointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
-  // iOS часто кидает cancel при вертикальном скролле — нужно почистить состояние
-  if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current) return;
-  try {
-    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-  } catch {}
-  resetSwipe();
-};
-
-// Блокируем клик по ссылкам, если прямо перед этим был свайп
+// === НОВОЕ: нативный скролл со scroll-snap для iOS/Android/десктопов ===
+// синхронизация индикатора со скроллом
 useEffect(() => {
   const vp = viewportRef.current;
   if (!vp) return;
-  const onClickCapture = (e: MouseEvent) => {
-    if (swipedRef.current) {
-      e.preventDefault();
-      e.stopPropagation();
-      swipedRef.current = false; // Сброс после «съеденного» клика
+
+  const onScroll = () => {
+    const i = Math.round(vp.scrollLeft / vp.clientWidth);
+    if (i !== currentSlide) {
+      setCurrentSlide(i);
     }
   };
-  vp.addEventListener('click', onClickCapture, true);
-  return () => vp.removeEventListener('click', onClickCapture, true);
-}, []);
+
+  vp.addEventListener('scroll', onScroll, { passive: true });
+  return () => vp.removeEventListener('scroll', onScroll);
+}, [currentSlide]);
+
+// плавный переход к слайду
+const scrollToSlide = (i: number) => {
+  const vp = viewportRef.current;
+  if (!vp) return;
+  const clamped = Math.max(0, Math.min(i, maxSlide));
+  vp.scrollTo({ left: clamped * vp.clientWidth, behavior: 'smooth' });
+  setCurrentSlide(clamped);
+};
+
+
+// при ресайзе/повороте экрана — перескроллим к текущему слайду
+useEffect(() => {
+  const onResize = () => scrollToSlide(currentSlide);
+  window.addEventListener('resize', onResize);
+  return () => window.removeEventListener('resize', onResize);
+}, [currentSlide]);
+
+// если количество слайдов изменилось (например, после загрузки категорий),
+// не даём currentSlide вывалиться за пределы
+useEffect(() => {
+  setCurrentSlide((s) => Math.min(s, maxSlide));
+}, [maxSlide]);
 
 
 
@@ -374,9 +329,11 @@ useEffect(() => {
     el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
   };
 
-  const handlePrev = () => setCurrentSlide((prev) => Math.max(0, prev - 1));
-  const handleNext = () => setCurrentSlide((prev) => Math.min(maxSlide, prev + 1));
-  const handleDotClick = (index: number) => setCurrentSlide(index);
+// вместо setCurrentSlide(...) 
+const handlePrev  = () => scrollToSlide(currentSlide - 1);
+const handleNext  = () => scrollToSlide(currentSlide + 1);
+const handleDotClick = (i: number) => scrollToSlide(i);
+
 
   const handleSearch = (searchFilters: { title?: string }) => {
     setFilters(searchFilters);
@@ -459,60 +416,52 @@ useEffect(() => {
           <h2 className="cc-title">Browse by category</h2>
           <p className="cc-sub">Find the job that's perfect for you. about 800+ new jobs everyday</p>
 
-          <div className="cc-shell">
-            <button
-              className="cc-arrow cc-arrow--left"
-              onClick={handlePrev}
-              disabled={currentSlide === 0}
-              aria-label="Previous"
-            >
-              <FaChevronLeft />
-            </button>
-
-           <div
-  className="cc-viewport"
-  ref={viewportRef}
-  onPointerDown={onPointerDown}
-  onPointerMove={onPointerMove}
-  onPointerUp={onPointerUp}
-  onPointerCancel={onPointerCancel}
->
-  <div
-    className="cc-track"
-    style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+       <div className="cc-shell">
+  <button
+    className="cc-arrow cc-arrow--left"
+    onClick={handlePrev}
+    disabled={currentSlide === 0}
+    aria-label="Previous"
   >
-                {categoryGroups.map((group, groupIndex) => (
-                  <div className="cc-group" key={groupIndex}>
-                    {group.map((category) => {
-                      const Icon = getCategoryIcon(category.name);
-                      return (
-                        <Link
-                          key={category.id}
-                          to={`/find-job?category_id=${category.id}`}
-                          className="cc-item"
-                        >
-                          <div className="cc-icon"><Icon /></div>
-                          <div className="cc-text">
-                            <div className="cc-name">{category.name}</div>
-                            <div className="cc-link">Browse Jobs</div>
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
+    <FaChevronLeft />
+  </button>
 
-            <button
-              className="cc-arrow cc-arrow--right"
-              onClick={handleNext}
-              disabled={currentSlide === maxSlide}
-              aria-label="Next"
-            >
-              <FaChevronRight />
-            </button>
-          </div>
+  {/* НОВЫЙ ВЬЮПОРТ: без onPointer* и без inline transform */}
+  <div className="cc-viewport" ref={viewportRef}>
+    <div className="cc-track">
+      {categoryGroups.map((group, groupIndex) => (
+        <div className="cc-group" key={groupIndex}>
+          {group.map((category) => {
+            const Icon = getCategoryIcon(category.name);
+            return (
+              <Link
+                key={category.id}
+                to={`/find-job?category_id=${category.id}`}
+                className="cc-item"
+              >
+                <div className="cc-icon"><Icon /></div>
+                <div className="cc-text">
+                  <div className="cc-name">{category.name}</div>
+                  <div className="cc-link">Browse Jobs</div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <button
+    className="cc-arrow cc-arrow--right"
+    onClick={handleNext}
+    disabled={currentSlide === maxSlide}
+    aria-label="Next"
+  >
+    <FaChevronRight />
+  </button>
+</div>
+
 
           <div className="cc-dots">
             {Array.from({ length: maxSlide + 1 }).map((_, index) => (
@@ -636,7 +585,7 @@ useEffect(() => {
 
   
 
-{/* <div className="divider-icon"><span>JF</span></div> */}
+
 
 
 
@@ -645,111 +594,11 @@ useEffect(() => {
 <TestimonialsCarousel
   items={testimonials}
   title="What Our Users Say"
-  heroImageUrl={"/img/hero-person.jpg"} // можно не передавать — возьмётся avatarUrl первого
+  heroImageUrl={"/img/hero-person.jpg"} 
 />
        
-        {/* <div className="rt-testimonials-container">
-          <h2 className="rt-testimonials-title">What Our Users Say</h2>
-          <div className="rt-testimonials-grid" ref={tViewportRef}>
 
-            <div className="rt-testimonial-card">
-              <div className="rt-badge rt-employer"><FaBriefcase /> Employer</div>
-              <FaQuoteLeft className="rt-quote-icon" />
-              <p className="rt-testimonial-text">The matching algorithm here feels like a quirky wizard – it paired me with a gig that involved decoding ancient spreadsheets. Who knew data entry could be this adventurous?</p>
-              <h4 className="rt-name">Alex R.</h4>
-              <p className="rt-specialty">E-Commerce Manager <ReactCountryFlag countryCode="US" svg className="rt-flag" /></p>
-            </div>
-            <div className="rt-testimonial-card">
-              <div className="rt-badge rt-talent"><FaUserTie /> Talent</div>
-              <FaQuoteLeft className="rt-quote-icon" />
-              <p className="rt-testimonial-text">Stumbled upon a project that let me flex my creative muscles in ways I never imagined. It's like the platform whispered secrets about hidden opportunities right into my ear.</p>
-              <h4 className="rt-name">Mia T.</h4>
-              <p className="rt-specialty">Graphic Designer <ReactCountryFlag countryCode="GB" svg className="rt-flag" /></p>
-            </div>
-            <div className="rt-testimonial-card">
-              <div className="rt-badge rt-employer"><FaBriefcase /> Employer</div>
-              <FaQuoteLeft className="rt-quote-icon" />
-              <p className="rt-testimonial-text">Hiring felt like assembling a puzzle where all pieces magically fit. The chat feature turned interviews into casual cosmic alignments – pure serendipity!</p>
-              <h4 className="rt-name">Jordan L.</h4>
-              <p className="rt-specialty">Tech Startup Founder <ReactCountryFlag countryCode="DE" svg className="rt-flag" /></p>
-            </div>
-            <div className="rt-testimonial-card">
-              <div className="rt-badge rt-talent"><FaUserTie /> Talent</div>
-              <FaQuoteLeft className="rt-quote-icon" />
-              <p className="rt-testimonial-text">This site turned my job hunt into a whimsical treasure hunt. Landed a role that mixes code with storytelling – it's like programming fairy tales for the digital age.</p>
-              <h4 className="rt-name">Riley S.</h4>
-              <p className="rt-specialty">Web Developer <ReactCountryFlag countryCode="PH" svg className="rt-flag" /></p>
-            </div>
-            <div className="rt-testimonial-card">
-              <div className="rt-badge rt-employer"><FaBriefcase /> Employer</div>
-              <FaQuoteLeft className="rt-quote-icon" />
-              <p className="rt-testimonial-text">The vetting process is like a backstage pass to talent Wonderland. Hired someone who juggles tasks like a circus performer – effortless and entertaining.</p>
-              <h4 className="rt-name">Casey M.</h4>
-              <p className="rt-specialty">Marketing Director <ReactCountryFlag countryCode="SE" svg className="rt-flag" /></p>
-            </div>
-            <div className="rt-testimonial-card">
-              <div className="rt-badge rt-talent"><FaUserTie /> Talent</div>
-              <FaQuoteLeft className="rt-quote-icon" />
-              <p className="rt-testimonial-text">Found a freelance spot that lets me weave words into enchanting narratives. It's as if the platform sprinkled pixie dust on my resume to make it sparkle.</p>
-              <h4 className="rt-name">Taylor K.</h4>
-              <p className="rt-specialty">Content Writer <ReactCountryFlag countryCode="CA" svg className="rt-flag" /></p>
-            </div>
-            <div className="rt-testimonial-card">
-              <div className="rt-badge rt-employer"><FaBriefcase /> Employer</div>
-              <FaQuoteLeft className="rt-quote-icon" />
-              <p className="rt-testimonial-text">Building my team was like conducting an orchestra of remote virtuosos. The filters tuned everything perfectly – no sour notes in sight.</p>
-              <h4 className="rt-name">Pat D.</h4>
-              <p className="rt-specialty">Project Coordinator <ReactCountryFlag countryCode="AU" svg className="rt-flag" /></p>
-            </div>
-            <div className="rt-testimonial-card">
-              <div className="rt-badge rt-talent"><FaUserTie /> Talent</div>
-              <FaQuoteLeft className="rt-quote-icon" />
-              <p className="rt-testimonial-text">Dived into a role that blends analytics with artistic flair. The opportunities here pop up like unexpected plot twists in a thrilling novel.</p>
-              <h4 className="rt-name">Morgan P.</h4>
-              <p className="rt-specialty">Data Analyst <ReactCountryFlag countryCode="FR" svg className="rt-flag" /></p>
-            </div>
-            <div className="rt-testimonial-card">
-              <div className="rt-badge rt-employer"><FaBriefcase /> Employer</div>
-              <FaQuoteLeft className="rt-quote-icon" />
-              <p className="rt-testimonial-text">The direct messaging turned negotiations into a dance of ideas. Assembled a squad that's more like a band of merry adventurers than colleagues.</p>
-              <h4 className="rt-name">Drew H.</h4>
-              <p className="rt-specialty">HR Specialist <ReactCountryFlag countryCode="NL" svg className="rt-flag" /></p>
-            </div>
-            <div className="rt-testimonial-card">
-              <div className="rt-badge rt-talent"><FaUserTie /> Talent</div>
-              <FaQuoteLeft className="rt-quote-icon" />
-              <p className="rt-testimonial-text">Snagged a virtual assistant gig that feels like partnering with a time-bending genie. Tasks vanish before I even blink – magical efficiency!</p>
-              <h4 className="rt-name">Jordan E.</h4>
-              <p className="rt-specialty">Virtual Assistant <ReactCountryFlag countryCode="PH" svg className="rt-flag" /></p>
-            </div>
-            <div className="rt-testimonial-card">
-              <div className="rt-badge rt-employer"><FaBriefcase /> Employer</div>
-              <FaQuoteLeft className="rt-quote-icon" />
-              <p className="rt-testimonial-text">Sourcing talent here is like fishing in a pond stocked with unicorns. Every catch brings a splash of innovation to my projects.</p>
-              <h4 className="rt-name">Lee V.</h4>
-              <p className="rt-specialty">Software Engineer Lead <ReactCountryFlag countryCode="JP" svg className="rt-flag" /></p>
-            </div>
-            <div className="rt-testimonial-card">
-              <div className="rt-badge rt-talent"><FaUserTie /> Talent</div>
-              <FaQuoteLeft className="rt-quote-icon" />
-              <p className="rt-testimonial-text">Landed a translation project that bridges cultures like a linguistic acrobat. The platform's reach feels boundless, like exploring uncharted galaxies.</p>
-              <h4 className="rt-name">Sam O.</h4>
-              <p className="rt-specialty">Translator <ReactCountryFlag countryCode="ES" svg className="rt-flag" /></p>
-            </div>
-          </div>
-        </div> */}
 
-        {/* <div className="rt-dots">
-          {Array.from({ length: tPages }).map((_, i) => (
-            <button
-              key={i}
-              className={`rt-dot ${tPage === i ? 'rt-dot--active' : ''}`}
-              onClick={() => goToTestimonialPage(i)}
-              aria-label={`Go to testimonials page ${i + 1}`}
-              type="button"
-            />
-          ))}
-        </div> */}
       </div>
 
       {/* Final CTA */}
@@ -758,7 +607,7 @@ useEffect(() => {
           <div className="hv-final-cta-content">
             <h2 className="hv-final-cta-title">Ready to Transform Your Career or Team?</h2>
            <p className="hv-final-cta-subtitle">
-  Whether you're seeking top remote talent or your next virtual opportunity,
+  Whether you're seeking top remote talent or your next virtual opportunity, 
   {brand.name} connects you to endless possibilities worldwide.
 </p>
                 {!authed && (

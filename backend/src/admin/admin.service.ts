@@ -167,6 +167,7 @@ export class AdminService {
         'user.risk_score',
         'user.created_at',
         'user.last_seen_at',
+        'user.brand',
       ]);
 
     let hasSearch = false;
@@ -261,6 +262,20 @@ export class AdminService {
     }
 
     try {
+      await this.jobPostsRepository.manager
+        .createQueryBuilder()
+        .delete()
+        .from('job_invitations')
+        .where('employer_id = :id OR job_seeker_id = :id', { id: userId })
+        .execute();
+
+      await this.jobPostsRepository.manager
+        .createQueryBuilder()
+        .delete()
+        .from('job_invitations')
+        .where('job_post_id IN (SELECT id FROM job_posts WHERE employer_id = :id)', { id: userId })
+        .execute();
+
       if (user.role === 'employer') {
         const jobPosts = await this.jobPostsRepository.find({ where: { employer_id: userId } });
         for (const jobPost of jobPosts) {
@@ -275,6 +290,7 @@ export class AdminService {
           await this.jobPostsRepository.delete(jobPost.id);
         }
         await this.employerRepository.delete({ user_id: userId });
+
       } else if (user.role === 'jobseeker') {
         const applications = await this.jobApplicationsRepository.find({ where: { job_seeker_id: userId } });
         if (applications.length > 0) {
@@ -298,6 +314,7 @@ export class AdminService {
       await this.referralRegistrationsRepository.delete({ user: { id: userId } });
 
       await this.usersRepository.delete(userId);
+
       return { message: 'User deleted successfully' };
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -488,12 +505,22 @@ export class AdminService {
   async approveJobPost(adminId: string, jobPostId: string) {
     await this.checkAdminRole(adminId);
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
-    if (!jobPost) {
-      throw new NotFoundException('Job post not found');
-    }
+    if (!jobPost) throw new NotFoundException('Job post not found');
 
     jobPost.pending_review = false;
-    return this.jobPostsRepository.save(jobPost);
+    await this.jobPostsRepository.save(jobPost);
+
+    const { globalApplicationLimit } = await this.settingsService.getGlobalApplicationLimit();
+    const limit = globalApplicationLimit ?? 0;
+
+    if (limit > 0) {
+      const count = await this.applicationLimitsRepository.count({ where: { job_post_id: jobPostId } });
+      if (!count) {
+        await this.applicationLimitsService.initializeLimits(jobPostId, limit);
+      }
+    }
+
+    return jobPost;
   }
 
   async flagJobPost(adminId: string, jobPostId: string) {

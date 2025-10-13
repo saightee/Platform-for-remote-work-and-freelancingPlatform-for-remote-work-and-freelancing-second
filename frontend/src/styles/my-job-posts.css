@@ -13,7 +13,7 @@
 .mjp-shell {
   max-width: 1120px;
   margin: 32px auto 56px;
-  padding: 0 16px;
+  padding: 0 0px;
 }
 .mjp-header { margin-bottom: 12px; }
 
@@ -50,7 +50,7 @@
 .mjp-row { display: flex; flex-direction: column; gap: 8px; }
 .mjp-label {
   font-size: 14px; font-weight: 700; color: var(--cs-text);
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 8px; padding-top: 10px;
 }
 
 .mjp-input, .mjp-select, .mjp-textarea {
@@ -85,7 +85,7 @@
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px; margin-bottom: 8px;
 }
-.mjp-card-title { margin: 0; font-size: 20px; font-weight: 800; color: var(--cs-text); }
+.mjp-card-title { margin: 0; font-size: 16px; font-weight: 800; color: var(--cs-text); }
 .mjp-status {
   display: inline-flex; align-items: center; gap: 8px;
   font-size: 12px; font-weight: 700;
@@ -96,7 +96,7 @@
 .mjp-status.closed { background: #fff2f2; color: #9b1c1c; }
 
 /* description */
-.mjp-desc { color: #242a35; line-height: 1.6; margin: 8px 0 12px; }
+.mjp-desc { color: #242a35; line-height: 1.6; margin: 20px 0 12px; }
 .mjp-desc p { margin: 0 0 10px; }
 
 /* salary inline */

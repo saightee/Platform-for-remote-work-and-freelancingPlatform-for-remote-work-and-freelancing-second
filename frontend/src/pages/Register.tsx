@@ -5,6 +5,10 @@ import { Category } from '@types';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import PasswordStrength, { isStrongPassword } from '../components/PasswordStrength';
 import '../styles/register-v2.css';
+import { toast } from '../utils/toast';
+import CountrySelect from '../components/inputs/CountrySelect';
+import LanguagesInput from '../components/inputs/LanguagesInput';
+import '../styles/country-langs.css';
 
 const urlOk = (v: string) => /^https?:\/\/\S+$/i.test(v.trim());
 const getCookie = (name: string): string | undefined => {
@@ -20,12 +24,20 @@ const Register: React.FC = () => {
   // common
   const [username, setUsername] = useState('');
   const [email, setEmail]       = useState('');
+  const [confirmEmail, setConfirmEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm]   = useState('');
   const [seePass, setSeePass]   = useState(false);
   const [seeConf, setSeeConf]   = useState(false);
   const [err, setErr]           = useState<string | null>(null);
   const [busy, setBusy]         = useState(false);
+
+  const emailsMismatch =
+    !!confirmEmail &&
+    confirmEmail.trim().toLowerCase() !== email.trim().toLowerCase();
+// jobseeker specifics …
+const [country, setCountry]     = useState('');
+const [languages, setLanguages] = useState<string[]>([]);
 
   // jobseeker specifics
   const [experience, setExperience] = useState('');
@@ -98,21 +110,24 @@ const Register: React.FC = () => {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   if (!role) return;
-  
 
-  // URL validation (only if filled)
+  // нормализуем перед проверками (на случай, если где-то не сработал trim/lowercase)
+  const normEmail = email.trim().toLowerCase();
+  const normConfirmEmail = confirmEmail.trim().toLowerCase();
+
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   if (!username.trim()) { setErr('Username is required.'); return; }
-  if (!email.trim() || !emailRe.test(email.trim())) { setErr('Valid email is required.'); return; }
+  if (!normEmail || !emailRe.test(normEmail)) { setErr('Valid email is required.'); return; }
+  if (!normConfirmEmail || !emailRe.test(normConfirmEmail)) { setErr('Please re-enter a valid email.'); return; }
+  if (normEmail !== normConfirmEmail) { setErr('Emails do not match.'); return; }
+
   if (!password) { setErr('Password is required.'); return; }
   if (password !== confirm) { setErr('Passwords do not match.'); return; }
   if (!isStrongPassword(password)) { setErr('Password does not meet security requirements.'); return; }
   if (role === 'jobseeker' && !experience) { setErr('Please select your experience.'); return; }
 
-  // URL validation (only if filled)
- 
   const urlErrors: string[] = [];
-  
   const check = (val: string, label: string) => { if (val && !urlOk(val)) urlErrors.push(`${label} URL is invalid (use https://...)`); };
   check(resumeLink, 'Resume');
   check(linkedin, 'LinkedIn');
@@ -123,86 +138,83 @@ const handleSubmit = async (e: React.FormEvent) => {
   try {
     setBusy(true); setErr(null);
 
-    // рефкод: URL → LS → cookie
+    // используем нормализованный email дальше в пайлоаде и в localStorage
+    let payload: any;
+
+    if (role === 'jobseeker' && resumeFile) {
+      const fd = new FormData();
+      fd.append('username', username);
+      fd.append('email', normEmail);               // заменили на нормализованный
+      fd.append('password', password);
+      fd.append('role', role);
+      fd.append('resume_file', resumeFile);
+
+      if (experience)            fd.append('experience', experience);
+      if (selectedSkills.length) selectedSkills.forEach(s => fd.append('skills[]', String(s.id)));
+      if (resumeLink.trim())     fd.append('resume', resumeLink.trim());
+      if (linkedin.trim())       fd.append('linkedin', linkedin.trim());
+      if (instagram.trim())      fd.append('instagram', instagram.trim());
+      if (facebook.trim())       fd.append('facebook', facebook.trim());
+      if (whatsapp.trim())       fd.append('whatsapp', whatsapp.trim());
+      if (telegram.trim())       fd.append('telegram', telegram.trim());
+      if (about.trim())          fd.append('about', about.trim());
+      if (getCookie('jf_ref'))   fd.append('ref', getCookie('jf_ref')!);
+      if (country.trim())         fd.append('country', country.trim().toUpperCase());
+      if (languages.length)       languages.forEach(l => fd.append('languages[]', l));
+
+
+      payload = fd;
+    } else {
+      payload = { username, email: normEmail, password, role }; // email → normEmail
+      if (role === 'jobseeker') {
+        if (experience)            payload.experience = experience;
+        if (selectedSkills.length) payload.skills     = selectedSkills.map(s => String(s.id));
+        if (resumeLink.trim())     payload.resume     = resumeLink.trim();
+        if (linkedin.trim())       payload.linkedin   = linkedin.trim();
+        if (instagram.trim())      payload.instagram  = instagram.trim();
+        if (facebook.trim())       payload.facebook   = facebook.trim();
+        if (whatsapp.trim())       payload.whatsapp   = whatsapp.trim();
+        if (telegram.trim())       payload.telegram   = telegram.trim();
+        if (about.trim())          payload.about      = about.trim();
+        if (country.trim())        payload.country    = country.trim().toUpperCase();
+        if (languages.length)      payload.languages  = languages;
+      }
+      const urlRef = new URLSearchParams(window.location.search).get('ref') || undefined;
+      const lsRef  = localStorage.getItem('referralCode') || undefined;
+      const ckRef  = getCookie('jf_ref') || undefined;
+      const refCode = urlRef || lsRef || ckRef || undefined;
+      if (refCode) payload.ref = refCode;
+    }
+
+    await register(payload);
+
+    localStorage.setItem('pendingEmail', normEmail);  // сохраняем нормализованную
+    localStorage.setItem('pendingRole', role);
+
     const urlRef = new URLSearchParams(window.location.search).get('ref') || undefined;
     const lsRef  = localStorage.getItem('referralCode') || undefined;
     const ckRef  = getCookie('jf_ref') || undefined;
     const refCode = urlRef || lsRef || ckRef || undefined;
 
-    // безопасный внутренний return-путь (без open redirect на внешние домены)
     const rawReturn = new URLSearchParams(window.location.search).get('return') || '';
-    const safeReturn =
-  rawReturn.startsWith('/') && !rawReturn.startsWith('//') ? rawReturn : undefined;
+    const safeReturn = rawReturn.startsWith('/') && !rawReturn.startsWith('//') ? rawReturn : undefined;
 
+    if (role === 'jobseeker' && refCode && safeReturn) {
+      localStorage.setItem('afterVerifyReturn', safeReturn);
+    } else {
+      localStorage.removeItem('afterVerifyReturn');
+    }
 
-// если есть файл — multipart, иначе как раньше JSON
-let payload: any;
+    if (refCode) { try { localStorage.removeItem('referralCode'); } catch {} }
 
-if (role === 'jobseeker' && resumeFile) {
-  const fd = new FormData();
-  fd.append('username', username);
-  fd.append('email', email);
-  fd.append('password', password);
-  fd.append('role', role);
-  fd.append('resume_file', resumeFile); // ВАЖНО: имя поля из ТЗ
-
-  if (experience)            fd.append('experience', experience);
-  if (selectedSkills.length) selectedSkills.forEach(s => fd.append('skills[]', String(s.id)));
-  if (resumeLink.trim())     fd.append('resume', resumeLink.trim()); // бэк приоритезирует файл
-  if (linkedin.trim())       fd.append('linkedin', linkedin.trim());
-  if (instagram.trim())      fd.append('instagram', instagram.trim());
-  if (facebook.trim())       fd.append('facebook', facebook.trim());
-  if (whatsapp.trim())       fd.append('whatsapp', whatsapp.trim());   // NEW
-  if (telegram.trim())       fd.append('telegram', telegram.trim());   // NEW
-  if (about.trim())          fd.append('about', about.trim());
-  if (refCode)               fd.append('ref', refCode);
-
-  payload = fd;
-} else {
-  payload = { username, email, password, role };
-  if (role === 'jobseeker') {
-    if (experience)            payload.experience = experience;
-    if (selectedSkills.length) payload.skills     = selectedSkills.map(s => String(s.id));
-    if (resumeLink.trim())     payload.resume     = resumeLink.trim();
-    if (linkedin.trim())       payload.linkedin   = linkedin.trim();
-    if (instagram.trim())      payload.instagram  = instagram.trim();
-    if (facebook.trim())       payload.facebook   = facebook.trim();
-    if (whatsapp.trim())       payload.whatsapp   = whatsapp.trim();    // NEW
-    if (telegram.trim())       payload.telegram   = telegram.trim();    // NEW
-    if (about.trim())          payload.about      = about.trim();
-  }
-  if (refCode) payload.ref = refCode;
-}
-
-await register(payload);
-
-
-// запоминаем данные для ПОСЛЕ верификации
-localStorage.setItem('pendingEmail', email.trim().toLowerCase());
-localStorage.setItem('pendingRole', role); // чтобы VerifyEmail знал роль
-// если это jobseeker по рефке и есть валидный внутренний return — сохраним
-if (role === 'jobseeker' && refCode && safeReturn) {
-  localStorage.setItem('afterVerifyReturn', safeReturn);
-} else {
-  localStorage.removeItem('afterVerifyReturn');
-}
-
-// реф-код в LS больше не держим
-if (refCode) { try { localStorage.removeItem('referralCode'); } catch {} }
-
-// НИКУДА не уводим — показываем страницу «проверьте почту»
-navigate('/registration-pending', { state: { email: email.trim().toLowerCase() } });
-
-
-} catch (error: any) {
-  console.error('Register error', error);
-  const msg = error?.response?.data?.message;
-  if (msg?.includes('Account exists but not verified')) {
-    // для уже существующего, но не верифицированного — ведём на ту же страницу «проверьте почту»
-    navigate('/registration-pending', { state: { email: email.trim().toLowerCase() } });
-
-    return;
-  }
+    navigate('/registration-pending', { state: { email: normEmail } });
+  } catch (error: any) {
+    console.error('Register error', error);
+    const msg = error?.response?.data?.message;
+    if (msg?.includes('Account exists but not verified')) {
+      navigate('/registration-pending', { state: { email: normEmail } });
+      return;
+    }
     if (error?.response?.status === 403 && msg === 'Registration is not allowed from your country') {
       setErr('Registration is not allowed from your country.');
     } else {
@@ -257,6 +269,40 @@ navigate('/registration-pending', { state: { email: email.trim().toLowerCase() }
 />
 
           </div>
+
+          
+<div className="reg2-field">
+  <label className="reg2-label">Confirm Email</label>
+  <input
+    className="reg2-input"
+    type="email"
+    value={confirmEmail}
+    onChange={e => setConfirmEmail(e.target.value.trim().toLowerCase())}
+    placeholder="Re-enter your email"
+    autoComplete="off"               // запрет автозаполнения
+    name="confirm-email"             // нетипичное имя снижает шанс автоподстановок
+    inputMode="email"
+    autoCapitalize="off"
+    spellCheck={false}
+    required
+    aria-invalid={emailsMismatch ? true : undefined}
+    data-invalid={emailsMismatch || undefined}  // ← добавили дата-атрибут для CSS-подсветки
+    onPaste={(e) => e.preventDefault()}         // запрет вставки
+    onCopy={(e) => e.preventDefault()}          // запрет копирования
+    onCut={(e) => e.preventDefault()}           // запрет вырезания
+    onDrop={(e) => e.preventDefault()}          // запрет перетаскивания текста
+    onContextMenu={(e) => e.preventDefault()}   // запрет контекстного меню
+  />
+
+  {/* Визуальная подпись об ошибке (показывается только при несовпадении) */}
+  {emailsMismatch && (
+    <div className="reg2-hint reg2-hint--err" role="alert">
+      Emails do not match.
+    </div>
+  )}
+</div>
+
+
 
 <div className="reg2-field">
   <label className="reg2-label">Password</label>
@@ -315,6 +361,16 @@ navigate('/registration-pending', { state: { email: email.trim().toLowerCase() }
                   <option value="6+ years">6+ years</option>
                 </select>
               </div>
+              {/* NEW: Country & Languages */}
+<div className="reg2-field">
+  <CountrySelect value={country} onChange={(code) => setCountry(code || '')} />
+</div>
+
+<div className="reg2-span2">
+  <LanguagesInput value={languages} onChange={setLanguages} />
+</div>
+
+
 
         <div className="reg2-field">
   <label className="reg2-label">
@@ -348,7 +404,7 @@ onChange={(e) => {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
   ];
   if (f.type && !okTypes.includes(f.type)) {
-    alert('Allowed file types: PDF, DOC, DOCX');
+    toast.error('Allowed file types: PDF, DOC, DOCX');
     return;
   }
 
@@ -490,11 +546,12 @@ onChange={(e) => {
           )}
 
           {/* submit + links */}
-          <div className="reg2-actions reg2-span2">
-            <button className="reg2-btn" type="submit" disabled={busy}>
-              {busy ? 'Signing up…' : `Sign Up as ${role === 'employer' ? 'Employer' : 'Jobseeker'}`}
-            </button>
-          </div>
+        <div className="reg2-actions reg2-span2">
+  <button className="reg2-btn" type="submit" disabled={busy || emailsMismatch}>
+    {busy ? 'Signing up…' : `Sign Up as ${role === 'employer' ? 'Employer' : 'Jobseeker'}`}
+  </button>
+</div>
+
 
           <div className="reg2-links reg2-span2">
             <span>Already have an account? <Link to="/login">Login</Link></span>

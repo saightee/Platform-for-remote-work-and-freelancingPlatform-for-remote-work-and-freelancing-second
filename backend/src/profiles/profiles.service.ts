@@ -21,6 +21,17 @@ export class ProfilesService {
     private reviewsService: ReviewsService,
   ) {}
 
+  private countryNameFromISO(code?: string | null): string | null {
+    const c = (code || '').toString().trim().toUpperCase();
+    if (!c) return null;
+    try {
+      const dn = new (Intl as any).DisplayNames(['en'], { type: 'region' });
+      return dn?.of?.(c) || c;
+    } catch {
+      return c;
+    }
+  }
+
   async getProfile(userId: string, isAuthenticated: boolean = false) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
@@ -43,6 +54,7 @@ export class ProfilesService {
         email: isAuthenticated ? user.email : undefined,
         username: user.username,
         country: user.country,
+        country_name: this.countryNameFromISO(user.country),
         skills: jobSeeker.skills,
         experience: jobSeeker.experience,
         description: jobSeeker.description,
@@ -73,6 +85,7 @@ export class ProfilesService {
         role: user.role,
         email: isAuthenticated ? user.email : undefined,
         username: user.username,
+        country_name: this.countryNameFromISO(user.country),
         company_name: employer.company_name,
         company_info: employer.company_info,
         referral_link: employer.referral_link,

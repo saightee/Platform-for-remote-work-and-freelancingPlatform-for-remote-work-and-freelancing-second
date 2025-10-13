@@ -13,12 +13,14 @@ import {
   broadcastToApplicants,
   closeJobPost,
   updateApplicationStatus,
+  broadcastToSelected,
+  bulkRejectApplications,
 } from '../services/api';
 import { JobApplication, JobPost, JobApplicationDetails } from '@types';
 import { format } from 'date-fns';
 import { FaComments, FaPaperPlane, FaUsers } from 'react-icons/fa';
 import '../styles/chat-hub.css';
-import { brand } from '../brand';
+import { toast } from '../utils/toast';
 
 interface Message {
   id: string;
@@ -40,21 +42,11 @@ type ChatListItem = {
   userId?: string;
   job_post_id?: string;
   appliedAt?: string; 
+  lastMessage?: string;
+  lastActivity?: number; 
 };
 
-/** DEV helpers */
-// const isDev = typeof import.meta !== 'undefined' ? import.meta.env.DEV : false;
-// const getAsParam = () => {
-//   try {
-//     return new URLSearchParams(window.location.search).get('as') as
-//       | 'jobseeker'
-//       | 'employer'
-//       | null;
-//   } catch {
-//     return null;
-//   }
-// };
-// const isDevDemoId = (id?: string) => !!id && id.startsWith('dev-');
+
 
 const Messages: React.FC = () => {
   const navigate = useNavigate();
@@ -71,12 +63,20 @@ const Messages: React.FC = () => {
     [jobPostId: string]: JobApplicationDetails[];
   }>({});
 
-  const [activeJobId, setActiveJobId] = useState<string | null>(
-    preselectJobPostId || null
-  );
-  const [selectedChat, setSelectedChat] = useState<string | null>(
-    preselectApplicationId || null
-  );
+const [activeJobId, setActiveJobId] = useState<string | null>(
+  preselectJobPostId || localStorage.getItem('lastActiveJobId') || null
+);
+const [selectedChat, setSelectedChat] = useState<string | null>(
+  preselectApplicationId || localStorage.getItem('lastSelectedChat') || null
+);
+
+useEffect(() => {
+  if (activeJobId) localStorage.setItem('lastActiveJobId', activeJobId);
+}, [activeJobId]);
+
+useEffect(() => {
+  if (selectedChat) localStorage.setItem('lastSelectedChat', selectedChat);
+}, [selectedChat]);
 
   const [messages, setMessages] = useState<{
     [jobApplicationId: string]: Message[];
@@ -92,6 +92,21 @@ const Messages: React.FC = () => {
   }>({});
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [broadcastText, setBroadcastText] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+const toggleSelect = (id: string) => {
+  setSelectedIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
+};
+
+const clearSelection = () => setSelectedIds(new Set());
+
+// МОДАЛКА ДЛЯ "MESSAGE SELECTED"
+const [selModalOpen, setSelModalOpen] = useState(false);
+const [selText, setSelText] = useState('');
 //   const [appDetails, setAppDetails] = useState<{
 //   fullName?: string | null;
 //   referredBy?: string | null;
@@ -99,7 +114,7 @@ const Messages: React.FC = () => {
 // } | null>(null);
 
 const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
-
+const [multiMode, setMultiMode] = useState(false);
 
   const [reviewForm, setReviewForm] = useState<{
     applicationId: string;
@@ -115,6 +130,19 @@ const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
     {}
   );
   // const devSeededRef = useRef(false);
+// --- helpers for timestamps & picking latest application (jobseeker) ---
+const ts = (d?: any) => (d ? new Date(d as any).getTime() : 0);
+
+const pickLatestJobseekerApplicationId = (apps: JobApplication[]): string | null => {
+  if (!apps || !apps.length) return null;
+  // берём самую «свежую» по updated_at -> created_at
+  const sorted = [...apps].sort(
+    (a, b) =>
+      ts((b as any).updated_at || (b as any).created_at) -
+      ts((a as any).updated_at || (a as any).created_at)
+  );
+  return sorted[0]?.id || null;
+};
 
 
   const closeAllMenus = useCallback(() => {
@@ -193,30 +221,48 @@ useEffect(() => {
       try {
         setIsLoading(true);
 
-        if (currentRole === 'jobseeker') {
-          const apps = await getMyApplications();
-          setApplications(
-            apps.filter((a) => ['Pending', 'Accepted'].includes(a.status as any))
-          );
-          joinAllMyChats(apps.map(a => a.id));
-        } else if (currentRole === 'employer') {
-          const posts = await getMyJobPosts();
-          const active = posts.filter(isActiveJob);
-          setJobPosts(active);
+if (currentRole === 'jobseeker') {
+  const all = await getMyApplications();
+  const filtered = all.filter(a => ['Pending','Accepted'].includes(a.status as any));
+  setApplications(filtered);
 
-          const appsArrays = await Promise.all(
-            active.map((post) => getApplicationsForJobPost(post.id))
-          );
-          const appsMap: { [jobPostId: string]: JobApplicationDetails[] } = {};
-          active.forEach((post, index) => {
-            appsMap[post.id] = appsArrays[index];
-          });
-          setJobPostApplications(appsMap);
-const allAppIds = appsArrays.flat().map(a => a.applicationId);
-joinAllMyChats(allAppIds);
-          if (!activeJobId && active[0]) setActiveJobId(active[0].id);
-          if (preselectApplicationId) setSelectedChat(preselectApplicationId);
-        }
+  // подписываемся на все чаты (для превью/истории)
+  joinAllMyChats(filtered.map(a => a.id));
+
+  // авто-выбор: 1) если пришли с preselect — он, 2) иначе из localStorage,
+  // 3) иначе самая свежая заявка (last)
+  if (preselectApplicationId && filtered.some(a => a.id === preselectApplicationId)) {
+    setSelectedChat(preselectApplicationId);
+  } else {
+    const ls = localStorage.getItem('lastSelectedChat');
+    if (ls && filtered.some(a => a.id === ls)) {
+      setSelectedChat(ls);
+    } else {
+      const latestId = pickLatestJobseekerApplicationId(filtered);
+      if (latestId) setSelectedChat(latestId);
+    }
+  }
+}
+ else if (currentRole === 'employer') {
+  const posts = await getMyJobPosts();
+  const active = posts.filter(isActiveJob);
+  setJobPosts(active);
+
+  const arrays = await Promise.all(active.map(p => getApplicationsForJobPost(p.id)));
+  const map: Record<string, JobApplicationDetails[]> = {};
+  active.forEach((p, i) => { map[p.id] = arrays[i]; });
+  setJobPostApplications(map);
+
+  const allIds = arrays.flat().map(a => a.applicationId);
+  joinAllMyChats(allIds);
+
+  if (!activeJobId && active[0]) setActiveJobId(active[0].id);
+  if (!selectedChat) {
+    const first = preselectApplicationId ?? arrays.flat()[0]?.applicationId;
+    if (first) setSelectedChat(first);
+  }
+}
+
       } catch (e) {
         console.error('Error fetching applications:', e);
         setError('Failed to load applications.');
@@ -225,119 +271,19 @@ joinAllMyChats(allAppIds);
       }
     };
 
-    if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole)) {
-      fetchData();
-    }
+if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole)) {
+  fetchData(); 
+}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, currentRole]);
 
-  // DEV SEED
-  // useEffect(() => {
-  //   if (!isDev || devSeededRef.current) return;
-  //   const as = getAsParam();
-  //   if (!as) return;
-
-  //   const hasAnyChats =
-  //     (as === 'jobseeker' && applications.length > 0) ||
-  //     (as === 'employer' &&
-  //       (jobPosts.length > 0 || Object.keys(jobPostApplications).length > 0));
-
-  //   if (hasAnyChats) return;
-
-  //   const now = Date.now();
-  //   if (as === 'jobseeker') {
-  //     const demoAppId = 'dev-app-1';
-  //     const demoEmployerId = 'dev-employer';
-  //     const demo: JobApplication = {
-  //       id: demoAppId,
-  //       status: 'Pending' as any,
-  //       job_post_id: 'dev-job-1' as any,
-  //       job_post: {
-  //         id: 'dev-job-1' as any,
-  //         title: 'Demo Job (Pending)',
-  //         employer: { id: demoEmployerId as any, username: 'Demo Employer' } as any,
-  //       } as any,
-  //     } as any;
-
-  //     setApplications([demo]);
-  //     setSelectedChat(demoAppId);
-
-  //     const demoMsgs: Message[] = [
-  //       {
-  //         id: 'dev-m1',
-  //         job_application_id: demoAppId,
-  //         sender_id: demoEmployerId,
-  //         recipient_id: profile?.id || 'dev-user',
-  //         content: 'Hi! This is a demo conversation. (Pending)',
-  //         created_at: new Date(now - 8 * 60 * 1000).toISOString(),
-  //         is_read: true,
-  //       },
-  //       {
-  //         id: 'dev-m2',
-  //         job_application_id: demoAppId,
-  //         sender_id: profile?.id || 'dev-user',
-  //         recipient_id: demoEmployerId,
-  //         content: 'Great, I can see the chat UI 👍',
-  //         created_at: new Date(now - 5 * 60 * 1000).toISOString(),
-  //         is_read: true,
-  //       },
-  //     ];
-  //     setMessages((p) => ({ ...p, [demoAppId]: demoMsgs }));
-  //     setUnreadCounts((p) => ({ ...p, [demoAppId]: 0 }));
-  //   }
-
-  //   if (as === 'employer') {
-  //     const demoJob: JobPost = {
-  //       id: 'dev-job-1' as any,
-  //       title: 'Demo Job (Active)',
-  //       status: 'Active' as any,
-  //     } as any;
-
-  //     const demoApplication: JobApplicationDetails = {
-  //       applicationId: 'dev-app-2',
-  //       job_post_id: demoJob.id,
-  //       username: 'Jane Demo',
-  //       userId: 'dev-js-1' as any,
-  //       status: 'Pending',
-  //       coverLetter: 'Hello! This is a demo cover letter.',
-  //       appliedAt: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
-  //     } as any;
-
-  //     setJobPosts([demoJob]);
-  //     setJobPostApplications({ [demoJob.id]: [demoApplication] });
-  //     setActiveJobId(demoJob.id);
-  //     setSelectedChat(demoApplication.applicationId);
-
-  //     const demoMsgs: Message[] = [
-  //       {
-  //         id: 'dev-m3',
-  //         job_application_id: demoApplication.applicationId,
-  //         sender_id: demoApplication.userId,
-  //         recipient_id: profile?.id || 'dev-employer',
-  //         content: 'Hi! I am interested in this job.',
-  //         created_at: new Date(now - 15 * 60 * 1000).toISOString(),
-  //         is_read: true,
-  //       },
-  //       {
-  //         id: 'dev-m4',
-  //         job_application_id: demoApplication.applicationId,
-  //         sender_id: profile?.id || 'dev-employer',
-  //         recipient_id: demoApplication.userId,
-  //         content: 'Thanks for reaching out! Let’s chat here.',
-  //         created_at: new Date(now - 10 * 60 * 1000).toISOString(),
-  //         is_read: true,
-  //       },
-  //     ];
-  //     setMessages((p) => ({ ...p, [demoApplication.applicationId]: demoMsgs }));
-  //     setUnreadCounts((p) => ({ ...p, [demoApplication.applicationId]: 0 }));
-  //   }
-
-  //   devSeededRef.current = true;
-  // }, [applications.length, jobPosts.length, jobPostApplications, profile]);
+  
 
   // при смене выбранной вакансии — снимаем выделение чата
   useEffect(() => {
     setSelectedChat(null);
+    setMultiMode(false);
+  clearSelection();
   }, [activeJobId]);
 
   const scrollToBottom = useCallback((smooth: boolean = false) => {
@@ -503,41 +449,18 @@ if (
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedChat || !newMessage.trim()) return;
-
-    // dev-локал
-  //   if (isDev && isDevDemoId(selectedChat)) {
-  //     const myId = profile?.id || 'dev-user';
-  //     const now = new Date().toISOString();
-  //     const msg: Message = {
-  //       id: 'dev-' + Math.random().toString(36).slice(2),
-  //       job_application_id: selectedChat,
-  //       sender_id: myId,
-  //       recipient_id: 'dev-other',
-  //       content: newMessage.trim(),
-  //       created_at: now,
-  //       is_read: true,
-  //     };
-  //     setMessages((p) => ({
-  //       ...p,
-  //       [selectedChat]: [...(p[selectedChat] || []), msg],
-  //     }));
-  //     setNewMessage('');
-  //     scrollToBottom(true);
-  //     return;
-  //   }
-
-    if (!socket) return;
+if (!selectedChat || !newMessage.trim()) return;
+if (!socket || !socket.connected) {
+  setError('Connecting to chat server… Try again in a moment.');
+  return;
+}
 
     if (typingTimeoutRef.current[selectedChat]) {
       clearTimeout(typingTimeoutRef.current[selectedChat]);
     }
     socket.emit('typing', { jobApplicationId: selectedChat, isTyping: false });
 
-    socket.emit('sendMessage', {
-      jobApplicationId: selectedChat,
-      content: newMessage.trim(),
-    });
+socket.emit('sendMessage', { jobApplicationId: selectedChat, content: newMessage.trim() });
 
     setNewMessage('');
   };
@@ -549,39 +472,61 @@ const chatList = useMemo<ChatListItem[]>(() => {
       ? (jobPostApplications[activeJobId] || [])
       : [];
 
-    return list
-      // ← тут была лишняя закрывающая скобка — из-за неё ругался useMemo
-      .filter(app => app.status === 'Pending' || app.status === 'Accepted')
-      .map((app): ChatListItem => ({
-        id: app.applicationId,
-        title: jobPosts.find(p => p.id === app.job_post_id)?.title || 'Unknown Job',
-        partner: app.username,
-        status: app.status,
-        unreadCount: unreadCounts[app.applicationId] ?? 0,
-        coverLetter: app.coverLetter ?? null,
-        userId: app.userId,
-        job_post_id: app.job_post_id,
-        appliedAt: app.appliedAt,
-      }))
-      .sort((a, b) => {
-        const byAccepted =
-          (b.status === 'Accepted' ? 1 : 0) - (a.status === 'Accepted' ? 1 : 0);
-        if (byAccepted !== 0) return byAccepted;
-        return getLastTs(b.id) - getLastTs(a.id);
-      });
+return list
+  .filter(app => app.status === 'Pending' || app.status === 'Accepted')
+  .map((app): ChatListItem => {
+    const msgs = messages[app.applicationId] || [];
+    const lastMsg = msgs.length ? msgs[msgs.length - 1] : undefined;
+    const lastTs = lastMsg ? new Date(lastMsg.created_at).getTime() : 0;
+    return {
+      id: app.applicationId,
+      title: jobPosts.find(p => p.id === app.job_post_id)?.title || 'Unknown Job',
+      partner: app.username,
+      status: app.status,
+      unreadCount: unreadCounts[app.applicationId] ?? 0,
+      coverLetter: app.coverLetter ?? null,
+      userId: app.userId,
+      job_post_id: app.job_post_id,
+      appliedAt: app.appliedAt,
+      lastMessage: lastMsg?.content || '',
+      lastActivity: lastTs,
+    };
+  })
+  // ВСЕГДА СОРТИРУЕМ ПО ПОСЛЕДНЕЙ АКТИВНОСТИ — БЕЗ «СКАЧКОВ» ПРИ ПРОСТОМ ВЫБОРЕ
+  .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+
   }
 
   // jobseeker
-  return applications
-    .map((app): ChatListItem => ({
+// jobseeker
+let source = applications;
+if (currentRole === 'jobseeker' && selectedChat) {
+  source = applications.filter(a => a.id === selectedChat);
+}
+
+return source
+  .map((app): ChatListItem => {
+    const msgs = messages[app.id] || [];
+    const lastMsg = msgs.length ? msgs[msgs.length - 1] : undefined;
+    const lastTs =
+      lastMsg ? ts(lastMsg.created_at)
+              : ts((app as any).updated_at || (app as any).created_at);
+
+    return {
       id: app.id,
       title: app.job_post?.title || 'Unknown Job',
       partner: app.job_post?.employer?.username || 'Unknown',
       unreadCount: unreadCounts[app.id] ?? 0,
       status: app.status,
-      // userId / appliedAt опциональны — их тут нет, и это ок
-    }))
-    .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));
+      lastMessage: lastMsg?.content || '',
+      lastActivity: lastTs,
+      appliedAt: (app as any).created_at,
+    };
+  })
+  // единая сортировка по последней активности, чтобы превью не «скакали»
+  .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+
+
 }, [
   activeJobId,
   jobPostApplications,
@@ -632,7 +577,7 @@ const chatList = useMemo<ChatListItem[]>(() => {
   return pool.find((x) => x.id === selectedChat)?.label || 'Chats…';
 }, [currentRole, jobPosts, activeJobId, applications, selectedChat]);
 
-  const handleSelectChat = (jobApplicationId: string) => {
+  const handleSelectChat = async (jobApplicationId: string) => {
     const exists = [...chatList, ...allChats].some((c: any) => c.id === jobApplicationId);
     if (!exists) {
       setSelectedChat(null);
@@ -656,19 +601,38 @@ const chatList = useMemo<ChatListItem[]>(() => {
       setError('Connecting to chat server... Please wait.');
     }
 
-    getChatHistory(jobApplicationId, { page: 1, limit: 100 }, currentRole!)
-      .then((history) => {
-        setMessages((prev) => ({
-          ...prev,
-          [jobApplicationId]: history.data.sort(
-            (a, b) =>
-              new Date(a.created_at).getTime() -
-              new Date(b.created_at).getTime()
-          ),
-        }));
-        setUnreadCounts((prev) => ({ ...prev, [jobApplicationId]: 0 }));
-      })
-      .catch(() => setError('Failed to load chat history.'));
+const fetchHistory = async () => {
+  const history = await getChatHistory(jobApplicationId, { page: 1, limit: 100 }, currentRole!);
+  setMessages(prev => ({
+    ...prev,
+    [jobApplicationId]: history.data.sort(
+      (a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    ),
+  }));
+  setUnreadCounts(prev => ({ ...prev, [jobApplicationId]: 0 }));
+};
+
+try {
+  await fetchHistory();
+} catch (err: any) {
+  const msg: string = err?.response?.data?.message || err?.message || '';
+  if (/not initialized/i.test(msg) || /инициал/i.test(msg)) {
+    setError('Initializing chat…');
+    const onInit = (d: { jobApplicationId: string }) => {
+      if (d.jobApplicationId === jobApplicationId) {
+        socket?.off('chatInitialized', onInit);
+        socket?.emit('joinChat', { jobApplicationId });
+        fetchHistory().finally(() => setError(null));
+      }
+    };
+    socket?.on('chatInitialized', onInit);
+    // если бэк поддерживает явный init — пробуем
+    socket?.emit('initChat', { jobApplicationId });
+  } else {
+    setError('Failed to load chat history.');
+  }
+}
+
   };
 
   // текущая заявка (для действий работодателя)
@@ -701,6 +665,25 @@ const chatList = useMemo<ChatListItem[]>(() => {
     }, 3000);
   };
 
+  useEffect(() => {
+  const mark = () => {
+    if (!selectedChat || !socket?.connected) return;
+    socket.emit('markMessagesAsRead', { jobApplicationId: selectedChat });
+    setUnreadCounts(prev => ({ ...prev, [selectedChat]: 0 }));
+  };
+
+  const onFocus = () => mark();
+  const onVisible = () => { if (document.visibilityState === 'visible') mark(); };
+
+  window.addEventListener('focus', onFocus);
+  document.addEventListener('visibilitychange', onVisible);
+  return () => {
+    window.removeEventListener('focus', onFocus);
+    document.removeEventListener('visibilitychange', onVisible);
+  };
+}, [selectedChat, socket]);
+
+
   const groupedByJob = useMemo(() => {
   if (currentRole !== 'employer') return [];
   return jobPosts.map(post => {
@@ -721,11 +704,12 @@ const chatList = useMemo<ChatListItem[]>(() => {
     if (!activeJobId || !broadcastText.trim()) return;
     try {
       const res = await broadcastToApplicants(activeJobId, broadcastText.trim());
-      alert(`Sent: ${res.sent}`);
+      toast.success(`Sent to ${res.sent} applicants.`);
       setBroadcastOpen(false);
       setBroadcastText('');
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Failed to send broadcast.');
+     toast.error(err?.response?.data?.message || 'Failed to send broadcast.');
+
     }
   };
 
@@ -749,10 +733,14 @@ const chatList = useMemo<ChatListItem[]>(() => {
     // если сейчас открыт чат по этой вакансии — сбросим выбор
     if (selectedChat) setSelectedChat(null);
     setActiveJobId(null);
+    setMultiMode(false);
+clearSelection();
+toast.success('Job closed successfully.');
 
-    alert('Job closed successfully.');
+
+    toast.success('Job closed successfully.');
   } catch (err: any) {
-    alert(err?.response?.data?.message || 'Failed to close job.');
+    toast.error(err?.response?.data?.message || 'Failed to close job.');
   }
 };
 
@@ -839,14 +827,25 @@ useEffect(() => {
     <summary title={selectedLabel} className="one-line">{selectedLabel}</summary>
     <div className="ch-dd__menu">
      <ul className="ch-dd__ul">
-  {currentRole === 'employer' ? (
-    jobPosts.map((post) => (
+{currentRole === 'employer' ? (
+  [...jobPosts]
+    .sort((a, b) => {
+      const atA = a.created_at ? new Date(a.created_at as any).getTime() : 0;
+      const atB = b.created_at ? new Date(b.created_at as any).getTime() : 0;
+      return atB - atA;
+    })
+    .map((post) => (
       <li key={post.id}>
         <button
           className="ch-dd__item"
           onClick={() => { setActiveJobId(post.id); closeAllMenus(); }}
         >
-          <span>{post.title}</span>
+          <span>
+            {post.title}
+            <small style={{ display: 'block', fontWeight: 400, fontSize: 11, opacity: 0.75 }}>
+              {post.created_at ? format(new Date(post.created_at as any), 'PP') : ''}
+            </small>
+          </span>
           {getUnreadForJob(post.id) > 0 && (
             <span className="ch-dd__badge">{getUnreadForJob(post.id)}</span>
           )}
@@ -869,26 +868,67 @@ useEffect(() => {
 </ul>
     </div>
   </details>
-   {currentRole === 'employer' && activeJobId && (
-    <div style={{ display: 'flex', gap: 8 }}>
-      <button
-        className="ch-btn"
-        onClick={() => setBroadcastOpen(true)}
-        title="Send a message to all applicants of this job"
-      >
-        <FaUsers />&nbsp;Message to all applicants
-      </button>
+{currentRole === 'employer' && activeJobId && (
+  <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+    {!multiMode ? (
+      <>
+        <button className="ch-btn" onClick={() => setBroadcastOpen(true)}>
+          <FaUsers />&nbsp;Message to all applicants
+        </button>
+        <button className="ch-btn" onClick={() => setConfirmCloseOpen(true)}>
+          Close job
+        </button>
+        {chatList.length > 0 && (
+          <button className="ch-btn" onClick={() => { setMultiMode(true); clearSelection(); }}>
+            Select candidates
+          </button>
+        )}
+      </>
+    ) : (
+      <>
+        {selectedIds.size > 0 && (
+          <>
+            <button className="ch-btn" onClick={() => setSelModalOpen(true)}>
+              Message Selected ({selectedIds.size})
+            </button>
+            <button
+              className="ch-btn"
+              onClick={async () => {
+                if (!activeJobId) return;
+                const ids = Array.from(selectedIds);
+                if (!ids.length) return;
+                if (!confirm(`Reject ${ids.length} selected applicant(s)? This will remove their chats.`)) return;
+                try {
+                  const res = await bulkRejectApplications(ids);
+                  setJobPostApplications(prev => {
+                    const copy = { ...prev };
+                    Object.keys(copy).forEach(jobId => {
+                      copy[jobId] = (copy[jobId] || []).filter(a => !ids.includes(a.applicationId));
+                    });
+                    return copy;
+                  });
+                  clearSelection();
+                  setMultiMode(false);
+                  toast.success(`Rejected ${res.updated} applicants.`);
+                } catch (err: any) {
+                  toast.error(err?.response?.data?.message || 'Failed to bulk reject.');
+                }
+              }}
+            >
+              Reject Selected ({selectedIds.size})
+            </button>
+          </>
+        )}
+        <button className="ch-btn" onClick={() => { setMultiMode(false); clearSelection(); }}>
+          Cancel
+        </button>
+      </>
+    )}
+  </div>
+)}
 
-<button
-  className="ch-btn"
-  onClick={() => setConfirmCloseOpen(true)}
-  title="Close this job"
->
-  Close job
-</button>
 
-    </div>
-  )}
+
 
   
           </div>
@@ -900,7 +940,7 @@ useEffect(() => {
               {chatList.length > 0 ? (
                 <ul className="ch-chatlist">
                   {chatList.map((chat) => (
-              <li
+<li
   key={chat.id}
   className={`ch-chatlist__item ${selectedChat === chat.id ? 'is-active' : ''}
     ${chat.unreadCount > 0 ? 'has-unread' : ''}
@@ -908,30 +948,50 @@ useEffect(() => {
   onClick={() => handleSelectChat(chat.id)}
   title={chat.partner}
 >
-  <div className="ch-chatlist__meta">
-    <div className="ch-chatlist__row">
-      {/* имя — занимает доступную ширину и укорачивается с … */}
-      <span className="ch-chatlist__partner">{chat.partner}</span>
+  {/* ЧЕКБОКС ВЫБОРА — НЕ МЕШАЕТ ОТКРЫТИЮ ЧАТА */}
+  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+{currentRole === 'employer' && multiMode && (
+  <input
+    type="checkbox"
+    checked={selectedIds.has(chat.id)}
+    onChange={(e) => { e.stopPropagation(); toggleSelect(chat.id); }}
+    onClick={(e) => e.stopPropagation()}
+    style={{ marginTop: 2 }}
+  />
+)}
 
-      {/* справа — не сжимается и не растягивает строку */}
-      <div
-        className="ch-chatlist__right"
-        style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}
-      >
-        {chat.status === 'Accepted' && <span className="ch-chip">Interview</span>}
-        {chat.unreadCount > 0 && (
-          <span className="ch-chatlist__badge">{chat.unreadCount}</span>
-        )}
+
+    <div className="ch-chatlist__meta" style={{ flex: 1 }}>
+      <div className="ch-chatlist__row">
+        <span className="ch-chatlist__partner">{chat.partner}</span>
+        <div
+          className="ch-chatlist__right"
+          style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}
+        >
+          {chat.status === 'Accepted' && <span className="ch-chip">Interview</span>}
+          {chat.unreadCount > 0 && (
+            <span className="ch-chatlist__badge">{chat.unreadCount}</span>
+          )}
+        </div>
       </div>
+
+    <div className="ch-chatlist__applied" title="Last activity">
+  {chat.lastActivity
+    ? format(new Date(chat.lastActivity), 'PPpp')
+    : (chat.appliedAt ? `Applied: ${format(new Date(chat.appliedAt), 'PPpp')}` : '')
+  }
+</div>
+{chat.lastMessage && (
+  <div className="ch-chatlist__last one-line" title={chat.lastMessage}>
+    {chat.lastMessage}
+  </div>
+)}
+
     </div>
-
-    {chat.appliedAt && (
-      <div className="ch-chatlist__applied" title="Application submitted">
-        Applied: {format(new Date(chat.appliedAt), 'PPpp')}
-      </div>
-    )}
   </div>
 </li>
+
+
 
 
                   ))}
@@ -972,44 +1032,57 @@ useEffect(() => {
                 </div>
               )}
 
-              {/* Cover Letter modal */}
-  {/* {appDetails && (
+{selModalOpen && (
   <div className="ch-modal">
     <div className="ch-modal__content">
       <button
         className="ch-modal__close"
-        onClick={() => setAppDetails(null)}
+        onClick={() => setSelModalOpen(false)}
       >
         ×
       </button>
-      <h4 className="ch-title" style={{ fontSize: 18, marginBottom: 8 }}>
-        Application Details
-      </h4>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (!activeJobId) return;
+          const ids = Array.from(selectedIds);
+          if (!ids.length) return;
+          const text = selText.trim();
+          if (!text) return;
+          try {
+            const res = await broadcastToSelected(activeJobId, {
+              applicationIds: ids,
+              content: text,
+            });
+           toast.success(`Sent to ${res.sent} applicants.`);
+setSelText('');
+setSelModalOpen(false);
+setMultiMode(false);     // ← выходим из режима
+clearSelection();        // ← сбрасываем чекбоксы
 
-      {appDetails.fullName ? (
-        <p style={{ marginBottom: 6 }}>
-          <strong>Full Name: </strong>{appDetails.fullName}
-        </p>
-      ) : null}
-
-      {appDetails.referredBy ? (
-        <p style={{ marginBottom: 6 }}>
-          <strong>Referred By: </strong>{appDetails.referredBy}
-        </p>
-      ) : null}
-
-      {appDetails.coverLetter ? (
-        <>
-          <p><strong>Cover Letter:</strong></p>
-          <p style={{ whiteSpace: 'pre-wrap' }}>{appDetails.coverLetter}</p>
-        </>
-      ) : (
-        <p><em>No cover letter provided.</em></p>
-      )}
+          } catch (err: any) {
+            toast.error(err?.response?.data?.message || 'Failed to send to selected.');
+          }
+        }}
+        className="ch-form"
+      >
+        <div className="ch-form__row">
+          <label className="ch-label">Message to selected applicants</label>
+          <textarea
+            className="ch-textarea"
+            value={selText}
+            onChange={(e) => setSelText(e.target.value)}
+            rows={4}
+            placeholder="Type your message — it will be sent only to selected applicants"
+          />
+        </div>
+        <button type="submit" className="ch-btn">
+          <FaPaperPlane /> Send to selected ({selectedIds.size})
+        </button>
+      </form>
     </div>
   </div>
-)} */}
-
+)}
 
               {/* Review modal */}
               {reviewForm && (
@@ -1040,7 +1113,7 @@ useEffect(() => {
                             rating: reviewForm.rating,
                             comment: reviewForm.comment,
                           });
-                          alert('Review submitted successfully!');
+                          toast.success('Review submitted successfully!');
                           setReviewForm(null);
                         } catch (err: any) {
                           setFormError(
@@ -1168,7 +1241,7 @@ useEffect(() => {
                         return { ...prev, [currentApp.job_post_id]: updated };
                       });
                     } catch (e: any) {
-                      alert(e?.response?.data?.message || 'Failed to accept.');
+                      toast.error(e?.response?.data?.message || 'Failed to accept.');
                     } finally {
                       closeAllMenus();
                     }
@@ -1198,7 +1271,7 @@ useEffect(() => {
                       });
                       setSelectedChat(null);
                     } catch (e: any) {
-                      alert(e?.response?.data?.message || 'Failed to reject.');
+                      toast.error(e?.response?.data?.message || 'Failed to reject.');
                     } finally {
                       closeAllMenus();
                     }
@@ -1306,16 +1379,19 @@ useEffect(() => {
             if (!activeJobId) return;
             try {
               await closeJobPost(activeJobId);
-              setJobPosts((prev) => prev.filter((p) => p.id !== activeJobId));
-              setJobPostApplications((prev) => {
+              setJobPosts(prev => prev.filter(p => p.id !== activeJobId));
+              setJobPostApplications(prev => {
                 const next = { ...prev };
                 delete next[activeJobId];
                 return next;
               });
               if (selectedChat) setSelectedChat(null);
               setActiveJobId(null);
+              setMultiMode(false);
+              clearSelection();
+              toast.success('Job closed successfully.');
             } catch (err: any) {
-              alert(err?.response?.data?.message || 'Failed to close job.');
+              toast.error(err?.response?.data?.message || 'Failed to close job.');
             } finally {
               setConfirmCloseOpen(false);
             }

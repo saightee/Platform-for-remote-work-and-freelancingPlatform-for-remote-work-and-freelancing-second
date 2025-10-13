@@ -11,6 +11,8 @@ import { Profile } from '@types';
 import type { Socket } from 'socket.io-client';
 import { jwtDecode } from 'jwt-decode';
 import { brand, brandEvent } from '../brand';
+import { getChatHistory } from '../services/api';
+
 
 interface Message {
   id: string;
@@ -207,46 +209,176 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!hasApplications) return;
 
-        const newSocket = initializeWebSocket(
-          () => {},
-          (error: WebSocketError) => {
-            setSocketStatus('disconnected');
-            setError(error.message || 'WebSocket error occurred.');
-          }
-        );
+//         const newSocket = initializeWebSocket(
+//           () => {},
+//           (error: WebSocketError) => {
+//             setSocketStatus('disconnected');
+//             setError(error.message || 'WebSocket error occurred.');
+//           }
+//         );
 
-        newSocket.on('newMessage', (m: Message) => {
-          if (profile && m.recipient_id === profile.id && !m.is_read) {
-            const key = `unreads_${profile.id}`;
-            let map: Record<string, number> = {};
-            try {
-              map = JSON.parse(localStorage.getItem(key) || '{}');
-            } catch {}
-            map[m.job_application_id] = (map[m.job_application_id] || 0) + 1;
-            localStorage.setItem(key, JSON.stringify(map));
+//         newSocket.on('newMessage', (m: Message) => {
+//           if (profile && m.recipient_id === profile.id && !m.is_read) {
+//             const key = `unreads_${profile.id}`;
+//             let map: Record<string, number> = {};
+//             try {
+//               map = JSON.parse(localStorage.getItem(key) || '{}');
+//             } catch {}
+//             map[m.job_application_id] = (map[m.job_application_id] || 0) + 1;
+//             localStorage.setItem(key, JSON.stringify(map));
 
-// legacy (на время миграции)
-window.dispatchEvent(new Event('jobforge:unreads-updated'));
-// брендовый (новый)
-window.dispatchEvent(new Event(brandEvent('unreads-updated')));
-          }
-          playNewMessageSound(m);
-        });
 
-        newSocket.on('connect', () => setSocketStatus('connected'));
-        newSocket.on('disconnect', () => setSocketStatus('disconnected'));
-        newSocket.on('connect_error', (err: any) => {
-          setSocketStatus('reconnecting');
-          setError('Failed to connect to real-time updates. Retrying...');
-          if (typeof err?.message === 'string' && err.message.includes('401')) {
-            localStorage.removeItem('token');
-            window.location.href = '/login';
-          }
-        });
+// window.dispatchEvent(new Event('jobforge:unreads-updated'));
 
-        setSocket(newSocket);
+// window.dispatchEvent(new Event(brandEvent('unreads-updated')));
+//           }
+//           playNewMessageSound(m);
+//         });
+
+//         newSocket.on('connect', () => setSocketStatus('connected'));
+//         newSocket.on('disconnect', () => setSocketStatus('disconnected'));
+//         newSocket.on('connect_error', (err: any) => {
+//           setSocketStatus('reconnecting');
+//           setError('Failed to connect to real-time updates. Retrying...');
+//           if (typeof err?.message === 'string' && err.message.includes('401')) {
+//             localStorage.removeItem('token');
+//             window.location.href = '/login';
+//           }
+//         });
+
+//         setSocket(newSocket);
+
+const newSocket = initializeWebSocket(
+  () => {},
+  (error: WebSocketError) => {
+    setSocketStatus('disconnected');
+    setError(error.message || 'WebSocket error occurred.');
+  }
+);
+
+newSocket.on('newMessage', (m: Message) => {
+  if (profile && m.recipient_id === profile.id && !m.is_read) {
+    const key = `unreads_${profile.id}`;
+    let map: Record<string, number> = {};
+    try {
+      map = JSON.parse(localStorage.getItem(key) || '{}');
+    } catch {}
+    map[m.job_application_id] = (map[m.job_application_id] || 0) + 1;
+    localStorage.setItem(key, JSON.stringify(map));
+
+    // legacy (на время миграции)
+    window.dispatchEvent(new Event('jobforge:unreads-updated'));
+    // брендовый (новый)
+    window.dispatchEvent(new Event(brandEvent('unreads-updated')));
+  }
+  playNewMessageSound(m);
+});
+
+newSocket.on('messagesRead', (payload: { data?: Message[] } | Message[]) => {
+  const list: Message[] = Array.isArray(payload) ? payload : (payload?.data || []);
+  if (!list.length || !profile?.id) return;
+
+  const jobId = list[0].job_application_id;
+  const key = `unreads_${profile.id}`;
+
+  try {
+    const map = JSON.parse(localStorage.getItem(key) || '{}');
+    // все сообщения в событии уже с is_read = true; просто обнулим чат,
+    // так как «прочитано» приходит пачкой по конкретному jobId
+    map[jobId] = 0;
+    localStorage.setItem(key, JSON.stringify(map));
+
+    // legacy + бренд-ивент
+    window.dispatchEvent(new Event('jobforge:unreads-updated'));
+    window.dispatchEvent(new Event(brandEvent('unreads-updated')));
+  } catch {}
+});
+
+
+newSocket.on('connect', () => {
+  setSocketStatus('connected');
+
+  // Fallback: на случай если сервер не поддерживает initAllChats —
+  // сами подписываемся на все активные чаты пользователя.
+  (async () => {
+    try {
+      if (profile?.role === 'jobseeker') {
+        const apps = await getMyApplications();
+        apps
+          .filter(a => a.status === 'Pending' || a.status === 'Accepted')
+          .forEach(a => newSocket.emit('joinChat', { jobApplicationId: a.id }));
+      } else if (profile?.role === 'employer') {
+        const posts = await getMyJobPosts();
+        const arrays = await Promise.all(posts.map(p => getApplicationsForJobPost(p.id)));
+        arrays.flat()
+          .filter(a => a.status === 'Pending' || a.status === 'Accepted')
+          .forEach(a => newSocket.emit('joinChat', { jobApplicationId: a.applicationId }));
+      }
+    } catch {
+      // молча игнорим сбои сети; это лишь fallback
+    }
+
+    // Если сервер умеет массовую инициализацию — пусть тоже отработает.
+    try {
+      if (profile?.id) {
+        newSocket.emit('initAllChats', { userId: profile.id });
+      }
+    } catch {}
+  })();
+});
+
+(async () => {
+  if (!profile?.id) return;
+  const key = `unreads_${profile.id}`;
+  const map: Record<string, number> = {};
+
+  try {
+    let ids: string[] = [];
+
+    if (profile.role === 'jobseeker') {
+      const apps = await getMyApplications();
+      ids = apps
+        .filter(a => a.status === 'Pending' || a.status === 'Accepted')
+        .map(a => a.id);
+    } else if (profile.role === 'employer') {
+      const posts = await getMyJobPosts();
+      const arrays = await Promise.all(posts.map(p => getApplicationsForJobPost(p.id)));
+      ids = arrays.flat()
+        .filter(a => a.status === 'Pending' || a.status === 'Accepted')
+        .map(a => a.applicationId);
+    }
+
+    // аккуратно, без DDOS: последовательно
+    for (const id of ids) {
+      try {
+        const hist = await getChatHistory(id, { page: 1, limit: 50 }, profile.role);
+        const unread = hist.data.filter(m => m.recipient_id === profile.id && !m.is_read).length;
+        if (unread > 0) map[id] = unread;
+      } catch { /* молча */ }
+    }
+
+    localStorage.setItem(key, JSON.stringify(map));
+    window.dispatchEvent(new Event('jobforge:unreads-updated'));
+    window.dispatchEvent(new Event(brandEvent('unreads-updated')));
+  } catch { /* ignore */ }
+})();
+
+
+newSocket.on('disconnect', () => setSocketStatus('disconnected'));
+newSocket.on('connect_error', (err: any) => {
+  setSocketStatus('reconnecting');
+  setError('Failed to connect to real-time updates. Retrying...');
+  if (typeof err?.message === 'string' && err.message.includes('401')) {
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+  }
+});
+
+setSocket(newSocket);
+
+
       } catch {
-        // no-op
+      
       }
     };
 

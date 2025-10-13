@@ -13,10 +13,11 @@ import { ChatModule } from '../chat/chat.module';
 import { ChatGateway } from '../chat/chat.gateway';
 import { EmailModule } from '../email/email.module';
 import { ReferralLink } from '../referrals/entities/referral-link.entity';
+import { JobInvitation } from './job-invitation.entity'; 
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([JobApplication, JobPost, User, JobSeeker, ReferralLink]),
+    TypeOrmModule.forFeature([JobApplication, JobInvitation, JobPost, User, JobSeeker, ReferralLink]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

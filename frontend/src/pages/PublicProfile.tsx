@@ -3,21 +3,24 @@ import { useParams, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
-import { getUserProfileById, getReviewsForUser, incrementProfileView } from '../services/api';
-import { JobSeekerProfile, Review, Category } from '@types';
+import { getUserProfileById, getReviewsForUser, incrementProfileView, getMyJobPosts, sendInvitation } from '../services/api';
+import { JobSeekerProfile, Review, Category, JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
 import {
   FaUserCircle, FaEnvelope, FaGlobe, FaClock, FaStar, FaRegStar,
   FaBriefcase, FaLink, FaVideo, FaFilePdf, FaEye, FaShieldAlt, FaDollarSign,
-  FaLinkedin, FaInstagram, FaFacebook, FaWhatsapp, FaTelegramPlane
+  FaLinkedin, FaInstagram, FaFacebook, FaWhatsapp, FaTelegramPlane, FaFlag
 } from 'react-icons/fa';
 import Loader from '../components/Loader';
 import '../styles/public-profile.css';
+import '../styles/invite-modal.css';
 import {
   normalizeTelegram, normalizeWhatsApp,
   normalizeLinkedIn, normalizeInstagram, normalizeFacebook
 } from '../utils/socials';
 import { brandOrigin } from '../brand';
+import { toast } from '../utils/toast';
+
 
 
 const makeAbs = (url: string) =>
@@ -31,6 +34,52 @@ const PublicProfile: React.FC = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+// Invite modal state
+const [inviteOpen, setInviteOpen] = useState(false);
+const [myActiveJobs, setMyActiveJobs] = useState<JobPost[]>([]);
+const [selectedJobId, setSelectedJobId] = useState('');
+const [inviteMessage, setInviteMessage] = useState('');
+const [loadingJobs, setLoadingJobs] = useState(false);
+const [sendingInvite, setSendingInvite] = useState(false);
+
+const openInvite = async () => {
+  setInviteOpen(true);
+  setSelectedJobId('');
+  setInviteMessage('');
+  try {
+    setLoadingJobs(true);
+    const jobs = await getMyJobPosts();
+    const active = (jobs || []).filter((j: any) => j.status === 'Active' && !j.pending_review);
+    setMyActiveJobs(active);
+  } catch (e) {
+    console.error('getMyJobPosts error', e);
+    setMyActiveJobs([]);
+  } finally {
+    setLoadingJobs(false);
+  }
+};
+
+const closeInvite = () => setInviteOpen(false);
+
+const submitInvite = async () => {
+  if (!profile || !selectedJobId) return;
+  try {
+    setSendingInvite(true);
+    await sendInvitation({
+      job_post_id: selectedJobId,
+      job_seeker_id: String(profile.id),
+      message: inviteMessage || undefined,
+    });
+    toast.success('Invitation sent');
+    closeInvite();
+  } catch (e: any) {
+    const msg = e?.response?.data?.message || e?.message || 'Failed to send invitation';
+    toast.error(msg);
+  } finally {
+    setSendingInvite(false);
+  }
+};
+
 
   useEffect(() => {
     const run = async () => {
@@ -115,6 +164,22 @@ const PublicProfile: React.FC = () => {
                 <span className="ppx-kv-label">Timezone</span>
                 <span className="ppx-kv-value">{profile.timezone || 'Not specified'}</span>
               </li>
+<li>
+  <span className="ppx-kv-icon"><FaFlag /></span>
+  <span className="ppx-kv-label">Country</span>
+  <span className="ppx-kv-value">
+    {(profile as any).country_name || (profile as any).country || 'Not specified'}
+  </span>
+</li>
+
+
+{Array.isArray((profile as any).languages) && (profile as any).languages.length > 0 && (
+  <li>
+    <span className="ppx-kv-icon"><FaGlobe /></span>
+    <span className="ppx-kv-label">Languages</span>
+    <span className="ppx-kv-value">{(profile as any).languages.join(', ')}</span>
+  </li>
+)}
               {profile.role === 'jobseeker' && (
   <li>
     <span className="ppx-kv-icon"><FaBriefcase /></span>
@@ -244,14 +309,30 @@ const PublicProfile: React.FC = () => {
               </div>
             ) : null}
 
-            {currentUser && currentUser.id !== profile.id && (
-              <Link
-                className="ppx-btn ppx-outline ppx-report"
-                to={`/complaint?type=profile&id=${profile.id}&return=${encodeURIComponent(backAfterReport)}`}
-              >
-                Report Profile
-              </Link>
-            )}
+{/* actions row (invite + report) */}
+{currentUser && currentUser.id !== profile.id && (
+  <div className="ppx-actions-line">
+    {currentUser.role === 'employer' && (
+      <button
+        type="button"
+        className="ppx-btn"
+        style={{ background: '#4e74c8', color: '#fff' }}
+        onClick={openInvite}
+      >
+        Invite to interview
+      </button>
+    )}
+
+    <Link
+      className="ppx-btn ppx-outline ppx-report"
+      to={`/complaint?type=profile&id=${profile.id}&return=${encodeURIComponent(backAfterReport)}`}
+    >
+      Report Profile
+    </Link>
+  </div>
+)}
+
+            
           </aside>
 
           {/* RIGHT: description + reviews */}
@@ -277,9 +358,9 @@ const PublicProfile: React.FC = () => {
                       </div>
                       <div className="ppx-review-body">
                         <div className="ppx-review-line"><b>Comment:</b> {rv.comment}</div>
-                        <div className="ppx-review-line">
+                        {/* <div className="ppx-review-line">
   <b>Job:</b> {rv.job_application?.job_post?.title || 'Not specified'}
-</div>
+</div> */}
                         <div className="ppx-review-line"><b>Date:</b> {new Date(rv.created_at).toLocaleString()}</div>
                       </div>
                     </li>
@@ -292,6 +373,70 @@ const PublicProfile: React.FC = () => {
           </section>
         </div>
       </div>
+{inviteOpen && (
+  <div className="invmd-backdrop" onClick={closeInvite}>
+    <div className="invmd-card mjp-modal-content" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="invmd-title-pp">
+      <div className="invmd-head">
+        <h3 id="invmd-title-pp" className="invmd-title">Select Job to invite</h3>
+        <button className="invmd-x" onClick={closeInvite} aria-label="Close">×</button>
+      </div>
+
+      <div className="invmd-body">
+        <div className="invmd-row">
+          <label className="invmd-label">Candidate</label>
+          <div className="invmd-value">{profile.username}</div>
+        </div>
+
+        <div className="invmd-row">
+          <label className="invmd-label" htmlFor="invmd-job-pp">Job Post</label>
+          {loadingJobs ? (
+            <div className="invmd-note">Loading your active jobs…</div>
+          ) : myActiveJobs.length ? (
+            <select
+              id="invmd-job-pp"
+              className="invmd-input"
+              value={selectedJobId}
+              onChange={(e) => setSelectedJobId(e.target.value)}
+            >
+              <option value="" disabled>Select a job post</option>
+              {myActiveJobs.map((j) => (
+                <option key={j.id} value={String(j.id)}>
+                  {j.title}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="invmd-note">You have no active jobs available.</div>
+          )}
+        </div>
+
+        <div className="invmd-row">
+          <label className="invmd-label" htmlFor="invmd-msg-pp">Message to candidate <span className="invmd-opt">(optional)</span></label>
+          <textarea
+            id="invmd-msg-pp"
+            className="invmd-textarea"
+            rows={4}
+            value={inviteMessage}
+            onChange={(e) => setInviteMessage(e.target.value)}
+            placeholder="We think you’re a great fit for this role…"
+          />
+        </div>
+      </div>
+
+      <div className="invmd-foot">
+        <button className="invmd-btn invmd-secondary" type="button" onClick={closeInvite}>Cancel</button>
+        <button
+          className="invmd-btn invmd-primary"
+          type="button"
+          onClick={submitInvite}
+          disabled={!selectedJobId || sendingInvite}
+        >
+          {sendingInvite ? 'Sending…' : 'Send Invitation'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       <Footer />
       <Copyright />

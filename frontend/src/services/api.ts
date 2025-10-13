@@ -492,6 +492,18 @@ export const broadcastToApplicants = async (jobPostId: string, content: string) 
   return res.data;
 };
 
+export const broadcastToSelected = async (
+  jobPostId: string,
+  payload: { applicationIds: string[]; content: string }
+) => {
+  const res = await api.post(`/chat/broadcast-selected/${jobPostId}`, payload);
+  return res.data as { sent: number };
+};
+
+export const bulkRejectApplications = async (applicationIds: string[]) => {
+  const res = await api.post('/job-applications/bulk-reject', { applicationIds });
+  return res.data as { updated: number; updatedIds: string[] };
+};
 
 // Delete referral link
 export const deleteReferralLink = async (linkId: string) => {
@@ -538,7 +550,7 @@ export const getJobPost = async (id: string) => {
     const response = await api.get<JobPost>(`/job-posts/${id}`);
     const job = response.data as any;
 
-    // category fallback
+    // category fallback (single)
     if (!job?.category && job?.category_id != null) {
       const cats = await __ensureCategories();
       const cat = __findCatById(job.category_id, cats);
@@ -559,6 +571,26 @@ export const getJobPost = async (id: string) => {
         console.warn(`Employer fallback failed for job ${id}`, e);
       }
     }
+
+    // --- NEW: build categories[] from category_ids (multi) + keep backward compatibility ---
+    try {
+      const catsTree = await __ensureCategories();
+      const ids: string[] =
+        Array.isArray(job?.category_ids) ? job.category_ids.map((x: any) => String(x))
+        : (job?.category_id != null ? [String(job.category_id)] : []);
+
+      if (ids.length) {
+        job.category_ids = ids; // normalize
+        const mapped = ids.map((cid: string) => {
+          const c = __findCatById(cid, catsTree);
+          return c ? { id: String(c.id), name: c.name, parent_id: c.parent_id ?? null } : { id: cid, name: 'Unknown' };
+        });
+        job.categories = mapped;
+        if (!job.category && mapped.length) {
+          job.category = mapped[0]; // backward compat for places still reading .category
+        }
+      }
+    } catch {/* ignore */}
 
     console.log(`Job post ${id} fetched:`, job);
     return job as JobPost;
@@ -600,6 +632,7 @@ try {
       const job: any = { ...j };
 
       // category fallback
+            // category fallback (single)
       if (!job.category && job.category_id != null) {
         const cat = __findCatById(job.category_id, cats);
         if (cat) job.category = { id: cat.id, name: cat.name };
@@ -618,7 +651,19 @@ try {
         } catch { /* ignore */ }
       }
 
+      // --- NEW: multi-categories from category_ids ---
+      if ((job as any).category_ids && Array.isArray((job as any).category_ids)) {
+        const ids = (job as any).category_ids.map((x: any) => String(x));
+        const mapped = ids.map((cid: string) => {
+          const c = __findCatById(cid, cats);
+          return c ? { id: String(c.id), name: c.name } : null;
+        }).filter(Boolean);
+        (job as any).categories = mapped;
+        if (!job.category && mapped.length) job.category = mapped[0] as any;
+      }
+
       return job as JobPost;
+
     })
   );
 } catch {
@@ -728,6 +773,75 @@ export const applyToJobPostExtended = async (payload: {
   return response.data;
 };
 
+/* ===================== Invitations API (93–96) ===================== */
+
+/** Employer: send invitation to jobseeker (93) */
+export const sendInvitation = async (payload: {
+  job_post_id: string;
+  job_seeker_id: string;
+  message?: string;
+}) => {
+  const { data } = await api.post<{
+    id: string;
+    job_post_id: string;
+    employer_id: string;
+    job_seeker_id: string;
+    status: 'Pending' | 'Accepted' | 'Declined';
+    message?: string | null;
+    created_at: string;
+    updated_at: string;
+  }>('/job-applications/invitations', payload);
+  return data;
+};
+
+/** Jobseeker: list invitations (94) */
+// services/api.ts
+export const listInvitations = async (includeAll?: boolean) => {
+  const res = await api.get('/job-applications/invitations', {
+    params: includeAll ? { includeAll } : undefined,
+    // считаем 401 «нормальным» для этого запроса — разрулим локально
+    validateStatus: (s) => (s >= 200 && s < 300) || s === 401,
+  });
+  if (res.status === 401) return []; // просто показываем «No invitations»
+  return res.data as Array<{
+    id: string;
+    status: 'Pending' | 'Accepted' | 'Declined';
+    message?: string | null;
+    created_at: string;
+    job_post: {
+      id: string; title: string; slug?: string | null; slug_id?: string | null;
+      employer?: { id: string; username: string } | null;
+    };
+    employer?: { id: string; username: string } | null;
+  }>;
+};
+
+
+
+/** Jobseeker: decline invitation (95) */
+export const declineInvitation = async (invitationId: string) => {
+  const { data } = await api.post<{ id: string; status: 'Declined' }>(
+    `/job-applications/invitations/${invitationId}/decline`
+  );
+  return data;
+};
+
+/** Jobseeker: accept invitation — starts application flow (96) */
+export const acceptInvitation = async (
+  invitationId: string,
+  payload: {
+    cover_letter?: string;
+    relevant_experience?: string;
+    full_name?: string;
+    referred_by?: string;
+  }
+) => {
+  const { data } = await api.post<{ id: string; status: 'Accepted' }>(
+    `/job-applications/invitations/${invitationId}/accept`,
+    payload
+  );
+  return data;
+};
 
 export const getMyApplications = async () => {
   const token = localStorage.getItem('token');
@@ -1039,7 +1153,12 @@ export const getRegistrationStats = async (params: { startDate: string; endDate:
   return response.data;
 };
 
-export const getGeographicDistribution = async (params: { startDate?: string; endDate?: string; role?: 'jobseeker' | 'employer' | 'all' } = {}) => {
+export const getGeographicDistribution = async (params: {
+  startDate?: string;
+  endDate?: string;
+  role?: 'jobseeker' | 'employer' | 'all';
+  tzOffset?: number;                  // ← добавили, чтобы бэк знал локальную дату
+} = {}) => {
   try {
     const response = await api.get<{ country: string; count: number }[]>(
       '/admin/analytics/geographic-distribution',
@@ -1052,6 +1171,7 @@ export const getGeographicDistribution = async (params: { startDate?: string; en
     throw axiosError;
   }
 };
+
 export const getTopEmployers = async (limit?: number) => {
   const response = await api.get<{ employer_id: string; username: string; job_count: number }[]>(
     '/admin/leaderboards/top-employers',
@@ -1269,8 +1389,10 @@ export interface JobPostWithApplications {
   created_at: string;
   employer_id?: string; // Добавлено из docs employer.id
   employer?: { id: string; username: string; company_name?: string }; // Nested employer
-  category?: string | { id: string; name: string }; // Поддержка string или object для гибкости
+  category?: string | { id: string; name: string }; // Поддержка string или object для гибкости (первичная)
+  categories?: string[]; // NEW: массив названий категорий (для множественных)
 }
+
 
 export const getOnlineUsers = async (): Promise<OnlineUsers | null> => {
   try {
@@ -1294,49 +1416,75 @@ export const getRecentRegistrations = async (params: { limit?: number }): Promis
 
 export const getJobPostsWithApplications = async (): Promise<JobPostWithApplications[]> => {
   try {
-    const response: AxiosResponse<{ id: string; title: string; status: string; applicationCount: number; created_at: string; employer_id: string; employer_username?: string }[]> = await api.get('/admin/job-posts/applications', {
-      headers: {
-        'Cache-Control': 'no-cache',
-      },
+    const response: AxiosResponse<{
+      id: string;
+      title: string;
+      status: string;
+      applicationCount: number;
+      created_at: string;
+      employer_id: string;
+      employer_username?: string;
+    }[]> = await api.get('/admin/job-posts/applications', {
+      headers: { 'Cache-Control': 'no-cache' },
     });
-    console.log('getJobPostsWithApplications response:', response.data); // Логирование для диагностики
-    const enrichedData = await Promise.all(response.data.map(async (post: { id: string; title: string; status: string; applicationCount: number; created_at: string; employer_id: string; employer_username?: string }) => {
-  try {
-    console.log('Processing post:', post); // Добавил лог для диагностики: смотри в консоли, есть ли employer_username или employer_id
-    let username = 'N/A';
-    let category = 'N/A';
 
-    // Fetch username if not provided
-    if (post.employer_username) {
-      username = post.employer_username;
-    } else if (post.employer_id && post.employer_id !== 'undefined') {
-      const employer = await getUserById(post.employer_id);
-      username = employer?.username || 'N/A';
-    } else {
-      console.warn(`Invalid employer_id for job post ${post.id}: ${post.employer_id}`);
-    }
+    console.log('getJobPostsWithApplications response:', response.data);
 
-    // Fetch category from job post details (since not in response)
-    const jobDetails = await getJobPost(post.id);
-    category = jobDetails.category?.name || 'N/A';
+    const enrichedData = await Promise.all(
+      response.data.map(async (post: {
+        id: string;
+        title: string;
+        status: string;
+        applicationCount: number;
+        created_at: string;
+        employer_id: string;
+        employer_username?: string;
+      }) => {
+        try {
+          console.log('Processing post:', post);
+          let username = 'N/A';
 
-    return { 
-      ...post, 
-      username, 
-      category, // Добавляем category
-      applicationCount: post.applicationCount || 0 
-    } as JobPostWithApplications;
-  } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>;
-    console.error(`Error enriching job post ${post.id}:`, axiosError.response?.data?.message || axiosError.message);
-    return { 
-      ...post, 
-      username: 'N/A', 
-      category: 'N/A', // Fallback for category
-      applicationCount: post.applicationCount || 0 
-    } as JobPostWithApplications;
-  }
-}));
+          if (post.employer_username) {
+            username = post.employer_username;
+          } else if (post.employer_id && post.employer_id !== 'undefined') {
+            const employer = await getUserById(post.employer_id);
+            username = employer?.username || 'N/A';
+          } else {
+            console.warn(`Invalid employer_id for job post ${post.id}: ${post.employer_id}`);
+          }
+
+          // Fetch categories from job post details (multi aware)
+          const jobDetails = await getJobPost(post.id);
+          const names = Array.isArray((jobDetails as any).categories)
+            ? ((jobDetails as any).categories as Array<{ name: string }>).map(x => x.name)
+            : (
+                (jobDetails as any).category_ids && Array.isArray((jobDetails as any).category_ids)
+                  ? (jobDetails as any).category_ids.map((id: any) => String(id))
+                  : (jobDetails.category?.name ? [jobDetails.category.name] : [])
+              );
+
+          return {
+            ...post,
+            username,
+            category: names[0] || 'N/A',   // совместимость со старым рендером
+            categories: names,             // полный список
+            applicationCount: post.applicationCount || 0,
+          } as JobPostWithApplications;
+        } catch (innerError) {
+          const axiosError = innerError as AxiosError<{ message?: string }>;
+          console.error(`Error enriching job post ${post.id}:`, axiosError.response?.data?.message || axiosError.message);
+
+          return {
+            ...post,
+            username: post.employer_username || 'N/A',
+            category: 'N/A',
+            categories: [],
+            applicationCount: post.applicationCount || 0,
+          } as JobPostWithApplications;
+        }
+      })
+    );
+
     return enrichedData;
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
@@ -1344,6 +1492,7 @@ export const getJobPostsWithApplications = async (): Promise<JobPostWithApplicat
     throw axiosError;
   }
 };
+
 
 export const getStats = async () => {
   try {
@@ -1499,14 +1648,14 @@ export const getJobBySlugOrId = async (slugOrId: string) => {
   const { data } = await api.get<JobPost>(`/job-posts/by-slug-or-id/${slugOrId}`);
   const job = data as any;
 
-  // Категории — как было
+  // Категории — как было (single)
   if (!job?.category && job?.category_id != null) {
     const cats = await __ensureCategories();
     const cat = __findCatById(job.category_id, cats);
     if (cat) job.category = { id: cat.id, name: cat.name };
   }
 
-  // 🔧 ДОБАВИТЬ: fallback по работодателю
+  // 🔧 fallback по работодателю
   if ((!job?.employer || !job.employer?.username) && job?.employer_id != null) {
     try {
       const p = await getUserProfileById(String(job.employer_id));
@@ -1521,8 +1670,27 @@ export const getJobBySlugOrId = async (slugOrId: string) => {
     }
   }
 
+  // --- NEW: build categories[] from category_ids (multi) + keep backward compatibility ---
+  try {
+    const catsTree = await __ensureCategories();
+    const ids: string[] =
+      Array.isArray(job?.category_ids) ? job.category_ids.map((x: any) => String(x))
+      : (job?.category_id != null ? [String(job.category_id)] : []);
+
+    if (ids.length) {
+      job.category_ids = ids;
+      const mapped = ids.map((cid: string) => {
+        const c = __findCatById(cid, catsTree);
+        return c ? { id: String(c.id), name: c.name, parent_id: c.parent_id ?? null } : { id: cid, name: 'Unknown' };
+      });
+      job.categories = mapped;
+      if (!job.category && mapped.length) job.category = mapped[0];
+    }
+  } catch {/* ignore */}
+
   return job as JobPost;
 };
+
 
 
 // Track referral click once per visit
@@ -1571,3 +1739,15 @@ export async function adminFindJobPostsByTitle(title: string) {
 export async function adminListApplicationsForJob(jobPostId: string) {
   return getApplicationsForJobPost(jobPostId); // JobApplicationDetails[]
 }
+
+export const getBrandsAnalytics = async (params?: {
+  startDate?: string; // 'YYYY-MM-DD'
+  endDate?: string;   // 'YYYY-MM-DD'
+}) => {
+  const res = await api.get('/admin/analytics/brands', { params });
+  return res.data as {
+    range: { startDate: string; endDate: string };
+    byBrand: Array<{ brand: string; total: number; employers: number; jobseekers: number }>;
+    overall: { total: number; employers: number; jobseekers: number };
+  };
+};

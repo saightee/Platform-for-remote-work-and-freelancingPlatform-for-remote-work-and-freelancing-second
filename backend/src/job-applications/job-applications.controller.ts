@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Put, Body, Param, Headers, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Put, Body, Param, Headers, UnauthorizedException, UseGuards, Query, BadRequestException  } from '@nestjs/common';
 import { JobApplicationsService } from './job-applications.service';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
@@ -77,6 +77,74 @@ export class JobApplicationsController {
     }
 
   @UseGuards(AuthGuard('jwt'))
+  @Post('invitations')
+  async createInvitation(
+    @Headers('authorization') authHeader: string,
+    @Body('job_post_id') jobPostId: string,
+    @Body('job_seeker_id') jobSeekerId: string,
+    @Body('message') message?: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+
+    return this.jobApplicationsService.inviteJobSeeker(userId, jobPostId, jobSeekerId, message);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('invitations')
+  async getMyInvitations(
+    @Headers('authorization') authHeader: string,
+    @Query('includeAll') includeAll?: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+
+    const all = String(includeAll || '').toLowerCase() === 'true';
+    return this.jobApplicationsService.getMyInvitations(userId, all);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('invitations/:id/decline')
+  async declineInvitation(
+    @Headers('authorization') authHeader: string,
+    @Param('id') invitationId: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+
+    return this.jobApplicationsService.declineInvitation(userId, invitationId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('invitations/:id/accept')
+  async acceptInvitation(
+    @Headers('authorization') authHeader: string,
+    @Param('id') invitationId: string,
+    @Body('cover_letter') coverLetter: string,
+    @Body('relevant_experience') relevantExperience: string,
+    @Body('full_name') fullName?: string,
+    @Body('referred_by') referredBy?: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+
+    return this.jobApplicationsService.acceptInvitation(userId, invitationId, {
+      cover_letter: coverLetter,
+      relevant_experience: relevantExperience,
+      full_name: fullName,
+      referred_by: referredBy,
+    });
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Put(':id')
   async updateApplicationStatus(
     @Headers('authorization') authHeader: string,
@@ -108,6 +176,29 @@ export class JobApplicationsController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Post('bulk-reject')
+  async bulkReject(
+    @Headers('authorization') authHeader: string,
+    @Body('applicationIds') applicationIds: string[],
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    if (!Array.isArray(applicationIds) || applicationIds.length === 0) {
+      throw new BadRequestException('applicationIds must be a non-empty array');
+    }
+    if (applicationIds.length > 1000) {
+      throw new BadRequestException('Too many applicationIds (max 1000)');
+    }
+  
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+  
+    return this.jobApplicationsService.bulkRejectApplications(userId, applicationIds);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get(':id')
   async getApplicationById(
     @Headers('authorization') authHeader: string,
@@ -121,4 +212,5 @@ export class JobApplicationsController {
     const userId = payload.sub;
     return this.jobApplicationsService.getApplicationById(userId, applicationId);
   }
+
 }
