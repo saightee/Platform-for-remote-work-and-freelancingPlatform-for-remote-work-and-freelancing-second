@@ -22,7 +22,11 @@ type TabKey = 'all' | 'pending' | 'accepted' | 'rejected' | 'invitations';
 
 
 const MyApplications: React.FC = () => {
-  const { profile } = useRole();
+  const { profile, currentRole, isLoading: roleLoading } = useRole();
+ const timezone =
+  profile?.timezone ??
+   Intl.DateTimeFormat().resolvedOptions().timeZone ??
+  'UTC';
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [invitations, setInvitations] = useState<Array<{
   id: string;
@@ -49,7 +53,7 @@ const MyApplications: React.FC = () => {
 
 useEffect(() => {
   const fetchData = async () => {
-    if (!profile || profile.role !== 'jobseeker') {
+    if (currentRole !== 'jobseeker') {
       setError('This page is only available for jobseekers.');
       setIsLoading(false);
       return;
@@ -73,8 +77,8 @@ useEffect(() => {
     }
     setIsLoading(false);
   };
-  fetchData();
-}, [profile]);
+  if (!roleLoading) fetchData();
+}, [currentRole, roleLoading]);
 
 
 
@@ -174,7 +178,7 @@ const filteredApps = useMemo(() => {
     );
   }
 
-  if (!profile || profile.role !== 'jobseeker') {
+  if (!roleLoading && currentRole !== 'jobseeker') {
     return (
       <div>
         <Header />
@@ -256,7 +260,7 @@ const filteredApps = useMemo(() => {
             <div className="ma-row">
               <span className="ma-key">Date</span>
               <span className="ma-val">
-                {formatDateInTimezone(inv.created_at, profile.timezone)}
+                {formatDateInTimezone(inv.created_at, timezone)}
               </span>
             </div>
           </div>
@@ -294,7 +298,7 @@ const filteredApps = useMemo(() => {
           <div className="ma-row">
             <span className="ma-key"><FaClock /> Applied</span>
             <span className="ma-val">
-              {formatDateInTimezone(app.created_at, profile.timezone)}
+              {formatDateInTimezone(app.created_at, timezone)}
             </span>
           </div>
 
