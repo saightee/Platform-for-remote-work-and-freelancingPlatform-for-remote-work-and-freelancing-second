@@ -77,52 +77,6 @@ export class JobApplicationsController {
     }
 
   @UseGuards(AuthGuard('jwt'))
-  @Put(':id')
-  async updateApplicationStatus(
-    @Headers('authorization') authHeader: string,
-    @Param('id') applicationId: string,
-    @Body('status') status: 'Pending' | 'Accepted' | 'Rejected',
-  ) {
-    console.log('Received PUT /job-applications/:id', {
-      applicationId,
-      status,
-      authHeader: authHeader ? 'Present' : 'Missing',
-    });
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('Invalid token error', { authHeader });
-      throw new UnauthorizedException('Invalid token');
-    }
-    const token = authHeader.replace('Bearer ', '');
-    let payload;
-    try {
-      payload = this.jwtService.verify(token);
-      console.log('Token verified', { userId: payload.sub, role: payload.role });
-    } catch (error) {
-      console.log('Token verification failed', { error: error.message });
-      throw new UnauthorizedException('Invalid token');
-    }
-    const userId = payload.sub;
-    const result = await this.jobApplicationsService.updateApplicationStatus(userId, applicationId, status);
-    console.log('Update application status result', { result });
-    return result;
-  }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Get(':id')
-  async getApplicationById(
-    @Headers('authorization') authHeader: string,
-    @Param('id') applicationId: string,
-  ) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Invalid token');
-    }
-    const token = authHeader.replace('Bearer ', '');
-    const payload = this.jwtService.verify(token);
-    const userId = payload.sub;
-    return this.jobApplicationsService.getApplicationById(userId, applicationId);
-  }
-
-  @UseGuards(AuthGuard('jwt'))
   @Post('invitations')
   async createInvitation(
     @Headers('authorization') authHeader: string,
@@ -191,6 +145,37 @@ export class JobApplicationsController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Put(':id')
+  async updateApplicationStatus(
+    @Headers('authorization') authHeader: string,
+    @Param('id') applicationId: string,
+    @Body('status') status: 'Pending' | 'Accepted' | 'Rejected',
+  ) {
+    console.log('Received PUT /job-applications/:id', {
+      applicationId,
+      status,
+      authHeader: authHeader ? 'Present' : 'Missing',
+    });
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Invalid token error', { authHeader });
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    let payload;
+    try {
+      payload = this.jwtService.verify(token);
+      console.log('Token verified', { userId: payload.sub, role: payload.role });
+    } catch (error) {
+      console.log('Token verification failed', { error: error.message });
+      throw new UnauthorizedException('Invalid token');
+    }
+    const userId = payload.sub;
+    const result = await this.jobApplicationsService.updateApplicationStatus(userId, applicationId, status);
+    console.log('Update application status result', { result });
+    return result;
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Post('bulk-reject')
   async bulkReject(
     @Headers('authorization') authHeader: string,
@@ -211,6 +196,21 @@ export class JobApplicationsController {
     const userId = payload.sub;
   
     return this.jobApplicationsService.bulkRejectApplications(userId, applicationIds);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':id')
+  async getApplicationById(
+    @Headers('authorization') authHeader: string,
+    @Param('id') applicationId: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+    return this.jobApplicationsService.getApplicationById(userId, applicationId);
   }
 
 }
