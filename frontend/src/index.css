@@ -4660,7 +4660,7 @@ font-weight: bold;
 
 .modal-content textarea {
   width: 100%; 
-  min-height: 200px; 
+  min-height: 150px; 
   max-height: 400px; 
   resize: none; 
   padding: 10px; 
