@@ -296,10 +296,18 @@ newSocket.on('newMessage', (m: Message) => {
     map[m.job_application_id] = (map[m.job_application_id] || 0) + 1;
     localStorage.setItem(key, JSON.stringify(map));
 
-    // legacy (на время миграции)
+    // Глобальное обновление счетчиков
     window.dispatchEvent(new Event('jobforge:unreads-updated'));
-    // брендовый (новый)
     window.dispatchEvent(new Event(brandEvent('unreads-updated')));
+    
+    // Браузерные уведомления (работают даже когда вкладка не активна)
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('New message in Jobforge', {
+        body: `New message: ${m.content.substring(0, 100)}...`,
+        icon: '/favicon.ico',
+        tag: 'jobforge-message'
+      });
+    }
   }
   setLastInCache(m.job_application_id, m.content, new Date(m.created_at).getTime());
   playNewMessageSound(m);
