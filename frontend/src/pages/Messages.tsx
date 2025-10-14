@@ -409,35 +409,44 @@ if (
   return;
 }
 
-    socket.on('chatHistory', (history: Message[]) => {
-      if (history && history.length > 0) {
-        const jobApplicationId = history[0].job_application_id;
-        setMessages((prev) => ({
-          ...prev,
-          [jobApplicationId]: history.sort(
-            (a, b) =>
-              new Date(a.created_at).getTime() -
-              new Date(b.created_at).getTime()
-          ),
-        }));
-        const unread = history.filter(
-          (msg) => msg.recipient_id === profile.id && !msg.is_read
-        ).length;
-        setUnreadCounts((prevCounts) => ({
-          ...prevCounts,
-          [jobApplicationId]: selectedChat === jobApplicationId ? 0 : unread,
-        }));
-      }
-    });
+socket.on('chatHistory', (history: Message[]) => {
+  if (history && history.length > 0) {
+    const jobApplicationId = history[0].job_application_id;
+    const sorted = [...history].sort(
+      (a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
 
-    socket.on('newMessage', (message: Message) => {
-      setMessages((prev) => ({
-        ...prev,
-        [message.job_application_id]: [
-          ...(prev[message.job_application_id] || []),
-          message,
-        ],
-      }));
+    setMessages((prev) => ({ ...prev, [jobApplicationId]: sorted }));
+
+    
+    const last = sorted[sorted.length - 1];
+    setLastInCache?.(jobApplicationId, last.content, new Date(last.created_at).getTime());
+
+    const unread = sorted.filter(
+      (msg) => msg.recipient_id === profile.id && !msg.is_read
+    ).length;
+    setUnreadCounts((prevCounts) => ({
+      ...prevCounts,
+      [jobApplicationId]: selectedChat === jobApplicationId ? 0 : unread,
+    }));
+  }
+});
+
+
+socket.on('newMessage', (message: Message) => {
+  setMessages((prev) => ({
+    ...prev,
+    [message.job_application_id]: [
+      ...(prev[message.job_application_id] || []),
+      message,
+    ],
+  }));
+
+    setLastInCache?.(
+    message.job_application_id,
+    message.content,
+    new Date(message.created_at).getTime()
+  );
 
       const inOpenedChat = selectedChat === message.job_application_id;
 
@@ -542,7 +551,11 @@ if (!socket || !socket.connected) {
     }
     socket.emit('typing', { jobApplicationId: selectedChat, isTyping: false });
 
-socket.emit('sendMessage', { jobApplicationId: selectedChat, content: newMessage.trim() });
+const content = newMessage.trim();
+socket.emit('sendMessage', { jobApplicationId: selectedChat, content });
+
+
+setLastInCache?.(selectedChat, content, Date.now());
 
     setNewMessage('');
   };
@@ -689,14 +702,20 @@ return {
 
 const fetchHistory = async () => {
   const history = await getChatHistory(jobApplicationId, { page: 1, limit: 100 }, currentRole!);
-  setMessages(prev => ({
-    ...prev,
-    [jobApplicationId]: history.data.sort(
-      (a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    ),
-  }));
+  const sorted = [...history.data].sort(
+    (a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+
+  setMessages(prev => ({ ...prev, [jobApplicationId]: sorted }));
   setUnreadCounts(prev => ({ ...prev, [jobApplicationId]: 0 }));
+
+  
+  if (sorted.length) {
+    const last = sorted[sorted.length - 1];
+    setLastInCache?.(jobApplicationId, last.content, new Date(last.created_at).getTime());
+  }
 };
+
 
 try {
   await fetchHistory();
