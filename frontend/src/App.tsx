@@ -67,8 +67,8 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<Home />} />
            <Route path="/jobs/:id" element={<JobDetails />} />   {/* legacy путь оставляем */}
-<Route path="/vacancy/:slugId" element={<JobDetails />} />  {/* тот же UI, но грузим по slugOrId */}
-<Route path="/job/:slugId" element={<JobLanding />} />
+          <Route path="/vacancy/:slugId" element={<JobDetails />} />  {/* тот же UI, но грузим по slugOrId */}
+          <Route path="/job/:slugId" element={<JobLanding />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register/:role" element={<Register />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
@@ -79,24 +79,24 @@ const App: React.FC = () => {
           <Route path="/contact-support" element={<ContactSupport />} />
            <Route path="/report-issue" element={<ReportIssue />} />
            <Route path="/share-story" element={<ShareStory />} />
-<Route path="/employer-dashboard" element={<EmployerDashboard />}>
-  <Route index element={<EmployerOverview />} />
-  <Route path="profile" element={<ProfilePage />} />
-  <Route path="my-job-posts" element={<MyJobPosts />} />
-  <Route path="post-job" element={<PostJob />} />
-  <Route path="messages" element={<Messages />} />
-  <Route path="report-issue" element={<ReportIssue />} />
-  <Route path="share-story" element={<ShareStory />} />
-</Route>
+          <Route path="/employer-dashboard" element={<EmployerDashboard />}>
+            <Route index element={<EmployerOverview />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="my-job-posts" element={<MyJobPosts />} />
+            <Route path="post-job" element={<PostJob />} />
+            <Route path="messages" element={<Messages />} />
+            <Route path="report-issue" element={<ReportIssue />} />
+            <Route path="share-story" element={<ShareStory />} />
+          </Route>
 
-<Route path="/jobseeker-dashboard" element={<JobseekerDashboard />}>
-  <Route index element={<JobseekerOverview />} />
-  <Route path="profile" element={<ProfilePage />} />
-  <Route path="my-applications" element={<MyApplications />} />
-  <Route path="messages" element={<Messages />} />
-  <Route path="report-issue" element={<ReportIssue />} />
-  <Route path="share-story" element={<ShareStory />} />
-</Route>
+          <Route path="/jobseeker-dashboard" element={<JobseekerDashboard />}>
+            <Route index element={<JobseekerOverview />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="my-applications" element={<MyApplications />} />
+            <Route path="messages" element={<Messages />} />
+            <Route path="report-issue" element={<ReportIssue />} />
+            <Route path="share-story" element={<ShareStory />} />
+          </Route>
 
          
           <Route path="/admin/email-notifications" element={<EmailNotifications />} />
