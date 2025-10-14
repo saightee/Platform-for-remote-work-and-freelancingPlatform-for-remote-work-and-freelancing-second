@@ -46,7 +46,15 @@ type ChatListItem = {
   lastActivity?: number; 
 };
 
-
+interface RoleContextType {
+  profile: { id: string; username?: string } | null;
+  currentRole: 'jobseeker' | 'employer' | null;
+  socket: any;
+  socketStatus: string;
+  setSocketStatus: (status: string) => void;
+  getLastFromCache: (id: string) => { text: string; ts: number } | undefined;
+  setLastInCache: (id: string, text: string, ts: number) => void;
+}
 
 const Messages: React.FC = () => {
   const navigate = useNavigate();
@@ -62,7 +70,7 @@ const {
   setSocketStatus,
   getLastFromCache,
   setLastInCache,
-} = useRole() as any;
+} = useRole() as RoleContextType;
 
 
   const [applications, setApplications] = useState<JobApplication[]>([]);
@@ -79,15 +87,19 @@ const [selectedChat, setSelectedChat] = useState<string | null>(
 );
 
 // ==== BEGIN: helper & comparator ====
-// берём из messages -> cache -> appliedAt
 const getLastActivity = (id: string, appliedAt?: string | null) => {
   const list = messages[id];
   if (list?.length) {
-    return new Date(list[list.length - 1].created_at).getTime();
+    const lastMsgDate = new Date(list[list.length - 1].created_at);
+    return isNaN(lastMsgDate.getTime()) ? 0 : lastMsgDate.getTime();
   }
-  const cached = getLastFromCache?.(id);
-  if (cached) return cached.ts;
-  return appliedAt ? new Date(appliedAt as any).getTime() : 0;
+  
+  if (appliedAt) {
+    const appliedDate = new Date(appliedAt);
+    return isNaN(appliedDate.getTime()) ? 0 : appliedDate.getTime();
+  }
+  
+  return 0;
 };
 
 const getLastPreview = (id: string) => {
@@ -109,34 +121,47 @@ const byLastActivityDesc = (a: any, b: any) => {
 };
 
 const preloadLast = async (ids: string[]) => {
-  // быстрый показ из кэша
-  for (const id of ids) {
-    if (!messages[id]?.length) {
-      const cached = getLastFromCache?.(id);
-      if (cached) {
-        setMessages(prev => ({
-          ...prev,
-          [id]: [{ id:`cached-${id}`, content: cached.text, created_at: new Date(cached.ts).toISOString() } as any],
-        }));
-      }
-    }
-  }
+  // Сначала очищаем кэш для этих чатов чтобы избежать конфликтов
+  ids.forEach(id => {
+    setMessages(prev => ({ ...prev, [id]: [] }));
+  });
 
-  // сетевой прелоад — параллельно и устойчиво
+  // Затем загружаем актуальные данные
   const tasks = ids.map(id =>
-    getChatHistory(id, { page: 1, limit: 1 }, currentRole!)
+    getChatHistory(id, { page: 1, limit: 50 }, currentRole!)
       .then(res => ({ id, arr: res?.data || [] }))
-      .catch((e:any) => {
-        if (e?.response?.status === 401 || e?.response?.status === 403) return { id, arr: [] };
-        return { id, arr: [] };
-      })
+.catch((e: any) => {
+  console.error(`Failed to load chat history for ${id}:`, e);
+  
+  // Автоматический логаут при 401
+  if (e?.response?.status === 401) {
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+    return { id, arr: [] };
+  }
+  
+  // Показ ошибки пользователю
+  if (e?.response?.status !== 403) { // 403 - нормально, нет доступа
+    toast.error(`Failed to load chat ${id.substring(0, 8)}...`);
+  }
+  
+  return { id, arr: [] };
+})
   );
+  
   const results = await Promise.all(tasks);
   results.forEach(({ id, arr }) => {
     if (arr.length) {
-      setMessages(prev => ({ ...prev, [id]: arr }));
-      const m = arr[0];
-      setLastInCache?.(id, m.content, +new Date(m.created_at));
+      // Сортируем сообщения по времени (старые -> новые)
+      const sorted = [...arr].sort((a, b) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      
+      setMessages(prev => ({ ...prev, [id]: sorted }));
+      
+      // Обновляем кэш последним сообщением
+      const lastMsg = sorted[sorted.length - 1];
+      setLastInCache?.(id, lastMsg.content, +new Date(lastMsg.created_at));
     }
   });
 };
@@ -288,74 +313,76 @@ useEffect(() => {
   }, []);
 
   // загрузка данных
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Очищаем кэш сообщений при загрузке чтобы избежать конфликтов
+      setMessages({});
+      setUnreadCounts({});
 
-if (currentRole === 'jobseeker') {
-  const all = await getMyApplications();
-  const filtered = all.filter(a => ['Pending','Accepted'].includes(a.status as any));
-  setApplications(filtered);
+      if (currentRole === 'jobseeker') {
+        const all = await getMyApplications();
+        const filtered = all.filter(a => ['Pending','Accepted'].includes(a.status as any));
+        setApplications(filtered);
 
-  // подписываемся на все чаты (для превью/истории)
-joinAllMyChats(filtered.map(a => a.id));
-await preloadLast(filtered.map(a => a.id));
-  // авто-выбор: 1) если пришли с preselect — он, 2) иначе из localStorage,
-  // 3) иначе самая свежая заявка (last)
-  if (preselectApplicationId && filtered.some(a => a.id === preselectApplicationId)) {
-    setSelectedChat(preselectApplicationId);
-  } else {
-    const ls = localStorage.getItem('lastSelectedChat');
-    if (ls && filtered.some(a => a.id === ls)) {
-      setSelectedChat(ls);
-    } else {
-      const latestId = pickLatestJobseekerApplicationId(filtered);
-      if (latestId) setSelectedChat(latestId);
-    }
-  }
-}
- else if (currentRole === 'employer') {
-  const posts = await getMyJobPosts();
-  const active = posts.filter(isActiveJob);
-  setJobPosts(active);
+        // подписываемся на все чаты (для превью/истории)
+        joinAllMyChats(filtered.map(a => a.id));
+        await preloadLast(filtered.map(a => a.id));
+        
+        // авто-выбор: 1) если пришли с preselect — он, 2) иначе из localStorage,
+        // 3) иначе самая свежая заявка (last)
+        if (preselectApplicationId && filtered.some(a => a.id === preselectApplicationId)) {
+          setSelectedChat(preselectApplicationId);
+        } else {
+          const ls = localStorage.getItem('lastSelectedChat');
+          if (ls && filtered.some(a => a.id === ls)) {
+            setSelectedChat(ls);
+          } else {
+            const latestId = pickLatestJobseekerApplicationId(filtered);
+            if (latestId) setSelectedChat(latestId);
+          }
+        }
+      } else if (currentRole === 'employer') {
+        const posts = await getMyJobPosts();
+        const active = posts.filter(isActiveJob);
+        setJobPosts(active);
 
-const arrays = await Promise.all(active.map(p => getApplicationsForJobPost(p.id)));
-const map: Record<string, JobApplicationDetails[]> = {};
-active.forEach((p, i) => { map[p.id] = arrays[i]; });
-setJobPostApplications(map);
+        const arrays = await Promise.all(active.map(p => getApplicationsForJobPost(p.id)));
+        const map: Record<string, JobApplicationDetails[]> = {};
+        active.forEach((p, i) => { map[p.id] = arrays[i]; });
+        setJobPostApplications(map);
 
-// ✅ Берём только Pending/Accepted, иначе бэк даёт 401
-const allowed = arrays
-  .flat()
-  .filter(a => a.status === 'Pending' || a.status === 'Accepted');
+        
+        const allowed = arrays
+          .flat()
+          .filter(a => a.status === 'Pending' || a.status === 'Accepted');
 
-const allIds = allowed.map(a => a.applicationId);
-joinAllMyChats(allIds);
-await preloadLast(allIds);
+        const allIds = allowed.map(a => a.applicationId);
+        joinAllMyChats(allIds);
+        await preloadLast(allIds);
 
-
-  if (!activeJobId && active[0]) setActiveJobId(active[0].id);
-if (!selectedChat) {
-  const first = preselectApplicationId ?? allowed[0]?.applicationId;
-  if (first) setSelectedChat(first);
-}
-
-}
-
-      } catch (e) {
-        console.error('Error fetching applications:', e);
-        setError('Failed to load applications.');
-      } finally {
-        setIsLoading(false);
+        if (!activeJobId && active[0]) setActiveJobId(active[0].id);
+        if (!selectedChat) {
+          const first = preselectApplicationId ?? allowed[0]?.applicationId;
+          if (first) setSelectedChat(first);
+        }
       }
-    };
 
-if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole)) {
-  fetchData(); 
-}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, currentRole]);
+    } catch (e) {
+      console.error('Error fetching applications:', e);
+      setError('Failed to load applications.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole)) {
+    fetchData(); 
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [profile, currentRole]);
 
   
 
@@ -431,35 +458,40 @@ socket.on('chatHistory', (history: Message[]) => {
 
 
 socket.on('newMessage', (message: Message) => {
-  setMessages((prev) => ({
-    ...prev,
-    [message.job_application_id]: [
-      ...(prev[message.job_application_id] || []),
-      message,
-    ],
-  }));
+  setMessages((prev) => {
+    const currentMessages = prev[message.job_application_id] || [];
+    // Добавляем новое сообщение и сортируем всю историю
+    const updated = [...currentMessages, message].sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    
+    return {
+      ...prev,
+      [message.job_application_id]: updated,
+    };
+  });
 
-    setLastInCache?.(
+  setLastInCache?.(
     message.job_application_id,
     message.content,
     new Date(message.created_at).getTime()
   );
 
-      const inOpenedChat = selectedChat === message.job_application_id;
+  const inOpenedChat = selectedChat === message.job_application_id;
 
-      if (inOpenedChat) {
-        socket.emit('markMessagesAsRead', {
-          jobApplicationId: message.job_application_id,
-        });
-        scrollToBottom(true);
-      } else if (message.recipient_id === profile.id && !message.is_read) {
-        setUnreadCounts((prev) => ({
-          ...prev,
-          [message.job_application_id]:
-            (prev[message.job_application_id] || 0) + 1,
-        }));
-      }
+  if (inOpenedChat) {
+    socket.emit('markMessagesAsRead', {
+      jobApplicationId: message.job_application_id,
     });
+    scrollToBottom(true);
+  } else if (message.recipient_id === profile.id && !message.is_read) {
+    setUnreadCounts((prev) => ({
+      ...prev,
+      [message.job_application_id]:
+        (prev[message.job_application_id] || 0) + 1,
+    }));
+  }
+});
 
     socket.on(
       'typing',
@@ -555,81 +587,76 @@ setLastInCache?.(selectedChat, content, Date.now());
     setNewMessage('');
   };
 
+// Выносим тяжелые вычисления в отдельные мемоизированные значения
+const activeJobApps = useMemo(() => 
+  activeJobId ? (jobPostApplications[activeJobId] || []) : []
+, [activeJobId, jobPostApplications]);
+
+const jobPostsMap = useMemo(() => 
+  new Map(jobPosts.map(p => [p.id, p]))
+, [jobPosts]);
+
+const applicationsMap = useMemo(() => 
+  new Map(applications.map(app => [app.id, app]))
+, [applications]);
+
 const chatList = useMemo<ChatListItem[]>(() => {
   if (currentRole === 'employer') {
-    // важно: явно типизируем список, чтобы не терять поля applicationId/appliedAt
-    const list: JobApplicationDetails[] = activeJobId
-      ? (jobPostApplications[activeJobId] || [])
-      : [];
-
-return list
-  .filter(app => app.status === 'Pending' || app.status === 'Accepted')
-  .map((app): ChatListItem => {
-    const msgs = messages[app.applicationId] || [];
-    const lastMsg = msgs.length ? msgs[msgs.length - 1] : undefined;
-const appliedTs = app.appliedAt ? new Date(app.appliedAt as any).getTime() : 0;
-const lastTs = lastMsg ? new Date(lastMsg.created_at).getTime() : appliedTs;
-    return {
-      id: app.applicationId,
-      title: jobPosts.find(p => p.id === app.job_post_id)?.title || 'Unknown Job',
-      partner: app.username,
-      status: app.status,
-      unreadCount: unreadCounts[app.applicationId] ?? 0,
-      coverLetter: app.coverLetter ?? null,
-      userId: app.userId,
-      job_post_id: app.job_post_id,
-      appliedAt: app.appliedAt,
- lastMessage: getLastPreview(app.applicationId),
-  lastActivity: getLastActivity(app.applicationId, app.appliedAt),
-    };
-  })
-  // ВСЕГДА СОРТИРУЕМ ПО ПОСЛЕДНЕЙ АКТИВНОСТИ — БЕЗ «СКАЧКОВ» ПРИ ПРОСТОМ ВЫБОРЕ
-  .sort(byLastActivityDesc);
-
-
+    return activeJobApps
+      .filter(app => app.status === 'Pending' || app.status === 'Accepted')
+      .map((app): ChatListItem => {
+        const jobPost = jobPostsMap.get(app.job_post_id);
+        
+        return {
+          id: app.applicationId,
+          title: jobPost?.title || 'Unknown Job',
+          partner: app.username,
+          status: app.status,
+          unreadCount: unreadCounts[app.applicationId] ?? 0,
+          coverLetter: app.coverLetter ?? null,
+          userId: app.userId,
+          job_post_id: app.job_post_id,
+          appliedAt: app.appliedAt,
+          lastMessage: getLastPreview(app.applicationId),
+          lastActivity: getLastActivity(app.applicationId, app.appliedAt),
+        };
+      })
+      .sort((a, b) => (b.lastActivity ?? 0) - (a.lastActivity ?? 0));
   }
 
-  // jobseeker
-// jobseeker
-let source = applications;
-if (currentRole === 'jobseeker' && selectedChat) {
-  source = applications.filter(a => a.id === selectedChat);
-}
+  // Jobseeker
+  let source = applications;
+  if (selectedChat && !applicationsMap.has(selectedChat)) {
+    source = applications.filter(a => a.id === selectedChat);
+  }
 
-return source
-  .map((app): ChatListItem => {
-    const msgs = messages[app.id] || [];
-    const lastMsg = msgs.length ? msgs[msgs.length - 1] : undefined;
-    const lastTs =
-      lastMsg ? ts(lastMsg.created_at)
-              : ts((app as any).updated_at || (app as any).created_at);
-
-return {
-  id: app.id,
-  title: app.job_post?.title || 'Unknown Job',
-  partner: app.job_post?.employer?.username || 'Unknown',
-  unreadCount: unreadCounts[app.id] ?? 0,
-  status: app.status,
-  appliedAt: (app as any).created_at,
-  lastMessage: getLastPreview(app.id),
-  lastActivity: getLastActivity(app.id, (app as any).created_at),
-};
-  })
-  // единая сортировка по последней активности, чтобы превью не «скакали»
-  .sort(byLastActivityDesc);
-
-
-
+  return source
+    .map((app): ChatListItem => {
+      const jobPost = app.job_post;
+      
+      return {
+        id: app.id,
+        title: jobPost?.title || 'Unknown Job',
+        partner: jobPost?.employer?.username || 'Unknown',
+        unreadCount: unreadCounts[app.id] ?? 0,
+        status: app.status,
+        appliedAt: (app as any).created_at,
+        lastMessage: getLastPreview(app.id),
+        lastActivity: getLastActivity(app.id, (app as any).created_at),
+      };
+    })
+    .sort(byLastActivityDesc);
 }, [
-  activeJobId,
-  jobPostApplications,
-  unreadCounts,
-  jobPosts,
-  applications,
+  // ✅ Только примитивы и мемоизированные значения
   currentRole,
-  messages,
+  activeJobApps, // мемоизированный массив
+  jobPostsMap, // мемоизированная Map
+  applicationsMap, // мемоизированная Map
+  unreadCounts,
+  selectedChat,
+  // ❌ Убираем messages, applications, jobPosts, jobPostApplications
+  // Вместо них используем мемоизированные версии
 ]);
-
 
   // все чаты — для верхнего пикера
   const allChats = useMemo(() => {
@@ -718,14 +745,22 @@ try {
   const msg: string = err?.response?.data?.message || err?.message || '';
   if (/not initialized/i.test(msg) || /инициал/i.test(msg)) {
     setError('Initializing chat…');
-    const onInit = (d: { jobApplicationId: string }) => {
-      if (d.jobApplicationId === jobApplicationId) {
-        socket?.off('chatInitialized', onInit);
-        socket?.emit('joinChat', { jobApplicationId });
-        fetchHistory().finally(() => setError(null));
-      }
-    };
-    socket?.on('chatInitialized', onInit);
+   useEffect(() => {
+  const onInit = (d: { jobApplicationId: string }) => {
+    if (d.jobApplicationId === jobApplicationId) {
+      socket?.off('chatInitialized', onInit);
+      socket?.emit('joinChat', { jobApplicationId });
+      fetchHistory().finally(() => setError(null));
+    }
+  };
+
+  socket?.on('chatInitialized', onInit);
+  
+  // ✅ Очистка при размонтировании или изменении ID
+  return () => {
+    socket?.off('chatInitialized', onInit);
+  };
+}, [jobApplicationId, socket]); // Добавляем зависимости
     // если бэк поддерживает явный init — пробуем
     socket?.emit('initChat', { jobApplicationId });
   } else {
