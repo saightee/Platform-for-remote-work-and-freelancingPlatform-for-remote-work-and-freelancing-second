@@ -79,6 +79,23 @@ const [selectedChat, setSelectedChat] = useState<string | null>(
 );
 
 // ==== BEGIN: helper & comparator ====
+// берём из messages -> cache -> appliedAt
+const getLastActivity = (id: string, appliedAt?: string | null) => {
+  const list = messages[id];
+  if (list?.length) {
+    return new Date(list[list.length - 1].created_at).getTime();
+  }
+  const cached = getLastFromCache?.(id);
+  if (cached) return cached.ts;
+  return appliedAt ? new Date(appliedAt as any).getTime() : 0;
+};
+
+const getLastPreview = (id: string) => {
+  const list = messages[id];
+  if (list?.length) return list[list.length - 1].content;
+  const cached = getLastFromCache?.(id);
+  return cached?.text || '';
+};
 
 // Стабильная сортировка по lastActivity ↓, затем appliedAt ↓, затем id ↑
 const byLastActivityDesc = (a: any, b: any) => {
@@ -249,11 +266,7 @@ useEffect(() => {
 }, [closeAllMenus]);
 
   // helpers
-  const getLastTs = (chatId: string) => {
-    const list = messages[chatId];
-    if (!list || !list.length) return 0;
-    return new Date(list[list.length - 1].created_at).getTime();
-  };
+
 
   const isActiveJob = (p: JobPost) => {
     const s = (p.status || '').toLowerCase();
@@ -325,10 +338,11 @@ await preloadLast(allIds);
 
 
   if (!activeJobId && active[0]) setActiveJobId(active[0].id);
-  if (!selectedChat) {
-    const first = preselectApplicationId ?? arrays.flat()[0]?.applicationId;
-    if (first) setSelectedChat(first);
-  }
+if (!selectedChat) {
+  const first = preselectApplicationId ?? allowed[0]?.applicationId;
+  if (first) setSelectedChat(first);
+}
+
 }
 
       } catch (e) {
@@ -557,8 +571,8 @@ const lastTs = lastMsg ? new Date(lastMsg.created_at).getTime() : appliedTs;
       userId: app.userId,
       job_post_id: app.job_post_id,
       appliedAt: app.appliedAt,
-  lastMessage: lastMsg?.content || '',
-  lastActivity: lastTs,
+ lastMessage: getLastPreview(app.applicationId),
+  lastActivity: getLastActivity(app.applicationId, app.appliedAt),
     };
   })
   // ВСЕГДА СОРТИРУЕМ ПО ПОСЛЕДНЕЙ АКТИВНОСТИ — БЕЗ «СКАЧКОВ» ПРИ ПРОСТОМ ВЫБОРЕ
@@ -582,16 +596,16 @@ return source
       lastMsg ? ts(lastMsg.created_at)
               : ts((app as any).updated_at || (app as any).created_at);
 
-    return {
-      id: app.id,
-      title: app.job_post?.title || 'Unknown Job',
-      partner: app.job_post?.employer?.username || 'Unknown',
-      unreadCount: unreadCounts[app.id] ?? 0,
-      status: app.status,
-      lastMessage: lastMsg?.content || '',
-      lastActivity: lastTs,
-      appliedAt: (app as any).created_at,
-    };
+return {
+  id: app.id,
+  title: app.job_post?.title || 'Unknown Job',
+  partner: app.job_post?.employer?.username || 'Unknown',
+  unreadCount: unreadCounts[app.id] ?? 0,
+  status: app.status,
+  appliedAt: (app as any).created_at,
+  lastMessage: getLastPreview(app.id),
+  lastActivity: getLastActivity(app.id, (app as any).created_at),
+};
   })
   // единая сортировка по последней активности, чтобы превью не «скакали»
   .sort(byLastActivityDesc);
@@ -621,17 +635,18 @@ return source
           } — ${app.username}`,
           job_post_id: app.job_post_id,
         }))
-        .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));
+      .sort((a, b) => getLastActivity(b.id) - getLastActivity(a.id));
+
     }
     // jobseeker
-    return applications
-      .map((app) => ({
-        id: app.id,
-        label: `${app.job_post?.title || 'Job'} — ${
-          app.job_post?.employer?.username || 'Employer'
-        }`,
-      }))
-      .sort((a, b) => getLastTs(b.id) - getLastTs(a.id));
+   return applications
+  .map((app) => ({
+    id: app.id,
+    label: `${app.job_post?.title || 'Job'} — ${app.job_post?.employer?.username || 'Employer'}`,
+    appliedAt: (app as any).created_at,
+  }))
+  .sort((a, b) => getLastActivity(b.id, b.appliedAt) - getLastActivity(a.id, a.appliedAt));
+
   }, [jobPostApplications, jobPosts, applications, currentRole, messages]);
 
   const selectedLabel = useMemo(() => {
@@ -765,7 +780,8 @@ try {
         partner: a.username,
         unreadCount: unreadCounts[a.applicationId] || 0,
       }))
-      .sort((a,b) => getLastTs(b.id) - getLastTs(a.id));
+      .sort((a, b) => getLastActivity(b.id) - getLastActivity(a.id));
+
     return { post, chats };
   }).filter(g => g.chats.length > 0);
 }, [currentRole, jobPosts, jobPostApplications, unreadCounts, messages]);
