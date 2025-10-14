@@ -279,6 +279,7 @@ newSocket.on('newMessage', (m: Message) => {
     // брендовый (новый)
     window.dispatchEvent(new Event(brandEvent('unreads-updated')));
   }
+  setLastInCache(m.job_application_id, m.content, new Date(m.created_at).getTime());
   playNewMessageSound(m);
 });
 
