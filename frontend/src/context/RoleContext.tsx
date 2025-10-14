@@ -38,6 +38,8 @@ interface RoleContextType {
   socket: Socket | null;
   socketStatus: 'connected' | 'disconnected' | 'reconnecting';
   setSocketStatus: (s: 'connected' | 'disconnected' | 'reconnecting') => void;
+  setLastInCache: (id: string, text: string, ts: number) => void;
+  getLastFromCache: (id: string) => { text: string; ts: number } | undefined;
 }
 
 interface DecodedToken {
@@ -74,6 +76,12 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
    const notifAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastPlayRef = useRef(0);
   const activeChatRef = useRef<string | null>(null);
+  const lastMsgCacheRef = useRef<Map<string, { text: string; ts: number }>>(new Map());
+
+const setLastInCache = (id: string, text: string, ts: number) => {
+  lastMsgCacheRef.current.set(id, { text, ts });
+};
+const getLastFromCache = (id: string) => lastMsgCacheRef.current.get(id);
 
   // DEV-имперсонация: если dev + ?as=... и нет токена — подставляем фейкового пользователя
   // useEffect(() => {
@@ -485,6 +493,8 @@ const playNewMessageSound = (msg: Message) => {
         socket: socket,
         socketStatus,
         setSocketStatus,
+        setLastInCache,
+getLastFromCache,
       }}
     >
       {children}

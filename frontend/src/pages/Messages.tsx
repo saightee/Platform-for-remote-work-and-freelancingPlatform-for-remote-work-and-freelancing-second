@@ -54,8 +54,16 @@ const Messages: React.FC = () => {
   const preselectJobPostId = location?.state?.jobPostId as string | null;
   const preselectApplicationId = location?.state?.applicationId as string | null;
 
-  const { profile, currentRole, socket, socketStatus, setSocketStatus } =
-    useRole();
+const {
+  profile,
+  currentRole,
+  socket,
+  socketStatus,
+  setSocketStatus,
+  getLastFromCache,
+  setLastInCache,
+} = useRole() as any;
+
 
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
@@ -69,6 +77,56 @@ const [activeJobId, setActiveJobId] = useState<string | null>(
 const [selectedChat, setSelectedChat] = useState<string | null>(
   preselectApplicationId || localStorage.getItem('lastSelectedChat') || null
 );
+
+// ==== BEGIN: helper & comparator ====
+
+// Стабильная сортировка по lastActivity ↓, затем appliedAt ↓, затем id ↑
+const byLastActivityDesc = (a: any, b: any) => {
+  if ((b.lastActivity ?? 0) !== (a.lastActivity ?? 0)) {
+    return (b.lastActivity ?? 0) - (a.lastActivity ?? 0);
+  }
+  const a2 = a.appliedAt ? new Date(a.appliedAt as any).getTime() : 0;
+  const b2 = b.appliedAt ? new Date(b.appliedAt as any).getTime() : 0;
+  if (b2 !== a2) return b2 - a2;
+  return String(a.id || '').localeCompare(String(b.id || ''));
+};
+
+/** Прелоад по одному последнему сообщению на каждый чат (с мгновенным кэшем) */
+const preloadLast = async (ids: string[]) => {
+  for (const id of ids) {
+    // 1) мгновенно показать из кэша (если в состоянии пусто)
+    if (!messages[id]?.length) {
+      const cached = getLastFromCache?.(id);
+      if (cached) {
+        setMessages((prev: any) => ({
+          ...prev,
+          [id]: [
+            {
+              id: `cached-${id}`,
+              content: cached.text,
+              created_at: new Date(cached.ts).toISOString(),
+            },
+          ],
+        }));
+      }
+    }
+
+    // 2) подтянуть реальный last через API
+    try {
+      const hist = await getChatHistory(id, { page: 1, limit: 1 }, currentRole!);
+      const arr = hist?.data || [];
+      if (arr.length) {
+        setMessages((prev: any) => ({ ...prev, [id]: arr }));
+        const m = arr[0];
+        setLastInCache?.(id, m.content, new Date(m.created_at).getTime());
+      }
+    } catch {}
+  }
+};
+// ==== END: helper & comparator ====
+
+
+
 
 useEffect(() => {
   if (activeJobId) localStorage.setItem('lastActiveJobId', activeJobId);
@@ -227,8 +285,8 @@ if (currentRole === 'jobseeker') {
   setApplications(filtered);
 
   // подписываемся на все чаты (для превью/истории)
-  joinAllMyChats(filtered.map(a => a.id));
-
+joinAllMyChats(filtered.map(a => a.id));
+await preloadLast(filtered.map(a => a.id));
   // авто-выбор: 1) если пришли с preselect — он, 2) иначе из localStorage,
   // 3) иначе самая свежая заявка (last)
   if (preselectApplicationId && filtered.some(a => a.id === preselectApplicationId)) {
@@ -254,7 +312,8 @@ if (currentRole === 'jobseeker') {
   setJobPostApplications(map);
 
   const allIds = arrays.flat().map(a => a.applicationId);
-  joinAllMyChats(allIds);
+joinAllMyChats(allIds);
+await preloadLast(allIds);
 
   if (!activeJobId && active[0]) setActiveJobId(active[0].id);
   if (!selectedChat) {
@@ -414,13 +473,13 @@ if (
       }
     });
 
-    socket.on('connect_error', (err) => {
-      setSocketStatus('reconnecting');
-      if (err.message.includes('401')) {
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-      }
-    });
+socket.on('connect_error', (err: any) => {
+  setSocketStatus('reconnecting');
+  if (typeof err?.message === 'string' && err.message.includes('401')) {
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+  }
+});
 
     socket.on('connect', () => {
       setError(null);
@@ -477,7 +536,8 @@ return list
   .map((app): ChatListItem => {
     const msgs = messages[app.applicationId] || [];
     const lastMsg = msgs.length ? msgs[msgs.length - 1] : undefined;
-    const lastTs = lastMsg ? new Date(lastMsg.created_at).getTime() : 0;
+const appliedTs = app.appliedAt ? new Date(app.appliedAt as any).getTime() : 0;
+const lastTs = lastMsg ? new Date(lastMsg.created_at).getTime() : appliedTs;
     return {
       id: app.applicationId,
       title: jobPosts.find(p => p.id === app.job_post_id)?.title || 'Unknown Job',
@@ -488,12 +548,13 @@ return list
       userId: app.userId,
       job_post_id: app.job_post_id,
       appliedAt: app.appliedAt,
-      lastMessage: lastMsg?.content || '',
-      lastActivity: lastTs,
+  lastMessage: lastMsg?.content || '',
+  lastActivity: lastTs,
     };
   })
   // ВСЕГДА СОРТИРУЕМ ПО ПОСЛЕДНЕЙ АКТИВНОСТИ — БЕЗ «СКАЧКОВ» ПРИ ПРОСТОМ ВЫБОРЕ
-  .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+  .sort(byLastActivityDesc);
+
 
   }
 
@@ -524,7 +585,8 @@ return source
     };
   })
   // единая сортировка по последней активности, чтобы превью не «скакали»
-  .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+  .sort(byLastActivityDesc);
+
 
 
 }, [
@@ -735,7 +797,7 @@ try {
     setActiveJobId(null);
     setMultiMode(false);
 clearSelection();
-toast.success('Job closed successfully.');
+
 
 
     toast.success('Job closed successfully.');
