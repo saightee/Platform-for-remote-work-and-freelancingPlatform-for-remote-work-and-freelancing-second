@@ -85,32 +85,33 @@ const [activeJobId, setActiveJobId] = useState<string | null>(
 const [selectedChat, setSelectedChat] = useState<string | null>(
   preselectApplicationId || localStorage.getItem('lastSelectedChat') || null
 );
-
+ const [messages, setMessages] = useState<{
+    [jobApplicationId: string]: Message[];
+  }>({});
 // ==== BEGIN: helper & comparator ====
-const getLastActivity = (id: string, appliedAt?: string | null) => {
+const getLastActivity = useCallback((id: string, appliedAt?: string | null) => {
   const list = messages[id];
   if (list?.length) {
-    const lastMsgDate = new Date(list[list.length - 1].created_at);
-    return isNaN(lastMsgDate.getTime()) ? 0 : lastMsgDate.getTime();
+    const lastMsg = list[list.length - 1];
+    return new Date(lastMsg.created_at).getTime();
   }
   
-  if (appliedAt) {
-    const appliedDate = new Date(appliedAt);
-    return isNaN(appliedDate.getTime()) ? 0 : appliedDate.getTime();
-  }
+  const cached = getLastFromCache?.(id);
+  if (cached) return cached.ts;
   
-  return 0;
-};
+  return appliedAt ? new Date(appliedAt as any).getTime() : 0;
+}, [messages, getLastFromCache]);
 
-const getLastPreview = (id: string) => {
+const getLastPreview = useCallback((id: string) => {
   const list = messages[id];
-  if (list?.length) return list[list.length - 1].content;
+  if (list?.length) {
+    return list[list.length - 1].content;
+  }
   const cached = getLastFromCache?.(id);
   return cached?.text || '';
-};
+}, [messages, getLastFromCache]);
 
-// Стабильная сортировка по lastActivity ↓, затем appliedAt ↓, затем id ↑
-const byLastActivityDesc = (a: any, b: any) => {
+const byLastActivityDesc = useCallback((a: any, b: any) => {
   if ((b.lastActivity ?? 0) !== (a.lastActivity ?? 0)) {
     return (b.lastActivity ?? 0) - (a.lastActivity ?? 0);
   }
@@ -118,35 +119,20 @@ const byLastActivityDesc = (a: any, b: any) => {
   const b2 = b.appliedAt ? new Date(b.appliedAt as any).getTime() : 0;
   if (b2 !== a2) return b2 - a2;
   return String(a.id || '').localeCompare(String(b.id || ''));
-};
+}, []);
 
 const preloadLast = async (ids: string[]) => {
-  // Сначала очищаем кэш для этих чатов чтобы избежать конфликтов
-  ids.forEach(id => {
-    setMessages(prev => ({ ...prev, [id]: [] }));
-  });
-
-  // Затем загружаем актуальные данные
   const tasks = ids.map(id =>
     getChatHistory(id, { page: 1, limit: 50 }, currentRole!)
       .then(res => ({ id, arr: res?.data || [] }))
-.catch((e: any) => {
-  console.error(`Failed to load chat history for ${id}:`, e);
-  
-  // Автоматический логаут при 401
-  if (e?.response?.status === 401) {
-    localStorage.removeItem('token');
-    window.location.href = '/login';
-    return { id, arr: [] };
-  }
-  
-  // Показ ошибки пользователю
-  if (e?.response?.status !== 403) { // 403 - нормально, нет доступа
-    toast.error(`Failed to load chat ${id.substring(0, 8)}...`);
-  }
-  
-  return { id, arr: [] };
-})
+      .catch((e: any) => {
+        if (e?.response?.status === 401 || e?.response?.status === 403) {
+          // Можно добавить redirect или обработку авторизации
+          return { id, arr: [] };
+        }
+        console.error(`Failed to load chat history for ${id}:`, e);
+        return { id, arr: [] };
+      })
   );
   
   const results = await Promise.all(tasks);
@@ -168,7 +154,13 @@ const preloadLast = async (ids: string[]) => {
 
 
 
-
+// В начале компонента Messages, добавьте:
+useEffect(() => {
+  // Запрашиваем разрешение на уведомления
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}, []);
 
 
 useEffect(() => {
@@ -179,9 +171,7 @@ useEffect(() => {
   if (selectedChat) localStorage.setItem('lastSelectedChat', selectedChat);
 }, [selectedChat]);
 
-  const [messages, setMessages] = useState<{
-    [jobApplicationId: string]: Message[];
-  }>({});
+
   const [newMessage, setNewMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -231,8 +221,8 @@ const [multiMode, setMultiMode] = useState(false);
     {}
   );
   // const devSeededRef = useRef(false);
-// --- helpers for timestamps & picking latest application (jobseeker) ---
-const ts = (d?: any) => (d ? new Date(d as any).getTime() : 0);
+// Вместо any лучше использовать конкретные типы
+const ts = (d?: string | Date) => (d ? new Date(d).getTime() : 0);
 
 const pickLatestJobseekerApplicationId = (apps: JobApplication[]): string | null => {
   if (!apps || !apps.length) return null;
@@ -460,10 +450,9 @@ socket.on('chatHistory', (history: Message[]) => {
 socket.on('newMessage', (message: Message) => {
   setMessages((prev) => {
     const currentMessages = prev[message.job_application_id] || [];
-    // Добавляем новое сообщение и сортируем всю историю
-    const updated = [...currentMessages, message].sort((a, b) => 
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
+    
+    // Добавляем новое сообщение в конец (хронологический порядок)
+    const updated = [...currentMessages, message];
     
     return {
       ...prev,
@@ -471,6 +460,7 @@ socket.on('newMessage', (message: Message) => {
     };
   });
 
+  // Обновляем кэш последнего сообщения
   setLastInCache?.(
     message.job_application_id,
     message.content,
@@ -480,16 +470,25 @@ socket.on('newMessage', (message: Message) => {
   const inOpenedChat = selectedChat === message.job_application_id;
 
   if (inOpenedChat) {
+    // Если чат открыт - отмечаем как прочитанное
     socket.emit('markMessagesAsRead', {
       jobApplicationId: message.job_application_id,
     });
     scrollToBottom(true);
   } else if (message.recipient_id === profile.id && !message.is_read) {
+    // Если не открыт - увеличиваем счетчик непрочитанных
     setUnreadCounts((prev) => ({
       ...prev,
-      [message.job_application_id]:
-        (prev[message.job_application_id] || 0) + 1,
+      [message.job_application_id]: (prev[message.job_application_id] || 0) + 1,
     }));
+    
+    // Показываем уведомление (браузерное)
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('New message', {
+        body: `${message.content.substring(0, 50)}...`,
+        icon: '/favicon.ico'
+      });
+    }
   }
 });
 
@@ -647,15 +646,16 @@ const chatList = useMemo<ChatListItem[]>(() => {
     })
     .sort(byLastActivityDesc);
 }, [
-  // ✅ Только примитивы и мемоизированные значения
   currentRole,
-  activeJobApps, // мемоизированный массив
-  jobPostsMap, // мемоизированная Map
-  applicationsMap, // мемоизированная Map
+  activeJobApps,
+  jobPostsMap,
+  applicationsMap,
   unreadCounts,
   selectedChat,
-  // ❌ Убираем messages, applications, jobPosts, jobPostApplications
-  // Вместо них используем мемоизированные версии
+  applications, // ✅ Добавлено
+  getLastPreview, // ✅ Добавлено
+  getLastActivity, // ✅ Добавлено
+  byLastActivityDesc, // ✅ Добавлено
 ]);
 
   // все чаты — для верхнего пикера
@@ -745,30 +745,29 @@ try {
   const msg: string = err?.response?.data?.message || err?.message || '';
   if (/not initialized/i.test(msg) || /инициал/i.test(msg)) {
     setError('Initializing chat…');
-   useEffect(() => {
-  const onInit = (d: { jobApplicationId: string }) => {
-    if (d.jobApplicationId === jobApplicationId) {
-      socket?.off('chatInitialized', onInit);
-      socket?.emit('joinChat', { jobApplicationId });
-      fetchHistory().finally(() => setError(null));
-    }
-  };
+
+      socket?.emit('initChat', { jobApplicationId });
+      
+      // Создаем обработчик для события инициализации
+      const onInit = (d: { jobApplicationId: string }) => {
+        if (d.jobApplicationId === jobApplicationId) {
+          socket?.off('chatInitialized', onInit);
+          socket?.emit('joinChat', { jobApplicationId });
+          fetchHistory().finally(() => setError(null));
+        }
+      };
 
   socket?.on('chatInitialized', onInit);
   
   // ✅ Очистка при размонтировании или изменении ID
-  return () => {
-    socket?.off('chatInitialized', onInit);
-  };
-}, [jobApplicationId, socket]); // Добавляем зависимости
-    // если бэк поддерживает явный init — пробуем
-    socket?.emit('initChat', { jobApplicationId });
-  } else {
-    setError('Failed to load chat history.');
+return () => {
+        socket?.off('chatInitialized', onInit);
+      };
+    } else {
+      setError('Failed to load chat history.');
+    }
   }
-}
-
-  };
+};
 
   // текущая заявка (для действий работодателя)
   const currentApp = useMemo(() => {
@@ -879,7 +878,20 @@ clearSelection();
     toast.error(err?.response?.data?.message || 'Failed to close job.');
   }
 };
+// В компоненте Messages добавьте:
+useEffect(() => {
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible' && selectedChat) {
+      // Когда пользователь возвращается на вкладку, обновляем чаты
+      socket?.emit('markMessagesAsRead', { jobApplicationId: selectedChat });
+    }
+  };
 
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  return () => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
+}, [selectedChat, socket]);
 useEffect(() => {
   // сообщаем RoleContext, какой чат сейчас открыт (или null)
   const ev = new CustomEvent<string | null>('jobforge:selected-chat-changed', {
@@ -1111,7 +1123,8 @@ useEffect(() => {
         </div>
       </div>
 
-    <div className="ch-chatlist__applied" title="Last activity">
+
+<div className="ch-chatlist__applied" title="Last activity">
   {chat.lastActivity
     ? format(new Date(chat.lastActivity), 'PPpp')
     : (chat.appliedAt ? `Applied: ${format(new Date(chat.appliedAt), 'PPpp')}` : '')
