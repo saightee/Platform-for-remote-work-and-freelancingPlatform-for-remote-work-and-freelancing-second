@@ -91,10 +91,8 @@ const byLastActivityDesc = (a: any, b: any) => {
   return String(a.id || '').localeCompare(String(b.id || ''));
 };
 
-/** Прелоад по одному последнему сообщению на каждый чат (с мгновенным кэшем) */
 const preloadLast = async (ids: string[]) => {
   for (const id of ids) {
-    // 1) мгновенно показать из кэша (если в состоянии пусто)
     if (!messages[id]?.length) {
       const cached = getLastFromCache?.(id);
       if (cached) {
@@ -111,19 +109,24 @@ const preloadLast = async (ids: string[]) => {
       }
     }
 
-    // 2) подтянуть реальный last через API
     try {
       const hist = await getChatHistory(id, { page: 1, limit: 1 }, currentRole!);
       const arr = hist?.data || [];
       if (arr.length) {
         setMessages((prev: any) => ({ ...prev, [id]: arr }));
-        const m = arr[0];
+      const m = arr[0];
         setLastInCache?.(id, m.content, new Date(m.created_at).getTime());
       }
-    } catch {}
+    } catch (e: any) {
+      if (e?.response?.status === 401 || e?.response?.status === 403) {
+        // просто пропускаем этот чат (не триггерим глобальный логаут)
+        continue;
+      }
+      // остальные ошибки можно молча игнорировать
+    }
   }
 };
-// ==== END: helper & comparator ====
+
 
 
 
@@ -306,14 +309,20 @@ await preloadLast(filtered.map(a => a.id));
   const active = posts.filter(isActiveJob);
   setJobPosts(active);
 
-  const arrays = await Promise.all(active.map(p => getApplicationsForJobPost(p.id)));
-  const map: Record<string, JobApplicationDetails[]> = {};
-  active.forEach((p, i) => { map[p.id] = arrays[i]; });
-  setJobPostApplications(map);
+const arrays = await Promise.all(active.map(p => getApplicationsForJobPost(p.id)));
+const map: Record<string, JobApplicationDetails[]> = {};
+active.forEach((p, i) => { map[p.id] = arrays[i]; });
+setJobPostApplications(map);
 
-  const allIds = arrays.flat().map(a => a.applicationId);
+// ✅ Берём только Pending/Accepted, иначе бэк даёт 401
+const allowed = arrays
+  .flat()
+  .filter(a => a.status === 'Pending' || a.status === 'Accepted');
+
+const allIds = allowed.map(a => a.applicationId);
 joinAllMyChats(allIds);
 await preloadLast(allIds);
+
 
   if (!activeJobId && active[0]) setActiveJobId(active[0].id);
   if (!selectedChat) {
