@@ -109,40 +109,38 @@ const byLastActivityDesc = (a: any, b: any) => {
 };
 
 const preloadLast = async (ids: string[]) => {
+  // быстрый показ из кэша
   for (const id of ids) {
     if (!messages[id]?.length) {
       const cached = getLastFromCache?.(id);
       if (cached) {
-        setMessages((prev: any) => ({
+        setMessages(prev => ({
           ...prev,
-          [id]: [
-            {
-              id: `cached-${id}`,
-              content: cached.text,
-              created_at: new Date(cached.ts).toISOString(),
-            },
-          ],
+          [id]: [{ id:`cached-${id}`, content: cached.text, created_at: new Date(cached.ts).toISOString() } as any],
         }));
       }
     }
-
-    try {
-      const hist = await getChatHistory(id, { page: 1, limit: 1 }, currentRole!);
-      const arr = hist?.data || [];
-      if (arr.length) {
-        setMessages((prev: any) => ({ ...prev, [id]: arr }));
-      const m = arr[0];
-        setLastInCache?.(id, m.content, new Date(m.created_at).getTime());
-      }
-    } catch (e: any) {
-      if (e?.response?.status === 401 || e?.response?.status === 403) {
-        // просто пропускаем этот чат (не триггерим глобальный логаут)
-        continue;
-      }
-      // остальные ошибки можно молча игнорировать
-    }
   }
+
+  // сетевой прелоад — параллельно и устойчиво
+  const tasks = ids.map(id =>
+    getChatHistory(id, { page: 1, limit: 1 }, currentRole!)
+      .then(res => ({ id, arr: res?.data || [] }))
+      .catch((e:any) => {
+        if (e?.response?.status === 401 || e?.response?.status === 403) return { id, arr: [] };
+        return { id, arr: [] };
+      })
+  );
+  const results = await Promise.all(tasks);
+  results.forEach(({ id, arr }) => {
+    if (arr.length) {
+      setMessages(prev => ({ ...prev, [id]: arr }));
+      const m = arr[0];
+      setLastInCache?.(id, m.content, +new Date(m.created_at));
+    }
+  });
 };
+
 
 
 
@@ -412,15 +410,14 @@ if (
 socket.on('chatHistory', (history: Message[]) => {
   if (history && history.length > 0) {
     const jobApplicationId = history[0].job_application_id;
-    const sorted = [...history].sort(
-      (a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
+    const sorted = [...history].sort((a,b)=>+new Date(a.created_at)-+new Date(b.created_at));
 
     setMessages((prev) => ({ ...prev, [jobApplicationId]: sorted }));
 
-    
-    const last = sorted[sorted.length - 1];
-    setLastInCache?.(jobApplicationId, last.content, new Date(last.created_at).getTime());
+  if (sorted.length) {
+  const last = sorted[sorted.length - 1];
+  setLastInCache?.(jobApplicationId, last.content, +new Date(last.created_at));
+}
 
     const unread = sorted.filter(
       (msg) => msg.recipient_id === profile.id && !msg.is_read
@@ -553,8 +550,6 @@ if (!socket || !socket.connected) {
 
 const content = newMessage.trim();
 socket.emit('sendMessage', { jobApplicationId: selectedChat, content });
-
-
 setLastInCache?.(selectedChat, content, Date.now());
 
     setNewMessage('');

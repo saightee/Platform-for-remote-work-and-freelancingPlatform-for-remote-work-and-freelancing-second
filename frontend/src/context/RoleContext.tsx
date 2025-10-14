@@ -78,8 +78,30 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const activeChatRef = useRef<string | null>(null);
   const lastMsgCacheRef = useRef<Map<string, { text: string; ts: number }>>(new Map());
 
+
+
+
+// один раз гидрируем из localStorage (если провайдер вдруг размонтируется между страницами)
+useEffect(() => {
+  try {
+    const raw = localStorage.getItem('jf_lastmsg_cache');
+    if (raw) {
+      const obj = JSON.parse(raw) as Record<string, { text: string; ts: number }>;
+      lastMsgCacheRef.current = new Map(Object.entries(obj));
+    }
+  } catch {}
+}, []);
+
+const persistCache = () => {
+  try {
+    const obj = Object.fromEntries(lastMsgCacheRef.current.entries());
+    localStorage.setItem('jf_lastmsg_cache', JSON.stringify(obj));
+  } catch {}
+};
+
 const setLastInCache = (id: string, text: string, ts: number) => {
   lastMsgCacheRef.current.set(id, { text, ts });
+  persistCache(); // <-- сохраняем
 };
 const getLastFromCache = (id: string) => lastMsgCacheRef.current.get(id);
 
