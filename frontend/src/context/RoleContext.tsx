@@ -38,6 +38,8 @@ interface RoleContextType {
   socket: Socket | null;
   socketStatus: 'connected' | 'disconnected' | 'reconnecting';
   setSocketStatus: (s: 'connected' | 'disconnected' | 'reconnecting') => void;
+  setLastInCache: (id: string, text: string, ts: number) => void;
+  getLastFromCache: (id: string) => { text: string; ts: number } | undefined;
 }
 
 interface DecodedToken {
@@ -74,6 +76,34 @@ export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children
    const notifAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastPlayRef = useRef(0);
   const activeChatRef = useRef<string | null>(null);
+  const lastMsgCacheRef = useRef<Map<string, { text: string; ts: number }>>(new Map());
+
+
+
+
+// один раз гидрируем из localStorage (если провайдер вдруг размонтируется между страницами)
+useEffect(() => {
+  try {
+    const raw = localStorage.getItem('jf_lastmsg_cache');
+    if (raw) {
+      const obj = JSON.parse(raw) as Record<string, { text: string; ts: number }>;
+      lastMsgCacheRef.current = new Map(Object.entries(obj));
+    }
+  } catch {}
+}, []);
+
+const persistCache = () => {
+  try {
+    const obj = Object.fromEntries(lastMsgCacheRef.current.entries());
+    localStorage.setItem('jf_lastmsg_cache', JSON.stringify(obj));
+  } catch {}
+};
+
+const setLastInCache = (id: string, text: string, ts: number) => {
+  lastMsgCacheRef.current.set(id, { text, ts });
+  persistCache(); // <-- сохраняем
+};
+const getLastFromCache = (id: string) => lastMsgCacheRef.current.get(id);
 
   // DEV-имперсонация: если dev + ?as=... и нет токена — подставляем фейкового пользователя
   // useEffect(() => {
@@ -266,11 +296,20 @@ newSocket.on('newMessage', (m: Message) => {
     map[m.job_application_id] = (map[m.job_application_id] || 0) + 1;
     localStorage.setItem(key, JSON.stringify(map));
 
-    // legacy (на время миграции)
+    // Глобальное обновление счетчиков
     window.dispatchEvent(new Event('jobforge:unreads-updated'));
-    // брендовый (новый)
     window.dispatchEvent(new Event(brandEvent('unreads-updated')));
+    
+    // Браузерные уведомления (работают даже когда вкладка не активна)
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('New message in Jobforge', {
+        body: `New message: ${m.content.substring(0, 100)}...`,
+        icon: '/favicon.ico',
+        tag: 'jobforge-message'
+      });
+    }
   }
+  setLastInCache(m.job_application_id, m.content, new Date(m.created_at).getTime());
   playNewMessageSound(m);
 });
 
@@ -485,6 +524,8 @@ const playNewMessageSound = (msg: Message) => {
         socket: socket,
         socketStatus,
         setSocketStatus,
+        setLastInCache,
+getLastFromCache,
       }}
     >
       {children}
