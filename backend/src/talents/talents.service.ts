@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { User } from '../users/entities/user.entity';
 import { CategoriesService } from '../categories/categories.service';
+type JobSearchStatus = 'actively_looking' | 'open_to_offers' | 'hired';
 
 @Injectable()
 export class TalentsService {
@@ -21,15 +22,20 @@ export class TalentsService {
     description?: string;
     rating?: number;
     timezone?: string;
-    job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
+    job_search_status?: JobSearchStatus;
     expected_salary_min?: number;
     expected_salary_max?: number;
     page?: number;
     limit?: number;
     sort_by?: 'average_rating' | 'profile_views';
     sort_order?: 'ASC' | 'DESC';
+    country?: string;
+    countries?: string[];
+    languages?: string[];
+    languages_mode?: 'any' | 'all';
+    has_resume?: boolean;
   }) {
-    const query = this.jobSeekerRepository
+    const qb = this.jobSeekerRepository
       .createQueryBuilder('jobSeeker')
       .leftJoinAndSelect('jobSeeker.user', 'user')
       .leftJoinAndSelect('jobSeeker.skills', 'skills')
@@ -38,72 +44,91 @@ export class TalentsService {
 
     if (filters.skills?.length) {
       const expandedSkills = await this.categoriesService.expandCategoryIdsWithDescendants(filters.skills);
-      query.andWhere('skills.id IN (:...skills)', { skills: expandedSkills });
+      qb.andWhere('skills.id IN (:...skills)', { skills: expandedSkills });
     }
 
     if (filters.experience) {
-      query.andWhere('jobSeeker.experience ILIKE :experience', { experience: `%${filters.experience}%` });
+      qb.andWhere('jobSeeker.experience ILIKE :experience', { experience: `%${filters.experience}%` });
     }
-
     if (filters.description) {
-      query.andWhere('jobSeeker.description ILIKE :description', { description: `%${filters.description}%` });
+      qb.andWhere('jobSeeker.description ILIKE :description', { description: `%${filters.description}%` });
     }
-
     if (filters.rating !== undefined) {
-      query.andWhere('jobSeeker.average_rating >= :rating', { rating: filters.rating });
+      qb.andWhere('jobSeeker.average_rating >= :rating', { rating: filters.rating });
     }
-
     if (filters.timezone) {
-      query.andWhere('jobSeeker.timezone = :timezone', { timezone: filters.timezone });
+      qb.andWhere('jobSeeker.timezone = :timezone', { timezone: filters.timezone });
     }
-
     if (filters.job_search_status) {
-      query.andWhere('jobSeeker.job_search_status = :js', { js: filters.job_search_status });
+      qb.andWhere('jobSeeker.job_search_status = :js', { js: filters.job_search_status });
     }
-
     if (filters.expected_salary_min !== undefined) {
-      query.andWhere('jobSeeker.expected_salary >= :es_min', { es_min: filters.expected_salary_min });
+      qb.andWhere('jobSeeker.expected_salary >= :es_min', { es_min: filters.expected_salary_min });
     }
     if (filters.expected_salary_max !== undefined) {
-      query.andWhere('jobSeeker.expected_salary <= :es_max', { es_max: filters.expected_salary_max });
+      qb.andWhere('jobSeeker.expected_salary <= :es_max', { es_max: filters.expected_salary_max });
     }
 
-    const total = await query.getCount();
+    if (filters.country) {
+      qb.andWhere('user.country = :c1', { c1: filters.country.toUpperCase() });
+    } else if (filters.countries?.length) {
+      qb.andWhere('user.country = ANY(:cList)', { cList: filters.countries.map(c => c.toUpperCase()) });
+    }
 
-    const page = filters.page || 1;
-    const limit = filters.limit || 10;
-    const skip = (page - 1) * limit;
-    query.skip(skip).take(limit);
+    if (filters.languages?.length) {
+      if (filters.languages_mode === 'all') {
+        qb.andWhere('jobSeeker.languages @> :langs', { langs: filters.languages });
+      } else {
+        qb.andWhere('(jobSeeker.languages && :langs)', { langs: filters.languages });
+      }
+    }
+
+    if (typeof filters.has_resume === 'boolean') {
+      if (filters.has_resume) {
+        qb.andWhere("(jobSeeker.resume IS NOT NULL AND jobSeeker.resume <> '')");
+      } else {
+        qb.andWhere("(jobSeeker.resume IS NULL OR jobSeeker.resume = '')");
+      }
+    }
+
+    const total = await qb.getCount();
+
+    const page = Math.max(1, filters.page ?? 1);
+    const limit = Math.max(1, Math.min(100, filters.limit ?? 10));
+    qb.skip((page - 1) * limit).take(limit);
 
     const sortBy = filters.sort_by || 'average_rating';
     const sortOrder = filters.sort_order || 'DESC';
-    query.orderBy(`jobSeeker.${sortBy}`, sortOrder);
+    qb.orderBy(`jobSeeker.${sortBy}`, sortOrder);
 
-    const jobSeekers = await query.getMany();
+    const jobSeekers = await qb.getMany();
 
     return {
       total,
-      data: jobSeekers.map((jobSeeker) => ({
-        id: jobSeeker.user_id,
-        username: jobSeeker.user.username,
-        email: jobSeeker.user.email,
-        skills: jobSeeker.skills.map((cat) => ({
+      data: jobSeekers.map(js => ({
+        id: js.user_id,
+        username: js.user.username,
+        email: js.user.email,
+        skills: js.skills.map(cat => ({
           id: cat.id,
           name: cat.name,
           parent_id: (cat as any).parent_id,
         })),
-        experience: jobSeeker.experience,
-        description: jobSeeker.description,
-        portfolio: jobSeeker.portfolio,
-        video_intro: jobSeeker.video_intro,
-        timezone: jobSeeker.timezone,
-        currency: jobSeeker.currency,
-        expected_salary: (jobSeeker as any).expected_salary ?? null,
-        average_rating: jobSeeker.average_rating,
-        profile_views: jobSeeker.profile_views,
-        job_search_status: (jobSeeker as any).job_search_status,
-        identity_verified: jobSeeker.user.identity_verified,
-        avatar: jobSeeker.user.avatar,
+        experience: js.experience,
+        description: js.description,
+        portfolio: js.portfolio,
+        video_intro: js.video_intro,
+        timezone: js.timezone,
+        currency: js.currency,
+        expected_salary: (js as any).expected_salary ?? null,
+        average_rating: js.average_rating,
+        profile_views: js.profile_views,
+        job_search_status: (js as any).job_search_status,
+        identity_verified: js.user.identity_verified,
+        avatar: js.user.avatar,
+        country: js.user.country,
+        languages: js.languages ?? null,
+        has_resume: !!js.resume,
       })),
     };
   }

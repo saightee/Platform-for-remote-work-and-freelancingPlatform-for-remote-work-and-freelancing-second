@@ -2999,7 +2999,14 @@
   - `job_search_status` — "actively_looking" | "open_to_offers" | "hired"
   - `expected_salary_min` — неотрицательное число.
   - `expected_salary_max` — неотрицательное число.
+  - `country` — ISO-код страны (например, US).
+  - `countries` — массив ISO-кодов, можно как countries=US&countries=CA или countries=US,CA.
+  - `languages` — массив языков (строки), например languages=en&languages=fr или languages=en,fr.
+  - `languages_mode` — any (по умолчанию) | all.
+  - `has_resume` — true | false.
 - **Example Request**: `/api/talents?skills=<skillId>&experience=3 years&description=React&rating=4&timezone=America/New_York&page=1&limit=10&sort_by=average_rating&sort_order=DESC`
+  `/api/talents?skills[]=123&skills=456&country=PH&languages=en,es&languages_mode=all&has_resume=true&page=1&limit=20`
+  `/api/talents?countries=IN,BD&has_resume=false`
 - **Response (Success - 200)**:
   ```json
   {
@@ -3010,11 +3017,7 @@
         "username": "john_doe",
         "email": "john@example.com",
         "skills": [
-          {
-            "id": "<skillId>",
-            "name": "Web Development",
-            "parent_id": "<parentSkillId>"
-          }
+          { "id": "<skillId>", "name": "Web Development", "parent_id": "<parentSkillId>" }
         ],
         "experience": "3 years",
         "description": "Experienced web developer specializing in React and Node.js",
@@ -3027,7 +3030,10 @@
         "job_search_status": "open_to_offers",
         "profile_views": 100,
         "identity_verified": true,
-        "avatar": "/uploads/avatars/<filename>"
+        "avatar": "/uploads/avatars/<filename>",
+        "country": "US",
+        "languages": ["English", "Spanish"],
+        "has_resume": true
       }
     ]
   }
