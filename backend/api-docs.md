@@ -3998,7 +3998,7 @@
     "description": "Facebook Ads, campaign A",
     "clicks": 0,
     "registrations": 0,
-
+    "registrationsVerified": 0,
     "landingPath": "/job/<slug_id>",
     "fullLink": "https://jobforge.net/job/<slug_id>?ref=<uuid>",
     "legacyLink": "https://jobforge.net/ref/<uuid>"
@@ -4049,6 +4049,7 @@
       "description": "YouTube Influencer X",
       "clicks": 3,
       "registrations": 1,
+      "registrationsVerified": 2,
       "created_at": "2025-08-12T11:12:00.000Z",
   
       "landingPath": "/job/<slug_id>",
