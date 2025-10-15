@@ -323,13 +323,17 @@ export class JobPostsService {
     if (Number.isFinite(filters.salary_min)) qb.andWhere('jp.salary >= :smin', { smin: filters.salary_min });
     if (Number.isFinite(filters.salary_max)) qb.andWhere('jp.salary <= :smax', { smax: filters.salary_max });
 
-    const catIds = filters.category_ids?.length
+    const rawCatIds = filters.category_ids?.length
       ? filters.category_ids
       : (filters.category_id ? [filters.category_id] : []);
+    let effectiveCatIds: string[] = [];
 
-    if (catIds.length) {
-      qb.innerJoin('job_post_categories', 'jpc', 'jpc.job_post_id = jp.id')
-        .andWhere('jpc.category_id = ANY(:catIds)', { catIds });
+    if (rawCatIds.length) {
+      effectiveCatIds = await this.categoriesService.expandCategoryIdsWithDescendants(rawCatIds);
+      if (effectiveCatIds.length) {
+        qb.innerJoin('job_post_categories', 'jpc', 'jpc.job_post_id = jp.id')
+          .andWhere('jpc.category_id = ANY(:catIds)', { catIds: effectiveCatIds });
+      }
     }
 
     if (filters.required_skills?.length) {
