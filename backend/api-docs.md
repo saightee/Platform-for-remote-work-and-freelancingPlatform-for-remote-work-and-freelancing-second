@@ -1507,16 +1507,8 @@
 
 ### 20. Create Review
 - **Endpoint**: `POST /api/reviews`
-- **Description**: Creates a review for a user (employer or jobseeker) related to a specific job application.
+- **Description**: Creates a review (status = Pending). Appears publicly only after admin approval.
 - **Headers**: `Authorization: Bearer <token>`
-- **Request Body**:
-  ```json
-  {
-    "job_application_id": "<jobApplicationId>",
-    "rating": 4,
-    "comment": "Great work, very professional!"
-  }
-
 - **Response (Success - 200)**:
   ```json
   {
@@ -1526,6 +1518,7 @@
     "job_application_id": "<jobApplicationId>",
     "rating": 4,
     "comment": "Great work, very professional!",
+    "status": "Pending",
     "created_at": "2025-05-13T18:00:00.000Z",
     "updated_at": "2025-05-13T18:00:00.000Z"
   }
@@ -1580,7 +1573,7 @@
 
 ### 21. Get Reviews for User
 - **Endpoint**: `GET /api/reviews/user/:id`
-- **Description**: Retrieves all reviews for a specific user (employer or jobseeker).
+- **Description**: Returns only Approved reviews for the user.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Parameters**: `id`: The ID of the user
 - **Response (Success - 200)**:
@@ -1999,38 +1992,35 @@
 - **Endpoint**: `GET /api/admin/reviews`
 - **Description**: Retrieves all reviews (admin only).
 - **Headers**: `Authorization: Bearer <token>`
+- **Query**:
+  - `page` (number, default 1)
+  - `limit` (number, default 10)
+  - `status` (Pending | Approved | Rejected, optional)
 - **Response (Success - 200)**: 
   ```json
-  [
   {
-    "id": "<reviewId>",
-    "reviewer_id": "<userId>",
-    "reviewed_id": "<userId>",
-    "job_application_id": "<jobApplicationId>",
-    "rating": 4,
-    "comment": "Great work, very professional!",
-    "reviewer": {
-      "id": "<userId>",
-      "email": "employer4@example.com",
-      "username": "employer4",
-      "role": "employer"
-    },
-    "reviewed": {
-      "id": "<userId>",
-      "email": "jobseeker1@example.com",
-      "username": "jobseeker1",
-      "role": "jobseeker"
-    },
-    "job_application": {
-      "id": "<jobApplicationId>",
-      "job_post_id": "<jobPostId>",
-      "job_seeker_id": "<userId>",
-      "status": "Accepted"
-    },
-    "created_at": "2025-05-13T18:00:00.000Z",
-    "updated_at": "2025-05-13T18:00:00.000Z"
+    "total": 123,
+    "data": [
+      {
+        "id": "rev_1",
+        "reviewer_id": "u_a",
+        "reviewed_id": "u_b",
+        "job_application_id": "app_1",
+        "rating": 5,
+        "comment": "Nice!",
+        "status": "Pending",
+        "reviewer": { "id": "u_a", "email": "a@x", "username": "a" },
+        "reviewed": { "id": "u_b", "email": "b@x", "username": "b" },
+        "job_application": {
+          "id": "app_1",
+          "job_post": { "id": "job_1", "title": "Virtual Assistant" },
+          "job_seeker": { "id": "u_b", "username": "b" }
+        },
+        "created_at": "2025-05-13T18:00:00.000Z",
+        "updated_at": "2025-05-13T18:00:00.000Z"
+      }
+    ]
   }
-  ]
 
 ### 33. Delete Review (Admin)
 - **Endpoint**: `DELETE /api/admin/reviews/:id`
@@ -2049,6 +2039,28 @@
     "statusCode": 404,
     "message": "Review not found",
     "error": "Not Found"
+  }
+
+### 33.1 Approve Review (Admin)
+- **Endpoint**: `PATCH /api/admin/reviews/:id/approve`
+- **Description**: Sets review status to Approved and recomputes target user’s average rating using only Approved reviews.
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**: 
+  ```json
+  {
+    "id": "<reviewId>",
+    "status": "Approved"
+  }
+
+### 33.2 Reject Review (Admin)
+- **Endpoint**: `PATCH /api/admin/reviews/:id/reject`
+- **Description**: Sets review status to Rejected and recomputes target user’s average rating excluding this review.
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**: 
+  ```json
+  {
+    "id": "<reviewId>",
+    "status": "Rejected"
   }
 
 ### 34. Get Analytics (Admin)
