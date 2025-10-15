@@ -2215,37 +2215,43 @@
 
 ### 37. Get Tech Issue Feedback (Admin)
 - **Endpoint**: `GET /api/feedback`
-- **Description**: Retrieves all general feedback submissions (admin only).
+- **Description**: Returns a paginated list of tech feedback (admin only).
 - **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**:
+  - `page` (number, optional): Page number (default: 1)
+  - `limit` (number, optional): Page size (default: 10)
 - **Response (Success - 200)**: 
   ```json
-  [
-    {
-      "id": "<feedbackId>",
-      "user_id": "<userId>",
-      "role": "employer",
-      "category": "UI",
-      "summary": "Button misaligned on mobile",
-      "steps_to_reproduce": "Open /jobs on iPhone SE...",
-      "expected_result": "Buttons aligned in a row",
-      "actual_result": "Buttons wrap to next line",
-      "created_at": "2025-08-15T10:00:00.000Z",
-      "updated_at": "2025-08-15T10:00:00.000Z",
-      "user": {
-        "id": "<userId>",
-        "username": "employer1",
-        "email": "employer@example.com"
+  {
+    "total": 123,
+    "data": [
+      {
+        "id": "<feedbackId>",
+        "user_id": "<userId>",
+        "role": "employer",
+        "category": "UI",
+        "summary": "Button misaligned on mobile",
+        "steps_to_reproduce": "Open /jobs on iPhone SE...",
+        "expected_result": "Buttons aligned in a row",
+        "actual_result": "Buttons wrap to next line",
+        "created_at": "2025-08-15T10:00:00.000Z",
+        "updated_at": "2025-08-15T10:00:00.000Z",
+        "user": {
+          "id": "<userId>",
+          "username": "employer1",
+          "email": "employer@example.com"
+        }
       }
-    }
-  ]
+    ]
+  }
+
+- **Response (Error - 400)**:   
+  ```json
+  { "statusCode": 400, "message": "Page must be a positive integer", "error": "Bad Request" }
 
 - **Response (Error - 401, if user is not an admin)**:   
   ```json
-  {
-  "statusCode": 401,
-  "message": "Only admins can view feedback",
-  "error": "Unauthorized"
-  }
+  { "statusCode": 401, "message": "Only admins can view feedback", "error": "Unauthorized" }
 
 ### 38. Add Blocked Country (Admin)
 - **Endpoint**: `POST /api/admin/blocked-countries`
@@ -3087,43 +3093,44 @@
     "error": "Not Found"
   }
 
-### 66. Get All Complaints (Admin)
+### 66. Get Complaints (Admin)
 - **Endpoint**: `GET /api/admin/complaints`
-- **Description**: Retrieves all complaints for admin review.
+- **Description**: Returns a paginated list of complaints for admin review.
 - **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**:
+  - `page` (number, optional): Page number (default: 1)
+  - `limit` (number, optional): Page size (default: 10)
 - **Response (Success - 200)**:
   ```json
-  [
-    {
-      "id": "<complaintId>",
-      "complainant_id": "<userId>",
-      "complainant": { "id": "<userId>", "username": "user1", "email": "user1@example.com" },
-      "job_post_id": "<jobPostId>",
-      "job_post": { "id": "<jobPostId>", "title": "Software Engineer" },
-      "profile_id": null,
-      "profile": null,
-      "reason": "Inappropriate job description",
-      "status": "Resolved",
-      "resolution_comment": "Issue addressed",
-      "resolver_id": "<adminId>",  
-      "resolver": {  
-        "id": "<adminId>",
-        "username": "admin1",
-        "email": "admin1@example.com",
-        "role": "admin"
-      },
-      "created_at": "2025-07-31T12:00:00Z",
-      "updated_at": "2025-07-31T12:10:00Z"
-    }
-  ]
+  {
+    "total": 42,
+    "data": [
+      {
+        "id": "cpl_123",
+        "complainant_id": "u_111",
+        "complainant": { "id": "u_111", "username": "alice", "email": "alice@example.com" },
+        "job_post_id": "job_999",
+        "job_post": { "id": "job_999", "title": "Virtual Assistant" },
+        "profile_id": null,
+        "profile": null,
+        "reason": "Spam / scam",
+        "status": "Pending",
+        "resolution_comment": null,
+        "resolver_id": null,
+        "resolver": null,
+        "created_at": "2025-08-15T10:00:00.000Z",
+        "updated_at": "2025-08-15T10:00:00.000Z"
+      }
+    ]
+  }
+
+- **Response (Error - 400)**:
+  ```json
+  { "statusCode": 400, "message": "Page must be a positive integer", "error": "Bad Request" }
 
 - **Response (Error - 401, if not admin)**:
   ```json
-  {
-    "statusCode": 401,
-    "message": "Only admins can view complaints",
-    "error": "Unauthorized"
-  }
+  { "statusCode": 401, "message": "Only admins can view complaints", "error": "Unauthorized" }
 
 ### 67. Resolve Complaint (Admin)
 - **Endpoint**: `POST /api/admin/complaints/:id/resolve`

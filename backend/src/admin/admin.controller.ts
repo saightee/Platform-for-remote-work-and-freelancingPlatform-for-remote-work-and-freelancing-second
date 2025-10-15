@@ -741,16 +741,28 @@ export class AdminController {
 
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Get('complaints')
-    async getComplaints(@Headers('authorization') authHeader: string) {
-    console.log('Get Complaints Request:', { authHeader });
+  async getComplaints(
+    @Headers('authorization') authHeader: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
     }
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const adminId = payload.sub;
-
-    return this.complaintsService.getComplaints(adminId);
+  
+    const p = parseInt(page, 10);
+    const l = parseInt(limit, 10);
+    if (isNaN(p) || p < 1) {
+      throw new BadRequestException('Page must be a positive integer');
+    }
+    if (isNaN(l) || l < 1) {
+      throw new BadRequestException('Limit must be a positive integer');
+    }
+  
+    return this.complaintsService.getComplaints(adminId, p, l);
   }
 
   @UseGuards(AuthGuard('jwt'), AdminGuard)

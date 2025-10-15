@@ -36,11 +36,19 @@ export class FeedbackService {
     return this.feedbackRepository.save(feedback);
   }
 
-  async getFeedback(adminId: string) {
+  async getFeedback(adminId: string, page = 1, limit = 10) {
     const admin = await this.usersRepository.findOne({ where: { id: adminId } });
     if (!admin || admin.role !== 'admin') {
       throw new UnauthorizedException('Only admins can view feedback');
     }
-    return this.feedbackRepository.find({ relations: ['user'], order: { created_at: 'DESC' } });
+
+    const [data, total] = await this.feedbackRepository.findAndCount({
+      relations: ['user'],
+      order: { created_at: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return { total, data };
   }
 }
