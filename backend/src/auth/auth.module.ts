@@ -41,6 +41,7 @@ import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
 import { ComplaintsModule } from '../complaints/complaints.module';
 import { ChatModule } from '../chat/chat.module';
 import { CategoriesModule } from '../categories/categories.module';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
   imports: [
@@ -88,6 +89,7 @@ import { CategoriesModule } from '../categories/categories.module';
       ReferralLink,
       ReferralRegistration,
     ]),
+    StorageModule,
   ],
   controllers: [AuthController],
   providers: [

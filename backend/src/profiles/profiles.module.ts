@@ -9,6 +9,7 @@ import { ReviewsModule } from '../reviews/reviews.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Category } from '../categories/category.entity';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { Category } from '../categories/category.entity';
       }),
       inject: [ConfigService],
     }),
+    StorageModule,
   ],
   controllers: [ProfilesController],
   providers: [ProfilesService],

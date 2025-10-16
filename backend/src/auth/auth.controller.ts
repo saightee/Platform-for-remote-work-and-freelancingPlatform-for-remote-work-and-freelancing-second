@@ -9,13 +9,18 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';  
 import { GoogleAuthGuard } from './guards/google-auth.guard';
-import { v4 as uuidv4 } from 'uuid';
 import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
 import { ConfigService } from '@nestjs/config';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { memoryStorage } from 'multer';
+import { S3StorageService } from '../storage/s3-storage.service';
+import { pickCdnBaseByHost } from '../common/cdn.util';
+import { promises as fs } from 'fs';
+import { randomUUID } from 'crypto';
+import { join, extname } from 'path';
+
+const filesDriver = process.env.FILES_DRIVER || 's3';
 
 function mapBrandFromReq(req: any): string | null {
   const explicit = req.headers['x-site-brand'];
@@ -53,21 +58,18 @@ export class AuthController {
     private usersService: UsersService,
     private redisService: RedisService,
     private configService: ConfigService,
+    private s3: S3StorageService,
   ) {}
 
   @Post('register')
   @UseInterceptors(FileInterceptor('resume_file', {
-    storage: diskStorage({
-      destination: './uploads/resumes',
-      filename: (req, file, cb) => {
-        const rnd = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-        cb(null, `${rnd}${extname(file.originalname)}`);
-      },
-    }),
+    storage: memoryStorage(),
     fileFilter: (req, file, cb) => {
-      const allowed = /pdf|doc|docx/;
-      const ok = allowed.test(extname(file.originalname).toLowerCase()) && allowed.test(file.mimetype);
-      ok ? cb(null, true) : cb(new BadRequestException('Only PDF, DOC, and DOCX files are allowed'), false);
+      const allowedExt = /\.(pdf|doc|docx)$/i.test(file.originalname);
+      const allowedMime = /pdf|msword|officedocument\.wordprocessingml\.document/.test(file.mimetype);
+      return allowedExt && allowedMime
+        ? cb(null, true)
+        : cb(new BadRequestException('Only PDF, DOC, and DOCX files are allowed'), false);
     },
     limits: { fileSize: 10 * 1024 * 1024 },
   }))
@@ -76,18 +78,34 @@ export class AuthController {
     @Headers('x-forwarded-for') xForwardedFor?: string,
     @Headers('x-real-ip') xRealIp?: string,
     @Headers('x-fingerprint') fingerprint?: string,
+    @Headers('host') host?: string,
     @Req() req?: any,
     @UploadedFile() resumeFile?: Express.Multer.File,
   ) {
     const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
     const ip = ipHeader.split(',')[0].trim();
     if (!fingerprint) throw new BadRequestException('Fingerprint is required');
-    if (resumeFile) {
-      registerDto.resume = `/uploads/resumes/${resumeFile.filename}`;
+
+  if (resumeFile?.buffer?.length) {
+    if (filesDriver === 's3' && process.env.AWS_S3_BUCKET) {
+      const { key } = await this.s3.uploadBuffer(resumeFile.buffer, {
+        prefix: 'resumes',
+        originalName: resumeFile.originalname,
+        contentType: resumeFile.mimetype,
+      });
+      const cdnBase = pickCdnBaseByHost(host);
+      registerDto.resume = `${cdnBase}/${key}`;
+    } else {
+      const ext = extname(resumeFile.originalname) || '';
+      const name = `${randomUUID()}${ext}`;
+      const dir = './uploads/resumes';
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(join(dir, name), resumeFile.buffer);
+      registerDto.resume = `${process.env.BASE_URL}/uploads/resumes/${name}`;
     }
+  }
 
     const brand = mapBrandFromReq(req) || null;
-
     (registerDto as any).__brand = brand;
 
     return this.authService.register(registerDto, ip, fingerprint, registerDto.ref);
