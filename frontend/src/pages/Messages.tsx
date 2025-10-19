@@ -44,6 +44,7 @@ type ChatListItem = {
   appliedAt?: string; 
   lastMessage?: string;
   lastActivity?: number; 
+  countryCode?: string | null;
 };
 
 interface RoleContextType {
@@ -120,6 +121,21 @@ const byLastActivityDesc = useCallback((a: any, b: any) => {
   if (b2 !== a2) return b2 - a2;
   return String(a.id || '').localeCompare(String(b.id || ''));
 }, []);
+
+// NEW: human-readable country name from ISO code via Intl.DisplayNames
+const regionName = (() => {
+  try {
+    const DN = (Intl as any).DisplayNames;
+    const f  = new DN(['en'], { type: 'region' });
+    return (code?: string) => {
+      const c = String(code || '').trim();
+      return c ? (f?.of?.(c) || c) : '';
+    };
+  } catch {
+    return (code?: string) => String(code || '');
+  }
+})();
+
 
 const preloadLast = async (ids: string[]) => {
   const tasks = ids.map(id =>
@@ -345,19 +361,27 @@ useEffect(() => {
         setJobPostApplications(map);
 
         
-        const allowed = arrays
-          .flat()
-          .filter(a => a.status === 'Pending' || a.status === 'Accepted');
+const allowed = arrays
+  .flat()
+  .filter(a => a.status === 'Pending' || a.status === 'Accepted');
 
-        const allIds = allowed.map(a => a.applicationId);
-        joinAllMyChats(allIds);
-        await preloadLast(allIds);
+const allIds = allowed.map(a => a.applicationId);
+joinAllMyChats(allIds);
+await preloadLast(allIds);
 
-        if (!activeJobId && active[0]) setActiveJobId(active[0].id);
-        if (!selectedChat) {
-          const first = preselectApplicationId ?? allowed[0]?.applicationId;
-          if (first) setSelectedChat(first);
-        }
+if (!activeJobId && active[0]) setActiveJobId(active[0].id);
+
+if (!selectedChat) {
+  
+  const sorted = [...allowed].sort(
+    (a, b) =>
+      getLastActivity(b.applicationId, b.appliedAt) -
+      getLastActivity(a.applicationId, a.appliedAt)
+  );
+  const first = preselectApplicationId ?? sorted[0]?.applicationId;
+  if (first) setSelectedChat(first);
+}
+
       }
 
     } catch (e) {
@@ -377,11 +401,39 @@ useEffect(() => {
   
 
   // при смене выбранной вакансии — снимаем выделение чата
-  useEffect(() => {
-    setSelectedChat(null);
-    setMultiMode(false);
+// при смене выбранной вакансии — автоматически открываем самый «свежий» чат
+useEffect(() => {
+  setMultiMode(false);
   clearSelection();
-  }, [activeJobId]);
+
+  if (!activeJobId) {
+    setSelectedChat(null);
+    return;
+  }
+
+  const apps = jobPostApplications[activeJobId] || [];
+  const allowed = apps.filter(a => a.status === 'Pending' || a.status === 'Accepted');
+
+  if (allowed.length === 0) {
+    setSelectedChat(null);
+    return;
+  }
+
+
+  const sorted = [...allowed].sort(
+    (a, b) =>
+      getLastActivity(b.applicationId, b.appliedAt) -
+      getLastActivity(a.applicationId, a.appliedAt)
+  );
+  const newestId = sorted[0].applicationId;
+
+  if (selectedChat !== newestId) {
+    setSelectedChat(newestId);
+   
+    void handleSelectChat(newestId);
+  }
+}, [activeJobId, jobPostApplications, getLastActivity, selectedChat]);
+
 
   const scrollToBottom = useCallback((smooth: boolean = false) => {
     messagesEndRef.current?.scrollIntoView({
@@ -606,19 +658,34 @@ const chatList = useMemo<ChatListItem[]>(() => {
       .map((app): ChatListItem => {
         const jobPost = jobPostsMap.get(app.job_post_id);
         
-        return {
-          id: app.applicationId,
-          title: jobPost?.title || 'Unknown Job',
-          partner: app.username,
-          status: app.status,
-          unreadCount: unreadCounts[app.applicationId] ?? 0,
-          coverLetter: app.coverLetter ?? null,
-          userId: app.userId,
-          job_post_id: app.job_post_id,
-          appliedAt: app.appliedAt,
-          lastMessage: getLastPreview(app.applicationId),
-          lastActivity: getLastActivity(app.applicationId, app.appliedAt),
-        };
+// аккуратно нормализуем код (2–3 буквы), иначе null
+const pickCountryCode = (v: unknown) => {
+  const s = String(v || '').trim();
+  return /^[A-Za-z]{2,3}$/.test(s) ? s.toUpperCase() : null;
+};
+
+// из ответа бэка берём в таком приоритете:
+const cc =
+  pickCountryCode((app as any).country) ??
+  pickCountryCode((app as any).country_code) ??
+  pickCountryCode((app as any).profile?.country) ??
+  null;
+
+return {
+  id: app.applicationId,
+  title: jobPost?.title || 'Unknown Job',
+  partner: app.username,
+  status: app.status,
+  unreadCount: unreadCounts[app.applicationId] ?? 0,
+  coverLetter: app.coverLetter ?? null,
+  userId: app.userId,
+  job_post_id: app.job_post_id,
+  appliedAt: app.appliedAt,
+  lastMessage: getLastPreview(app.applicationId),
+  lastActivity: getLastActivity(app.applicationId, app.appliedAt),
+  countryCode: cc, // ← NEW
+};
+
       })
       .sort((a, b) => (b.lastActivity ?? 0) - (a.lastActivity ?? 0));
   }
@@ -778,6 +845,27 @@ return () => {
         .find((a) => a.applicationId === selectedChat) || null
     );
   }, [jobPostApplications, selectedChat]);
+
+  // NEW: readable country name for header (employer view)
+const currentCountryName = useMemo(() => {
+  if (currentRole === 'employer' && currentApp) {
+    const a: any = currentApp;
+
+    // 1) если бэк уже отдал полное имя
+    if (a.country_name) return String(a.country_name);
+
+    // 2) иначе преобразуем ISO код в имя
+    const code =
+      a.country ||
+      a.country_code ||
+      a.profile?.country ||
+      '';
+
+    return regionName(code);
+  }
+  return '';
+}, [currentRole, currentApp]);
+
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedChat) return;
@@ -1110,18 +1198,27 @@ useEffect(() => {
 
 
     <div className="ch-chatlist__meta" style={{ flex: 1 }}>
-      <div className="ch-chatlist__row">
-        <span className="ch-chatlist__partner">{chat.partner}</span>
-        <div
-          className="ch-chatlist__right"
-          style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}
-        >
-          {chat.status === 'Accepted' && <span className="ch-chip">Interview</span>}
-          {chat.unreadCount > 0 && (
-            <span className="ch-chatlist__badge">{chat.unreadCount}</span>
-          )}
-        </div>
-      </div>
+<div className="ch-chatlist__row">
+  <span className="ch-chatlist__partner">{chat.partner}</span>
+  <div
+    className="ch-chatlist__right"
+    style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}
+  >
+    {/* NEW: страна соискателя (ISO) */}
+    {!!chat.countryCode && (
+      <span className="ch-chip ch-chip--cc" title="Applicant country">
+        {chat.countryCode}
+      </span>
+    )}
+
+    {chat.status === 'Accepted' && <span className="ch-chip">Interview</span>}
+
+    {chat.unreadCount > 0 && (
+      <span className="ch-chatlist__badge">{chat.unreadCount}</span>
+    )}
+  </div>
+</div>
+
 
 
 <div className="ch-chatlist__applied" title="Last activity">
@@ -1331,6 +1428,10 @@ clearSelection();        // ← сбрасываем чекбоксы
     <span>
       {applications.find((a) => a.id === selectedChat)?.job_post?.employer?.username || 'Unknown'}
     </span>
+
+  )}
+    {currentCountryName && (
+    <span className="ch-country-inline"> | {currentCountryName}</span>
   )}
 </h3>
 

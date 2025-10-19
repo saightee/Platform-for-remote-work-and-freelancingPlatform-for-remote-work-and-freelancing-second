@@ -20,9 +20,11 @@ const getCookie = (name: string): string | undefined => {
 const Register: React.FC = () => {
   const { role } = useParams<{ role: 'employer' | 'jobseeker' }>();
   const navigate = useNavigate();
-
+const STORAGE_KEY = useMemo(() => `reg_draft_${role || 'unknown'}`, [role]);
   // common
   const [username, setUsername] = useState('');
+ 
+
   const [email, setEmail]       = useState('');
   const [confirmEmail, setConfirmEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,10 +33,16 @@ const Register: React.FC = () => {
   const [seeConf, setSeeConf]   = useState(false);
   const [err, setErr]           = useState<string | null>(null);
   const [busy, setBusy]         = useState(false);
+  // NEW: must accept Terms & Privacy to register
+const [agree, setAgree] = useState(false);
+
 
   const emailsMismatch =
     !!confirmEmail &&
     confirmEmail.trim().toLowerCase() !== email.trim().toLowerCase();
+
+
+    
 // jobseeker specifics …
 const [country, setCountry]     = useState('');
 const [languages, setLanguages] = useState<string[]>([]);
@@ -107,9 +115,78 @@ const [languages, setLanguages] = useState<string[]>([]);
   const removeSkill = (id: string | number) =>
     setSelectedSkills(prev => prev.filter(s => s.id !== id));
 
+   useEffect(() => {
+  if (!role) return;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+
+    // заполняем только безопасные поля
+    setUsername(d.username ?? '');
+    setEmail(d.email ?? '');
+    setConfirmEmail(d.confirmEmail ?? '');
+
+    if (role === 'jobseeker') {
+      setExperience(d.experience ?? '');
+      setCountry(d.country ?? '');
+      setLanguages(Array.isArray(d.languages) ? d.languages : []);
+      setResumeLink(d.resumeLink ?? '');
+      setLinkedin(d.linkedin ?? '');
+      setInstagram(d.instagram ?? '');
+      setFacebook(d.facebook ?? '');
+      setWhatsapp(d.whatsapp ?? '');
+      setTelegram(d.telegram ?? '');
+      setAbout(d.about ?? '');
+      setSelectedSkills(Array.isArray(d.selectedSkills) ? d.selectedSkills : []);
+    }
+
+    // пароли и файл не восстанавливаем по соображениям безопасности
+  } catch { /* ignore */ }
+}, [role, STORAGE_KEY]);
+
+// NEW: persist draft (except passwords & files)
+useEffect(() => {
+  if (!role) return;
+  const draft: any = {
+    username,
+    email,
+    confirmEmail,
+  };
+
+  if (role === 'jobseeker') {
+    draft.experience   = experience;
+    draft.country      = country;
+    draft.languages    = languages;
+    draft.resumeLink   = resumeLink;
+    draft.linkedin     = linkedin;
+    draft.instagram    = instagram;
+    draft.facebook     = facebook;
+    draft.whatsapp     = whatsapp;
+    draft.telegram     = telegram;
+    draft.about        = about;
+    draft.selectedSkills = selectedSkills; // храним как есть (id+name)
+  }
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+  } catch { /* storage quota? ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [
+  role,
+  username, email, confirmEmail,
+  experience, country, languages, resumeLink,
+  linkedin, instagram, facebook, whatsapp, telegram,
+  about, selectedSkills
+]);
+
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   if (!role) return;
+   if (!agree) {
+    toast.info('Please read and agree to the Terms of Service and Privacy Policy.');
+    return;
+  }
 
   // нормализуем перед проверками (на случай, если где-то не сработал trim/lowercase)
   const normEmail = email.trim().toLowerCase();
@@ -187,6 +264,8 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
 
     await register(payload);
+
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
 
     localStorage.setItem('pendingEmail', normEmail);  // сохраняем нормализованную
     localStorage.setItem('pendingRole', role);
@@ -546,11 +625,37 @@ onChange={(e) => {
           )}
 
           {/* submit + links */}
-        <div className="reg2-actions reg2-span2">
-  <button className="reg2-btn" type="submit" disabled={busy || emailsMismatch}>
+{/* NEW: consent checkbox */}
+<div className="reg2-consent reg2-span2">
+  <input
+    id="agree"
+    type="checkbox"
+    checked={agree}
+    onChange={(e) => setAgree(e.target.checked)}
+  />
+  <label htmlFor="agree">
+    I have read and agree to the{' '}
+    <Link to="/terms-of-service" target="_blank" rel="noopener noreferrer">
+      Terms of Service
+    </Link>{' '}
+    and the{' '}
+    <Link to="/privacy-policy" target="_blank" rel="noopener noreferrer">
+      Privacy Policy
+    </Link>.
+  </label>
+</div>
+
+{/* submit + links */}
+<div className="reg2-actions reg2-span2">
+  <button
+    className="reg2-btn"
+    type="submit"
+    disabled={busy || emailsMismatch || !agree} // NEW: disabled until agreed
+  >
     {busy ? 'Signing up…' : `Sign Up as ${role === 'employer' ? 'Employer' : 'Jobseeker'}`}
   </button>
 </div>
+
 
 
           <div className="reg2-links reg2-span2">

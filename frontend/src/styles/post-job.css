@@ -257,3 +257,8 @@
 .pjx-dropdown .is-selected {
   outline: 2px solid rgba(0,0,0,.08);
 }
+
+.pjx-input.is-invalid {
+  border-color: #e11d48;         /* красный */
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, .10);
+}
