@@ -88,6 +88,10 @@ export class JobPostsService {
       ? jobPostData.category_ids
       : (jobPostData.category_id ? [jobPostData.category_id] : []);
 
+    if (!incomingIds.length) {
+      throw new BadRequestException('At least one category is required');
+    }
+
     if (incomingIds.length) {
       const found = await this.categoriesService.findManyByIds(incomingIds);
       if (found.length !== incomingIds.length) {

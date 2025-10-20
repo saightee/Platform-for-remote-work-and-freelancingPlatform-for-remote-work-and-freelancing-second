@@ -1612,7 +1612,6 @@ export class AdminService {
     await this.referralLinksRepository.save(referralLink);
 
     const baseUrl = this.configService.get<string>('BASE_URL')!;
-
     const baseSlug = (jobPost.slug && jobPost.slug.trim().length > 0)
       ? jobPost.slug
       : this.slugify(jobPost.title || '');
@@ -1620,7 +1619,6 @@ export class AdminService {
     const slugId = jobPost.slug_id || (baseSlug && shortId ? `${baseSlug}--${shortId}` : jobPost.id);
 
     const prettyLink = `${baseUrl}/job/${slugId}?ref=${referralLink.ref_code}`;
-
     const legacyLink = `${baseUrl}/ref/${referralLink.ref_code}`;
 
     return {
@@ -1632,6 +1630,7 @@ export class AdminService {
       description: referralLink.description,
       clicks: referralLink.clicks,
       registrations: referralLink.registrations,
+      registrationsVerified: 0,
     };
   }
 
@@ -1659,6 +1658,11 @@ export class AdminService {
       const baseSlug = (jp.slug && jp.slug.trim().length > 0) ? jp.slug : this.slugify(jp.title || '');
       const shortId = (jp.id || '').replace(/-/g, '').slice(0, 8);
       const slugId = jp.slug_id || (baseSlug && shortId ? `${baseSlug}--${shortId}` : jp.id);
+
+      const registrationsVerified = (link.registrationsDetails || []).filter(
+        r => r.user && r.user.is_email_verified === true
+      ).length;
+
       return {
         id: link.id,
         jobPostId: jp?.id,
@@ -1668,6 +1672,7 @@ export class AdminService {
         description: link.description || null,
         clicks: link.clicks,
         registrations: link.registrations,
+        registrationsVerified,
         registrationsDetails: link.registrationsDetails || [],
       };
     });
@@ -1714,6 +1719,10 @@ export class AdminService {
       const shortId = (jp.id || '').replace(/-/g, '').slice(0, 8);
       const slugId = jp.slug_id || (baseSlug && shortId ? `${baseSlug}--${shortId}` : jp.id);
 
+      const registrationsVerified = (link.registrationsDetails || []).filter(
+        r => r.user && r.user.is_email_verified === true
+      ).length;
+
       return {
         id: link.id,
         jobPostId: jp?.id,
@@ -1722,6 +1731,7 @@ export class AdminService {
         legacyLink: `${baseUrl}/ref/${link.ref_code}`,
         clicks: link.clicks,
         registrations: link.registrations,
+        registrationsVerified,
         registrationsDetails: link.registrationsDetails || [],
         description: link.description || null,
         job_post: jp ? { id: jp.id, title: jp.title } : null,

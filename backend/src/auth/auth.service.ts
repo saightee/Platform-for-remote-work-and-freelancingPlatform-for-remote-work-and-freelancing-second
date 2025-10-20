@@ -38,17 +38,29 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  async register(dto: RegisterDto | CreateAdminDto | CreateModeratorDto, ip: string, fingerprint?: string, refCode?: string) {
+  async register(
+    dto: RegisterDto | CreateAdminDto | CreateModeratorDto,
+    ip: string,
+    fingerprint?: string,
+    refCode?: string
+  ) {
     const emailNorm = (dto.email || '').trim().toLowerCase();
     const username = (dto as any).username;
     const password = (dto as any).password;
+
+    const isPrivileged = 'secretKey' in dto;
+
+    if (!isPrivileged && ip) {
+      const blockedByIp = await this.blockedCountriesService.isCountryBlocked(ip);
+      if (blockedByIp) {
+        throw new ForbiddenException('Registration is not allowed from your country');
+      }
+    }
 
     let country: string | null = null;
     if ('country' in dto && typeof (dto as any).country === 'string' && (dto as any).country.trim()) {
       country = (dto as any).country.trim().toUpperCase();
     } else if (ip) {
-      const isBlocked = await this.blockedCountriesService.isCountryBlocked(ip);
-      if (isBlocked) throw new ForbiddenException('Registration is not allowed from your country');
       const geo = (geoip as any).lookup(ip);
       country = geo?.country ?? null;
     }
@@ -73,7 +85,7 @@ export class AuthService {
     }
 
     let role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
-    if ('secretKey' in dto) {
+    if (isPrivileged) {
       const validSecretKey = this.configService.get<string>('ADMIN_SECRET_KEY');
       if ((dto as any).secretKey !== validSecretKey) throw new UnauthorizedException('Invalid secret key');
       role = (dto as any).email.includes('moderator') ? 'moderator' : 'admin';
@@ -82,7 +94,6 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const userData = {
       email: emailNorm,
       username,
@@ -95,7 +106,6 @@ export class AuthService {
     } as any;
 
     const additionalData: any = { timezone: 'UTC', currency: 'USD' };
-
     if (role === 'jobseeker') {
       const r = dto as RegisterDto;
       if (r.skills) additionalData.skills = r.skills;
@@ -118,13 +128,12 @@ export class AuthService {
     const newUser = await this.usersService.create(userData, additionalData);
 
     try {
-      if (fingerprint) {
+      if (fingerprint && ip) {
         await this.antiFraudService.calculateRiskScore(newUser.id, fingerprint, ip);
       }
     } catch (e) {
       console.error('[AntiFraud] calc on register failed:', e?.message || e);
     }
-
     if (refCode) { try { await this.adminService.incrementRegistration(refCode, newUser.id); } catch {} }
 
     if (role === 'admin' || role === 'moderator') {

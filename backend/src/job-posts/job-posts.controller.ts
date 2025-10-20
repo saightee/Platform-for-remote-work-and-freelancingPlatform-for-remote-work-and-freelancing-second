@@ -26,6 +26,7 @@ export class JobPostsController {
       location: string; 
       salary?: number; 
       status: 'Active' | 'Draft' | 'Closed'; 
+      category_ids?: string[];
       category_id?: string; 
       aiBrief?: string;
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
@@ -53,6 +54,7 @@ export class JobPostsController {
       location?: string; 
       salary?: number; 
       status?: 'Active' | 'Draft' | 'Closed'; 
+      category_ids?: string[];
       category_id?: string; 
       aiBrief?: string;
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
