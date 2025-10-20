@@ -100,10 +100,10 @@
 
 
 .ppx-actions-line{
-  display:flex;
+  /* display:flex; */
   align-items:center;
   gap:10px;
-  margin-top:12px;
+  margin-top:20px;
 }
 .ppx-actions-line .ppx-report{ margin-left:auto; }  /* Report уезжает вправо */
 @media (max-width: 520px){

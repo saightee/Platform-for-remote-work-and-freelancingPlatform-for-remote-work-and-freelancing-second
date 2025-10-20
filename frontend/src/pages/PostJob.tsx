@@ -16,6 +16,7 @@ import {
   FaBolt, FaRedo, FaSearch, FaTimes, FaLightbulb, FaInfoCircle, FaHistory, FaTimesCircle
 } from 'react-icons/fa';
 import '../styles/post-job.css';
+import { toast } from '../utils/toast';
 
 // маленькая универсальная иконка-подсказка
 const InfoTip: React.FC<{ tip: string }> = ({ tip }) => (
@@ -46,6 +47,8 @@ const PostJob: React.FC = () => {
   const [prevJobs, setPrevJobs] = useState<{ id: string; title: string; created_at: string }[]>([]);
 const [prevOpen, setPrevOpen] = useState(false);
 const [prevQuery, setPrevQuery] = useState('');
+const [categoryError, setCategoryError] = useState<string | null>(null);
+
   // src/pages/PostJob.tsx
   const [salary, setSalary] = useState<number | null>(null);
   // --- changed: support multiple categories ---
@@ -69,17 +72,20 @@ const [prevQuery, setPrevQuery] = useState('');
   };
 
   // helper: add/remove
-  const addCategoryId = (id: string) => {
-    setSelectedCategoryIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-    // clear the input so employer can pick the next category right away
-    setSkillInput('');
-    setIsDropdownOpen(false);
-  };
+const addCategoryId = (id: string) => {
+  setSelectedCategoryIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  setSkillInput('');
+  setIsDropdownOpen(false);
+  setCategoryError(null); // ← как только выбрали — снимаем ошибку
+};
 
-  const removeCategoryId = (id: string) => {
-    setSelectedCategoryIds((prev) => prev.filter((x) => x !== id));
-  };
-
+const removeCategoryId = (id: string) => {
+  setSelectedCategoryIds((prev) => {
+    const next = prev.filter((x) => x !== id);
+    if (next.length === 0) setCategoryError('At least one category is required');
+    return next;
+  });
+};
 
   // исключения по странам
   const [excludedCountries, setExcludedCountries] = useState<string[]>([]);
@@ -310,6 +316,16 @@ useEffect(() => {
       setError('Either description or AI brief is required.');
       return;
     }
+    if (!selectedCategoryIds.length) {
+  const msg = 'At least one category is required';
+  setCategoryError(msg);
+  setError(null); 
+  toast.error('Please select at least one category'); 
+  
+  const el = document.querySelector<HTMLInputElement>('.pjx-auto-input');
+  el?.focus();
+  return;
+}
 
     try {
       setError(null);
@@ -339,19 +355,42 @@ const jobData: Partial<JobPost> & { aiBrief?: string } = {
 jobData.description = description;
 
 // опционально добавляем aiBrief, если пользователь не редактировал и он есть
+// опционально добавляем aiBrief, если пользователь не редактировал и он есть
 if (!isEdited && aiBrief.trim()) {
   jobData.aiBrief = aiBrief;
 }
 
+// 🔒 защита от пустого массива категорий
+if (!jobData.category_ids || jobData.category_ids.length === 0) {
+  setCategoryError('At least one category is required');
+  setIsSubmitting(false);
+  toast.error('Please select at least one category');
+  // необязательно: сфокусироваться на поле
+  const el = document.querySelector<HTMLInputElement>('.pjx-auto-input');
+  el?.focus();
+  return;
+}
 
 await createJobPost(jobData);
+navigate('/employer-dashboard');
 
-      navigate('/employer-dashboard');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create job post.');
-    } finally {
-      setIsSubmitting(false);
-    }
+  } catch (err: any) {
+  const msg = err.response?.data?.message || 'Failed to create job post.';
+  setError(msg);
+
+  if (err.response?.status === 400 && /At least one category is required/i.test(msg)) {
+    setCategoryError('At least one category is required');
+    toast.error('Please select at least one category');
+    // фокус на поле категорий, если нужно
+    const el = document.querySelector<HTMLInputElement>('.pjx-auto-input');
+    el?.focus();
+  } else {
+    toast.error(msg);
+  }
+} finally {
+  setIsSubmitting(false);
+}
+
   };
 
   const findCategoryById = (id: string, cats: Category[]): Category | undefined => {
@@ -600,21 +639,24 @@ await createJobPost(jobData);
               </div>
 
               <div className="pjx-row">
-                <label className="pjx-label">
-                  <FaListUl /> Categories{' '}
-                  <InfoTip tip="Choose one or more categories. After selecting, the field clears so you can add another." />
-                </label>
+            <label className="pjx-label">
+  <FaListUl /> Categories *{' '}
+  <InfoTip tip="Choose one or more categories. After selecting, the field clears so you can add another." />
+</label>
+
                 <div className="pjx-auto">
                   <FaSearch className="pjx-auto-icon" />
-                  <input
-                    className="pjx-input pjx-auto-input"
-                    type="text"
-                    value={skillInput}
-                    onChange={(e) => setSkillInput(e.target.value)}
-                    placeholder="Start typing to search categories…"
-                    onFocus={() => setIsDropdownOpen(true)}
-                    onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                  />
+          <input
+  className={`pjx-input pjx-auto-input ${categoryError ? 'is-invalid' : ''}`}
+  aria-invalid={!!categoryError}
+  type="text"
+  value={skillInput}
+  onChange={(e) => setSkillInput(e.target.value)}
+  placeholder="Start typing to search categories…"
+  onFocus={() => setIsDropdownOpen(true)}
+  onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+/>
+
                   {isDropdownOpen && (
                     <ul className="pjx-dropdown">
                       {(skillInput.trim() ? filteredSkills : categories).map((category) => (
@@ -674,6 +716,9 @@ await createJobPost(jobData);
                     </div>
                   );
                 })()}
+                  {categoryError && (
+    <div className="cs-alert cs-err" role="alert">{categoryError}</div>
+  )}
               </div>
 
 

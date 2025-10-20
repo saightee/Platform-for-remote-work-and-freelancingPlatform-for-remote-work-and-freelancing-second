@@ -319,3 +319,22 @@ input[type="password"]::-ms-clear{
 .reg2-addon:active{
   transform: translateY(-50%) scale(0.98);
 }
+
+/* NEW: consent checkbox block */
+.reg2-consent{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  font-size:14px;
+  color:var(--r2-text);
+  margin-top:4px;
+}
+.reg2-consent input[type="checkbox"]{
+  margin-top:3px;           /* выравниваем чекбокс по первой строке текста */
+}
+.reg2-consent a{
+  color:var(--r2-accent);
+  font-weight:700;
+  text-decoration:none;
+}
+.reg2-consent a:hover{ text-decoration:underline; }

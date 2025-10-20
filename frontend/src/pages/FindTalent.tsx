@@ -33,16 +33,33 @@ interface TalentResponse {
 const FindTalent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(searchParams.get('description') || '');
+  const [langInput, setLangInput] = useState('');
+
+const addLang = (raw: string) => {
+  const val = raw.trim().replace(/,$/, '');
+  if (!val) return;
+  setFilters(prev => {
+    const exists = prev.languages.some(l => l.toLowerCase() === val.toLowerCase());
+    return exists ? prev : { ...prev, languages: [...prev.languages, val], page: 1 };
+  });
+  setLangInput('');
+};
 const [filters, setFilters] = useState<{
   username: string;
   experience: string;
   rating?: number;
   expected_salary_min?: number;
   expected_salary_max?: number;
-  job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired'; // NEW
+  job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
   page: number;
   limit: number;
   description?: string;
+
+  /** ✅ NEW */
+  countryOrCountries: string;              // одно поле ввода; CSV => countries, одно значение => country
+  languages: string[];                     // список тегов как ввёл пользователь
+  languages_mode: 'any' | 'all';
+  has_resume?: boolean;
 }>({
   username: searchParams.get('username') || '',
   experience: '',
@@ -60,7 +77,32 @@ const [filters, setFilters] = useState<{
   page: 1,
   limit: 10,
   description: searchParams.get('description') || '',
+
+  /** ✅ из URL */
+  countryOrCountries:
+    // поддержка обоих форматов ?country=... и ?countries=... (повторяющиеся или CSV)
+    ((): string => {
+      const single = searchParams.get('country') || '';
+      const multi = searchParams.getAll('countries');
+      if (multi.length) {
+        const csv = multi.join(',').trim();
+        return csv || single;
+      }
+      return single;
+    })(),
+  languages: ((): string[] => {
+    const raw = searchParams.getAll('languages');
+    if (raw.length) return raw.join(',').split(',').map(s => s.trim()).filter(Boolean);
+    const csv = searchParams.get('languages');
+    return csv ? csv.split(',').map(s => s.trim()).filter(Boolean) : [];
+  })(),
+  languages_mode: ((): 'any'|'all' => (searchParams.get('languages_mode') === 'all' ? 'all' : 'any'))(),
+  has_resume: ((): boolean | undefined => {
+    const v = searchParams.get('has_resume');
+    return v === 'true' ? true : v === 'false' ? false : undefined;
+  })(),
 });
+
 
 
 
@@ -158,6 +200,37 @@ const submitInvite = async () => {
 const autoSkillsKey = useMemo(() => autoSkillIds.join(','), [autoSkillIds]); // стабильный ключ
 const debouncedAutoSkillsKey = useDebouncedValue(autoSkillsKey, 400);
 
+const uniq = <T,>(arr: T[]) => Array.from(new Set(arr));
+
+function extractSkillNames(t: any): string[] {
+  const buckets: string[] = [];
+
+  // 1) skills: может быть [{id,name}] ИЛИ ['Accountant', ...] ИЛИ 'a,b,c'
+  if (Array.isArray(t?.skills)) {
+    const names = t.skills.map((s: any) => typeof s === 'string' ? s : s?.name).filter(Boolean);
+    buckets.push(...names);
+  } else if (typeof t?.skills === 'string') {
+    buckets.push(...t.skills.split(',').map((s: string) => s.trim()).filter(Boolean));
+  }
+
+  // 2) возможные «полные» поля, если бек их присылает
+  const fallbacks = [t?.all_skills, t?.skills_all, t?.skills_full, t?.profile_skills];
+  for (const fb of fallbacks) {
+    if (Array.isArray(fb)) {
+      const names = fb.map((s: any) => typeof s === 'string' ? s : s?.name).filter(Boolean);
+      buckets.push(...names);
+    } else if (typeof fb === 'string') {
+      buckets.push(...fb.split(',').map((s: string) => s.trim()).filter(Boolean));
+    }
+  }
+
+  // 3) иногда навыки лежат в categories
+  if (Array.isArray(t?.categories)) {
+    buckets.push(...t.categories.map((c: any) => c?.name).filter(Boolean));
+  }
+
+  return uniq(buckets);
+}
 
 
 
@@ -203,24 +276,53 @@ const debouncedAutoSkillsKey = useDebouncedValue(autoSkillsKey, 400);
         (selectedSkillId || useAutoSkills)
           ? undefined
           : (debouncedFilters.description || undefined);
+const cleanedCountry = (debouncedFilters.countryOrCountries || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+  .join(',');
+const isCSV = cleanedCountry.includes(',');
+const geoParams: any = {};
+if (cleanedCountry) {
+  if (isCSV) geoParams.countries = cleanedCountry; // "US,CA" или "India,Philippines"
+  else geoParams.country = cleanedCountry;         // "United States" / "US" / "Россия"
+}
 
-      const response = await (searchType === 'talents'
-        ? searchTalents({
-            experience: debouncedFilters.experience || undefined,
-            rating: debouncedFilters.rating,
-            skills: selectedSkillId ? [selectedSkillId] : (useAutoSkills ? autoIds : undefined),
-            description: effectiveDescription,
-            expected_salary_min: debouncedFilters.expected_salary_min,
-            expected_salary_max: debouncedFilters.expected_salary_max,
-            job_search_status: debouncedFilters.job_search_status,
-            page: debouncedFilters.page,
-            limit: debouncedFilters.limit,
-          })
-        : searchJobseekers({
-            username: debouncedFilters.username || undefined,
-            page: debouncedFilters.page,
-            limit: debouncedFilters.limit,
-          }));
+
+// языки — как есть, без нормализации на фронте
+const langs = (debouncedFilters.languages || []).map(s => s.trim()).filter(Boolean);
+const langParams: any = {};
+if (langs.length) {
+  langParams.languages = langs.join(','); // можно и массив, бэку ок; оставим CSV для простоты
+  langParams.languages_mode = debouncedFilters.languages_mode || 'any';
+}
+
+// резюме
+const resumeParam = (typeof debouncedFilters.has_resume === 'boolean')
+  ? { has_resume: debouncedFilters.has_resume }
+  : {};
+const response = await (searchType === 'talents'
+  ? searchTalents({
+      experience: debouncedFilters.experience || undefined,
+      rating: debouncedFilters.rating,
+      skills: selectedSkillId ? [selectedSkillId] : (useAutoSkills ? autoIds : undefined),
+      description: effectiveDescription,
+      expected_salary_min: debouncedFilters.expected_salary_min,
+      expected_salary_max: debouncedFilters.expected_salary_max,
+      job_search_status: debouncedFilters.job_search_status,
+      page: debouncedFilters.page,
+      limit: debouncedFilters.limit,
+
+      // ✅ NEW:
+      ...geoParams,
+      ...langParams,
+      ...resumeParam,
+    })
+  : searchJobseekers({
+      username: debouncedFilters.username || undefined,
+      page: debouncedFilters.page,
+      limit: debouncedFilters.limit,
+    }));
 
         let talentData: Profile[] = [];
       let totalCount = 0;
@@ -352,6 +454,30 @@ const handleSearch = (e: React.FormEvent) => {
   if (filters.expected_salary_min != null && !Number.isNaN(filters.expected_salary_min)) nextParams.expected_salary_min = String(filters.expected_salary_min);
   if (filters.expected_salary_max != null && !Number.isNaN(filters.expected_salary_max)) nextParams.expected_salary_max = String(filters.expected_salary_max);
   if (filters.job_search_status) nextParams.job_search_status = filters.job_search_status;
+  // ✅ NEW: страна/страны
+const cc = (filters.countryOrCountries || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+  .join(',');
+if (cc) {
+  if (cc.includes(',')) nextParams.countries = cc;  // CSV
+  else nextParams.country = cc;
+}
+
+
+// ✅ NEW: языки (CSV)
+if (filters.languages.length) {
+  nextParams.languages = filters.languages.join(',');
+  // сохраняем режим только если есть хотя бы один язык
+  if (filters.languages_mode) nextParams.languages_mode = filters.languages_mode;
+}
+
+// ✅ NEW: резюме
+if (typeof filters.has_resume === 'boolean') {
+  nextParams.has_resume = String(filters.has_resume);
+}
+
 
   setSearchParams(nextParams, { replace: true }); // чтобы не засорять историю
   setIsFilterPanelOpen(false);
@@ -360,7 +486,9 @@ const handleSearch = (e: React.FormEvent) => {
 
 const handlePageChange = (newPage: number) => {
   setFilters(prev => (prev.page === newPage ? prev : { ...prev, page: newPage }));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 };
+
 
 
   const toggleFilterPanel = () => setIsFilterPanelOpen((prev) => !prev);
@@ -474,6 +602,107 @@ const handlePageChange = (newPage: number) => {
                     <option value="6+ years">6+ years</option>
                   </select>
                 </div>
+{/* ✅ Country (одно поле, поддерживает и название, и ISO2, и CSV) */}
+<div className="ftl-row">
+  <label className="ftl-label">Country</label>
+  <input
+    className="ftl-input"
+    type="text"
+    placeholder='e.g. "United States" or "US" or "India,Philippines"'
+    value={filters.countryOrCountries}
+    onChange={(e) => setFilters(prev => ({ ...prev, countryOrCountries: e.target.value, page: 1 }))}
+  />
+  <div className="ftl-help">Single value → <code>country=…</code>, CSV → <code>countries=…</code>. Backend сам мэпит названия в ISO2.</div>
+</div>
+
+{/* ✅ Languages tag-input (без нормализации) */}
+<div className="ftl-row">
+  <label className="ftl-label">Languages</label>
+  <div className="ftl-tags">
+    {filters.languages.map((l, i) => (
+      <span className="ftl-tag" key={i}>
+        {l}
+        <button
+          type="button"
+          className="ftl-tag-x"
+          onClick={() => setFilters(prev => ({
+            ...prev,
+            languages: prev.languages.filter((_, idx) => idx !== i),
+            page: 1,
+          }))}
+          aria-label="Remove language"
+          title="Remove"
+        >
+          ×
+        </button>
+      </span>
+    ))}
+   <input
+  className="ftl-input"
+  type="text"
+  placeholder='Type a language and press Enter or comma'
+  value={langInput}
+  onChange={(e) => setLangInput(e.target.value)}
+  onKeyDown={(e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addLang(langInput);
+    }
+  }}
+  onBlur={() => addLang(langInput)}
+  style={{ minWidth: 160 }}
+/>
+
+  </div>
+</div>
+
+{/* ✅ languages_mode */}
+<div className="ftl-row">
+  <label className="ftl-label">Languages match</label>
+  <select
+    className="ftl-input"
+    value={filters.languages_mode}
+    onChange={(e) => setFilters(prev => ({
+      ...prev,
+      languages_mode: (e.target.value === 'all' ? 'all' : 'any'),
+      page: 1
+    }))}
+  >
+    <option value="any">any (default)</option>
+    <option value="all">all</option>
+  </select>
+</div>
+
+{/* ✅ Has resume */}
+<div className="ftl-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+  <label className="ftl-label" htmlFor="has-resume" style={{ marginBottom: 0 }}>Has resume</label>
+  <input
+    id="has-resume"
+    type="checkbox"
+    checked={!!filters.has_resume}
+    onChange={(e) => setFilters(prev => ({ ...prev, has_resume: e.target.checked ? true : undefined, page: 1 }))}
+  />
+  <button
+    type="button"
+    className="ftl-btn ftl-outline"
+    onClick={() => setFilters(prev => ({ ...prev, has_resume: false, page: 1 }))}
+    title="Only without resumes"
+    style={{ marginLeft: 8 }}
+  >
+    set false
+  </button>
+  {typeof filters.has_resume === 'boolean' && (
+    <button
+      type="button"
+      className="ftl-btn"
+      onClick={() => setFilters(prev => ({ ...prev, has_resume: undefined, page: 1 }))}
+      title="Clear"
+      style={{ marginLeft: 8 }}
+    >
+      clear
+    </button>
+  )}
+</div>
 
                 <div className="ftl-row">
                   <label className="ftl-label">Minimum Rating</label>
@@ -646,7 +875,8 @@ const handlePageChange = (newPage: number) => {
                       talents.map((talent) => {
                         const rating =
                           (talent as any).average_rating ?? (talent as any).averageRating ?? null;
-                        const skills = Array.isArray((talent as any).skills) ? (talent as any).skills : [];
+                        const skillNames = extractSkillNames(talent);
+
                         const experience = (talent as any).experience ?? null;
                         const description = (talent as any).description ?? null;
                         const profileViews =
@@ -697,10 +927,10 @@ const handlePageChange = (newPage: number) => {
 
                               <div className="ftl-cols">
                                 <div className="ftl-col">
-                                  <p className="ftl-line">
-                                    <strong>Skills:</strong>{' '}
-                                    {skills.length > 0 ? skills.map((s: Category) => s.name).join(', ') : 'Not specified'}
-                                  </p>
+                            <p className="ftl-line">
+  <strong>Skills:</strong>{' '}
+  {skillNames.length > 0 ? skillNames.join(', ') : 'Not specified'}
+</p>
                                   <p className="ftl-line">
                                     <strong>Experience:</strong> {experience || 'Not specified'}
                                   </p>

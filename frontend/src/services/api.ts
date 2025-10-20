@@ -440,6 +440,8 @@ export const createReferralLink = async (
     description?: string | null;
     clicks: number;
     registrations: number;
+    /** NEW: сколько подтвердили e-mail (для новой ссылки = 0) */
+    registrationsVerified: number;
     created_at?: string;
   }>(`/admin/job-posts/${jobPostId}/referral-links`, payload);
   return res.data;
@@ -456,6 +458,8 @@ export const getReferralLinks = async (params: { jobId?: string; jobTitle?: stri
       description?: string | null;
       clicks: number;
       registrations: number;
+      /** NEW */
+      registrationsVerified: number;
       created_at?: string;
       job_post?: { id: string; title: string };
       registrationsDetails?: { user: { id: string; username: string; email: string; role: string; created_at: string } }[];
@@ -475,11 +479,14 @@ export const getReferralLinksByJob = async (jobPostId: string) => {
       description?: string | null;
       clicks: number;
       registrations: number;
+      /** NEW */
+      registrationsVerified: number;
       created_at?: string;
     }[]
   >(`/admin/job-posts/${jobPostId}/referral-links`);
   return res.data;
 };
+
 
 // Update referral link description
 export const updateReferralLink = async (linkId: string, payload: { description: string }) => {
@@ -1116,10 +1123,88 @@ export const notifyCandidates = async (jobPostId: string, data: { limit: number;
   return response.data;
 };
 
-export const getAllReviews = async () => {
-  const response = await api.get<Review[]>('/admin/reviews');
-  return response.data;
+// export const getAllReviews = async () => {
+//   const response = await api.get<Review[]>('/admin/reviews');
+//   return response.data;
+// };
+
+// Типы (можно положить рядом с остальными)
+export type AdminReviewStatus = 'Pending' | 'Approved' | 'Rejected';
+
+export interface AdminReview {
+  id: string;
+  reviewer_id: string;
+  reviewed_id: string;
+  job_application_id?: string | null;
+  rating: number;
+  comment: string;
+  status: AdminReviewStatus;
+  reviewer?: { id: string; email: string; username: string } | null;
+  reviewed?: { id: string; email: string; username: string } | null;
+  job_application?: {
+    id: string;
+    job_post?: { id: string; title: string } | null;
+    job_seeker?: { id: string; username: string } | null;
+  } | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaginatedAdminReviews {
+  total: number;
+  data: AdminReview[];
+}
+
+// Утилита выбора admin/moderator endpoint — как ты делал в deleteReview
+const __reviewsBase = () => {
+  const token = localStorage.getItem('token');
+  const decoded: { role?: string } | null = token ? jwtDecode(token) : null;
+  const isModerator = decoded?.role === 'moderator';
+  return isModerator ? '/moderator/reviews' : '/admin/reviews';
 };
+
+/**
+ * Список отзывов для админки/модерации.
+ * Поддерживает params: page, limit, status. Если бэк вернёт просто массив — делаем graceful fallback.
+ */
+export const getAdminReviews = async (params: {
+  page?: number;
+  limit?: number;
+  status?: AdminReviewStatus;
+} = {}): Promise<PaginatedAdminReviews> => {
+  const base = __reviewsBase();
+  const { data } = await api.get(base, { params });
+
+  // Fallback: если бэк вернул массив без total
+  if (Array.isArray(data)) {
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.max(1, params.limit ?? data.length);
+    const start = (page - 1) * limit;
+    const sliced = data.slice(start, start + limit);
+    return { total: data.length, data: sliced };
+  }
+
+  // Иначе предполагаем формат { total, data }
+  return data as PaginatedAdminReviews;
+};
+
+
+
+// ✅ approve/reject теперь через PATCH (по новому контракту)
+export const approveReview = async (id: string) => {
+  const base = __reviewsBase(); // '/admin/reviews' или '/moderator/reviews'
+  const { data } = await api.patch<{ id: string; status: 'Approved' }>(`${base}/${id}/approve`);
+  return data;
+};
+
+export const rejectReview = async (id: string) => {
+  const base = __reviewsBase();
+  const { data } = await api.patch<{ id: string; status: 'Rejected' }>(`${base}/${id}/reject`);
+  return data;
+};
+
+
+
 
 export const deleteReview = async (id: string) => {
   const token = localStorage.getItem('token');
@@ -1324,6 +1409,8 @@ export const getBlockedCountries = async () => {
   return response.data;
 };
 
+// ...остальной код без изменений...
+
 export const searchTalents = async (params: {
   skills?: string | string[];
   experience?: string;
@@ -1337,6 +1424,13 @@ export const searchTalents = async (params: {
   expected_salary_max?: number;
   /** NEW: job search status filter */
   job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
+  /** ✅ NEW GEO & LANG FILTERS */
+  country?: string;                 // "United States" | "US" | "Россия" и т.п.
+  countries?: string | string[];    // "US,CA" или ["US","CA"] или "India,Philippines"
+  languages?: string | string[];    // "english,spanish" или массив сырого ввода
+  languages_mode?: 'any' | 'all';   // default any
+  has_resume?: boolean;             // true | false
+  /** common */
   page?: number;
   limit?: number;
   sort_by?: string;
@@ -1345,6 +1439,7 @@ export const searchTalents = async (params: {
   const response = await api.get<PaginatedResponse<JobSeekerProfile>>('/talents', { params });
   return response.data;
 };
+
 
 
 // export const checkJobApplicationStatus = async (job_post_id: string) => {
@@ -1750,4 +1845,86 @@ export const getBrandsAnalytics = async (params?: {
     byBrand: Array<{ brand: string; total: number; employers: number; jobseekers: number }>;
     overall: { total: number; employers: number; jobseekers: number };
   };
+};
+
+
+// --- Admin Tech Feedback (list with pagination) ---
+export type TechFeedbackAdminItem = {
+  id: string;
+  user_id: string;
+  role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
+  category: 'Bug' | 'UI' | 'Performance' | 'Data' | 'Other' | null;
+  summary: string;
+  steps_to_reproduce?: string | null;
+  expected_result?: string | null;
+  actual_result?: string | null;
+  created_at: string;
+  updated_at: string;
+  user?: { id: string; username: string; email: string } | null;
+};
+
+/**
+ * Admin: получить тех.фидбек постранично.
+ * Endpoint завязан на твой baseURL('/api'), поэтому путь БЕЗ /api префикса.
+ */
+export const getTechFeedback = async (params: {
+  page?: number;   // default: 1
+  limit?: number;  // default: 10
+  // опциональные фильтры, если бэк поддержит (не мешают, просто уйдут в query)
+  role?: 'employer' | 'jobseeker' | 'admin' | 'moderator';
+  category?: 'Bug' | 'UI' | 'Performance' | 'Data' | 'Other';
+  user?: string; // id/username/email
+  q?: string;    // фулл-текст по summary
+} = {}) => {
+  const { data } = await api.get<PaginatedResponse<TechFeedbackAdminItem>>('/admin/feedback', {
+    params,
+  });
+  return data; // { total, data: TechFeedbackAdminItem[] }
+};
+
+
+// ---- Complaints (admin/moderator) paginated ----
+export type AdminComplaint = {
+  id: string;
+  complainant_id: string;
+  complainant: { id: string; username: string; email: string; role: string };
+  job_post_id?: string;
+  job_post?: { id: string; title: string; description?: string } | null;
+  profile_id?: string;
+  // backend может не прислать profile-объект; рендерим fallback по id
+  reason: string;
+  status: 'Pending' | 'Resolved' | 'Rejected';
+  created_at: string;
+  updated_at?: string;
+  resolution_comment?: string | null;
+  resolver_id?: string | null;
+};
+
+export interface PaginatedAdminComplaints {
+  total: number;
+  data: AdminComplaint[];
+}
+
+const __complaintsBase = () => {
+  const token = localStorage.getItem('token');
+  const decoded: { role?: string } | null = token ? jwtDecode(token) : null;
+  return decoded?.role === 'moderator' ? '/moderator/complaints' : '/admin/complaints';
+};
+
+/**
+ * Унифицированный список жалоб (admin/moderator) с поддержкой page/limit.
+ * Если бэк вернул массив — делаем graceful fallback в { total, data }.
+ */
+export const getAdminComplaints = async (params: { page?: number; limit?: number } = {}): Promise<PaginatedAdminComplaints> => {
+  const base = __complaintsBase();
+  const { data } = await api.get(base, { params });
+
+  if (Array.isArray(data)) {
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.max(1, params.limit ?? data.length);
+    const start = (page - 1) * limit;
+    return { total: data.length, data: data.slice(start, start + limit) as AdminComplaint[] };
+  }
+
+  return data as PaginatedAdminComplaints;
 };

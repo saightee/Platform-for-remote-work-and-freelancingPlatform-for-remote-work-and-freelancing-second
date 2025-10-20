@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { RoleProvider } from './context/RoleContext';
 import Home from './pages/Home';
 import JobDetails from './pages/JobDetails';
@@ -54,6 +54,8 @@ import JobLanding from './pages/JobLanding';
 import ScrollToTop from "./components/ScrollToTop";
 import RegistrationPending from './pages/RegistrationPending';
 import Toaster from './components/Toaster';
+import RequireAuth from './routes/RequireAuth';
+
 
 
 const App: React.FC = () => {
@@ -79,6 +81,8 @@ const App: React.FC = () => {
           <Route path="/contact-support" element={<ContactSupport />} />
            <Route path="/report-issue" element={<ReportIssue />} />
            <Route path="/share-story" element={<ShareStory />} />
+
+        <Route element={<RequireAuth allowed={['employer']} />}>
           <Route path="/employer-dashboard" element={<EmployerDashboard />}>
             <Route index element={<EmployerOverview />} />
             <Route path="profile" element={<ProfilePage />} />
@@ -88,7 +92,9 @@ const App: React.FC = () => {
             <Route path="report-issue" element={<ReportIssue />} />
             <Route path="share-story" element={<ShareStory />} />
           </Route>
+        </Route> 
 
+        <Route element={<RequireAuth allowed={['jobseeker']} />}>
           <Route path="/jobseeker-dashboard" element={<JobseekerDashboard />}>
             <Route index element={<JobseekerOverview />} />
             <Route path="profile" element={<ProfilePage />} />
@@ -97,7 +103,7 @@ const App: React.FC = () => {
             <Route path="report-issue" element={<ReportIssue />} />
             <Route path="share-story" element={<ShareStory />} />
           </Route>
-
+        </Route>
          
           <Route path="/admin/email-notifications" element={<EmailNotifications />} />
           <Route path="/public-profile/:id" element={<PublicProfile />} />
@@ -127,7 +133,13 @@ const App: React.FC = () => {
           <Route path="/about-us" element={<AboutUs />} />
           <Route path="/careers" element={<Careers />} />
           <Route path="/blog" element={<Blog />} />
-          <Route path="/messages" element={<Messages />} />
+          <Route element={<RequireAuth allowed={['employer', 'jobseeker']} />}>
+  <Route
+    path="/messages"
+    element={<Navigate to="/jobseeker-dashboard/messages" replace />}
+  />
+</Route>
+         
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/complaint" element={<Complaint />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />

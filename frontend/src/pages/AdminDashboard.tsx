@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, Fragment } from 'react';
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, format, formatDistanceToNow } from 'date-fns';
+import { startOfWeek, endOfWeek, subDays, format, formatDistanceToNow } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz'; // Для времени по Маниле
-import { FaHome, FaSignOutAlt, FaUser, FaSearch, FaArrowUp, FaArrowDown, FaFilePdf, FaLink, FaCopy } from 'react-icons/fa'; // Иконки
+import { FaHome, FaSignOutAlt, FaUser, FaSearch, FaArrowUp, FaArrowDown, FaCopy } from 'react-icons/fa'; // Иконки
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'; // Диаграммы
 import { Link, useNavigate, useLocation } from 'react-router-dom'; // Для навигации и Link
 import { jwtDecode } from 'jwt-decode'; // Для декодирования токена
@@ -12,26 +12,29 @@ import { useRole } from '../context/RoleContext';
 import Loader from '../components/Loader';
 import sanitizeHtml from 'sanitize-html';
 import '../styles/admin-settings.css';
+import '../styles/post-job.css';
 import AdminChatTab from '../components/AdminChatTab';
 import ExportUsersPopover from '../components/ExportUsersPopover';
 import {
   getAllUsers, getUserById, updateUser, deleteUser, resetUserPassword,
   getAllJobPosts, updateJobPostAdmin, deleteJobPostAdmin, approveJobPost, flagJobPost,
-  setJobPostApplicationLimitAdmin, getAllReviews, deleteReview, getAnalytics,
+  setJobPostApplicationLimitAdmin, deleteReview, getAnalytics,
   getRegistrationStats, getGeographicDistribution, getTopEmployers, getTopJobseekers,
   verifyIdentity, setGlobalApplicationLimit, getGlobalApplicationLimit,
-  addBlockedCountry, removeBlockedCountry, getBlockedCountries, getFeedback,
+  addBlockedCountry, removeBlockedCountry, getBlockedCountries, getTechFeedback,
   blockUser, unblockUser, getUserRiskScore, exportUsersToCSV, getUserOnlineStatus,
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
-  getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints,
+  getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints, 
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
   logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, getChatNotificationSettings,
   updateChatNotificationSettings,
-  notifyReferralApplicants, getRecentRegistrationsToday, getBrandsAnalytics
+  notifyReferralApplicants, getRecentRegistrationsToday, getBrandsAnalytics, getAdminReviews, approveReview, rejectReview,
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings } from '@types';
 import { AxiosError } from 'axios';
 import '../styles/referral-links.css';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 // import {
 //   mockUsers, mockJobPosts, mockJobPostsWithApps, mockReviews, mockFeedback,
@@ -161,6 +164,27 @@ const [brandsData, setBrandsData] = useState<{
   byBrand: Array<{ brand: string; total: number; employers: number; jobseekers: number }>;
   overall: { total: number; employers: number; jobseekers: number };
 } | null>(null);
+// Под-вкладка внутри Feedback: 'tech' | 'platform'
+const [fbSubtab, setFbSubtab] = useState<'tech' | 'platform'>('tech');
+
+// Tech feedback pagination
+const [tfPage, setTfPage] = useState(1);
+const [tfLimit, setTfLimit] = useState(10);
+const [tfTotal, setTfTotal] = useState(0);
+const tfTotalPages = Math.max(1, Math.ceil(tfTotal / tfLimit));
+
+// Platform feedback pagination
+const [pfPage, setPfPage] = useState(1);
+const [pfLimit, setPfLimit] = useState(10);
+const [pfTotal, setPfTotal] = useState(0);
+const pfTotalPages = Math.max(1, Math.ceil(pfTotal / pfLimit));
+
+// данные
+const [techFeedback, setTechFeedback] = useState<any[]>([]);
+const [techLoading, setTechLoading] = useState(false);
+
+// для модалки деталей тех.фидбека
+const [techDetails, setTechDetails] = useState<any | null>(null);
 
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Resolved' | 'Rejected'>('All');
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
@@ -168,6 +192,11 @@ const [brandsData, setBrandsData] = useState<{
   const [jobApplications, setJobApplications] = useState<JobApplicationDetails[]>([]);
   const [selectedJobPostId, setSelectedJobPostId] = useState<string>('');
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewPage, setReviewPage] = useState(1);
+const [reviewLimit, setReviewLimit] = useState(10);
+const [reviewStatus, setReviewStatus] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
+const [reviewsTotal, setReviewsTotal] = useState(0);
+const reviewTotalPages = Math.max(1, Math.ceil(reviewsTotal / reviewLimit));
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [blockedCountries, setBlockedCountries] = useState<BlockedCountry[]>([]);
   const [newCountryCode, setNewCountryCode] = useState('');
@@ -374,7 +403,7 @@ const [userPage, setUserPage] = useState(1);
 const [userLimit] = useState(30);
 const [isUsersLoading, setIsUsersLoading] = useState(false);
 const [jobPostPage, setJobPostPage] = useState(1);
-const [jobPostLimit] = useState(10);
+const [jobPostLimit] = useState(50);
 const [jobPostsWithAppsPage, setJobPostsWithAppsPage] = useState(1);
 const [jobPostsWithAppsLimit] = useState(10);
 const [sortColumn, setSortColumn] = useState<'id' | 'applicationCount' | 'created_at' | null>('created_at'); 
@@ -410,10 +439,15 @@ const [username, setUsername] = useState<string>('Admin');
   const [onlineEmployers, setOnlineEmployers] = useState<number | null>(null);
   const [onlineFreelancers, setOnlineFreelancers] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [userSearchQuery, setUserSearchQuery] = useState<string>('');      // NEW
+const [jobPostSearchQuery, setJobPostSearchQuery] = useState<string>(''); // NEW
   const [currentTime, setCurrentTime] = useState(new Date());
   const [storyDetails, setStoryDetails] = useState<PlatformFeedbackAdminItem | null>(null);
 const [rejectModal, setRejectModal] = useState<{ id: string | null; title?: string }>({ id: null, title: '' });
 const [rejectReason, setRejectReason] = useState('');
+const [editJobModal, setEditJobModal] = useState<{ id: string; data: Partial<JobPost> & { category_ids?: string[] } } | null>(null);
+const [skillInput, setSkillInput] = useState('');
+const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
 const openRejectModal = (id: string, title?: string) => {
   setRejectModal({ id, title });
@@ -437,15 +471,63 @@ const renderDateCell = (iso?: string | null) => {
 const getBrand = (u: User) =>
   (u as any)?.brand ?? (u as any)?.siteBrand ?? '—';
 
+const toU = <T,>(v: T | null | undefined): T | undefined =>
+  v === null ? undefined : v;
+
+// +++ helpers for categories (используем уже загруженный categories)
+const flattenCategories = (cats: Category[]): Category[] =>
+  cats.flatMap((c) => [c, ...(c.subcategories ? flattenCategories(c.subcategories) : [])]);
+
+const flattenedCategories = React.useMemo(
+  () => flattenCategories(categories),
+  [categories]
+);
+
+const filteredCats = React.useMemo(() => {
+  const all = flattenedCategories;
+  const q = skillInput.trim().toLowerCase();
+  if (!q) return all.slice(0, 30);
+  return all.filter(c => c.name.toLowerCase().includes(q)).slice(0, 30);
+}, [flattenedCategories, skillInput]);
+
+const addCat = (id: string) => {
+  if (!editJobModal) return;
+  const cur = editJobModal.data.category_ids ?? [];
+  if (cur.includes(id)) return;
+  setEditJobModal({ ...editJobModal, data: { ...editJobModal.data, category_ids: [...cur, id] } });
+  setSkillInput('');
+  setIsDropdownOpen(false);
+};
+
+const removeCat = (id: string) => {
+  if (!editJobModal) return;
+  const cur = editJobModal.data.category_ids ?? [];
+  setEditJobModal({ ...editJobModal, data: { ...editJobModal.data, category_ids: cur.filter(x => x !== id) } });
+};
+
+// const filteredCats = (() => {
+//   const all = flattenCategories(categories);
+//   const q = skillInput.trim().toLowerCase();
+//   if (!q) return all.slice(0, 30);
+//   return all.filter(c => c.name.toLowerCase().includes(q)).slice(0, 30);
+// })();
+
+
 const [referralFilterJobId, setReferralFilterJobId] = useState(''); // Добавлено: filter by jobId
 const [referralFilterJobTitle, setReferralFilterJobTitle] = useState(''); // Добавлено: filter by title
 const [expandedReferral, setExpandedReferral] = useState<string | null>(null); // Добавлено: для expandable registrations
-const [showReferralModal, setShowReferralModal] = useState<{ fullLink: string; clicks: number; registrations: number } | null>(null); // Добавлено: модалка для new link
+const [showReferralModal, setShowReferralModal] = useState<{
+  fullLink: string;
+  clicks: number;
+  registrations: number;
+  /** NEW */
+  registrationsVerified?: number;
+} | null>(null);
 const [enrichedComplaints, setEnrichedComplaints] = useState<EnrichedComplaint[]>([]);
 const [resolveModal, setResolveModal] = useState<{ id: string; status: 'Resolved' | 'Rejected'; comment: string } | null>(null);
 
   const navigate = useNavigate();
-
+const location = useLocation();
 const handleSort = (column: 'id' | 'applicationCount' | 'created_at') => {
   if (sortColumn === column) {
     setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -538,6 +620,8 @@ const [referralLinks, setReferralLinks] = useState<{
   description?: string | null;
   clicks: number;
   registrations: number;
+  /** NEW: число с верифицированным e-mail */
+  registrationsVerified?: number;
   registrationsDetails?: { user: { id: string; username: string; email: string; role: string; created_at: string } }[];
   job_post?: { id: string; title: string };
 }[]>([]);
@@ -555,11 +639,12 @@ const submitCreateReferral = async () => {
   try {
     const payload = newReferralDescription.trim() ? { description: newReferralDescription.trim() } : {};
     const data = await createReferralLink(createReferralForJobId, payload);
-    setShowReferralModal({
-      fullLink: data.fullLink,
-      clicks: data.clicks,
-      registrations: data.registrations,
-    });
+setShowReferralModal({
+  fullLink: data.fullLink,
+  clicks: data.clicks,
+  registrations: data.registrations,
+  registrationsVerified: (data as any).registrationsVerified ?? 0,
+});
     // Обновляем список (с учётом фильтров страницы)
     const updated = await getReferralLinks({});
     setReferralLinks(updated || []);
@@ -628,6 +713,66 @@ const loadChatNotif = async () => {
 };
 
 useEffect(() => {
+  const sp = new URLSearchParams(location.search);
+
+  const tab = sp.get('fb_tab');
+  setFbSubtab(tab === 'platform' ? 'platform' : 'tech');
+
+  const tp = parseInt(sp.get('tf_page') || '1', 10);
+  const tl = parseInt(sp.get('tf_limit') || '10', 10);
+  setTfPage(Number.isFinite(tp) && tp > 0 ? tp : 1);
+  setTfLimit(clamp(Number.isFinite(tl) ? tl : 10, 1, 100));
+
+  const pp = parseInt(sp.get('pf_page') || '1', 10);
+  const pl = parseInt(sp.get('pf_limit') || '10', 10);
+  setPfPage(Number.isFinite(pp) && pp > 0 ? pp : 1);
+  setPfLimit(clamp(Number.isFinite(pl) ? pl : 10, 1, 100));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
+useEffect(() => {
+  const sp = new URLSearchParams(location.search);
+  sp.set('fb_tab', fbSubtab);
+  sp.set('tf_page', String(tfPage));
+  sp.set('tf_limit', String(tfLimit));
+  sp.set('pf_page', String(pfPage));
+  sp.set('pf_limit', String(pfLimit));
+  navigate({ search: sp.toString() }, { replace: true });
+}, [fbSubtab, tfPage, tfLimit, pfPage, pfLimit, location.search, navigate]);
+
+const loadTech = useCallback(async () => {
+  setTechLoading(true);
+  try {
+    const res = await getTechFeedback({ page: tfPage, limit: tfLimit });
+    setTechFeedback(res.data || []);
+    setTfTotal(res.total || 0);
+  } catch {
+    setTechFeedback([]);
+    setTfTotal(0);
+  } finally {
+    setTechLoading(false);
+  }
+}, [tfPage, tfLimit]);
+
+const loadPlatform = useCallback(async () => {
+  try {
+    const res = await getPlatformFeedback({ page: pfPage, limit: pfLimit });
+    setStories(res.data || []); // stories у вас уже есть в state
+    setPfTotal(res.total || 0);
+  } catch {
+    setStories([]);
+    setPfTotal(0);
+  }
+}, [pfPage, pfLimit]);
+
+useEffect(() => {
+  if (activeTab !== 'Feedback') return;
+  if (fbSubtab === 'tech') loadTech();
+  if (fbSubtab === 'platform') loadPlatform();
+}, [activeTab, fbSubtab, loadTech, loadPlatform]);
+
+
+useEffect(() => {
   if (activeTab === 'Settings') loadChatNotif();
 }, [activeTab]);
 
@@ -675,6 +820,52 @@ const saveChatNotif = async () => {
   }
 };
 
+// AdminDashboard.tsx
+// парсинг query при первом рендере
+useEffect(() => {
+  const sp = new URLSearchParams(location.search);
+  const p = parseInt(sp.get('r_page') || '1', 10);
+  const l = parseInt(sp.get('r_limit') || '10', 10);
+  const s = (sp.get('r_status') || 'All') as 'All' | 'Pending' | 'Approved' | 'Rejected';
+  if (!Number.isNaN(p)) setReviewPage(Math.max(1, p));
+  if (!Number.isNaN(l)) setReviewLimit(Math.min(Math.max(1, l), 100));
+  if (['All','Pending','Approved','Rejected'].includes(s)) setReviewStatus(s);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
+// запись query при изменениях
+useEffect(() => {
+  const sp = new URLSearchParams(location.search);
+  sp.set('r_page', String(reviewPage));
+  sp.set('r_limit', String(reviewLimit));
+  sp.set('r_status', reviewStatus);
+  navigate({ search: sp.toString() }, { replace: true });
+}, [reviewPage, reviewLimit, reviewStatus, navigate, location.search]);
+
+// загрузчик конкретно для Reviews
+const loadReviews = useCallback(async () => {
+  const params: { page: number; limit: number; status?: 'Pending'|'Approved'|'Rejected' } = {
+    page: reviewPage,
+    limit: reviewLimit,
+  };
+  if (reviewStatus !== 'All') params.status = reviewStatus;
+  try {
+    const res = await getAdminReviews(params);
+    const normalized = (res.data ?? []).map((r: any) => ({
+      ...r,
+    job_application_id: r.job_application_id ?? undefined,}));
+    setReviews(normalized as Review[]);
+    setReviewsTotal(res.total ?? 0);
+  } catch (e) {
+    setReviews([]);
+    setReviewsTotal(0);
+  }
+}, [reviewPage, reviewLimit, reviewStatus]);
+
+// подгружаем когда активна вкладка и/или меняются параметры
+useEffect(() => {
+  if (activeTab === 'Reviews') loadReviews();
+}, [activeTab, loadReviews]);
 
 
 useEffect(() => {
@@ -735,23 +926,22 @@ useEffect(() => {
   }
 }, [showNotifyModal]);
 
-const location = useLocation();
+
 useEffect(() => {
   if (location.state?.jobPostId) setFilterJobPostId(location.state.jobPostId);
 }, [location.state]);
 
-const sortedJobPostsWithApps = [...jobPostsWithApps].sort((a, b) => {
-  if (!sortColumn) return 0;
+const sortedJobPostsWithApps = React.useMemo(() => {
+  const arr = [...jobPostsWithApps];
+  if (!sortColumn) return arr;
   const direction = sortDirection === 'asc' ? 1 : -1;
-  if (sortColumn === 'id') {
-    return a.id.localeCompare(b.id) * direction;
-  } else if (sortColumn === 'applicationCount') {
-    return (a.applicationCount - b.applicationCount) * direction;
-  } else if (sortColumn === 'created_at') {
-    return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * direction;
-  }
-  return 0;
-});
+  return arr.sort((a, b) => {
+    if (sortColumn === 'id') return a.id.localeCompare(b.id) * direction;
+    if (sortColumn === 'applicationCount') return (a.applicationCount - b.applicationCount) * direction;
+    if (sortColumn === 'created_at') return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * direction;
+    return 0;
+  });
+}, [jobPostsWithApps, sortColumn, sortDirection]);
 
 const handleUserSort = (column: 'id' | 'role' | 'is_blocked' | 'brand') => {
   if (userSortColumn === column) {
@@ -762,25 +952,26 @@ const handleUserSort = (column: 'id' | 'role' | 'is_blocked' | 'brand') => {
   }
 };
 
-const sortedUsers = [...users].sort((a, b) => {
-  if (!userSortColumn) return 0;
+const sortedUsers = React.useMemo(() => {
+  const arr = [...users];
+  if (!userSortColumn) return arr;
   const direction = userSortDirection === 'asc' ? 1 : -1;
-
-  if (userSortColumn === 'id') {
-    return a.id.localeCompare(b.id) * direction;
-  } else if (userSortColumn === 'brand') {            // ← ОТДЕЛЬНАЯ ВЕТКА
-    const aBrand = getBrand(a).toLowerCase();
-    const bBrand = getBrand(b).toLowerCase();
-    return aBrand.localeCompare(bBrand) * direction;
-  } else if (userSortColumn === 'role') {
-    return (a.role || '').localeCompare(b.role || '') * direction;
-  } else if (userSortColumn === 'is_blocked') {
-    const aBlocked = a.status === 'blocked' ? 1 : 0;
-    const bBlocked = b.status === 'blocked' ? 1 : 0;
-    return (aBlocked - bBlocked) * direction;
-  }
-  return 0;
-});
+  return arr.sort((a, b) => {
+    if (userSortColumn === 'id') return a.id.localeCompare(b.id) * direction;
+    if (userSortColumn === 'brand') {
+      const aBrand = getBrand(a).toLowerCase();
+      const bBrand = getBrand(b).toLowerCase();
+      return aBrand.localeCompare(bBrand) * direction;
+    }
+    if (userSortColumn === 'role') return (a.role || '').localeCompare(b.role || '') * direction;
+    if (userSortColumn === 'is_blocked') {
+      const aBlocked = a.status === 'blocked' ? 1 : 0;
+      const bBlocked = b.status === 'blocked' ? 1 : 0;
+      return (aBlocked - bBlocked) * direction;
+    }
+    return 0;
+  });
+}, [users, userSortColumn, userSortDirection, getBrand]);
 
 
 const usersToRender = sortedUsers;
@@ -942,13 +1133,13 @@ useEffect(() => {
 // Для пользователей
 
 
-const buildUserSearch = (page = userPage) => {
+const buildUserSearch = (page = userPage, s: string = userSearchQuery) => {
   const q: any = { page, limit: userLimit };
-  const s = searchQuery.trim();
-  if (!s) return q;
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s)) q.id = s;
-  else if (s.includes('@')) q.email = s;
-  else q.username = s;
+  const term = s.trim();
+  if (!term) return q;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(term)) q.id = term;
+  else if (term.includes('@')) q.email = term;
+  else q.username = term;
   return q;
 };
 
@@ -1108,34 +1299,33 @@ const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
 const monthStart = format(subDays(new Date(), 29), 'yyyy-MM-dd'); // ← rolling 30d
 const monthEnd = today;                                           // ← до «сегодня»
 
-    const requests = [
-      getAllJobPosts({ page: jobPostPage, limit: jobPostLimit }),
-      getAllReviews(),
-      getFeedback(),
-      getPlatformFeedback(),
-      getBlockedCountries(), 
-      getAdminCategories(),
-      getAnalytics(),
-      getRegistrationStats({ startDate: '2023-01-01', endDate: new Date().toISOString().split('T')[0], interval: selectedInterval }),
-    getGeographicDistribution({ role: 'jobseeker', startDate: today,     endDate: today,      tzOffset }),
-  getGeographicDistribution({ role: 'jobseeker', startDate: yesterday, endDate: yesterday,  tzOffset }),
-  getGeographicDistribution({ role: 'jobseeker', startDate: weekStart, endDate: weekEnd,    tzOffset }),
-  getGeographicDistribution({ role: 'jobseeker', startDate: monthStart,endDate: monthEnd,   tzOffset }),
-  getGeographicDistribution({ role: 'employer',  startDate: today,     endDate: today,      tzOffset }),
-  getGeographicDistribution({ role: 'employer',  startDate: yesterday, endDate: yesterday,  tzOffset }),
-  getGeographicDistribution({ role: 'employer',  startDate: weekStart, endDate: weekEnd,    tzOffset }),
-  getGeographicDistribution({ role: 'employer',  startDate: monthStart,endDate: monthEnd,   tzOffset }),
-      getTopEmployers(5),
-      getTopJobseekers(5),
-      getTopJobseekersByViews(5),
-      getTopEmployersByPosts(5),
-      getGrowthTrends({ period: '30d' }),
-      getComplaints(),
-      getGlobalApplicationLimit(),
-      getOnlineUsers(),
-      getRecentRegistrations({ limit: 5 }),
-      getJobPostsWithApplications(),
-    ];
+const requests = [
+  getAllJobPosts({ page: jobPostPage, limit: jobPostLimit }),          // 0
+  getPlatformFeedback(),                                                // 1
+  getBlockedCountries(),                                                // 2
+  getAdminCategories(),                                                 // 3
+  getAnalytics(),                                                       // 4
+  getRegistrationStats({ startDate:'2023-01-01', endDate:new Date().toISOString().split('T')[0], interval:selectedInterval }), // 5
+  getGeographicDistribution({ role:'jobseeker', startDate: today, endDate: today, tzOffset }),       // 6
+  getGeographicDistribution({ role:'jobseeker', startDate: yesterday, endDate: yesterday, tzOffset }),// 7
+  getGeographicDistribution({ role:'jobseeker', startDate: weekStart, endDate: weekEnd, tzOffset }), // 8
+  getGeographicDistribution({ role:'jobseeker', startDate: monthStart, endDate: monthEnd, tzOffset }),// 9
+  getGeographicDistribution({ role:'employer',  startDate: today, endDate: today, tzOffset }),       // 10
+  getGeographicDistribution({ role:'employer',  startDate: yesterday, endDate: yesterday, tzOffset }),// 11
+  getGeographicDistribution({ role:'employer',  startDate: weekStart, endDate: weekEnd, tzOffset }), // 12
+  getGeographicDistribution({ role:'employer',  startDate: monthStart, endDate: monthEnd, tzOffset }),// 13
+  getTopEmployers(5),                                                   // 14
+  getTopJobseekers(5),                                                  // 15
+  getTopJobseekersByViews(5),                                           // 16
+  getTopEmployersByPosts(5),                                            // 17
+  getGrowthTrends({ period: '30d' }),                                   // 18
+  getComplaints(),                                                      // 19
+  getGlobalApplicationLimit(),                                          // 20
+  getOnlineUsers(),                                                     // 21
+  getRecentRegistrations({ limit: 5 }),                                 // 22
+  getJobPostsWithApplications(),                                        // 23
+];
+
 
     type RequestResult =
       | PaginatedResponse<JobPost>
@@ -1163,184 +1353,85 @@ const monthEnd = today;                                           // ← до «
     const errors: { [key: string]: string } = {};
 
 const endpoints = [
-  'getAllJobPosts',
-  'getAllReviews',
-  'getFeedback',
-  'getPlatformFeedback',   // ← добавили
-  'getBlockedCountries',
-  'getAdminCategories',
-  'getAnalytics',
-  'getRegistrationStats',
-  'freelancerSignupsToday',
-  'freelancerSignupsYesterday',
-  'freelancerSignupsWeek',
-  'freelancerSignupsMonth',
-  'businessSignupsToday',
-  'businessSignupsYesterday',
-  'businessSignupsWeek',
-  'businessSignupsMonth',
-  'getTopEmployers',
-  'getTopJobseekers',
-  'getTopJobseekersByViews',
-  'getTopEmployersByPosts',
-  'getGrowthTrends',
-  'getComplaints',
-  'getGlobalApplicationLimit',
-  'getOnlineUsers',
-  'getRecentRegistrations',
-  'getJobPostsWithApplications',
+  'getAllJobPosts',            // 0
+  'getPlatformFeedback',       // 1
+  'getBlockedCountries',       // 2
+  'getAdminCategories',        // 3
+  'getAnalytics',              // 4
+  'getRegistrationStats',      // 5
+  'freelancerSignupsToday',    // 6  (jobseekers today)
+  'freelancerSignupsYesterday',// 7
+  'freelancerSignupsWeek',     // 8
+  'freelancerSignupsMonth',    // 9
+  'businessSignupsToday',      // 10 (employers today)
+  'businessSignupsYesterday',  // 11
+  'businessSignupsWeek',       // 12
+  'businessSignupsMonth',      // 13
+  'getTopEmployers',           // 14
+  'getTopJobseekers',          // 15
+  'getTopJobseekersByViews',   // 16
+  'getTopEmployersByPosts',    // 17
+  'getGrowthTrends',           // 18
+  'getComplaints',             // 19
+  'getGlobalApplicationLimit', // 20
+  'getOnlineUsers',            // 21
+  'getRecentRegistrations',    // 22
+  'getJobPostsWithApplications', // 23
 ];
+
 
 
     for (const [index, result] of results.entries()) {
       if (result.status === 'fulfilled') {
         console.log(`${endpoints[index]} succeeded:`, result.value);
         const value = result.value as RequestResult;
-        switch (index) {
-case 0:
-    setJobPosts((value as PaginatedResponse<JobPost>).data || []);
+      switch (index) {
+  case 0:  setJobPosts((value as PaginatedResponse<JobPost>).data || []); break;
+  case 1:  setStories((value as PlatformFeedbackList).data || []); break;
+  case 2:  setBlockedCountries(value as BlockedCountry[] || []); break;
+  case 3:  setCategories(value as Category[] || []); break;
+  case 4:  setAnalytics(value as typeof analytics || null); break;
+  case 5:  setRegistrationStats(value as {period:string;count:number}[] || []); break;
+  case 6:  setFreelancerSignupsToday(value as any[] || []); break;
+  case 7:  setFreelancerSignupsYesterday(value as any[] || []); break;
+  case 8:  setFreelancerSignupsWeek(value as any[] || []); break;
+  case 9:  setFreelancerSignupsMonth(value as any[] || []); break;
+  case 10: setBusinessSignupsToday(value as any[] || []); break;
+  case 11: setBusinessSignupsYesterday(value as any[] || []); break;
+  case 12: setBusinessSignupsWeek(value as any[] || []); break;
+  case 13: setBusinessSignupsMonth(value as any[] || []); break;
+  case 14: setTopEmployers(value as any[] || []); break;
+  case 15: setTopJobseekers(value as any[] || []); break;
+  case 16: setTopJobseekersByViews(value as any[] || []); break;
+  case 17: setTopEmployersByPosts(value as any[] || []); break;
+  case 18: setGrowthTrends(value as typeof growthTrends || {registrations:[], jobPosts:[]}); break;
+  case 19: setComplaints(value as typeof complaints || []); break;
+  case 20: setGlobalLimit((value as {globalApplicationLimit:number|null}).globalApplicationLimit ?? null); break;
+  case 21: setOnlineUsers(value as OnlineUsers || null); break;
+  case 22:
+    try {
+      const data = await getRecentRegistrationsToday({ limit: 5 });
+      setRecentRegistrations(data as AdminRecentRegistrationsDTO);
+    } catch { /* noop */ }
     break;
-          
-          case 1:
-  const reviewsData = value as Review[] || [];
-  const enrichedReviews = reviewsData.map((review) => ({
-    ...review,
-    job_post: review.job_application?.job_post || null,
-    job_seeker: review.job_application?.job_seeker || null,
-  }));
-  setReviews(enrichedReviews);
-  console.log('Enriched reviews set in state:', enrichedReviews);
-  break;
-          case 2:
-            setIssues(value as Feedback[] || []);
-            break;
-case 3: {
-  const { data } = value as PlatformFeedbackList;
-  setStories(data || []);
-  break;
-}
-          case 4:
-            setBlockedCountries(value as BlockedCountry[] || []);
-            break;
-case 5:
-  setCategories(value as Category[] || []);
-  break;
-          case 6:
-            setAnalytics(value as typeof analytics || null);
-            break;
-          case 7:
-            setRegistrationStats(value as { period: string; count: number }[] || []);
-            break;
-          case 8:
-            setFreelancerSignupsToday(value as { country: string; count: number }[] || []);
-            break;
-          case 9:
-            setFreelancerSignupsYesterday(value as { country: string; count: number }[] || []);
-            break;
-          case 10:
-            setFreelancerSignupsWeek(value as { country: string; count: number }[] || []);
-            break;
-          case 11:
-            setFreelancerSignupsMonth(value as { country: string; count: number }[] || []);
-            break;
-          case 12:
-            setBusinessSignupsToday(value as { country: string; count: number }[] || []);
-            break;
-          case 13:
-            setBusinessSignupsYesterday(value as { country: string; count: number }[] || []);
-            break;
-          case 14:
-            setBusinessSignupsWeek(value as { country: string; count: number }[] || []);
-            break;
-          case 15:
-            setBusinessSignupsMonth(value as { country: string; count: number }[] || []);
-            break;
-case 16:
-  setTopEmployers(value as { employer_id: string; username: string; job_count: number }[] || []);
-  console.log('Top Employers data:', value); // Для проверки
-  break;
-case 17:
-  setTopJobseekers(value as { job_seeker_id: string; username: string; application_count: number }[] || []);
-  console.log('Top Jobseekers data:', value);
-  break;
-          case 18:
-            setTopJobseekersByViews(value as { userId: string; username: string; email: string; profileViews: number }[] || []);
-            break;
-          case 19:
-            setTopEmployersByPosts(value as { userId: string; username: string; email: string; jobCount: number }[] || []);
-            break;
-          case 20:
-            setGrowthTrends(value as typeof growthTrends || { registrations: [], jobPosts: [] });
-            break;
-          case 21:
-            setComplaints(value as typeof complaints || []);
-            break;
-case 22:
-  console.log('Global limit value:', value); // Добавил лог для диагностики
-  setGlobalLimit((value as { globalApplicationLimit: number | null }).globalApplicationLimit ?? null);
-  break;
-          case 23:
-            setOnlineUsers(value as OnlineUsers || null);
-            break;
-    case 24: {
-  try {
-    const data = await getRecentRegistrationsToday({ limit: 5 });
-    setRecentRegistrations(data as AdminRecentRegistrationsDTO);
-  } catch (e) {
-    console.error('recent-registrations failed', e);
-    setRecentRegistrations({
-      date: '',
-      tzOffset: -new Date().getTimezoneOffset(),
-      jobseekers_total: 0,
-      employers_total: 0,
-      jobseekers: [],
-      employers: [],
-    });
+  case 23: {
+    const postsWithApps = (value as JobPostWithApplications[]).map(post => ({
+      ...post,
+      username: post.employer?.username || 'N/A',
+      category: typeof post.category === 'string' ? post.category : post.category?.name || 'N/A',
+    }));
+    setJobPostsWithApps(postsWithApps);
+    const statsResults = await Promise.all(postsWithApps.map(p =>
+      getEmailStatsForJob(p.id).catch(() => ({ sent:0, opened:0, clicked:0 }))
+    ));
+    const statsMap = postsWithApps.reduce((acc, p, i) => { acc[p.id] = statsResults[i]; return acc; }, {} as Record<string,{sent:number;opened:number;clicked:number}>);
+    setNotificationStats(statsMap);
+    const referralData = await getReferralLinks({});
+    setReferralLinks(referralData || []);
+    break;
   }
-  break;
 }
 
-
-
-case 25: {
-  const postsWithApps = (value as JobPostWithApplications[]).map((post) => ({
-    ...post,
-    username: post.employer?.username || 'N/A',
-    category:
-      typeof post.category === 'string'
-        ? post.category
-        : post.category?.name || 'N/A',
-  }));
-
-  setJobPostsWithApps(postsWithApps);
-
-  // fetch stats for each post
-  const statsPromises = postsWithApps.map((post) =>
-    getEmailStatsForJob(post.id).catch(() => ({
-      sent: 0,
-      opened: 0,
-      clicked: 0,
-    }))
-  );
-
-  const statsResults: Array<{ sent: number; opened: number; clicked: number }> =
-    await Promise.all(statsPromises);
-
-  const statsMap = postsWithApps.reduce<
-    Record<string, { sent: number; opened: number; clicked: number }>
-  >((acc, post, i) => {
-    acc[post.id] = statsResults[i];
-    return acc;
-  }, {});
-
-  setNotificationStats(statsMap);
-
-  // referral links
-  const referralData = await getReferralLinks({});
-  setReferralLinks(referralData || []);
-  break;
-}
-        }
       } else {
         const axiosError = result.reason as AxiosError<{ message?: string }>;
         console.error(`${endpoints[index]} failed:`, axiosError.response?.data?.message || axiosError.message);
@@ -1615,20 +1706,44 @@ const handleDeleteCategory = async (id: string) => {
 
 
 
-  const handleDeleteJobPost = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this job post?')) {
-      try {
-        await deleteJobPostAdmin(id);
-        setJobPosts(jobPosts.filter((post) => post.id !== id));
-        setJobPostsWithApps(jobPostsWithApps.filter((post) => post.id !== id));
-        alert('Job post deleted successfully!');
-      } catch (error) {
-        const axiosError = error as AxiosError<{ message?: string }>;
-        console.error('Error deleting job post:', axiosError);
-        alert(axiosError.response?.data?.message || 'Failed to delete job post.');
-      }
+const handleDeleteJobPost = async (id: string) => {
+  if (!window.confirm('Are you sure you want to delete this job post?')) return;
+
+  try {
+    await deleteJobPostAdmin(id);
+
+    // 1) рефетчим текущую страницу
+    const curPage = jobPostPage;
+    const cur = await getAllJobPosts({ page: curPage, limit: jobPostLimit });
+
+    if (cur?.data?.length && cur.data.length > 0) {
+      setJobPosts(cur.data);
+    } else if (curPage > 1) {
+      // 2) текущая страница опустела — откатываемся на предыдущую
+      const prevPage = curPage - 1;
+      setJobPostPage(prevPage);
+      const prev = await getAllJobPosts({ page: prevPage, limit: jobPostLimit });
+      setJobPosts(prev?.data || []);
+    } else {
+      setJobPosts([]);
     }
-  };
+
+    // 3) синхронизируем агрегированную таблицу с апками
+    try {
+      const updatedWithApps = await getJobPostsWithApplications();
+      setJobPostsWithApps(updatedWithApps || []);
+    } catch {
+      /* тихо игнорим, если не критично */
+    }
+
+    alert('Job post deleted successfully!');
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>;
+    console.error('Error deleting job post:', axiosError);
+    alert(axiosError.response?.data?.message || 'Failed to delete job post.');
+  }
+};
+
 
 const handleApproveJobPost = async (id: string) => {
   try {
@@ -1656,6 +1771,98 @@ const handleFlagJobPost = async (id: string) => {
   }
 };
 
+const openEditJobModal = async (id: string) => {
+  try {
+    const job = await getJobPost(id);
+    const ids =
+      (job as any).category_ids ??
+      (Array.isArray((job as any).categories) ? (job as any).categories.map((x: any) => String(x.id)) :
+      (job as any).category_id ? [String((job as any).category_id)] : []);
+
+    setEditJobModal({
+      id,
+      data: {
+        // формируем state без null'ов
+        id: job.id,
+        title: job.title,
+        description: job.description,
+        location: toU((job as any).location),
+        job_type: toU((job as any).job_type),
+        salary_type: toU((job as any).salary_type),
+        salary: toU((job as any).salary),
+        category_ids: ids.map(String),
+      },
+    });
+  } catch (e: any) {
+    alert(e?.response?.data?.message || 'Failed to load job post.');
+  }
+};
+
+
+const saveJobEdit = async () => {
+  if (!editJobModal) return;
+  const d = editJobModal.data;
+
+  if (!d.title || !d.description) {
+    alert('Job title and description are required.');
+    return;
+  }
+
+  if (d.salary_type !== 'negotiable') {
+    const s = typeof d.salary === 'number' ? d.salary : Number(d.salary ?? 0);
+    if (!s || s <= 0) {
+      alert('Salary is required (>0) unless salary type is negotiable.');
+      return;
+    }
+  }
+
+  try {
+    // В payload переводим undefined → null где нужно по API
+    const payload: any = {
+      title: d.title,
+      description: d.description,
+      location: d.location ?? null,
+      job_type: (d as any).job_type ?? null,
+      salary_type: (d as any).salary_type ?? null,
+      salary:
+        d.salary_type === 'negotiable'
+          ? null
+          : (typeof d.salary === 'number' ? d.salary : Number(d.salary ?? 0)),
+      category_ids: d.category_ids ?? [],
+    };
+
+    const updated = await updateJobPostAdmin(editJobModal.id, payload);
+
+    // — аккуратно мерджим, не затирая employer на null
+    setJobPosts(prev =>
+      prev.map(p =>
+        p.id === editJobModal.id
+          ? ({ ...p, ...updated } as JobPost)
+          : p
+      )
+    );
+
+    setJobPostsWithApps(prev =>
+      prev.map(p =>
+        p.id === editJobModal.id
+          ? ({
+              ...p,
+              ...updated,
+              employer: (updated as any).employer ?? p.employer,
+            } as JobPostWithApplications)
+          : p
+      )
+    );
+
+    alert('Job post updated successfully!');
+    setEditJobModal(null);
+  } catch (e: any) {
+    const msg = e?.response?.data?.message || 'Failed to update job post.';
+    alert(msg);
+  }
+};
+
+
   const handleSetApplicationLimit = async (id: string) => {
     const limit = prompt('Enter application limit:');
     if (limit && !isNaN(Number(limit))) {
@@ -1675,7 +1882,25 @@ const handleFlagJobPost = async (id: string) => {
   };
 
   const selectedJob = jobPosts.find(post => post.id === showJobModal);
-const safeDescription = sanitizeHtml(selectedJob?.description ?? '');
+
+type HtmlAttrs = Record<string, string | number | boolean>;
+
+const linkTransformer = (_tagName: string, attribs: HtmlAttrs) => ({
+  tagName: 'a',
+  attribs: { ...attribs, rel: 'noopener noreferrer', target: '_blank' },
+});
+
+const safeDescription = sanitizeHtml(selectedJob?.description ?? '', {
+  allowedTags: ['p','br','strong','em','u','ul','ol','li','a','blockquote','code','pre','h1','h2','h3','h4','h5','h6','span','img'],
+  allowedAttributes: { a: ['href','target','rel'], img: ['src','alt'], '*': ['style'] },
+  allowedSchemes: ['http','https','mailto'],
+  transformTags: {
+    a: linkTransformer, // тип уже задан выше
+  }
+});
+
+
+
 
 const handleNotifyCandidates = async (id: string) => {
   
@@ -1687,24 +1912,20 @@ const handleNotifyCandidates = async (id: string) => {
 };
 
 const handleNotifySubmit = async () => {
-  const n = parseInt(notifyLimit, 10);
-  if (!n || n < 1) {
-    alert('Please enter a valid number of candidates.');
+  if (!notifyJobPostId) {
+    alert('No job post selected.');
     return;
   }
 
+  const n = Math.max(1, Number.parseInt(String(notifyLimit), 10) || 0);
   try {
-    let res;
-    if (notifyAudience === 'referral') {
-      res = await notifyReferralApplicants(notifyJobPostId, {
-        limit: n,
-        orderBy: notifyOrderBy,
-        titleContains: notifyTitleFilter.trim() || undefined, // опционально для примера с "Social Media"
-        // categoryId: selectedJobCategoryId, // если решишь подставлять категорию текущей вакансии
-      });
-    } else {
-      res = await notifyCandidates(notifyJobPostId, { limit: n, orderBy: notifyOrderBy });
-    }
+    const base = { limit: n, orderBy: notifyOrderBy as 'beginning' | 'end' | 'random' };
+    const res = notifyAudience === 'referral'
+      ? await notifyReferralApplicants(notifyJobPostId, {
+          ...base,
+          titleContains: notifyTitleFilter.trim() || undefined,
+        })
+      : await notifyCandidates(notifyJobPostId, base);
 
     alert(`Notified ${res.sent} of ${res.total} candidates for job post ${res.jobPostId}`);
     setShowNotifyModal(false);
@@ -1720,19 +1941,45 @@ const handleNotifySubmit = async () => {
 };
 
 
-  const handleDeleteReview = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this review?')) {
-      try {
-        await deleteReview(id);
-        setReviews(reviews.filter((review) => review.id !== id));
-        alert('Review deleted successfully!');
-      } catch (error) {
-        const axiosError = error as AxiosError<{ message?: string }>;
-        console.error('Error deleting review:', axiosError);
-        alert(axiosError.response?.data?.message || 'Failed to delete review.');
-      }
-    }
-  };
+
+// единый перезагрузчик после действий
+const reloadReviewsSamePage = async () => {
+  await loadReviews();
+  // если страница опустела и мы не на первой — сдвинем назад и перезагрузим
+  if (reviews.length === 0 && reviewPage > 1) {
+    setReviewPage(p => p - 1);
+    // loadReviews сработает из useEffect по изменению page
+  }
+};
+
+const handleApproveReview = async (id: string) => {
+  try {
+    await approveReview(id);
+    await loadReviews(); // остаёмся на той же page/limit/status
+  } catch (e: any) {
+    alert(e?.response?.data?.message || 'Failed to approve review.');
+  }
+};
+
+const handleRejectReview = async (id: string) => {
+  try {
+    await rejectReview(id);
+    await loadReviews();
+  } catch (e: any) {
+    alert(e?.response?.data?.message || 'Failed to reject review.');
+  }
+};
+
+const handleDeleteReview = async (id: string) => {
+  if (!window.confirm('Are you sure you want to delete this review?')) return;
+  try {
+    await deleteReview(id);
+    await reloadReviewsSamePage();
+  } catch (e: any) {
+    alert(e?.response?.data?.message || 'Failed to delete review.');
+  }
+};
+
 
 useEffect(() => {
   if (!autoRefresh) return;
@@ -1843,10 +2090,11 @@ const handleViewJobApplications = async (jobPostId: string) => {
 };
 
 const triggerUserSearch = () => {
-  const q = buildUserSearch(1); // соберёт id/email/username + page=1
-  fetchUsers(q);                // явно шлём запрос
-  if (userPage !== 1) setUserPage(1); // чтобы пагинация вернулась на первую
+  const q = buildUserSearch(1, userSearchQuery);
+  fetchUsers(q);
+  if (userPage !== 1) setUserPage(1);
 };
+
 
 
   const handleViewChatHistory = async (jobApplicationId: string, page: number = 1) => {
@@ -1934,7 +2182,15 @@ if (isLoading) {
         <div className="header-right">
           <span className="greeting">Welcome, <span className="username-bold">{username}</span></span> 
           <Link to="/" className="nav-link"><FaHome /> Home</Link>
-          <button className="action-button" onClick={handleLogout}><FaSignOutAlt /> Logout</button>
+          <button
+  type="button"
+  className="action-button-admin"
+  onClick={handleLogout}
+  aria-label="Logout"
+>
+  <FaSignOutAlt aria-hidden="true" /> Logout
+</button>
+
           <div className="user-count employers"><FaUser /> {onlineUsers?.employers ?? 'N/A'}</div>
 <div className="user-count freelancers"><FaUser /> {onlineUsers?.jobseekers ?? 'N/A'}</div>
           <div className="date-time">
@@ -2304,27 +2560,33 @@ if (isLoading) {
   
   {/* Добавлено: search bar */}
 <div className="search_users" style={{ marginBottom: '10px' }}>
-  <input
-    type="text"
-    placeholder="Search by username, email or ID"
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)}
-    onKeyDown={(e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        triggerUserSearch();
-      }
-    }}
-  />
-  <button
-    type="button"
-    onClick={triggerUserSearch}
-    className="action-button"
-    disabled={isUsersLoading}
-    aria-label="Search users"
-  >
-    <FaSearch />
-  </button>
+<input
+  type="text"
+  placeholder="Search by username, email or ID"
+  value={userSearchQuery}
+  onChange={(e) => setUserSearchQuery(e.target.value)}
+  onKeyDown={(e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const q = buildUserSearch(1, userSearchQuery);
+      fetchUsers(q);
+      if (userPage !== 1) setUserPage(1);
+    }
+  }}
+/>
+<button
+  type="button"
+  onClick={() => {
+    const q = buildUserSearch(1, userSearchQuery);
+    fetchUsers(q);
+    if (userPage !== 1) setUserPage(1);
+  }}
+  className="action-button"
+  disabled={isUsersLoading}
+  aria-label="Search users"
+>
+  <FaSearch />
+</button>
 </div>
 
   
@@ -2458,31 +2720,28 @@ if (isLoading) {
     <h4>Job Posts</h4>
     <div className="search_users" style={{ marginBottom: '10px' }}>
       <input
-        type="text"
-        placeholder="Search by title, employer username or ID"
-  value={searchQuery}
-  onChange={(e) => setSearchQuery(e.target.value)}
+  type="text"
+  placeholder="Search by title, employer username or ID"
+  value={jobPostSearchQuery}
+  onChange={(e) => setJobPostSearchQuery(e.target.value)}
 />
-<button onClick={() => {
-  const query = searchQuery.trim();
-  if (!query) return;
-
-  const params: any = { page: 1, limit: jobPostLimit };
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(query);
-
-  if (isUuid) {
-    params.id = query;                                  // ищем по ID поста
-  } else if (/^[a-z0-9_.-]+$/i.test(query)) {
-    params.employer_username = query;                   // похоже на username — ищем по нему
-  } else {
-    params.title = query;                               // иначе — как по заголовку
-  }
-
-  fetchJobPosts(params);
-  setJobPostPage(1);
-}} className="action-button">
+<button
+  onClick={() => {
+    const q = jobPostSearchQuery.trim();
+    if (!q) return;
+    const params: any = { page: 1, limit: jobPostLimit };
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(q);
+    if (isUuid) params.id = q;
+    else if (q.startsWith('@')) params.employer_username = q.slice(1);
+    else params.title = q;
+    fetchJobPosts(params);
+    setJobPostPage(1);
+  }}
+  className="action-button"
+>
   <FaSearch />
 </button>
+
 
     </div>
     <div className="form-group">
@@ -2580,6 +2839,13 @@ if (isLoading) {
 </button>
 <button onClick={() => openEmailStats(post.id)} className="action-button">
   View Details
+</button>
+<button
+  onClick={() => openEditJobModal(post.id)}
+  className="action-button"
+  title="Edit this job post"
+>
+  Edit
 </button>
                
               </td>
@@ -2683,191 +2949,375 @@ if (isLoading) {
   </div>
 )}
 
-          {activeTab === 'Reviews' && (
+      {activeTab === 'Reviews' && (
   <div>
     <h4>Reviews</h4>
-    {fetchErrors.getAllReviews && <p className="error-message">{fetchErrors.getAllReviews}</p>}
-    <table className="dashboard-table">
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Rating</th>
-      <th>Comment</th>
-      <th>Reviewer</th>
-      <th>Target</th>
-      <th>Related Job</th>
-      <th>Created At</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {reviews.length > 0 ? reviews.map((review) => (
-<tr key={review.id}>
-  <td>{review.id}</td>
-  <td>{review.rating}</td>
-  <td>{review.comment}</td>
-  <td>{review.reviewer?.username || 'Anonymous'}</td>
-  <td>{review.reviewed?.username || 'N/A'}</td> 
-  <td>{review.job_post?.title || 'N/A'}</td>
-  <td>{format(new Date(review.created_at), 'PP')}</td>
-  <td>
-    <button onClick={() => handleDeleteReview(review.id)} className="action-button danger">
-      Delete
-    </button>
-  </td>
-</tr>
-    )) : (
-      <tr>
-        <td colSpan={8}>No reviews found.</td>
-      </tr>
-    )}
-  </tbody>
-</table>
-  </div>
-)}
 
-       {activeTab === 'Feedback' && (
-  <div>
-    <h4>Issues Feedback (Technical/Support)</h4>
+    {/* Фильтр статуса: три таба + "All" */}
+    <div className="tabs" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+      {(['All','Pending','Approved','Rejected'] as const).map(s => (
+        <button
+          key={s}
+          className={`action-button ${reviewStatus === s ? 'success' : ''}`}
+          onClick={() => { setReviewStatus(s); setReviewPage(1); }}
+        >
+          {s}
+        </button>
+      ))}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <label>Per page:</label>
+        <select
+          value={reviewLimit}
+          onChange={(e) => { setReviewLimit(parseInt(e.target.value, 10)); setReviewPage(1); }}
+        >
+          {[10,20,30,50,100].map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </div>
+    </div>
+
     <table className="dashboard-table">
       <thead>
         <tr>
-          <th>Category</th>
-          <th>Summary</th>
-          <th>Steps</th>
-          <th>Expected</th>
-          <th>Actual</th>
-          <th>User</th>
-          <th onClick={() => handleIssuesSort('created_at')} style={{ cursor: 'pointer' }}>
-            Created At {issuesSortColumn === 'created_at' ? (issuesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-          </th>
+          <th>ID</th>
+          <th>Rating</th>
+          <th>Comment</th>
+          <th>Status</th>
+          <th>Reviewer</th>
+          <th>Target</th>
+          <th>Related Job</th>
+          <th>Created At</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        {sortedIssues.length > 0 ? sortedIssues.map((fb) => (
-          <tr key={fb.id}>
-            <td>{fb.category}</td>
-            <td>{fb.summary}</td>
-            <td>{fb.steps_to_reproduce || '—'}</td>
-            <td>{fb.expected_result || '—'}</td>
-            <td>{fb.actual_result || '—'}</td>
-            <td>{fb.user?.username || 'Unknown'}</td>
-            <td>{format(new Date(fb.created_at), 'PP')}</td>
+        {reviews.length > 0 ? reviews.map((r) => (
+          <tr key={r.id}>
+            <td>{r.id}</td>
+            <td>{r.rating}</td>
+            <td>{r.comment}</td>
+            <td>{(r as any).status}</td>
+            <td>{r.reviewer?.username || 'Anonymous'}</td>
+            <td>{r.reviewed?.username || 'N/A'}</td>
+            <td>{(r as any).job_application?.job_post?.title || 'N/A'}</td>
+            <td>{format(new Date(r.created_at), 'PP')}</td>
+            <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button
+                disabled={(r as any).status === 'Approved'}
+                onClick={() => handleApproveReview(r.id)}
+                className="action-button success"
+                title="Approve"
+              >
+                Approve
+              </button>
+              <button
+                disabled={(r as any).status === 'Rejected'}
+                onClick={() => handleRejectReview(r.id)}
+                className="action-button warning"
+                title="Reject"
+              >
+                Reject
+              </button>
+              <button
+                onClick={() => handleDeleteReview(r.id)}
+                className="action-button danger"
+                title="Delete"
+              >
+                Delete
+              </button>
+            </td>
           </tr>
         )) : (
-          <tr>
-            <td colSpan={7}>No issues feedback found.</td>
-          </tr>
+          <tr><td colSpan={9}>No reviews found.</td></tr>
         )}
       </tbody>
     </table>
 
-
-   <h4>Success Stories Feedback</h4>
-<table className="dashboard-table">
-  <thead>
-    <tr>
-      <th>Headline</th>
-      <th>Rating</th>
-      <th>Consent</th>
-      <th>Public</th>
-      <th>Company</th>
-      <th>Country</th>
-      <th>User</th>
-      <th onClick={() => handleStoriesSort('created_at')} style={{ cursor: 'pointer' }}>
-        Created At {storiesSortColumn === 'created_at' ? (storiesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-      </th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {sortedStories.length > 0 ? sortedStories.map((story) => (
-      <tr key={story.id}>
-        <td title={story.story} style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {story.headline}
-        </td>
-        <td>{story.rating}</td>
-        <td>{story.allowed_to_publish ? 'Yes' : 'No'}</td>
-        <td>{story.is_public ? 'Yes' : 'No'}</td>
-        <td>{story.company || '—'}</td>
-        <td>{story.country || '—'}</td>
-        <td>{story.user?.username || 'Unknown'}</td>
-        <td>{format(new Date(story.created_at), 'PP')}</td>
-        <td style={{ display: 'flex', gap: 8 }}>
-  {/* NEW: Details — открывает модалку с полным текстом истории */}
-  <button
-    onClick={() => setStoryDetails(story)}
-    className="action-button"
-  >
-    Details
-  </button>
-
-  {/* Публиковать/Скрывать — ОДНА кнопка, и только если пользователь дал согласие */}
-  {story.allowed_to_publish ? (
-    story.is_public ? (
+    {/* Пагинация */}
+    <div className="pagination" style={{ marginTop: 12 }}>
       <button
-        onClick={async () => {
-          try {
-            const updated = await unpublishPlatformFeedback(story.id);
-            setStories(prev => prev.map(s => s.id === story.id ? { ...s, ...updated } : s));
-          } catch (error) {
-            const axiosError = error as AxiosError<{ message?: string }>;
-            alert(axiosError.response?.data?.message || 'Failed to unpublish.');
-          }
-        }}
-        className="action-button warning"
+        onClick={() => setReviewPage(p => Math.max(1, p - 1))}
+        disabled={reviewPage === 1}
+        className="action-button"
       >
-        Unpublish
+        Previous
       </button>
-    ) : (
+      <span className="page-number">Page {reviewPage} of {reviewTotalPages}</span>
       <button
-        onClick={async () => {
-          try {
-            const updated = await publishPlatformFeedback(story.id);
-            setStories(prev => prev.map(s => s.id === story.id ? { ...s, ...updated } : s));
-          } catch (error) {
-            const axiosError = error as AxiosError<{ message?: string }>;
-            alert(axiosError.response?.data?.message || 'Failed to publish.');
-          }
-        }}
-        className="action-button success"
+        onClick={() => setReviewPage(p => Math.min(reviewTotalPages, p + 1))}
+        disabled={reviewPage >= reviewTotalPages}
+        className="action-button"
       >
-        Publish
+        Next
       </button>
-    )
-  ) : null}
-
-  <button
-    onClick={async () => {
-      if (window.confirm('Are you sure you want to delete this story?')) {
-        try {
-          await deletePlatformFeedback(story.id);
-          setStories(stories.filter((item) => item.id !== story.id));
-          alert('Story deleted successfully!');
-        } catch (error) {
-          const axiosError = error as AxiosError<{ message?: string }>;
-          console.error('Error deleting story:', axiosError);
-          alert(axiosError.response?.data?.message || 'Failed to delete story.');
-        }
-      }
-    }}
-    className="action-button danger"
-  >
-    Delete
-  </button>
-</td>
-
-      </tr>
-    )) : (
-      <tr>
-        <td colSpan={9}>No success stories found.</td>
-      </tr>
-    )}
-  </tbody>
-</table>
-
+    </div>
   </div>
 )}
+
+
+    {activeTab === 'Feedback' && (
+  <div>
+    <h4>Feedback</h4>
+
+    {/* subtabs */}
+    <div className="tabs" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+      <button
+        className={`action-button ${fbSubtab === 'tech' ? 'success' : ''}`}
+        onClick={() => setFbSubtab('tech')}
+      >
+        Tech Feedback
+      </button>
+      <button
+        className={`action-button ${fbSubtab === 'platform' ? 'success' : ''}`}
+        onClick={() => setFbSubtab('platform')}
+      >
+        Platform Feedback (Stories)
+      </button>
+
+      {/* per-page selector for current subtab */}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <label>Per page:</label>
+        {fbSubtab === 'tech' ? (
+          <select
+            value={tfLimit}
+            onChange={(e) => { setTfLimit(parseInt(e.target.value, 10)); setTfPage(1); }}
+          >
+            {[10,20,30,50,100].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        ) : (
+          <select
+            value={pfLimit}
+            onChange={(e) => { setPfLimit(parseInt(e.target.value, 10)); setPfPage(1); }}
+          >
+            {[10,20,30,50,100].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        )}
+      </div>
+    </div>
+
+    {/* TECH FEEDBACK TABLE */}
+    {fbSubtab === 'tech' && (
+      <>
+        <table className="dashboard-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>User</th>
+              <th>Role</th>
+              <th>Category</th>
+              <th>Summary</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {!techLoading && techFeedback.length === 0 && (
+              <tr><td colSpan={6}>No feedback found.</td></tr>
+            )}
+
+            {techLoading && (
+              <tr><td colSpan={6}>Loading…</td></tr>
+            )}
+
+            {!techLoading && techFeedback.map((fb) => (
+              <tr key={fb.id}>
+                <td>{format(new Date(fb.created_at), 'PP')}</td>
+                <td>
+                  <div>{fb.user?.username || 'Unknown'}</div>
+                  <div style={{opacity:.8, fontSize:12}}>{fb.user?.email}</div>
+                </td>
+                <td>{fb.role || '—'}</td>
+                <td>{fb.category || '—'}</td>
+                <td title={fb.summary} style={{maxWidth: 360, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                  {fb.summary}
+                </td>
+                <td>
+                  <button onClick={() => setTechDetails(fb)} className="action-button">View</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* pagination */}
+        <div className="pagination" style={{ marginTop: 12 }}>
+          <button
+            onClick={() => setTfPage(p => Math.max(1, p - 1))}
+            disabled={tfPage === 1}
+            className="action-button"
+          >
+            Previous
+          </button>
+          <span className="page-number">Page {tfPage} of {tfTotalPages}</span>
+          <button
+            onClick={() => setTfPage(p => Math.min(tfTotalPages, p + 1))}
+            disabled={tfPage >= tfTotalPages}
+            className="action-button"
+          >
+            Next
+          </button>
+
+          {/* optional: Load more – простое наращивание страницы */}
+          <button
+            className="action-button"
+            style={{ marginLeft: 8 }}
+            disabled={tfPage >= tfTotalPages}
+            onClick={async () => {
+              const next = tfPage + 1;
+              const res = await getTechFeedback({ page: next, limit: tfLimit });
+              setTechFeedback(cur => [...cur, ...(res.data || [])]);
+              setTfPage(next);
+              setTfTotal(res.total || tfTotal);
+            }}
+          >
+            Load more
+          </button>
+        </div>
+
+        {/* Tech details modal */}
+        {techDetails && (
+          <div className="modal" onClick={() => setTechDetails(null)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <span className="close" onClick={() => setTechDetails(null)}>×</span>
+              <h3>Feedback Details</h3>
+
+              <p><strong>Date:</strong> {format(new Date(techDetails.created_at), 'PPpp')}</p>
+              <p><strong>User:</strong> {techDetails.user?.username} ({techDetails.user?.email})</p>
+              <p><strong>Role:</strong> {techDetails.role}</p>
+              <p><strong>Category:</strong> {techDetails.category || '—'}</p>
+              <p><strong>Summary:</strong> {techDetails.summary}</p>
+              <hr />
+              <p><strong>Steps:</strong><br />{techDetails.steps_to_reproduce || '—'}</p>
+              <p><strong>Expected:</strong><br />{techDetails.expected_result || '—'}</p>
+              <p><strong>Actual:</strong><br />{techDetails.actual_result || '—'}</p>
+
+              <div className="modal-actions">
+                <button className="action-button" onClick={() => setTechDetails(null)}>Close</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    )}
+
+    {/* PLATFORM FEEDBACK TABLE (Stories) */}
+    {fbSubtab === 'platform' && (
+      <>
+        <table className="dashboard-table">
+          <thead>
+            <tr>
+              <th>Headline</th>
+              <th>Rating</th>
+              <th>Consent</th>
+              <th>Public</th>
+              <th>Company</th>
+              <th>Country</th>
+              <th>User</th>
+              <th onClick={() => handleStoriesSort('created_at')} style={{ cursor: 'pointer' }}>
+                Created At {storiesSortColumn === 'created_at' ? (storiesSortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+              </th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedStories.length > 0 ? sortedStories.map((story) => (
+              <tr key={story.id}>
+                <td title={story.story} style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {story.headline}
+                </td>
+                <td>{story.rating}</td>
+                <td>{story.allowed_to_publish ? 'Yes' : 'No'}</td>
+                <td>{story.is_public ? 'Yes' : 'No'}</td>
+                <td>{story.company || '—'}</td>
+                <td>{story.country || '—'}</td>
+                <td>{story.user?.username || 'Unknown'}</td>
+                <td>{format(new Date(story.created_at), 'PP')}</td>
+                <td style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setStoryDetails(story)} className="action-button">Details</button>
+                  {story.allowed_to_publish && (
+                    story.is_public ? (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const updated = await unpublishPlatformFeedback(story.id);
+                            setStories(prev => prev.map(s => s.id === story.id ? { ...s, ...updated } : s));
+                          } catch (e:any) { alert(e?.response?.data?.message || 'Failed to unpublish.'); }
+                        }}
+                        className="action-button warning"
+                      >
+                        Unpublish
+                      </button>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const updated = await publishPlatformFeedback(story.id);
+                            setStories(prev => prev.map(s => s.id === story.id ? { ...s, ...updated } : s));
+                          } catch (e:any) { alert(e?.response?.data?.message || 'Failed to publish.'); }
+                        }}
+                        className="action-button success"
+                      >
+                        Publish
+                      </button>
+                    )
+                  )}
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('Delete this story?')) return;
+                      try {
+                        await deletePlatformFeedback(story.id);
+                        setStories(prev => prev.filter(s => s.id !== story.id));
+                      } catch (e:any) { alert(e?.response?.data?.message || 'Failed to delete.'); }
+                    }}
+                    className="action-button danger"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            )) : (
+              <tr><td colSpan={9}>No success stories found.</td></tr>
+            )}
+          </tbody>
+        </table>
+
+        {/* pagination */}
+        <div className="pagination" style={{ marginTop: 12 }}>
+          <button
+            onClick={() => setPfPage(p => Math.max(1, p - 1))}
+            disabled={pfPage === 1}
+            className="action-button"
+          >
+            Previous
+          </button>
+          <span className="page-number">Page {pfPage} of {pfTotalPages}</span>
+          <button
+            onClick={() => setPfPage(p => Math.min(pfTotalPages, p + 1))}
+            disabled={pfPage >= pfTotalPages}
+            className="action-button"
+          >
+            Next
+          </button>
+
+          {/* optional: Load more */}
+          <button
+            className="action-button"
+            style={{ marginLeft: 8 }}
+            disabled={pfPage >= pfTotalPages}
+            onClick={async () => {
+              const next = pfPage + 1;
+              const res = await getPlatformFeedback({ page: next, limit: pfLimit });
+              setStories(cur => [...cur, ...(res.data || [])]);
+              setPfPage(next);
+              setPfTotal(res.total || pfTotal);
+            }}
+          >
+            Load more
+          </button>
+        </div>
+      </>
+    )}
+  </div>
+)}
+
           {activeTab === 'Categories' && (
  <div>
   <h4>Categories</h4>
@@ -3622,7 +4072,7 @@ if (isLoading) {
                         <th>Description</th>
                         <th>Link</th>
                         <th>Clicks</th>
-                        <th>Regs</th>
+                        <th>Regs (verified)</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
@@ -3652,7 +4102,9 @@ if (isLoading) {
                             </td>
 
                             <td className="ref-links__num">{link.clicks}</td>
-                            <td className="ref-links__num">{link.registrations}</td>
+                            <td className="ref-links__num">
+  {link.registrations} ({(link as any).registrationsVerified ?? 0})
+</td>
                             <td className="ref-links__actions">
                               <button
                                 className="ref-links__btn"
@@ -3960,10 +4412,181 @@ if (isLoading) {
       <p><strong>Full Link:</strong> {showReferralModal.fullLink}</p>
       <button onClick={() => navigator.clipboard.writeText(showReferralModal.fullLink)} className="action-button"><FaCopy /> Copy Link</button>
       <p><strong>Clicks:</strong> {showReferralModal.clicks}</p>
-      <p><strong>Registrations:</strong> {showReferralModal.registrations}</p>
+      <p><strong>Registrations:</strong> {showReferralModal.registrations} ({showReferralModal.registrationsVerified ?? 0})</p>
     </div>
   </div>
 )}
+
+{editJobModal && (
+  <div className="modal" onClick={() => setEditJobModal(null)}>
+    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <span className="close" onClick={() => setEditJobModal(null)}>×</span>
+      <h3>Edit Job Post</h3>
+
+      {/* Title */}
+      <div className="form-group">
+        <label>Job Title</label>
+        <input
+          type="text"
+          value={editJobModal.data.title || ''}
+          onChange={(e) =>
+            setEditJobModal(m => m && ({ ...m, data: { ...m.data, title: e.target.value } }))
+          }
+        />
+      </div>
+
+      {/* Description (rich text) */}
+      <div className="form-group">
+        <label>Description</label>
+        <ReactQuill
+          value={(editJobModal.data.description as string) || ''}
+          onChange={(value) =>
+            setEditJobModal(m => m && ({ ...m, data: { ...m.data, description: value } }))
+          }
+        />
+      </div>
+
+      {/* Work mode */}
+      <div className="form-group">
+        <label>Work Mode</label>
+<select
+  value={editJobModal.data.location ?? ''}
+  onChange={(e) =>
+    setEditJobModal(m => m && ({ ...m, data: { ...m.data, location: e.target.value || undefined } }))
+  }
+>
+          <option value="">Work mode</option>
+          <option value="Remote">Remote</option>
+          <option value="On-site">On-site</option>
+          <option value="Hybrid">Hybrid</option>
+        </select>
+      </div>
+
+      {/* Salary + Type */}
+      <div className="form-group" style={{ display: 'grid', gap: 8 }}>
+        <label>Salary</label>
+       <input
+  type="number"
+  min={0}
+  disabled={editJobModal.data.salary_type === 'negotiable'}
+  value={
+    editJobModal.data.salary_type === 'negotiable'
+      ? ''
+      : (typeof editJobModal.data.salary === 'number'
+          ? editJobModal.data.salary
+          : (editJobModal.data.salary ?? ''))
+  }
+  onChange={(e) =>
+    setEditJobModal(m => m && ({
+      ...m,
+      data: { ...m.data, salary: e.target.value ? Number(e.target.value) : undefined }
+    }))
+  }
+/>
+
+<select
+  value={(editJobModal.data as any).salary_type ?? 'per hour'}
+  onChange={(e) => {
+    const st = e.target.value as 'per hour' | 'per month' | 'negotiable';
+    setEditJobModal(m => m && ({
+      ...m,
+      data: {
+        ...m.data,
+        salary_type: st,
+        // в state убираем null — только undefined
+        salary: st === 'negotiable'
+          ? undefined
+          : (typeof m.data.salary === 'number'
+              ? m.data.salary
+              : Number(m.data.salary ?? 0)),
+      }
+    }));
+  }}
+>
+
+          <option value="per hour">per hour</option>
+          <option value="per month">per month</option>
+          <option value="negotiable">negotiable</option>
+        </select>
+      </div>
+
+      {/* Job type */}
+      <div className="form-group">
+        <label>Job Type</label>
+        <select
+          value={(editJobModal.data as any).job_type ?? ''}
+          onChange={(e) =>
+            setEditJobModal(m => m && ({
+              ...m,
+              data: { ...m.data, job_type: (e.target.value || undefined) as any }
+            }))
+          }
+        >
+          <option value="">Select job type</option>
+          <option value="Full-time">Full-time</option>
+          <option value="Part-time">Part-time</option>
+          <option value="Project-based">Project-based</option>
+        </select>
+      </div>
+
+      {/* Categories (multi + autocomplete из локального списка) */}
+      <div className="form-group">
+        <label>Categories</label>
+        <div className="pjx-auto">
+          <input
+            className="pjx-input pjx-auto-input"
+            type="text"
+            value={skillInput}
+            onChange={(e) => setSkillInput(e.target.value)}
+            placeholder="Start typing to search categories…"
+            onFocus={() => setIsDropdownOpen(true)}
+            onBlur={() => setTimeout(() => setIsDropdownOpen(false), 150)}
+          />
+          {isDropdownOpen && (
+            <ul className="pjx-dropdown">
+              {filteredCats.map((c) => (
+                <li key={c.id} className="pjx-item" onMouseDown={() => addCat(String(c.id))}>
+                  {c.parent_id
+                    ? `${(flattenCategories(categories).find(p => String(p.id) === String(c.parent_id))?.name) || '—'} > ${c.name}`
+                    : c.name}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* chips выбранных категорий */}
+        {Array.isArray(editJobModal.data.category_ids) && editJobModal.data.category_ids.length > 0 && (() => {
+          const all = flattenedCategories;
+          const chips = editJobModal.data.category_ids.map((id) => {
+            const cat = all.find(c => String(c.id) === String(id));
+            if (!cat) return { id, label: 'Unknown' };
+            const parent = cat.parent_id ? all.find(p => String(p.id) === String(cat.parent_id)) : undefined;
+            return { id, label: parent ? `${parent.name} > ${cat.name}` : cat.name };
+          });
+          return (
+            <div className="pjx-chips" style={{ marginTop: 8 }}>
+              {chips.map(({ id, label }) => (
+                <span key={id} className="pjx-chip">
+                  {label}
+                  <button type="button" className="pjx-chip-x" onClick={() => removeCat(String(id))}>
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          );
+        })()}
+      </div>
+
+      <div className="modal-actions">
+        <button onClick={saveJobEdit} className="action-button success">Save</button>
+        <button onClick={() => setEditJobModal(null)} className="action-button">Cancel</button>
+      </div>
+    </div>
+  </div>
+)}
+
 {activeTab === 'Settings' && (
   <div>
     <h4>Settings</h4>
