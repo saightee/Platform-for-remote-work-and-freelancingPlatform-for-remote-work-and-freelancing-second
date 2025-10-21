@@ -316,3 +316,13 @@
 .pf-telegram  { color: #0088cc; }
 .pf-tags-input-row{display:flex;gap:8px;margin-top:8px}
 .pf-tags-input .pf-tags{display:flex;flex-wrap:wrap;gap:8px}
+
+.profile-report-btn {
+    display: inline-flex !important;
+    width: auto !important;
+    max-width: max-content !important;
+    align-self: flex-start !important;
+    margin-top: 8px;
+    margin-left: 20px;
+    text-decoration: none;
+}

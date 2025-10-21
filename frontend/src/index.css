@@ -3487,7 +3487,7 @@ table th {
   background-color: #34495e;
   color: white;
   padding: 20px;
-  border-radius: 5px 5px 0 0;
+  border-radius: 5px;
   margin-bottom: 20px;
 }
 
@@ -4024,7 +4024,7 @@ margin-left: 5px;
 }
 
 .content h2 {
-  color: #ffffff;
+  color: #333;
   font-size: 24px;
   margin-bottom: 20px;
 }
@@ -8828,39 +8828,48 @@ color: #333!important;
    мы управляем количеством карточек на странице через JS (itemsPerPage) */
 
 
-   /* ===== Job Details: 2 колонки только на мобилках ===== */
+/* ===== Job Details: 2 колонки на мобилках (форсим) ===== */
 @media (max-width: 759px) {
-  .job-details-panel {
-    display: flex;
-    flex-wrap: wrap;
-    /* создаём «внутренний» отступ между ячейками через паддинги,
-       чтобы не городить calc(50% - gap). */
-    margin: -6px; /* компенсируем паддинги детей */
+  .job-details-container .job-details-panel {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    column-gap: 12px !important;
+    row-gap: 12px !important;
+    align-items: start !important;
   }
 
-  .job-details-panel .job-detail-item {
-    flex: 0 0 50%;      /* две колонки */
-    max-width: 50%;
-    box-sizing: border-box;
-    padding: 6px;       /* «зазор» между карточками */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;           /* расстояние между иконкой и текстом */
-    text-align: center;
-    min-width: 0;       /* чтобы длинный текст не распирал колонку */
-    /* опционально: фон/бордер остаются как были у твоего .job-detail-item */
+  .job-details-container .job-details-panel .job-detail-item {
+    /* сбиваем возможные width:100%/display:block из старых стилей */
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 10px 8px !important;
+
+    display: flex !important;
+    gap: 8px !important;
+    justify-content: center !important;
+    text-align: center !important;
+    min-width: 0 !important;
   }
 
-  .job-details-panel .job-detail-item strong {
-    white-space: nowrap; /* метка типа "Salary:" не ломается на 2 строки */
+  .job-details-container .job-details-panel .job-detail-item strong {
+    white-space: nowrap;
   }
+}
 
-  /* если совсем узкие (<340px) — можно вернуть в одну колонку */
-  @media (max-width: 340px) {
-    .job-details-panel .job-detail-item {
-      flex-basis: 100%;
-      max-width: 100%;
-    }
+/* совсем узкие устройства — обратно в 1 колонку */
+@media (max-width: 340px) {
+  .job-details-container .job-details-panel {
+    grid-template-columns: 1fr !important;
   }
+}
+
+
+/* узкая колонка для коротких значений */
+.col--pending{
+  width:72px;
+  min-width:72px;
+  max-width:90px;
+  text-align:center;
+  white-space:nowrap;
 }

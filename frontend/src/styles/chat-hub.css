@@ -587,3 +587,4 @@ html, body { overflow-x: hidden; }
     -webkit-overflow-scrolling: touch;
   }
 }
+.ch-chatlist__item { position: relative; pointer-events: auto; }

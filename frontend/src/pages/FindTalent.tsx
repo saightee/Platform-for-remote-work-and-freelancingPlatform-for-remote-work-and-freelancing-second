@@ -203,33 +203,45 @@ const debouncedAutoSkillsKey = useDebouncedValue(autoSkillsKey, 400);
 const uniq = <T,>(arr: T[]) => Array.from(new Set(arr));
 
 function extractSkillNames(t: any): string[] {
-  const buckets: string[] = [];
+  const out: string[] = [];
+  const pushNames = (v: any) => {
+    if (!v) return;
+    if (Array.isArray(v)) {
+      for (const x of v) {
+        if (!x) continue;
+        if (typeof x === 'string') out.push(x);
+        else if (x?.name) out.push(x.name);
+      }
+    } else if (typeof v === 'string') {
+      out.push(...v.split(',').map((s) => s.trim()).filter(Boolean));
+    }
+  };
 
-  // 1) skills: может быть [{id,name}] ИЛИ ['Accountant', ...] ИЛИ 'a,b,c'
-  if (Array.isArray(t?.skills)) {
-    const names = t.skills.map((s: any) => typeof s === 'string' ? s : s?.name).filter(Boolean);
-    buckets.push(...names);
-  } else if (typeof t?.skills === 'string') {
-    buckets.push(...t.skills.split(',').map((s: string) => s.trim()).filter(Boolean));
-  }
+  // Основные поля
+  pushNames(t?.skills);
+  pushNames(t?.skills_all);
+  pushNames(t?.all_skills);
+  pushNames(t?.skills_full);
+  pushNames(t?.profile_skills);
+  pushNames(t?.skills_text);
 
-  // 2) возможные «полные» поля, если бек их присылает
-  const fallbacks = [t?.all_skills, t?.skills_all, t?.skills_full, t?.profile_skills];
-  for (const fb of fallbacks) {
-    if (Array.isArray(fb)) {
-      const names = fb.map((s: any) => typeof s === 'string' ? s : s?.name).filter(Boolean);
-      buckets.push(...names);
-    } else if (typeof fb === 'string') {
-      buckets.push(...fb.split(',').map((s: string) => s.trim()).filter(Boolean));
+  // Категории + подкатегории
+  if (Array.isArray(t?.categories)) {
+    for (const c of t.categories) {
+      if (c?.name) out.push(c.name);
+      if (Array.isArray(c?.subcategories)) {
+        for (const sub of c.subcategories) if (sub?.name) out.push(sub.name);
+      }
     }
   }
 
-  // 3) иногда навыки лежат в categories
-  if (Array.isArray(t?.categories)) {
-    buckets.push(...t.categories.map((c: any) => c?.name).filter(Boolean));
-  }
+  // На случай, если бэкенд кладёт в другое поле
+  pushNames(t?.categories_all);
+  pushNames(t?.profile_categories);
+  pushNames(t?.skill_names);
+  pushNames(t?.skill_list);
 
-  return uniq(buckets);
+  return Array.from(new Set(out));
 }
 
 
@@ -342,6 +354,30 @@ const response = await (searchType === 'talents'
       }
 
       if (seq !== reqSeq.current) return;
+           if (cleanedCountry) {
+        const tokens = cleanedCountry.split(',').map(s => s.trim()).filter(Boolean);
+        const isoTokens = tokens.filter(t => /^[A-Za-z]{2}$/i.test(t)).map(t => t.toUpperCase());
+
+        const resultCountries = new Set(
+          (talentData || [])
+            .map(t => String((t as any).country || '').toUpperCase())
+            .filter(Boolean)
+        );
+
+        const noIsoMatch = isoTokens.length > 0 && isoTokens.every(code => !resultCountries.has(code));
+
+        // Доп. эвристика: если введено что-то длиннее 2 букв (типа "wefwef") и бэкенд не отфильтровал
+        const looksLikeGarbage =
+          isoTokens.length === 0 &&
+          tokens.length === 1 &&
+          tokens[0].length >= 3 &&
+          resultCountries.size > 5; // слишком много разных стран => фильтр не применился
+
+        if (noIsoMatch || looksLikeGarbage) {
+          talentData = [];
+          totalCount = 0;
+        }
+      }
       setTalents(talentData);
       setTotal(totalCount);
     } catch (err) {
@@ -434,6 +470,30 @@ useEffect(() => {
     const d = setTimeout(searchCategoriesAsync, 300);
     return () => clearTimeout(d);
   }, [skillInput]);
+
+  const resetAll = () => {
+  setFilters({
+    username: '',
+    experience: '',
+    rating: undefined,
+    expected_salary_min: undefined,
+    expected_salary_max: undefined,
+    job_search_status: undefined,
+    page: 1,
+    limit: 10,
+    description: '',
+    countryOrCountries: '',
+    languages: [],
+    languages_mode: 'any',
+    has_resume: undefined,
+  });
+  setSearchInput('');
+  setLangInput('');
+  setSkillInput('');
+  setSelectedSkillId('');
+  setSearchParams({}, { replace: true });
+};
+
 
 const handleSearch = (e: React.FormEvent) => {
   e.preventDefault();
@@ -571,9 +631,13 @@ const handlePageChange = (newPage: number) => {
 
           <div className="ftl-content">
             {/* Filters */}
-            <aside className={`ftl-filters ${isFilterPanelOpen ? 'is-open' : ''}`}>
-              <h3 className="ftl-filters-title">Filters</h3>
-              <form onSubmit={handleSearch} className="ftl-form">
+<aside className={`ftl-filters ${isFilterPanelOpen ? 'is-open' : ''}`}>
+  <div className="ftl-filters-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+    <h3 className="ftl-filters-title">Filters</h3>
+    <button type="button" className="ftl-btn ftl-link" onClick={resetAll} title="Reset all filters">Reset</button>
+  </div>
+  <form onSubmit={handleSearch} className="ftl-form">
+
                 {searchType === 'jobseekers' && (
                   <div className="ftl-row">
                     <label className="ftl-label">Username</label>
@@ -612,7 +676,6 @@ const handlePageChange = (newPage: number) => {
     value={filters.countryOrCountries}
     onChange={(e) => setFilters(prev => ({ ...prev, countryOrCountries: e.target.value, page: 1 }))}
   />
-  <div className="ftl-help">Single value → <code>country=…</code>, CSV → <code>countries=…</code>. Backend сам мэпит названия в ISO2.</div>
 </div>
 
 {/* ✅ Languages tag-input (без нормализации) */}
@@ -682,26 +745,6 @@ const handlePageChange = (newPage: number) => {
     checked={!!filters.has_resume}
     onChange={(e) => setFilters(prev => ({ ...prev, has_resume: e.target.checked ? true : undefined, page: 1 }))}
   />
-  <button
-    type="button"
-    className="ftl-btn ftl-outline"
-    onClick={() => setFilters(prev => ({ ...prev, has_resume: false, page: 1 }))}
-    title="Only without resumes"
-    style={{ marginLeft: 8 }}
-  >
-    set false
-  </button>
-  {typeof filters.has_resume === 'boolean' && (
-    <button
-      type="button"
-      className="ftl-btn"
-      onClick={() => setFilters(prev => ({ ...prev, has_resume: undefined, page: 1 }))}
-      title="Clear"
-      style={{ marginLeft: 8 }}
-    >
-      clear
-    </button>
-  )}
 </div>
 
                 <div className="ftl-row">

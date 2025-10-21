@@ -1,0 +1,95 @@
+/* оболочка */
+.catc { width: 100%; margin: 0 auto; }
+.catc__title { font-size: 1.5rem; font-weight: 700; margin: 0 0 4px; }
+.catc__subtitle { color: #6b7280; margin: 0 0 16px; }
+
+/* карусель */
+.catc__shell {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+/* кнопки */
+.catc__arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: 9999px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+.catc__arrow[disabled] { opacity: .4; cursor: default; }
+
+/* вьюпорт + трек: touch-friendly */
+.catc__viewport {
+  overflow: hidden;           /* защищаем от горизонтального скроллбара */
+  overflow-x: auto;           /* но разрешаем тач-скролл */
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;   /* iOS плавный скролл */
+  touch-action: pan-y;                 /* не блокируем вертикальные жесты */
+  overscroll-behavior-x: contain;      /* без жестких «бросков» страницы */
+}
+
+.catc__track {
+  display: flex;
+  width: 100%;
+}
+
+/* слайды */
+.catc__page {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  padding: 8px 2px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr)); /* mobile: 2 колонки */
+}
+
+/* desktop сетка 2x5 (10 элементов) */
+@media (min-width: 640px) {
+  .catc__page {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* карточки */
+.catc__item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  text-decoration: none;
+  color: inherit;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.catc__item:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,.06); }
+
+.catc__icon { font-size: 24px; line-height: 1; }
+.catc__text { display: grid; gap: 2px; }
+.catc__name { font-weight: 600; }
+.catc__link { font-size: .875rem; color: #2563eb; }
+
+/* точки */
+.catc__dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.catc__dot {
+  width: 8px; height: 8px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+  border: none;
+  cursor: pointer;
+}
+.catc__dot.catc__dot--active { background: #2563eb; }
