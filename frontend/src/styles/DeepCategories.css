@@ -1,0 +1,274 @@
+/* Categories Carousel Styles */
+.categories-section {
+  padding: 3rem 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.categories-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.categories-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin-bottom: 0.75rem;
+  line-height: 1.2;
+}
+
+.categories-subtitle {
+  font-size: 1.125rem;
+  color: #718096;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.categories-carousel-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.carousel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 50%;
+  background: white;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.carousel-nav:hover:not(.carousel-nav--disabled) {
+  border-color: #4299e1;
+  background: #4299e1;
+  color: white;
+  transform: scale(1.05);
+}
+
+.carousel-nav--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.carousel-nav svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.categories-carousel {
+  display: flex;
+  gap: 1.5rem;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 0.5rem 0.25rem;
+  cursor: grab;
+  flex: 1;
+}
+
+.categories-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.categories-carousel:active {
+  cursor: grabbing;
+}
+
+.category-card {
+  flex: 0 0 calc(50% - 0.75rem);
+  min-width: 0;
+}
+
+.category-link {
+  display: block;
+  padding: 2rem 1.5rem;
+  background: white;
+  border: 2px solid #f7fafc;
+  border-radius: 1rem;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s ease;
+  height: 100%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.category-link:hover {
+  border-color: #4299e1;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(66, 153, 225, 0.15);
+}
+
+.category-icon {
+  width: 4rem;
+  height: 4rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+  color: white;
+}
+
+.category-icon svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+.category-content {
+  text-align: left;
+}
+
+.category-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.category-cta {
+  color: #4299e1;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: color 0.3s ease;
+}
+
+.category-link:hover .category-cta {
+  color: #2b6cb0;
+}
+
+.carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 2rem;
+}
+
+.carousel-dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  border: none;
+  background: #cbd5e0;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 0;
+}
+
+.carousel-dot:hover {
+  background: #a0aec0;
+  transform: scale(1.2);
+}
+
+.carousel-dot--active {
+  background: #4299e1;
+  transform: scale(1.2);
+}
+
+/* Responsive Design */
+@media (min-width: 640px) {
+  .categories-section {
+    padding: 4rem 1.5rem;
+  }
+  
+  .category-card {
+    flex: 0 0 calc(33.333% - 1rem);
+  }
+  
+  .categories-title {
+    font-size: 3rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .categories-section {
+    padding: 5rem 2rem;
+  }
+  
+  .category-card {
+    flex: 0 0 calc(25% - 1.125rem);
+  }
+  
+  .carousel-nav {
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .category-card {
+    flex: 0 0 calc(20% - 1.2rem);
+  }
+  
+  .categories-carousel {
+    gap: 1.5rem;
+    padding: 0.5rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .categories-section {
+    padding: 6rem 2rem;
+  }
+}
+
+/* Mobile-specific touch improvements */
+@media (max-width: 639px) {
+  .categories-carousel-container {
+    gap: 0.5rem;
+  }
+  
+  .carousel-nav {
+    display: none; /* Hide arrows on mobile for cleaner touch experience */
+  }
+  
+  .categories-carousel {
+    gap: 1rem;
+    padding: 0.25rem;
+  }
+  
+  .category-link {
+    padding: 1.5rem 1rem;
+  }
+  
+  .category-icon {
+    width: 3.5rem;
+    height: 3.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .category-icon svg {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+  
+  .category-name {
+    font-size: 1.125rem;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .categories-carousel {
+    scroll-behavior: auto;
+  }
+  
+  .category-link,
+  .carousel-nav,
+  .carousel-dot {
+    transition: none;
+  }
+}

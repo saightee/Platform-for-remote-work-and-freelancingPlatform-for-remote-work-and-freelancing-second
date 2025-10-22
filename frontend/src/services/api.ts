@@ -1297,21 +1297,29 @@ export const getGrowthTrends = async (params: { period: '7d' | '30d' }) => {
   return response.data;
 };
 
-export const getComplaints = async () => {
-  const response = await api.get<{
-    id: string;
-    complainant_id: string;
-    complainant: { id: string; username: string; email: string; role: string };
-    job_post_id?: string;
-    job_post?: { id: string; title: string; description: string };
-    profile_id?: string;
-    reason: string;
-    status: 'Pending' | 'Resolved' | 'Rejected';
-    created_at: string;
-    resolution_comment?: string;
-  }[]>('/admin/complaints');
-  return response.data;
-};
+// export const getComplaints = async () => {
+//   const response = await api.get<{
+//     id: string;
+//     complainant_id: string;
+//     complainant: { id: string; username: string; email: string; role: string };
+//     job_post_id?: string;
+//     job_post?: { id: string; title: string; description: string };
+//     profile_id?: string;
+//     reason: string;
+//     status: 'Pending' | 'Resolved' | 'Rejected';
+//     created_at: string;
+//     resolution_comment?: string;
+//   }[]>('/admin/complaints');
+//   return response.data;
+// };
+
+// services/api.ts
+export async function getComplaints<T = any>(
+  params?: { page?: number; limit?: number }
+): Promise<T[]> {
+  const res = await api.get('/admin/complaints', { params });
+  return res.data?.data ?? [];
+}
 
 export const resolveComplaint = async (id: string, data: { status: 'Resolved' | 'Rejected'; comment?: string }) => {
   const token = localStorage.getItem('token');
@@ -1876,7 +1884,7 @@ export const getTechFeedback = async (params: {
   user?: string; // id/username/email
   q?: string;    // фулл-текст по summary
 } = {}) => {
-  const { data } = await api.get<PaginatedResponse<TechFeedbackAdminItem>>('/admin/feedback', {
+  const { data } = await api.get<PaginatedResponse<TechFeedbackAdminItem>>('/feedback', {
     params,
   });
   return data; // { total, data: TechFeedbackAdminItem[] }

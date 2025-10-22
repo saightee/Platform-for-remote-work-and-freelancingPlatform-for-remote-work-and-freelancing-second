@@ -105,8 +105,8 @@
   gap:10px;
   margin-top:20px;
 }
-.ppx-actions-line .ppx-report{ margin-left:auto; }  /* Report уезжает вправо */
+.ppx-actions-line .ppx-report{ margin-left:48px; }  /* Report уезжает вправо */
 @media (max-width: 520px){
   .ppx-actions-line{ flex-direction:column; align-items:stretch; }
-  .ppx-actions-line .ppx-report{ margin-left:0; }
+  
 }
