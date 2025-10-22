@@ -66,9 +66,9 @@ const CategoriesCarousel: React.FC<CategoriesCarouselProps> = ({
       const width = window.innerWidth;
       if (width < 640) {
         setItemsPerView(2);
-      } else if (width < 1024) {
+      } else if (width < 768) {
         setItemsPerView(3);
-      } else if (width < 1280) {
+      } else if (width < 1024) {
         setItemsPerView(4);
       } else {
         setItemsPerView(5);
@@ -152,15 +152,15 @@ const CategoriesCarousel: React.FC<CategoriesCarouselProps> = ({
   }, [categories.length, itemsPerView, totalPages]);
 
   return (
-    <section className="categories-section">
+    <section className="categories-carousel">
       <div className="categories-header">
         <h2 className="categories-title">{title}</h2>
         <p className="categories-subtitle">{subtitle}</p>
       </div>
 
-      <div className="categories-carousel-container">
+      <div className="carousel-container">
         <button 
-          className={`carousel-nav carousel-nav--prev ${currentIndex === 0 ? 'carousel-nav--disabled' : ''}`}
+          className={`nav-btn nav-btn--prev ${currentIndex === 0 ? 'nav-btn--disabled' : ''}`}
           onClick={prevSlide}
           aria-label="Previous categories"
           disabled={currentIndex === 0}
@@ -170,7 +170,7 @@ const CategoriesCarousel: React.FC<CategoriesCarouselProps> = ({
 
         <div 
           ref={carouselRef}
-          className="categories-carousel"
+          className="carousel-track"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -182,14 +182,14 @@ const CategoriesCarousel: React.FC<CategoriesCarouselProps> = ({
           {categories.map((category) => {
             const Icon = getCategoryIcon(category.name);
             return (
-              <div key={category.id} className="category-card">
-                <Link to={`/find-job?category_id=${category.id}`} className="category-link">
-                  <div className="category-icon">
+              <div key={category.id} className="category-item">
+                <Link to={`/find-job?category_id=${category.id}`} className="category-card">
+                  <div className="card-icon">
                     <Icon />
                   </div>
-                  <div className="category-content">
-                    <h3 className="category-name">{category.name}</h3>
-                    <span className="category-cta">Browse Jobs</span>
+                  <div className="card-content">
+                    <h3 className="card-title">{category.name}</h3>
+                    <span className="card-link">Browse Jobs</span>
                   </div>
                 </Link>
               </div>
@@ -198,7 +198,7 @@ const CategoriesCarousel: React.FC<CategoriesCarouselProps> = ({
         </div>
 
         <button 
-          className={`carousel-nav carousel-nav--next ${currentIndex === totalPages - 1 ? 'carousel-nav--disabled' : ''}`}
+          className={`nav-btn nav-btn--next ${currentIndex === totalPages - 1 ? 'nav-btn--disabled' : ''}`}
           onClick={nextSlide}
           aria-label="Next categories"
           disabled={currentIndex === totalPages - 1}
@@ -209,11 +209,11 @@ const CategoriesCarousel: React.FC<CategoriesCarouselProps> = ({
 
       {/* Dots indicator */}
       {totalPages > 1 && (
-        <div className="carousel-dots">
+        <div className="carousel-indicators">
           {Array.from({ length: totalPages }).map((_, index) => (
             <button
               key={index}
-              className={`carousel-dot ${index === currentIndex ? 'carousel-dot--active' : ''}`}
+              className={`indicator ${index === currentIndex ? 'indicator--active' : ''}`}
               onClick={() => goToSlide(index)}
               aria-label={`Go to slide ${index + 1}`}
             />
