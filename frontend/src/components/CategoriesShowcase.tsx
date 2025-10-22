@@ -93,7 +93,8 @@ const CategoriesCarousel: React.FC<CategoriesCarouselProps> = ({
 }) => {
   const carouselRef = useRef<HTMLDivElement>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [itemsPerView, setItemsPerView] = useState(5);
+const [itemsPerView, setItemsPerView] = useState(5);
+const [pageCount, setPageCount] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
@@ -116,6 +117,28 @@ useEffect(() => {
   window.addEventListener('resize', updateItemsPerView);
   return () => window.removeEventListener('resize', updateItemsPerView);
 }, []);
+useEffect(() => {
+  const el = carouselRef.current;
+  if (!el) return;
+
+  const calc = () => {
+    const pageW = el.clientWidth || 1;
+    const pages = Math.max(1, Math.round((el.scrollWidth - 1) / pageW));
+    setPageCount(pages);
+    setCurrentIndex(i => Math.min(i, pages - 1));
+  };
+
+  calc();
+
+  const ro = new ResizeObserver(calc);
+  ro.observe(el);
+  window.addEventListener('resize', calc, { passive: true });
+
+  return () => {
+    ro.disconnect();
+    window.removeEventListener('resize', calc);
+  };
+}, [categories.length]);
 
   const totalPages = Math.ceil(categories.length / itemsPerView);
 
@@ -138,55 +161,48 @@ useEffect(() => {
     carouselRef.current.scrollLeft = scrollLeft - walk;
   }, [isDragging, startX, scrollLeft]);
 
-  const handleTouchEnd = useCallback(() => {
-    setIsDragging(false);
-    if (!carouselRef.current) return;
+const handleTouchEnd = useCallback(() => {
+  setIsDragging(false);
+  const el = carouselRef.current;
+  if (!el) return;
+  const pageW = el.clientWidth || 1;
+  const newIndex = Math.round(el.scrollLeft / pageW);
+  setCurrentIndex(Math.max(0, Math.min(newIndex, pageCount - 1)));
+}, [pageCount]);
 
-    const scrollPosition = carouselRef.current.scrollLeft;
-    const itemWidth = carouselRef.current.scrollWidth / categories.length;
-    const newIndex = Math.round(scrollPosition / (itemWidth * itemsPerView));
-    setCurrentIndex(Math.max(0, Math.min(newIndex, totalPages - 1)));
-  }, [categories.length, itemsPerView, totalPages]);
 
-  // Navigation
-  const goToSlide = (index: number) => {
-    if (!carouselRef.current) return;
-    
-    const scrollAmount = (carouselRef.current.scrollWidth / totalPages) * index;
-    carouselRef.current.scrollTo({
-      left: scrollAmount,
-      behavior: 'smooth'
-    });
-    setCurrentIndex(index);
+const goToSlide = (index: number) => {
+  const el = carouselRef.current;
+  if (!el) return;
+  const pageW = el.clientWidth || 1;
+  el.scrollTo({ left: Math.round(pageW * index), behavior: 'smooth' });
+  setCurrentIndex(index);
+};
+
+
+const nextSlide = () => {
+  if (currentIndex < pageCount - 1) goToSlide(currentIndex + 1);
+};
+
+const prevSlide = () => {
+  if (currentIndex > 0) goToSlide(currentIndex - 1);
+};
+
+
+useEffect(() => {
+  const el = carouselRef.current;
+  if (!el) return;
+
+  const onScroll = () => {
+    const pageW = el.clientWidth || 1;
+    const newIndex = Math.round(el.scrollLeft / pageW);
+    setCurrentIndex(Math.max(0, Math.min(newIndex, pageCount - 1)));
   };
 
-  const nextSlide = () => {
-    if (currentIndex < totalPages - 1) {
-      goToSlide(currentIndex + 1);
-    }
-  };
+  el.addEventListener('scroll', onScroll, { passive: true });
+  return () => el.removeEventListener('scroll', onScroll);
+}, [pageCount]);
 
-  const prevSlide = () => {
-    if (currentIndex > 0) {
-      goToSlide(currentIndex - 1);
-    }
-  };
-
-  // Auto update current index on scroll
-  useEffect(() => {
-    const carousel = carouselRef.current;
-    if (!carousel) return;
-
-    const handleScroll = () => {
-      const scrollPos = carousel.scrollLeft;
-      const itemWidth = carousel.scrollWidth / categories.length;
-      const newIndex = Math.round(scrollPos / (itemWidth * itemsPerView));
-      setCurrentIndex(Math.max(0, Math.min(newIndex, totalPages - 1)));
-    };
-
-    carousel.addEventListener('scroll', handleScroll, { passive: true });
-    return () => carousel.removeEventListener('scroll', handleScroll);
-  }, [categories.length, itemsPerView, totalPages]);
 
   return (
     <section className="categories-carousel">
@@ -234,29 +250,26 @@ useEffect(() => {
           })}
         </div>
 
-        <button 
-          className={`nav-btn nav-btn--next ${currentIndex === totalPages - 1 ? 'nav-btn--disabled' : ''}`}
-          onClick={nextSlide}
-          aria-label="Next categories"
-          disabled={currentIndex === totalPages - 1}
-        >
-          <FaChevronRight />
-        </button>
+   <button
+  className={`nav-btn nav-btn--next ${currentIndex === pageCount - 1 ? 'nav-btn--disabled' : ''}`}
+  onClick={nextSlide}
+  disabled={currentIndex === pageCount - 1}
+>
+  <FaChevronRight />
+</button>
       </div>
 
-      {/* Dots indicator */}
-      {totalPages > 1 && (
-        <div className="carousel-indicators">
-          {Array.from({ length: totalPages }).map((_, index) => (
-            <button
-              key={index}
-              className={`indicator ${index === currentIndex ? 'indicator--active' : ''}`}
-              onClick={() => goToSlide(index)}
-              aria-label={`Go to slide ${index + 1}`}
-            />
-          ))}
-        </div>
-      )}
+{pageCount > 1 && (
+  <div className="carousel-indicators">
+    {Array.from({ length: pageCount }).map((_, index) => (
+      <button
+        key={index}
+        className={`indicator ${index === currentIndex ? 'indicator--active' : ''}`}
+        onClick={() => goToSlide(index)}
+      />
+    ))}
+  </div>
+)}
     </section>
   );
 };

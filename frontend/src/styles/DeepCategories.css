@@ -75,7 +75,8 @@
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
-
+scroll-snap-type: x proximity;
+  -ms-scroll-snap-type: mandatory; /* старый Edge, не мешает */
   padding: 0.75rem 0.5rem;
   cursor: grab;
   flex: 1;
@@ -235,3 +236,4 @@
     flex: 1;
 }
 }
+
