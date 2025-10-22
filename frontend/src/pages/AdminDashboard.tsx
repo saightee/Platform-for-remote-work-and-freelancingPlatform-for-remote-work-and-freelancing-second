@@ -602,8 +602,8 @@ const submitResolveComplaint = async () => {
   if (!resolveModal) return;
   try {
     await resolveComplaint(resolveModal.id, { status: resolveModal.status, comment: resolveModal.comment || undefined });
-    const updatedComplaints = await getComplaints();
-    setComplaints(updatedComplaints || []);
+    const updatedComplaints = await getComplaints<Complaint>();
+setComplaints(updatedComplaints || []);
     setResolveModal(null);
     alert('Complaint resolved successfully!');
   } catch (error) {
@@ -1245,7 +1245,8 @@ useEffect(() => {
   if (!socket) return;
 
   const onJobPostsChanged = () => fetchJobPosts();
-  const onComplaintsChanged = async () => setComplaints(await getComplaints() || []);
+  const onComplaintsChanged = async () =>
+  setComplaints((await getComplaints<Complaint>()) || []);
   const onReferralChanged = async () => setReferralLinks(await getReferralLinks({}) || []);
   const onUsersChanged = () => fetchUsers({ page: userPage, limit: userLimit });
 
@@ -2183,8 +2184,8 @@ useEffect(() => {
   if (activeTab !== 'Complaints') return;
   (async () => {
     try {
-      const data = await getComplaints();
-      setComplaints(data || []);
+    const updatedComplaints = await getComplaints<Complaint>();
+setComplaints(updatedComplaints || []);
     } catch {/* ignore */}
   })();
 }, [activeTab]);

@@ -1,130 +1,227 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Category } from '@types';
-import { getCategoryIcon } from '../constants/categoryIcons';
-import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
-import '../styles/categories-carousel.css';
+import { IconType } from 'react-icons';
+import { 
+  FaCalculator, 
+  FaBullhorn, 
+  FaHeadset, 
+  FaUserTie, 
+  FaChartBar, 
+  FaPalette,
+  FaShoppingCart, 
+  FaMoneyBill, 
+  FaUsers, 
+  FaNetworkWired,
+  FaChevronLeft,
+  FaChevronRight
+} from 'react-icons/fa';
+import '../styles/DeepCategories.css';
 
+// Types
+interface Category {
+  id: string;
+  name: string;
+}
 
-type Props = {
+interface CategoriesCarouselProps {
   categories: Category[];
   title?: string;
   subtitle?: string;
+}
+
+// Category icons mapping
+const categoryIcons: Record<string, IconType> = {
+  'accounting': FaCalculator,
+  'advertising': FaBullhorn,
+  'call-center': FaHeadset,
+  'customer-service': FaUserTie,
+  'data-analysis': FaChartBar,
+  'design': FaPalette,
+  'e-commerce': FaShoppingCart,
+  'finance': FaMoneyBill,
+  'hr': FaUsers,
+  'it': FaNetworkWired,
 };
 
-const useItemsPerPage = () => {
-  const [ipp, setIpp] = useState(10); // desktop: 10 (2x5), mobile: 2 (как у талантов)
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 640px)');
-    const apply = () => setIpp(mq.matches ? 2 : 10);
-    apply();
-    mq.addEventListener('change', apply);
-    return () => mq.removeEventListener('change', apply);
-  }, []);
-  return ipp;
+const getCategoryIcon = (categoryName: string): IconType => {
+  const normalizedName = categoryName.toLowerCase().replace(/\s+/g, '-');
+  return categoryIcons[normalizedName] || FaUserTie;
 };
 
-const CategoriesShowcase: React.FC<Props> = ({
+const CategoriesCarousel: React.FC<CategoriesCarouselProps> = ({
   categories,
-  title = 'Browse by category',
-  subtitle = "Find the job that's perfect for you. about 800+ new jobs everyday",
+  title = "Browse by category",
+  subtitle = "Find the job that's perfect for you. about 800+ new jobs everyday"
 }) => {
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const itemsPerPage = useItemsPerPage();
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [itemsPerView, setItemsPerView] = useState(5);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
 
-  // Разбиваем категории по страницам (10 на десктопе / 2 на мобиле)
-  const pages = useMemo(() => {
-    const out: Category[][] = [];
-    for (let i = 0; i < categories.length; i += itemsPerPage) {
-      out.push(categories.slice(i, i + itemsPerPage));
-    }
-    return out;
-  }, [categories, itemsPerPage]);
-
-  const [page, setPage] = useState(0);
-  const maxPage = Math.max(0, pages.length - 1);
-
-  // синхронизация индикатора со скроллом (айфоны любят нативный скролл)
+  // Calculate responsive items per view
   useEffect(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      const idx = Math.round(el.scrollLeft / el.clientWidth);
-      if (idx !== page) setPage(idx);
+    const updateItemsPerView = () => {
+      const width = window.innerWidth;
+      if (width < 640) {
+        setItemsPerView(2);
+      } else if (width < 1024) {
+        setItemsPerView(3);
+      } else if (width < 1280) {
+        setItemsPerView(4);
+      } else {
+        setItemsPerView(5);
+      }
     };
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
-  }, [page]);
 
-  // при изменении кол-ва страниц — ограничиваем текущую и доскролливаем
-  useEffect(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-    const clamped = Math.min(page, maxPage);
-    if (clamped !== page) setPage(clamped);
-    // держим нужный слайд после поворота экрана/ресайза
-    el.scrollTo({ left: clamped * el.clientWidth, behavior: 'auto' });
-  }, [maxPage]);
+    updateItemsPerView();
+    window.addEventListener('resize', updateItemsPerView);
+    return () => window.removeEventListener('resize', updateItemsPerView);
+  }, []);
 
-  const goTo = (i: number) => {
-    const el = viewportRef.current;
-    if (!el) return;
-    const target = Math.max(0, Math.min(i, maxPage));
-    el.scrollTo({ left: target * el.clientWidth, behavior: 'smooth' });
-    setPage(target);
+  const totalPages = Math.ceil(categories.length / itemsPerView);
+
+  // Touch and mouse events for swipe
+  const handleTouchStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    setIsDragging(true);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    setStartX(clientX);
+    if (carouselRef.current) {
+      setScrollLeft(carouselRef.current.scrollLeft);
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    if (!isDragging || !carouselRef.current) return;
+    
+    e.preventDefault();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const walk = (clientX - startX) * 2;
+    carouselRef.current.scrollLeft = scrollLeft - walk;
+  }, [isDragging, startX, scrollLeft]);
+
+  const handleTouchEnd = useCallback(() => {
+    setIsDragging(false);
+    if (!carouselRef.current) return;
+
+    const scrollPosition = carouselRef.current.scrollLeft;
+    const itemWidth = carouselRef.current.scrollWidth / categories.length;
+    const newIndex = Math.round(scrollPosition / (itemWidth * itemsPerView));
+    setCurrentIndex(Math.max(0, Math.min(newIndex, totalPages - 1)));
+  }, [categories.length, itemsPerView, totalPages]);
+
+  // Navigation
+  const goToSlide = (index: number) => {
+    if (!carouselRef.current) return;
+    
+    const scrollAmount = (carouselRef.current.scrollWidth / totalPages) * index;
+    carouselRef.current.scrollTo({
+      left: scrollAmount,
+      behavior: 'smooth'
+    });
+    setCurrentIndex(index);
   };
 
+  const nextSlide = () => {
+    if (currentIndex < totalPages - 1) {
+      goToSlide(currentIndex + 1);
+    }
+  };
+
+  const prevSlide = () => {
+    if (currentIndex > 0) {
+      goToSlide(currentIndex - 1);
+    }
+  };
+
+  // Auto update current index on scroll
+  useEffect(() => {
+    const carousel = carouselRef.current;
+    if (!carousel) return;
+
+    const handleScroll = () => {
+      const scrollPos = carousel.scrollLeft;
+      const itemWidth = carousel.scrollWidth / categories.length;
+      const newIndex = Math.round(scrollPos / (itemWidth * itemsPerView));
+      setCurrentIndex(Math.max(0, Math.min(newIndex, totalPages - 1)));
+    };
+
+    carousel.addEventListener('scroll', handleScroll, { passive: true });
+    return () => carousel.removeEventListener('scroll', handleScroll);
+  }, [categories.length, itemsPerView, totalPages]);
+
   return (
- <div className="catc">
-  <h2 className="catc__title">{title}</h2>
-  <p className="catc__subtitle">{subtitle}</p>
+    <section className="categories-section">
+      <div className="categories-header">
+        <h2 className="categories-title">{title}</h2>
+        <p className="categories-subtitle">{subtitle}</p>
+      </div>
 
-  <div className="catc__shell">
-    <button className="catc__arrow catc__arrow--left" onClick={() => goTo(page - 1)} disabled={page === 0} aria-label="Previous">
-      <FaChevronLeft />
-    </button>
+      <div className="categories-carousel-container">
+        <button 
+          className={`carousel-nav carousel-nav--prev ${currentIndex === 0 ? 'carousel-nav--disabled' : ''}`}
+          onClick={prevSlide}
+          aria-label="Previous categories"
+          disabled={currentIndex === 0}
+        >
+          <FaChevronLeft />
+        </button>
 
-    <div className="catc__viewport" ref={viewportRef}>
-      <div className="catc__track">
-        {pages.map((group, idx) => (
-          <div className="catc__page" key={idx} aria-roledescription="slide">
-            {group.map((cat) => {
-              const Icon = getCategoryIcon(cat.name);
-              return (
-                <Link key={cat.id} to={`/find-job?category_id=${cat.id}`} className="catc__item">
-                  <div className="catc__icon"><Icon /></div>
-                  <div className="catc__text">
-                    <div className="catc__name">{cat.name}</div>
-                    <div className="catc__link">Browse Jobs</div>
+        <div 
+          ref={carouselRef}
+          className="categories-carousel"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onMouseDown={handleTouchStart}
+          onMouseMove={handleTouchMove}
+          onMouseUp={handleTouchEnd}
+          onMouseLeave={handleTouchEnd}
+        >
+          {categories.map((category) => {
+            const Icon = getCategoryIcon(category.name);
+            return (
+              <div key={category.id} className="category-card">
+                <Link to={`/find-job?category_id=${category.id}`} className="category-link">
+                  <div className="category-icon">
+                    <Icon />
+                  </div>
+                  <div className="category-content">
+                    <h3 className="category-name">{category.name}</h3>
+                    <span className="category-cta">Browse Jobs</span>
                   </div>
                 </Link>
-              );
-            })}
-          </div>
-        ))}
+              </div>
+            );
+          })}
+        </div>
+
+        <button 
+          className={`carousel-nav carousel-nav--next ${currentIndex === totalPages - 1 ? 'carousel-nav--disabled' : ''}`}
+          onClick={nextSlide}
+          aria-label="Next categories"
+          disabled={currentIndex === totalPages - 1}
+        >
+          <FaChevronRight />
+        </button>
       </div>
-    </div>
 
-    <button className="catc__arrow catc__arrow--right" onClick={() => goTo(page + 1)} disabled={page === maxPage} aria-label="Next">
-      <FaChevronRight />
-    </button>
-  </div>
-
-  <div className="catc__dots" role="tablist" aria-label="Categories pages">
-    {Array.from({ length: maxPage + 1 }).map((_, i) => (
-      <button
-        key={i}
-        role="tab"
-        aria-selected={page === i}
-        aria-label={`Go to slide ${i + 1}`}
-        className={`catc__dot ${page === i ? 'catc__dot--active' : ''}`}
-        onClick={() => goTo(i)}
-      />
-    ))}
-  </div>
-</div>
-
+      {/* Dots indicator */}
+      {totalPages > 1 && (
+        <div className="carousel-dots">
+          {Array.from({ length: totalPages }).map((_, index) => (
+            <button
+              key={index}
+              className={`carousel-dot ${index === currentIndex ? 'carousel-dot--active' : ''}`}
+              onClick={() => goToSlide(index)}
+              aria-label={`Go to slide ${index + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </section>
   );
 };
 
-export default CategoriesShowcase;
+export default CategoriesCarousel;

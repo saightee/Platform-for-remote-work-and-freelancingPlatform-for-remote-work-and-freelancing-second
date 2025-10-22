@@ -424,9 +424,10 @@ if (first) setSelectedChat(toId(first));
 
   
 
-  // при смене выбранной вакансии — снимаем выделение чата
-// при смене выбранной вакансии — автоматически открываем самый «свежий» чат
+// при смене выбранной вакансии (только у работодателя) — открыть самый «свежий» чат
 useEffect(() => {
+  if (currentRole !== 'employer') return; // <-- ключевое ограничение по роли
+
   setMultiMode(false);
   clearSelection();
 
@@ -443,19 +444,26 @@ useEffect(() => {
     return;
   }
 
-
   const sorted = [...allowed].sort(
     (a, b) =>
       getLastActivity(b.applicationId, b.appliedAt) -
       getLastActivity(a.applicationId, a.appliedAt)
   );
-const newestId = toId(sorted[0].applicationId);
+  const newestId = toId(sorted[0].applicationId);
 
-if (toId(selectedChat) !== newestId) {
-  setSelectedChat(newestId);
-  void handleSelectChat(newestId);
-}
-}, [activeJobId, jobPostApplications, getLastActivity, selectedChat]);
+  // не трогаем выбор пользователя, если он уже внутри текущей вакансии
+  if (selectedChat == null) {
+    setSelectedChat(newestId);
+    void handleSelectChat(newestId);
+  } else {
+    const belongsToCurrentJob = allowed.some(a => toId(a.applicationId) === toId(selectedChat));
+    if (!belongsToCurrentJob) {
+      setSelectedChat(newestId);
+      void handleSelectChat(newestId);
+    }
+  }
+}, [currentRole, activeJobId, jobPostApplications, getLastActivity]); // <-- убрали selectedChat
+
 
 
   const scrollToBottom = useCallback((smooth: boolean = false) => {

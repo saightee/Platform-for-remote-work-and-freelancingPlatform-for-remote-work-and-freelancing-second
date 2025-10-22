@@ -14,7 +14,8 @@ import { Helmet } from 'react-helmet-async';
 import { brand, brandBackendOrigin } from '../brand';
 import { useRole } from '../context/RoleContext';
 import { toast } from '../utils/toast';
-
+import CountrySelect from '../components/inputs/CountrySelect';
+import '../styles/country-langs.css';
 
 function useDebouncedValue<T>(value: T, delay = 400) {
   const [debounced, setDebounced] = useState(value);
@@ -56,7 +57,7 @@ const [filters, setFilters] = useState<{
   description?: string;
 
   /** ✅ NEW */
-  countryOrCountries: string;              // одно поле ввода; CSV => countries, одно значение => country
+  country: string;               // одно поле ввода; CSV => countries, одно значение => country
   languages: string[];                     // список тегов как ввёл пользователь
   languages_mode: 'any' | 'all';
   has_resume?: boolean;
@@ -78,18 +79,15 @@ const [filters, setFilters] = useState<{
   limit: 10,
   description: searchParams.get('description') || '',
 
-  /** ✅ из URL */
-  countryOrCountries:
-    // поддержка обоих форматов ?country=... и ?countries=... (повторяющиеся или CSV)
-    ((): string => {
-      const single = searchParams.get('country') || '';
-      const multi = searchParams.getAll('countries');
-      if (multi.length) {
-        const csv = multi.join(',').trim();
-        return csv || single;
-      }
-      return single;
-    })(),
+  country: (() => {
+    const single = (searchParams.get('country') || '').toUpperCase();
+    const multi  = searchParams.getAll('countries');
+    if (multi.length) {
+      const first = multi.join(',').split(',').map(s => s.trim()).filter(Boolean)[0];
+      return (first || single).toUpperCase();
+    }
+   return single;
+ })(),
   languages: ((): string[] => {
     const raw = searchParams.getAll('languages');
     if (raw.length) return raw.join(',').split(',').map(s => s.trim()).filter(Boolean);
@@ -288,18 +286,8 @@ function extractSkillNames(t: any): string[] {
         (selectedSkillId || useAutoSkills)
           ? undefined
           : (debouncedFilters.description || undefined);
-const cleanedCountry = (debouncedFilters.countryOrCountries || '')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean)
-  .join(',');
-const isCSV = cleanedCountry.includes(',');
-const geoParams: any = {};
-if (cleanedCountry) {
-  if (isCSV) geoParams.countries = cleanedCountry; // "US,CA" или "India,Philippines"
-  else geoParams.country = cleanedCountry;         // "United States" / "US" / "Россия"
-}
-
+const countryCode = (debouncedFilters.country || '').toUpperCase();
+const geoParams: any = countryCode ? { country: countryCode } : {};
 
 // языки — как есть, без нормализации на фронте
 const langs = (debouncedFilters.languages || []).map(s => s.trim()).filter(Boolean);
@@ -353,31 +341,7 @@ const response = await (searchType === 'talents'
         return;
       }
 
-      if (seq !== reqSeq.current) return;
-           if (cleanedCountry) {
-        const tokens = cleanedCountry.split(',').map(s => s.trim()).filter(Boolean);
-        const isoTokens = tokens.filter(t => /^[A-Za-z]{2}$/i.test(t)).map(t => t.toUpperCase());
-
-        const resultCountries = new Set(
-          (talentData || [])
-            .map(t => String((t as any).country || '').toUpperCase())
-            .filter(Boolean)
-        );
-
-        const noIsoMatch = isoTokens.length > 0 && isoTokens.every(code => !resultCountries.has(code));
-
-        // Доп. эвристика: если введено что-то длиннее 2 букв (типа "wefwef") и бэкенд не отфильтровал
-        const looksLikeGarbage =
-          isoTokens.length === 0 &&
-          tokens.length === 1 &&
-          tokens[0].length >= 3 &&
-          resultCountries.size > 5; // слишком много разных стран => фильтр не применился
-
-        if (noIsoMatch || looksLikeGarbage) {
-          talentData = [];
-          totalCount = 0;
-        }
-      }
+     
       setTalents(talentData);
       setTotal(totalCount);
     } catch (err) {
@@ -482,7 +446,7 @@ useEffect(() => {
     page: 1,
     limit: 10,
     description: '',
-    countryOrCountries: '',
+    country: '',
     languages: [],
     languages_mode: 'any',
     has_resume: undefined,
@@ -515,16 +479,8 @@ const handleSearch = (e: React.FormEvent) => {
   if (filters.expected_salary_max != null && !Number.isNaN(filters.expected_salary_max)) nextParams.expected_salary_max = String(filters.expected_salary_max);
   if (filters.job_search_status) nextParams.job_search_status = filters.job_search_status;
   // ✅ NEW: страна/страны
-const cc = (filters.countryOrCountries || '')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean)
-  .join(',');
-if (cc) {
-  if (cc.includes(',')) nextParams.countries = cc;  // CSV
-  else nextParams.country = cc;
-}
 
+if (filters.country) nextParams.country = filters.country.toUpperCase();
 
 // ✅ NEW: языки (CSV)
 if (filters.languages.length) {
@@ -666,18 +622,15 @@ const handlePageChange = (newPage: number) => {
                     <option value="6+ years">6+ years</option>
                   </select>
                 </div>
-{/* ✅ Country (одно поле, поддерживает и название, и ISO2, и CSV) */}
-<div className="ftl-row">
-  <label className="ftl-label">Country</label>
-  <input
-    className="ftl-input"
-    type="text"
-    placeholder='e.g. "United States" or "US" or "India,Philippines"'
-    value={filters.countryOrCountries}
-    onChange={(e) => setFilters(prev => ({ ...prev, countryOrCountries: e.target.value, page: 1 }))}
-  />
-</div>
 
+<div className="ftl-row">
+  <CountrySelect
+    label="Country"
+    placeholder="Start typing a country…"
+    value={filters.country}
+    onChange={(code) => setFilters(prev => ({ ...prev, country: code || '', page: 1 }))}
+  />
+ </div>
 {/* ✅ Languages tag-input (без нормализации) */}
 <div className="ftl-row">
   <label className="ftl-label">Languages</label>
