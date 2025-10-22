@@ -1,19 +1,11 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { IconType } from 'react-icons';
-import { 
-  FaCalculator, 
-  FaBullhorn, 
-  FaHeadset, 
-  FaUserTie, 
-  FaChartBar, 
-  FaPalette,
-  FaShoppingCart, 
-  FaMoneyBill, 
-  FaUsers, 
-  FaNetworkWired,
-  FaChevronLeft,
-  FaChevronRight
+import {
+  FaCalculator, FaBullhorn, FaHeadset, FaUserTie, FaChartBar, FaPalette,
+  FaShoppingCart, FaMoneyBill, FaUsers, FaNetworkWired, FaChevronLeft, FaChevronRight,
+  FaLanguage, FaGavel, FaChartLine, FaBuilding, FaUsersCog, FaBriefcase,
+  FaTasks, FaHandshake, FaCode, FaChalkboardTeacher, FaCalendarCheck, FaLaptopCode, FaTools, FaPen
 } from 'react-icons/fa';
 import '../styles/DeepCategories.css';
 
@@ -29,23 +21,69 @@ interface CategoriesCarouselProps {
   subtitle?: string;
 }
 
-// Category icons mapping
-const categoryIcons: Record<string, IconType> = {
+const categoryIconBySlug: Record<string, IconType> = {
   'accounting': FaCalculator,
   'advertising': FaBullhorn,
   'call-center': FaHeadset,
-  'customer-service': FaUserTie,
+  'customer-service-admin-support': FaUserTie,
   'data-analysis': FaChartBar,
   'design': FaPalette,
   'e-commerce': FaShoppingCart,
-  'finance': FaMoneyBill,
-  'hr': FaUsers,
-  'it': FaNetworkWired,
+  'finance-management': FaMoneyBill,
+  'hr-recruiting': FaUsers,
+  'it-networking': FaNetworkWired,
+  'language-services': FaLanguage,
+  'legal': FaGavel,
+  'marketing-sales': FaChartLine,
+  'office-and-admin': FaBuilding,
+  'online-community-management': FaUsersCog,
+  'professional-services': FaBriefcase,
+  'project-coordination': FaTasks,
+  'sales': FaHandshake,
+  'software-and-mobile-development': FaCode,
+  'training-education': FaChalkboardTeacher,
+  'virtual-event-planning': FaCalendarCheck,
+  'web-development': FaLaptopCode,
+  'website-builder': FaTools,
+  'writing': FaPen,
 };
 
-const getCategoryIcon = (categoryName: string): IconType => {
-  const normalizedName = categoryName.toLowerCase().replace(/\s+/g, '-');
-  return categoryIcons[normalizedName] || FaUserTie;
+/* алиасы часто встречающихся названий */
+const categorySlugAliases: Record<string, string> = {
+  'accounting-finance': 'accounting',
+  'finance-accounting': 'accounting',
+  'human-resources': 'hr-recruiting',
+  'hr-and-recruiting': 'hr-recruiting',
+  'it-support': 'it-networking',
+  'networking': 'it-networking',
+  'customer-service': 'customer-service-admin-support',
+  'admin-support': 'office-and-admin',
+  'sales-and-marketing': 'marketing-sales',
+  'marketing': 'marketing-sales',
+  'sales-marketing': 'marketing-sales',
+  'software-development': 'software-and-mobile-development',
+  'mobile-development': 'software-and-mobile-development',
+  'data-science': 'data-analysis',
+  'ecommerce': 'e-commerce',
+  'web-design': 'web-development',
+  'graphic-design': 'design',
+  'training': 'training-education',
+  'education': 'training-education',
+};
+
+const slugify = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^\p{Letter}\p{Number}]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+
+/* итоговая функция иконки (подставит брифкейс по умолчанию) */
+const getCategoryIcon = (rawName: string): IconType => {
+  const slug = slugify(rawName);
+  const normalized = categorySlugAliases[slug] || slug;
+  return categoryIconBySlug[normalized] || FaBriefcase;
 };
 
 const CategoriesCarousel: React.FC<CategoriesCarouselProps> = ({
@@ -60,25 +98,24 @@ const CategoriesCarousel: React.FC<CategoriesCarouselProps> = ({
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
 
-  // Calculate responsive items per view
-  useEffect(() => {
-    const updateItemsPerView = () => {
-      const width = window.innerWidth;
-      if (width < 640) {
-        setItemsPerView(2);
-      } else if (width < 768) {
-        setItemsPerView(3);
-      } else if (width < 1024) {
-        setItemsPerView(4);
-      } else {
-        setItemsPerView(5);
-      }
-    };
-
-    updateItemsPerView();
-    window.addEventListener('resize', updateItemsPerView);
-    return () => window.removeEventListener('resize', updateItemsPerView);
-  }, []);
+// Calculate responsive items per view (2 ряда)
+useEffect(() => {
+  const updateItemsPerView = () => {
+    const width = window.innerWidth;
+    if (width < 640) {
+      setItemsPerView(4);  // 2 колонки × 2 ряда
+    } else if (width < 768) {
+      setItemsPerView(6);  // 3 × 2
+    } else if (width < 1024) {
+      setItemsPerView(8);  // 4 × 2
+    } else {
+      setItemsPerView(10); // 5 × 2
+    }
+  };
+  updateItemsPerView();
+  window.addEventListener('resize', updateItemsPerView);
+  return () => window.removeEventListener('resize', updateItemsPerView);
+}, []);
 
   const totalPages = Math.ceil(categories.length / itemsPerView);
 
