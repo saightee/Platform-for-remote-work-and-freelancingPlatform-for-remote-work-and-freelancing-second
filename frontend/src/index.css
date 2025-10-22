@@ -1497,54 +1497,7 @@ display: grid;
   line-height: 1.5;
 }
 
-/* Categories Section */
-.categories {
-  text-align: center;
-  margin: 65px 0;
-}
 
-.categories h2 {
-  margin-bottom: 30px;
-}
-
-.category-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: center;
-}
-
-.category-item {
-  padding: 10px 20px;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-  background-color: #E8ECEF;
-  color: #636363;
-}
-
-.category-item:hover {
-  background-color: #D1D5DB;
-}
-
-/* Уникальные стили для каждой категории */
-.category-0 { font-family: 'Open Sans', sans-serif; font-weight: 700; font-size: 16px; text-transform: uppercase; }
-.category-1 { font-family: 'Montserrat', sans-serif; font-weight: 400; font-size: 14px; text-transform: capitalize; }
-.category-2 { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 15px; text-transform: uppercase; }
-.category-3 { font-family: 'Lora', sans-serif; font-weight: 400; font-size: 15px; text-transform: capitalize; }
-.category-4 { font-family: 'Playfair Display', sans-serif; font-weight: 400; font-size: 13px; text-transform: lowercase; }
-.category-5 { font-family: 'Raleway', sans-serif; font-weight: 700; font-size: 14px; text-transform: capitalize; }
-.category-6 { font-family: 'Source Serif Pro', sans-serif; font-weight: 700; font-size: 16px; text-transform: uppercase; }
-.category-7 { font-family: 'Nunito', sans-serif; font-weight: 400; font-size: 14px; text-transform: capitalize; }
-.category-8 { font-family: 'Quicksand', sans-serif; font-weight: 700; font-size: 15px; text-transform: uppercase; }
-.category-9 { font-family: 'Cabin', sans-serif; font-weight: 400; font-size: 14px; text-transform: capitalize; }
-.category-10 { font-family: 'Arvo', sans-serif; font-weight: 700; font-size: 16px; text-transform: uppercase; }
-.category-11 { font-family: 'Merriweather', sans-serif; font-weight: 400; font-size: 14px; text-transform: capitalize; }
-.category-12 { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 15px; text-transform: lowercase; }
-.category-13 { font-family: 'Roboto Slab', sans-serif; font-weight: 400; font-size: 14px; text-transform: capitalize; }
-.category-14 { font-family: 'PT Serif', sans-serif; font-weight: 700; font-size: 16px; text-transform: uppercase; }
-.category-15 { font-family: 'Inconsolata', sans-serif; font-weight: 400; font-size: 14px; text-transform: capitalize; }
-.category-16 { font-family: 'Dosis', sans-serif; font-weight: 700; font-size: 15px; text-transform: capitalize; }
 
 /* CTA Section */
 .cta-section {
