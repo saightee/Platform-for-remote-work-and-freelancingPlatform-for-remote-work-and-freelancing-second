@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Category } from '@types';
 import { getCategoryIcon } from '../constants/categoryIcons';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import '../styles/categories-carousel.css';
+
 
 type Props = {
   categories: Category[];
@@ -61,7 +63,7 @@ const CategoriesShowcase: React.FC<Props> = ({
     const clamped = Math.min(page, maxPage);
     if (clamped !== page) setPage(clamped);
     // держим нужный слайд после поворота экрана/ресайза
-    el.scrollTo({ left: clamped * el.clientWidth, behavior: 'instant' as any });
+    el.scrollTo({ left: clamped * el.clientWidth, behavior: 'auto' });
   }, [maxPage]);
 
   const goTo = (i: number) => {
@@ -73,68 +75,55 @@ const CategoriesShowcase: React.FC<Props> = ({
   };
 
   return (
-    <div className="cc-wrap">
-      <h2 className="cc-title">{title}</h2>
-      <p className="cc-sub">{subtitle}</p>
+ <div className="catc">
+  <h2 className="catc__title">{title}</h2>
+  <p className="catc__subtitle">{subtitle}</p>
 
-      <div className="cs-shell">
-        <button
-          className="cc-arrow cc-arrow--left"
-          onClick={() => goTo(page - 1)}
-          disabled={page === 0}
-          aria-label="Previous"
-        >
-          <FaChevronLeft />
-        </button>
+  <div className="catc__shell">
+    <button className="catc__arrow catc__arrow--left" onClick={() => goTo(page - 1)} disabled={page === 0} aria-label="Previous">
+      <FaChevronLeft />
+    </button>
 
-        <div className="cs-viewport" ref={viewportRef}>
-          <div className="cs-track">
-            {pages.map((group, idx) => (
-              <div className="cs-page" key={idx} aria-roledescription="slide">
-                {group.map((cat) => {
-                  const Icon = getCategoryIcon(cat.name);
-                  return (
-                    <Link
-                      key={cat.id}
-                      to={`/find-job?category_id=${cat.id}`}
-                      className="cc-item"
-                    >
-                      <div className="cc-icon"><Icon /></div>
-                      <div className="cc-text">
-                        <div className="cc-name">{cat.name}</div>
-                        <div className="cc-link">Browse Jobs</div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            ))}
+    <div className="catc__viewport" ref={viewportRef}>
+      <div className="catc__track">
+        {pages.map((group, idx) => (
+          <div className="catc__page" key={idx} aria-roledescription="slide">
+            {group.map((cat) => {
+              const Icon = getCategoryIcon(cat.name);
+              return (
+                <Link key={cat.id} to={`/find-job?category_id=${cat.id}`} className="catc__item">
+                  <div className="catc__icon"><Icon /></div>
+                  <div className="catc__text">
+                    <div className="catc__name">{cat.name}</div>
+                    <div className="catc__link">Browse Jobs</div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
-        </div>
-
-        <button
-          className="cc-arrow cc-arrow--right"
-          onClick={() => goTo(page + 1)}
-          disabled={page === maxPage}
-          aria-label="Next"
-        >
-          <FaChevronRight />
-        </button>
-      </div>
-
-      <div className="cc-dots" role="tablist" aria-label="Categories pages">
-        {Array.from({ length: maxPage + 1 }).map((_, i) => (
-          <button
-            key={i}
-            role="tab"
-            aria-selected={page === i}
-            aria-label={`Go to slide ${i + 1}`}
-            className={`cc-dot ${page === i ? 'cc-dot--active' : ''}`}
-            onClick={() => goTo(i)}
-          />
         ))}
       </div>
     </div>
+
+    <button className="catc__arrow catc__arrow--right" onClick={() => goTo(page + 1)} disabled={page === maxPage} aria-label="Next">
+      <FaChevronRight />
+    </button>
+  </div>
+
+  <div className="catc__dots" role="tablist" aria-label="Categories pages">
+    {Array.from({ length: maxPage + 1 }).map((_, i) => (
+      <button
+        key={i}
+        role="tab"
+        aria-selected={page === i}
+        aria-label={`Go to slide ${i + 1}`}
+        className={`catc__dot ${page === i ? 'catc__dot--active' : ''}`}
+        onClick={() => goTo(i)}
+      />
+    ))}
+  </div>
+</div>
+
   );
 };
 

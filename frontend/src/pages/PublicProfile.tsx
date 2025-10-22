@@ -324,7 +324,7 @@ const submitInvite = async () => {
     )}
 
     <Link
-      className="ppx-btn ppx-outline ppx-report"
+      className="ppx-btn ppx-outline ppx-report profile-report-btn"
       to={`/complaint?type=profile&id=${profile.id}&return=${encodeURIComponent(backAfterReport)}`}
     >
       Report Profile

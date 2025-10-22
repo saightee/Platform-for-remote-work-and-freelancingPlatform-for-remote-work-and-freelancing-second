@@ -47,6 +47,9 @@ type ChatListItem = {
   countryCode?: string | null;
 };
 
+const toId = (v: unknown) => String(v ?? '');
+
+
 interface RoleContextType {
   profile: { id: string; username?: string } | null;
   currentRole: 'jobseeker' | 'employer' | null;
@@ -57,11 +60,47 @@ interface RoleContextType {
   setLastInCache: (id: string, text: string, ts: number) => void;
 }
 
+// ==== country helpers (module-level) ====
+const pickCountryCode = (v: unknown): string | null => {
+  const s = String(v ?? '').trim();
+  return /^[A-Za-z]{2,3}$/.test(s) ? s.toUpperCase() : null;
+};
+
+const getCountryCodeFrom = (a: any): string | null => {
+  if (!a) return null;
+  const candidates = [
+    a.country, a.country_code, a.countryCode,
+    a.applicant_country, a.applicant_country_code, a.applicantCountryCode,
+    a.profile?.country, a.profile?.country_code, a.profile?.countryCode,
+    a.profile?.location?.country, a.profile?.location?.country_code, a.profile?.location?.countryCode,
+  ];
+  for (const v of candidates) {
+    const cc = pickCountryCode(v);
+    if (cc) return cc;
+  }
+  return null;
+};
+
+const regionName = (() => {
+  try {
+    const DN = (Intl as any).DisplayNames;
+    const f = new DN([(typeof navigator !== 'undefined' ? navigator.language : 'en')], { type: 'region' });
+    return (code?: string) => {
+      const c = String(code || '').trim().toUpperCase();
+      return c ? (f?.of?.(c) || c) : '';
+    };
+  } catch {
+    return (code?: string) => String(code || '').toUpperCase();
+  }
+})();
+
+
+
 const Messages: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation() as any;
-  const preselectJobPostId = location?.state?.jobPostId as string | null;
-  const preselectApplicationId = location?.state?.applicationId as string | null;
+ const preselectJobPostId = location?.state?.jobPostId != null ? toId(location.state.jobPostId) : null;
+const preselectApplicationId = location?.state?.applicationId != null ? toId(location.state.applicationId) : null;
 
 const {
   profile,
@@ -81,10 +120,10 @@ const {
   }>({});
 
 const [activeJobId, setActiveJobId] = useState<string | null>(
-  preselectJobPostId || localStorage.getItem('lastActiveJobId') || null
+  preselectJobPostId || (localStorage.getItem('lastActiveJobId') ? toId(localStorage.getItem('lastActiveJobId')) : null)
 );
 const [selectedChat, setSelectedChat] = useState<string | null>(
-  preselectApplicationId || localStorage.getItem('lastSelectedChat') || null
+  preselectApplicationId || (localStorage.getItem('lastSelectedChat') ? toId(localStorage.getItem('lastSelectedChat')) : null)
 );
  const [messages, setMessages] = useState<{
     [jobApplicationId: string]: Message[];
@@ -122,19 +161,7 @@ const byLastActivityDesc = useCallback((a: any, b: any) => {
   return String(a.id || '').localeCompare(String(b.id || ''));
 }, []);
 
-// NEW: human-readable country name from ISO code via Intl.DisplayNames
-const regionName = (() => {
-  try {
-    const DN = (Intl as any).DisplayNames;
-    const f  = new DN(['en'], { type: 'region' });
-    return (code?: string) => {
-      const c = String(code || '').trim();
-      return c ? (f?.of?.(c) || c) : '';
-    };
-  } catch {
-    return (code?: string) => String(code || '');
-  }
-})();
+
 
 
 const preloadLast = async (ids: string[]) => {
@@ -179,13 +206,9 @@ useEffect(() => {
 }, []);
 
 
-useEffect(() => {
-  if (activeJobId) localStorage.setItem('lastActiveJobId', activeJobId);
-}, [activeJobId]);
+useEffect(() => { if (activeJobId) localStorage.setItem('lastActiveJobId', toId(activeJobId)); }, [activeJobId]);
+useEffect(() => { if (selectedChat) localStorage.setItem('lastSelectedChat', toId(selectedChat)); }, [selectedChat]);
 
-useEffect(() => {
-  if (selectedChat) localStorage.setItem('lastSelectedChat', selectedChat);
-}, [selectedChat]);
 
 
   const [newMessage, setNewMessage] = useState('');
@@ -273,7 +296,7 @@ const joinAllMyChats = useCallback((ids: string[]) => {
 
 const getUnreadForJob = useCallback((jobId: string) => {
   const apps = jobPostApplications[jobId] || [];
-  return apps.reduce((sum, a) => sum + (unreadCounts[a.applicationId] || 0), 0);
+  return apps.reduce((sum, a) => sum + (unreadCounts[toId(a.applicationId)] || 0), 0);
 }, [jobPostApplications, unreadCounts]);
 
 
@@ -334,18 +357,18 @@ useEffect(() => {
         setApplications(filtered);
 
         // подписываемся на все чаты (для превью/истории)
-        joinAllMyChats(filtered.map(a => a.id));
-        await preloadLast(filtered.map(a => a.id));
+        joinAllMyChats(filtered.map(a => toId(a.id)));
+await preloadLast(filtered.map(a => toId(a.id)));
         
         // авто-выбор: 1) если пришли с preselect — он, 2) иначе из localStorage,
         // 3) иначе самая свежая заявка (last)
-        if (preselectApplicationId && filtered.some(a => a.id === preselectApplicationId)) {
-          setSelectedChat(preselectApplicationId);
-        } else {
-          const ls = localStorage.getItem('lastSelectedChat');
-          if (ls && filtered.some(a => a.id === ls)) {
-            setSelectedChat(ls);
-          } else {
+   if (preselectApplicationId && filtered.some(a => toId(a.id) === preselectApplicationId)) {
+  setSelectedChat(preselectApplicationId);
+} else {
+  const ls = localStorage.getItem('lastSelectedChat');
+  if (ls && filtered.some(a => toId(a.id) === toId(ls))) {
+    setSelectedChat(toId(ls));
+  } else {
             const latestId = pickLatestJobseekerApplicationId(filtered);
             if (latestId) setSelectedChat(latestId);
           }
@@ -365,9 +388,10 @@ const allowed = arrays
   .flat()
   .filter(a => a.status === 'Pending' || a.status === 'Accepted');
 
-const allIds = allowed.map(a => a.applicationId);
+const allIds = allowed.map(a => toId(a.applicationId));
 joinAllMyChats(allIds);
 await preloadLast(allIds);
+
 
 if (!activeJobId && active[0]) setActiveJobId(active[0].id);
 
@@ -378,8 +402,8 @@ if (!selectedChat) {
       getLastActivity(b.applicationId, b.appliedAt) -
       getLastActivity(a.applicationId, a.appliedAt)
   );
-  const first = preselectApplicationId ?? sorted[0]?.applicationId;
-  if (first) setSelectedChat(first);
+  const first = preselectApplicationId ?? toId(sorted[0]?.applicationId);
+if (first) setSelectedChat(toId(first));
 }
 
       }
@@ -425,13 +449,12 @@ useEffect(() => {
       getLastActivity(b.applicationId, b.appliedAt) -
       getLastActivity(a.applicationId, a.appliedAt)
   );
-  const newestId = sorted[0].applicationId;
+const newestId = toId(sorted[0].applicationId);
 
-  if (selectedChat !== newestId) {
-    setSelectedChat(newestId);
-   
-    void handleSelectChat(newestId);
-  }
+if (toId(selectedChat) !== newestId) {
+  setSelectedChat(newestId);
+  void handleSelectChat(newestId);
+}
 }, [activeJobId, jobPostApplications, getLastActivity, selectedChat]);
 
 
@@ -478,7 +501,7 @@ if (
 
 socket.on('chatHistory', (history: Message[]) => {
   if (history && history.length > 0) {
-    const jobApplicationId = history[0].job_application_id;
+    const jobApplicationId = toId(history[0].job_application_id);
     const sorted = [...history].sort((a,b)=>+new Date(a.created_at)-+new Date(b.created_at));
 
     setMessages((prev) => ({ ...prev, [jobApplicationId]: sorted }));
@@ -500,39 +523,28 @@ socket.on('chatHistory', (history: Message[]) => {
 
 
 socket.on('newMessage', (message: Message) => {
+  const mid = toId(message.job_application_id);
   setMessages((prev) => {
-    const currentMessages = prev[message.job_application_id] || [];
-    
-    // Добавляем новое сообщение в конец (хронологический порядок)
-    const updated = [...currentMessages, message];
-    
-    return {
-      ...prev,
-      [message.job_application_id]: updated,
-    };
-  });
+  const currentMessages = prev[mid] || [];
+  const updated = [...currentMessages, message];
+  return { ...prev, [mid]: updated };
+});
 
   // Обновляем кэш последнего сообщения
-  setLastInCache?.(
-    message.job_application_id,
-    message.content,
-    new Date(message.created_at).getTime()
-  );
+setLastInCache?.(mid, message.content, new Date(message.created_at).getTime());
 
-  const inOpenedChat = selectedChat === message.job_application_id;
+ const inOpenedChat = selectedChat === mid;
 
   if (inOpenedChat) {
     // Если чат открыт - отмечаем как прочитанное
-    socket.emit('markMessagesAsRead', {
-      jobApplicationId: message.job_application_id,
-    });
+   socket.emit('markMessagesAsRead', { jobApplicationId: mid });
     scrollToBottom(true);
   } else if (message.recipient_id === profile.id && !message.is_read) {
     // Если не открыт - увеличиваем счетчик непрочитанных
-    setUnreadCounts((prev) => ({
-      ...prev,
-      [message.job_application_id]: (prev[message.job_application_id] || 0) + 1,
-    }));
+setUnreadCounts((prev) => ({
+  ...prev,
+  [mid]: (prev[mid] || 0) + 1,
+}));
     
     // Показываем уведомление (браузерное)
     if ('Notification' in window && Notification.permission === 'granted') {
@@ -548,10 +560,11 @@ socket.on('newMessage', (message: Message) => {
       'typing',
       (data: { userId: string; jobApplicationId: string; isTyping: boolean }) => {
         if (data.userId !== profile.id) {
-          setIsTyping((prev) => ({
-            ...prev,
-            [data.jobApplicationId]: data.isTyping,
-          }));
+      const tid = toId(data.jobApplicationId);
+setIsTyping((prev) => ({
+  ...prev,
+  [tid]: data.isTyping,
+}));
         }
       }
     );
@@ -561,7 +574,8 @@ socket.on('newMessage', (message: Message) => {
       const list: Message[] = Array.isArray(payload) ? payload : payload?.data || [];
       if (!list.length) return;
 
-      const jobId = list[0].job_application_id;
+      const jobId = toId(list[0].job_application_id);
+
 
       setMessages((prev) => {
         const prevList = prev[jobId] || [];
@@ -577,13 +591,15 @@ socket.on('newMessage', (message: Message) => {
       }
     });
 
-    socket.on('chatInitialized', async (data: { jobApplicationId: string }) => {
-      if (socket.connected) {
-        socket.emit('joinChat', { jobApplicationId: data.jobApplicationId });
-      } else {
-        joinQueue.current.push(data.jobApplicationId);
-      }
-    });
+socket.on('chatInitialized', async (data: { jobApplicationId: string }) => {
+  const jid = toId(data.jobApplicationId);
+  if (socket.connected) {
+    socket.emit('joinChat', { jobApplicationId: jid });
+  } else {
+    joinQueue.current.push(jid);
+  }
+});
+
 
 socket.on('connect_error', (err: any) => {
   setSocketStatus('reconnecting');
@@ -647,43 +663,39 @@ const jobPostsMap = useMemo(() =>
   new Map(jobPosts.map(p => [p.id, p]))
 , [jobPosts]);
 
-const applicationsMap = useMemo(() => 
-  new Map(applications.map(app => [app.id, app]))
+const applicationsMap = useMemo(() =>
+  new Map(applications.map(app => [toId(app.id), app]))
 , [applications]);
+
 
 const chatList = useMemo<ChatListItem[]>(() => {
   if (currentRole === 'employer') {
     return activeJobApps
       .filter(app => app.status === 'Pending' || app.status === 'Accepted')
       .map((app): ChatListItem => {
-        const jobPost = jobPostsMap.get(app.job_post_id);
+      const jobPost = jobPostsMap.get(app.job_post_id);
+const id = toId(app.applicationId);
         
-// аккуратно нормализуем код (2–3 буквы), иначе null
-const pickCountryCode = (v: unknown) => {
-  const s = String(v || '').trim();
-  return /^[A-Za-z]{2,3}$/.test(s) ? s.toUpperCase() : null;
-};
+
+
 
 // из ответа бэка берём в таком приоритете:
-const cc =
-  pickCountryCode((app as any).country) ??
-  pickCountryCode((app as any).country_code) ??
-  pickCountryCode((app as any).profile?.country) ??
-  null;
+const cc = getCountryCodeFrom(app as any);
+
 
 return {
-  id: app.applicationId,
+  id,
   title: jobPost?.title || 'Unknown Job',
   partner: app.username,
   status: app.status,
-  unreadCount: unreadCounts[app.applicationId] ?? 0,
+  unreadCount: unreadCounts[id] ?? 0,
   coverLetter: app.coverLetter ?? null,
   userId: app.userId,
   job_post_id: app.job_post_id,
   appliedAt: app.appliedAt,
-  lastMessage: getLastPreview(app.applicationId),
-  lastActivity: getLastActivity(app.applicationId, app.appliedAt),
-  countryCode: cc, // ← NEW
+  lastMessage: getLastPreview(id),
+  lastActivity: getLastActivity(id, app.appliedAt),
+  countryCode: cc,
 };
 
       })
@@ -692,24 +704,26 @@ return {
 
   // Jobseeker
   let source = applications;
-  if (selectedChat && !applicationsMap.has(selectedChat)) {
-    source = applications.filter(a => a.id === selectedChat);
-  }
+if (selectedChat && !applicationsMap.has(selectedChat)) {
+  source = applications.filter(a => toId(a.id) === selectedChat);
+}
+
 
   return source
     .map((app): ChatListItem => {
       const jobPost = app.job_post;
+const id = toId(app.id);
       
-      return {
-        id: app.id,
-        title: jobPost?.title || 'Unknown Job',
-        partner: jobPost?.employer?.username || 'Unknown',
-        unreadCount: unreadCounts[app.id] ?? 0,
-        status: app.status,
-        appliedAt: (app as any).created_at,
-        lastMessage: getLastPreview(app.id),
-        lastActivity: getLastActivity(app.id, (app as any).created_at),
-      };
+return {
+  id,
+  title: jobPost?.title || 'Unknown Job',
+  partner: jobPost?.employer?.username || 'Unknown',
+  unreadCount: unreadCounts[id] ?? 0,
+  status: app.status,
+  appliedAt: (app as any).created_at,
+  lastMessage: getLastPreview(id),
+  lastActivity: getLastActivity(id, (app as any).created_at),
+};
     })
     .sort(byLastActivityDesc);
 }, [
@@ -731,7 +745,7 @@ return {
       return Object.values(jobPostApplications)
         .flat()
         .map((app) => ({
-          id: app.applicationId,
+          id: toId(app.applicationId), 
           label: `${
             jobPosts.find((p) => p.id === app.job_post_id)?.title || 'Job'
           } — ${app.username}`,
@@ -743,7 +757,7 @@ return {
     // jobseeker
    return applications
   .map((app) => ({
-    id: app.id,
+    id: toId(app.id), 
     label: `${app.job_post?.title || 'Job'} — ${app.job_post?.employer?.username || 'Employer'}`,
     appliedAt: (app as any).created_at,
   }))
@@ -762,79 +776,64 @@ return {
       a.job_post?.employer?.username || 'Employer'
     }`,
   }));
-  return pool.find((x) => x.id === selectedChat)?.label || 'Chats…';
+  return pool.find((x) => toId(x.id) === toId(selectedChat))?.label || 'Chats…';
 }, [currentRole, jobPosts, activeJobId, applications, selectedChat]);
 
-  const handleSelectChat = async (jobApplicationId: string) => {
-    const exists = [...chatList, ...allChats].some((c: any) => c.id === jobApplicationId);
-    if (!exists) {
-      setSelectedChat(null);
-      return;
-    }
+const handleSelectChat = async (rawId: string) => {
+  const jobApplicationId = toId(rawId); // 👈
 
-    setSelectedChat(jobApplicationId);
-    setUnreadCounts((prev) => ({ ...prev, [jobApplicationId]: 0 }));
-
-    // dev
-    // if (isDev && isDevDemoId(jobApplicationId)) return;
-
-    if (socket?.connected) {
-      if (!joinedSet.current.has(jobApplicationId)) {
-        socket.emit('joinChat', { jobApplicationId });
-        joinedSet.current.add(jobApplicationId);
-      }
-      socket.emit('markMessagesAsRead', { jobApplicationId });
-    } else {
-      joinQueue.current.push(jobApplicationId);
-      setError('Connecting to chat server... Please wait.');
-    }
-
-const fetchHistory = async () => {
-  const history = await getChatHistory(jobApplicationId, { page: 1, limit: 100 }, currentRole!);
-  const sorted = [...history.data].sort(
-    (a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  );
-
-  setMessages(prev => ({ ...prev, [jobApplicationId]: sorted }));
-  setUnreadCounts(prev => ({ ...prev, [jobApplicationId]: 0 }));
-
-  
-  if (sorted.length) {
-    const last = sorted[sorted.length - 1];
-    setLastInCache?.(jobApplicationId, last.content, new Date(last.created_at).getTime());
+  const exists = [...chatList, ...allChats].some((c: any) => toId(c.id) === jobApplicationId);
+  if (!exists) {
+    // не блокируем открытие, просто логируем
+    console.warn('Chat id not found in lists yet, opening anyway:', jobApplicationId);
   }
-};
 
+  setSelectedChat(jobApplicationId);
+  setUnreadCounts((prev) => ({ ...prev, [jobApplicationId]: 0 }));
 
-try {
-  await fetchHistory();
-} catch (err: any) {
-  const msg: string = err?.response?.data?.message || err?.message || '';
-  if (/not initialized/i.test(msg) || /инициал/i.test(msg)) {
-    setError('Initializing chat…');
+  if (socket?.connected) {
+    if (!joinedSet.current.has(jobApplicationId)) {
+      socket.emit('joinChat', { jobApplicationId });
+      joinedSet.current.add(jobApplicationId);
+    }
+    socket.emit('markMessagesAsRead', { jobApplicationId });
+  } else {
+    joinQueue.current.push(jobApplicationId);
+    setError('Connecting to chat server... Please wait.');
+  }
 
+  const fetchHistory = async () => {
+    const history = await getChatHistory(jobApplicationId, { page: 1, limit: 100 }, currentRole!);
+    const sorted = [...history.data].sort((a,b)=>+new Date(a.created_at)-+new Date(b.created_at));
+    setMessages(prev => ({ ...prev, [jobApplicationId]: sorted }));
+    setUnreadCounts(prev => ({ ...prev, [jobApplicationId]: 0 }));
+    if (sorted.length) {
+      const last = sorted[sorted.length - 1];
+      setLastInCache?.(jobApplicationId, last.content, +new Date(last.created_at));
+    }
+  };
+
+  try {
+    await fetchHistory();
+  } catch (err: any) {
+    const msg: string = err?.response?.data?.message || err?.message || '';
+    if (/not initialized/i.test(msg) || /инициал/i.test(msg)) {
+      setError('Initializing chat…');
       socket?.emit('initChat', { jobApplicationId });
-      
-      // Создаем обработчик для события инициализации
-      const onInit = (d: { jobApplicationId: string }) => {
-        if (d.jobApplicationId === jobApplicationId) {
-          socket?.off('chatInitialized', onInit);
+
+      // одноразовый слушатель, без "return" из функции
+      socket?.once('chatInitialized', (d: { jobApplicationId: string }) => {
+        if (toId(d.jobApplicationId) === jobApplicationId) {
           socket?.emit('joinChat', { jobApplicationId });
           fetchHistory().finally(() => setError(null));
         }
-      };
-
-  socket?.on('chatInitialized', onInit);
-  
-  // ✅ Очистка при размонтировании или изменении ID
-return () => {
-        socket?.off('chatInitialized', onInit);
-      };
+      });
     } else {
       setError('Failed to load chat history.');
     }
   }
 };
+
 
   // текущая заявка (для действий работодателя)
   const currentApp = useMemo(() => {
@@ -842,29 +841,22 @@ return () => {
     return (
       Object.values(jobPostApplications)
         .flat()
-        .find((a) => a.applicationId === selectedChat) || null
+        .find((a) => toId(a.applicationId) === selectedChat) || null
+
     );
   }, [jobPostApplications, selectedChat]);
 
-  // NEW: readable country name for header (employer view)
 const currentCountryName = useMemo(() => {
   if (currentRole === 'employer' && currentApp) {
     const a: any = currentApp;
-
-    // 1) если бэк уже отдал полное имя
     if (a.country_name) return String(a.country_name);
-
-    // 2) иначе преобразуем ISO код в имя
-    const code =
-      a.country ||
-      a.country_code ||
-      a.profile?.country ||
-      '';
-
-    return regionName(code);
+    const code = getCountryCodeFrom(a);
+    return code ? regionName(code) : '';
   }
   return '';
 }, [currentRole, currentApp]);
+
+
 
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -914,9 +906,11 @@ const currentCountryName = useMemo(() => {
       .map(a => ({
         id: a.applicationId,
         partner: a.username,
-        unreadCount: unreadCounts[a.applicationId] || 0,
+        unreadCount: unreadCounts[toId(a.applicationId)] || 0,
+
       }))
-      .sort((a, b) => getLastActivity(b.id) - getLastActivity(a.id));
+      .sort((a, b) => getLastActivity(toId(b.id)) - getLastActivity(toId(a.id)));
+
 
     return { post, chats };
   }).filter(g => g.chats.length > 0);
@@ -936,36 +930,7 @@ const currentCountryName = useMemo(() => {
     }
   };
 
-  const handleCloseJobNow = async () => {
-  if (!activeJobId) return;
-  if (!confirm('Close this job post? Applicants will no longer be able to message you.')) return;
 
-  try {
-    await closeJobPost(activeJobId);
-
-    // убрать закрытую вакансию из списка активных
-    setJobPosts((prev) => prev.filter((p) => p.id !== activeJobId));
-
-    // очистить ее заявки в левой колонке
-    setJobPostApplications((prev) => {
-      const next = { ...prev };
-      delete next[activeJobId];
-      return next;
-    });
-
-    // если сейчас открыт чат по этой вакансии — сбросим выбор
-    if (selectedChat) setSelectedChat(null);
-    setActiveJobId(null);
-    setMultiMode(false);
-clearSelection();
-
-
-
-    toast.success('Job closed successfully.');
-  } catch (err: any) {
-    toast.error(err?.response?.data?.message || 'Failed to close job.');
-  }
-};
 // В компоненте Messages добавьте:
 useEffect(() => {
   const handleVisibilityChange = () => {
@@ -1139,7 +1104,8 @@ useEffect(() => {
                   setJobPostApplications(prev => {
                     const copy = { ...prev };
                     Object.keys(copy).forEach(jobId => {
-                      copy[jobId] = (copy[jobId] || []).filter(a => !ids.includes(a.applicationId));
+                     copy[jobId] = (copy[jobId] || []).filter(a => !ids.includes(toId(a.applicationId)));
+
                     });
                     return copy;
                   });
@@ -1181,19 +1147,20 @@ useEffect(() => {
   className={`ch-chatlist__item ${selectedChat === chat.id ? 'is-active' : ''}
     ${chat.unreadCount > 0 ? 'has-unread' : ''}
     ${chat.status === 'Accepted' ? 'is-accepted' : ''}`}
-  onClick={() => handleSelectChat(chat.id)}
+  onClick={() => handleSelectChat(toId(chat.id))}
   title={chat.partner}
 >
   {/* ЧЕКБОКС ВЫБОРА — НЕ МЕШАЕТ ОТКРЫТИЮ ЧАТА */}
   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
 {currentRole === 'employer' && multiMode && (
-  <input
-    type="checkbox"
-    checked={selectedIds.has(chat.id)}
-    onChange={(e) => { e.stopPropagation(); toggleSelect(chat.id); }}
-    onClick={(e) => e.stopPropagation()}
-    style={{ marginTop: 2 }}
-  />
+<input
+  type="checkbox"
+  checked={selectedIds.has(toId(chat.id))}
+  onChange={(e) => { e.stopPropagation(); toggleSelect(toId(chat.id)); }}
+  onClick={(e) => e.stopPropagation()}
+  style={{ marginTop: 2 }}
+/>
+
 )}
 
 

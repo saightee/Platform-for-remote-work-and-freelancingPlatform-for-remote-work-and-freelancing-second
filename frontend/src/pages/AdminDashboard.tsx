@@ -169,13 +169,13 @@ const [fbSubtab, setFbSubtab] = useState<'tech' | 'platform'>('tech');
 
 // Tech feedback pagination
 const [tfPage, setTfPage] = useState(1);
-const [tfLimit, setTfLimit] = useState(10);
+const [tfLimit, setTfLimit] = useState(40);
 const [tfTotal, setTfTotal] = useState(0);
 const tfTotalPages = Math.max(1, Math.ceil(tfTotal / tfLimit));
 
 // Platform feedback pagination
 const [pfPage, setPfPage] = useState(1);
-const [pfLimit, setPfLimit] = useState(10);
+const [pfLimit, setPfLimit] = useState(40);
 const [pfTotal, setPfTotal] = useState(0);
 const pfTotalPages = Math.max(1, Math.ceil(pfTotal / pfLimit));
 
@@ -718,17 +718,26 @@ useEffect(() => {
   const tab = sp.get('fb_tab');
   setFbSubtab(tab === 'platform' ? 'platform' : 'tech');
 
-  const tp = parseInt(sp.get('tf_page') || '1', 10);
-  const tl = parseInt(sp.get('tf_limit') || '10', 10);
-  setTfPage(Number.isFinite(tp) && tp > 0 ? tp : 1);
-  setTfLimit(clamp(Number.isFinite(tl) ? tl : 10, 1, 100));
+  if (sp.has('tf_page')) {
+    const tp = parseInt(sp.get('tf_page')!, 10);
+    if (Number.isFinite(tp) && tp > 0) setTfPage(tp);
+  }
+  if (sp.has('tf_limit')) {
+    const tl = parseInt(sp.get('tf_limit')!, 10);
+    if (Number.isFinite(tl)) setTfLimit(clamp(tl, 1, 100));
+  }
 
-  const pp = parseInt(sp.get('pf_page') || '1', 10);
-  const pl = parseInt(sp.get('pf_limit') || '10', 10);
-  setPfPage(Number.isFinite(pp) && pp > 0 ? pp : 1);
-  setPfLimit(clamp(Number.isFinite(pl) ? pl : 10, 1, 100));
+  if (sp.has('pf_page')) {
+    const pp = parseInt(sp.get('pf_page')!, 10);
+    if (Number.isFinite(pp) && pp > 0) setPfPage(pp);
+  }
+  if (sp.has('pf_limit')) {
+    const pl = parseInt(sp.get('pf_limit')!, 10);
+    if (Number.isFinite(pl)) setPfLimit(clamp(pl, 1, 100));
+  }
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
+
 
 useEffect(() => {
   const sp = new URLSearchParams(location.search);
@@ -2170,6 +2179,15 @@ const handleSetGlobalLimit = async () => {
     }
   };
 
+useEffect(() => {
+  if (activeTab !== 'Complaints') return;
+  (async () => {
+    try {
+      const data = await getComplaints();
+      setComplaints(data || []);
+    } catch {/* ignore */}
+  })();
+}, [activeTab]);
 
 const todayRegs = recentRegistrations.jobseekers || [];
 const todayBiz  = recentRegistrations.employers || [];
@@ -2782,7 +2800,7 @@ if (isLoading) {
           <th>Title</th>
           <th>Employer</th>
           <th>Status</th>
-          <th>Pending Review</th>
+          <th className="col--pending">Pending Review</th>
           <th>Created At</th>
           <th>Actions</th>
           <th>Notifications</th>
@@ -2797,58 +2815,41 @@ if (isLoading) {
               <td>{post.title}</td>
               <td>{post.employer?.username || 'N/A'}</td>
               <td>{post.status}</td>
-              <td>{post.pending_review ? 'Yes' : 'No'}</td>
+              <td className="col--pending">{post.pending_review ? 'Yes' : 'No'}</td>
               <td>{format(new Date(post.created_at), 'PP')}</td>
-              <td>
-                <button onClick={() => handleDeleteJobPost(post.id)} className="action-button danger">
-                  Delete
-                </button>
-                {post.pending_review && (
-                  <button onClick={() => handleApproveJobPost(post.id)} className="action-button success">
-                    Approve
-                  </button>
-                )}
-                <button onClick={() => handleFlagJobPost(post.id)} className="action-button warning">
-                  Flag
-                </button>
-                <button onClick={() => openRejectModal(post.id, post.title)} className="action-button danger">
-  Reject
-</button>
-                <button onClick={() => setShowJobModal(post.id)} className="action-button">
-                  View Job
-                </button>
-                <button
+<td>
+  <button onClick={() => handleDeleteJobPost(post.id)} className="action-button danger">Delete</button>
+  {post.pending_review && (
+    <button onClick={() => handleApproveJobPost(post.id)} className="action-button success">Approve</button>
+  )}
+  <button onClick={() => handleFlagJobPost(post.id)} className="action-button warning">Flag</button>
+  <button onClick={() => openRejectModal(post.id, post.title)} className="action-button danger">Reject</button>
+  <button onClick={() => setShowJobModal(post.id)} className="action-button">View Job</button>
+  <button
     onClick={() => window.open(`/job/${(post as any).slug_id || post.id}`, '_blank')}
     className="action-button"
-    title="Open advertising landing for this job"
   >
     View LP
   </button>
- <button onClick={() => handleReferralForPost(post.id)} className="action-button generate-ref">
-  Generate Referral
-</button>
-              </td>
-              <td>
-<span 
-  title={`Sent: ${notificationStats[post.id]?.sent || 0} Opened: ${notificationStats[post.id]?.opened || 0} Clicked: ${notificationStats[post.id]?.clicked || 0}`}
->
-  s:{notificationStats[post.id]?.sent || 0} o:{notificationStats[post.id]?.opened || 0} c:{notificationStats[post.id]?.clicked || 0}
-</span>
-<button onClick={() => handleNotifyCandidates(post.id)} className="action-button success" style={{ cursor: 'pointer' }}>
-  Notify Seekers
-</button>
-<button onClick={() => openEmailStats(post.id)} className="action-button">
-  View Details
-</button>
-<button
-  onClick={() => openEditJobModal(post.id)}
-  className="action-button"
-  title="Edit this job post"
->
-  Edit
-</button>
-               
-              </td>
+  <button onClick={() => handleReferralForPost(post.id)} className="action-button generate-ref">
+    Generate Referral
+  </button>
+  <button
+    onClick={() => openEditJobModal(post.id)}
+    className="action-button"
+    title="Edit this job post"
+  >
+    Edit
+  </button>
+</td>
+<td>
+  <span title={`Sent: ${notificationStats[post.id]?.sent || 0} Opened: ${notificationStats[post.id]?.opened || 0} Clicked: ${notificationStats[post.id]?.clicked || 0}`}>
+    s:{notificationStats[post.id]?.sent || 0} o:{notificationStats[post.id]?.opened || 0} c:{notificationStats[post.id]?.clicked || 0}
+  </span>
+  <button onClick={() => handleNotifyCandidates(post.id)} className="action-button success">Notify Seekers</button>
+  <button onClick={() => openEmailStats(post.id)} className="action-button">View Details</button>
+</td>
+
             </tr>
           )) : (
             <tr>
@@ -3000,31 +3001,16 @@ if (isLoading) {
             <td>{r.reviewed?.username || 'N/A'}</td>
             <td>{(r as any).job_application?.job_post?.title || 'N/A'}</td>
             <td>{format(new Date(r.created_at), 'PP')}</td>
-            <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <button
-                disabled={(r as any).status === 'Approved'}
-                onClick={() => handleApproveReview(r.id)}
-                className="action-button success"
-                title="Approve"
-              >
-                Approve
-              </button>
-              <button
-                disabled={(r as any).status === 'Rejected'}
-                onClick={() => handleRejectReview(r.id)}
-                className="action-button warning"
-                title="Reject"
-              >
-                Reject
-              </button>
-              <button
-                onClick={() => handleDeleteReview(r.id)}
-                className="action-button danger"
-                title="Delete"
-              >
-                Delete
-              </button>
-            </td>
+<td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+  {(r as any).status === 'Pending' && (
+    <>
+      <button onClick={() => handleApproveReview(r.id)} className="action-button success">Approve</button>
+      <button onClick={() => handleRejectReview(r.id)} className="action-button warning">Reject</button>
+    </>
+  )}
+  <button onClick={() => handleDeleteReview(r.id)} className="action-button danger">Delete</button>
+</td>
+
           </tr>
         )) : (
           <tr><td colSpan={9}>No reviews found.</td></tr>
@@ -3060,39 +3046,27 @@ if (isLoading) {
 
     {/* subtabs */}
     <div className="tabs" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-      <button
-        className={`action-button ${fbSubtab === 'tech' ? 'success' : ''}`}
-        onClick={() => setFbSubtab('tech')}
-      >
-        Tech Feedback
-      </button>
-      <button
-        className={`action-button ${fbSubtab === 'platform' ? 'success' : ''}`}
-        onClick={() => setFbSubtab('platform')}
-      >
-        Platform Feedback (Stories)
-      </button>
+  <button className={`action-button ${fbSubtab === 'tech' ? 'success' : ''}`} onClick={() => setFbSubtab('tech')}>Tech Feedback</button>
+  <button className={`action-button ${fbSubtab === 'platform' ? 'success' : ''}`} onClick={() => setFbSubtab('platform')}>Platform Feedback (Stories)</button>
+
+  <span style={{marginLeft:12, padding:'6px 10px', borderRadius:8, background:'#eef', fontWeight:600}}>
+    Viewing: {fbSubtab === 'tech' ? 'Tech Feedback' : 'Platform Feedback'}
+  </span>
 
       {/* per-page selector for current subtab */}
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <label>Per page:</label>
-        {fbSubtab === 'tech' ? (
-          <select
-            value={tfLimit}
-            onChange={(e) => { setTfLimit(parseInt(e.target.value, 10)); setTfPage(1); }}
-          >
-            {[10,20,30,50,100].map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
-        ) : (
-          <select
-            value={pfLimit}
-            onChange={(e) => { setPfLimit(parseInt(e.target.value, 10)); setPfPage(1); }}
-          >
-            {[10,20,30,50,100].map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
-        )}
-      </div>
-    </div>
+     <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+    <label>Per page:</label>
+    {fbSubtab === 'tech' ? (
+      <select value={tfLimit} onChange={(e) => { setTfLimit(parseInt(e.target.value, 10)); setTfPage(1); }}>
+        {[10,20,30,40,50,100].map(n => <option key={n} value={n}>{n}</option>)}
+      </select>
+    ) : (
+      <select value={pfLimit} onChange={(e) => { setPfLimit(parseInt(e.target.value, 10)); setPfPage(1); }}>
+        {[10,20,30,40,50,100].map(n => <option key={n} value={n}>{n}</option>)}
+      </select>
+    )}
+  </div>
+</div>
 
     {/* TECH FEEDBACK TABLE */}
     {fbSubtab === 'tech' && (
@@ -3153,23 +3127,7 @@ if (isLoading) {
             className="action-button"
           >
             Next
-          </button>
-
-          {/* optional: Load more – простое наращивание страницы */}
-          <button
-            className="action-button"
-            style={{ marginLeft: 8 }}
-            disabled={tfPage >= tfTotalPages}
-            onClick={async () => {
-              const next = tfPage + 1;
-              const res = await getTechFeedback({ page: next, limit: tfLimit });
-              setTechFeedback(cur => [...cur, ...(res.data || [])]);
-              setTfPage(next);
-              setTfTotal(res.total || tfTotal);
-            }}
-          >
-            Load more
-          </button>
+          </button>         
         </div>
 
         {/* Tech details modal */}
@@ -3297,21 +3255,7 @@ if (isLoading) {
             Next
           </button>
 
-          {/* optional: Load more */}
-          <button
-            className="action-button"
-            style={{ marginLeft: 8 }}
-            disabled={pfPage >= pfTotalPages}
-            onClick={async () => {
-              const next = pfPage + 1;
-              const res = await getPlatformFeedback({ page: next, limit: pfLimit });
-              setStories(cur => [...cur, ...(res.data || [])]);
-              setPfPage(next);
-              setPfTotal(res.total || pfTotal);
-            }}
-          >
-            Load more
-          </button>
+
         </div>
       </>
     )}
@@ -3471,14 +3415,18 @@ if (isLoading) {
       </thead>
       <tbody>
         {sortedComplaints.length > 0 ? sortedComplaints.map((complaint) => (
-         <tr key={complaint.id}>
+      <tr key={complaint.id}>
   <td>{complaint.id}</td>
-  <td>{complaint.complainant.username}</td>
-  <td>{complaint.targetUsername}</td>
-  <td>{complaint.reason}</td>
-  <td>{complaint.status}</td>
-  <td>{complaint.resolution_comment ? `${complaint.resolution_comment} (by ${complaint.resolver?.username || 'Unknown'})` : 'N/A'}</td> 
-  <td>{format(new Date(complaint.created_at), 'PP')}</td> 
+  <td>{complaint.complainant?.username || 'N/A'}</td>
+  <td>{complaint.targetUsername || 'N/A'}</td>
+  <td>{complaint.reason || 'N/A'}</td>
+  <td>{complaint.status || 'N/A'}</td>
+  <td>
+    {complaint.resolution_comment
+      ? `${complaint.resolution_comment} (by ${complaint.resolver?.username || 'Unknown'})`
+      : 'N/A'}
+  </td>
+  <td>{complaint.created_at ? format(new Date(complaint.created_at), 'PP') : 'N/A'}</td> 
   <td>
 {complaint.status === 'Pending' && (
   <button
@@ -4307,7 +4255,7 @@ if (isLoading) {
       </div>
 
       <div className="modal-actions" style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        <button className="action-button" onClick={() => setStoryDetails(null)}>Close</button>
+        
 
         {/* Дублируем действие публикации прямо из модалки (необязательно, можно удалить этот блок) */}
         {storyDetails.allowed_to_publish && (
