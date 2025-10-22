@@ -141,15 +141,11 @@ export class JobApplicationsService {
 
   async getApplicationsForJobPost(userId: string, jobPostId: string) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    if (!user) throw new NotFoundException('User not found');
 
     if (['admin', 'moderator'].includes(user.role)) {
       const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
-      if (!jobPost) {
-        throw new NotFoundException('Job post not found');
-      }
+      if (!jobPost) throw new NotFoundException('Job post not found');
     } else {
       if (user.role !== 'employer') {
         throw new UnauthorizedException('Only employers can view applications for their job posts');
@@ -173,6 +169,8 @@ export class JobApplicationsService {
         const userData = app.job_seeker;
         if (!userData) return null;
 
+        const applicantCountry = (userData.country || '').trim().toUpperCase() || null;
+
         return {
           applicationId: app.id,
           userId: userData.id,
@@ -187,6 +185,8 @@ export class JobApplicationsService {
           appliedAt: app.created_at.toISOString(),
           status: app.status,
           job_post_id: app.job_post_id,
+          applicant_country: applicantCountry,
+          applicant_country_code: applicantCountry,
         };
       }),
     );
@@ -246,29 +246,22 @@ export class JobApplicationsService {
 
   async getApplicationById(userId: string, applicationId: string) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    if (!user) throw new NotFoundException('User not found');
     if (!['employer', 'admin', 'moderator'].includes(user.role)) {
       throw new UnauthorizedException('Only employers, admins, or moderators can view application details');
     }
-  
     const application = await this.jobApplicationsRepository.findOne({
       where: { id: applicationId },
       relations: ['job_post', 'job_seeker'],
     });
-    if (!application) {
-      throw new NotFoundException('Application not found');
-    }
-  
+    if (!application) throw new NotFoundException('Application not found');
     if (user.role === 'employer' && application.job_post.employer_id !== userId) {
       throw new UnauthorizedException('You do not have permission to view this application');
     }
-  
     const jobSeeker = await this.jobSeekerRepository.findOne({
       where: { user_id: application.job_seeker_id },
     });
-  
+    const applicantCountry = (application.job_seeker?.country || '').trim().toUpperCase() || null;
     return {
       applicationId: application.id,
       userId: application.job_seeker_id,
@@ -284,6 +277,9 @@ export class JobApplicationsService {
         title: application.job_post.title,
         status: application.job_post.status,
       },
+
+      applicant_country: applicantCountry,
+      applicant_country_code: applicantCountry,
     };
   }
 
