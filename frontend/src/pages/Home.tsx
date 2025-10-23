@@ -27,7 +27,7 @@ import { Helmet } from 'react-helmet-async';
 import { jwtDecode } from 'jwt-decode';
 import TestimonialsCarousel, { Testimonial } from "../components/TestimonialsCarousel";
 import { brand } from '../brand';
-
+import CategoriesShowcase from '../components/CategoriesShowcase';
 
 type JwtPayload = { exp?: number };
 
@@ -410,71 +410,13 @@ const handleDotClick = (i: number) => scrollToSlide(i);
         </div>
       </div>
 
-      {/* Categories Carousel */}
-      {categoryGroups.length > 0 && (
-        <div className="cc-wrap">
-          <h2 className="cc-title">Browse by category</h2>
-          <p className="cc-sub">Find the job that's perfect for you. about 800+ new jobs everyday</p>
-
-       <div className="cc-shell">
-  <button
-    className="cc-arrow cc-arrow--left"
-    onClick={handlePrev}
-    disabled={currentSlide === 0}
-    aria-label="Previous"
-  >
-    <FaChevronLeft />
-  </button>
-
-  {/* НОВЫЙ ВЬЮПОРТ: без onPointer* и без inline transform */}
-  <div className="cc-viewport" ref={viewportRef}>
-    <div className="cc-track">
-      {categoryGroups.map((group, groupIndex) => (
-        <div className="cc-group" key={groupIndex}>
-          {group.map((category) => {
-            const Icon = getCategoryIcon(category.name);
-            return (
-              <Link
-                key={category.id}
-                to={`/find-job?category_id=${category.id}`}
-                className="cc-item"
-              >
-                <div className="cc-icon"><Icon /></div>
-                <div className="cc-text">
-                  <div className="cc-name">{category.name}</div>
-                  <div className="cc-link">Browse Jobs</div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  </div>
-
-  <button
-    className="cc-arrow cc-arrow--right"
-    onClick={handleNext}
-    disabled={currentSlide === maxSlide}
-    aria-label="Next"
-  >
-    <FaChevronRight />
-  </button>
-</div>
-
-
-          <div className="cc-dots">
-            {Array.from({ length: maxSlide + 1 }).map((_, index) => (
-              <button
-                key={index}
-                className={`cc-dot ${index === currentSlide ? 'cc-dot--active' : ''}`}
-                onClick={() => handleDotClick(index)}
-                aria-label={`Go to slide ${index + 1}`}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+{categories.length > 0 && (
+  <CategoriesShowcase
+    categories={categories}
+    title="Browse by category"
+    subtitle="Find the job that's perfect for you. about 800+ new jobs everyday"
+  />
+)}
 
       {/* Join Us Banner */}
       <div className="container">

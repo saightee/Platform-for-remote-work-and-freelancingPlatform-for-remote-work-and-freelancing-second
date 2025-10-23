@@ -220,6 +220,19 @@ useEffect(() => {
     }
   };
 
+  
+const toggleExpand = (postId: string) => {
+  setOpenCards(prev => {
+    const nextOpen = !prev[postId];
+    if (!nextOpen && selectedJobPostId === postId) {
+      setSelectedJobPostId('');
+      setApplications({ jobPostId: '', apps: [] });
+    }
+    return { ...prev, [postId]: nextOpen };
+  });
+};
+
+
   const handleClose = async (id: string) => {
     try {
       const updatedPost = await closeJobPost(id);
@@ -650,11 +663,12 @@ const handleViewApplications = async (jobPostId: string) => {
                         >
                           <FaComments /> Start chat with applicants
                         </button>
-
-                        <button className="mjp-btn" onClick={() => setOpenCards(o => ({ ...o, [post.id]: !o[post.id] }))}>
-                          {openCards[post.id] ? <><FaChevronUp /> Collapse</> : <><FaChevronDown /> Expand</>}
-                        </button>
-
+                          <button
+                            className="mjp-btn"
+                            onClick={() => toggleExpand(post.id)}
+                          >
+                            {openCards[post.id] ? <><FaChevronUp /> Collapse</> : <><FaChevronDown /> Expand</>}
+                          </button>
                         {post.status === 'Active' ? (
                           <button onClick={() => setConfirm({ kind: 'close', postId: post.id })} className="mjp-btn mjp-warning">
                             <FaTimesCircle /> Close
@@ -685,7 +699,7 @@ const handleViewApplications = async (jobPostId: string) => {
                         </>
                       )}
 
-                      {applications.jobPostId === post.id && visibleApps.length > 0 && (
+                     {openCards[post.id] && applications.jobPostId === post.id && visibleApps.length > 0 && (
                         <div className="mjp-apps">
                           <h4 className="mjp-section-title"><FaFolderOpen /> Applications</h4>
                           <div className="mjp-table-wrap">

@@ -394,15 +394,44 @@ export class AdminController {
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   async getReviews(
     @Headers('authorization') authHeader: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Query('status') status?: 'Pending' | 'Approved' | 'Rejected',
   ) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Invalid token');
-    }
+    if (!authHeader?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
     const token = authHeader.replace('Bearer ', '');
-    const payload = this.jwtService.verify(token);
-    const userIdAdmin = payload.sub;
+    const { sub: adminId } = this.jwtService.verify(token);
 
-    return this.adminService.getReviews(userIdAdmin);
+    const p = parseInt(page, 10);
+    const l = parseInt(limit, 10);
+    if (isNaN(p) || p < 1) throw new BadRequestException('Page must be a positive integer');
+    if (isNaN(l) || l < 1) throw new BadRequestException('Limit must be a positive integer');
+
+    return this.adminService.getReviews(adminId, { page: p, limit: l, status });
+  }
+
+  @Patch('reviews/:id/approve')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async approveReview(
+    @Param('id') reviewId: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
+    const token = authHeader.replace('Bearer ', '');
+    const { sub: adminId } = this.jwtService.verify(token);
+    return this.adminService.approveReview(adminId, reviewId);
+  }
+
+  @Patch('reviews/:id/reject')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async rejectReview(
+    @Param('id') reviewId: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
+    const token = authHeader.replace('Bearer ', '');
+    const { sub: adminId } = this.jwtService.verify(token);
+    return this.adminService.rejectReview(adminId, reviewId);
   }
 
   @Delete('reviews/:id')
@@ -411,14 +440,10 @@ export class AdminController {
     @Param('id') reviewId: string,
     @Headers('authorization') authHeader: string,
   ) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Invalid token');
-    }
+    if (!authHeader?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
     const token = authHeader.replace('Bearer ', '');
-    const payload = this.jwtService.verify(token);
-    const userIdAdmin = payload.sub;
-
-    return this.adminService.deleteReview(userIdAdmin, reviewId);
+    const { sub: adminId } = this.jwtService.verify(token);
+    return this.adminService.deleteReview(adminId, reviewId);
   }
 
   @Get('analytics')
@@ -741,16 +766,28 @@ export class AdminController {
 
   @UseGuards(AuthGuard('jwt'), AdminGuard)
   @Get('complaints')
-    async getComplaints(@Headers('authorization') authHeader: string) {
-    console.log('Get Complaints Request:', { authHeader });
+  async getComplaints(
+    @Headers('authorization') authHeader: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
     }
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const adminId = payload.sub;
-
-    return this.complaintsService.getComplaints(adminId);
+  
+    const p = parseInt(page, 10);
+    const l = parseInt(limit, 10);
+    if (isNaN(p) || p < 1) {
+      throw new BadRequestException('Page must be a positive integer');
+    }
+    if (isNaN(l) || l < 1) {
+      throw new BadRequestException('Limit must be a positive integer');
+    }
+  
+    return this.complaintsService.getComplaints(adminId, p, l);
   }
 
   @UseGuards(AuthGuard('jwt'), AdminGuard)

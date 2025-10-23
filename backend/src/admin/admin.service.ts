@@ -534,12 +534,80 @@ export class AdminService {
     return this.jobPostsRepository.save(jobPost);
   }
 
-  async getReviews(adminId: string) {
+  async getReviews(
+    adminId: string,
+    opts: { page?: number; limit?: number; status?: 'Pending' | 'Approved' | 'Rejected' } = {},
+  ) {
     await this.checkAdminRole(adminId);
-    return this.reviewsRepository.find({
-      relations: ['reviewer', 'reviewed', 'job_application', 'job_application.job_post', 'job_application.job_seeker'],
-    });
+
+    const page = opts.page || 1;
+    const limit = opts.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const qb = this.reviewsRepository
+      .createQueryBuilder('r')
+      .leftJoinAndSelect('r.reviewer', 'reviewer')
+      .leftJoinAndSelect('r.reviewed', 'reviewed')
+      .leftJoinAndSelect('r.job_application', 'app')
+      .leftJoinAndSelect('app.job_post', 'job_post')
+      .leftJoinAndSelect('app.job_seeker', 'job_seeker')
+      .orderBy('r.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    if (opts.status) {
+      qb.andWhere('r.status = :status', { status: opts.status });
+    }
+
+    const [data, total] = await qb.getManyAndCount();
+    return { total, data };
   }
+
+  async approveReview(adminId: string, reviewId: string) {
+    await this.checkAdminRole(adminId);
+    const review = await this.reviewsRepository.findOne({ where: { id: reviewId } });
+    if (!review) throw new NotFoundException('Review not found');
+    if (review.status === 'Approved') return review;
+
+    review.status = 'Approved';
+    await this.reviewsRepository.save(review);
+
+    const reviews = await this.reviewsRepository.find({ where: { reviewed_id: review.reviewed_id, status: 'Approved' } });
+    const avg = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
+
+    const reviewedUser = await this.usersRepository.findOne({ where: { id: review.reviewed_id } });
+    if (reviewedUser?.role === 'jobseeker') {
+      const js = await this.jobSeekerRepository.findOne({ where: { user_id: review.reviewed_id } });
+      if (js) { js.average_rating = avg; await this.jobSeekerRepository.save(js); }
+    } else if (reviewedUser?.role === 'employer') {
+      const em = await this.employerRepository.findOne({ where: { user_id: review.reviewed_id } });
+      if (em) { em.average_rating = avg; await this.employerRepository.save(em); }
+    }
+    return review;
+  }
+
+  async rejectReview(adminId: string, reviewId: string) {
+    await this.checkAdminRole(adminId);
+    const review = await this.reviewsRepository.findOne({ where: { id: reviewId } });
+    if (!review) throw new NotFoundException('Review not found');
+    if (review.status === 'Rejected') return review;
+
+    review.status = 'Rejected';
+    await this.reviewsRepository.save(review);
+
+    const reviews = await this.reviewsRepository.find({ where: { reviewed_id: review.reviewed_id, status: 'Approved' } });
+    const avg = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
+
+    const reviewedUser = await this.usersRepository.findOne({ where: { id: review.reviewed_id } });
+    if (reviewedUser?.role === 'jobseeker') {
+      const js = await this.jobSeekerRepository.findOne({ where: { user_id: review.reviewed_id } });
+      if (js) { js.average_rating = avg; await this.jobSeekerRepository.save(js); }
+    } else if (reviewedUser?.role === 'employer') {
+      const em = await this.employerRepository.findOne({ where: { user_id: review.reviewed_id } });
+      if (em) { em.average_rating = avg; await this.employerRepository.save(em); }
+    }
+    return review;
+  }  
 
   async deleteReview(adminId: string, reviewId: string) {
     await this.checkAdminRole(adminId);
@@ -1544,7 +1612,6 @@ export class AdminService {
     await this.referralLinksRepository.save(referralLink);
 
     const baseUrl = this.configService.get<string>('BASE_URL')!;
-
     const baseSlug = (jobPost.slug && jobPost.slug.trim().length > 0)
       ? jobPost.slug
       : this.slugify(jobPost.title || '');
@@ -1552,7 +1619,6 @@ export class AdminService {
     const slugId = jobPost.slug_id || (baseSlug && shortId ? `${baseSlug}--${shortId}` : jobPost.id);
 
     const prettyLink = `${baseUrl}/job/${slugId}?ref=${referralLink.ref_code}`;
-
     const legacyLink = `${baseUrl}/ref/${referralLink.ref_code}`;
 
     return {
@@ -1564,6 +1630,7 @@ export class AdminService {
       description: referralLink.description,
       clicks: referralLink.clicks,
       registrations: referralLink.registrations,
+      registrationsVerified: 0,
     };
   }
 
@@ -1591,6 +1658,11 @@ export class AdminService {
       const baseSlug = (jp.slug && jp.slug.trim().length > 0) ? jp.slug : this.slugify(jp.title || '');
       const shortId = (jp.id || '').replace(/-/g, '').slice(0, 8);
       const slugId = jp.slug_id || (baseSlug && shortId ? `${baseSlug}--${shortId}` : jp.id);
+
+      const registrationsVerified = (link.registrationsDetails || []).filter(
+        r => r.user && r.user.is_email_verified === true
+      ).length;
+
       return {
         id: link.id,
         jobPostId: jp?.id,
@@ -1600,6 +1672,7 @@ export class AdminService {
         description: link.description || null,
         clicks: link.clicks,
         registrations: link.registrations,
+        registrationsVerified,
         registrationsDetails: link.registrationsDetails || [],
       };
     });
@@ -1646,6 +1719,10 @@ export class AdminService {
       const shortId = (jp.id || '').replace(/-/g, '').slice(0, 8);
       const slugId = jp.slug_id || (baseSlug && shortId ? `${baseSlug}--${shortId}` : jp.id);
 
+      const registrationsVerified = (link.registrationsDetails || []).filter(
+        r => r.user && r.user.is_email_verified === true
+      ).length;
+
       return {
         id: link.id,
         jobPostId: jp?.id,
@@ -1654,6 +1731,7 @@ export class AdminService {
         legacyLink: `${baseUrl}/ref/${link.ref_code}`,
         clicks: link.clicks,
         registrations: link.registrations,
+        registrationsVerified,
         registrationsDetails: link.registrationsDetails || [],
         description: link.description || null,
         job_post: jp ? { id: jp.id, title: jp.title } : null,

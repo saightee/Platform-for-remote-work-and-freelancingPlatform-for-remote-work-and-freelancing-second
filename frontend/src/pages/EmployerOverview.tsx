@@ -202,15 +202,15 @@ useEffect(() => {
           </div>
         </div>
 
-        <div className="edb-panel">
+        {/* <div className="edb-panel">
           <div className="edb-panel__head">
             <h3>Recent applications</h3>
-            {/* <Link to="/employer-dashboard/my-job-posts?tab=all" className="edb-link">View all</Link> */}
+            
           </div>
 
           {recentApps.length ? (
             <div className="edb-table">
-              <div className="edb-thead">
+              <div className="edb-thead names_table_over">
                 <div>Applicant</div>
                 <div>Job</div>
                 <div>Status</div>
@@ -232,7 +232,7 @@ useEffect(() => {
                       </div>
                       <div>{a.appliedAt ? new Date(a.appliedAt).toLocaleDateString() : '—'}</div>
 
-                      {/* НОВЫЙ СТОЛБЕЦ: кнопка + меню */}
+                     
                       <div>
                         <div className="mjp-more">
                           <button
@@ -250,7 +250,6 @@ useEffect(() => {
                           </button>
                         </div>
 
-                        {/* Портал меню */}
                         {openMenuId === a.applicationId && menuPos && createPortal(
                           <div
                             className="mjp-menu"
@@ -324,7 +323,7 @@ useEffect(() => {
                           document.body
                         )}
                       </div>
-                      {/* КОНЕЦ нового столбца */}
+                 
                     </div>
                   </div>
                 ))}
@@ -333,7 +332,7 @@ useEffect(() => {
           ) : (
             <div className="edb-empty">No applications yet.</div>
           )}
-        </div>
+        </div> */}
       </div>
 
       {/* ===== Modals ===== */}

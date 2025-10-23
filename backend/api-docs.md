@@ -1507,16 +1507,8 @@
 
 ### 20. Create Review
 - **Endpoint**: `POST /api/reviews`
-- **Description**: Creates a review for a user (employer or jobseeker) related to a specific job application.
+- **Description**: Creates a review (status = Pending). Appears publicly only after admin approval.
 - **Headers**: `Authorization: Bearer <token>`
-- **Request Body**:
-  ```json
-  {
-    "job_application_id": "<jobApplicationId>",
-    "rating": 4,
-    "comment": "Great work, very professional!"
-  }
-
 - **Response (Success - 200)**:
   ```json
   {
@@ -1526,6 +1518,7 @@
     "job_application_id": "<jobApplicationId>",
     "rating": 4,
     "comment": "Great work, very professional!",
+    "status": "Pending",
     "created_at": "2025-05-13T18:00:00.000Z",
     "updated_at": "2025-05-13T18:00:00.000Z"
   }
@@ -1580,7 +1573,7 @@
 
 ### 21. Get Reviews for User
 - **Endpoint**: `GET /api/reviews/user/:id`
-- **Description**: Retrieves all reviews for a specific user (employer or jobseeker).
+- **Description**: Returns only Approved reviews for the user.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Parameters**: `id`: The ID of the user
 - **Response (Success - 200)**:
@@ -1999,38 +1992,35 @@
 - **Endpoint**: `GET /api/admin/reviews`
 - **Description**: Retrieves all reviews (admin only).
 - **Headers**: `Authorization: Bearer <token>`
+- **Query**:
+  - `page` (number, default 1)
+  - `limit` (number, default 10)
+  - `status` (Pending | Approved | Rejected, optional)
 - **Response (Success - 200)**: 
   ```json
-  [
   {
-    "id": "<reviewId>",
-    "reviewer_id": "<userId>",
-    "reviewed_id": "<userId>",
-    "job_application_id": "<jobApplicationId>",
-    "rating": 4,
-    "comment": "Great work, very professional!",
-    "reviewer": {
-      "id": "<userId>",
-      "email": "employer4@example.com",
-      "username": "employer4",
-      "role": "employer"
-    },
-    "reviewed": {
-      "id": "<userId>",
-      "email": "jobseeker1@example.com",
-      "username": "jobseeker1",
-      "role": "jobseeker"
-    },
-    "job_application": {
-      "id": "<jobApplicationId>",
-      "job_post_id": "<jobPostId>",
-      "job_seeker_id": "<userId>",
-      "status": "Accepted"
-    },
-    "created_at": "2025-05-13T18:00:00.000Z",
-    "updated_at": "2025-05-13T18:00:00.000Z"
+    "total": 123,
+    "data": [
+      {
+        "id": "rev_1",
+        "reviewer_id": "u_a",
+        "reviewed_id": "u_b",
+        "job_application_id": "app_1",
+        "rating": 5,
+        "comment": "Nice!",
+        "status": "Pending",
+        "reviewer": { "id": "u_a", "email": "a@x", "username": "a" },
+        "reviewed": { "id": "u_b", "email": "b@x", "username": "b" },
+        "job_application": {
+          "id": "app_1",
+          "job_post": { "id": "job_1", "title": "Virtual Assistant" },
+          "job_seeker": { "id": "u_b", "username": "b" }
+        },
+        "created_at": "2025-05-13T18:00:00.000Z",
+        "updated_at": "2025-05-13T18:00:00.000Z"
+      }
+    ]
   }
-  ]
 
 ### 33. Delete Review (Admin)
 - **Endpoint**: `DELETE /api/admin/reviews/:id`
@@ -2049,6 +2039,28 @@
     "statusCode": 404,
     "message": "Review not found",
     "error": "Not Found"
+  }
+
+### 33.1 Approve Review (Admin)
+- **Endpoint**: `PATCH /api/admin/reviews/:id/approve`
+- **Description**: Sets review status to Approved and recomputes target user’s average rating using only Approved reviews.
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**: 
+  ```json
+  {
+    "id": "<reviewId>",
+    "status": "Approved"
+  }
+
+### 33.2 Reject Review (Admin)
+- **Endpoint**: `PATCH /api/admin/reviews/:id/reject`
+- **Description**: Sets review status to Rejected and recomputes target user’s average rating excluding this review.
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**: 
+  ```json
+  {
+    "id": "<reviewId>",
+    "status": "Rejected"
   }
 
 ### 34. Get Analytics (Admin)
@@ -2215,37 +2227,43 @@
 
 ### 37. Get Tech Issue Feedback (Admin)
 - **Endpoint**: `GET /api/feedback`
-- **Description**: Retrieves all general feedback submissions (admin only).
+- **Description**: Returns a paginated list of tech feedback (admin only).
 - **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**:
+  - `page` (number, optional): Page number (default: 1)
+  - `limit` (number, optional): Page size (default: 10)
 - **Response (Success - 200)**: 
   ```json
-  [
-    {
-      "id": "<feedbackId>",
-      "user_id": "<userId>",
-      "role": "employer",
-      "category": "UI",
-      "summary": "Button misaligned on mobile",
-      "steps_to_reproduce": "Open /jobs on iPhone SE...",
-      "expected_result": "Buttons aligned in a row",
-      "actual_result": "Buttons wrap to next line",
-      "created_at": "2025-08-15T10:00:00.000Z",
-      "updated_at": "2025-08-15T10:00:00.000Z",
-      "user": {
-        "id": "<userId>",
-        "username": "employer1",
-        "email": "employer@example.com"
+  {
+    "total": 123,
+    "data": [
+      {
+        "id": "<feedbackId>",
+        "user_id": "<userId>",
+        "role": "employer",
+        "category": "UI",
+        "summary": "Button misaligned on mobile",
+        "steps_to_reproduce": "Open /jobs on iPhone SE...",
+        "expected_result": "Buttons aligned in a row",
+        "actual_result": "Buttons wrap to next line",
+        "created_at": "2025-08-15T10:00:00.000Z",
+        "updated_at": "2025-08-15T10:00:00.000Z",
+        "user": {
+          "id": "<userId>",
+          "username": "employer1",
+          "email": "employer@example.com"
+        }
       }
-    }
-  ]
+    ]
+  }
+
+- **Response (Error - 400)**:   
+  ```json
+  { "statusCode": 400, "message": "Page must be a positive integer", "error": "Bad Request" }
 
 - **Response (Error - 401, if user is not an admin)**:   
   ```json
-  {
-  "statusCode": 401,
-  "message": "Only admins can view feedback",
-  "error": "Unauthorized"
-  }
+  { "statusCode": 401, "message": "Only admins can view feedback", "error": "Unauthorized" }
 
 ### 38. Add Blocked Country (Admin)
 - **Endpoint**: `POST /api/admin/blocked-countries`
@@ -2981,7 +2999,14 @@
   - `job_search_status` — "actively_looking" | "open_to_offers" | "hired"
   - `expected_salary_min` — неотрицательное число.
   - `expected_salary_max` — неотрицательное число.
+  - `country` — ISO-код страны (например, US).
+  - `countries` — массив ISO-кодов, можно как countries=US&countries=CA или countries=US,CA.
+  - `languages` — массив языков (строки), например languages=en&languages=fr или languages=en,fr.
+  - `languages_mode` — any (по умолчанию) | all.
+  - `has_resume` — true | false.
 - **Example Request**: `/api/talents?skills=<skillId>&experience=3 years&description=React&rating=4&timezone=America/New_York&page=1&limit=10&sort_by=average_rating&sort_order=DESC`
+  `/api/talents?skills[]=123&skills=456&country=PH&languages=en,es&languages_mode=all&has_resume=true&page=1&limit=20`
+  `/api/talents?countries=IN,BD&has_resume=false`
 - **Response (Success - 200)**:
   ```json
   {
@@ -2992,11 +3017,7 @@
         "username": "john_doe",
         "email": "john@example.com",
         "skills": [
-          {
-            "id": "<skillId>",
-            "name": "Web Development",
-            "parent_id": "<parentSkillId>"
-          }
+          { "id": "<skillId>", "name": "Web Development", "parent_id": "<parentSkillId>" }
         ],
         "experience": "3 years",
         "description": "Experienced web developer specializing in React and Node.js",
@@ -3009,7 +3030,10 @@
         "job_search_status": "open_to_offers",
         "profile_views": 100,
         "identity_verified": true,
-        "avatar": "/uploads/avatars/<filename>"
+        "avatar": "/uploads/avatars/<filename>",
+        "country": "US",
+        "languages": ["English", "Spanish"],
+        "has_resume": true
       }
     ]
   }
@@ -3087,43 +3111,44 @@
     "error": "Not Found"
   }
 
-### 66. Get All Complaints (Admin)
+### 66. Get Complaints (Admin)
 - **Endpoint**: `GET /api/admin/complaints`
-- **Description**: Retrieves all complaints for admin review.
+- **Description**: Returns a paginated list of complaints for admin review.
 - **Headers**: `Authorization: Bearer <token>`
+- **Query Parameters**:
+  - `page` (number, optional): Page number (default: 1)
+  - `limit` (number, optional): Page size (default: 10)
 - **Response (Success - 200)**:
   ```json
-  [
-    {
-      "id": "<complaintId>",
-      "complainant_id": "<userId>",
-      "complainant": { "id": "<userId>", "username": "user1", "email": "user1@example.com" },
-      "job_post_id": "<jobPostId>",
-      "job_post": { "id": "<jobPostId>", "title": "Software Engineer" },
-      "profile_id": null,
-      "profile": null,
-      "reason": "Inappropriate job description",
-      "status": "Resolved",
-      "resolution_comment": "Issue addressed",
-      "resolver_id": "<adminId>",  
-      "resolver": {  
-        "id": "<adminId>",
-        "username": "admin1",
-        "email": "admin1@example.com",
-        "role": "admin"
-      },
-      "created_at": "2025-07-31T12:00:00Z",
-      "updated_at": "2025-07-31T12:10:00Z"
-    }
-  ]
+  {
+    "total": 42,
+    "data": [
+      {
+        "id": "cpl_123",
+        "complainant_id": "u_111",
+        "complainant": { "id": "u_111", "username": "alice", "email": "alice@example.com" },
+        "job_post_id": "job_999",
+        "job_post": { "id": "job_999", "title": "Virtual Assistant" },
+        "profile_id": null,
+        "profile": null,
+        "reason": "Spam / scam",
+        "status": "Pending",
+        "resolution_comment": null,
+        "resolver_id": null,
+        "resolver": null,
+        "created_at": "2025-08-15T10:00:00.000Z",
+        "updated_at": "2025-08-15T10:00:00.000Z"
+      }
+    ]
+  }
+
+- **Response (Error - 400)**:
+  ```json
+  { "statusCode": 400, "message": "Page must be a positive integer", "error": "Bad Request" }
 
 - **Response (Error - 401, if not admin)**:
   ```json
-  {
-    "statusCode": 401,
-    "message": "Only admins can view complaints",
-    "error": "Unauthorized"
-  }
+  { "statusCode": 401, "message": "Only admins can view complaints", "error": "Unauthorized" }
 
 ### 67. Resolve Complaint (Admin)
 - **Endpoint**: `POST /api/admin/complaints/:id/resolve`
@@ -4025,7 +4050,7 @@
     "description": "Facebook Ads, campaign A",
     "clicks": 0,
     "registrations": 0,
-
+    "registrationsVerified": 0,
     "landingPath": "/job/<slug_id>",
     "fullLink": "https://jobforge.net/job/<slug_id>?ref=<uuid>",
     "legacyLink": "https://jobforge.net/ref/<uuid>"
@@ -4076,6 +4101,7 @@
       "description": "YouTube Influencer X",
       "clicks": 3,
       "registrations": 1,
+      "registrationsVerified": 2,
       "created_at": "2025-08-12T11:12:00.000Z",
   
       "landingPath": "/job/<slug_id>",

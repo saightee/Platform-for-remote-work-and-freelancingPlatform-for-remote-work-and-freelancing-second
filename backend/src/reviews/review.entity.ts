@@ -1,6 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { JobApplication } from '../job-applications/job-application.entity';
+export type ReviewStatus = 'Pending' | 'Approved' | 'Rejected';
 
 @Entity('reviews')
 export class Review {
@@ -8,31 +9,34 @@ export class Review {
   id: string;
 
   @Column()
-  reviewer_id: string; 
+  reviewer_id: string;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'reviewer_id' })
   reviewer: User;
 
   @Column()
-  reviewed_id: string; 
+  reviewed_id: string;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'reviewed_id' })
   reviewed: User;
 
   @Column()
-  job_application_id: string; 
+  job_application_id: string;
 
   @ManyToOne(() => JobApplication)
   @JoinColumn({ name: 'job_application_id' })
   job_application: JobApplication;
 
   @Column({ type: 'integer' })
-  rating: number; 
+  rating: number;
 
   @Column('text', { nullable: true })
   comment?: string;
+
+  @Column({ type: 'varchar', default: 'Pending' })
+  status: ReviewStatus;
 
   @CreateDateColumn()
   created_at: Date;

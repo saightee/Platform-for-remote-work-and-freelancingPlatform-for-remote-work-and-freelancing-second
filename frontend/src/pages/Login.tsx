@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { login, resendVerification } from '../services/api';
 import { useRole } from '../context/RoleContext';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
@@ -20,7 +20,27 @@ const Login: React.FC = () => {
 const [submitCooldown, setSubmitCooldown] = useState(0);
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 const [cooldown, setCooldown] = useState(0);
+const location = useLocation();
+const intended = (location.state as any)?.from as string | undefined;
 
+const isAllowedForRole = (path: string, role: string) => {
+  if (!path) return false;
+  if (role === 'employer') return path.startsWith('/employer-dashboard');
+  if (role === 'jobseeker') return path.startsWith('/jobseeker-dashboard');
+  if (role === 'admin') return path.startsWith('/admin');
+  if (role === 'moderator') return path.startsWith('/moderator');
+  return false;
+};
+
+const defaultForRole = (role: string) => {
+  switch (role) {
+    case 'employer': return '/employer-dashboard';
+    case 'jobseeker': return '/jobseeker-dashboard';
+    case 'admin': return '/admin';
+    case 'moderator': return '/moderator';
+    default: return '/';
+  }
+};
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   if (isRefreshing || submitCooldown > 0) return;
@@ -74,34 +94,39 @@ const handleSubmit = async (e: React.FormEvent) => {
   //   }
   // }, [isAuthenticated, currentRole, navigate]);
 
-  useEffect(() => {
-  console.log(
-    'Login useEffect, isAuthenticated:',
-    isAuthenticated,
-    'profile:', profile,
-    'currentRole:', currentRole
-  );
-
+ useEffect(() => {
   if (!isAuthenticated) return;
 
-  // подстрахуемся, если currentRole ещё не проставлен
   const role = currentRole || profile?.role;
   if (!role) return;
 
   const go = (path: string) => navigate(path, { replace: true });
 
-  if (role === 'admin') {
-    go('/admin');
-  } else if (role === 'moderator') {
-    go('/moderator');
-  } else if (role === 'employer') {
-    go('/employer-dashboard');       // <-- сюда отправляем работодателя
-  } else if (role === 'jobseeker') {
-    go('/jobseeker-dashboard');      // опционально: дашборд соискателя
-  } else {
-    go('/');
+  // источники intended-URL
+  const fromState  = intended;
+  const params     = new URLSearchParams(window.location.search);
+  const fromQuery  = params.get('redirect') || params.get('next') || undefined;
+  const fromStore  = sessionStorage.getItem('postLoginRedirect') || undefined;
+
+  const candidate = [fromState, fromQuery, fromStore].find(Boolean) as string | undefined;
+
+  // очистим, чтобы не залипало на следующий логин
+  if (fromStore) sessionStorage.removeItem('postLoginRedirect');
+
+  const isRelativeSafe = (p?: string) => !!p && p.startsWith('/');
+  const allowedForRole = (p?: string) => !!p && isAllowedForRole(p, role);
+
+  if (isRelativeSafe(candidate) && allowedForRole(candidate)) {
+    go(candidate!);
+    return;
   }
-}, [isAuthenticated, currentRole, profile?.role, navigate]);
+
+  go(defaultForRole(role));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [isAuthenticated, currentRole, profile?.role]);
+
+
+
 
 useEffect(() => {
   if (!submitCooldown) return;

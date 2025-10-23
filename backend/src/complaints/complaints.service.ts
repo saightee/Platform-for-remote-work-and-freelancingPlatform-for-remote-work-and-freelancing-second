@@ -23,9 +23,7 @@ export class ComplaintsService {
     reason: string,
   ) {
     const complainant = await this.usersRepository.findOne({ where: { id: complainantId } });
-    if (!complainant) {
-      throw new NotFoundException('Complainant not found');
-    }
+    if (!complainant) throw new NotFoundException('Complainant not found');
     if (complainant.role !== 'jobseeker' && complainant.role !== 'employer') {
       throw new UnauthorizedException('Only jobseekers and employers can submit complaints');
     }
@@ -39,14 +37,10 @@ export class ComplaintsService {
 
     if (jobPostId) {
       const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
-      if (!jobPost) {
-        throw new NotFoundException('Job post not found');
-      }
+      if (!jobPost) throw new NotFoundException('Job post not found');
     } else if (profileId) {
       const profile = await this.usersRepository.findOne({ where: { id: profileId } });
-      if (!profile) {
-        throw new NotFoundException('Profile not found');
-      }
+      if (!profile) throw new NotFoundException('Profile not found');
       if (complainantId === profileId) {
         throw new BadRequestException('Cannot submit a complaint against your own profile');
       }
@@ -75,15 +69,20 @@ export class ComplaintsService {
     return this.complaintsRepository.save(complaint);
   }
 
-  async getComplaints(adminId: string) {
+  async getComplaints(adminId: string, page = 1, limit = 10) {
     const admin = await this.usersRepository.findOne({ where: { id: adminId } });
     if (!admin || admin.role !== 'admin') {
       throw new UnauthorizedException('Only admins can view complaints');
     }
 
-    return this.complaintsRepository.find({
+    const [data, total] = await this.complaintsRepository.findAndCount({
       relations: ['complainant', 'job_post', 'profile', 'resolver'],
+      order: { created_at: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+
+    return { total, data };
   }
 
   async resolveComplaint(adminId: string, complaintId: string, status: 'Resolved' | 'Rejected', comment?: string) {
@@ -93,9 +92,7 @@ export class ComplaintsService {
     }
 
     const complaint = await this.complaintsRepository.findOne({ where: { id: complaintId } });
-    if (!complaint) {
-      throw new NotFoundException('Complaint not found');
-    }
+    if (!complaint) throw new NotFoundException('Complaint not found');
 
     complaint.status = status;
     complaint.resolution_comment = comment;

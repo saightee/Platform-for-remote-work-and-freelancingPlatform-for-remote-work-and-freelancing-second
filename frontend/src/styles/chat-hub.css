@@ -10,7 +10,7 @@
 }
 
 /* контейнер страницы */
-.ch-shell{ max-width:1100px; margin:10px -32px; padding:0 0px; }
+.ch-shell{ max-width:1100px; margin:10px 0px; padding:0 0px; }
 
 /* белая карточка-обёртка на всю высоту вьюпорта */
 .ch-card{
@@ -268,7 +268,7 @@
 /* === Mobile optimizations for chat width & bubbles === */
 @media (max-width:640px){
   /* убираем внешние отступы-контейнер, делаем карточку во всю ширину */
-  .ch-shell{ padding:0; margin:0; }
+  .ch-shell{ padding:0; margin: 0px -7px; }
   .ch-card{ padding:12px; border-radius:-1; }
 
   /* растягиваем сам чат «в край» */
@@ -541,3 +541,50 @@ html, body { overflow-x: hidden; }
 /* подстрахуем сам айтем — пусть можно сжимать */
 .ch-chatlist__item{ min-width:0; }
 .ch-topbar { min-height: 44px; }
+
+/* NEW: compact country-code chip */
+.ch-chip--cc{
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #eef2f7;
+  border: 1px solid #d9e1ee;
+  color: #334155;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+/* NEW: country label in chat header */
+.ch-country-inline{
+  margin-left: 8px;
+  font-weight: 500;
+  opacity: .75;
+  white-space: nowrap;
+}
+
+
+/* ===== Mobile (≤900): список чатов сверху + ограничение на 5 видимых ===== */
+@media (max-width: 900px) {
+  /* меняем порядок: сначала список (Chats), ниже само окно чата */
+  .ch-sidebar { order: 1 !important; }
+  .ch-chat    { order: 2 !important; }
+
+  /* задаём «стандартную» высоту карточки чата,
+     чтобы 5 штук помещались ровно перед скроллом */
+  :root {
+    --ch-list-gap: 8px;        /* gap между элементами списка */
+    --ch-chat-row-h: 78px;     /* высота одной карточки чата (подстрой при желании) */
+  }
+
+  /* делаем строки одинаковой высоты на мобилке */
+  .ch-chatlist__item { min-height: var(--ch-chat-row-h); }
+
+  /* показываем не более 5 чатов без скролла;
+     дальше — появляется вертикальный скролл */
+  .ch-chatlist {
+    max-height: calc(5 * var(--ch-chat-row-h) + 4 * var(--ch-list-gap));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+.ch-chatlist__item { position: relative; pointer-events: auto; }
