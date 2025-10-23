@@ -881,17 +881,25 @@ const handlePageChange = (newPage: number) => {
                         return (
                           <article key={talent.id} className="ftl-card-item" role="article">
                       <div className={`ftl-avatar ${talent.avatar ? 'has-img' : ''}`}>
-  {talent.avatar && (
-  <img
-    src={`${brandBackendOrigin()}${talent.avatar}`}
-    alt="Talent Avatar"
-    className="ftl-avatar-img"
-    onError={(e) => {
-      const box = e.currentTarget.parentElement as HTMLElement | null;
-      box?.classList.remove('has-img');
-      e.currentTarget.style.display = 'none';
-    }}
-  />
+{talent.avatar && (
+  (() => {
+    const a = talent.avatar || '';
+    const avatarSrc = a.startsWith('http')
+      ? a
+      : `${brandBackendOrigin()}${a}`;
+    return (
+      <img
+        src={avatarSrc}
+        alt="Talent Avatar"
+        className="ftl-avatar-img"
+        onError={(e) => {
+          const box = e.currentTarget.parentElement as HTMLElement | null;
+          box?.classList.remove('has-img');
+          e.currentTarget.style.display = 'none';
+        }}
+      />
+    );
+  })()
 )}
 
   <FaUserCircle className="ftl-avatar-fallback" />

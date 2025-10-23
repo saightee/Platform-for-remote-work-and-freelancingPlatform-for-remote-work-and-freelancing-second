@@ -405,13 +405,15 @@ if (Array.isArray(now.languages))                    patch.languages = now.langu
                 onClick={() => avatarRef.current?.click()}
                 title="Click to upload avatar"
               >
-                {profileData.avatar ? (
-               <img
-  src={`${brandOrigin()}/backend${profileData.avatar}`}
-  alt="Avatar"
-  className="pf-avatar"
-/>
-                ) : (
+         {profileData.avatar ? (
+  (() => {
+    const a = profileData.avatar || '';
+    const avatarSrc = a.startsWith('http')
+      ? a
+      : `${brandOrigin()}/backend${a}`;
+    return <img src={avatarSrc} alt="Avatar" className="pf-avatar" />;
+  })()
+) : (
                   <div className="pf-avatar-placeholder">
                     <FaUserCircle className="pf-avatar-icon" />
                     <span className="pf-avatar-add">+</span>
