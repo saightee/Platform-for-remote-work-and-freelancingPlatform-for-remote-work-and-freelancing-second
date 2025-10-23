@@ -106,14 +106,21 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
   return (
     <div className="job-card job-card-find-jobs jc-card jc-card--list" role="article">
       <div className="jc-avatar">
-        {job.employer?.avatar ? (
-          <img
-  src={`${brandBackendOrigin()}${job.employer.avatar}`}
-  alt="Employer Avatar"
-  className="jc-avatar-img"
-/>
-
-        ) : (
+ {job.employer?.avatar ? (
+  (() => {
+    const a = job.employer.avatar || '';
+    const avatarSrc = a.startsWith('http')
+      ? a
+      : `${brandBackendOrigin()}${a}`;
+    return (
+      <img
+        src={avatarSrc}
+        alt="Employer Avatar"
+        className="jc-avatar-img"
+      />
+    );
+  })()
+) : (
           <FaUserCircle className="jc-avatar-icon" />
         )}
       </div>
