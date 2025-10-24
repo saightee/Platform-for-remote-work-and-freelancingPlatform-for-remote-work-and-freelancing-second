@@ -4364,3 +4364,42 @@
 - **Response (200)**:
   ```json
   { "updated": 2, "updatedIds": ["<applicationId1>", "<applicationId2>"] }
+
+### 99. Set “Avatar Required on Registration” (Admin)
+- **Endpoint:** `POST /api/admin/settings/registration-avatar`
+- **Description:** Enables or disables the requirement for jobseekers to upload an avatar during registration (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body:**:
+  ```json
+  {
+    "required": true
+  }
+- **Response (200)**:
+  ```json
+  {
+    "required": true
+  }
+- **Response (Error - 400, invalid type)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "`required` must be boolean",
+    "error": "Bad Request"
+  }
+
+### 100. Get “Avatar Required on Registration” (Admin)
+- **Endpoint:** `GET /api/admin/settings/registration-avatar`
+- **Description:** Returns current state of the “avatar required” flag (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  ```json
+  {
+    "required": false
+  }
+
+### 101. Get “Avatar Required on Registration” (Public)
+- **Endpoint:** `GET /api/settings/registration-avatar`
+- **Description:** Returns whether jobseeker must upload an avatar during registration (no auth).
+- **Response (Success - 200)**:
+  ```json
+  { "required": true }

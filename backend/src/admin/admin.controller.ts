@@ -9,7 +9,6 @@ import { AntiFraudService } from '../anti-fraud/anti-fraud.service';
 import { ComplaintsService } from '../complaints/complaints.service';
 import { ChatService } from '../chat/chat.service';
 
-
 @Controller('admin')
 export class AdminController {
   constructor(
@@ -1235,4 +1234,27 @@ export class AdminController {
     return { message: 'Chat notification settings updated', settings: normalized };
   }
 
+  @Get('settings/registration-avatar')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async getRequireAvatarOnRegistration(@Headers('authorization') authHeader: string) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    return this.settingsService.getRequireAvatarOnRegistration();
+  }
+
+  @Post('settings/registration-avatar')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async setRequireAvatarOnRegistration(
+    @Body('required') required: any,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    if (typeof required !== 'boolean') {
+      throw new BadRequestException('`required` must be boolean');
+    }
+    return this.settingsService.setRequireAvatarOnRegistration(required);
+  }
 }
