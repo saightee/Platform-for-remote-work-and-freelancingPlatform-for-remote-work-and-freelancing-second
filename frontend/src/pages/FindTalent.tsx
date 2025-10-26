@@ -75,8 +75,8 @@ const [filters, setFilters] = useState<{
     const v = searchParams.get('job_search_status');
     return v === 'actively_looking' || v === 'open_to_offers' || v === 'hired' ? v : undefined;
   })(),
-  page: 1,
-  limit: 10,
+  page: Number(searchParams.get('page') || '1'),
+  limit: Number(searchParams.get('limit') || '25'),
   description: searchParams.get('description') || '',
 
   country: (() => {
@@ -409,6 +409,13 @@ useEffect(() => {
   return () => clearTimeout(t);
 }, [searchInput, selectedSkillId]); 
 
+useEffect(() => {
+  const p = Number(searchParams.get('page') || '1');
+  const l = Number(searchParams.get('limit') || '25');
+  setFilters(prev =>
+    (prev.page === p && prev.limit === l) ? prev : { ...prev, page: p, limit: l }
+  );
+}, [searchParams]);
 
   // автокомплит категорий
   useEffect(() => {
@@ -444,7 +451,7 @@ useEffect(() => {
     expected_salary_max: undefined,
     job_search_status: undefined,
     page: 1,
-    limit: 10,
+    limit: 25,
     description: '',
     country: '',
     languages: [],
@@ -494,6 +501,8 @@ if (typeof filters.has_resume === 'boolean') {
   nextParams.has_resume = String(filters.has_resume);
 }
 
+nextParams.page  = '1';
+nextParams.limit = String(filters.limit || 25);
 
   setSearchParams(nextParams, { replace: true }); // чтобы не засорять историю
   setIsFilterPanelOpen(false);
@@ -501,9 +510,17 @@ if (typeof filters.has_resume === 'boolean') {
 
 
 const handlePageChange = (newPage: number) => {
+  // обновляем стейт
   setFilters(prev => (prev.page === newPage ? prev : { ...prev, page: newPage }));
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // синхронизируем URL -> триггер для ScrollToTop()
+  const params = new URLSearchParams(searchParams);
+  params.set('page', String(newPage));
+  params.set('limit', String(filters.limit || 25));
+  setSearchParams(params, { replace: true });
+  // больше НЕ скроллим вручную — ScrollToTop сделает это сам
 };
+
 
 
 

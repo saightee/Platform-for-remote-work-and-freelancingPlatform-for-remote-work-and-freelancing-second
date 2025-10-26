@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -101,6 +101,7 @@ const Messages: React.FC = () => {
   const location = useLocation() as any;
  const preselectJobPostId = location?.state?.jobPostId != null ? toId(location.state.jobPostId) : null;
 const preselectApplicationId = location?.state?.applicationId != null ? toId(location.state.applicationId) : null;
+const chatListRef = useRef<HTMLUListElement>(null);
 
 const {
   profile,
@@ -252,7 +253,7 @@ const [multiMode, setMultiMode] = useState(false);
     comment: string;
   } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-
+  const listAnchorRef = useRef<{ id: string; offset: number } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const joinedSet = useRef<Set<string>>(new Set());
   const joinQueue = useRef<string[]>([]);
@@ -317,6 +318,35 @@ useEffect(() => {
   };
 }, [closeAllMenus]);
 
+useLayoutEffect(() => {
+  const el = chatListRef.current;
+  if (!el) return;
+
+  // 1) восстановить позицию, если до этого сохраняли якорь
+  const prev = listAnchorRef.current;
+  if (prev) {
+    const node = el.querySelector<HTMLElement>(`li[data-chat-id="${prev.id}"]`);
+    if (node) {
+      el.scrollTop = node.offsetTop - prev.offset;
+    }
+    listAnchorRef.current = null;
+  }
+
+  // 2) перед СЛЕДУЮЩЕЙ перерисовкой запомнить текущий «первый видимый» элемент
+  return () => {
+    const list = chatListRef.current;
+    if (!list) return;
+
+    const { scrollTop } = list;
+    const items = Array.from(list.querySelectorAll<HTMLElement>('li.ch-chatlist__item'));
+    // первый частично/полностью видимый элемент
+    const firstVisible = items.find(li => li.offsetTop + li.offsetHeight > scrollTop + 1);
+    if (!firstVisible) return;
+
+    const id = firstVisible.dataset.chatId || '';
+    listAnchorRef.current = { id, offset: firstVisible.offsetTop - scrollTop };
+  };
+});
   // helpers
 
 
@@ -1148,9 +1178,10 @@ useEffect(() => {
             <aside className="ch-sidebar">
               <h3 className="ch-sidebar__title">Chats</h3>
               {chatList.length > 0 ? (
-                <ul className="ch-chatlist">
+                <ul className="ch-chatlist" ref={chatListRef}>
                   {chatList.map((chat) => (
 <li
+data-chat-id={chat.id}
   key={chat.id}
   className={`ch-chatlist__item ${selectedChat === chat.id ? 'is-active' : ''}
     ${chat.unreadCount > 0 ? 'has-unread' : ''}

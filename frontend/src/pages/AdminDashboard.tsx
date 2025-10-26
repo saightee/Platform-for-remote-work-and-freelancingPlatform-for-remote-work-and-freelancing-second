@@ -13,6 +13,7 @@ import Loader from '../components/Loader';
 import sanitizeHtml from 'sanitize-html';
 import '../styles/admin-settings.css';
 import '../styles/post-job.css';
+import { toast } from '../utils/toast';
 import AdminChatTab from '../components/AdminChatTab';
 import ExportUsersPopover from '../components/ExportUsersPopover';
 import {
@@ -28,13 +29,15 @@ import {
   resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
   logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, getChatNotificationSettings,
   updateChatNotificationSettings,
-  notifyReferralApplicants, getRecentRegistrationsToday, getBrandsAnalytics, getAdminReviews, approveReview, rejectReview,
+  notifyReferralApplicants, getRecentRegistrationsToday, getBrandsAnalytics, getAdminReviews, approveReview, rejectReview, createSiteReferralLink, getSiteReferralLinks, updateSiteReferralLink, deleteSiteReferralLink, getAdminRegistrationAvatarRequired,
+  setAdminRegistrationAvatarRequired, 
 } from '../services/api';
 import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings } from '@types';
 import { AxiosError } from 'axios';
 import '../styles/referral-links.css';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import type { SiteReferralLink } from '../services/api';
 
 // import {
 //   mockUsers, mockJobPosts, mockJobPostsWithApps, mockReviews, mockFeedback,
@@ -185,6 +188,8 @@ const [techLoading, setTechLoading] = useState(false);
 
 // для модалки деталей тех.фидбека
 const [techDetails, setTechDetails] = useState<any | null>(null);
+const [regAvatarRequired, setRegAvatarRequired] = useState<boolean | null>(null);
+const [savingRegAvatar, setSavingRegAvatar] = useState(false);
 
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Resolved' | 'Rejected'>('All');
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
@@ -215,6 +220,15 @@ const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
 const toggleJob = (jobId: string) =>
   setExpandedJobs(prev => ({ ...prev, [jobId]: !prev[jobId] }));
 
+const copy = async (text: string) => {
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove();
+  }
+};
+// onClick={() => copy(link.shortLink || link.fullLink)}
 
 const [growthLimit] = useState(10); // Лимит на страницу
 const [stories, setStories] = useState<PlatformFeedbackAdminItem[]>([]);
@@ -432,6 +446,9 @@ const [freelancerSignupsToday, setFreelancerSignupsToday] = useState<{ country: 
   const [businessSignupsYesterday, setBusinessSignupsYesterday] = useState<{ country: string; count: number }[]>([]);
   const [businessSignupsWeek, setBusinessSignupsWeek] = useState<{ country: string; count: number }[]>([]);
 const [businessSignupsMonth, setBusinessSignupsMonth] = useState<{ country: string; count: number }[]>([]);
+// Complaints pagination
+const [complaintsPage, setComplaintsPage] = useState(1);
+const [complaintsLimit, setComplaintsLimit] = useState(20);
 
 const [notifyLimit, setNotifyLimit] = useState<string>('10');
 const [notifyOrderBy, setNotifyOrderBy] = useState<'beginning' | 'end' | 'random'>('beginning');
@@ -591,7 +608,7 @@ const openEmailStats = async (jobPostId: string) => {
       }
     } : prev);
   } catch (e) {
-    alert('Failed to load email stats');
+    toast.error('Failed to load email stats');
     setShowEmailStatsModal(null);
   }
 };
@@ -605,11 +622,11 @@ const submitResolveComplaint = async () => {
     const updatedComplaints = await getComplaints<Complaint>();
 setComplaints(updatedComplaints || []);
     setResolveModal(null);
-    alert('Complaint resolved successfully!');
+    toast.success('Complaint resolved successfully!');
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
     console.error('Error resolving complaint:', axiosError);
-    alert(axiosError.response?.data?.message || 'Failed to resolve complaint.');
+    toast.error(axiosError.response?.data?.message || 'Failed to resolve complaint.');
   }
 };
 
@@ -625,6 +642,34 @@ const [referralLinks, setReferralLinks] = useState<{
   registrationsDetails?: { user: { id: string; username: string; email: string; role: string; created_at: string } }[];
   job_post?: { id: string; title: string };
 }[]>([]);
+
+// Подменю внутри раздела "Referral Links"
+const [refSubTab, setRefSubTab] = useState<'job' | 'site'>('job'); // NEW
+
+// --- Site referrals (глобальные) ---
+const [siteReferrals, setSiteReferrals] = useState<SiteReferralLink[]>([]); // NEW
+const [siteQ, setSiteQ] = useState('');                                     // NEW: поиск q
+const [siteCreatedByAdminId, setSiteCreatedByAdminId] = useState('');       // NEW: фильтр автора
+const [siteExpandedAdmin, setSiteExpandedAdmin] = useState<Record<string, boolean>>({}); // NEW: раскрытие групп
+const [siteExpandedLinkId, setSiteExpandedLinkId] = useState<string | null>(null);       // NEW: раскрытие регистраций
+
+// Форма создания глобальной ссылки
+const [creatingSite, setCreatingSite] = useState(false);        // NEW
+const [newSiteDescription, setNewSiteDescription] = useState('');// NEW
+const [newSiteLandingPath, setNewSiteLandingPath] = useState('');// NEW
+
+// Модалка после создания (показать shortLink и копирование)
+const [showSiteCreatedModal, setShowSiteCreatedModal] = useState<{ // NEW
+  shortLink: string;
+  description?: string | null;
+  landingPath?: string | null;
+} | null>(null);
+
+// Для быстрого "Only me" в фильтре
+const [adminId, setAdminId] = useState<string | null>(null);    // NEW
+
+const setSearch = (sp: URLSearchParams) =>
+  navigate({ search: `?${sp.toString()}` }, { replace: true });
 
 const [createReferralForJobId, setCreateReferralForJobId] = useState<string | null>(null);
 const [newReferralDescription, setNewReferralDescription] = useState<string>('');
@@ -668,9 +713,10 @@ const handleEditReferral = async (linkId: string, current?: string | null) => {
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
     console.error('Error updating referral:', axiosError);
-    alert(axiosError.response?.data?.message || 'Failed to update referral link.');
+    toast.error(axiosError.response?.data?.message || 'Failed to update referral link.');
   }
 };
+
 
 // Удаление ссылки
 const handleDeleteReferral = async (linkId: string) => {
@@ -682,7 +728,7 @@ const handleDeleteReferral = async (linkId: string) => {
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
     console.error('Error deleting referral:', axiosError);
-    alert(axiosError.response?.data?.message || 'Failed to delete referral link.');
+    toast.error(axiosError.response?.data?.message || 'Failed to delete referral link.');
   }
 };
 
@@ -691,6 +737,81 @@ const handleReferralForPost = (id: string) => {
   openCreateReferralModal(id);
 };
 
+// === Site referrals: загрузка списка ===
+const fetchSiteReferrals = React.useCallback(async () => {
+  try {
+    const data = await getSiteReferralLinks({
+      q: siteQ.trim() || undefined,
+      createdByAdminId: siteCreatedByAdminId.trim() || undefined,
+    });
+    setSiteReferrals(data || []);
+    // не трогаем развороты, чтобы пользователь не терял состояние при повторном поиске
+  } catch (e: any) {
+    console.error('Failed to load site referrals', e?.response?.data?.message || e?.message);
+    setSiteReferrals([]);
+    alert(e?.response?.data?.message || 'Failed to load site referrals.');
+  }
+}, [siteQ, siteCreatedByAdminId]);
+
+// === Site referrals: создание ===
+const handleCreateSiteReferral = async () => {
+  try {
+    setCreatingSite(true);
+    const payload: any = {};
+    if (newSiteDescription.trim()) payload.description = newSiteDescription.trim();
+    if (newSiteLandingPath.trim()) payload.landingPath = newSiteLandingPath.trim();
+
+    const created = await createSiteReferralLink(payload);
+    // показать короткую ссылку сразу
+    setShowSiteCreatedModal({
+      shortLink: created.shortLink,
+      description: created.description ?? undefined,
+      landingPath: created.landingPath ?? undefined,
+    });
+
+    // перезагрузить список по текущим фильтрам
+    await fetchSiteReferrals();
+
+    // очистить форму
+    setNewSiteDescription('');
+    setNewSiteLandingPath('');
+  } catch (e: any) {
+    console.error('Failed to create site referral', e?.response?.data?.message || e?.message);
+    toast.error(e?.response?.data?.message || 'Failed to create site referral link.');
+  } finally {
+    setCreatingSite(false);
+  }
+};
+
+// === Site referrals: редактирование описания ===
+const handleEditSiteReferral = async (id: string, current?: string | null) => {
+  const next = window.prompt('Edit description (optional):', current || '');
+  if (next === null) return;
+  try {
+    const { description } = await updateSiteReferralLink(id, { description: next || undefined });
+    // точечно обновим строку без перезагрузки
+    setSiteReferrals(prev => prev.map(l => l.id === id ? { ...l, description } : l));
+  } catch (e: any) {
+    console.error('Failed to update site referral', e?.response?.data?.message || e?.message);
+    toast.error(e?.response?.data?.message || 'Failed to update site referral.');
+  }
+};
+
+// === Site referrals: удаление ===
+const handleDeleteSiteReferral = async (id: string) => {
+  if (!window.confirm('Delete this referral link?')) return;
+  try {
+    await deleteSiteReferralLink(id);
+    setSiteReferrals(prev => prev.filter(l => l.id !== id));
+  } catch (e: any) {
+    console.error('Failed to delete site referral', e?.response?.data?.message || e?.message);
+    toast.error(e?.response?.data?.message || 'Failed to delete site referral.');
+  }
+};
+
+// === Вспомогательное: свернуть/развернуть группу по админу ===
+const toggleSiteGroup = (aid: string) =>
+  setSiteExpandedAdmin(prev => ({ ...prev, [aid]: !prev[aid] }));
 
 
 
@@ -738,6 +859,25 @@ useEffect(() => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
 
+useEffect(() => {
+  if (activeTab === 'Referral Links' && refSubTab === 'site') {
+    // первая загрузка без фильтров
+    fetchSiteReferrals();
+  }
+}, [activeTab, refSubTab, fetchSiteReferrals]);
+
+useEffect(() => {
+  if (activeTab !== 'Settings') return;
+  (async () => {
+    try {
+      const { required } = await getAdminRegistrationAvatarRequired();
+      setRegAvatarRequired(!!required);
+    } catch {
+      setRegAvatarRequired(false); // дефолт — не блокировать, если запрос упал
+    }
+  })();
+}, [activeTab]);
+
 
 useEffect(() => {
   const sp = new URLSearchParams(location.search);
@@ -746,8 +886,29 @@ useEffect(() => {
   sp.set('tf_limit', String(tfLimit));
   sp.set('pf_page', String(pfPage));
   sp.set('pf_limit', String(pfLimit));
-  navigate({ search: sp.toString() }, { replace: true });
+  setSearch(sp);
 }, [fbSubtab, tfPage, tfLimit, pfPage, pfLimit, location.search, navigate]);
+
+useEffect(() => {
+  const sp = new URLSearchParams(location.search);
+  const p = parseInt(sp.get('c_page') || '1', 10);
+  const l = parseInt(sp.get('c_limit') || '20', 10);
+  if (!Number.isNaN(p) && p > 0) setComplaintsPage(p);
+  if (!Number.isNaN(l)) setComplaintsLimit(Math.min(Math.max(1, l), 100));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
+useEffect(() => {
+  const sp = new URLSearchParams(location.search);
+  sp.set('c_page', String(complaintsPage));
+  sp.set('c_limit', String(complaintsLimit));
+  setSearch(sp);
+}, [complaintsPage, complaintsLimit, navigate, location.search]);
+
+useEffect(() => {
+  setComplaintsPage(1);
+}, [statusFilter, complaintSortColumn, complaintSortDirection]);
+
 
 const loadTech = useCallback(async () => {
   setTechLoading(true);
@@ -820,10 +981,10 @@ const saveChatNotif = async () => {
     };
     const saved = await updateChatNotificationSettings(payload as ChatNotificationsSettings);
     setChatNotif(normalizeCN(saved || {}));
-    alert('Chat notification settings saved.');
+    toast.success('Chat notification settings saved.');
   } catch (e: any) {
     const msg = e?.response?.data?.message || 'Failed to save chat notifications.';
-    alert(msg);
+    toast.error(msg);
   } finally {
     setChatNotifSaving(false);
   }
@@ -848,7 +1009,7 @@ useEffect(() => {
   sp.set('r_page', String(reviewPage));
   sp.set('r_limit', String(reviewLimit));
   sp.set('r_status', reviewStatus);
-  navigate({ search: sp.toString() }, { replace: true });
+  setSearch(sp);
 }, [reviewPage, reviewLimit, reviewStatus, navigate, location.search]);
 
 // загрузчик конкретно для Reviews
@@ -1044,6 +1205,23 @@ const sortedComplaints = [...enrichedComplaints] // Изменено: enrichedCo
     return 0;
   });
 
+  const complaintsTotalPages = Math.max(
+  1,
+  Math.ceil(sortedComplaints.length / complaintsLimit)
+);
+
+const paginatedComplaints = React.useMemo(() => {
+  const start = (complaintsPage - 1) * complaintsLimit;
+  return sortedComplaints.slice(start, start + complaintsLimit);
+}, [sortedComplaints, complaintsPage, complaintsLimit]);
+
+// Бережная защита если список “усох” (например, после Resolve):
+useEffect(() => {
+  const totalPages = Math.max(1, Math.ceil(sortedComplaints.length / complaintsLimit));
+  if (complaintsPage > totalPages) setComplaintsPage(totalPages);
+}, [sortedComplaints.length, complaintsLimit, complaintsPage]);
+
+
 const fetchJobPosts = useCallback(async (params: {
   page?: number; limit?: number;
   title?: string; employer_id?: string; employer_username?: string;
@@ -1080,6 +1258,7 @@ const fetchJobPosts = useCallback(async (params: {
         try {
           const decoded: DecodedToken = jwtDecode(token);
           setUsername(decoded.username || 'Admin');
+          setAdminId(decoded.sub || null);
         } catch (error) {
           console.error('Error decoding token:', error);
           setUsername('Admin');
@@ -1531,25 +1710,17 @@ const handleRefresh = async () => {
         await deleteUser(id);
         if (users.length === 1 && userPage > 1) {
         setUserPage(userPage - 1);
-        alert('User deleted successfully!');
+        toast.success('User deleted successfully!');
         } else {
   await fetchUsers(buildUserSearch(userPage)); }
       } catch (error) {
         const axiosError = error as AxiosError<{ message?: string }>;
         console.error('Error deleting user:', axiosError);
-        alert(axiosError.response?.data?.message || 'Failed to delete user.');
+        toast.error(axiosError.response?.data?.message || 'Failed to delete user.');
       }
     }
   };
 
-
-
-//   const handleDeleteUser = async (id: string) => {
-//   if (window.confirm('Are you sure you want to delete this user?')) {
-//     setUsers(users.filter((user) => user.id !== id));
-//     alert('User deleted successfully!');
-//   }
-// };
 
 const submitReject = async () => {
   if (!rejectModal.id) return;
@@ -1563,10 +1734,10 @@ const submitReject = async () => {
     setJobPosts(prev => prev.filter(p => p.id !== rejectModal.id));
     setJobPostsWithApps(prev => prev.filter(p => p.id !== rejectModal.id));
     closeRejectModal();
-    alert('Job post rejected successfully!');
+    toast.success('Job post rejected successfully!');
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
-    alert(axiosError.response?.data?.message || 'Failed to reject job post.');
+    toast.error(axiosError.response?.data?.message || 'Failed to reject job post.');
   }
 };
 
@@ -1575,11 +1746,11 @@ const submitReject = async () => {
     if (newPassword) {
       try {
         await resetUserPassword(id, newPassword);
-        alert('Password reset successfully!');
+        toast.success('Password reset successfully!');
       } catch (error) {
         const axiosError = error as AxiosError<{ message?: string }>;
         console.error('Error resetting password:', axiosError);
-        alert(axiosError.response?.data?.message || 'Failed to reset password.');
+        toast.error(axiosError.response?.data?.message || 'Failed to reset password.');
       }
     }
   };
@@ -1589,12 +1760,12 @@ const submitReject = async () => {
 const handleVerifyIdentity = async (id: string, verify: boolean) => {
   try {
     await verifyIdentity(id, verify);
-    alert(`Identity ${verify ? 'verified' : 'rejected'} successfully!`);
+    toast.success(`Identity ${verify ? 'verified' : 'rejected'} successfully!`);
     await fetchUsers(buildUserSearch());
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
     console.error('Error verifying identity:', axiosError);
-    alert(axiosError.response?.data?.message || 'Failed to verify identity.');
+    toast.error(axiosError.response?.data?.message || 'Failed to verify identity.');
   }
 };
 
@@ -1602,12 +1773,12 @@ const handleVerifyIdentity = async (id: string, verify: boolean) => {
   if (window.confirm(`Are you sure you want to block ${username}?`)) {
     try {
       await blockUser(id);
-      alert('User blocked successfully!');
+      toast.success('User blocked successfully!');
      await fetchUsers(buildUserSearch(userPage));
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       console.error('Error blocking user:', axiosError);
-      alert(axiosError.response?.data?.message || 'Failed to block user.');
+      toast.error(axiosError.response?.data?.message || 'Failed to block user.');
     }
   }
 };
@@ -1644,12 +1815,12 @@ const handleUnblockUser = async (id: string, username: string) => {
   if (window.confirm(`Are you sure you want to unblock ${username}?`)) {
     try {
       await unblockUser(id);
-      alert('User unblocked successfully!');
+      toast.success('User unblocked successfully!');
       await fetchUsers(buildUserSearch(userPage));
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       console.error('Error unblocking user:', axiosError);
-      alert(axiosError.response?.data?.message || 'Failed to unblock user.');
+      toast.error(axiosError.response?.data?.message || 'Failed to unblock user.');
     }
   }
 };
@@ -1691,11 +1862,11 @@ const handleCreateCategory = async (name: string, parentId?: string) => {
     setNewMainCategoryName('');
     setNewSubCategoryName('');
     setNewParentCategoryId('');
-    alert('Category created successfully!');
+    toast.success('Category created successfully!');
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
     console.error('Error creating category:', axiosError);
-    alert(axiosError.response?.data?.message || 'Failed to create category.');
+    toast.error(axiosError.response?.data?.message || 'Failed to create category.');
   }
 };
 
@@ -1705,11 +1876,11 @@ const handleDeleteCategory = async (id: string) => {
       await deleteCategory(id);
       const updatedCategories = await getAdminCategories();
       setCategories(updatedCategories || []);
-      alert('Category deleted successfully!');
+      toast.success('Category deleted successfully!');
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       console.error('Error deleting category:', axiosError);
-      alert(axiosError.response?.data?.message || 'Failed to delete category.');
+      toast.error(axiosError.response?.data?.message || 'Failed to delete category.');
     }
   }
 };
@@ -1746,11 +1917,11 @@ const handleDeleteJobPost = async (id: string) => {
       /* тихо игнорим, если не критично */
     }
 
-    alert('Job post deleted successfully!');
+    toast.success('Job post deleted successfully!');
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
     console.error('Error deleting job post:', axiosError);
-    alert(axiosError.response?.data?.message || 'Failed to delete job post.');
+    toast.error(axiosError.response?.data?.message || 'Failed to delete job post.');
   }
 };
 
@@ -1760,11 +1931,11 @@ const handleApproveJobPost = async (id: string) => {
     const updatedPost = await approveJobPost(id);
     setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
     setJobPostsWithApps(jobPostsWithApps.map((post) => (post.id === id ? { ...post, status: updatedPost.status, pending_review: updatedPost.pending_review } : post)));
-    alert('Job post approved successfully!');
+    toast.success('Job post approved successfully!');
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
     console.error('Error approving job post:', axiosError);
-    alert(axiosError.response?.data?.message || 'Failed to approve job post.');
+    toast.error(axiosError.response?.data?.message || 'Failed to approve job post.');
   }
 };
 
@@ -1773,11 +1944,11 @@ const handleFlagJobPost = async (id: string) => {
     const updatedPost = await flagJobPost(id);
     setJobPosts(jobPosts.map((post) => (post.id === id ? updatedPost : post)));
     setJobPostsWithApps(jobPostsWithApps.map((post) => (post.id === id ? { ...post, status: updatedPost.status, pending_review: updatedPost.pending_review } : post)));
-    alert('Job post flagged successfully!');
+    toast.success('Job post flagged successfully!');
   } catch (error) {
     const axiosError = error as AxiosError<{ message?: string }>;
     console.error('Error flagging job post:', axiosError);
-    alert(axiosError.response?.data?.message || 'Failed to flag job post.');
+    toast.error(axiosError.response?.data?.message || 'Failed to flag job post.');
   }
 };
 
@@ -1804,7 +1975,7 @@ const openEditJobModal = async (id: string) => {
       },
     });
   } catch (e: any) {
-    alert(e?.response?.data?.message || 'Failed to load job post.');
+    toast.error(e?.response?.data?.message || 'Failed to load job post.');
   }
 };
 
@@ -1864,11 +2035,11 @@ const saveJobEdit = async () => {
       )
     );
 
-    alert('Job post updated successfully!');
+    toast.success('Job post updated successfully!');
     setEditJobModal(null);
   } catch (e: any) {
     const msg = e?.response?.data?.message || 'Failed to update job post.';
-    alert(msg);
+    toast.error(msg);
   }
 };
 
@@ -1882,11 +2053,11 @@ const saveJobEdit = async () => {
         setJobPosts(updatedPosts.data || []);
         const updatedPostsWithApps = await getJobPostsWithApplications();
         setJobPostsWithApps(updatedPostsWithApps || []);
-        alert('Application limit set successfully!');
+        toast.success('Application limit set successfully!');
       } catch (error) {
         const axiosError = error as AxiosError<{ message?: string }>;
         console.error('Error setting application limit:', axiosError);
-        alert(axiosError.response?.data?.message || 'Failed to set application limit.');
+        toast.error(axiosError.response?.data?.message || 'Failed to set application limit.');
       }
     }
   };
@@ -1902,11 +2073,14 @@ const linkTransformer = (_tagName: string, attribs: HtmlAttrs) => ({
 
 const safeDescription = sanitizeHtml(selectedJob?.description ?? '', {
   allowedTags: ['p','br','strong','em','u','ul','ol','li','a','blockquote','code','pre','h1','h2','h3','h4','h5','h6','span','img'],
-  allowedAttributes: { a: ['href','target','rel'], img: ['src','alt'], '*': ['style'] },
+  allowedAttributes: {
+    a: ['href','target','rel'],
+    img: ['src','alt']
+  },
   allowedSchemes: ['http','https','mailto'],
-  transformTags: {
-    a: linkTransformer, // тип уже задан выше
-  }
+  // Убираем 'style' полностью. Если критично — whitelisting через allowedStyles.
+  // allowedStyles: { '*': { color: [/^#?[\da-f]{3,6}$/i] } }
+  transformTags: { a: linkTransformer }
 });
 
 
@@ -1937,7 +2111,7 @@ const handleNotifySubmit = async () => {
         })
       : await notifyCandidates(notifyJobPostId, base);
 
-    alert(`Notified ${res.sent} of ${res.total} candidates for job post ${res.jobPostId}`);
+    toast.success(`Notified ${res.sent} of ${res.total} candidates for job post ${res.jobPostId}`);
     setShowNotifyModal(false);
     setNotifyLimit('10');
     setNotifyOrderBy('beginning');
@@ -1946,7 +2120,7 @@ const handleNotifySubmit = async () => {
   } catch (error: any) {
     const msg = error?.response?.data?.message || 'Failed to notify candidates.';
     console.error('Error notifying candidates:', error);
-    alert(msg);
+    toast.error(msg);
   }
 };
 
@@ -1967,7 +2141,7 @@ const handleApproveReview = async (id: string) => {
     await approveReview(id);
     await loadReviews(); // остаёмся на той же page/limit/status
   } catch (e: any) {
-    alert(e?.response?.data?.message || 'Failed to approve review.');
+    toast.error(e?.response?.data?.message || 'Failed to approve review.');
   }
 };
 
@@ -1976,7 +2150,7 @@ const handleRejectReview = async (id: string) => {
     await rejectReview(id);
     await loadReviews();
   } catch (e: any) {
-    alert(e?.response?.data?.message || 'Failed to reject review.');
+    toast.error(e?.response?.data?.message || 'Failed to reject review.');
   }
 };
 
@@ -1986,7 +2160,7 @@ const handleDeleteReview = async (id: string) => {
     await deleteReview(id);
     await reloadReviewsSamePage();
   } catch (e: any) {
-    alert(e?.response?.data?.message || 'Failed to delete review.');
+    toast.error(e?.response?.data?.message || 'Failed to delete review.');
   }
 };
 
@@ -2131,7 +2305,7 @@ const handleSetGlobalLimit = async () => {
       const limitData = await getGlobalApplicationLimit();
       console.log('Get global application limit response:', limitData); // Логирование ответа
       setGlobalLimit(limitData.globalApplicationLimit ?? null);
-      alert(`Global application limit set to ${limitData.globalApplicationLimit ?? 'Not set'} successfully!`);
+      toast.success(`Global application limit set to ${limitData.globalApplicationLimit ?? 'Not set'} successfully!`);
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       console.error('Error setting global limit:', axiosError.response?.data?.message || axiosError.message);
@@ -2139,7 +2313,7 @@ const handleSetGlobalLimit = async () => {
         ...prev,
         getGlobalApplicationLimit: axiosError.response?.data?.message || 'Failed to set or retrieve global limit.',
       }));
-      alert(axiosError.response?.data?.message || 'Failed to set global limit.');
+      toast.error(axiosError.response?.data?.message || 'Failed to set global limit.');
     }
   } else {
     alert('Please enter a valid non-negative number.');
@@ -2157,11 +2331,11 @@ const handleSetGlobalLimit = async () => {
       console.log('New blocked country:', newCountry);
       setBlockedCountries([...blockedCountries, newCountry]);
       setNewCountryCode('');
-      alert('Country blocked successfully!');
+      toast.success('Country blocked successfully!');
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       console.error('Error adding blocked country:', axiosError);
-      alert(axiosError.response?.data?.message || 'Failed to block country.');
+      toast.error(axiosError.response?.data?.message || 'Failed to block country.');
     }
   };
 
@@ -2171,11 +2345,11 @@ const handleSetGlobalLimit = async () => {
         await removeBlockedCountry(countryCode);
         const updatedCountries = await getBlockedCountries();
         setBlockedCountries(updatedCountries || []);
-        alert('Country unblocked successfully!');
+        toast.success('Country unblocked successfully!');
       } catch (error) {
         const axiosError = error as AxiosError<{ message?: string }>;
         console.error('Error removing blocked country:', axiosError);
-        alert(axiosError.response?.data?.message || 'Failed to unblock country.');
+        toast.error(axiosError.response?.data?.message || 'Failed to unblock country.');
       }
     }
   };
@@ -2201,14 +2375,10 @@ if (isLoading) {
         <div className="header-right">
           <span className="greeting">Welcome, <span className="username-bold">{username}</span></span> 
           <Link to="/" className="nav-link"><FaHome /> Home</Link>
-          <button
-  type="button"
-  className="action-button-admin"
-  onClick={handleLogout}
-  aria-label="Logout"
->
+<button type="button" className="action-button-admin" onClick={handleLogout}>
   <FaSignOutAlt aria-hidden="true" /> Logout
 </button>
+
 
           <div className="user-count employers"><FaUser /> {onlineUsers?.employers ?? 'N/A'}</div>
 <div className="user-count freelancers"><FaUser /> {onlineUsers?.jobseekers ?? 'N/A'}</div>
@@ -2240,7 +2410,10 @@ if (isLoading) {
         <div className="header-right">
           <span className="greeting">Welcome, <span className="username-bold">{username}</span></span>
           <Link to="/" className="nav-link"><FaHome /> Home</Link>
-          <button className="action-button-admin" onClick={handleLogout}><FaSignOutAlt /> Logout</button>
+          <button type="button" className="action-button-admin" onClick={handleLogout}>
+  <FaSignOutAlt aria-hidden="true" /> Logout
+</button>
+
           <div className="user-count employers"><FaUser /> {onlineUsers?.employers ?? 'N/A'}</div>
 <div className="user-count freelancers"><FaUser /> {onlineUsers?.jobseekers ?? 'N/A'}</div>
           <div className="date-time">
@@ -2272,7 +2445,10 @@ if (isLoading) {
       <div className="header-right">
         <span className="greeting">Welcome, <span className="username-bold">{username}</span></span>
         <Link to="/" className="nav-link"><FaHome /> Home</Link>
-        <div className="action-button-admin" onClick={handleLogout}><FaSignOutAlt /> Logout</div>
+        <button type="button" className="action-button-admin" onClick={handleLogout}>
+  <FaSignOutAlt aria-hidden="true" /> Logout
+</button>
+
       <div className="user-count employers"><FaUser /> {onlineUsers?.employers ?? 'N/A'}</div>
 <div className="user-count freelancers"><FaUser /> {onlineUsers?.jobseekers ?? 'N/A'}</div>
         <div className="date-time">
@@ -2904,6 +3080,23 @@ if (isLoading) {
   </label>
 </fieldset>
 
+{/* Insert right below the Audience fieldset */}
+{notifyAudience === 'referral' && (
+  <div className="form-group">
+    <label>Filter by job title (optional):</label>
+    <input
+      type="text"
+      value={notifyTitleFilter}
+      onChange={(e) => setNotifyTitleFilter(e.target.value)}
+      placeholder="e.g., writer"
+      inputMode="search"
+      autoComplete="off"
+    />
+    <small className="hint">
+      Applied only when audience is "referral" within the same category.
+    </small>
+  </div>
+)}
 
         <div className="form-group">
 
@@ -3198,7 +3391,7 @@ if (isLoading) {
                           try {
                             const updated = await unpublishPlatformFeedback(story.id);
                             setStories(prev => prev.map(s => s.id === story.id ? { ...s, ...updated } : s));
-                          } catch (e:any) { alert(e?.response?.data?.message || 'Failed to unpublish.'); }
+                          } catch (e:any) { toast.error(e?.response?.data?.message || 'Failed to unpublish.'); }
                         }}
                         className="action-button warning"
                       >
@@ -3210,7 +3403,7 @@ if (isLoading) {
                           try {
                             const updated = await publishPlatformFeedback(story.id);
                             setStories(prev => prev.map(s => s.id === story.id ? { ...s, ...updated } : s));
-                          } catch (e:any) { alert(e?.response?.data?.message || 'Failed to publish.'); }
+                          } catch (e:any) { toast.error(e?.response?.data?.message || 'Failed to publish.'); }
                         }}
                         className="action-button success"
                       >
@@ -3224,7 +3417,7 @@ if (isLoading) {
                       try {
                         await deletePlatformFeedback(story.id);
                         setStories(prev => prev.filter(s => s.id !== story.id));
-                      } catch (e:any) { alert(e?.response?.data?.message || 'Failed to delete.'); }
+                      } catch (e:any) { toast.error(e?.response?.data?.message || 'Failed to delete.'); }
                     }}
                     className="action-button danger"
                   >
@@ -3415,7 +3608,7 @@ if (isLoading) {
         </tr>
       </thead>
       <tbody>
-        {sortedComplaints.length > 0 ? sortedComplaints.map((complaint) => (
+        {paginatedComplaints.length > 0 ? paginatedComplaints.map((complaint) => (
       <tr key={complaint.id}>
   <td>{complaint.id}</td>
   <td>{complaint.complainant?.username || 'N/A'}</td>
@@ -3447,11 +3640,44 @@ if (isLoading) {
 </tr>
         )) : (
           <tr>
-            <td colSpan={8}>No complaints found for selected status.</td>
+             <td colSpan={8}>No complaints found for selected status.</td>
           </tr>
         )}
       </tbody>
     </table>
+    <div className="pagination" style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+  <button
+    onClick={() => setComplaintsPage(p => Math.max(1, p - 1))}
+    disabled={complaintsPage === 1}
+    className="action-button"
+  >
+    Previous
+  </button>
+
+  <span className="page-number">Page {complaintsPage} of {complaintsTotalPages}</span>
+
+  <button
+    onClick={() => setComplaintsPage(p => Math.min(complaintsTotalPages, p + 1))}
+    disabled={complaintsPage >= complaintsTotalPages}
+    className="action-button"
+  >
+    Next
+  </button>
+
+  <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+    <label>Per page:</label>
+    <select
+      value={complaintsLimit}
+      onChange={(e) => {
+        setComplaintsLimit(parseInt(e.target.value, 10));
+        setComplaintsPage(1);
+      }}
+    >
+      {[10, 20, 30, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+    </select>
+  </div>
+</div>
+
   </div>
 )}
 
@@ -3935,197 +4161,330 @@ if (isLoading) {
 
 {activeTab === 'Referral Links' && (
   <div className="ref-links">
-    <div className="ref-links__head">
+    <div className="ref-links__head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <h4 className="ref-links__title">Referral Links</h4>
-
-      <div className="ref-links__filters">
-        <div className="ref-links__field">
-          <label htmlFor="f-jobid">Filter by Job ID:</label>
-          <input
-            id="f-jobid"
-            value={referralFilterJobId}
-            onChange={(e) => setReferralFilterJobId(e.target.value)}
-            placeholder="e.g. 123e4567-e89b..."
-          />
-        </div>
-        <div className="ref-links__field">
-          <label htmlFor="f-jobtitle">Filter by Job Title:</label>
-          <input
-            id="f-jobtitle"
-            value={referralFilterJobTitle}
-            onChange={(e) => setReferralFilterJobTitle(e.target.value)}
-            placeholder="e.g. Virtual assistant"
-          />
-        </div>
-
-        <button
-          onClick={async () => {
-            const data = await getReferralLinks({
-              jobId: referralFilterJobId.trim() || undefined,
-              jobTitle: referralFilterJobTitle.trim() || undefined,
-            });
-            setReferralLinks(data || []);
-            setExpandedJobs({}); // свернём группы при новом поиске
-          }}
-          className="ref-links__btn ref-links__btn--primary"
-        >
-          Search
-        </button>
-      </div>
     </div>
 
-    {(() => {
-      // Группировка по вакансии
-      const groups: Record<string, { title: string; links: typeof referralLinks }> = {};
-      referralLinks.forEach((link) => {
-        const jId = link.job_post?.id || link.jobPostId;
-        const title = link.job_post?.title || 'N/A';
-        if (!groups[jId]) groups[jId] = { title, links: [] as any };
-        groups[jId].links.push(link);
-      });
-      const jobIds = Object.keys(groups);
+    {/* --- Подменю Job / Site --- */}
+    <div className="tabs" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+      <button
+        className={`action-button ${refSubTab === 'job' ? 'success' : ''}`}
+        onClick={() => setRefSubTab('job')}
+        type="button"
+      >
+        Job Links
+      </button>
+      <button
+        className={`action-button ${refSubTab === 'site' ? 'success' : ''}`}
+        onClick={() => setRefSubTab('site')}
+        type="button"
+      >
+        Site Links
+      </button>
+    </div>
 
-      if (jobIds.length === 0) {
-        return (
-          <div className="ref-links__empty">
-            No referral links found.
+    {/* ====== TAB: JOB LINKS ====== */}
+    {refSubTab === 'job' && (
+      <div className="ref-links__job is-open">
+        {/* Если у тебя уже был свой UI для job-рефералок, можно заменить именно этот блок на твой.
+            Ниже — минимальный, самодостаточный список job-ссылок с копированием, редактированием и удалением. */}
+        <div className="ref-links__table-wrap">
+          <table className="ref-links__table">
+            <thead>
+              <tr>
+                <th>Job Post ID</th>
+                <th>Description</th>
+                <th>Short / Full Link</th>
+                <th>Created at</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.isArray(referralLinks) && referralLinks.length > 0 ? (
+                referralLinks.map((link: any) => (
+                  <tr key={link.id}>
+                    <td className="ref-links__num">{link.jobPostId || '—'}</td>
+                    <td className="ref-links__desc">{link.description || <i>—</i>}</td>
+
+                    <td className="ref-links__url">
+                      {/* Если в проекте есть helper shortenReferralUrl, будет красиво показывать домен + код;
+                         если нет — можно заменить на просто link.fullLink */}
+                      <span title={link.fullLink || link.shortLink} className="ref-links__url-text">
+                        {typeof shortenReferralUrl === 'function'
+                          ? shortenReferralUrl(link.shortLink || link.fullLink)
+                          : (link.shortLink || link.fullLink)}
+                      </span>
+                      {(link.shortLink || link.fullLink) && (
+                        <button
+                          type="button"
+                          onClick={() => navigator.clipboard.writeText(link.shortLink || link.fullLink)}
+                          className="ref-links__btn ref-links__btn--ghost"
+                          title="Copy link"
+                        >
+                          <FaCopy style={{ marginRight: 6 }} />
+                          Copy
+                        </button>
+                      )}
+                    </td>
+
+                    <td>{link.created_at ? renderDateCell(link.created_at) : '—'}</td>
+
+                    <td className="ref-links__actions">
+                      <button
+                        type="button"
+                        className="ref-links__btn"
+                        onClick={() => handleEditReferral(link.id, link.description || '')}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="ref-links__btn ref-links__btn--danger"
+                        onClick={() => handleDeleteReferral(link.id)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr><td colSpan={5}>No job referral links yet.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )}
+
+    {/* ====== TAB: SITE LINKS (глобальные ссылки) ====== */}
+    {refSubTab === 'site' && (
+      <div className="ref-links__site">
+
+        {/* Фильтры/поиск */}
+        <div className="ref-links__filters" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div className="ref-links__field">
+            <label htmlFor="site-q">Search (description/refCode):</label>
+            <input
+              id="site-q"
+              value={siteQ}
+              onChange={(e) => setSiteQ(e.target.value)}
+              placeholder="e.g., promo or 4b1f…"
+            />
           </div>
-        );
-      }
 
-      return jobIds.map((jid) => {
-        const { title, links } = groups[jid];
-        const opened = !!expandedJobs[jid];
-        return (
-          <section key={jid} className={`ref-links__job ${opened ? 'is-open' : ''}`}>
-            <header className="ref-links__job-head" onClick={() => toggleJob(jid)}>
-              <div className="ref-links__job-title">
-                <span className="ref-links__chev">{opened ? '▾' : '▸'}</span>
-                <span className="ref-links__job-name">Job: {title}</span>
-                <span className="ref-links__count">({links.length})</span>
-              </div>
+          <div className="ref-links__field">
+            <label htmlFor="site-createdby">Created by (adminId):</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                id="site-createdby"
+                value={siteCreatedByAdminId}
+                onChange={(e) => setSiteCreatedByAdminId(e.target.value)}
+                placeholder="uuid or empty for all"
+                style={{ minWidth: 260 }}
+              />
               <button
-                className="ref-links__btn ref-links__btn--success"
-                onClick={(e) => { e.stopPropagation(); openCreateReferralModal(jid); }}
+                type="button"
+                className="action-button"
+                onClick={() => adminId && setSiteCreatedByAdminId(adminId)}
+                disabled={!adminId}
+                title="Only me"
               >
-                + New referral link
+                Only me
               </button>
-            </header>
+              <button
+                type="button"
+                className="ref-links__btn ref-links__btn--primary"
+                onClick={fetchSiteReferrals}
+              >
+                Search
+              </button>
+            </div>
+          </div>
+        </div>
 
-            {opened && (
-              <div className="ref-links__job-body">
-                <div className="ref-links__table-wrap">
-                  <table className="ref-links__table">
-                    <thead>
-                      <tr>
-                        <th>Description</th>
-                        <th>Link</th>
-                        <th>Clicks</th>
-                        <th>Regs (verified)</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {links.map((link) => (
-                        <Fragment key={link.id}>
-                          <tr>
-                            <td className="ref-links__desc">
-                              {link.description || <i>—</i>}
-                            </td>
+        {/* Создание новой глобальной ссылки */}
+        <div className="ref-links__create" style={{ marginTop: 12 }}>
+          <h5 style={{ margin: '8px 0' }}>Create Site Referral Link</h5>
+          <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr auto' }}>
+            <input
+              type="text"
+              value={newSiteDescription}
+              onChange={(e) => setNewSiteDescription(e.target.value)}
+              placeholder="Description (optional), e.g. Telegram promo"
+            />
+            <input
+              type="text"
+              value={newSiteLandingPath}
+              onChange={(e) => setNewSiteLandingPath(e.target.value)}
+              placeholder="/register or /register?role=jobseeker"
+            />
+            <button
+              className="action-button success"
+              onClick={handleCreateSiteReferral}
+              disabled={creatingSite}
+              type="button"
+            >
+              {creatingSite ? 'Creating…' : 'Create'}
+            </button>
+          </div>
+        </div>
 
-                            <td className="ref-links__url">
-                              <span
-                                title={link.fullLink}
-                                className="ref-links__url-text"
-                              >
-                                {shortenReferralUrl(link.fullLink)}
-                              </span>
-                              <button
-                                onClick={() => navigator.clipboard.writeText(link.fullLink)}
-                                className="ref-links__btn ref-links__btn--ghost"
-                                title="Copy link"
-                              >
-                                <FaCopy style={{ marginRight: 6 }} />
-                                Copy
-                              </button>
-                            </td>
+        {/* Табличный список, сгруппированный по администратору */}
+        <div style={{ marginTop: 16 }}>
+          {(() => {
+            // groups: adminId -> { adminName, links[] }
+            const groups: Record<string, { adminName: string; links: SiteReferralLink[] }> = {};
+            for (const l of siteReferrals) {
+              const aid = l.createdByAdmin?.id || l.createdByAdminId || 'unknown';
+              const aname = l.createdByAdmin?.username || 'Unknown';
+              if (!groups[aid]) groups[aid] = { adminName: aname, links: [] };
+              groups[aid].links.push(l);
+            }
 
-                            <td className="ref-links__num">{link.clicks}</td>
-                            <td className="ref-links__num">
-  {link.registrations} ({(link as any).registrationsVerified ?? 0})
-</td>
-                            <td className="ref-links__actions">
-                              <button
-                                className="ref-links__btn"
-                                onClick={() => handleEditReferral(link.id, link.description || '')}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                className="ref-links__btn ref-links__btn--danger"
-                                onClick={() => handleDeleteReferral(link.id)}
-                              >
-                                Delete
-                              </button>
-                              <button
-                                onClick={() => setExpandedReferral(expandedReferral === link.id ? null : link.id)}
-                                className="ref-links__btn ref-links__btn--primary"
-                              >
-                                {expandedReferral === link.id ? 'Hide regs' : 'View regs'}
-                              </button>
-                            </td>
-                          </tr>
+            const keys = Object.keys(groups);
+            if (keys.length === 0) {
+              return <div className="ref-links__empty">No site referral links found.</div>;
+            }
 
-                          {expandedReferral === link.id && (
-                            <tr className="ref-links__expand">
-                              <td colSpan={5}>
-                                <div className="ref-links__regs">
-                                  <div className="ref-links__regs-head">Registrations</div>
-                                  <div className="ref-links__regs-tablewrap">
-                                    <table className="ref-links__regs-table">
-                                      <thead>
-                                        <tr>
-                                          <th>User ID</th>
-                                          <th>Username</th>
-                                          <th>Email</th>
-                                          <th>Role</th>
-                                          <th>Created At</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {link.registrationsDetails?.length ? (
-                                          link.registrationsDetails.map((reg, i) => (
-                                            <tr key={i}>
-                                              <td>{reg.user.id}</td>
-                                              <td>{reg.user.username}</td>
-                                              <td>{reg.user.email}</td>
-                                              <td>{reg.user.role}</td>
-                                              <td>{format(new Date(reg.user.created_at), 'PP')}</td>
-                                            </tr>
-                                          ))
-                                        ) : (
-                                          <tr><td colSpan={5}>No registrations.</td></tr>
-                                        )}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              </td>
+            return keys.map((aid) => {
+              const opened = !!siteExpandedAdmin[aid];
+              const { adminName, links } = groups[aid];
+              return (
+                <section key={aid} className={`ref-links__job ${opened ? 'is-open' : ''}`}>
+                  <header className="ref-links__job-head" onClick={() => toggleSiteGroup(aid)}>
+                    <div className="ref-links__job-title">
+                      <span className="ref-links__chev">{opened ? '▾' : '▸'}</span>
+                      <span className="ref-links__job-name">Admin: {adminName}</span>
+                      <span className="ref-links__count">({links.length})</span>
+                    </div>
+                  </header>
+
+                  {opened && (
+                    <div className="ref-links__job-body">
+                      <div className="ref-links__table-wrap">
+                        <table className="ref-links__table">
+                          <thead>
+                            <tr>
+                              <th>Description</th>
+                              <th>Short Link</th>
+                              <th>Landing Path</th>
+                              <th>Clicks</th>
+                              <th>Registrations (verified)</th>
+                              <th>Created by</th>
+                              <th>Created at</th>
+                              <th>Actions</th>
                             </tr>
-                          )}
-                        </Fragment>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </section>
-        );
-      });
-    })()}
+                          </thead>
+                          <tbody>
+                            {links.map((l) => (
+                              <React.Fragment key={l.id}>
+                                <tr>
+                                  <td className="ref-links__desc">{l.description || <i>—</i>}</td>
+
+                                  <td className="ref-links__url">
+                                    <span title={l.shortLink} className="ref-links__url-text">
+                                      {shortenReferralUrl(l.shortLink)}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => navigator.clipboard.writeText(l.shortLink)}
+                                      className="ref-links__btn ref-links__btn--ghost"
+                                      title="Copy link"
+                                    >
+                                      <FaCopy style={{ marginRight: 6 }} />
+                                      Copy
+                                    </button>
+                                  </td>
+
+                                  <td>{l.landingPath || '/register'}</td>
+                                  <td className="ref-links__num">{l.clicks}</td>
+                                  <td className="ref-links__num">
+                                    {l.registrations} ({l.registrationsVerified ?? 0})
+                                  </td>
+                                  <td>{l.createdByAdmin?.username || 'Unknown'}</td>
+                                  <td>{l.created_at ? renderDateCell(l.created_at) : '—'}</td>
+
+                                  <td className="ref-links__actions">
+                                    <button
+                                      type="button"
+                                      className="ref-links__btn"
+                                      onClick={() => handleEditSiteReferral(l.id, l.description || '')}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="ref-links__btn ref-links__btn--danger"
+                                      onClick={() => handleDeleteSiteReferral(l.id)}
+                                    >
+                                      Delete
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="ref-links__btn ref-links__btn--primary"
+                                      onClick={() =>
+                                        setSiteExpandedLinkId(siteExpandedLinkId === l.id ? null : l.id)
+                                      }
+                                    >
+                                      {siteExpandedLinkId === l.id ? 'Hide regs' : 'View regs'}
+                                    </button>
+                                  </td>
+                                </tr>
+
+                                {siteExpandedLinkId === l.id && (
+                                  <tr className="ref-links__expand">
+                                    <td colSpan={8}>
+                                      <div className="ref-links__regs">
+                                        <div className="ref-links__regs-head">Registrations</div>
+                                        <div className="ref-links__regs-tablewrap">
+                                          <table className="ref-links__regs-table">
+                                            <thead>
+                                              <tr>
+                                                <th>User ID</th>
+                                                <th>Username</th>
+                                                <th>Email</th>
+                                                <th>Role</th>
+                                                <th>Created At</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {l.registrationsDetails?.length ? (
+                                                l.registrationsDetails.map((r, i) => (
+                                                  <tr key={i}>
+                                                    <td>{r.user.id}</td>
+                                                    <td>{r.user.username}</td>
+                                                    <td>{r.user.email}</td>
+                                                    <td>{r.user.role}</td>
+                                                    <td>{r.user?.created_at ? new Date(r.user.created_at).toLocaleDateString() : '—'}</td>
+                                                  </tr>
+                                                ))
+                                              ) : (
+                                                <tr><td colSpan={5}>No registrations.</td></tr>
+                                              )}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              );
+            });
+          })()}
+        </div>
+      </div>
+    )}
   </div>
 )}
+
 
 
 
@@ -4366,6 +4725,28 @@ if (isLoading) {
   </div>
 )}
 
+{showSiteCreatedModal && (
+  <div className="modal">
+    <div className="modal-content">
+      <span className="close" onClick={() => setShowSiteCreatedModal(null)}>×</span>
+      <h3>Site Referral Created</h3>
+      {showSiteCreatedModal.description && (
+        <p><strong>Description:</strong> {showSiteCreatedModal.description}</p>
+      )}
+      {showSiteCreatedModal.landingPath && (
+        <p><strong>Landing Path:</strong> {showSiteCreatedModal.landingPath}</p>
+      )}
+      <p><strong>Short Link:</strong> {showSiteCreatedModal.shortLink}</p>
+      <button
+        onClick={() => navigator.clipboard.writeText(showSiteCreatedModal.shortLink)}
+        className="action-button"
+      >
+        <FaCopy /> Copy Link
+      </button>
+    </div>
+  </div>
+)}
+
 {editJobModal && (
   <div className="modal" onClick={() => setEditJobModal(null)}>
     <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -4542,6 +4923,39 @@ if (isLoading) {
 
     {/* --- Global Application Limit (как было) --- */}
     {/* === Global Application Limit === */}
+
+    <section className="bo-card">
+  <h4>Registration</h4>
+  <label className="bo-switch" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+    <input
+      type="checkbox"
+      checked={!!regAvatarRequired}
+      onChange={(e) => setRegAvatarRequired(e.target.checked)}
+    />
+    <span>Require avatar on registration</span>
+  </label>
+  <div className="bo-actions" style={{ marginTop: 8 }}>
+    <button
+      type="button"
+      className="bo-btn bo-btn--success"
+      disabled={regAvatarRequired === null || savingRegAvatar}
+      onClick={async () => {
+        setSavingRegAvatar(true);
+        try {
+          const { required } = await setAdminRegistrationAvatarRequired(!!regAvatarRequired);
+          setRegAvatarRequired(required);
+          alert('Saved.');
+        } catch (e: any) {
+          alert(e?.response?.data?.message || 'Failed to save.');
+        } finally {
+          setSavingRegAvatar(false);
+        }
+      }}
+    >
+      {savingRegAvatar ? 'Saving…' : 'Save'}
+    </button>
+  </div>
+</section>
 <section className="bo-card">
   <header className="bo-card__head">
     <h3 className="bo-card__title">Global Application Limit</h3>

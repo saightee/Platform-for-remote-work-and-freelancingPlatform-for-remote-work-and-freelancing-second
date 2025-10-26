@@ -1936,3 +1936,80 @@ export const getAdminComplaints = async (params: { page?: number; limit?: number
 
   return data as PaginatedAdminComplaints;
 };
+
+// --- Site referrals: типы DTO и сущности ---
+export type SiteReferralLink = {
+  id: string;
+  scope: 'site';
+  refCode: string;
+  shortLink: string;                  // e.g. https://jobforge.net/ref/abcd1234
+  description?: string | null;
+  clicks: number;
+  registrations: number;
+  registrationsVerified: number;      // подтверждённые email'ом
+  landingPath?: string | null;        // e.g. "/register?role=jobseeker"
+  createdByAdminId?: string;          // в списке 102 может прийти id
+  createdByAdmin?: { id: string; username: string } | null; // в 103 может быть развёрнутый объект
+  registrationsDetails?: Array<{
+    user: { id: string; username: string; email: string; role: string; created_at: string };
+  }>;
+  created_at?: string;
+};
+
+export type CreateSiteReferralDto = {
+  description?: string;
+  landingPath?: string;               // по умолчанию бек поставит "/register"
+};
+
+export type GetSiteReferralsQuery = {
+  createdByAdminId?: string;
+  q?: string;                         // поиск по описанию / refCode
+};
+
+/* ===================== Site Referral Links (102–105) ===================== */
+
+// 102) Create site referral link
+export const createSiteReferralLink = async (payload: CreateSiteReferralDto = {}) => {
+  const { data } = await api.post<SiteReferralLink>('/admin/site-referral-links', payload);
+  return data;
+};
+
+// 103) List site referral links (supports createdByAdminId, q)
+export const getSiteReferralLinks = async (params: GetSiteReferralsQuery = {}) => {
+  const { data } = await api.get<SiteReferralLink[]>('/admin/site-referral-links', { params });
+  return data;
+};
+
+// 104) Update site referral link description
+export const updateSiteReferralLink = async (
+  id: string,
+  payload: { description?: string }
+) => {
+  const { data } = await api.put<{ id: string; description?: string | null }>(
+    `/admin/site-referral-links/${id}`,
+    payload
+  );
+  return data;
+};
+
+// 105) Delete site referral link
+export const deleteSiteReferralLink = async (id: string) => {
+  const { data } = await api.delete<{ message: string }>(`/admin/site-referral-links/${id}`);
+  return data;
+};
+
+// Публичный флаг
+export const getRegistrationAvatarRequired = async () => {
+  const { data } = await api.get('/settings/registration-avatar');
+  return data as { required: boolean };
+};
+
+// Админка
+export const getAdminRegistrationAvatarRequired = async () => {
+  const { data } = await api.get('/admin/settings/registration-avatar');
+  return data as { required: boolean };
+};
+export const setAdminRegistrationAvatarRequired = async (required: boolean) => {
+  const { data } = await api.post('/admin/settings/registration-avatar', { required });
+  return data as { required: boolean };
+};

@@ -450,3 +450,8 @@ select.ftl-input {
     justify-items: start;
   } */
 }
+
+.ftl-results, .ftl-list { overflow-anchor: none; }
+
+/* Убедись, что оверлей не меняет высоту layout-а */
+.ftl-loading { position: fixed; inset: 0; }

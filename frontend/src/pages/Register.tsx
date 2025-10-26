@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { register, getCategories, searchCategories } from '../services/api';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { register, getCategories, searchCategories, getRegistrationAvatarRequired } from '../services/api';
 import { Category } from '@types';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import PasswordStrength, { isStrongPassword } from '../components/PasswordStrength';
@@ -24,6 +24,56 @@ const STORAGE_KEY = useMemo(() => `reg_draft_${role || 'unknown'}`, [role]);
   // common
   const [username, setUsername] = useState('');
  
+// Avatar state
+const [avatarFile, setAvatarFile] = useState<File | null>(null);
+const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+const [avatarErr, setAvatarErr] = useState<string | null>(null);
+const fileInputResumeRef = useRef<HTMLInputElement | null>(null);
+const [isResumeDragOver, setIsResumeDragOver] = useState(false);
+const fileInputRef = useRef<HTMLInputElement | null>(null);           // ← avatar input
+const [isAvatarDragOver, setIsAvatarDragOver] = useState(false);      // ← avatar dnd
+
+
+const processResumeFile = (f: File | null) => {
+  if (!f) { setResumeFile(null); return; }
+
+  const mb10 = 10 * 1024 * 1024;
+  if (f.size > mb10) { alert('Max resume size is 10 MB'); return; }
+
+  const okTypes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ];
+  if (f.type && !okTypes.includes(f.type)) {
+    toast.error('Allowed file types: PDF, DOC, DOCX');
+    return;
+  }
+
+  setResumeFile(f);
+};
+
+const processAvatarFile = (f: File | null) => {
+  setAvatarErr(null);
+  setAvatarFile(null);
+  if (avatarPreview) { URL.revokeObjectURL(avatarPreview); setAvatarPreview(null); }
+  if (!f) return;
+
+  const MB10 = 10 * 1024 * 1024;
+  if (f.size > MB10) { setAvatarErr('Avatar size must be up to 10 MB.'); return; }
+
+  const ok = ['image/jpeg','image/png','image/webp'];
+  if (f.type && !ok.includes(f.type)) {
+    setAvatarErr('Avatar must be JPG/PNG/WEBP.');
+    return;
+  }
+
+  setAvatarFile(f);
+  setAvatarPreview(URL.createObjectURL(f));
+};
+
+// “обязателен ли аватар”
+const [avatarRequired, setAvatarRequired] = useState<boolean | null>(null);
 
   const [email, setEmail]       = useState('');
   const [confirmEmail, setConfirmEmail] = useState('');
@@ -180,20 +230,51 @@ useEffect(() => {
   about, selectedSkills
 ]);
 
+useEffect(() => {
+  if (role !== 'jobseeker') { setAvatarRequired(false); return; }
+
+  const KEY = 'reg_avatar_required_v1';
+  try {
+    const raw = sessionStorage.getItem(KEY);
+    if (raw) {
+      const { required, ts } = JSON.parse(raw);
+      const TTL_MS = 60_000; // 1 минута
+if (Date.now() - ts < TTL_MS) {
+        setAvatarRequired(!!required);
+        return;
+      }
+    }
+  } catch {}
+
+  (async () => {
+    try {
+      const res = await getRegistrationAvatarRequired(); // { required: boolean }
+      setAvatarRequired(!!res?.required);
+      try {
+        sessionStorage.setItem(KEY, JSON.stringify({ required: !!res?.required, ts: Date.now() }));
+      } catch {}
+    } catch {
+      // фоллбек: не блокируем регистрацию; сервер сам провалидирует
+      setAvatarRequired(false);
+    }
+  })();
+}, [role]);
+
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   if (!role) return;
-   if (!agree) {
+
+  if (!agree) {
     toast.info('Please read and agree to the Terms of Service and Privacy Policy.');
     return;
   }
 
-  // нормализуем перед проверками (на случай, если где-то не сработал trim/lowercase)
+  // нормализация
   const normEmail = email.trim().toLowerCase();
   const normConfirmEmail = confirmEmail.trim().toLowerCase();
-
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+  // валидации
   if (!username.trim()) { setErr('Username is required.'); return; }
   if (!normEmail || !emailRe.test(normEmail)) { setErr('Valid email is required.'); return; }
   if (!normConfirmEmail || !emailRe.test(normConfirmEmail)) { setErr('Please re-enter a valid email.'); return; }
@@ -204,6 +285,14 @@ const handleSubmit = async (e: React.FormEvent) => {
   if (!isStrongPassword(password)) { setErr('Password does not meet security requirements.'); return; }
   if (role === 'jobseeker' && !experience) { setErr('Please select your experience.'); return; }
 
+  // аватар обязателен, если флаг true
+  if (role === 'jobseeker' && avatarRequired && !avatarFile) {
+    setErr('Please upload an avatar.');
+    return;
+  }
+  if (avatarErr) { setErr(avatarErr); return; }
+
+  // URL-поля
   const urlErrors: string[] = [];
   const check = (val: string, label: string) => { if (val && !urlOk(val)) urlErrors.push(`${label} URL is invalid (use https://...)`); };
   check(resumeLink, 'Resume');
@@ -213,67 +302,75 @@ const handleSubmit = async (e: React.FormEvent) => {
   if (urlErrors.length) { setErr(urlErrors[0]); return; }
 
   try {
-    setBusy(true); setErr(null);
+    setBusy(true);
+    setErr(null);
 
-    // используем нормализованный email дальше в пайлоаде и в localStorage
-    let payload: any;
-
-    if (role === 'jobseeker' && resumeFile) {
-      const fd = new FormData();
-      fd.append('username', username);
-      fd.append('email', normEmail);               // заменили на нормализованный
-      fd.append('password', password);
-      fd.append('role', role);
-      fd.append('resume_file', resumeFile);
-
-      if (experience)            fd.append('experience', experience);
-      if (selectedSkills.length) selectedSkills.forEach(s => fd.append('skills[]', String(s.id)));
-      if (resumeLink.trim())     fd.append('resume', resumeLink.trim());
-      if (linkedin.trim())       fd.append('linkedin', linkedin.trim());
-      if (instagram.trim())      fd.append('instagram', instagram.trim());
-      if (facebook.trim())       fd.append('facebook', facebook.trim());
-      if (whatsapp.trim())       fd.append('whatsapp', whatsapp.trim());
-      if (telegram.trim())       fd.append('telegram', telegram.trim());
-      if (about.trim())          fd.append('about', about.trim());
-      if (getCookie('jf_ref'))   fd.append('ref', getCookie('jf_ref')!);
-      if (country.trim())         fd.append('country', country.trim().toUpperCase());
-      if (languages.length)       languages.forEach(l => fd.append('languages[]', l));
-
-
-      payload = fd;
-    } else {
-      payload = { username, email: normEmail, password, role }; // email → normEmail
-      if (role === 'jobseeker') {
-        if (experience)            payload.experience = experience;
-        if (selectedSkills.length) payload.skills     = selectedSkills.map(s => String(s.id));
-        if (resumeLink.trim())     payload.resume     = resumeLink.trim();
-        if (linkedin.trim())       payload.linkedin   = linkedin.trim();
-        if (instagram.trim())      payload.instagram  = instagram.trim();
-        if (facebook.trim())       payload.facebook   = facebook.trim();
-        if (whatsapp.trim())       payload.whatsapp   = whatsapp.trim();
-        if (telegram.trim())       payload.telegram   = telegram.trim();
-        if (about.trim())          payload.about      = about.trim();
-        if (country.trim())        payload.country    = country.trim().toUpperCase();
-        if (languages.length)      payload.languages  = languages;
-      }
-      const urlRef = new URLSearchParams(window.location.search).get('ref') || undefined;
-      const lsRef  = localStorage.getItem('referralCode') || undefined;
-      const ckRef  = getCookie('jf_ref') || undefined;
-      const refCode = urlRef || lsRef || ckRef || undefined;
-      if (refCode) payload.ref = refCode;
-    }
-
-    await register(payload);
-
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
-
-    localStorage.setItem('pendingEmail', normEmail);  // сохраняем нормализованную
-    localStorage.setItem('pendingRole', role);
-
+    // единоразово считаем refCode
     const urlRef = new URLSearchParams(window.location.search).get('ref') || undefined;
     const lsRef  = localStorage.getItem('referralCode') || undefined;
     const ckRef  = getCookie('jf_ref') || undefined;
     const refCode = urlRef || lsRef || ckRef || undefined;
+
+    // решаем, нужен ли FormData
+    const needsFD = role === 'jobseeker' && (resumeFile || avatarFile);
+
+    let payload: FormData | Record<string, any>;
+
+    if (needsFD) {
+      const fd = new FormData();
+      fd.append('username', username);
+      fd.append('email', normEmail);
+      fd.append('password', password);
+      fd.append('role', role);
+
+      if (resumeFile) fd.append('resume_file', resumeFile);
+      if (avatarFile) fd.append('avatar', avatarFile); // имя поля под свой бэк
+
+      if (role === 'jobseeker') {
+        if (experience)            fd.append('experience', experience);
+        if (selectedSkills.length) selectedSkills.forEach(s => fd.append('skills[]', String(s.id)));
+        if (resumeLink.trim())     fd.append('resume', resumeLink.trim());
+        if (linkedin.trim())       fd.append('linkedin', linkedin.trim());
+        if (instagram.trim())      fd.append('instagram', instagram.trim());
+        if (facebook.trim())       fd.append('facebook', facebook.trim());
+        if (whatsapp.trim())       fd.append('whatsapp', whatsapp.trim());
+        if (telegram.trim())       fd.append('telegram', telegram.trim());
+        if (about.trim())          fd.append('about', about.trim());
+        if (country.trim())        fd.append('country', country.trim().toUpperCase());
+        if (languages.length)      languages.forEach(l => fd.append('languages[]', l));
+      }
+
+      if (refCode) fd.append('ref', refCode);
+      payload = fd;
+    } else {
+      payload = {
+        username,
+        email: normEmail,
+        password,
+        role,
+        ...(role === 'jobseeker' ? {
+          ...(experience ? { experience } : {}),
+          ...(selectedSkills.length ? { skills: selectedSkills.map(s => String(s.id)) } : {}),
+          ...(resumeLink.trim() ? { resume: resumeLink.trim() } : {}),
+          ...(linkedin.trim() ? { linkedin: linkedin.trim() } : {}),
+          ...(instagram.trim() ? { instagram: instagram.trim() } : {}),
+          ...(facebook.trim() ? { facebook: facebook.trim() } : {}),
+          ...(whatsapp.trim() ? { whatsapp: whatsapp.trim() } : {}),
+          ...(telegram.trim() ? { telegram: telegram.trim() } : {}),
+          ...(about.trim() ? { about: about.trim() } : {}),
+          ...(country.trim() ? { country: country.trim().toUpperCase() } : {}),
+          ...(languages.length ? { languages } : {}),
+        } : {})
+      };
+      if (refCode) (payload as any).ref = refCode;
+    }
+
+    await register(payload);
+
+    // cleanup + redirect
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    localStorage.setItem('pendingEmail', normEmail);
+    localStorage.setItem('pendingRole', role);
 
     const rawReturn = new URLSearchParams(window.location.search).get('return') || '';
     const safeReturn = rawReturn.startsWith('/') && !rawReturn.startsWith('//') ? rawReturn : undefined;
@@ -303,6 +400,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     setBusy(false);
   }
 };
+
 
 
 
@@ -449,6 +547,89 @@ const handleSubmit = async (e: React.FormEvent) => {
   <LanguagesInput value={languages} onChange={setLanguages} />
 </div>
 
+{/* NEW: Avatar (required? depends on flag) */}
+<div className="reg2-field reg2-span2">
+  <label className="reg2-label">
+    Avatar {avatarRequired ? <span className="reg2-opt" style={{color:'#b91c1c'}}>(required)</span> : <span className="reg2-opt">(optional)</span>}
+  </label>
+
+  <div
+  onDragEnter={(e) => { e.preventDefault(); setIsAvatarDragOver(true); }}
+  onDragOver={(e) => { e.preventDefault(); setIsAvatarDragOver(true); }}
+  onDragLeave={(e) => { e.preventDefault(); setIsAvatarDragOver(false); }}
+  onDrop={(e) => {
+    e.preventDefault();
+    setIsAvatarDragOver(false);
+    const f = e.dataTransfer.files?.[0] || null;
+    processAvatarFile(f);
+  }}
+  onClick={() => fileInputRef.current?.click()}
+  role="button"
+  tabIndex={0}
+  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+  style={{
+    border: '2px dashed #d1d5db',
+    borderColor: isAvatarDragOver ? '#6b7280' : '#d1d5db',
+    borderRadius: 12,
+    padding: 16,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    cursor: 'pointer',
+    background: isAvatarDragOver ? '#f9fafb' : 'transparent'
+  }}
+>
+    {avatarPreview ? (
+      <>
+        <img
+          src={avatarPreview}
+          alt="Avatar preview"
+          style={{width:84, height:84, objectFit:'cover', borderRadius:12, border:'1px solid #e5e7eb'}}
+        />
+        <div style={{display:'flex', flexDirection:'column', gap:8}}>
+          <div className="reg2-note">Click to replace or drop a new image.</div>
+          <div style={{display:'flex', gap:8}}>
+            <button
+              type="button"
+              className="reg2-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+                setAvatarPreview(null);
+                setAvatarFile(null);
+              }}
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      </>
+    ) : (
+      <div style={{display:'flex', flexDirection:'column', gap:6}}>
+        <div className="reg2-note" style={{fontWeight:600}}>
+          Drop image here or click to upload
+        </div>
+        <div className="reg2-note">JPG/PNG/WEBP, up to 10 MB.</div>
+      </div>
+    )}
+
+    {/* скрытый input для «клика» */}
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+      style={{ display: 'none' }}
+      onChange={(e) => processAvatarFile(e.target.files?.[0] || null)}
+    />
+  </div>
+
+  {/* ошибки и подсказки */}
+  {avatarErr && <div className="reg2-hint reg2-hint--err" role="alert">{avatarErr}</div>}
+  {avatarRequired && !avatarFile && (
+    <div className="reg2-hint">Please upload an avatar to complete your registration.</div>
+  )}
+</div>
+
 
 
         <div className="reg2-field">
@@ -465,34 +646,80 @@ const handleSubmit = async (e: React.FormEvent) => {
   <div className="reg2-note">You can upload a file after registration.</div>
 </div>
 <div className="reg2-field">
-  <label className="reg2-label">Resume File <span className="reg2-opt">(optional)</span></label>
-  <input
-    className="reg2-input"
-    type="file"
-    accept=".pdf,.doc,.docx"
-onChange={(e) => {
-  const f = e.target.files?.[0] || null;
-  if (!f) { setResumeFile(null); return; }
+  <label className="reg2-label">
+    Resume File <span className="reg2-opt">(optional)</span>
+  </label>
 
-  const mb10 = 10 * 1024 * 1024;
-  if (f.size > mb10) { alert('Max resume size is 10 MB'); return; }
+  <div
+    onDragEnter={(e) => { e.preventDefault(); setIsResumeDragOver(true); }}
+    onDragOver={(e) => { e.preventDefault(); setIsResumeDragOver(true); }}
+    onDragLeave={(e) => { e.preventDefault(); setIsResumeDragOver(false); }}
+    onDrop={(e) => {
+      e.preventDefault();
+      setIsResumeDragOver(false);
+      const f = e.dataTransfer.files?.[0] || null;
+      processResumeFile(f);
+    }}
+    onClick={() => fileInputResumeRef.current?.click()}
+    role="button"
+    tabIndex={0}
+    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputResumeRef.current?.click(); }}
+    style={{
+      border: '2px dashed #d1d5db',
+      borderColor: isResumeDragOver ? '#6b7280' : '#d1d5db',
+      borderRadius: 12,
+      padding: 16,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      cursor: 'pointer',
+      background: isResumeDragOver ? '#f9fafb' : 'transparent'
+    }}
+  >
+    <div style={{display:'flex', flexDirection:'column', gap:6}}>
+      {resumeFile ? (
+        <>
+          <div className="reg2-note" style={{fontWeight:600}}>
+            {resumeFile.name}
+          </div>
+          <div className="reg2-note">Click to replace or drop a new file.</div>
+        </>
+      ) : (
+        <>
+          <div className="reg2-note" style={{fontWeight:600}}>
+            Drop file here or click to upload
+          </div>
+          <div className="reg2-note">PDF/DOC/DOCX, up to 10 MB.</div>
+        </>
+      )}
+    </div>
 
-  const okTypes = [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-  ];
-  if (f.type && !okTypes.includes(f.type)) {
-    toast.error('Allowed file types: PDF, DOC, DOCX');
-    return;
-  }
+    {resumeFile && (
+      <button
+        type="button"
+        className="reg2-btn"
+        onClick={(e) => {
+          e.stopPropagation();
+          setResumeFile(null);
+          if (fileInputResumeRef.current) fileInputResumeRef.current.value = '';
+        }}
+      >
+        Remove
+      </button>
+    )}
 
-  setResumeFile(f);
-}}
-
-  />
-  <div className="reg2-note">PDF/DOC/DOCX, up to 10 MB.</div>
+    {/* скрытый input под клик */}
+    <input
+      ref={fileInputResumeRef}
+      type="file"
+      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      style={{ display: 'none' }}
+      onChange={(e) => processResumeFile(e.target.files?.[0] || null)}
+    />
+  </div>
 </div>
+
 
               <div className="reg2-field reg2-span2">
                 <label className="reg2-label">Talents/Skills</label>
