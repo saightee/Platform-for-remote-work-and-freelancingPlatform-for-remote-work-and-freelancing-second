@@ -5019,18 +5019,18 @@ if (isLoading) {
 
   <div className="bo-card__body">
     <div className="bo-grid">
-      <div className="bo-row">
+      <div className="bo-row bo-row--switch">
         <div className="bo-row__label">Require avatar on registration</div>
-        <div className="bo-row__control">
-          {/* не кладём кнопку внутрь label, чтобы она не перекрывалась */}
-          <label className="bo-switch" style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+        <div className="bo-row__control" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label className="bo-switch">
             <input
               type="checkbox"
               checked={!!regAvatarRequired}
               onChange={(e) => setRegAvatarRequired(e.target.checked)}
             />
-            <span className="bo-switch__text">Enabled</span>
+            <span className="bo-switch__slider" />
           </label>
+          <span className="bo-kv">{regAvatarRequired ? 'Enabled' : 'Disabled'}</span>
         </div>
       </div>
 
@@ -5046,9 +5046,9 @@ if (isLoading) {
               try {
                 const { required } = await setAdminRegistrationAvatarRequired(!!regAvatarRequired);
                 setRegAvatarRequired(required);
-                alert('Saved.');
+                toast.success('Saved.');
               } catch (e: any) {
-                alert(e?.response?.data?.message || 'Failed to save.');
+                toast.error(e?.response?.data?.message || 'Failed to save.');
               } finally {
                 setSavingRegAvatar(false);
               }
@@ -5061,6 +5061,7 @@ if (isLoading) {
     </div>
   </div>
 </section>
+
 
 <section className="bo-card">
   <header className="bo-card__head">
