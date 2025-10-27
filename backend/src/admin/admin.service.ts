@@ -1741,7 +1741,7 @@ export class AdminService {
         id: link.id,
         jobPostId: jp?.id || null,
         refCode: link.ref_code,
-        fullLink: `${baseSite}/vacancy/${slugId}?ref=${link.ref_code}`,
+        fullLink: `${baseSite}/job/${slugId}?ref=${link.ref_code}`,
         legacyLink: `${baseSite}/ref/${link.ref_code}`,
         clicks: link.clicks,
         registrations: link.registrations,
@@ -1777,7 +1777,7 @@ export class AdminService {
 
     const jp = link.job_post as any;
     const slugId = jp.slug_id || jp.id;
-    return { redirectTo: `${baseSite}/vacancy/${slugId}?ref=${encodeURIComponent(link.ref_code)}` };
+    return { redirectTo: `${baseSite}/job/${slugId}?ref=${encodeURIComponent(link.ref_code)}` };
   }
 
   async incrementRegistration(refCode: string, userId: string) {
@@ -1972,6 +1972,6 @@ export class AdminService {
     await this.referralLinksRepository.delete(linkId);
     return { message: 'Deleted' };
   }
-
+  
 
 }

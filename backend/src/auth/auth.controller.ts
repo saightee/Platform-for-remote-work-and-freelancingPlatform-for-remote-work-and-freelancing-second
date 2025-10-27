@@ -151,7 +151,16 @@ export class AuthController {
     const brand = mapBrandFromReq(req) || null;
     (registerDto as any).__brand = brand;
 
-    return this.authService.register(registerDto, ip, fingerprint, registerDto.ref, avatarUrl);
+    const refFromBody   = (registerDto as any)?.ref;
+    const refFromQuery  = req?.query?.ref as string | undefined;
+    const refFromHeader = (req?.headers?.['x-ref'] as string | undefined);
+    const refFromCookie = (req as any)?.cookies?.ref as string | undefined;
+      
+    const refCode =
+      [refFromBody, refFromQuery, refFromHeader, refFromCookie]
+        .find(v => typeof v === 'string' && v.trim()) || undefined;
+      
+    return this.authService.register(registerDto, ip, fingerprint, refCode, avatarUrl);
   }
 
   @Get('verify-email')
