@@ -12,9 +12,9 @@ export class SettingsService {
 
   async getGlobalApplicationLimit(): Promise<{ globalApplicationLimit: number | null }> {
     const setting = await this.settingsRepository.findOne({ where: { key: 'global_application_limit' } });
-    let limit: number | null = setting ? parseInt(setting.value, 10) : null; 
+    let limit: number | null = setting ? parseInt(setting.value, 10) : null;
     if (isNaN(limit) || !Number.isFinite(limit) || limit < 0) {
-      limit = null; 
+      limit = null;
     }
     return { globalApplicationLimit: limit };
   }
@@ -39,14 +39,14 @@ export class SettingsService {
       onEmployerMessage: {
         immediate: true,
         delayedIfUnread: { enabled: true, minutes: 60 },
-        after24hIfUnread: { enabled: true, hours: 24 }, // NEW
+        after24hIfUnread: { enabled: true, hours: 24 },
         onlyFirstMessageInThread: false,
       },
       throttle: { perChatCount: 2, perMinutes: 60 },
     };
-  
+
     if (!row?.value) return defaults;
-  
+
     try {
       const parsed = JSON.parse(row.value) || {};
       return {
@@ -77,5 +77,25 @@ export class SettingsService {
       ? { ...row, value: JSON.stringify(value ?? {}) }
       : this.settingsRepository.create({ key: this.CHAT_KEY, value: JSON.stringify(value ?? {}) });
     await this.settingsRepository.save(toSave);
+  }
+
+  private REQUIRE_AVATAR_KEY = 'require_avatar_on_registration';
+
+  async getRequireAvatarOnRegistration(): Promise<{ required: boolean }> {
+    const row = await this.settingsRepository.findOne({ where: { key: this.REQUIRE_AVATAR_KEY } });
+    if (!row) return { required: false };
+    const v = (row.value || '').toLowerCase().trim();
+    return { required: v === 'true' || v === '1' || v === 'yes' };
+  }
+
+  async setRequireAvatarOnRegistration(required: boolean): Promise<{ required: boolean }> {
+    let row = await this.settingsRepository.findOne({ where: { key: this.REQUIRE_AVATAR_KEY } });
+    if (!row) {
+      row = this.settingsRepository.create({ key: this.REQUIRE_AVATAR_KEY, value: String(!!required) });
+    } else {
+      row.value = String(!!required);
+    }
+    await this.settingsRepository.save(row);
+    return { required: !!required };
   }
 }

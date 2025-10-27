@@ -15,6 +15,7 @@ import { Transporter } from 'nodemailer';
 import { AdminService } from '../admin/admin.service';
 import { ConfigService } from '@nestjs/config';
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { SettingsService } from '../settings/settings.service';
 
 const normalizeEmail = (e: string) => (e || '').trim().toLowerCase();
 const isStrongPassword = (pw: string) =>
@@ -36,13 +37,15 @@ export class AuthService {
     @Inject('MAILER_TRANSPORT') private mailerTransport: Transporter,
     private adminService: AdminService,
     private configService: ConfigService,
+    private settingsService: SettingsService, 
   ) {}
 
   async register(
     dto: RegisterDto | CreateAdminDto | CreateModeratorDto,
     ip: string,
     fingerprint?: string,
-    refCode?: string
+    refCode?: string,
+    avatarUrl?: string,
   ) {
     const emailNorm = (dto.email || '').trim().toLowerCase();
     const username = (dto as any).username;
@@ -93,6 +96,13 @@ export class AuthService {
       role = (dto as RegisterDto).role;
     }
 
+    if (role === 'jobseeker') {
+      const { required } = await this.settingsService.getRequireAvatarOnRegistration();
+      if (required && !avatarUrl) {
+        throw new BadRequestException('Avatar is required for jobseeker registration');
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const userData = {
       email: emailNorm,
@@ -103,6 +113,7 @@ export class AuthService {
       is_email_verified: role === 'admin' || role === 'moderator',
       referral_source: refCode || null,
       brand: (dto as any).__brand || null,
+      avatar: avatarUrl || null,
     } as any;
 
     const additionalData: any = { timezone: 'UTC', currency: 'USD' };
