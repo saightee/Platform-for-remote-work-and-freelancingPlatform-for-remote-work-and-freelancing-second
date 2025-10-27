@@ -1752,7 +1752,7 @@ export class AdminService {
     const baseSite = this.configService.get<string>('BASE_URL')!.replace(/\/api\/?$/, '');
 
     if (link.scope === 'site') {
-      const path = (link.landing_path && link.landing_path.startsWith('/')) ? link.landing_path : '/register';
+      const path = (link.landing_path && link.landing_path.startsWith('/')) ? link.landing_path : '/role-selection';
       const glue = path.includes('?') ? '&' : '?';
       return { redirectTo: `${baseSite}${path}${glue}ref=${encodeURIComponent(link.ref_code)}` };
     }
