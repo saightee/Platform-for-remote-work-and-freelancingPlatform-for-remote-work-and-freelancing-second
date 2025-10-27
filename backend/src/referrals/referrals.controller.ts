@@ -10,6 +10,16 @@ export class ReferralsController {
   async handleReferral(@Param('refCode') refCode: string, @Res() res: Response) {
     try {
       const { redirectTo } = await this.adminService.resolveAndIncrementClick(refCode);
+
+      const maxAgeMs = 30 * 24 * 60 * 60 * 1000;
+      res.cookie('ref', refCode, {
+        maxAge: maxAgeMs,
+        httpOnly: false,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+      });
+
       return res.redirect(302, redirectTo);
     } catch (error) {
       if (error instanceof NotFoundException) {
