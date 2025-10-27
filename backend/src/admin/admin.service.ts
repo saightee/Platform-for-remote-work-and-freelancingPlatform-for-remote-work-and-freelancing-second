@@ -1695,46 +1695,62 @@ export class AdminService {
     return { message: 'Deleted' };
   }
 
-  async getReferralLinks(adminId: string, filters: { jobId?: string, jobTitle?: string } = {}) {
+  async getReferralLinks(
+    adminId: string,
+    filters: { jobId?: string; jobTitle?: string } = {},
+  ) {
     await this.checkAdminRole(adminId);
-    const query = this.referralLinksRepository.createQueryBuilder('link')
+
+    const qb = this.referralLinksRepository
+      .createQueryBuilder('link')
       .leftJoinAndSelect('link.job_post', 'jobPost')
       .leftJoinAndSelect('link.registrationsDetails', 'reg')
       .leftJoinAndSelect('reg.user', 'user')
+      .where('link.scope = :scope', { scope: 'job' })
       .orderBy('link.created_at', 'DESC');
 
     if (filters.jobId) {
-      query.andWhere('jobPost.id = :jobId', { jobId: filters.jobId });
+      qb.andWhere('jobPost.id = :jobId', { jobId: filters.jobId });
     }
     if (filters.jobTitle) {
-      query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.jobTitle}%` });
+      qb.andWhere('jobPost.title ILIKE :title', { title: `%${filters.jobTitle}%` });
     }
 
-    const links = await query.getMany();
-    const baseUrl = this.configService.get<string>('BASE_URL')!;
+    const links = await qb.getMany();
+
+    const baseSite = this.configService.get<string>('BASE_URL')!.replace(/\/api\/?$/, '');
 
     return links.map(link => {
       const jp = link.job_post;
-      const baseSlug = (jp.slug && jp.slug.trim().length > 0) ? jp.slug : this.slugify(jp.title || '');
-      const shortId = (jp.id || '').replace(/-/g, '').slice(0, 8);
-      const slugId = jp.slug_id || (baseSlug && shortId ? `${baseSlug}--${shortId}` : jp.id);
+      const slugId = (() => {
+        if (!jp) return '';
+        if (jp.slug_id) return jp.slug_id;
+
+        const baseSlug = (jp.slug && jp.slug.trim().length > 0)
+          ? jp.slug
+          : this.slugify(jp.title || '');
+        const shortId = (jp.id || '').replace(/-/g, '').slice(0, 8);
+        return baseSlug && shortId ? `${baseSlug}--${shortId}` : (jp.id || '');
+      })();
 
       const registrationsVerified = (link.registrationsDetails || []).filter(
-        r => r.user && r.user.is_email_verified === true
+        r => r.user && r.user.is_email_verified === true,
       ).length;
 
       return {
         id: link.id,
-        jobPostId: jp?.id,
+        jobPostId: jp?.id || null,
         refCode: link.ref_code,
-        fullLink: `${baseUrl}/job/${slugId}?ref=${link.ref_code}`,
-        legacyLink: `${baseUrl}/ref/${link.ref_code}`,
+        fullLink: `${baseSite}/vacancy/${slugId}?ref=${link.ref_code}`,
+        legacyLink: `${baseSite}/ref/${link.ref_code}`,
         clicks: link.clicks,
         registrations: link.registrations,
         registrationsVerified,
         registrationsDetails: link.registrationsDetails || [],
         description: link.description || null,
-        job_post: jp ? { id: jp.id, title: jp.title } : null,
+        job_post: jp
+          ? { id: jp.id, title: jp.title, slug: jp.slug, slug_id: jp.slug_id }
+          : null,
       };
     });
   }
