@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { register, getCategories, searchCategories, getRegistrationAvatarRequired } from '../services/api';
+import { register, getCategories, searchCategories, getRegistrationAvatarRequired, trackReferralClick } from '../services/api';
 import { Category } from '@types';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import PasswordStrength, { isStrongPassword } from '../components/PasswordStrength';
@@ -39,7 +39,8 @@ const processResumeFile = (f: File | null) => {
   if (!f) { setResumeFile(null); return; }
 
   const mb10 = 10 * 1024 * 1024;
-  if (f.size > mb10) { alert('Max resume size is 10 MB'); return; }
+  if (f.size > mb10) { toast.error('Max resume size is 10 MB'); return; }
+
 
   const okTypes = [
     'application/pdf',
@@ -232,6 +233,15 @@ useEffect(() => {
 ]);
 
 useEffect(() => {
+  const code = new URLSearchParams(location.search).get('ref');
+  if (code) {
+    localStorage.setItem('referralCode', code); // как у тебя
+    trackReferralClick(code);                   // это заполнит sessionStorage.ref_meta
+  }
+}, []);
+
+
+useEffect(() => {
   if (err) {
     try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {}
   }
@@ -380,28 +390,46 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
     localStorage.setItem('pendingEmail', normEmail);
     localStorage.setItem('pendingRole', role);
 
-    const rawReturn = new URLSearchParams(window.location.search).get('return') || '';
-let safeReturn: string | undefined = undefined;
-
-// 1) если абсолютный URL и он на текущем бренде — берём pathname+search
+// 1) читаем мету рефки, записанную при клике на ссылку
+let afterReturn: string | undefined;
 try {
-  const u = new URL(rawReturn);
-  if (u.hostname.includes(brand.domain)) {
-    safeReturn = `${u.pathname}${u.search}`;
+  const raw = sessionStorage.getItem('ref_meta');
+  if (raw) {
+    const m = JSON.parse(raw);
+    // убеждаемся что речь о том же коде (если он есть)
+    if (!refCode || m.code === refCode) {
+      if (m.scope === 'job') {
+        afterReturn = m.jobSlug ? `/jobs/${m.jobSlug}` :
+                      m.jobId   ? `/job/${m.jobId}`   :
+                                  undefined;
+      } else if (m.landingPath) {
+        afterReturn = m.landingPath;
+      }
+    }
   }
-} catch {
-  // 2) иначе — если относительный путь, тоже ок
-  if (rawReturn.startsWith('/') && !rawReturn.startsWith('//')) {
-    safeReturn = rawReturn;
+} catch { /* ignore */ }
+
+// 2) фоллбэк — поддерживаем старый ?return= (в т.ч. абсолютный URL своего домена)
+if (!afterReturn) {
+  const rawReturn = new URLSearchParams(window.location.search).get('return') || '';
+  try {
+    const u = new URL(rawReturn);
+    const sameHost = u.hostname.toLowerCase() === window.location.hostname.toLowerCase();
+    if (sameHost) afterReturn = `${u.pathname}${u.search}`;
+  } catch {
+    if (rawReturn.startsWith('/') && !rawReturn.startsWith('//')) {
+      afterReturn = rawReturn;
+    }
   }
 }
 
+// 3) сохраняем маршрут для экрана подтверждения e-mail
+if (role === 'jobseeker' && refCode && afterReturn) {
+  localStorage.setItem('afterVerifyReturn', afterReturn);
+} else {
+  localStorage.removeItem('afterVerifyReturn');
+} try { sessionStorage.removeItem('ref_meta'); } catch {}
 
-    if (role === 'jobseeker' && refCode && safeReturn) {
-      localStorage.setItem('afterVerifyReturn', safeReturn);
-    } else {
-      localStorage.removeItem('afterVerifyReturn');
-    }
 
     if (refCode) { try { localStorage.removeItem('referralCode'); } catch {} }
 

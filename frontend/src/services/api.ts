@@ -1800,17 +1800,32 @@ export const getJobBySlugOrId = async (slugOrId: string) => {
 
 
 
-// Track referral click once per visit
 export const trackReferralClick = async (ref: string) => {
   try {
-    await api.post('/ref/track', { ref });
+    const { data } = await api.post('/ref/track', { ref });
+    // Если бэк вернёт мету — сохраним для дальнейшего редиректа
+    if (data && (data.scope || data.job_post || data.landing_path)) {
+      sessionStorage.setItem('ref_meta', JSON.stringify({
+        code: ref,
+        scope: data.scope || 'site',
+        landingPath: data.landing_path ?? null,
+        jobId: data.job_post?.id ?? null,
+        jobSlug: data.job_post?.slug ?? null,
+      }));
+    }
+    return data;
   } catch (e) {
     console.warn('ref track failed', e);
+    return null;
   }
 };
 
-// либо импортируй сюда AdminRecentRegistrationsDTO,
-// либо просто убери generic, чтобы не тянуть конфликтующее имя
+// GET /ref/meta/:code  -> { scope, landing_path?, job_post?{id,slug?} }
+export const getReferralMeta = async (code: string) => {
+  const { data } = await api.get(`/ref/meta/${code}`);
+  return data;
+};
+
 
 export async function getRecentRegistrationsToday(opts?: { date?: string; tzOffset?: number; limit?: number }) {
   const tzOffset = opts?.tzOffset ?? -new Date().getTimezoneOffset();
