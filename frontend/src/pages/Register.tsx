@@ -9,6 +9,7 @@ import { toast } from '../utils/toast';
 import CountrySelect from '../components/inputs/CountrySelect';
 import LanguagesInput from '../components/inputs/LanguagesInput';
 import '../styles/country-langs.css';
+import { brand } from '../brand';
 
 const urlOk = (v: string) => /^https?:\/\/\S+$/i.test(v.trim());
 const getCookie = (name: string): string | undefined => {
@@ -231,6 +232,12 @@ useEffect(() => {
 ]);
 
 useEffect(() => {
+  if (err) {
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {}
+  }
+}, [err]);
+
+useEffect(() => {
   if (role !== 'jobseeker') { setAvatarRequired(false); return; }
 
   const KEY = 'reg_avatar_required_v1';
@@ -374,7 +381,21 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
     localStorage.setItem('pendingRole', role);
 
     const rawReturn = new URLSearchParams(window.location.search).get('return') || '';
-    const safeReturn = rawReturn.startsWith('/') && !rawReturn.startsWith('//') ? rawReturn : undefined;
+let safeReturn: string | undefined = undefined;
+
+// 1) если абсолютный URL и он на текущем бренде — берём pathname+search
+try {
+  const u = new URL(rawReturn);
+  if (u.hostname.includes(brand.domain)) {
+    safeReturn = `${u.pathname}${u.search}`;
+  }
+} catch {
+  // 2) иначе — если относительный путь, тоже ок
+  if (rawReturn.startsWith('/') && !rawReturn.startsWith('//')) {
+    safeReturn = rawReturn;
+  }
+}
+
 
     if (role === 'jobseeker' && refCode && safeReturn) {
       localStorage.setItem('afterVerifyReturn', safeReturn);
@@ -414,7 +435,11 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
       <div className="reg2-card">
         <h1 className="reg2-title">Sign Up</h1>
 
-        {err && <div className="reg2-alert reg2-alert--err">{err}</div>}
+        {err && (
+  <div className="reg2-toast-fixed" role="alert" onClick={() => setErr(null)}>
+    {err}
+  </div>
+)}
 
         <form onSubmit={handleSubmit} className={`reg2-form ${isJobseeker ? 'is-two' : ''}`}>
           {/* left column */}
