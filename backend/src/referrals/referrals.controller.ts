@@ -8,28 +8,21 @@ export class ReferralsController {
 
   @Get(':refCode')
   async handleReferral(@Param('refCode') refCode: string, @Res() res: Response) {
-    console.log(`Handling referral for refCode: ${refCode}`);
     try {
-      const jobPostId = await this.adminService.incrementClick(refCode);
-      const redirectUrl = `/jobs/${jobPostId}?ref=${refCode}`;
-      console.log(`Redirecting to: ${redirectUrl}`);
-      res.redirect(302, redirectUrl);
+      const { redirectTo } = await this.adminService.resolveAndIncrementClick(refCode);
+      return res.redirect(302, redirectTo);
     } catch (error) {
-      console.error(`Error handling referral for refCode ${refCode}:`, error);
       if (error instanceof NotFoundException) {
-        res.status(404).send('Referral link not found');
-      } else {
-        res.status(500).send('Internal server error');
+        return res.status(404).send('Referral link not found');
       }
+      return res.status(500).send('Internal server error');
     }
   }
 
   @Post('track')
   async trackClick(@Body('ref') ref: string) {
-    if (!ref) {
-      throw new BadRequestException('ref is required');
-    }
-    const jobPostId = await this.adminService.incrementClick(ref);
-    return { ok: true, jobPostId };
+    if (!ref) throw new BadRequestException('ref is required');
+    const { redirectTo } = await this.adminService.resolveAndIncrementClick(ref);
+    return { ok: true, redirectTo };
   }
 }
