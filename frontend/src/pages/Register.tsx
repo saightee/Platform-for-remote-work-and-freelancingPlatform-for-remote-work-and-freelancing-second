@@ -324,7 +324,8 @@ const handleSubmit = async (e: React.FormEvent) => {
       fd.append('role', role);
 
       if (resumeFile) fd.append('resume_file', resumeFile);
-      if (avatarFile) fd.append('avatar', avatarFile); // имя поля под свой бэк
+if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя поля, как ждёт бек
+
 
       if (role === 'jobseeker') {
         if (experience)            fd.append('experience', experience);
