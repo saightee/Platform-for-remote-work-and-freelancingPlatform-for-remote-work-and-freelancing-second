@@ -644,7 +644,14 @@ const [referralLinks, setReferralLinks] = useState<{
 }[]>([]);
 
 // Подменю внутри раздела "Referral Links"
-const [refSubTab, setRefSubTab] = useState<'job' | 'site'>('job'); // NEW
+const [refSubTab, setRefSubTab] = useState<'job' | 'site'>('job');
+// NEW: раскрытие групп по вакансиям на вкладке Job
+// Разворачивание групп по Job Post
+const [jobExpanded, setJobExpanded] = useState<Record<string, boolean>>({});
+const toggleJobGroup = (jobId: string) =>
+  setJobExpanded(prev => ({ ...prev, [jobId]: !prev[jobId] }));
+
+
 
 // --- Site referrals (глобальные) ---
 const [siteReferrals, setSiteReferrals] = useState<SiteReferralLink[]>([]); // NEW
@@ -762,17 +769,26 @@ const handleCreateSiteReferral = async () => {
     if (newSiteLandingPath.trim()) payload.landingPath = newSiteLandingPath.trim();
 
     const created = await createSiteReferralLink(payload);
-    // показать короткую ссылку сразу
+
     setShowSiteCreatedModal({
       shortLink: created.shortLink,
       description: created.description ?? undefined,
       landingPath: created.landingPath ?? undefined,
     });
 
-    // перезагрузить список по текущим фильтрам
+    // Обновляем список
     await fetchSiteReferrals();
 
-    // очистить форму
+    // NEW: автоматически раскрываем группу автора, чтобы новая ссылка была сразу видна
+    const myAdminId =
+      created.createdByAdmin?.id ||
+      created.createdByAdminId ||
+      adminId ||
+      null;
+    if (myAdminId) {
+      setSiteExpandedAdmin(prev => ({ ...prev, [myAdminId]: true }));
+    }
+
     setNewSiteDescription('');
     setNewSiteLandingPath('');
   } catch (e: any) {
@@ -782,6 +798,7 @@ const handleCreateSiteReferral = async () => {
     setCreatingSite(false);
   }
 };
+
 
 // === Site referrals: редактирование описания ===
 const handleEditSiteReferral = async (id: string, current?: string | null) => {
@@ -4183,78 +4200,150 @@ if (isLoading) {
       </button>
     </div>
 
-    {/* ====== TAB: JOB LINKS ====== */}
-    {refSubTab === 'job' && (
-      <div className="ref-links__job is-open">
-        {/* Если у тебя уже был свой UI для job-рефералок, можно заменить именно этот блок на твой.
-            Ниже — минимальный, самодостаточный список job-ссылок с копированием, редактированием и удалением. */}
-        <div className="ref-links__table-wrap">
-          <table className="ref-links__table">
-            <thead>
-              <tr>
-                <th>Job Post ID</th>
-                <th>Description</th>
-                <th>Short / Full Link</th>
-                <th>Created at</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.isArray(referralLinks) && referralLinks.length > 0 ? (
-                referralLinks.map((link: any) => (
-                  <tr key={link.id}>
-                    <td className="ref-links__num">{link.jobPostId || '—'}</td>
-                    <td className="ref-links__desc">{link.description || <i>—</i>}</td>
+{refSubTab === 'job' && (
+  <div className="ref-links__job is-open">
+    {(() => {
+      if (!Array.isArray(referralLinks) || referralLinks.length === 0) {
+        return <div className="ref-links__empty">No job referral links yet.</div>;
+      }
 
-                    <td className="ref-links__url">
-                      {/* Если в проекте есть helper shortenReferralUrl, будет красиво показывать домен + код;
-                         если нет — можно заменить на просто link.fullLink */}
-                      <span title={link.fullLink || link.shortLink} className="ref-links__url-text">
-                        {typeof shortenReferralUrl === 'function'
-                          ? shortenReferralUrl(link.shortLink || link.fullLink)
-                          : (link.shortLink || link.fullLink)}
-                      </span>
-                      {(link.shortLink || link.fullLink) && (
-                        <button
-                          type="button"
-                          onClick={() => navigator.clipboard.writeText(link.shortLink || link.fullLink)}
-                          className="ref-links__btn ref-links__btn--ghost"
-                          title="Copy link"
-                        >
-                          <FaCopy style={{ marginRight: 6 }} />
-                          Copy
-                        </button>
-                      )}
-                    </td>
+      // Группируем ссылки по вакансии + считаем агрегаты
+      const groups: Record<
+        string,
+        {
+          jobId: string;
+          title: string;
+          links: any[];
+          totals: { clicks: number; registrations: number; verified: number };
+        }
+      > = {};
 
-                    <td>{link.created_at ? renderDateCell(link.created_at) : '—'}</td>
+      for (const l of referralLinks) {
+        const jobId = l.job_post?.id || l.jobPostId || 'unknown';
+        const title = l.job_post?.title || 'Untitled job';
+        if (!groups[jobId]) {
+          groups[jobId] = {
+            jobId,
+            title,
+            links: [],
+            totals: { clicks: 0, registrations: 0, verified: 0 },
+          };
+        }
+        groups[jobId].links.push(l);
+        groups[jobId].totals.clicks += Number(l.clicks ?? 0);
+        groups[jobId].totals.registrations += Number(l.registrations ?? 0);
+        groups[jobId].totals.verified += Number(l.registrationsVerified ?? 0);
+      }
 
-                    <td className="ref-links__actions">
-                      <button
-                        type="button"
-                        className="ref-links__btn"
-                        onClick={() => handleEditReferral(link.id, link.description || '')}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="ref-links__btn ref-links__btn--danger"
-                        onClick={() => handleDeleteReferral(link.id)}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr><td colSpan={5}>No job referral links yet.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    )}
+      const jobIds = Object.keys(groups);
+
+      return jobIds.map((jid) => {
+        const g = groups[jid];
+        const opened = !!jobExpanded[jid];
+
+        return (
+          <section key={jid} className={`ref-links__job ${opened ? 'is-open' : ''}`}>
+            {/* Шапка группы вакансии */}
+            <header className="ref-links__job-head" onClick={() => toggleJobGroup(jid)}>
+              <div className="ref-links__job-title">
+                <span className="ref-links__chev">{opened ? '▾' : '▸'}</span>
+                <span className="ref-links__job-name">{g.title}</span>
+                <span className="ref-links__count">({g.links.length})</span>
+              </div>
+
+              {/* агрегаты по вакансии */}
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, alignItems: 'center' }}>
+                <span className="ref-links__kv">Clicks: <b>{g.totals.clicks}</b></span>
+                <span className="ref-links__kv">Regs: <b>{g.totals.registrations}</b></span>
+                <span className="ref-links__kv">Verified: <b>{g.totals.verified}</b></span>
+
+                {/* Создание рефки под конкретную вакансию */}
+                <button
+                  type="button"
+                  className="action-button success"
+                  onClick={(e) => { e.stopPropagation(); openCreateReferralModal(jid); }}
+                  title="Create referral link for this job"
+                >
+                  + Create
+                </button>
+              </div>
+            </header>
+
+            {/* Таблица ссылок по этой вакансии */}
+            {opened && (
+              <div className="ref-links__job-body">
+                <div className="ref-links__table-wrap">
+                  <table className="ref-links__table">
+                    <thead>
+                      <tr>
+                        <th>Description</th>
+                        <th>Short / Full Link</th>
+                        <th>Clicks</th>
+                        <th>Registrations</th>
+                        <th>Verified</th>
+                        <th>Created at</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {g.links.map((link: any) => (
+                        <tr key={link.id}>
+                          <td className="ref-links__desc">{link.description || <i>—</i>}</td>
+
+                          <td className="ref-links__url">
+                            <span title={link.fullLink || link.shortLink} className="ref-links__url-text">
+                              {typeof shortenReferralUrl === 'function'
+                                ? shortenReferralUrl(link.shortLink || link.fullLink)
+                                : (link.shortLink || link.fullLink)}
+                            </span>
+                            {(link.shortLink || link.fullLink) && (
+                              <button
+                                type="button"
+                                onClick={() => navigator.clipboard.writeText(link.shortLink || link.fullLink)}
+                                className="ref-links__btn ref-links__btn--ghost"
+                                title="Copy link"
+                              >
+                                <FaCopy style={{ marginRight: 6 }} />
+                                Copy
+                              </button>
+                            )}
+                          </td>
+
+                          <td className="ref-links__num">{link.clicks ?? 0}</td>
+                          <td className="ref-links__num">{link.registrations ?? 0}</td>
+                          <td className="ref-links__num">{link.registrationsVerified ?? 0}</td>
+                          <td>{link.created_at ? renderDateCell(link.created_at) : '—'}</td>
+
+                          <td className="ref-links__actions">
+                            <button
+                              type="button"
+                              className="ref-links__btn"
+                              onClick={() => handleEditReferral(link.id, link.description || '')}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="ref-links__btn ref-links__btn--danger"
+                              onClick={() => handleDeleteReferral(link.id)}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </section>
+        );
+      });
+    })()}
+  </div>
+)}
+
 
     {/* ====== TAB: SITE LINKS (глобальные ссылки) ====== */}
     {refSubTab === 'site' && (
@@ -4921,41 +5010,58 @@ if (isLoading) {
   <div>
     <h4>Settings</h4>
 
-    {/* --- Global Application Limit (как было) --- */}
-    {/* === Global Application Limit === */}
+  
 
-    <section className="bo-card">
-  <h4>Registration</h4>
-  <label className="bo-switch" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-    <input
-      type="checkbox"
-      checked={!!regAvatarRequired}
-      onChange={(e) => setRegAvatarRequired(e.target.checked)}
-    />
-    <span>Require avatar on registration</span>
-  </label>
-  <div className="bo-actions" style={{ marginTop: 8 }}>
-    <button
-      type="button"
-      className="bo-btn bo-btn--success"
-      disabled={regAvatarRequired === null || savingRegAvatar}
-      onClick={async () => {
-        setSavingRegAvatar(true);
-        try {
-          const { required } = await setAdminRegistrationAvatarRequired(!!regAvatarRequired);
-          setRegAvatarRequired(required);
-          alert('Saved.');
-        } catch (e: any) {
-          alert(e?.response?.data?.message || 'Failed to save.');
-        } finally {
-          setSavingRegAvatar(false);
-        }
-      }}
-    >
-      {savingRegAvatar ? 'Saving…' : 'Save'}
-    </button>
+<section className="bo-card">
+  <header className="bo-card__head">
+    <h3 className="bo-card__title">Registration</h3>
+  </header>
+
+  <div className="bo-card__body">
+    <div className="bo-grid">
+      <div className="bo-row">
+        <div className="bo-row__label">Require avatar on registration</div>
+        <div className="bo-row__control">
+          {/* не кладём кнопку внутрь label, чтобы она не перекрывалась */}
+          <label className="bo-switch" style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              checked={!!regAvatarRequired}
+              onChange={(e) => setRegAvatarRequired(e.target.checked)}
+            />
+            <span className="bo-switch__text">Enabled</span>
+          </label>
+        </div>
+      </div>
+
+      <div className="bo-row">
+        <div className="bo-row__label" />
+        <div className="bo-row__control">
+          <button
+            type="button"
+            className="bo-btn bo-btn--success"
+            disabled={regAvatarRequired === null || savingRegAvatar}
+            onClick={async () => {
+              setSavingRegAvatar(true);
+              try {
+                const { required } = await setAdminRegistrationAvatarRequired(!!regAvatarRequired);
+                setRegAvatarRequired(required);
+                alert('Saved.');
+              } catch (e: any) {
+                alert(e?.response?.data?.message || 'Failed to save.');
+              } finally {
+                setSavingRegAvatar(false);
+              }
+            }}
+          >
+            {savingRegAvatar ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
+
 <section className="bo-card">
   <header className="bo-card__head">
     <h3 className="bo-card__title">Global Application Limit</h3>

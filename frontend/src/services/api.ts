@@ -873,10 +873,14 @@ export const getMyApplications = async () => {
 };
 
 export const getApplicationsForJobPost = async (jobPostId: string) => {
-  const response = await api.get<JobApplicationDetails[]>(`/job-applications/job-post/${jobPostId}`);
-  console.log('Fetched applications:', response.data);
-  return response.data;
+  const token = localStorage.getItem('token');
+  const decoded: { role?: string } | null = token ? jwtDecode(token) : null;
+  const isAdminLike = decoded?.role === 'admin' || decoded?.role === 'moderator';
+  const base = isAdminLike ? '/admin/job-applications' : '/job-applications';
+  const { data } = await api.get<JobApplicationDetails[]>(`${base}/job-post/${jobPostId}`);
+  return data;
 };
+
 
 export const updateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected') => {
   console.log('Sending updateApplicationStatus', { applicationId, status, token: localStorage.getItem('token') });
