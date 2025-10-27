@@ -922,6 +922,38 @@ if (Array.isArray(now.languages))                    patch.languages = now.langu
                           placeholder="https://example.com/resume.pdf"
                         />
                       </div>
+                        <div className="pf-row">
+                        <label className="pf-label">Upload Resume File (PDF, DOC, DOCX)</label>
+                        <input
+                          ref={resumeRef}
+                          className="pf-file-hidden"
+                          type="file"
+                          accept=".pdf,.doc,.docx"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) setResumeFile(file);
+                          }}
+                        />
+                        <div className="pf-file-inline">
+                          <button
+                            type="button"
+                            className="pf-button pf-secondary"
+                            onClick={() => resumeRef.current?.click()}
+                          >
+                            Choose File
+                          </button>
+                          {resumeFile && <span className="pf-file-name">Selected: {resumeFile.name}</span>}
+                          {resumeFile && (
+                            <button
+                              type="button"
+                              className="pf-button"
+                              onClick={handleUploadResume}
+                            >
+                              Upload Resume
+                            </button>
+                          )}
+                        </div>
+                      </div>
 
                       {/* Socials (optional) */}
                     <div className="pf-row">
@@ -999,38 +1031,7 @@ if (Array.isArray(now.languages))                    patch.languages = now.langu
 </div>
 
 
-                      <div className="pf-row">
-                        <label className="pf-label">Upload Resume File (PDF, DOC, DOCX)</label>
-                        <input
-                          ref={resumeRef}
-                          className="pf-file-hidden"
-                          type="file"
-                          accept=".pdf,.doc,.docx"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) setResumeFile(file);
-                          }}
-                        />
-                        <div className="pf-file-inline">
-                          <button
-                            type="button"
-                            className="pf-button pf-secondary"
-                            onClick={() => resumeRef.current?.click()}
-                          >
-                            Choose File
-                          </button>
-                          {resumeFile && <span className="pf-file-name">Selected: {resumeFile.name}</span>}
-                          {resumeFile && (
-                            <button
-                              type="button"
-                              className="pf-button"
-                              onClick={handleUploadResume}
-                            >
-                              Upload Resume
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                    
                     </>
                   )}
                 </div>
