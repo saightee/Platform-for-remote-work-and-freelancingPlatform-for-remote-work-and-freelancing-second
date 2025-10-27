@@ -338,3 +338,21 @@ input[type="password"]::-ms-clear{
   text-decoration:none;
 }
 .reg2-consent a:hover{ text-decoration:underline; }
+
+.reg2-toast-fixed{
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+
+  max-width: min(720px, 92vw);
+  padding: 12px 16px;
+  border-radius: 10px;
+
+  background: #fde2e2;            /* нежно-красный фон */
+  color: #7f1d1d;                  /* тёмно-красный текст */
+  border: 1px solid #fecaca;
+  box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  font-weight: 500;
+}

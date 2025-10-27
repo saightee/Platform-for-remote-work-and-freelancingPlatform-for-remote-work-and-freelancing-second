@@ -532,6 +532,7 @@ const removeCat = (id: string) => {
 
 const [referralFilterJobId, setReferralFilterJobId] = useState(''); // Добавлено: filter by jobId
 const [referralFilterJobTitle, setReferralFilterJobTitle] = useState(''); // Добавлено: filter by title
+const [jobExpandedLinkId, setJobExpandedLinkId] = useState<string | null>(null);
 const [expandedReferral, setExpandedReferral] = useState<string | null>(null); // Добавлено: для expandable registrations
 const [showReferralModal, setShowReferralModal] = useState<{
   fullLink: string;
@@ -4207,16 +4208,13 @@ if (isLoading) {
         return <div className="ref-links__empty">No job referral links yet.</div>;
       }
 
-      // Группируем ссылки по вакансии + считаем агрегаты
-      const groups: Record<
-        string,
-        {
-          jobId: string;
-          title: string;
-          links: any[];
-          totals: { clicks: number; registrations: number; verified: number };
-        }
-      > = {};
+      // группировка по вакансии + агрегаты
+      const groups: Record<string, {
+        jobId: string;
+        title: string;
+        links: any[];
+        totals: { clicks: number; registrations: number; verified: number };
+      }> = {};
 
       for (const l of referralLinks) {
         const jobId = l.job_post?.id || l.jobPostId || 'unknown';
@@ -4235,15 +4233,13 @@ if (isLoading) {
         groups[jobId].totals.verified += Number(l.registrationsVerified ?? 0);
       }
 
-      const jobIds = Object.keys(groups);
-
-      return jobIds.map((jid) => {
+      return Object.keys(groups).map((jid) => {
         const g = groups[jid];
         const opened = !!jobExpanded[jid];
 
         return (
           <section key={jid} className={`ref-links__job ${opened ? 'is-open' : ''}`}>
-            {/* Шапка группы вакансии */}
+            {/* шапка группы вакансии */}
             <header className="ref-links__job-head" onClick={() => toggleJobGroup(jid)}>
               <div className="ref-links__job-title">
                 <span className="ref-links__chev">{opened ? '▾' : '▸'}</span>
@@ -4251,13 +4247,11 @@ if (isLoading) {
                 <span className="ref-links__count">({g.links.length})</span>
               </div>
 
-              {/* агрегаты по вакансии */}
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, alignItems: 'center' }}>
                 <span className="ref-links__kv">Clicks: <b>{g.totals.clicks}</b></span>
                 <span className="ref-links__kv">Regs: <b>{g.totals.registrations}</b></span>
                 <span className="ref-links__kv">Verified: <b>{g.totals.verified}</b></span>
 
-                {/* Создание рефки под конкретную вакансию */}
                 <button
                   type="button"
                   className="action-button success"
@@ -4269,7 +4263,7 @@ if (isLoading) {
               </div>
             </header>
 
-            {/* Таблица ссылок по этой вакансии */}
+            {/* таблица ссылок по вакансии */}
             {opened && (
               <div className="ref-links__job-body">
                 <div className="ref-links__table-wrap">
@@ -4281,56 +4275,102 @@ if (isLoading) {
                         <th>Clicks</th>
                         <th>Registrations</th>
                         <th>Verified</th>
-                        <th>Created at</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {g.links.map((link: any) => (
-                        <tr key={link.id}>
-                          <td className="ref-links__desc">{link.description || <i>—</i>}</td>
+                        <React.Fragment key={link.id}>
+                          <tr>
+                            <td className="ref-links__desc">{link.description || <i>—</i>}</td>
 
-                          <td className="ref-links__url">
-                            <span title={link.fullLink || link.shortLink} className="ref-links__url-text">
-                              {typeof shortenReferralUrl === 'function'
-                                ? shortenReferralUrl(link.shortLink || link.fullLink)
-                                : (link.shortLink || link.fullLink)}
-                            </span>
-                            {(link.shortLink || link.fullLink) && (
+                            <td className="ref-links__url">
+                              <span title={link.fullLink || link.shortLink} className="ref-links__url-text">
+                                {typeof shortenReferralUrl === 'function'
+                                  ? shortenReferralUrl(link.shortLink || link.fullLink)
+                                  : (link.shortLink || link.fullLink)}
+                              </span>
+                              {(link.shortLink || link.fullLink) && (
+                                <button
+                                  type="button"
+                                  onClick={() => navigator.clipboard.writeText(link.shortLink || link.fullLink)}
+                                  className="ref-links__btn ref-links__btn--ghost"
+                                  title="Copy link"
+                                >
+                                  <FaCopy style={{ marginRight: 6 }} />
+                                  Copy
+                                </button>
+                              )}
+                            </td>
+
+                            <td className="ref-links__num">{link.clicks ?? 0}</td>
+                            <td className="ref-links__num">{link.registrations ?? 0}</td>
+                            <td className="ref-links__num">{link.registrationsVerified ?? 0}</td>
+
+                            <td className="ref-links__actions">
                               <button
                                 type="button"
-                                onClick={() => navigator.clipboard.writeText(link.shortLink || link.fullLink)}
-                                className="ref-links__btn ref-links__btn--ghost"
-                                title="Copy link"
+                                className="ref-links__btn"
+                                onClick={() => handleEditReferral(link.id, link.description || '')}
                               >
-                                <FaCopy style={{ marginRight: 6 }} />
-                                Copy
+                                Edit
                               </button>
-                            )}
-                          </td>
+                              <button
+                                type="button"
+                                className="ref-links__btn ref-links__btn--danger"
+                                onClick={() => handleDeleteReferral(link.id)}
+                              >
+                                Delete
+                              </button>
+                              <button
+                                type="button"
+                                className="ref-links__btn ref-links__btn--primary"
+                                onClick={() => setJobExpandedLinkId(jobExpandedLinkId === link.id ? null : link.id)}
+                              >
+                                {jobExpandedLinkId === link.id ? 'Hide regs' : 'View regs'}
+                              </button>
+                            </td>
+                          </tr>
 
-                          <td className="ref-links__num">{link.clicks ?? 0}</td>
-                          <td className="ref-links__num">{link.registrations ?? 0}</td>
-                          <td className="ref-links__num">{link.registrationsVerified ?? 0}</td>
-                          <td>{link.created_at ? renderDateCell(link.created_at) : '—'}</td>
-
-                          <td className="ref-links__actions">
-                            <button
-                              type="button"
-                              className="ref-links__btn"
-                              onClick={() => handleEditReferral(link.id, link.description || '')}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="ref-links__btn ref-links__btn--danger"
-                              onClick={() => handleDeleteReferral(link.id)}
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
+                          {jobExpandedLinkId === link.id && (
+                            <tr className="ref-links__expand">
+                              {/* в таблице 6 колонок → colSpan=6 */}
+                              <td colSpan={6}>
+                                <div className="ref-links__regs">
+                                  <div className="ref-links__regs-head">Registrations</div>
+                                  <div className="ref-links__regs-tablewrap">
+                                    <table className="ref-links__regs-table">
+                                      <thead>
+                                        <tr>
+                                          <th>User ID</th>
+                                          <th>Username</th>
+                                          <th>Email</th>
+                                          <th>Role</th>
+                                          <th>Created At</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {link.registrationsDetails?.length ? (
+                                          link.registrationsDetails.map((r: any, i: number) => (
+                                            <tr key={i}>
+                                              <td>{r.user.id}</td>
+                                              <td>{r.user.username}</td>
+                                              <td>{r.user.email}</td>
+                                              <td>{r.user.role}</td>
+                                              <td>{r.user?.created_at ? new Date(r.user.created_at).toLocaleDateString() : '—'}</td>
+                                            </tr>
+                                          ))
+                                        ) : (
+                                          <tr><td colSpan={5}>No registrations.</td></tr>
+                                        )}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))}
                     </tbody>
                   </table>
@@ -4343,6 +4383,7 @@ if (isLoading) {
     })()}
   </div>
 )}
+
 
 
     {/* ====== TAB: SITE LINKS (глобальные ссылки) ====== */}
@@ -4460,7 +4501,6 @@ if (isLoading) {
                               <th>Clicks</th>
                               <th>Registrations (verified)</th>
                               <th>Created by</th>
-                              <th>Created at</th>
                               <th>Actions</th>
                             </tr>
                           </thead>
@@ -4491,7 +4531,7 @@ if (isLoading) {
                                     {l.registrations} ({l.registrationsVerified ?? 0})
                                   </td>
                                   <td>{l.createdByAdmin?.username || 'Unknown'}</td>
-                                  <td>{l.created_at ? renderDateCell(l.created_at) : '—'}</td>
+                                  
 
                                   <td className="ref-links__actions">
                                     <button
@@ -4522,7 +4562,7 @@ if (isLoading) {
 
                                 {siteExpandedLinkId === l.id && (
                                   <tr className="ref-links__expand">
-                                    <td colSpan={8}>
+                                    <td colSpan={7}>
                                       <div className="ref-links__regs">
                                         <div className="ref-links__regs-head">Registrations</div>
                                         <div className="ref-links__regs-tablewrap">
