@@ -45,9 +45,36 @@ export class ReferralsController {
   }
 
   @Post('track')
-  async trackClick(@Body('ref') ref: string) {
+  async trackClick(@Body('ref') ref: string, @Res() res: Response) {
     if (!ref) throw new BadRequestException('ref is required');
-    const { redirectTo } = await this.adminService.resolveAndIncrementClick(ref);
-    return { ok: true, redirectTo };
+
+    const meta: any = await this.adminService.resolveAndIncrementClick(ref);
+
+    const maxAgeMs = 30 * 24 * 60 * 60 * 1000;
+    res.cookie('ref', ref, {
+      maxAge: maxAgeMs,
+      httpOnly: false,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    });
+    res.cookie('jf_ref', ref, {
+      maxAge: maxAgeMs,
+      httpOnly: false,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    });
+
+    const refTo = encodeURIComponent(meta?.redirectTo || '/');
+    res.cookie('ref_to', refTo, {
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      httpOnly: false,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    });
+
+    return res.json({ ok: true, ...meta });
   }
 }
