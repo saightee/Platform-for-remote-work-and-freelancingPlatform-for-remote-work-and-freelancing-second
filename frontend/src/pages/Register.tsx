@@ -325,7 +325,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     // единоразово считаем refCode
     const urlRef = new URLSearchParams(window.location.search).get('ref') || undefined;
     const lsRef  = localStorage.getItem('referralCode') || undefined;
-    const ckRef  = getCookie('jf_ref') || undefined;
+    const ckRef  = getCookie('jf_ref') || getCookie('ref') || undefined;
     const refCode = urlRef || lsRef || ckRef || undefined;
 
     // решаем, нужен ли FormData
@@ -399,8 +399,8 @@ try {
     // убеждаемся что речь о том же коде (если он есть)
     if (!refCode || m.code === refCode) {
       if (m.scope === 'job') {
-        afterReturn = m.jobSlug ? `/jobs/${m.jobSlug}` :
-                      m.jobId   ? `/job/${m.jobId}`   :
+        afterReturn = m.jobSlug ? `/vacancy/${m.jobSlug}` :
+                      m.jobId   ? `/vacancy/${m.jobId}`   :
                                   undefined;
       } else if (m.landingPath) {
         afterReturn = m.landingPath;
