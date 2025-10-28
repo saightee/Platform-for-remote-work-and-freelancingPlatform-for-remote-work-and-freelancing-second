@@ -30,6 +30,7 @@ export class UsersService {
       country: userData.country || null,
       is_email_verified: userData.is_email_verified || false,
       brand: userData.brand || null,
+      avatar: userData.avatar || null,
     };
     const user = this.usersRepository.create(userEntity);
     const savedUser = await this.usersRepository.save(user);
