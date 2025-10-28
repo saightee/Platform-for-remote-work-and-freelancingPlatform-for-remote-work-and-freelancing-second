@@ -1800,11 +1800,13 @@ export const getJobBySlugOrId = async (slugOrId: string) => {
 
 
 
+// апи фронт.txt
 export const trackReferralClick = async (ref: string) => {
   try {
     const { data } = await api.post('/ref/track', { ref });
-    // Если бэк вернёт мету — сохраним для дальнейшего редиректа
-    if (data && (data.scope || data.job_post || data.landing_path)) {
+
+    const hasMeta = !!(data && (data.scope || data.job_post || data.landing_path));
+    if (hasMeta) {
       sessionStorage.setItem('ref_meta', JSON.stringify({
         code: ref,
         scope: data.scope || 'site',
@@ -1812,13 +1814,34 @@ export const trackReferralClick = async (ref: string) => {
         jobId: data.job_post?.id ?? null,
         jobSlug: data.job_post?.slug ?? null,
       }));
+    } else {
+      // ФОЛЛБЭК: сами определим тип и слаг из текущего пути
+      try {
+        const path = window.location.pathname;
+        let scope: 'site' | 'job' = 'site';
+        let jobSlug: string | null = null;
+        let landingPath: string | null = null;
+
+        const m = path.match(/^\/job\/([^\/\?]+)/i);
+        if (m && m[1]) {
+          scope = 'job';
+          jobSlug = m[1];
+        } else {
+          // для site-рефок сохраним текущий путь (включая query)
+          landingPath = path + window.location.search;
+        }
+
+        sessionStorage.setItem('ref_meta', JSON.stringify({ code: ref, scope, landingPath, jobId: null, jobSlug }));
+      } catch { /* ignore */ }
     }
+
     return data;
   } catch (e) {
     console.warn('ref track failed', e);
     return null;
   }
 };
+
 
 // GET /ref/meta/:code  -> { scope, landing_path?, job_post?{id,slug?} }
 export const getReferralMeta = async (code: string) => {
