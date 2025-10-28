@@ -4416,3 +4416,112 @@
 - **Response (200)**:
   ```json
   { "updated": 2, "updatedIds": ["<applicationId1>", "<applicationId2>"] }
+
+### 99. Set “Avatar Required on Registration” (Admin)
+- **Endpoint:** `POST /api/admin/settings/registration-avatar`
+- **Description:** Enables or disables the requirement for jobseekers to upload an avatar during registration (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body:**:
+  ```json
+  {
+    "required": true
+  }
+- **Response (200)**:
+  ```json
+  {
+    "required": true
+  }
+- **Response (Error - 400, invalid type)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": "`required` must be boolean",
+    "error": "Bad Request"
+  }
+
+### 100. Get “Avatar Required on Registration” (Admin)
+- **Endpoint:** `GET /api/admin/settings/registration-avatar`
+- **Description:** Returns current state of the “avatar required” flag (admin only).
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  ```json
+  {
+    "required": false
+  }
+
+### 101. Get “Avatar Required on Registration” (Public)
+- **Endpoint:** `GET /api/settings/registration-avatar`
+- **Description:** Returns whether jobseeker must upload an avatar during registration (no auth).
+- **Response (Success - 200)**:
+  ```json
+  { "required": true }
+
+### 102. Create Site Referral Link (Admin)
+- **Endpoint:** `POST /api/admin/site-referral-links`
+- **Description:** Создаёт глобальную реферальную ссылку (не привязанную к вакансии). Привязывается к админу-создателю.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body:**:
+  ```json
+  {
+    "description": "Telegram promo",          // optional
+    "landingPath": "/register?role=jobseeker" // optional; default = "/register"
+  }
+- **Response (Success - 200)**:
+  ```json
+  {
+    "id": "<linkId>",
+    "scope": "site",
+    "refCode": "<uuid>",
+    "description": "Telegram promo",
+    "clicks": 0,
+    "registrations": 0,
+    "registrationsVerified": 0,
+    "landingPath": "/register?role=jobseeker",
+    "shortLink": "https://jobforge.net/ref/<uuid>",
+    "createdByAdminId": "<adminId>"
+  }
+
+### 103. Get Site Referral Links (Admin)
+- **Endpoint:** `GET /api/admin/site-referral-links`
+- **Description:** Возвращает список глобальных ссылок с метриками и подробностями регистраций. Поддерживает фильтры по автору и поиску.
+- **Query (optional)** 
+  - createdByAdminId=<uuid> — показать ссылки только этого админа
+  - q=<text> — поиск по description/refCode (partial, ILIKE)
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  ```json
+  [
+    {
+      "id": "<linkId>",
+      "scope": "site",
+      "refCode": "<uuid>",
+      "description": "Telegram promo",
+      "clicks": 12,
+      "registrations": 7,
+      "registrationsVerified": 5,
+      "landingPath": "/register?role=jobseeker",
+      "shortLink": "https://jobforge.net/ref/<uuid>",
+      "createdByAdmin": { "id": "<adminId>", "username": "adminName" },
+      "registrationsDetails": [ /* список объектов с привязкой к пользователям */ ],
+      "created_at": "2025-07-31T00:00:00.000Z"
+    }
+  ]
+
+### 104. Update Site Referral Link (Admin)
+- **Endpoint:** `PUT /api/admin/site-referral-links/:id`
+- **Description:** Обновляет описание глобальной ссылки.
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body:**:
+  ```json
+  { "description": "New description" }
+- **Response (Success - 200)**:
+  ```json
+  { "message": "Updated", "id": "<linkId>", "description": "New description" }
+
+### 105. Delete Site Referral Link (Admin)
+- **Endpoint:** `DELETE /api/admin/site-referral-links/:id`
+- **Description:** Удаляет глобальную ссылку.
+- **Headers**: `Authorization: Bearer <token>`
+- **Response (Success - 200)**:
+  ```json
+  { "message": "Deleted" }

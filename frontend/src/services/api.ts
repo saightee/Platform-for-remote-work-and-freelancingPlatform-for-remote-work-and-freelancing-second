@@ -873,10 +873,14 @@ export const getMyApplications = async () => {
 };
 
 export const getApplicationsForJobPost = async (jobPostId: string) => {
-  const response = await api.get<JobApplicationDetails[]>(`/job-applications/job-post/${jobPostId}`);
-  console.log('Fetched applications:', response.data);
-  return response.data;
+  const token = localStorage.getItem('token');
+  const decoded: { role?: string } | null = token ? jwtDecode(token) : null;
+  const isAdminLike = decoded?.role === 'admin' || decoded?.role === 'moderator';
+  const base = isAdminLike ? '/admin/job-applications' : '/job-applications';
+  const { data } = await api.get<JobApplicationDetails[]>(`${base}/job-post/${jobPostId}`);
+  return data;
 };
+
 
 export const updateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected') => {
   console.log('Sending updateApplicationStatus', { applicationId, status, token: localStorage.getItem('token') });
@@ -1796,17 +1800,55 @@ export const getJobBySlugOrId = async (slugOrId: string) => {
 
 
 
-// Track referral click once per visit
+// апи фронт.txt
 export const trackReferralClick = async (ref: string) => {
   try {
-    await api.post('/ref/track', { ref });
+    const { data } = await api.post('/ref/track', { ref });
+
+    const hasMeta = !!(data && (data.scope || data.job_post || data.landing_path));
+    if (hasMeta) {
+      sessionStorage.setItem('ref_meta', JSON.stringify({
+        code: ref,
+        scope: data.scope || 'site',
+        landingPath: data.landing_path ?? null,
+        jobId: data.job_post?.id ?? null,
+        jobSlug: data.job_post?.slug ?? null,
+      }));
+    } else {
+      // ФОЛЛБЭК: сами определим тип и слаг из текущего пути
+      try {
+        const path = window.location.pathname;
+        let scope: 'site' | 'job' = 'site';
+        let jobSlug: string | null = null;
+        let landingPath: string | null = null;
+
+        const m = path.match(/^\/job\/([^\/\?]+)/i);
+        if (m && m[1]) {
+          scope = 'job';
+          jobSlug = m[1];
+        } else {
+          // для site-рефок сохраним текущий путь (включая query)
+          landingPath = path + window.location.search;
+        }
+
+        sessionStorage.setItem('ref_meta', JSON.stringify({ code: ref, scope, landingPath, jobId: null, jobSlug }));
+      } catch { /* ignore */ }
+    }
+
+    return data;
   } catch (e) {
     console.warn('ref track failed', e);
+    return null;
   }
 };
 
-// либо импортируй сюда AdminRecentRegistrationsDTO,
-// либо просто убери generic, чтобы не тянуть конфликтующее имя
+
+// GET /ref/meta/:code  -> { scope, landing_path?, job_post?{id,slug?} }
+export const getReferralMeta = async (code: string) => {
+  const { data } = await api.get(`/ref/meta/${code}`);
+  return data;
+};
+
 
 export async function getRecentRegistrationsToday(opts?: { date?: string; tzOffset?: number; limit?: number }) {
   const tzOffset = opts?.tzOffset ?? -new Date().getTimezoneOffset();
@@ -1935,4 +1977,81 @@ export const getAdminComplaints = async (params: { page?: number; limit?: number
   }
 
   return data as PaginatedAdminComplaints;
+};
+
+// --- Site referrals: типы DTO и сущности ---
+export type SiteReferralLink = {
+  id: string;
+  scope: 'site';
+  refCode: string;
+  shortLink: string;                  // e.g. https://jobforge.net/ref/abcd1234
+  description?: string | null;
+  clicks: number;
+  registrations: number;
+  registrationsVerified: number;      // подтверждённые email'ом
+  landingPath?: string | null;        // e.g. "/register?role=jobseeker"
+  createdByAdminId?: string;          // в списке 102 может прийти id
+  createdByAdmin?: { id: string; username: string } | null; // в 103 может быть развёрнутый объект
+  registrationsDetails?: Array<{
+    user: { id: string; username: string; email: string; role: string; created_at: string };
+  }>;
+  created_at?: string;
+};
+
+export type CreateSiteReferralDto = {
+  description?: string;
+  landingPath?: string;               // по умолчанию бек поставит "/register"
+};
+
+export type GetSiteReferralsQuery = {
+  createdByAdminId?: string;
+  q?: string;                         // поиск по описанию / refCode
+};
+
+/* ===================== Site Referral Links (102–105) ===================== */
+
+// 102) Create site referral link
+export const createSiteReferralLink = async (payload: CreateSiteReferralDto = {}) => {
+  const { data } = await api.post<SiteReferralLink>('/admin/site-referral-links', payload);
+  return data;
+};
+
+// 103) List site referral links (supports createdByAdminId, q)
+export const getSiteReferralLinks = async (params: GetSiteReferralsQuery = {}) => {
+  const { data } = await api.get<SiteReferralLink[]>('/admin/site-referral-links', { params });
+  return data;
+};
+
+// 104) Update site referral link description
+export const updateSiteReferralLink = async (
+  id: string,
+  payload: { description?: string }
+) => {
+  const { data } = await api.put<{ id: string; description?: string | null }>(
+    `/admin/site-referral-links/${id}`,
+    payload
+  );
+  return data;
+};
+
+// 105) Delete site referral link
+export const deleteSiteReferralLink = async (id: string) => {
+  const { data } = await api.delete<{ message: string }>(`/admin/site-referral-links/${id}`);
+  return data;
+};
+
+// Публичный флаг
+export const getRegistrationAvatarRequired = async () => {
+  const { data } = await api.get('/settings/registration-avatar');
+  return data as { required: boolean };
+};
+
+// Админка
+export const getAdminRegistrationAvatarRequired = async () => {
+  const { data } = await api.get('/admin/settings/registration-avatar');
+  return data as { required: boolean };
+};
+export const setAdminRegistrationAvatarRequired = async (required: boolean) => {
+  const { data } = await api.post('/admin/settings/registration-avatar', { required });
+  return data as { required: boolean };
 };

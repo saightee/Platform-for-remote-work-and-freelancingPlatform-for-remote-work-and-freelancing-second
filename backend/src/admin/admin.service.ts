@@ -1695,68 +1695,89 @@ export class AdminService {
     return { message: 'Deleted' };
   }
 
-  async getReferralLinks(adminId: string, filters: { jobId?: string, jobTitle?: string } = {}) {
+  async getReferralLinks(
+    adminId: string,
+    filters: { jobId?: string; jobTitle?: string } = {},
+  ) {
     await this.checkAdminRole(adminId);
-    const query = this.referralLinksRepository.createQueryBuilder('link')
+
+    const qb = this.referralLinksRepository
+      .createQueryBuilder('link')
       .leftJoinAndSelect('link.job_post', 'jobPost')
       .leftJoinAndSelect('link.registrationsDetails', 'reg')
       .leftJoinAndSelect('reg.user', 'user')
+      .where('link.scope = :scope', { scope: 'job' })
       .orderBy('link.created_at', 'DESC');
 
     if (filters.jobId) {
-      query.andWhere('jobPost.id = :jobId', { jobId: filters.jobId });
+      qb.andWhere('jobPost.id = :jobId', { jobId: filters.jobId });
     }
     if (filters.jobTitle) {
-      query.andWhere('jobPost.title ILIKE :title', { title: `%${filters.jobTitle}%` });
+      qb.andWhere('jobPost.title ILIKE :title', { title: `%${filters.jobTitle}%` });
     }
 
-    const links = await query.getMany();
-    const baseUrl = this.configService.get<string>('BASE_URL')!;
+    const links = await qb.getMany();
+
+    const baseSite = this.configService.get<string>('BASE_URL')!.replace(/\/api\/?$/, '');
 
     return links.map(link => {
       const jp = link.job_post;
-      const baseSlug = (jp.slug && jp.slug.trim().length > 0) ? jp.slug : this.slugify(jp.title || '');
-      const shortId = (jp.id || '').replace(/-/g, '').slice(0, 8);
-      const slugId = jp.slug_id || (baseSlug && shortId ? `${baseSlug}--${shortId}` : jp.id);
+      const slugId = (() => {
+        if (!jp) return '';
+        if (jp.slug_id) return jp.slug_id;
+
+        const baseSlug = (jp.slug && jp.slug.trim().length > 0)
+          ? jp.slug
+          : this.slugify(jp.title || '');
+        const shortId = (jp.id || '').replace(/-/g, '').slice(0, 8);
+        return baseSlug && shortId ? `${baseSlug}--${shortId}` : (jp.id || '');
+      })();
 
       const registrationsVerified = (link.registrationsDetails || []).filter(
-        r => r.user && r.user.is_email_verified === true
+        r => r.user && r.user.is_email_verified === true,
       ).length;
 
       return {
         id: link.id,
-        jobPostId: jp?.id,
+        jobPostId: jp?.id || null,
         refCode: link.ref_code,
-        fullLink: `${baseUrl}/job/${slugId}?ref=${link.ref_code}`,
-        legacyLink: `${baseUrl}/ref/${link.ref_code}`,
+        fullLink: `${baseSite}/job/${slugId}?ref=${link.ref_code}`,
+        legacyLink: `${baseSite}/ref/${link.ref_code}`,
         clicks: link.clicks,
         registrations: link.registrations,
         registrationsVerified,
         registrationsDetails: link.registrationsDetails || [],
         description: link.description || null,
-        job_post: jp ? { id: jp.id, title: jp.title } : null,
+        job_post: jp
+          ? { id: jp.id, title: jp.title, slug: jp.slug, slug_id: jp.slug_id }
+          : null,
       };
     });
   }
 
-  async incrementClick(refCode: string) {
-    console.log(`Incrementing click for refCode: ${refCode}`);
-    const referralLink = await this.referralLinksRepository.findOne({ 
+  async resolveAndIncrementClick(refCode: string): Promise<{ redirectTo: string }> {
+    const link = await this.referralLinksRepository.findOne({
       where: { ref_code: refCode },
       relations: ['job_post'],
     });
-    if (!referralLink) {
-      console.error(`Referral link not found for refCode: ${refCode}`);
-      throw new NotFoundException('Referral link not found');
+    if (!link) throw new NotFoundException('Referral link not found');
+
+    link.clicks += 1;
+    await this.referralLinksRepository.save(link);
+
+    const baseSite = this.configService.get<string>('BASE_URL')!.replace(/\/api\/?$/, '');
+
+    if (link.scope === 'site') {
+      const path = (link.landing_path && link.landing_path.startsWith('/')) ? link.landing_path : '/role-selection';
+      const glue = path.includes('?') ? '&' : '?';
+      return { redirectTo: `${baseSite}${path}${glue}ref=${encodeURIComponent(link.ref_code)}` };
     }
-    if (!referralLink.job_post) {
-      console.error(`Job post not found for referral link: ${refCode}`);
-      throw new NotFoundException('Job post not found for this referral link');
-    }
-    referralLink.clicks += 1;
-    await this.referralLinksRepository.save(referralLink);
-    console.log(`Click incremented for refCode: ${refCode}, jobPostId: ${referralLink.job_post.id}`);
-    return referralLink.job_post.id;
+
+    if (!link.job_post) throw new NotFoundException('Job post not found for this referral link');
+
+    const jp = link.job_post as any;
+    const slugId = jp.slug_id || jp.id;
+    return { redirectTo: `${baseSite}/job/${slugId}?ref=${encodeURIComponent(link.ref_code)}` };
   }
 
   async incrementRegistration(refCode: string, userId: string) {
@@ -1852,5 +1873,105 @@ export class AdminService {
       overall,
     };
   }
+
+  async createSiteReferralLink(
+    adminId: string,
+    payload: { description?: string; landingPath?: string | null }
+  ) {
+    await this.checkAdminRole(adminId);
+
+    const admin = await this.usersRepository.findOne({ where: { id: adminId } });
+    if (!admin) throw new NotFoundException('Admin not found');
+
+    const refCode = crypto.randomUUID();
+
+    const link = this.referralLinksRepository.create({
+      ref_code: refCode,
+      scope: 'site',
+      job_post: null,
+      description: payload?.description || null,
+      landing_path: payload?.landingPath || null,
+      created_by_admin: admin,
+      clicks: 0,
+      registrations: 0,
+    });
+    await this.referralLinksRepository.save(link);
+
+    const baseUrl = this.configService.get<string>('BASE_URL')!.replace(/\/api\/?$/, '');
+    return {
+      id: link.id,
+      scope: link.scope,
+      refCode: link.ref_code,
+      shortLink: `${baseUrl}/ref/${link.ref_code}`,
+      landingPath: link.landing_path || '/role-selection',
+      description: link.description || null,
+      clicks: link.clicks,
+      registrations: link.registrations,
+      registrationsVerified: 0,
+      createdByAdminId: adminId,
+    };
+  }
+
+  async listSiteReferralLinks(
+    adminId: string,
+    filters: { createdByAdminId?: string; q?: string } = {},
+  ) {
+    await this.checkAdminRole(adminId);
+
+    const qb = this.referralLinksRepository
+      .createQueryBuilder('link')
+      .leftJoinAndSelect('link.created_by_admin', 'creator')
+      .leftJoinAndSelect('link.registrationsDetails', 'reg')
+      .leftJoinAndSelect('reg.user', 'reg_user')
+      .where('link.scope = :scope', { scope: 'site' })
+      .orderBy('link.created_at', 'DESC');
+
+    if (filters.createdByAdminId) {
+      qb.andWhere('creator.id = :cid', { cid: filters.createdByAdminId });
+    }
+    if (filters.q) {
+      qb.andWhere('(link.description ILIKE :q OR link.ref_code ILIKE :q)', { q: `%${filters.q}%` });
+    }
+
+    const rows = await qb.getMany();
+    const baseUrl = this.configService.get<string>('BASE_URL')!.replace(/\/api\/?$/, '');
+
+    return rows.map(l => {
+      const verified = (l.registrationsDetails || []).filter(r => r.user?.is_email_verified).length;
+      return {
+        id: l.id,
+        scope: l.scope,
+        refCode: l.ref_code,
+        shortLink: `${baseUrl}/ref/${l.ref_code}`,
+        landingPath: l.landing_path || '/role-selection',
+        description: l.description || null,
+        clicks: l.clicks,
+        registrations: l.registrations,
+        registrationsVerified: verified,
+        createdByAdmin: l.created_by_admin ? { id: l.created_by_admin.id, username: l.created_by_admin.username } : null,
+        registrationsDetails: l.registrationsDetails || [],
+      };
+    });
+  }
+
+  async updateSiteReferralLinkDescription(adminId: string, linkId: string, description: string) {
+    await this.checkAdminRole(adminId);
+    const link = await this.referralLinksRepository.findOne({ where: { id: linkId } });
+    if (!link) throw new NotFoundException('Referral link not found');
+    if (link.scope !== 'site') throw new BadRequestException('This link is not a site referral link');
+    link.description = description || null;
+    await this.referralLinksRepository.save(link);
+    return { message: 'Updated', id: link.id, description: link.description };
+  }
+
+  async deleteSiteReferralLink(adminId: string, linkId: string) {
+    await this.checkAdminRole(adminId);
+    const link = await this.referralLinksRepository.findOne({ where: { id: linkId } });
+    if (!link) throw new NotFoundException('Referral link not found');
+    if (link.scope !== 'site') throw new BadRequestException('This link is not a site referral link');
+    await this.referralLinksRepository.delete(linkId);
+    return { message: 'Deleted' };
+  }
   
+
 }

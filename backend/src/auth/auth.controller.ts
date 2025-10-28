@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res, Query, Req, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res, Query, Req, BadRequestException, UseInterceptors, UploadedFile, UploadedFiles } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
@@ -19,6 +19,7 @@ import { pickCdnBaseByHost } from '../common/cdn.util';
 import { promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
 import { join, extname } from 'path';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 
 const filesDriver = process.env.FILES_DRIVER || 's3';
 
@@ -62,14 +63,33 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  @UseInterceptors(FileInterceptor('resume_file', {
+  @UseInterceptors(FileFieldsInterceptor([
+    {
+      name: 'resume_file',
+      maxCount: 1,
+    },
+    {
+      name: 'avatar_file',
+      maxCount: 1,
+    },
+  ], {
     storage: memoryStorage(),
     fileFilter: (req, file, cb) => {
-      const allowedExt = /\.(pdf|doc|docx)$/i.test(file.originalname);
-      const allowedMime = /pdf|msword|officedocument\.wordprocessingml\.document/.test(file.mimetype);
-      return allowedExt && allowedMime
-        ? cb(null, true)
-        : cb(new BadRequestException('Only PDF, DOC, and DOCX files are allowed'), false);
+      if (file.fieldname === 'resume_file') {
+        const allowedExt = /\.(pdf|doc|docx)$/i.test(file.originalname);
+        const allowedMime = /pdf|msword|officedocument\.wordprocessingml\.document/.test(file.mimetype);
+        return allowedExt && allowedMime
+          ? cb(null, true)
+          : cb(new BadRequestException('Only PDF, DOC, and DOCX files are allowed for resume'), false);
+      }
+      if (file.fieldname === 'avatar_file') {
+        const allowedExt = /\.(jpg|jpeg|png|webp)$/i.test(file.originalname);
+        const allowedMime = /^image\/(jpeg|png|webp)$/.test(file.mimetype);
+        return allowedExt && allowedMime
+          ? cb(null, true)
+          : cb(new BadRequestException('Avatar must be an image: JPG, PNG, or WEBP'), false);
+      }
+      return cb(new BadRequestException('Unexpected file field'), false);
     },
     limits: { fileSize: 10 * 1024 * 1024 },
   }))
@@ -80,44 +100,83 @@ export class AuthController {
     @Headers('x-fingerprint') fingerprint?: string,
     @Headers('host') host?: string,
     @Req() req?: any,
-    @UploadedFile() resumeFile?: Express.Multer.File,
+    @UploadedFiles() files?: { resume_file?: Express.Multer.File[]; avatar_file?: Express.Multer.File[] },
   ) {
     const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
-    const ip = ipHeader.split(',')[0].trim();
+    const ip = (ipHeader || '').split(',')[0].trim();
     if (!fingerprint) throw new BadRequestException('Fingerprint is required');
 
-  if (resumeFile?.buffer?.length) {
-    if (filesDriver === 's3' && process.env.AWS_S3_BUCKET) {
-      const { key } = await this.s3.uploadBuffer(resumeFile.buffer, {
-        prefix: 'resumes',
-        originalName: resumeFile.originalname,
-        contentType: resumeFile.mimetype,
-      });
-      const cdnBase = pickCdnBaseByHost(host);
-      registerDto.resume = `${cdnBase}/${key}`;
-    } else {
-      const ext = extname(resumeFile.originalname) || '';
-      const name = `${randomUUID()}${ext}`;
-      const dir = './uploads/resumes';
-      await fs.mkdir(dir, { recursive: true });
-      await fs.writeFile(join(dir, name), resumeFile.buffer);
-      registerDto.resume = `${process.env.BASE_URL}/uploads/resumes/${name}`;
+    const resumeFile = files?.resume_file?.[0];
+    const avatarFile = files?.avatar_file?.[0];
+
+    if (resumeFile?.buffer?.length) {
+      if (filesDriver === 's3' && process.env.AWS_S3_BUCKET) {
+        const { key } = await this.s3.uploadBuffer(resumeFile.buffer, {
+          prefix: 'resumes',
+          originalName: resumeFile.originalname,
+          contentType: resumeFile.mimetype,
+        });
+        const cdnBase = pickCdnBaseByHost(host);
+        registerDto.resume = `${cdnBase}/${key}`;
+      } else {
+        const ext = extname(resumeFile.originalname) || '';
+        const name = `${randomUUID()}${ext}`;
+        const dir = './uploads/resumes';
+        await fs.mkdir(dir, { recursive: true });
+        await fs.writeFile(join(dir, name), resumeFile.buffer);
+        registerDto.resume = `${process.env.BASE_URL}/uploads/resumes/${name}`;
+      }
     }
-  }
+
+    let avatarUrl: string | undefined;
+    if (avatarFile?.buffer?.length) {
+      if (filesDriver === 's3' && process.env.AWS_S3_BUCKET) {
+        const { key } = await this.s3.uploadBuffer(avatarFile.buffer, {
+          prefix: 'avatars',
+          originalName: avatarFile.originalname,
+          contentType: avatarFile.mimetype,
+        });
+        const cdnBase = pickCdnBaseByHost(host);
+        avatarUrl = `${cdnBase}/${key}`;
+      } else {
+        const ext = extname(avatarFile.originalname) || '';
+        const name = `${randomUUID()}${ext}`;
+        const dir = './uploads/avatars';
+        await fs.mkdir(dir, { recursive: true });
+        await fs.writeFile(join(dir, name), avatarFile.buffer);
+        avatarUrl = `${process.env.BASE_URL}/uploads/avatars/${name}`;
+      }
+    }
 
     const brand = mapBrandFromReq(req) || null;
     (registerDto as any).__brand = brand;
 
-    return this.authService.register(registerDto, ip, fingerprint, registerDto.ref);
+    const refFromBody   = (registerDto as any)?.ref;
+    const refFromQuery  = req?.query?.ref as string | undefined;
+    const refFromHeader = (req?.headers?.['x-ref'] as string | undefined);
+    const refFromCookie = (req as any)?.cookies?.ref as string | undefined;
+      
+    const refCode =
+      [refFromBody, refFromQuery, refFromHeader, refFromCookie]
+        .find(v => typeof v === 'string' && v.trim()) || undefined;
+      
+    return this.authService.register(registerDto, ip, fingerprint, refCode, avatarUrl);
   }
 
-  @Get('verify-email')
-    async verifyEmail(@Query('token') token: string, @Res() res: Response) { 
+    @Get('verify-email')
+    async verifyEmail(@Query('token') token: string, @Req() req: any, @Res() res: Response) {
       try {
-        const { message, accessToken } = await this.authService.verifyEmail(token);  
-
+        const { message, accessToken } = await this.authService.verifyEmail(token);
+      
         const frontendUrl = this.configService.get<string>('BASE_URL')!;
-        res.redirect(`${frontendUrl}/auth/callback?token=${accessToken}&verified=true`);
+        const refTo = (() => {
+          try { return decodeURIComponent(req?.cookies?.ref_to || ''); } catch { return ''; }
+        })();
+      
+        const params = new URLSearchParams({ token: accessToken, verified: 'true' });
+        if (refTo && refTo.startsWith('/')) params.set('redirect', refTo);
+      
+        res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
       } catch (error) {
         const frontendUrl = this.configService.get<string>('BASE_URL')!;
         if (error instanceof BadRequestException) {

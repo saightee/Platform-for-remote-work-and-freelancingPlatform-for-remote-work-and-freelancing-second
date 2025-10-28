@@ -9,7 +9,6 @@ import { AntiFraudService } from '../anti-fraud/anti-fraud.service';
 import { ComplaintsService } from '../complaints/complaints.service';
 import { ChatService } from '../chat/chat.service';
 
-
 @Controller('admin')
 export class AdminController {
   constructor(
@@ -1235,4 +1234,80 @@ export class AdminController {
     return { message: 'Chat notification settings updated', settings: normalized };
   }
 
+  @Get('settings/registration-avatar')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async getRequireAvatarOnRegistration(@Headers('authorization') authHeader: string) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    return this.settingsService.getRequireAvatarOnRegistration();
+  }
+
+  @Post('settings/registration-avatar')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async setRequireAvatarOnRegistration(
+    @Body('required') required: any,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    if (typeof required !== 'boolean') {
+      throw new BadRequestException('`required` must be boolean');
+    }
+    return this.settingsService.setRequireAvatarOnRegistration(required);
+  }
+
+  @Post('site-referral-links')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async createSiteReferralLink(
+    @Body() body: { description?: string; landingPath?: string | null },
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
+    const token = authHeader.replace('Bearer ', '');
+    const { sub: adminId } = this.jwtService.verify(token);
+    return this.adminService.createSiteReferralLink(adminId, {
+      description: body?.description,
+      landingPath: body?.landingPath ?? null,
+    });
+  }
+  
+  @Get('site-referral-links')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async listSiteReferralLinks(
+    @Headers('authorization') authHeader: string,
+    @Query('createdByAdminId') createdByAdminId?: string,
+    @Query('q') q?: string,
+  ) {
+    if (!authHeader?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
+    const token = authHeader.replace('Bearer ', '');
+    const { sub: adminId } = this.jwtService.verify(token);
+    return this.adminService.listSiteReferralLinks(adminId, { createdByAdminId, q });
+  }
+  
+  @Put('site-referral-links/:id')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async updateSiteReferralLinkDescription(
+    @Param('id') id: string,
+    @Body('description') description: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
+    const token = authHeader.replace('Bearer ', '');
+    const { sub: adminId } = this.jwtService.verify(token);
+    return this.adminService.updateSiteReferralLinkDescription(adminId, id, description);
+  }
+  
+  @Delete('site-referral-links/:id')
+  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  async deleteSiteReferralLink(
+    @Param('id') id: string,
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
+    const token = authHeader.replace('Bearer ', '');
+    const { sub: adminId } = this.jwtService.verify(token);
+    return this.adminService.deleteSiteReferralLink(adminId, id);
+  }
 }
