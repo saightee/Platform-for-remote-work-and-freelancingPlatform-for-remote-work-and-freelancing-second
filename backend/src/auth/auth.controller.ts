@@ -163,13 +163,20 @@ export class AuthController {
     return this.authService.register(registerDto, ip, fingerprint, refCode, avatarUrl);
   }
 
-  @Get('verify-email')
-    async verifyEmail(@Query('token') token: string, @Res() res: Response) { 
+    @Get('verify-email')
+    async verifyEmail(@Query('token') token: string, @Req() req: any, @Res() res: Response) {
       try {
-        const { message, accessToken } = await this.authService.verifyEmail(token);  
-
+        const { message, accessToken } = await this.authService.verifyEmail(token);
+      
         const frontendUrl = this.configService.get<string>('BASE_URL')!;
-        res.redirect(`${frontendUrl}/auth/callback?token=${accessToken}&verified=true`);
+        const refTo = (() => {
+          try { return decodeURIComponent(req?.cookies?.ref_to || ''); } catch { return ''; }
+        })();
+      
+        const params = new URLSearchParams({ token: accessToken, verified: 'true' });
+        if (refTo && refTo.startsWith('/')) params.set('redirect', refTo);
+      
+        res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
       } catch (error) {
         const frontendUrl = this.configService.get<string>('BASE_URL')!;
         if (error instanceof BadRequestException) {

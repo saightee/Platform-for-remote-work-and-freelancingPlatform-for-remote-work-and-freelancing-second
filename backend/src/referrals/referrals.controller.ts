@@ -19,6 +19,21 @@ export class ReferralsController {
         secure: process.env.NODE_ENV === 'production',
         path: '/',
       });
+      res.cookie('jf_ref', refCode, {
+        maxAge: maxAgeMs,
+        httpOnly: false,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+      });
+
+      res.cookie('ref_to', encodeURIComponent(redirectTo), {
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        httpOnly: false,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+      });
 
       return res.redirect(302, redirectTo);
     } catch (error) {
