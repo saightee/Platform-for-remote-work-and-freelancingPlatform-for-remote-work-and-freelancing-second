@@ -101,7 +101,8 @@ type AdminRecentUser = {
   username: string;
   role: string;
   created_at: string;
-
+  
+  referral_link_scope?: 'job' | 'site' | null;
   referral_from_signup?: string | null;
   referral_link_description?: string | null;
   referral_job?: { id: string; title: string } | null;
@@ -1529,7 +1530,7 @@ const requests = [
   getComplaints(),                                                      // 19
   getGlobalApplicationLimit(),                                          // 20
   getOnlineUsers(),                                                     // 21
-  getRecentRegistrations({ limit: 5 }),                                 // 22
+  getRecentRegistrationsToday({ tzOffset, limit: 5 }),                                 // 22
   getJobPostsWithApplications(),                                        // 23
 ];
 
@@ -2297,12 +2298,17 @@ const triggerUserSearch = () => {
   if (userPage !== 1) setUserPage(1);
 };
 
-
+const roleForChatApi: 'jobseeker' | 'employer' | 'admin' | 'moderator' =
+  (currentRole === 'admin' || currentRole === 'moderator')
+    ? currentRole
+    : (currentRole === 'jobseeker' || currentRole === 'employer')
+      ? currentRole
+      : 'jobseeker';
 
   const handleViewChatHistory = async (jobApplicationId: string, page: number = 1) => {
   try {
     setError(null);
-    const history = await getChatHistory(jobApplicationId, { page, limit: 1000 }, currentRole!); // Добавлено: передача currentRole! (non-null)
+    const history = await getChatHistory(jobApplicationId, { page, limit: 1000 }, roleForChatApi);
     setChatHistory(history);
     setSelectedJobApplicationId(jobApplicationId);
     setChatPage(page);
@@ -2312,6 +2318,8 @@ const triggerUserSearch = () => {
     setError(axiosError.response?.data?.message || 'Failed to fetch chat history.');
   }
 };
+
+
 
 
 const handleSetGlobalLimit = async () => {
@@ -2628,7 +2636,7 @@ if (isLoading) {
               <td>{u.username}</td>
               <td>{u.email}</td>
              <td>{u.referral_link_description ?? '—'}</td>
-<td>{u.referral_from_signup ?? '—'}</td>
+<td>{u.referral_link_scope ? u.referral_link_scope : '—'}</td>
 <td>
   {u.referral_job
     ? <a className="action-button-view-a"
@@ -2673,7 +2681,7 @@ if (isLoading) {
             <td>{u.username}</td>
             <td>{u.email}</td>
            <td>{u.referral_link_description ?? '—'}</td>
-<td>{u.referral_from_signup ?? '—'}</td>
+<td>{u.referral_link_scope ? u.referral_link_scope : '—'}</td>
 <td>
   {u.referral_job
     ? <a className="action-button-view-a"
@@ -3261,9 +3269,9 @@ if (isLoading) {
   <button className={`action-button ${fbSubtab === 'tech' ? 'success' : ''}`} onClick={() => setFbSubtab('tech')}>Tech Feedback</button>
   <button className={`action-button ${fbSubtab === 'platform' ? 'success' : ''}`} onClick={() => setFbSubtab('platform')}>Platform Feedback (Stories)</button>
 
-  <span style={{marginLeft:12, padding:'6px 10px', borderRadius:8, background:'#eef', fontWeight:600}}>
+  {/* <span style={{marginLeft:12, padding:'6px 10px', borderRadius:8, background:'#eef', fontWeight:600}}>
     Viewing: {fbSubtab === 'tech' ? 'Tech Feedback' : 'Platform Feedback'}
-  </span>
+  </span> */}
 
       {/* per-page selector for current subtab */}
      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>

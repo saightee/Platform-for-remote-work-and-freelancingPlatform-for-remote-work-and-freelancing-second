@@ -110,3 +110,18 @@
   .ppx-actions-line{ flex-direction:column; align-items:stretch; }
   
 }
+
+
+/* Эллипсис для длинных адресов (и любых длинных строк в значении) */
+.ppx-ellink{
+  display:inline-block;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color: var(--cs-text);
+  font-weight:600;
+}
+.ppx-ellink:hover{ text-decoration:underline; }
+
+/* уже есть: .ppx-kv-value{ min-width:0 } — оставляем, это важно для эллипсиса в grid */

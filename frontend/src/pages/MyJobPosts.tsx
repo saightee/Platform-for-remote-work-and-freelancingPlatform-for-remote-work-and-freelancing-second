@@ -634,12 +634,27 @@ const handleViewApplications = async (jobPostId: string) => {
                     </div>
                   ) : (
                     <>
-                      <div className="mjp-card-head">
+                                       <div className="mjp-card-head">
                         <h3 className="mjp-card-title">{post.title}</h3>
-                        <span className={`mjp-status ${post.status === 'Active' ? 'active' : post.status === 'Closed' ? 'closed' : ''}`}>
-                          {post.status}
-                        </span>
+                        {(() => {
+                          // display rule: pending_review ? 'Pending review' : status
+                          const isPending = (post as any).pending_review === true;
+                          const statusLabel = isPending ? 'Pending review' : post.status;
+                          const statusClass = isPending
+                            ? 'pending'
+                            : post.status === 'Active'
+                              ? 'active'
+                              : post.status === 'Closed'
+                                ? 'closed'
+                                : '';
+                          return (
+                            <span className={`mjp-status ${statusClass}`}>
+                              {statusLabel}
+                            </span>
+                          );
+                        })()}
                       </div>
+
 
                      <div className="mjp-meta">
   <span>Posted: {formatDateInTimezone(post.created_at)}</span>

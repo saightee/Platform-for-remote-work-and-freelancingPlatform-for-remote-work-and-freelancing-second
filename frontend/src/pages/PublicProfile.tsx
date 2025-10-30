@@ -154,11 +154,24 @@ const submitInvite = async () => {
             </div>
 
             <ul className="ppx-kv">
-              <li>
-                <span className="ppx-kv-icon"><FaEnvelope /></span>
-                <span className="ppx-kv-label">Email</span>
-                <span className="ppx-kv-value">{profile.email || 'Not visible'}</span>
-              </li>
+            <li>
+              <span className="ppx-kv-icon"><FaEnvelope /></span>
+              <span className="ppx-kv-label">Email</span>
+              <span className="ppx-kv-value">
+                {profile.email ? (
+                  // эллипсис + тултип + mailto
+                  <a
+                    className="ppx-ellink"
+                    href={`mailto:${profile.email}`}
+                    title={profile.email}
+                  >
+                    {profile.email}
+                  </a>
+                ) : (
+                  'Not visible'
+                )}
+              </span>
+            </li>
               <li>
                 <span className="ppx-kv-icon"><FaGlobe /></span>
                 <span className="ppx-kv-label">Timezone</span>

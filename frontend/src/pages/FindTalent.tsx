@@ -116,7 +116,7 @@ const [filters, setFilters] = useState<{
   const [error, setError] = useState<string | null>(null);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const navigate = useNavigate();
-
+  const resultsRef = useRef<HTMLDivElement>(null);
   // Invite modal state
 const { profile: currentUser } = useRole();
 const [inviteOpen, setInviteOpen] = useState(false);
@@ -416,6 +416,16 @@ useEffect(() => {
     (prev.page === p && prev.limit === l) ? prev : { ...prev, page: p, limit: l }
   );
 }, [searchParams]);
+
+useEffect(() => {
+  if (!isLoading) {
+    // если вн. контейнер скроллится
+    resultsRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    // на всякий случай — и окно
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }
+}, [filters.page, isLoading]);
+
 
   // автокомплит категорий
   useEffect(() => {
@@ -876,7 +886,7 @@ const handlePageChange = (newPage: number) => {
             </aside>
 
             {/* Results */}
-            <section className="ftl-results">
+            <section className="ftl-results" ref={resultsRef}>
               {isLoading ? (
                 <div className="ftl-results-loader"><Loader /></div>
               ) : error ? (

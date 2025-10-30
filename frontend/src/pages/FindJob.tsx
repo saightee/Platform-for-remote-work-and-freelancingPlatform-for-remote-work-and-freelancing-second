@@ -26,8 +26,7 @@ const FindJob: React.FC = () => {
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [applicationStatus, setApplicationStatus] = useState<{ [key: string]: boolean }>({});
   const navigate = useNavigate();
-
-  // --- автокомплит категорий
+  const applyingFromFiltersRef = useRef(false);
   const [skillInput, setSkillInput] = useState('');
   const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
@@ -140,16 +139,19 @@ const FindJob: React.FC = () => {
 
   // debounce по полю "Search by job title"
   const firstRunRef = useRef(true);
-  useEffect(() => {
-    if (firstRunRef.current) {
-      firstRunRef.current = false;
-      return;
-    }
-    const t = setTimeout(() => {
-      setSearchState((prev) => ({ ...prev, title: searchInput, page: 1 }));
-    }, 500);
-    return () => clearTimeout(t);
-  }, [searchInput]);
+useEffect(() => {
+  if (firstRunRef.current) {
+    firstRunRef.current = false;
+    return;
+  }
+  if (applyingFromFiltersRef.current) return; // ⬅️ важно
+
+  const t = setTimeout(() => {
+    setSearchState((prev) => ({ ...prev, title: searchInput, page: 1 }));
+  }, 500);
+  return () => clearTimeout(t);
+}, [searchInput]);
+
 
   // автокомплит категорий
   useEffect(() => {
@@ -184,34 +186,47 @@ const FindJob: React.FC = () => {
     setSearchParams(nextParams, { replace: true });
   };
 
-const handleSearch = (e: React.FormEvent) => {
+const handleSearch = (e: React.FormEvent, fromFilters = false) => {
   e.preventDefault();
 
-  const cleanedCategoryId = skillInput.trim() ? tempSearchState.category_id : '';
-  // если в сайдбаре введено — берём его; иначе берём верхний инпут
-  const titleToUse = (tempSearchState.title || '').trim() || searchInput.trim();
+  // берём title в зависимости от источника
+  const titleFromFilters = (tempSearchState.title || '').trim();
+  const titleToUse = fromFilters
+    ? (titleFromFilters || searchInput.trim())
+    : searchInput.trim();
 
-  setSearchState((prev) => ({
-    ...prev,
-    ...tempSearchState,
+  // собираем next-state
+  const next = {
+    ...searchState,
+    ...(fromFilters ? tempSearchState : {}), // применяем остальные поля фильтра только из фильтров
     title: titleToUse,
-    category_id: cleanedCategoryId,
-    salary_min: tempSearchState.salary_type === 'negotiable' ? undefined : tempSearchState.salary_min,
-    salary_max: tempSearchState.salary_type === 'negotiable' ? undefined : tempSearchState.salary_max,
+    salary_min: (fromFilters ? tempSearchState.salary_type : searchState.salary_type) === 'negotiable'
+      ? undefined
+      : (fromFilters ? tempSearchState.salary_min : searchState.salary_min),
+    salary_max: (fromFilters ? tempSearchState.salary_type : searchState.salary_type) === 'negotiable'
+      ? undefined
+      : (fromFilters ? tempSearchState.salary_max : searchState.salary_max),
+    category_id: (skillInput.trim() && fromFilters) ? tempSearchState.category_id : (fromFilters ? '' : searchState.category_id),
     page: 1,
-  }));
+  };
 
-  // синхроним верхний инпут и временное состояние
-  setSearchInput(titleToUse);
-  setTempSearchState((s) => ({ ...s, title: titleToUse }));
+  setSearchState(next);
 
- const nextParams: Record<string, string> = {};
-const currentTitle = (tempSearchState.title || searchInput).trim();
-if (currentTitle) nextParams.title = currentTitle;
-setSearchParams(nextParams, { replace: true });
+  // ⚠️ НЕ синхроним верхнее поле, если сабмит из фильтров
+  if (!fromFilters) {
+    setTempSearchState((s) => ({ ...s, title: titleToUse }));
+  } else {
+    applyingFromFiltersRef.current = true;
+    setTimeout(() => { applyingFromFiltersRef.current = false; }, 650);
+  }
+
+  const nextParams: Record<string,string> = {};
+  if (titleToUse) nextParams.title = titleToUse;
+  setSearchParams(nextParams, { replace: true });
 
   setIsFilterPanelOpen(false);
 };
+
 
 
   const handlePageChange = (newPage: number) => {
@@ -298,9 +313,9 @@ setSearchParams(nextParams, { replace: true });
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
-            <button className="fj-btn fj-primary" onClick={handleSearch}>
-              <FaSearch /> Search
-            </button>
+<button className="fj-btn fj-primary" onClick={(e) => handleSearch(e)}>
+  <FaSearch /> Search
+</button>
             <button
               className={`fj-btn fj-ghost ${isFilterPanelOpen ? 'active' : ''}`}
               onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
@@ -319,7 +334,7 @@ setSearchParams(nextParams, { replace: true });
                 </button>
               </div>
 
-              <form onSubmit={handleSearch} className="fj-form" noValidate>
+              <form onSubmit={(e) => handleSearch(e, true)} className="fj-form" noValidate>
                 <div className="fj-row">
                   <label className="fj-label">Title</label>
                   <input
