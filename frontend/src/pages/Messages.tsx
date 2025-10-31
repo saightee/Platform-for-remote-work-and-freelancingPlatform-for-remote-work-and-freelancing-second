@@ -113,6 +113,16 @@ const {
   setLastInCache,
 } = useRole() as RoleContextType;
 
+const roleForChatApi: 'jobseeker' | 'employer' | 'admin' | 'moderator' = (() => {
+  const pr = (profile as any)?.role as string | undefined;
+  // если профайл говорит, что мы admin/moderator — используем это
+  if (pr === 'admin' || pr === 'moderator') return pr;
+  // иначе берём текущую "пользовательскую" роль
+  if (currentRole === 'jobseeker' || currentRole === 'employer') return currentRole;
+  // дефолт — пусть будет jobseeker (безопасный fallback)
+  return 'jobseeker';
+})();
+
 
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
@@ -167,7 +177,7 @@ const byLastActivityDesc = useCallback((a: any, b: any) => {
 
 const preloadLast = async (ids: string[]) => {
   const tasks = ids.map(id =>
-    getChatHistory(id, { page: 1, limit: 50 }, currentRole!)
+    getChatHistory(id, { page: 1, limit: 50 }, roleForChatApi)
       .then(res => ({ id, arr: res?.data || [] }))
       .catch((e: any) => {
         if (e?.response?.status === 401 || e?.response?.status === 403) {
@@ -841,9 +851,9 @@ const handleSelectChat = async (rawId: string) => {
   }
 
   const fetchHistory = async () => {
-    const history = await getChatHistory(jobApplicationId, { page: 1, limit: 100 }, currentRole!);
-    const sorted = [...history.data].sort((a,b)=>+new Date(a.created_at)-+new Date(b.created_at));
-    setMessages(prev => ({ ...prev, [jobApplicationId]: sorted }));
+  const history = await getChatHistory(jobApplicationId, { page: 1, limit: 100 }, roleForChatApi);
+  const sorted = [...history.data].sort((a,b)=>+new Date(a.created_at)-+new Date(b.created_at));
+  setMessages(prev => ({ ...prev, [jobApplicationId]: sorted }));
     setUnreadCounts(prev => ({ ...prev, [jobApplicationId]: 0 }));
     if (sorted.length) {
       const last = sorted[sorted.length - 1];
@@ -1166,11 +1176,6 @@ useEffect(() => {
     )}
   </div>
 )}
-
-
-
-
-  
           </div>
 
           <div className="ch-layout">

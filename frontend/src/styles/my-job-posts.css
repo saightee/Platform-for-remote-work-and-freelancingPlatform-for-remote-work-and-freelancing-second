@@ -398,3 +398,10 @@
     font-weight: bold;
     padding-right: 16px;
 }
+
+
+.mjp-status.pending {
+  background: #fff3cd;   /* мягкий жёлтый */
+  color: #856404;        /* тёмно-жёлтый/коричневый текст */
+  border: 1px solid #ffeeba;
+}
