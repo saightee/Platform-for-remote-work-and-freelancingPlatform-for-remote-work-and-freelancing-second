@@ -162,7 +162,7 @@ const submitInvite = async () => {
                   // эллипсис + тултип + mailto
                   <a
                     className="ppx-ellink"
-                    href={`mailto:${profile.email}`}
+                   
                     title={profile.email}
                   >
                     {profile.email}
