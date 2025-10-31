@@ -603,18 +603,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
 {/* NEW: Avatar (required? depends on flag) */}
 <div className="reg2-field reg2-span2">
-<label className="reg2-label">
-  Avatar{' '}
-  {avatarRequired == null ? null : (
-    <span
-      className="reg2-opt"
-      style={avatarRequired ? { color: '#b91c1c' } : undefined}
-    >
-      {avatarRequired ? '(required)' : '(optional)'}
-    </span>
-  )}
-</label>
-
+<label className="reg2-label">Avatar</label>
 
   <div
   onDragEnter={(e) => { e.preventDefault(); setIsAvatarDragOver(true); }}

@@ -417,8 +417,9 @@ await preloadLast(filtered.map(a => toId(a.id)));
         const posts = await getMyJobPosts();
         const active = posts.filter(isActiveJob);
         setJobPosts(active);
-
-        const arrays = await Promise.all(active.map(p => getApplicationsForJobPost(p.id)));
+const arrays = await Promise.all(
+  active.map(p => getApplicationsForJobPost(p.id))
+);
         const map: Record<string, JobApplicationDetails[]> = {};
         active.forEach((p, i) => { map[p.id] = arrays[i]; });
         setJobPostApplications(map);
