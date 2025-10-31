@@ -1107,6 +1107,7 @@ export class AdminService {
         created_at: u.created_at,
       
         referral_from_signup: u.referral_source || null,
+        referral_link_scope: link?.scope || null,
         referral_link_description: link?.description || null,
         referral_job: job ? { id: job.id, title: job.title } : null,
         referral_job_description: job?.description || null,
