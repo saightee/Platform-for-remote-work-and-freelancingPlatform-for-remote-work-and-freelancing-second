@@ -121,6 +121,7 @@
   white-space:nowrap;
   color: var(--cs-text);
   text-decoration: none;
+  vertical-align: middle;
 }
 
 
