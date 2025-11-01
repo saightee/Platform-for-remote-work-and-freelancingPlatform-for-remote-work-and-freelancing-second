@@ -83,6 +83,7 @@ const App: React.FC = () => {
            <Route path="/report-issue" element={<ReportIssue />} />
            <Route path="/share-story" element={<ShareStory />} />
             <Route path="/_dev/categories" element={<CategoriesCarouselPlayground />} />
+            <Route path="/dev-talent" element={<FindTalent />} />
 
         <Route element={<RequireAuth allowed={['employer']} />}>
           <Route path="/employer-dashboard" element={<EmployerDashboard />}>

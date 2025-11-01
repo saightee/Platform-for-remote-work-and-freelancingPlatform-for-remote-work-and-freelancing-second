@@ -10,6 +10,17 @@ interface JobCardProps {
   variant?: 'home' | 'find-jobs';
 }
 
+
+// наверх файла
+const decodeEntities = (s: string) => {
+  if (!s) return s;
+  if (typeof window === 'undefined') return s; // SSR-guard
+  const el = document.createElement('textarea');
+  el.innerHTML = s;
+  return el.value;
+};
+
+
 const renderSalary = (j: JobPost): string => {
   const st = String(j.salary_type ?? '')
     .trim()
@@ -35,17 +46,13 @@ const renderSalary = (j: JobPost): string => {
 };
 
 
+
 const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
-  const truncateDescription = (description: string, maxLength: number) => {
-    const cleanDescription = sanitizeHtml(description, {
-      allowedTags: [],
-      allowedAttributes: {},
-    });
-    if (cleanDescription.length > maxLength) {
-      return cleanDescription.substring(0, maxLength) + '...';
-    }
-    return cleanDescription;
-  };
+const truncateDescription = (description: string | undefined, maxLength: number) => {
+  const clean = sanitizeHtml(description || '', { allowedTags: [], allowedAttributes: {} });
+  const decoded = decodeEntities(clean);
+  return decoded.length > maxLength ? decoded.slice(0, maxLength) + '…' : decoded;
+};
 
   if (variant === 'home') {
     return (
