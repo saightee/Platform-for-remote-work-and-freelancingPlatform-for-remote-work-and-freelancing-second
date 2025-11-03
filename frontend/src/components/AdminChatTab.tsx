@@ -303,19 +303,28 @@ const AdminChatTab: React.FC = () => {
             <div className="ach-empty">No messages.</div>
           ) : (
             <div className="ach-list">
-              {items.map(m => (
-                <div key={String(m.id)} className="ach-item">
-                  <div className="ach-row">
-                    <div className="ach-author">
-                      <span className={`ach-badge ach-${m.sender?.role || 'user'}`}>{m.sender?.role || 'user'}</span>
-                      <b>{m.sender?.username || m.sender_id}</b>
-                      <span className="ach-email">&lt;{m.sender?.email || 'unknown'}&gt;</span>
-                    </div>
-                    <div className="ach-time">{formatTs(m.created_at)}</div>
-                  </div>
-                  <div className="ach-content">{m.content}</div>
-                </div>
-              ))}
+             {items.map(m => {
+  const role = (m.sender?.role || '').toLowerCase();
+  const who =
+    role === 'jobseeker' ? 'jobseeker' :
+    role === 'employer'  ? 'employer'  : 'other';
+
+  return (
+    <div key={String(m.id)} className={`ach-msg ach-${who}`}>
+      <div className="ach-msg-meta">
+        <span className={`ach-badge ${who === 'jobseeker' ? 'is-jobseeker' : who === 'employer' ? 'is-employer' : 'is-other'}`}>
+          {m.sender?.role || 'user'}
+        </span>
+        <b className="ach-name">{m.sender?.username || m.sender_id}</b>
+        <span className="ach-email">&lt;{m.sender?.email || 'unknown'}&gt;</span>
+        <span className="ach-time">{formatTs(m.created_at)}</span>
+      </div>
+
+      <div className="ach-bubble">{m.content}</div>
+    </div>
+  );
+})}
+
             </div>
           )}
         </>

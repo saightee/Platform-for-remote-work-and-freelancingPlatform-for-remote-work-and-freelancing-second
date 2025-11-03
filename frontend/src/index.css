@@ -8837,7 +8837,7 @@ color: #333!important;
   
 }
 .jd-cat-mainimp {
-margin-right: 0px;
+margin-right: 0px!important;
 }
 
 @media (max-width: 450px) {
@@ -8845,4 +8845,8 @@ margin-right: 0px;
 .jc-avatar {
  display: none;
 }
+}
+
+.job-detail-item span {
+  margin-left: 0px;
 }
