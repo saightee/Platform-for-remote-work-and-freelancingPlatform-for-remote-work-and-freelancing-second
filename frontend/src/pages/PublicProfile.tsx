@@ -126,7 +126,7 @@ const submitInvite = async () => {
 
       <div className="ppx-shell">
         <div className="ppx-head">
-          <h1 className="ppx-title">{profile.username}'s Profile</h1>
+          {/* <h1 className="ppx-title">{profile.username}'s Profile</h1> */}
           <div className="ppx-meta-head">
             <span className="ppx-views"><FaEye /> {profile.profile_views ?? 0}</span>
             <span className="ppx-role-badge"><FaShieldAlt /> {profile.role}</span>
@@ -154,11 +154,24 @@ const submitInvite = async () => {
             </div>
 
             <ul className="ppx-kv">
-              <li>
-                <span className="ppx-kv-icon"><FaEnvelope /></span>
-                <span className="ppx-kv-label">Email</span>
-                <span className="ppx-kv-value">{profile.email || 'Not visible'}</span>
-              </li>
+            <li>
+              <span className="ppx-kv-icon"><FaEnvelope /></span>
+              <span className="ppx-kv-label">Email</span>
+              <span className="ppx-kv-value">
+                {profile.email ? (
+                  // эллипсис + тултип + mailto
+                  <a
+                    className="ppx-ellink"
+                   
+                    title={profile.email}
+                  >
+                    {profile.email}
+                  </a>
+                ) : (
+                  'Not visible'
+                )}
+              </span>
+            </li>
               <li>
                 <span className="ppx-kv-icon"><FaGlobe /></span>
                 <span className="ppx-kv-label">Timezone</span>

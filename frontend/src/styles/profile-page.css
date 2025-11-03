@@ -326,3 +326,13 @@
     margin-left: 20px;
     text-decoration: none;
 }
+
+@media (max-width: 395px) {
+  .ppx-actions-line {
+    display: flex;
+  }
+
+  .ppx-actions-line .ppx-report {
+    margin-left: 0px;
+  }
+}

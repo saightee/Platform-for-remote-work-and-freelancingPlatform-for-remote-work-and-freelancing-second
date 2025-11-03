@@ -10,7 +10,7 @@
 }
 
 .ppx-shell{max-width:1120px;margin:28px auto 56px;padding:0 16px;}
-.ppx-head{display:flex;align-items:end;justify-content:space-between;margin-bottom:12px;gap:12px;}
+.ppx-head{display:flex;align-items:end;justify-content:right;margin-bottom:12px;gap:12px;}
 .ppx-title{margin:0;font-weight:800;font-size:28px;color:var(--cs-text);}
 .ppx-meta-head{display:flex;gap:10px;align-items:center;}
 .ppx-views,.ppx-role-badge{display:inline-flex;gap:6px;align-items:center;background:#eef2ff;border:1px solid #dfe6ff;color:#31417d;padding:6px 10px;border-radius:999px;font-weight:700;font-size:12px}
@@ -110,3 +110,19 @@
   .ppx-actions-line{ flex-direction:column; align-items:stretch; }
   
 }
+
+
+/* Эллипсис для длинных адресов (и любых длинных строк в значении) */
+.ppx-ellink{
+  display:inline-block;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color: var(--cs-text);
+  text-decoration: none;
+  vertical-align: middle;
+}
+
+
+

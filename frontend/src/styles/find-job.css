@@ -28,7 +28,7 @@
 .fj-btn{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer;box-shadow:var(--cs-shadow-sm);transition:transform .05s,box-shadow .15s}
 .fj-btn:hover{transform:translateY(-1px);box-shadow:var(--cs-shadow)}
 .fj-primary{background:var(--cs-accent);color:#fff}
-.fj-ghost{background:#eef2ff;color:#364fc7}
+.fj-ghost{background:#eef2ff;color:#4e74c8}
 .fj-ghost.active{box-shadow:0 0 0 3px rgba(54,79,199,.2) inset}
 
 @media (min-width:1025px){
@@ -101,6 +101,7 @@
 
 /* tighten card on small screens */
 @media (max-width:640px){
-  .fj-card{padding:18px}
+  .fj-card{padding:8px}
   .fj-title{font-size:22px}
+  .fj-shell{padding:0 12px}
 }

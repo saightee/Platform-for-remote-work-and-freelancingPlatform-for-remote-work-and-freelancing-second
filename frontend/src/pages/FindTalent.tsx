@@ -116,7 +116,7 @@ const [filters, setFilters] = useState<{
   const [error, setError] = useState<string | null>(null);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const navigate = useNavigate();
-
+  const resultsRef = useRef<HTMLDivElement>(null);
   // Invite modal state
 const { profile: currentUser } = useRole();
 const [inviteOpen, setInviteOpen] = useState(false);
@@ -417,6 +417,16 @@ useEffect(() => {
   );
 }, [searchParams]);
 
+useEffect(() => {
+  if (!isLoading) {
+    // если вн. контейнер скроллится
+    resultsRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    // на всякий случай — и окно
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }
+}, [filters.page, isLoading]);
+
+
   // автокомплит категорий
   useEffect(() => {
     const searchCategoriesAsync = async () => {
@@ -607,7 +617,7 @@ const handlePageChange = (newPage: number) => {
 <aside className={`ftl-filters ${isFilterPanelOpen ? 'is-open' : ''}`}>
   <div className="ftl-filters-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
     <h3 className="ftl-filters-title">Filters</h3>
-    <button type="button" className="ftl-btn ftl-link" onClick={resetAll} title="Reset all filters">Reset</button>
+    <button type="button" className="ftl-btn ftl-link ftl-reset" onClick={resetAll} title="Reset all filters">Reset</button>
   </div>
   <form onSubmit={handleSearch} className="ftl-form">
 
@@ -876,7 +886,7 @@ const handlePageChange = (newPage: number) => {
             </aside>
 
             {/* Results */}
-            <section className="ftl-results">
+            <section className="ftl-results" ref={resultsRef}>
               {isLoading ? (
                 <div className="ftl-results-loader"><Loader /></div>
               ) : error ? (
@@ -897,7 +907,11 @@ const handlePageChange = (newPage: number) => {
 
                         return (
                           <article key={talent.id} className="ftl-card-item" role="article">
-                      <div className={`ftl-avatar ${talent.avatar ? 'has-img' : ''}`}>
+                     
+
+                            <div className="ftl-body">
+                              <div className="ftl-row ftl-row-head">
+                                 <div className={`ftl-avatar ${talent.avatar ? 'has-img' : ''}`}>
 {talent.avatar && (
   (() => {
     const a = talent.avatar || '';
@@ -922,16 +936,14 @@ const handlePageChange = (newPage: number) => {
   <FaUserCircle className="ftl-avatar-fallback" />
 </div>
 
-                            <div className="ftl-body">
-                              <div className="ftl-row ftl-row-head">
-                                <h3 className="ftl-name">{talent.username}</h3>
-                                  {(() => {
-    const v = (talent as any).job_search_status;
-    if (!v) return null;
-    const label = v === 'actively_looking' ? 'Actively looking' : v === 'hired' ? 'Hired' : 'Open to offers';
-    const color = v === 'actively_looking' ? '#14804a' : v === 'hired' ? '#6b7280' : '#4e74c8';
-    return <span style={{ padding: '5px 8px', margin: '0 6px', borderRadius: 999, background: `${color}20`, color, fontSize: 12, fontWeight: 'bold',  }}>{label}</span>;
-  })()}
+<div className="ftl-name-stars">
+  <h3 className="ftl-name">{talent.username}</h3>
+{(() => {
+  const v = (talent as any).job_search_status;
+  if (!v) return null;
+  const label = v === 'actively_looking' ? 'Actively looking' : v === 'hired' ? 'Hired' : 'Open to offers';
+  return <span className={`ftl-status-badge ${v}`}>{label}</span>;
+})()}
                                 {typeof rating === 'number' && (
                                   <span className="ftl-stars" aria-label={`rating ${rating}/5`}>
                                     {Array.from({ length: 5 }, (_, i) => (
@@ -945,6 +957,8 @@ const handlePageChange = (newPage: number) => {
                                   </span>
                                 )}
                               </div>
+</div>
+                              
 
                               <div className="ftl-cols">
                                 <div className="ftl-col">

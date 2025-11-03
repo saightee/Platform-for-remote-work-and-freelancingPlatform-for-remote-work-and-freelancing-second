@@ -1,26 +1,29 @@
-/* Цвета и тени берём из тех же custom props, что и Contact Support */
+/* Цвета и тени - улучшенные */
 :root {
   --cs-accent: #4e74c8;
+  --cs-accent-hover: #3d5fab;
   --cs-bg: #f6f8ff;
   --cs-white: #fff;
   --cs-text: #1b1f2a;
   --cs-muted: #6b7280;
   --cs-shadow: 0 10px 30px rgba(18, 33, 73, 0.12);
   --cs-shadow-sm: 0 6px 18px rgba(18, 33, 73, 0.1);
+  --cs-shadow-hover: 0 16px 40px rgba(18, 33, 73, 0.18);
   --cs-radius: 10px;
+  --cs-border: #e8ecf5;
 }
 
 .ftl-shell {
   max-width: 1200px;
   margin: 32px auto 56px;
-  padding: 0 16px;
+  padding: 0 4px;
 }
 
 .ftl-card {
   background: var(--cs-white);
   border-radius: var(--cs-radius);
   box-shadow: var(--cs-shadow);
-  padding: 20px;
+  padding: 24px;
 }
 
 /* top bar */
@@ -28,16 +31,16 @@
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .ftl-title {
   margin: 0;
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 800;
   color: var(--cs-text);
-  letter-spacing: 0.2px;
+  letter-spacing: -0.3px;
 }
 
 /* search */
@@ -45,244 +48,524 @@
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr auto auto;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
 }
-.ftl-input {
+
+.ftl-input,
+select.ftl-input,
+input.ftl-input[type="number"] {
   width: 100%;
-  border: 1px solid #e3e6ef;
+  border: 2px solid var(--cs-border);
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   font-size: 15px;
   outline: none;
-  transition: box-shadow .15s ease, border-color .15s ease;
+  transition: all .2s ease;
   background: #fff;
+  box-sizing: border-box;
+  font-weight: 500;
 }
+
 .ftl-input:focus {
   border-color: var(--cs-accent);
-  box-shadow: 0 0 0 4px rgba(78,116,200,.12);
+  box-shadow: 0 0 0 4px rgba(78,116,200,.1);
+  transform: translateY(-1px);
 }
+
+select.ftl-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%236b7280' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M5.5 7l4.5 5 4.5-5z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 18px 18px;
+  padding-right: 40px;
+}
+
 .ftl-btn {
-  background: #eef2ff;
+  background: linear-gradient(135deg, #eef2ff 0%, #dfe6ff 100%);
   color: var(--cs-accent);
-  border: 1px solid #d7ddff;
+  border: 2px solid transparent;
   border-radius: 10px;
-  padding: 12px 16px;
+  padding: 14px 20px;
   font-weight: 700;
-  letter-spacing: .2px;
+  font-size: 14px;
+  letter-spacing: .3px;
   cursor: pointer;
   box-shadow: var(--cs-shadow-sm);
-  transition: transform .05s ease, box-shadow .15s ease, opacity .15s ease, background .15s ease;
+  transition: all .2s ease;
+  white-space: nowrap;
 }
-.ftl-btn:hover { transform: translateY(-1px); box-shadow: var(--cs-shadow); }
-.ftl-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
-.ftl-primary { background: var(--cs-accent); color: #fff; border-color: var(--cs-accent); }
-.ftl-outline { background: #4e74c8; color: white; }
 
+.ftl-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--cs-shadow);
+}
+
+.ftl-btn:active {
+  transform: translateY(0);
+}
+
+.ftl-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ftl-btn.ftl-primary {
+  background: linear-gradient(135deg, var(--cs-accent) 0%, var(--cs-accent-hover) 100%);
+  color: #fff;
+  border-color: transparent;
+}
+
+.ftl-btn.ftl-outline {
+  background: var(--cs-white);
+  color: var(--cs-accent);
+  border-color: var(--cs-accent);
+}
+
+.ftl-btn.ftl-outline:hover {
+  background: var(--cs-accent);
+  color: var(--cs-white);
+}
+  .ftl-reset {
+    width: 40%;
+    padding: 8px 12px;
+     background: var(--cs-white);
+  color: var(--cs-accent);
+  border-color: var(--cs-accent);
+  }
 .ftl-iconbtn {
-  display: inline-grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 48px;
+  height: 48px;
+  padding: 0 16px;
   border-radius: 10px;
-  background: #f1f5ff;
-  border: 1px solid #e0e7ff;
+  background: linear-gradient(135deg, #f1f5ff 0%, #e8ecf8 100%);
+  border: 2px solid var(--cs-border);
   color: var(--cs-accent);
   cursor: pointer;
-  transition: transform .05s ease, box-shadow .15s ease, background .15s ease;
+  transition: all .2s ease;
+  font-weight: 700;
+  font-size: 14px;
 }
-.ftl-iconbtn:hover { transform: translateY(-1px); box-shadow: var(--cs-shadow-sm); }
-.ftl-iconbtn.is-active { background: var(--cs-accent); color: #fff; }
+
+.ftl-iconbtn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--cs-shadow-sm);
+  border-color: var(--cs-accent);
+}
+
+.ftl-iconbtn.is-active {
+  background: var(--cs-accent);
+  color: #fff;
+  border-color: var(--cs-accent);
+}
+
+.ftl-iconbtn__label {
+  display: none;
+}
 
 /* grid: filters + results */
 .ftl-content {
   display: grid;
-  grid-template-columns: 290px 1fr;
-  gap: 18px;
-  margin-top: 12px;
+  grid-template-columns: 300px 1fr;
+  gap: 24px;
+  margin-top: 20px;
 }
 
 /* filters */
 .ftl-filters {
-  background: #fbfcff;
-  border: 1px solid #eef2ff;
-  border-radius: 12px;
-  padding: 16px;
+  background: linear-gradient(135deg, #fbfcff 0%, #f6f8ff 100%);
+  border: 2px solid var(--cs-border);
+  border-radius: 10px;
+  padding: 20px;
   box-shadow: var(--cs-shadow-sm);
   align-self: start;
 }
+
 .ftl-filters-title {
-  margin: 0 0 10px;
-  font-size: 16px;
+  margin: 0 0 16px;
+  font-size: 18px;
   font-weight: 800;
   color: var(--cs-text);
 }
-.ftl-form { display: grid; gap: 12px; }
-.ftl-row { display: grid; gap: 8px; }
+
+.ftl-form {
+  display: grid;
+  gap: 16px;
+}
+
+.ftl-row {
+  display: grid;
+  gap: 8px;
+}
+
 .ftl-label {
   font-size: 13px;
   font-weight: 700;
   color: var(--cs-text);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* autocomplete */
-.ftl-autocomplete { position: relative; }
+.ftl-autocomplete {
+  position: relative;
+}
+
 .ftl-autocomplete-list {
   position: absolute;
   z-index: 15;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   left: 0;
   right: 0;
   background: #fff;
-  border: 1px solid #e3e6ef;
+  border: 2px solid var(--cs-border);
   border-radius: 10px;
   box-shadow: var(--cs-shadow);
-  max-height: 260px;
+  max-height: 280px;
   overflow: auto;
 }
+
 .ftl-autocomplete-item {
-  padding: 10px 12px;
+  padding: 12px 14px;
   font-size: 14px;
   cursor: pointer;
+  transition: background .15s ease;
 }
-.ftl-autocomplete-item:hover { background: #f6f8ff; }
-.ftl-autocomplete-item.ftl-sub { padding-left: 20px; color: #445; }
 
-.ftl-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.ftl-autocomplete-item:hover {
+  background: #f6f8ff;
+}
+
+.ftl-autocomplete-item.ftl-sub {
+  padding-left: 24px;
+  color: #667;
+}
+
+.ftl-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .ftl-tag {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #eef2ff;
-  border: 1px solid #dfe6ff;
+  background: linear-gradient(135deg, #eef2ff 0%, #dfe6ff 100%);
+  border: 2px solid var(--cs-border);
   border-radius: 10px;
-  padding: 6px 10px;
+  padding: 6px 12px;
   font-size: 13px;
+  font-weight: 600;
   color: var(--cs-text);
 }
+
 .ftl-tag-x {
   background: transparent;
   border: none;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1;
   cursor: pointer;
   color: var(--cs-accent);
+  transition: transform .15s ease;
+}
+
+.ftl-tag-x:hover {
+  transform: scale(1.2);
 }
 
 /* results */
-.ftl-results { min-height: 240px; }
-.ftl-results-loader { display: grid; place-items: center; min-height: 220px; }
+.ftl-results {
+  min-height: 240px;
+}
+
+.ftl-results-loader {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+}
 
 .ftl-list {
   display: grid;
-  gap: 12px;
+  gap: 16px;
 }
 
-/* card item (list layout) */
+/* ========== MODERN CARD ITEM ========== */
 .ftl-card-item {
-  display: grid;
-  grid-template-columns: 72px 1fr;
-  gap: 14px;
-  border: 1px solid #eef2ff;
-  border-radius: 12px;
-  padding: 14px;
-  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border: 2px solid var(--cs-border);
+  border-radius: 10px;
+  padding: 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
   box-shadow: var(--cs-shadow-sm);
+  transition: all .3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
-.ftl-avatar { position: relative; width: 72px; height: 72px; }
+
+.ftl-card-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--cs-accent) 0%, #7c9ff0 100%);
+  opacity: 0;
+  transition: opacity .3s ease;
+}
+
+/* .ftl-card-item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--cs-shadow-hover);
+  border-color: var(--cs-accent);
+} */
+
+.ftl-card-item:hover::before {
+  opacity: 1;
+}
+
+/* Avatar */
+.ftl-avatar {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+}
+
 .ftl-avatar-img {
-  width: 72px;
-  height: 72px;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   object-fit: cover;
+  display: none;
+  border: 3px solid var(--cs-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.ftl-avatar.has-img .ftl-avatar-img {
   display: block;
 }
+
 .ftl-avatar-fallback {
   position: absolute;
   inset: 0;
-  width: 72px;
-  height: 72px;
+  width: 100%;
+  height: 100%;
   color: #c7d2fe;
-  display: none; /* показываем, когда img нет или упал */
-}
-/* .ftl-avatar img[style*="display: none"] + .ftl-avatar-fallback,
-.ftl-avatar .ftl-avatar-fallback {
   display: block;
-} */
-
-.ftl-body { display: grid; gap: 8px; }
-.ftl-row-head {
-  display:grid;
-  grid-template-columns: minmax(0,1fr) auto;  /* КЛЮЧ: minmax(0,1fr) */
-  align-items:center;
-  gap:8px;
 }
+
+.ftl-avatar.has-img .ftl-avatar-fallback {
+  display: none;
+}
+
+/* Body */
+.ftl-body {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ftl-row-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .ftl-name {
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 800;
   color: var(--cs-text);
-   display:block;               /* чтобы ширина считалась корректно */
-  white-space: nowrap;         /* не переносить */
-  overflow: hidden;            /* обрезать лишнее */
-  text-overflow: ellipsis;     /* троеточие */
-  word-break: normal;
-  overflow-wrap: normal;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  letter-spacing: -0.3px;
 }
-.ftl-stars { display: inline-flex; gap: 2px; }
-.ftl-star { color: #e5e7eb; font-size: 16px; }
-.ftl-star.is-on { color: #f59e0b; }
 
+/* Status badge - в правом верхнем углу */
+.ftl-status-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+  z-index: 5;
+}
+
+.ftl-status-badge.actively_looking {
+  background: linear-gradient(135deg, #14804a20 0%, #14804a30 100%);
+  color: #14804a;
+  border: 1px solid #14804a40;
+}
+
+.ftl-status-badge.open_to_offers {
+  background: linear-gradient(135deg, #4e74c820 0%, #4e74c830 100%);
+  color: #4e74c8;
+  border: 1px solid #4e74c840;
+}
+
+.ftl-status-badge.hired {
+  background: linear-gradient(135deg, #6b728020 0%, #6b728030 100%);
+  color: #6b7280;
+  border: 1px solid #6b728040;
+}
+
+/* Stars */
+.ftl-stars {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.ftl-star {
+  color: #e5e7eb;
+  font-size: 16px;
+  transition: transform .2s ease;
+}
+
+.ftl-star.is-on {
+  color: #f59e0b;
+}
+
+.ftl-card-item:hover .ftl-star.is-on {
+  transform: scale(1.1);
+}
+
+/* Info columns */
 .ftl-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px 16px;
+  gap: 16px 24px;
 }
-.ftl-col { display: grid; gap: 6px; }
-.ftl-line { margin: 0; color: var(--cs-text); font-size: 14px; }
-.ftl-line strong { font-weight: 800; }
 
+.ftl-col {
+  display: grid;
+  gap: 6px;
+}
+
+.ftl-line {
+  margin: 0;
+  color: var(--cs-text);
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.ftl-line strong {
+  font-weight: 800;
+  color: var(--cs-text);
+  display: inline-block;
+  margin-right: 4px;
+}
+
+.ftl-line a {
+  color: var(--cs-accent);
+  text-decoration: none;
+  font-weight: 600;
+  transition: all .2s ease;
+}
+
+.ftl-line a:hover {
+  text-decoration: underline;
+  color: var(--cs-accent-hover);
+}
+
+/* Footer */
 .ftl-foot {
   display: flex;
+  justify-content: flex-end;
   align-items: center;
-  gap: 10px;
-  margin-top: 2px;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 2px solid var(--cs-border);
+  flex-wrap: wrap;
 }
-.ftl-spacer { flex: 1; }
 
-/* pagination */
+.ftl-spacer {
+  flex: 1;
+}
+
+/* Pagination */
 .ftl-pagination {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: center;
-  margin-top: 18px;
+  margin-top: 24px;
 }
+
 .ftl-page {
-  min-width: 42px;
-  height: 40px;
-  padding: 0 12px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 14px;
   border-radius: 10px;
-  border: 1px solid #e3e6ef;
+  border: 2px solid var(--cs-border);
   background: #ffffff;
   font-weight: 700;
   cursor: pointer;
+  transition: all .2s ease;
 }
-.ftl-page:hover { box-shadow: var(--cs-shadow-sm); }
-.ftl-page.is-current { background: var(--cs-accent); color: #fff; border-color: var(--cs-accent); }
-.ftl-page.is-ellipsis { cursor: default; opacity: .7; }
 
+.ftl-page:hover {
+  box-shadow: var(--cs-shadow-sm);
+  border-color: var(--cs-accent);
+  transform: translateY(-2px);
+}
 
-/* alerts + errors + overlay */
+.ftl-page.is-current {
+  background: linear-gradient(135deg, var(--cs-accent) 0%, var(--cs-accent-hover) 100%);
+  color: #fff;
+  border-color: var(--cs-accent);
+}
+
+.ftl-page.is-ellipsis {
+  cursor: default;
+  opacity: .7;
+}
+
+.ftl-page.is-ellipsis:hover {
+  transform: none;
+}
+
+/* Alerts */
 .ftl-alert {
   border-radius: 10px;
-  padding: 12px 14px;
-  margin: 10px 0 16px;
+  padding: 14px 16px;
+  margin: 12px 0 20px;
   font-size: 14px;
   box-shadow: var(--cs-shadow-sm);
+  font-weight: 500;
 }
-.ftl-err { background: #fdecea; color: #8a231f; }
 
-.ftl-error { color: #8a231f; }
+.ftl-err {
+  background: linear-gradient(135deg, #fdecea 0%, #fce8e6 100%);
+  color: #8a231f;
+  border: 2px solid #f5c6cb;
+}
+
+.ftl-error {
+  color: #8a231f;
+  font-weight: 600;
+}
 
 .ftl-loading {
   position: fixed;
@@ -290,168 +573,161 @@
   display: none;
   align-items: center;
   justify-content: center;
-  background: rgba(27,31,42,.06);
+  background: rgba(27, 31, 42, .08);
+  backdrop-filter: blur(4px);
   z-index: 1000;
 }
-.ftl-loading.is-visible { display: flex; }
 
-/* responsive */
-@media (max-width: 1024px) {
-  .ftl-content { grid-template-columns: 1fr; }
-  .ftl-filters { display: none; }
-  .ftl-filters.is-open { display: block; }
+.ftl-loading.is-visible {
+  display: flex;
 }
 
-@media (max-width: 640px) {
-  .ftl-card { padding: 16px; }
-  .ftl-headbar { grid-template-columns: 1fr; }
-  .ftl-search { grid-auto-flow: row; grid-auto-columns: unset; }
+/* ========== RESPONSIVE ========== */
+@media (min-width: 1025px) {
+  .ftl-search .ftl-iconbtn {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .ftl-content {
+    grid-template-columns: 1fr;
+  }
+
+  .ftl-filters {
+    display: none;
+  }
+
+  .ftl-filters.is-open {
+    display: block;
+  }
+
+  .ftl-iconbtn__label {
+    display: inline;
+  }
+}
+
+@media (max-width: 768px) {
+  .ftl-card {
+    padding: 20px;
+  }
+
+  .ftl-headbar {
+    grid-template-columns: 1fr;
+  }
+
+  .ftl-search {
+    grid-auto-flow: row;
+    grid-auto-columns: unset;
+  }
+
   .ftl-card-item {
-    grid-template-columns: 70px 1fr;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  /* .ftl-row-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  } */
+
+  .ftl-status-badge {
+    top: 12px;
+    right: 12px;
+    padding: 5px 10px;
+    font-size: 10px;
+  }
+
+  .ftl-avatar,
+  .ftl-avatar-img,
+  .ftl-avatar-fallback {
+    width: 64px;
+    height: 64px;
+  }
+
+  .ftl-cols {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .ftl-name {
+    font-size: 18px;
+  }
+
+  .ftl-star {
+    font-size: 14px;
+  }
+
+  .ftl-title {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ftl-card {
     padding: 12px;
   }
-  .ftl-avatar, .ftl-avatar-img, .ftl-avatar-fallback { width: 56px; height: 56px; }
-  .ftl-cols { grid-template-columns: 1fr; }
-  .ftl-title { font-size: 22px; }
-}
 
-
-.ftl-avatar { position: relative; width: 72px; height: 72px; }
-.ftl-avatar-fallback {
-  position: absolute; inset: 0;
-  width: 72px; height: 72px;
-  color: #c7d2fe; display: block;
-}
-.ftl-avatar-img {
-  position: absolute; inset: 0;
-  width: 72px; height: 72px;
-  border-radius: 50%; object-fit: cover;
-  display: none;            /* по умолчанию скрыта */
-}
-/* если есть нормальная картинка */
-.ftl-avatar.has-img .ftl-avatar-img { display: block; }
-.ftl-avatar.has-img .ftl-avatar-fallback { display: none; }
-
-@media (max-width: 640px) {
-  .ftl-avatar, .ftl-avatar-img, .ftl-avatar-fallback {
-    width: 56px; height: 56px;
-  }
-}
-
-
-/* --- mobile/desktop поведение кнопки фильтров --- */
-@media (min-width: 1025px) {
-  .ftl-search .ftl-iconbtn { display: none; }   /* на десктопе кнопка не видна */
-}
-@media (max-width: 1024px) {
-  .ftl-iconbtn__label {
-    display: inline-block;
-    margin-left: 8px;
-    font-weight: 700;
-    font-size: 14px;
-  }
-}
-
-/* --- единый вид для ВСЕХ инпутов, включая select/number --- */
-.ftl-input,
-.ftl-form .ftl-input,
-.ftl-search .ftl-input,
-input.ftl-input[type="number"],
-select.ftl-input {
-  width: 100%;
-  border: 1px solid #e3e6ef;
-  border-radius: 10px;
-  padding: 12px 14px;
-  font-size: 15px;
-  outline: none;
-  transition: box-shadow .15s ease, border-color .15s ease;
-  background: #fff;
-  box-sizing: border-box;
-}
-.ftl-input:focus {
-  border-color: var(--cs-accent);
-  box-shadow: 0 0 0 4px rgba(78,116,200,.12);
-}
-
-/* нативные стрелки убираем, рисуем свои — одинаково во всех браузерах */
-select.ftl-input {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  background-image: url("data:image/svg+xml;utf8,<svg fill='%236b7280' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path d='M5.5 7l4.5 5 4.5-5z'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 16px 16px;
-  padding-right: 38px;
-}
-
-/* --- карточки не растягивают полотно и переносят длинные куски текста --- */
-.ftl-card,
-.ftl-list { overflow-x: hidden; }
-.ftl-card-item { 
-  overflow: hidden;
-  grid-template-columns: 72px 1fr;
-}
-.ftl-body, .ftl-col { min-width: 0; }                 /* чтобы текст не растягивал колонки */
-.ftl-line, .ftl-name, .ftl-line a { 
-  word-break: break-word; 
-  overflow-wrap: anywhere; 
-}
-
-/* мобильная сетка карточек */
-@media (max-width: 640px) {
-  .ftl-card-item { grid-template-columns: 56px 1fr; }
-  .ftl-avatar, .ftl-avatar-img, .ftl-avatar-fallback { width: 56px; height: 56px; }
-  .ftl-cols { grid-template-columns: 1fr; }
-  .ftl-row-head{ grid-template-columns: 1fr; }
-  .ftl-offers-badge{ justify-self: start; }
-}
-
-/* --- аватар: показываем fallback только если нет img --- */
-.ftl-avatar { position: relative; width: 72px; height: 72px; }
-.ftl-avatar-fallback {
-  position: absolute; inset: 0;
-  width: 72px; height: 72px;
-  color: #c7d2fe; display: block;
-}
-.ftl-avatar-img {
-  position: absolute; inset: 0;
-  width: 72px; height: 72px;
-  border-radius: 50%; object-fit: cover;
-  display: none;                         /* по умолчанию скрыта */
-}
-.ftl-avatar.has-img .ftl-avatar-img { display: block; }
-.ftl-avatar.has-img .ftl-avatar-fallback { display: none; }
-
-
-/* --- mobile: Filters button with icon + label in one line --- */
-@media (max-width: 1024px) {
-  .ftl-search .ftl-iconbtn {
-    display: inline-flex !important;   /* вместо inline-grid */
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: auto;                       /* не фикс 44px */
-    min-width: 44px;
-    height: 44px;
-    padding: 0 14px;                   /* место для текста */
-    white-space: nowrap;               /* не переносить "Filters" */
+  .ftl-card-item {
+    padding: 36px 14px;
+    gap: 10px;
+    border-radius: 10px;
   }
 
-  .ftl-iconbtn__label {
-    display: inline;                   /* показываем подпись */
-    margin-left: 0;
-    font-weight: 700;
-    font-size: 14px;
-    line-height: 1;                    /* вертикальная центровка текста */
-  }
-
-  /* .ftl-search {     
-    justify-items: start;
+  /* .ftl-row-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
   } */
+
+  .ftl-status-badge {
+    top: 10px;
+    right: 10px;
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+.ftl-col {
+
+  gap: 2px;
 }
+  .ftl-avatar,
+  .ftl-avatar-img,
+  .ftl-avatar-fallback {
+    width: 66px;
+    height: 66px;
+  }
 
-.ftl-results, .ftl-list { overflow-anchor: none; }
+  .ftl-name {
+    font-size: 20px;
+  }
 
-/* Убедись, что оверлей не меняет высоту layout-а */
-.ftl-loading { position: fixed; inset: 0; }
+  .ftl-star {
+    font-size: 16px;
+  }
+
+  .ftl-line {
+    font-size: 15px;
+  }
+
+  .ftl-foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .ftl-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 16px;
+  }
+
+  .ftl-title {
+    font-size: 22px;
+  }
+
+  .ftl-reset {
+    width: 40%;
+    padding: 8px 20px;
+  }
+}

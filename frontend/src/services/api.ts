@@ -872,13 +872,14 @@ export const getMyApplications = async () => {
 };
 
 export const getApplicationsForJobPost = async (jobPostId: string) => {
-  const token = localStorage.getItem('token');
-  const decoded: { role?: string } | null = token ? jwtDecode(token) : null;
-  const isAdminLike = decoded?.role === 'admin' || decoded?.role === 'moderator';
-  const base = isAdminLike ? '/admin/job-applications' : '/job-applications';
-  const { data } = await api.get<JobApplicationDetails[]>(`${base}/job-post/${jobPostId}`);
+  // всегда юзаем пользовательский путь — админского эндпоинта нет
+  const { data } = await api.get<JobApplicationDetails[]>(
+    `/job-applications/job-post/${jobPostId}`
+  );
   return data;
 };
+
+
 
 
 export const updateApplicationStatus = async (applicationId: string, status: 'Accepted' | 'Rejected') => {

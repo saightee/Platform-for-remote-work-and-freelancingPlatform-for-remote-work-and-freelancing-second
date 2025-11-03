@@ -1,0 +1,140 @@
+/* Карточка чата */
+.act-card {
+  background:#fff; border:1px solid #e5e7eb; border-radius:12px;
+  box-shadow:0 10px 28px rgba(2,6,23,.06);
+  padding:14px;
+}
+
+/* Хедер чата (meta) */
+.act-head { margin-bottom:10px; }
+.act-title { font-weight:800; color:#111827; margin-bottom:6px; }
+.act-meta { display:grid; gap:4px; color:#374151; font-size:14px; }
+.act-cap { color:#6b7280; font-weight:700; margin-right:6px; }
+
+/* Управление (счетчик/пагинация) */
+.act-controls {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 0; border-top:1px dashed #e5e7eb; border-bottom:1px dashed #e5e7eb; margin:10px 0;
+}
+.act-counter { font-size:14px; color:#374151; }
+.act-pager { display:flex; align-items:center; gap:10px; }
+.act-btn {
+  background:#f3f4f6; color:#111827; border:1px solid #e5e7eb;
+  padding:8px 12px; border-radius:8px; font-weight:700; cursor:pointer;
+}
+.act-btn:disabled { opacity:.6; cursor:not-allowed; }
+.act-page { color:#374151; font-size:14px; }
+
+/* Состояния */
+.act-loading, .act-empty, .act-error { padding:18px; color:#374151; }
+.act-error { color:#991b1b; background:#fee2e2; border:1px solid #fecaca; border-radius:8px; }
+
+/* Список сообщений */
+.act-list { display:flex; flex-direction:column; gap:10px; padding-top:6px; }
+.act-item { border:1px solid #e5e7eb; border-radius:10px; padding:10px; }
+.act-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.act-author { display:flex; align-items:center; gap:8px; color:#111827; }
+.act-email { color:#6b7280; }
+
+/* Бейджи ролей */
+.act-badge {
+  border-radius:999px; padding:2px 8px; font-size:12px; font-weight:800; color:#ffffff;
+}
+.act-badge.is-jobseeker { background:#44a358; }
+.act-badge.is-employer { background:#5a7de1; }
+.act-badge.is-admin { background:#10b981; } /* темнее, чтобы читалось на белом */
+.act-badge.is-moderator { background:#f59e0b; }
+
+.act-time { color:#6b7280; font-size:12px; }
+.act-content { margin-top:8px; white-space:pre-wrap; word-break: break-word; }
+
+/* Спиннер */
+.act-spinner {
+  width:18px; height:18px; border-radius:50%;
+  border:2px solid #4f46e5; border-top-color:transparent; display:inline-block;
+  animation: act-spin .8s linear infinite;
+}
+@keyframes act-spin { to { transform: rotate(360deg) } }
+
+/* Блоки поиска/селектов (верхняя часть таба) */
+.act-search { display:grid; gap:8px; margin-bottom:12px; }
+.act-label { font-weight:800; }
+.act-input {
+  min-width:260px; border:1px solid #e5e7eb; border-radius:8px; padding:8px 10px;
+}
+.act-select {
+  border:1px solid #e5e7eb; border-radius:8px; padding:8px 10px; width:100%;
+}
+.act-note { font-size:13px; color:#374151; }
+.act-mute { color:#6b7280; }
+
+/* Контейнер списков откликов */
+.act-apps { display:grid; gap:8px; margin-bottom:12px; }
+
+/* Контейнер самого чата */
+.act-chat { border:1px solid #e5e7eb; border-radius:8px; padding:12px; }
+
+/* ====== Алиасы (если в JSX классы ach-): можно оставить как есть ====== */
+.ach-head { margin-bottom:10px; }
+.ach-title { font-weight:800; color:#111827; margin-bottom:6px; }
+.ach-meta { display:grid; gap:4px; color:#374151; font-size:14px; }
+.ach-cap { color:#6b7280; font-weight:700; margin-right:6px; }
+
+.ach-controls {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 0; border-top:1px dashed #e5e7eb; border-bottom:1px dashed #e5e7eb; margin:10px 0;
+}
+.ach-counter { font-size:14px; color:#374151; }
+.ach-pager { display:flex; align-items:center; gap:10px; }
+.ach-btn {
+  background:#f3f4f6; color:#111827; border:1px solid #e5e7eb;
+  padding:8px 12px; border-radius:8px; font-weight:700; cursor:pointer;
+}
+.ach-btn:disabled { opacity:.6; cursor:not-allowed; }
+.ach-page { color:#374151; font-size:14px; }
+
+.ach-loading, .ach-empty, .ach-error { padding:18px; color:#374151; }
+.ach-error { color:#991b1b; background:#fee2e2; border:1px solid #fecaca; border-radius:8px; }
+
+/* ====== Новый чат-лейаут «облачка» ====== */
+.ach-list { display:flex; flex-direction:column; gap:12px; padding:8px 4px; }
+
+/* Контейнер одного сообщения */
+.ach-msg { display:flex; flex-direction:column; max-width:78%; }
+.ach-msg.ach-jobseeker { align-self:flex-start; }
+.ach-msg.ach-employer  { align-self:flex-end; }
+.ach-msg.ach-other     { align-self:center; max-width:90%; }
+
+/* Метаданные над пузырём */
+.ach-msg-meta {
+  display:flex; align-items:center; gap:6px; margin:0 6px 6px 6px;
+  font-size:12px; color:#6b7280;
+}
+.ach-name { color:#111827; }
+.ach-time { margin-left:auto; font-variant-numeric:tabular-nums; }
+
+/* Бейдж роли (свои цвета) */
+.ach-badge {
+  border-radius:9999px; padding:2px 8px; font-size:11px; font-weight:700; color:#fff;
+}
+.ach-badge.is-jobseeker { background:#059669; } /* зелёный */
+.ach-badge.is-employer  { background:#4f46e5; } /* индиго */
+.ach-badge.is-other     { background:#6b7280; } /* серый */
+
+/* Сам «пузырь» сообщения */
+.ach-bubble {
+  border-radius:16px; padding:10px 12px; margin:0 6px;
+  white-space:pre-wrap; word-break:break-word;
+  box-shadow:0 1px 2px rgba(0,0,0,.04);
+  border:1px solid transparent;
+}
+
+/* Цвета пузырей по роли */
+.ach-jobseeker .ach-bubble { background:#ecfdf5; border-color:#a7f3d0; } /* зелёный-тон */
+.ach-employer  .ach-bubble { background:#eef2ff; border-color:#c7d2fe; } /* индиго-тон */
+.ach-other     .ach-bubble { background:#f3f4f6; border-color:#e5e7eb; } /* нейтральный */
+
+/* На маленьких экранах позволяем пузырям шире */
+@media (max-width: 640px) {
+  .ach-msg { max-width: 92%; }
+}

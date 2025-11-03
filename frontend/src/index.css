@@ -7142,6 +7142,12 @@ header nav.mobile-menu-open .find-job {
   font-size: 0.95rem;
 }
 
+.jc-location {
+padding: 10px 0px 10px 0px;
+}
+
+
+
 .jc-tags {
   display: flex;
   flex-wrap: wrap;
@@ -7244,6 +7250,10 @@ header nav.mobile-menu-open .find-job {
     text-align: center;
   }
 }
+
+
+
+
 
 /* Сетки для контейнеров страницы (если нужно чуть улучшить «домашнюю» сетку) */
 .home-job-grid.job-card-home {
@@ -8825,4 +8835,18 @@ color: #333!important;
   max-width:90px;
   text-align:center;
   
+}
+.jd-cat-mainimp {
+margin-right: 0px!important;
+}
+
+@media (max-width: 450px) {
+
+.jc-avatar {
+ display: none;
+}
+}
+
+.job-detail-item span {
+  margin-left: 0px;
 }

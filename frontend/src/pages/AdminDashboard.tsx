@@ -26,7 +26,7 @@ import {
   blockUser, unblockUser, getUserRiskScore, exportUsersToCSV, getUserOnlineStatus,
   getCategories, createCategory, getOnlineUsers, getRecentRegistrations, getJobPostsWithApplications,
   getTopJobseekersByViews, getTopEmployersByPosts, getGrowthTrends, getComplaints, 
-  resolveComplaint, getChatHistory, notifyCandidates, getApplicationsForJobPost, getJobApplicationById, getJobPost, getUserProfileById,
+  resolveComplaint, getChatHistory, notifyCandidates,  getJobApplicationById, getJobPost, getUserProfileById,
   logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, getChatNotificationSettings,
   updateChatNotificationSettings,
   notifyReferralApplicants, getRecentRegistrationsToday, getBrandsAnalytics, getAdminReviews, approveReview, rejectReview, createSiteReferralLink, getSiteReferralLinks, updateSiteReferralLink, deleteSiteReferralLink, getAdminRegistrationAvatarRequired,
@@ -101,7 +101,8 @@ type AdminRecentUser = {
   username: string;
   role: string;
   created_at: string;
-
+  
+  referral_link_scope?: 'job' | 'site' | null;
   referral_from_signup?: string | null;
   referral_link_description?: string | null;
   referral_job?: { id: string; title: string } | null;
@@ -194,8 +195,8 @@ const [savingRegAvatar, setSavingRegAvatar] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Resolved' | 'Rejected'>('All');
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [jobPostsWithApps, setJobPostsWithApps] = useState<JobPostWithApplications[]>([]);
-  const [jobApplications, setJobApplications] = useState<JobApplicationDetails[]>([]);
-  const [selectedJobPostId, setSelectedJobPostId] = useState<string>('');
+ 
+ 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewPage, setReviewPage] = useState(1);
 const [reviewLimit, setReviewLimit] = useState(10);
@@ -1529,7 +1530,7 @@ const requests = [
   getComplaints(),                                                      // 19
   getGlobalApplicationLimit(),                                          // 20
   getOnlineUsers(),                                                     // 21
-  getRecentRegistrations({ limit: 5 }),                                 // 22
+  getRecentRegistrationsToday({ tzOffset, limit: 5 }),                                 // 22
   getJobPostsWithApplications(),                                        // 23
 ];
 
@@ -1681,45 +1682,6 @@ const handleRefresh = async () => {
   await fetchOtherData();
   setIsLoading(false);
 };
-
-
-
-// useEffect(() => {
-
-
-//   setIsLoading(true);
-//   setJobPosts(mockJobPosts);
-//   const enrichedJobPostsWithApps = mockJobPostsWithApps.map(post => ({
-//     ...post,
-//     username: post.username || 'N/A',
-//   }));
-//   setJobPostsWithApps(enrichedJobPostsWithApps);
-//   setReviews(mockReviews);
-//   setFeedback(mockFeedback);
-//   setBlockedCountries(mockBlockedCountries);
-//   setCategories(mockCategories);
-//   setAnalytics(mockAnalytics);
-//   setRegistrationStats(mockRegistrationStats);
-//   setGeographicDistribution(mockGeographicDistribution);
-//   setFreelancerSignups(mockFreelancerSignups);
-//   setBusinessSignups(mockBusinessSignups);
-//   setTopEmployers(mockTopEmployers);
-//   setTopJobseekers(mockTopJobseekers);
-//   setTopJobseekersByViews(mockTopJobseekersByViews);
-//   setTopEmployersByPosts(mockTopEmployersByPosts);
-//   setGrowthTrends(mockGrowthTrends);
-//   setComplaints(mockComplaints);
-//   setGlobalLimit(100);
-//   setOnlineUsers(mockOnlineUsers);
-//   setRecentRegistrations(mockRecentRegistrations);
-//   setJobApplications(mockJobApplications);
-//   setFetchErrors({});
-//   setError(null);
-//   setIsLoading(false);
-// }, [currentRole, jobPostPage]);
-
-
-
 
 
   const handleDeleteUser = async (id: string) => {
@@ -2270,26 +2232,7 @@ const [jsY, jsW, jsM, bizY, bizW, bizM] = await Promise.all([
 }, [autoRefresh]);
 
 
-const handleViewJobApplications = async (jobPostId: string) => {
-  try {
-    setError(null);
-    setSelectedJobPostId(jobPostId);
-    setSelectedJobApplicationId('');
-    setChatHistory({ total: 0, data: [] });
-    const applications = await getApplicationsForJobPost(jobPostId);
-    const acceptedApps = applications.filter(app => app.status === 'Accepted');
-    setJobApplications(acceptedApps || []);
-    if (acceptedApps.length > 0) {
-      handleViewChatHistory(acceptedApps[0].applicationId); // Авто для первого (единственного) Accepted
-    } else {
-      setError('No accepted applications found for this job post.');
-    }
-  } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>;
-    console.error('Error fetching job applications:', axiosError);
-    setError(axiosError.response?.data?.message || 'Failed to fetch job applications.');
-  }
-};
+
 
 const triggerUserSearch = () => {
   const q = buildUserSearch(1, userSearchQuery);
@@ -2297,12 +2240,17 @@ const triggerUserSearch = () => {
   if (userPage !== 1) setUserPage(1);
 };
 
-
+const roleForChatApi: 'jobseeker' | 'employer' | 'admin' | 'moderator' =
+  (currentRole === 'admin' || currentRole === 'moderator')
+    ? currentRole
+    : (currentRole === 'jobseeker' || currentRole === 'employer')
+      ? currentRole
+      : 'jobseeker';
 
   const handleViewChatHistory = async (jobApplicationId: string, page: number = 1) => {
   try {
     setError(null);
-    const history = await getChatHistory(jobApplicationId, { page, limit: 1000 }, currentRole!); // Добавлено: передача currentRole! (non-null)
+    const history = await getChatHistory(jobApplicationId, { page, limit: 1000 }, roleForChatApi);
     setChatHistory(history);
     setSelectedJobApplicationId(jobApplicationId);
     setChatPage(page);
@@ -2312,6 +2260,8 @@ const triggerUserSearch = () => {
     setError(axiosError.response?.data?.message || 'Failed to fetch chat history.');
   }
 };
+
+
 
 
 const handleSetGlobalLimit = async () => {
@@ -2628,7 +2578,7 @@ if (isLoading) {
               <td>{u.username}</td>
               <td>{u.email}</td>
              <td>{u.referral_link_description ?? '—'}</td>
-<td>{u.referral_from_signup ?? '—'}</td>
+<td>{u.referral_link_scope ? u.referral_link_scope : '—'}</td>
 <td>
   {u.referral_job
     ? <a className="action-button-view-a"
@@ -2673,7 +2623,7 @@ if (isLoading) {
             <td>{u.username}</td>
             <td>{u.email}</td>
            <td>{u.referral_link_description ?? '—'}</td>
-<td>{u.referral_from_signup ?? '—'}</td>
+<td>{u.referral_link_scope ? u.referral_link_scope : '—'}</td>
 <td>
   {u.referral_job
     ? <a className="action-button-view-a"
@@ -3261,9 +3211,9 @@ if (isLoading) {
   <button className={`action-button ${fbSubtab === 'tech' ? 'success' : ''}`} onClick={() => setFbSubtab('tech')}>Tech Feedback</button>
   <button className={`action-button ${fbSubtab === 'platform' ? 'success' : ''}`} onClick={() => setFbSubtab('platform')}>Platform Feedback (Stories)</button>
 
-  <span style={{marginLeft:12, padding:'6px 10px', borderRadius:8, background:'#eef', fontWeight:600}}>
+  {/* <span style={{marginLeft:12, padding:'6px 10px', borderRadius:8, background:'#eef', fontWeight:600}}>
     Viewing: {fbSubtab === 'tech' ? 'Tech Feedback' : 'Platform Feedback'}
-  </span>
+  </span> */}
 
       {/* per-page selector for current subtab */}
      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -3739,56 +3689,6 @@ if (isLoading) {
           {activeTab === 'Chat History' && (
   <div>
     <h4>Chat History</h4>
-    {/* {error && <p className="error-message">{error}</p>}
-<div className="form-group">
-  <label>Search by Job Post ID:</label>
-  <input
-    type="text"
-    value={searchJobId}
-    onChange={(e) => setSearchJobId(e.target.value)}
-    placeholder="Enter job post ID"
-  />
-  <button onClick={() => {
-    if (searchJobId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(searchJobId)) {
-      alert('Wrong format Job Post ID. Enter valid UUID (example, 123e4567-e89b-12d3-a456-426614174000).');
-      return;
-    }
-    handleViewJobApplications(searchJobId);
-  }} className="action-button">
-    Search
-  </button>
-</div>
-    <div className="form-group">
-      <label>Select Job Post:</label>
-<select
-  value={selectedJobPostId}
-  onChange={(e) => handleViewJobApplications(e.target.value)}
->
-  <option value="">Select a job post</option>
-  {jobPostsWithApps.filter(post => post.status === 'Closed').map(post => (
-    <option key={post.id} value={post.id}>
-      {post.title} (ID: {post.id})
-    </option>
-  ))}
-</select>
-    </div>
-    {selectedJobPostId && chatHistory.data.length > 0 && (
-      <>
-        <h3>Messages for Job Application ID: {selectedJobApplicationId}</h3>
-       <div className="chat-messages" style={{ overflowY: 'auto', maxHeight: '400px' }}> 
-  {chatHistory.data.length > 0 ? chatHistory.data.map((message) => (
-    <div key={message.id} className={`message ${message.sender.role === 'jobseeker' ? 'received' : 'sent'}`}> 
-      <p><strong>{message.sender.username}:</strong> {message.content}</p>
-      <span>{format(new Date(message.created_at), 'PPpp')}</span>
-      <span>{message.is_read ? 'Read' : 'Unread'}</span>
-    </div>
-  )) : (
-    <p>No messages found.</p>
-  )}
-</div>
-       
-      </>
-    )} */}
      <AdminChatTab />
   </div>
 )}
