@@ -126,7 +126,7 @@ const submitInvite = async () => {
 
       <div className="ppx-shell">
         <div className="ppx-head">
-          <h1 className="ppx-title">{profile.username}'s Profile</h1>
+          {/* <h1 className="ppx-title">{profile.username}'s Profile</h1> */}
           <div className="ppx-meta-head">
             <span className="ppx-views"><FaEye /> {profile.profile_views ?? 0}</span>
             <span className="ppx-role-badge"><FaShieldAlt /> {profile.role}</span>
