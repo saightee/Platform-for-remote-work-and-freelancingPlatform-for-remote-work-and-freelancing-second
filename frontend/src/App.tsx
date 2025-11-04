@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { RoleProvider } from './context/RoleContext';
+import { Suspense, lazy } from 'react';
 import Home from './pages/Home';
 import JobDetails from './pages/JobDetails';
 import Login from './pages/Login';
@@ -10,8 +11,8 @@ import PublicProfile from './pages/PublicProfile';
 import PostJob from './pages/PostJob';
 import MyJobPosts from './pages/MyJobPosts';
 import MyApplications from './pages/MyApplications';
-import AdminDashboard from './pages/AdminDashboard';
-import ModeratorDashboard from './pages/ModeratorDashboard';
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const ModeratorDashboard = lazy(() => import('./pages/ModeratorDashboard'));
 import ReportIssue from './pages/ReportIssue';
 import ShareStory from './pages/ShareStory';
 import ResetPassword from './pages/ResetPassword';
@@ -56,6 +57,7 @@ import RegistrationPending from './pages/RegistrationPending';
 import Toaster from './components/Toaster';
 import RequireAuth from './routes/RequireAuth';
 import CategoriesCarouselPlayground from './dev/CategoriesCarouselPlayground';
+import Loader from './components/Loader';
 
 
 
@@ -115,8 +117,22 @@ const App: React.FC = () => {
           <Route path="/post-job" element={<PostJob />} />
           <Route path="/my-job-posts" element={<MyJobPosts />} />
           <Route path="/my-applications" element={<MyApplications />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/moderator" element={<ModeratorDashboard />} />
+          <Route
+  path="/admin"
+  element={
+    <Suspense fallback={<Loader />}>
+      <AdminDashboard />
+    </Suspense>
+  }
+/>
+<Route
+  path="/moderator"
+  element={
+    <Suspense fallback={<Loader />}>
+      <ModeratorDashboard />
+    </Suspense>
+  }
+/>
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/reset-password/confirm" element={<ConfirmResetPassword />} />
           <Route path="/how-it-works/jobseeker-faq" element={<HowItWorksJobseekerFAQ />} />
