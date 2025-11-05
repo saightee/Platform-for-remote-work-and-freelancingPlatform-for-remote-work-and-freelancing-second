@@ -1,27 +1,6 @@
-// import { defineConfig } from 'vite';
-// import react from '@vitejs/plugin-react';
-// import path from 'path';
-
-// // https://vitejs.dev/config/
-// export default defineConfig({
-//   plugins: [react()],
-//   base: '/', // Указываем базовый путь для продакшен-сборки
-//   build: {
-//     outDir: 'dist',
-//     assetsDir: 'assets',
-//     sourcemap: false, // Отключаем source maps в продакшене для уменьшения размера
-//   },
-//   server: {
-//     host: '0.0.0.0', // Для локальной разработки
-//     port: 5173,
-//   },
-// });
-
 // vite.config.ts
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-
-// В ESM окружении __dirname недоступен — берём через node:url + node:path
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -35,6 +14,26 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
+
+    // 🔥 КЛЮЧЕВОЙ БЛОК — разбиваем на чанки
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // 1. Внешние зависимости — выносим в отдельные чанки
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          ui: ['react-icons', 'recharts', 'react-quill'],
+          utils: ['date-fns', 'date-fns-tz', 'jwt-decode', 'sanitize-html'],
+          api: ['./src/services/api'], // твой API-слой
+
+          // 2. Дашборды — выносим полностью (они тяжёлые!)
+          admin: ['./src/pages/AdminDashboard'],
+          moderator: ['./src/pages/ModeratorDashboard'],
+        },
+      },
+    },
+
+    // Увеличь лимит, чтобы убрать предупреждение (опционально)
+    chunkSizeWarningLimit: 1000, // 1 МБ
   },
   server: {
     host: '0.0.0.0',
@@ -42,9 +41,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      // жёстко указываем на ОДИН файл с типами
       '@types': resolve(__dirname, 'types/index.ts'),
     },
   },
 });
-
