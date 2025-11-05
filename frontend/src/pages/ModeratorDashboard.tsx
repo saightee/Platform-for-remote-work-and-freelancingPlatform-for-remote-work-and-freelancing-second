@@ -322,17 +322,13 @@ const [siteReferrals, setSiteReferrals] = useState<SiteReferralLink[]>([]);
   const location = useLocation();
 
   // UTILS
-  const getBrand = (u: User) => (u as any)?.brand ?? (u as any)?.siteBrand ?? '—';
-  const toU = <T,>(v: T | null | undefined): T | undefined => v === null ? undefined : v;
-  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
-  const copy = async (text: string) => {
-    try { await navigator.clipboard.writeText(text); }
-    catch {
-      const ta = document.createElement('textarea');
-      ta.value = text; document.body.appendChild(ta);
-      ta.select(); document.execCommand('copy'); ta.remove();
-    }
-  };
+const getBrand = (u: User): string => {
+  const brand = (u as any)?.brand;
+  const siteBrand = (u as any)?.siteBrand;
+  if (typeof brand === 'string' && brand.trim()) return brand;
+  if (typeof siteBrand === 'string' && siteBrand.trim()) return siteBrand;
+  return '—';
+};
 
   // SORTING
   const handleSort = (column: 'id' | 'applicationCount' | 'created_at') => {
@@ -361,13 +357,14 @@ const [siteReferrals, setSiteReferrals] = useState<SiteReferralLink[]>([]);
     setRejectModal({ id: null, title: '' });
     setRejectReason('');
   };
-  const renderDateCell = (iso?: string | null) => {
-    if (!iso) return 'no info';
-    const d = new Date(iso);
-    const full = format(d, 'PP p');
-    const human = formatDistanceToNow(d, { addSuffix: true });
-    return <span title={human}>{full}</span>;
-  };
+const renderDateCell = (iso?: string | null) => {
+  if (!iso || typeof iso !== 'string') return 'no info';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return 'invalid date';
+  const full = format(d, 'PP p');
+  const human = formatDistanceToNow(d, { addSuffix: true });
+  return <span title={human}>{full}</span>;
+};
 
   // REFERRAL HELPERS
   const toggleJobGroup = (jobId: string) => setJobExpanded(prev => ({ ...prev, [jobId]: !prev[jobId] }));
@@ -967,7 +964,10 @@ const [siteReferrals, setSiteReferrals] = useState<SiteReferralLink[]>([]);
   const usersToRender = sortedUsers;
 
   const selectedJob = jobPosts.find(post => post.id === showJobModal);
-const safeDescription = sanitizeHtml(selectedJob?.description ?? '', {
+const safeDescription = sanitizeHtml(
+  (selectedJob?.description && typeof selectedJob.description === 'string')
+    ? selectedJob.description
+    : '', {
   allowedTags: ['p','br','strong','em','u','ul','ol','li','a','blockquote','code','pre','h1','h2','h3','h4','h5','h6','span','img'],
   allowedAttributes: {
     a: ['href','target','rel'],
