@@ -89,6 +89,14 @@ export class AdminService {
     }
   }
 
+  async checkAdminOrModerator(userId: string) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role !== 'admin' && user.role !== 'moderator') {
+      throw new UnauthorizedException('Only admins or moderators can access this resource');
+    }
+  }
+
   private async setJobCategories(jobPostId: string, categoryIds?: string[]) {
     if (!categoryIds) return;
 
@@ -154,7 +162,7 @@ export class AdminService {
       limit?: number;
     }
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const qb = this.usersRepository
       .createQueryBuilder('user')
@@ -211,7 +219,7 @@ export class AdminService {
   }
 
   async getUserById(adminId: string, userId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -323,7 +331,7 @@ export class AdminService {
   }
 
   async resetPassword(adminId: string, userId: string, newPassword: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -348,7 +356,7 @@ export class AdminService {
     id?: string;
     salary_type?: 'per hour' | 'per month' | 'negotiable';
   }) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const qb = this.jobPostsRepository.createQueryBuilder('jobPost')
       .leftJoinAndSelect('jobPost.employer', 'employer');
@@ -503,7 +511,7 @@ export class AdminService {
   }
 
   async approveJobPost(adminId: string, jobPostId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
     if (!jobPost) throw new NotFoundException('Job post not found');
 
@@ -524,7 +532,7 @@ export class AdminService {
   }
 
   async flagJobPost(adminId: string, jobPostId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
     if (!jobPost) {
       throw new NotFoundException('Job post not found');
@@ -538,7 +546,7 @@ export class AdminService {
     adminId: string,
     opts: { page?: number; limit?: number; status?: 'Pending' | 'Approved' | 'Rejected' } = {},
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const page = opts.page || 1;
     const limit = opts.limit || 10;
@@ -564,7 +572,7 @@ export class AdminService {
   }
 
   async approveReview(adminId: string, reviewId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const review = await this.reviewsRepository.findOne({ where: { id: reviewId } });
     if (!review) throw new NotFoundException('Review not found');
     if (review.status === 'Approved') return review;
@@ -587,7 +595,7 @@ export class AdminService {
   }
 
   async rejectReview(adminId: string, reviewId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const review = await this.reviewsRepository.findOne({ where: { id: reviewId } });
     if (!review) throw new NotFoundException('Review not found');
     if (review.status === 'Rejected') return review;
@@ -610,7 +618,7 @@ export class AdminService {
   }  
 
   async deleteReview(adminId: string, reviewId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const review = await this.reviewsRepository.findOne({ where: { id: reviewId } });
     if (!review) {
       throw new NotFoundException('Review not found');
@@ -647,7 +655,7 @@ export class AdminService {
   }
 
   async getAnalytics(adminId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const totalUsers = await this.usersRepository.count();
     const employers = await this.usersRepository.count({ where: { role: 'employer' } });
@@ -723,7 +731,7 @@ export class AdminService {
     interval: 'day' | 'week' | 'month',
     role: 'jobseeker' | 'employer' | 'all' = 'all', 
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     return this.usersService.getRegistrationStats(startDate, endDate, interval, role); 
   }
 
@@ -733,7 +741,7 @@ export class AdminService {
     startDate?: Date,
     endDate?: Date,
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
   
     let adjustedEndDate = endDate;
     if (endDate) {
@@ -768,7 +776,7 @@ export class AdminService {
   }
   
   async blockUser(adminId: string, userId: string) {
-  await this.checkAdminRole(adminId);
+  await this.checkAdminOrModerator(adminId);
   const user = await this.usersRepository.findOne({ where: { id: userId } });
   if (!user) {
     throw new NotFoundException('User not found');
@@ -784,7 +792,7 @@ export class AdminService {
   }
 
   async unblockUser(adminId: string, userId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -800,7 +808,7 @@ export class AdminService {
   }
 
   async getTopJobseekersByViews(adminId: string, limit: number = 10) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     return this.leaderboardsService.getTopJobseekersByViews(adminId, limit);
   }
 
@@ -831,7 +839,7 @@ export class AdminService {
       order?: 'ASC'|'DESC';
     }
   ): Promise<{ csv: string; suggestedFilename: string }> {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const qb = this.usersRepository
       .createQueryBuilder('u')
@@ -1029,7 +1037,7 @@ export class AdminService {
   }
 
   async getGrowthTrends(adminId: string, period: '7d' | '30d') {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const days = period === '7d' ? 7 : 30;
     const endDate = new Date();
     const startDate = new Date(endDate);
@@ -1055,7 +1063,7 @@ export class AdminService {
     adminId: string,
     opts: { date?: string; tzOffset?: number },
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
   
     const tzOffset = Number.isFinite(opts.tzOffset) ? opts.tzOffset! : 0;
     const todayLocal = (() => {
@@ -1130,7 +1138,7 @@ export class AdminService {
   }
 
   async getJobPostsWithApplications(adminId: string, status?: string, limit: number = 5) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const query = this.jobPostsRepository
       .createQueryBuilder('jobPost')
       .leftJoin('jobPost.applications', 'application')
@@ -1172,12 +1180,12 @@ export class AdminService {
   }
 
   async getOnlineUsers(adminId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     return this.redisService.getOnlineUsers();
   }
 
   async getUserRiskScore(adminId: string, userId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     return this.antiFraudService.getRiskScore(userId);
   }
 
@@ -1480,7 +1488,7 @@ export class AdminService {
   }
 
   async getPlatformFeedback(adminId: string, page = 1, limit = 10) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const [data, total] = await this.platformFeedbackRepository.findAndCount({
       relations: ['user'],
       skip: (page - 1) * limit,
@@ -1491,7 +1499,7 @@ export class AdminService {
   }
   
   async publishPlatformFeedback(adminId: string, feedbackId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const fb = await this.platformFeedbackRepository.findOne({ where: { id: feedbackId } });
     if (!fb) throw new NotFoundException('Platform feedback not found');
     if (!fb.allowed_to_publish) {
@@ -1502,7 +1510,7 @@ export class AdminService {
   }
   
   async unpublishPlatformFeedback(adminId: string, feedbackId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const fb = await this.platformFeedbackRepository.findOne({ where: { id: feedbackId } });
     if (!fb) throw new NotFoundException('Platform feedback not found');
     fb.is_public = false;
@@ -1510,7 +1518,7 @@ export class AdminService {
   }
 
   async deletePlatformFeedback(adminId: string, feedbackId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const feedback = await this.platformFeedbackRepository.findOne({ where: { id: feedbackId } });
     if (!feedback) {
       throw new NotFoundException('Platform feedback not found');
@@ -1520,7 +1528,7 @@ export class AdminService {
   }
 
   async rejectJobPost(adminId: string, jobPostId: string, reason: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId }, relations: ['employer'] });
     if (!jobPost) {
       throw new NotFoundException('Job post not found');
@@ -1594,7 +1602,7 @@ export class AdminService {
   }
 
   async createReferralLink(adminId: string, jobPostId: string, description?: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
     if (!jobPost) {
@@ -1646,7 +1654,7 @@ export class AdminService {
   }
 
   async listReferralLinksByJobPost(adminId: string, jobPostId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const links = await this.referralLinksRepository.find({
       where: { job_post: { id: jobPostId } },
       relations: ['job_post', 'registrationsDetails', 'registrationsDetails.user'],
@@ -1680,7 +1688,7 @@ export class AdminService {
   }
 
   async updateReferralLinkDescription(adminId: string, linkId: string, description: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const link = await this.referralLinksRepository.findOne({ where: { id: linkId } });
     if (!link) throw new NotFoundException('Referral link not found');
     link.description = description;
@@ -1689,7 +1697,7 @@ export class AdminService {
   }
 
   async deleteReferralLink(adminId: string, linkId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const link = await this.referralLinksRepository.findOne({ where: { id: linkId } });
     if (!link) throw new NotFoundException('Referral link not found');
     await this.referralLinksRepository.delete(linkId);
@@ -1700,7 +1708,7 @@ export class AdminService {
     adminId: string,
     filters: { jobId?: string; jobTitle?: string } = {},
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const qb = this.referralLinksRepository
       .createQueryBuilder('link')
@@ -1813,7 +1821,7 @@ export class AdminService {
     byBrand: Array<{ brand: string; total: number; employers: number; jobseekers: number }>;
     overall: { total: number; employers: number; jobseekers: number };
   }> {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
   
     let adjustedEndDate: Date | undefined = endDate
       ? new Date(endDate)
@@ -1879,7 +1887,7 @@ export class AdminService {
     adminId: string,
     payload: { description?: string; landingPath?: string | null }
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const admin = await this.usersRepository.findOne({ where: { id: adminId } });
     if (!admin) throw new NotFoundException('Admin not found');
@@ -1917,7 +1925,7 @@ export class AdminService {
     adminId: string,
     filters: { createdByAdminId?: string; q?: string } = {},
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const qb = this.referralLinksRepository
       .createQueryBuilder('link')
@@ -1956,7 +1964,7 @@ export class AdminService {
   }
 
   async updateSiteReferralLinkDescription(adminId: string, linkId: string, description: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const link = await this.referralLinksRepository.findOne({ where: { id: linkId } });
     if (!link) throw new NotFoundException('Referral link not found');
     if (link.scope !== 'site') throw new BadRequestException('This link is not a site referral link');
@@ -1966,7 +1974,7 @@ export class AdminService {
   }
 
   async deleteSiteReferralLink(adminId: string, linkId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const link = await this.referralLinksRepository.findOne({ where: { id: linkId } });
     if (!link) throw new NotFoundException('Referral link not found');
     if (link.scope !== 'site') throw new BadRequestException('This link is not a site referral link');
