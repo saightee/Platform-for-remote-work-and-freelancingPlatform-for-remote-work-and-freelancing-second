@@ -15,6 +15,10 @@ import sanitizeHtml from 'sanitize-html';
 import '../styles/admin-settings.css';
 import '../styles/post-job.css';
 import { toast } from '../utils/toast';
+import ExportUsersPopover from '../components/ExportUsersPopover';
+import { getTechFeedback, TechFeedbackAdminItem, unblockUser, blockUser } from '../services/api';
+
+
 
 
 // import ExportUsersPopover from '../components/ExportUsersPopover'; // ❌ недоступно модератору
@@ -189,6 +193,9 @@ const ModeratorDashboard: React.FC = () => {
 const handleReferralForPost = (id: string) => {
   openCreateReferralModal(id);
 };
+const [jobPendingReviewFilter, setJobPendingReviewFilter] = useState<'All' | 'true' | 'false'>('All');
+const [techFeedback, setTechFeedback] = useState<TechFeedbackAdminItem[]>([]);
+const [techDetails, setTechDetails] = useState<TechFeedbackAdminItem | null>(null);
   // BRAND ANALYTICS
   const [brandsLoading, setBrandsLoading] = useState(false);
   const [brandsError, setBrandsError] = useState<string | null>(null);
@@ -408,6 +415,34 @@ const renderDateCell = (iso?: string | null) => {
       const axiosError = error as AxiosError<{ message?: string }>;
       console.error('Error updating referral:', axiosError);
       toast.error(axiosError.response?.data?.message || 'Failed to update referral link.');
+    }
+  };
+  
+    const handleBlockUser = async (id: string, username: string) => {
+    if (window.confirm(`Are you sure you want to block ${username}?`)) {
+      try {
+        await blockUser(id);
+        toast.success('User blocked successfully!');
+       await fetchUsers(buildUserSearch(userPage));
+      } catch (error) {
+        const axiosError = error as AxiosError<{ message?: string }>;
+        console.error('Error blocking user:', axiosError);
+        toast.error(axiosError.response?.data?.message || 'Failed to block user.');
+      }
+    }
+  };
+
+  const handleUnblockUser = async (id: string, username: string) => {
+    if (window.confirm(`Are you sure you want to unblock ${username}?`)) {
+      try {
+        await unblockUser(id);
+        toast.success('User unblocked successfully!');
+        await fetchUsers(buildUserSearch(userPage));
+      } catch (error) {
+        const axiosError = error as AxiosError<{ message?: string }>;
+        console.error('Error unblocking user:', axiosError);
+        toast.error(axiosError.response?.data?.message || 'Failed to unblock user.');
+      }
     }
   };
 
@@ -718,6 +753,20 @@ const renderDateCell = (iso?: string | null) => {
   }, [activeTab, refSubTab, fetchSiteReferrals]);
 
   useEffect(() => {
+  if (activeTab === 'Feedback' && fbSubtab === 'tech') {
+    const load = async () => {
+      try {
+        const data = await getTechFeedback({ page: 1, limit: 100 });
+        setTechFeedback(data.data || []);
+      } catch (e) {
+        setTechFeedback([]);
+      }
+    };
+    load();
+  }
+}, [activeTab, fbSubtab]);
+
+  useEffect(() => {
     if (activeTab === 'Feedback') loadPlatform();
     if (activeTab === 'Reviews') loadReviews();
   }, [activeTab, loadPlatform, loadReviews]);
@@ -1023,20 +1072,81 @@ const safeDescription = sanitizeHtml(
             {/* ❌ Удалены: Categories, Blocked Countries, Complaints, Chat History, Email Notifications, Settings */}
           </ul>
         </div>
+
+
+
         <div className="main-content">
           <div className="content">
             {activeTab === 'Dashboard' && (
               <div>
                 <h4>Dashboard</h4>
                 <div className="dashboard-section">
+                    <h3>Business Overview</h3>
+                    {analytics ? (
+                      <div className="analytics-grid">
+                        <div className="analytics-card">
+                          <p><strong>Total Users:</strong> {analytics.totalUsers}</p>
+                        </div>
+                        <div className="analytics-card">
+                          <p><strong>Employers:</strong> {analytics.employers}</p>
+                        </div>
+                        <div className="analytics-card">
+                          <p><strong>Job Seekers:</strong> {analytics.jobSeekers}</p>
+                        </div>
+                        <div className="analytics-card">
+                          <p><strong>Total Job Posts:</strong> {analytics.totalJobPosts}</p>
+                        </div>
+                        <div className="analytics-card">
+                          <p><strong>Active Job Posts:</strong> {analytics.activeJobPosts}</p>
+                        </div>
+                        <div className="analytics-card">
+                          <p><strong>Total Applications:</strong> {analytics.totalApplications}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p>Loading business overview...</p>
+                    )}
+                  </div>
+                <div className="dashboard-section">
                   <h3>Online Users</h3>
                   <p><strong>Freelancers Online:</strong> {onlineUsers?.jobseekers ?? 'N/A'}</p>
                   <p><strong>Businesses Online:</strong> {onlineUsers?.employers ?? 'N/A'}</p>
                 </div>
-                <div className="dashboard-section">
-                  <h3>Recent Registrations</h3>
-                  {/* ... аналогично админке ... */}
-                </div>
+
+              <div className="dashboard-section">
+  <h3>Recent Registrations</h3>
+  <div className="recent-registrations">
+    <h4>Today</h4>
+    <div className="registration-list">
+      <h5>Freelancers ({recentRegistrations.jobseekers_total || 0})</h5>
+      <ul>
+        {recentRegistrations.jobseekers?.map((user) => (
+          <li key={user.id}>
+            <strong>{user.username}</strong> ({user.email}) — {user.role}
+            {user.referral_from_signup && (
+              <span style={{ color: '#666', marginLeft: '8px' }}>
+                via: {user.referral_from_signup}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <h5>Businesses ({recentRegistrations.employers_total || 0})</h5>
+      <ul>
+        {recentRegistrations.employers?.map((user) => (
+          <li key={user.id}>
+            <strong>{user.username}</strong> ({user.email}) — {user.role}
+            {user.referral_from_signup && (
+              <span style={{ color: '#666', marginLeft: '8px' }}>
+                via: {user.referral_from_signup}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</div>
                 <div className="dashboard-section">
                   <h3>Job Postings with Applications</h3>
                   <table className="dashboard-table">
@@ -1103,7 +1213,55 @@ const safeDescription = sanitizeHtml(
             {activeTab === 'Users' && (
               <div>
                 <h4>Users</h4>
-                {/* ❌ ExportUsersPopover удалён */}
+                 <div className="users-toolbar">
+                      <ExportUsersPopover
+                        buttonLabel="Export to CSV"
+                        buttonClassName="action-button"  // используем твой текущий стиль кнопки
+                      />
+                    </div>
+      
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+  <div className="search_users" style={{ flex: 1, marginRight: '12px' }}>
+    <input
+      type="text"
+      placeholder="Search by username, email or ID"
+      value={userSearchQuery}
+      onChange={(e) => setUserSearchQuery(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          fetchUsers(buildUserSearch(1, userSearchQuery));
+          if (userPage !== 1) setUserPage(1);
+        }
+      }}
+    />
+    <button
+      type="button"
+      onClick={() => {
+        fetchUsers(buildUserSearch(1, userSearchQuery));
+        if (userPage !== 1) setUserPage(1);
+      }}
+      className="action-button"
+      disabled={isUsersLoading}
+      aria-label="Search users"
+    >
+      <FaSearch />
+    </button>
+  </div>
+  <button
+    type="button"
+    className="action-button success"
+    onClick={async () => {
+      try {
+        await exportUsersToCSV();
+      } catch (err) {
+        toast.error('Failed to export users');
+      }
+    }}
+  >
+    Export CSV
+  </button>
+</div>
                 <div className="search_users" style={{ marginBottom: '10px' }}>
                   <input
                     type="text"
@@ -1166,13 +1324,36 @@ const safeDescription = sanitizeHtml(
                         <td>
                           <button onClick={() => handleViewRiskScore(user.id)} className="action-button">View Risk</button>
                         </td>
-                        <td>
-                          {/* ❌ Delete удалена */}
-                          <button onClick={() => handleResetPassword(user.id)} className="action-button">
-                            Reset Password
-                          </button>
-                          {/* ❌ Verify Identity, Block/Unblock — недоступны */}
-                        </td>
+                    <td>
+  {user.role !== 'admin' && user.role !== 'moderator' && (
+    <a
+      href={`/public-profile/${user.id}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="action-button"
+    >
+      View Profile
+    </a>
+  )}
+  <button onClick={() => handleResetPassword(user.id)} className="action-button">
+    Reset Password
+  </button>
+  {user.status === 'blocked' ? (
+            <button
+              onClick={() => handleUnblockUser(user.id, user.username)}
+              className="action-button success"
+            >
+              Unblock
+            </button>
+          ) : (
+            <button
+              onClick={() => handleBlockUser(user.id, user.username)}
+              className="action-button danger"
+            >
+              Block
+            </button>
+          )}
+</td>
                       </tr>
                     )) : (
                       <tr>
@@ -1258,6 +1439,21 @@ const safeDescription = sanitizeHtml(
                     <option value="Closed">Closed</option>
                   </select>
                 </div>
+                <div className="form-group" style={{ marginBottom: '12px' }}>
+  <label>Filter by Pending Review:</label>
+  <select
+    value={jobPendingReviewFilter}
+    onChange={(e) => {
+      setJobPendingReviewFilter(e.target.value as 'All' | 'true' | 'false');
+      setJobPostPage(1);
+    }}
+    className="status-filter"
+  >
+    <option value="All">All</option>
+    <option value="true">Yes</option>
+    <option value="false">No</option>
+  </select>
+</div>
                 <table className="dashboard-table">
                   <thead>
                     <tr>
@@ -1272,7 +1468,11 @@ const safeDescription = sanitizeHtml(
                   </thead>
                   <tbody>
                     {jobPosts.length > 0 ? jobPosts
-                      .filter(post => jobStatusFilter === 'All' || post.status === jobStatusFilter)
+  .filter(post => jobStatusFilter === 'All' || post.status === jobStatusFilter)
+  .filter(post =>
+    jobPendingReviewFilter === 'All' ||
+    (jobPendingReviewFilter === 'true' ? post.pending_review : !post.pending_review)
+  )
                       .map((post) => (
                         <tr key={post.id}>
                           <td>{post.title}</td>
@@ -1413,16 +1613,107 @@ const safeDescription = sanitizeHtml(
             {activeTab === 'Feedback' && (
               <div>
                 <h4>Feedback</h4>
-                <div className="tabs" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                  {/* ❌ Tech Feedback недоступен — только Platform */}
-                  <button className={`action-button ${fbSubtab === 'platform' ? 'success' : ''}`} onClick={() => setFbSubtab('platform')}>Platform Feedback (Stories)</button>
-                  <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <label>Per page:</label>
-                    <select value={pfLimit} onChange={(e) => { setPfLimit(parseInt(e.target.value, 10)); setPfPage(1); }}>
-                      {[10,20,30,40,50,100].map(n => <option key={n} value={n}>{n}</option>)}
-                    </select>
-                  </div>
-                </div>
+            <div className="tabs" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+  <button
+    className={`action-button ${fbSubtab === 'tech' ? 'success' : ''}`}
+    onClick={() => setFbSubtab('tech')}
+  >
+    Tech Feedback
+  </button>
+  <button
+    className={`action-button ${fbSubtab === 'platform' ? 'success' : ''}`}
+    onClick={() => setFbSubtab('platform')}
+  >
+    Platform Feedback (Stories)
+  </button>
+  <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+    <label>Per page:</label>
+    <select
+      value={pfLimit}
+      onChange={(e) => { setPfLimit(parseInt(e.target.value, 10)); setPfPage(1); }}
+    >
+      {[10,20,30,40,50,100].map(n => <option key={n} value={n}>{n}</option>)}
+    </select>
+  </div>
+</div>
+
+{fbSubtab === 'tech' && (
+  <>
+    <table className="dashboard-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>User</th>
+          <th>Role</th>
+          <th>Category</th>
+          <th>Summary</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {techFeedback.length > 0 ? techFeedback.map((fb) => (
+          <tr key={fb.id}>
+            <td>{format(new Date(fb.created_at), 'PP')}</td>
+            <td>
+              <div>{fb.user?.username || 'Unknown'}</div>
+              <div style={{ opacity: 0.8, fontSize: 12 }}>{fb.user?.email}</div>
+            </td>
+            <td>{fb.role || '—'}</td>
+            <td>{fb.category || '—'}</td>
+            <td title={fb.summary} style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {fb.summary}
+            </td>
+            <td>
+              <button onClick={() => setTechDetails(fb)} className="action-button">Details</button>
+            </td>
+          </tr>
+        )) : (
+          <tr><td colSpan={6}>No tech feedback found.</td></tr>
+        )}
+      </tbody>
+    </table>
+
+    {techDetails && (
+      <div className="modal" onClick={() => setTechDetails(null)}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <span className="close" onClick={() => setTechDetails(null)}>×</span>
+          <h3>Tech Feedback Details</h3>
+          <div className="form-group">
+            <label><strong>User:</strong></label>
+            <div>{techDetails.user?.username || 'Unknown'} ({techDetails.user?.email})</div>
+          </div>
+          <div className="form-group">
+            <label><strong>Role:</strong></label>
+            <div>{techDetails.role}</div>
+          </div>
+          <div className="form-group">
+            <label><strong>Category:</strong></label>
+            <div>{techDetails.category || '—'}</div>
+          </div>
+          <div className="form-group">
+            <label><strong>Summary:</strong></label>
+            <div>{techDetails.summary}</div>
+          </div>
+          <div className="form-group">
+            <label><strong>Steps to Reproduce:</strong></label>
+            <div>{techDetails.steps_to_reproduce || '—'}</div>
+          </div>
+          <div className="form-group">
+            <label><strong>Expected Result:</strong></label>
+            <div>{techDetails.expected_result || '—'}</div>
+          </div>
+          <div className="form-group">
+            <label><strong>Actual Result:</strong></label>
+            <div>{techDetails.actual_result || '—'}</div>
+          </div>
+          <div className="modal-actions">
+            <button className="action-button" onClick={() => setTechDetails(null)}>Close</button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
+)}
                 {fbSubtab === 'platform' && (
                   <>
                     <table className="dashboard-table">
