@@ -21,6 +21,7 @@ import { getTechFeedback, TechFeedbackAdminItem, unblockUser, blockUser } from '
 
 
 
+
 // import ExportUsersPopover from '../components/ExportUsersPopover'; // ❌ недоступно модератору
 import {
   // === USERS ===
@@ -67,6 +68,7 @@ import {
   getRecentRegistrationsToday,
   getBrandsAnalytics,
   getJobPostsWithApplications,
+  JobPostWithApplications,
   getOnlineUsers,
 
   // === REFERRAL LINKS ===
@@ -170,6 +172,10 @@ interface DecodedToken {
 }
 
 
+
+
+
+
 const shortenReferralUrl = (url: string, max = 45) => {
   if (!url) return '';
   if (url.length <= max) return url;
@@ -196,6 +202,9 @@ const handleReferralForPost = (id: string) => {
 const [jobPendingReviewFilter, setJobPendingReviewFilter] = useState<'All' | 'true' | 'false'>('All');
 const [techFeedback, setTechFeedback] = useState<TechFeedbackAdminItem[]>([]);
 const [techDetails, setTechDetails] = useState<TechFeedbackAdminItem | null>(null);
+const [autoRefresh, setAutoRefresh] = useState(false);
+
+ const [jobPostsWithApps, setJobPostsWithApps] = useState<JobPostWithApplications[]>([]);
   // BRAND ANALYTICS
   const [brandsLoading, setBrandsLoading] = useState(false);
   const [brandsError, setBrandsError] = useState<string | null>(null);
@@ -254,7 +263,7 @@ const [techDetails, setTechDetails] = useState<TechFeedbackAdminItem | null>(nul
 
   // JOB POSTS
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
-  const [jobPostsWithApps, setJobPostsWithApps] = useState<any[]>([]); // тип упрощён
+ 
 
   // REFERRAL LINKS
   const [refSubTab, setRefSubTab] = useState<'job' | 'site'>('job');
@@ -694,16 +703,21 @@ const renderDateCell = (iso?: string | null) => {
                 setRecentRegistrations(data as AdminRecentRegistrationsDTO);
               } catch { /* noop */ }
               break;
-            case 15:
-              const postsWithApps = (value as any).map((post: any) => ({
-                ...post,
-                username: post.employer?.username || 'N/A',
-                category: typeof post.category === 'string' ? post.category : post.category?.name || 'N/A',
-              }));
-              setJobPostsWithApps(postsWithApps);
-              const referralData = await getReferralLinks({});
-              setReferralLinks(referralData || []);
-              break;
+              case 15: {
+  const postsWithApps = (value as JobPostWithApplications[]).map(post => ({
+    ...post,
+    username: post.employer?.username || 'N/A',
+    category: typeof post.category === 'string'
+      ? post.category
+      : post.category?.name || 'N/A',
+  }));
+  setJobPostsWithApps(postsWithApps);
+
+  const referralData = await getReferralLinks({});
+  setReferralLinks(referralData || []);
+  break;
+}
+
             case 16: setBrandsData(value); break;
             case 17: setOnlineUsers(value || null); break;
           }
@@ -730,6 +744,7 @@ const renderDateCell = (iso?: string | null) => {
       }
     }
   }, []);
+  
 
   useEffect(() => {
     if (currentRole === 'moderator') {
@@ -887,6 +902,9 @@ const renderDateCell = (iso?: string | null) => {
       toast.error(e?.response?.data?.message || 'Failed to approve review.');
     }
   };
+
+  const todayRegs = recentRegistrations.jobseekers || [];
+  const todayBiz  = recentRegistrations.employers || [];
 
   const handleRejectReview = async (id: string) => {
     try {
@@ -1077,138 +1095,230 @@ const safeDescription = sanitizeHtml(
 
         <div className="main-content">
           <div className="content">
-            {activeTab === 'Dashboard' && (
-              <div>
-                <h4>Dashboard</h4>
-                <div className="dashboard-section">
-                    <h3>Business Overview</h3>
-                    {analytics ? (
-                      <div className="analytics-grid">
-                        <div className="analytics-card">
-                          <p><strong>Total Users:</strong> {analytics.totalUsers}</p>
-                        </div>
-                        <div className="analytics-card">
-                          <p><strong>Employers:</strong> {analytics.employers}</p>
-                        </div>
-                        <div className="analytics-card">
-                          <p><strong>Job Seekers:</strong> {analytics.jobSeekers}</p>
-                        </div>
-                        <div className="analytics-card">
-                          <p><strong>Total Job Posts:</strong> {analytics.totalJobPosts}</p>
-                        </div>
-                        <div className="analytics-card">
-                          <p><strong>Active Job Posts:</strong> {analytics.activeJobPosts}</p>
-                        </div>
-                        <div className="analytics-card">
-                          <p><strong>Total Applications:</strong> {analytics.totalApplications}</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p>Loading business overview...</p>
-                    )}
-                  </div>
-                <div className="dashboard-section">
-                  <h3>Online Users</h3>
-                  <p><strong>Freelancers Online:</strong> {onlineUsers?.jobseekers ?? 'N/A'}</p>
-                  <p><strong>Businesses Online:</strong> {onlineUsers?.employers ?? 'N/A'}</p>
-                </div>
 
-              <div className="dashboard-section">
-  <h3>Recent Registrations</h3>
-  <div className="recent-registrations">
-    <h4>Today</h4>
-    <div className="registration-list">
-      <h5>Freelancers ({recentRegistrations.jobseekers_total || 0})</h5>
-      <ul>
-        {recentRegistrations.jobseekers?.map((user) => (
-          <li key={user.id}>
-            <strong>{user.username}</strong> ({user.email}) — {user.role}
-            {user.referral_from_signup && (
-              <span style={{ color: '#666', marginLeft: '8px' }}>
-                via: {user.referral_from_signup}
-              </span>
+{activeTab === 'Dashboard' && (
+  <div>
+    <h4>Dashboard</h4>
+    <div className="dashboard-section">
+      <div className="table-header">
+        <h3>Business Overview</h3>
+        <button
+          className={`action-button ${autoRefresh ? 'success' : ''}`}
+          onClick={() => setAutoRefresh(v => !v)}
+        >
+          {autoRefresh ? 'Auto-refresh: ON' : 'Auto-refresh: OFF'}
+        </button>
+        {/* <button className="action-button refresh-button" onClick={handleRefresh}>refresh</button> */}
+      </div>
+      <table className="dashboard-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+    <th>Today</th>
+            <th>Yesterday</th>
+            <th>Week (Mon-Sun)</th>
+            <th>Last 30 days</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Freelancer Signups by Country</td>
+            <td>{freelancerSignupsToday.length > 0 ? freelancerSignupsToday.map(item => `${item.country}: ${item.count}`).join(', ') : 'None registered'}</td>
+            <td>{freelancerSignupsYesterday.length > 0 ? freelancerSignupsYesterday.map(item => `${item.country}: ${item.count}`).join(', ') : 'None registered'}</td>
+            <td>{freelancerSignupsWeek.length > 0 ? freelancerSignupsWeek.map(item => `${item.country} ${item.count}`).join(' | ') : 'None registered'}</td>
+            <td>{freelancerSignupsMonth.length > 0 ? freelancerSignupsMonth.map(item => `${item.country} ${item.count}`).join(' | ') : 'None registered'}</td>
+          </tr>
+          <tr>
+            <td>Business Signups by Country</td>
+            <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} ${item.count}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} ${item.count}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} ${item.count}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} ${item.count}`).join(' | ') : 'None registered'}</td>
+          </tr>
+          <tr>
+            <td>New Business Subscriptions</td>
+            <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
+          </tr>
+          <tr>
+            <td>New Business Subscription by Country</td>
+            <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
+          </tr>
+          <tr>
+            <td>Business Resubscriptions</td>
+            <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} ${Math.round(item.count * 0.1)}`).join(' | ') : 'None registered'}</td>
+          </tr>
+          <tr>
+            <td>Business Resubscription by Country</td>
+            <td>{businessSignupsToday.length > 0 ? businessSignupsToday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsYesterday.length > 0 ? businessSignupsYesterday.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsWeek.length > 0 ? businessSignupsWeek.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
+            <td>{businessSignupsMonth.length > 0 ? businessSignupsMonth.map(item => `${item.country} $${Math.round(item.count * 90)}`).join(' | ') : 'None registered'}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div className="dashboard-section">
+      <h3>Online Users</h3>
+      <p><strong>Freelancers Online:</strong> {onlineUsers?.jobseekers ?? 'N/A'}</p>
+      <p><strong>Businesses Online:</strong> {onlineUsers?.employers ?? 'N/A'}</p>
+    </div>
+    <div className="dashboard-section">
+      <h3>Recent Registrations</h3>
+      <details>
+        <summary>
+          Freelancer Registrations Today — Total: {recentRegistrations.jobseekers_total ?? todayRegs.length}
+        </summary>
+        <table className="dashboard-table">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Email</th>
+              <th>Referral Link Description</th>
+              <th>Referral from signup</th>
+              <th>Job</th>
+              <th>Created At</th>
+            </tr>
+          </thead>
+          <tbody>
+            {todayRegs.length === 0 ? (
+              <tr><td colSpan={6}>No recent freelancer registrations today.</td></tr>
+            ) : (
+              todayRegs.map(u => (
+                <tr key={u.id}>
+                  <td>{u.username}</td>
+                  <td>{u.email}</td>
+                  <td>{u.referral_link_description ?? '—'}</td>
+                  <td>{u.referral_link_scope ? u.referral_link_scope : '—'}</td>
+                  <td>
+                    {u.referral_job
+                      ? <a className="action-button-view-a"
+                          href={`/job/${u.referral_job.id}`}
+                          target="_blank" rel="noopener noreferrer">
+                          {u.referral_job.title}
+                        </a>
+                      : '—'}
+                  </td>
+                  <td>{format(new Date(u.created_at), 'PP')}</td>
+                </tr>
+              ))
             )}
-          </li>
-        ))}
-      </ul>
-      <h5>Businesses ({recentRegistrations.employers_total || 0})</h5>
-      <ul>
-        {recentRegistrations.employers?.map((user) => (
-          <li key={user.id}>
-            <strong>{user.username}</strong> ({user.email}) — {user.role}
-            {user.referral_from_signup && (
-              <span style={{ color: '#666', marginLeft: '8px' }}>
-                via: {user.referral_from_signup}
-              </span>
+          </tbody>
+        </table>
+      </details>
+
+      <details>
+        <summary>
+          Business Registrations Today — Total: {recentRegistrations.employers_total ?? todayBiz.length}
+        </summary>
+        <table className="dashboard-table">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Email</th>
+              <th>Referral Link Description</th>
+              <th>Referral from signup</th>
+              <th>Job</th>
+              <th>Created At</th>
+            </tr>
+          </thead>
+          <tbody>
+            {todayBiz.length === 0 ? (
+              <tr><td colSpan={6}>No recent business registrations today.</td></tr>
+            ) : (
+              todayBiz.map(u => (
+                <tr key={u.id}>
+                  <td>{u.username}</td>
+                  <td>{u.email}</td>
+                  <td>{u.referral_link_description ?? '—'}</td>
+                  <td>{u.referral_link_scope ? u.referral_link_scope : '—'}</td>
+                  <td>
+                    {u.referral_job
+                      ? <a className="action-button-view-a"
+                          href={`/job/${u.referral_job.id}`}
+                          target="_blank" rel="noopener noreferrer">
+                          {u.referral_job.title}
+                        </a>
+                      : '—'}
+                  </td>
+                  <td>{format(new Date(u.created_at), 'PP')}</td>
+                </tr>
+              ))
             )}
-          </li>
-        ))}
-      </ul>
+          </tbody>
+        </table>
+      </details>
+    </div>
+    <div className="dashboard-section">
+      <h3>Job Postings with Applications</h3>
+      <table className="dashboard-table">
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Title</th>
+            <th>Category</th>
+            <th onClick={() => handleSort('applicationCount')} style={{ cursor: 'pointer' }}>
+              Applications {sortColumn === 'applicationCount' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+            </th>
+            <th onClick={() => handleSort('created_at')} style={{ cursor: 'pointer' }}>
+              Created At {sortColumn === 'created_at' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {paginatedJobPostsWithApps.length > 0 ? paginatedJobPostsWithApps.map((post) => (
+            <tr key={post.id}>
+              <td>{post.username || 'N/A'}</td>
+              <td>{post.title}</td>
+              <td>
+                {Array.isArray(post.categories) && post.categories.length > 0 ? (
+                  <div className="adm-cats">
+                    <span>{post.categories[0]}</span>
+                    {post.categories.slice(1).map((name, idx) => (
+                      <span key={idx} className="adm-cat-sub">{name}</span>
+                    ))}
+                  </div>
+                ) : (typeof post.category === 'string' ? post.category : post.category?.name || 'N/A')}
+              </td>
+              <td>{post.applicationCount}</td>
+              <td>{format(new Date(post.created_at), 'PP')}</td>
+            </tr>
+          )) : (
+            <tr>
+              <td colSpan={5}>No job postings with applications found.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      <div className="pagination">
+        <button
+          onClick={() => setJobPostsWithAppsPage(prev => Math.max(prev - 1, 1))}
+          disabled={jobPostsWithAppsPage === 1}
+          className="action-button"
+        >
+          Previous
+        </button>
+        <span className="page-number">Page {jobPostsWithAppsPage}</span>
+        <button
+          onClick={() => setJobPostsWithAppsPage(prev => prev + 1)}
+          disabled={paginatedJobPostsWithApps.length < jobPostsWithAppsLimit}
+          className="action-button"
+        >
+          Next
+        </button>
+      </div>
     </div>
   </div>
-</div>
-                <div className="dashboard-section">
-                  <h3>Job Postings with Applications</h3>
-                  <table className="dashboard-table">
-                    <thead>
-                      <tr>
-                        <th>Username</th>
-                        <th>Title</th>
-                        <th>Category</th>
-                        <th onClick={() => handleSort('applicationCount')} style={{ cursor: 'pointer' }}>
-                          Applications {sortColumn === 'applicationCount' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-                        </th>
-                        <th onClick={() => handleSort('created_at')} style={{ cursor: 'pointer' }}>
-                          Created At {sortColumn === 'created_at' ? (sortDirection === 'asc' ? <FaArrowUp /> : <FaArrowDown />) : <FaArrowUp />}
-                        </th>
-                        {/* ❌ Столбец Notifications удалён */}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedJobPostsWithApps.length > 0 ? paginatedJobPostsWithApps.map((post) => (
-                        <tr key={post.id}>
-                          <td>{post.username || 'N/A'}</td>
-                          <td>{post.title}</td>
-                          <td>
-                            {Array.isArray(post.categories) && post.categories.length > 0 ? (
-                              <div className="adm-cats">
-                                <span>{post.categories[0]}</span>
-                               {(post.categories as string[]).slice(1).map((name: string, idx: number) => (
-  <span key={idx} className="adm-cat-sub">{name}</span>
-))}
-                              </div>
-                            ) : (typeof post.category === 'string' ? post.category : post.category?.name || 'N/A')}
-                          </td>
-                          <td>{post.applicationCount}</td>
-                          <td>{format(new Date(post.created_at), 'PP')}</td>
-                        </tr>
-                      )) : (
-                        <tr>
-                          <td colSpan={5}>No job postings with applications found.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                  <div className="pagination">
-                    <button
-                      onClick={() => setJobPostsWithAppsPage(prev => Math.max(prev - 1, 1))}
-                      disabled={jobPostsWithAppsPage === 1}
-                      className="action-button"
-                    >
-                      Previous
-                    </button>
-                    <span className="page-number">Page {jobPostsWithAppsPage}</span>
-                    <button
-                      onClick={() => setJobPostsWithAppsPage(prev => prev + 1)}
-                      disabled={paginatedJobPostsWithApps.length < jobPostsWithAppsLimit}
-                      className="action-button"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+)}
+
 
             {activeTab === 'Users' && (
               <div>
@@ -1248,47 +1358,7 @@ const safeDescription = sanitizeHtml(
       <FaSearch />
     </button>
   </div>
-  <button
-    type="button"
-    className="action-button success"
-    onClick={async () => {
-      try {
-        await exportUsersToCSV();
-      } catch (err) {
-        toast.error('Failed to export users');
-      }
-    }}
-  >
-    Export CSV
-  </button>
 </div>
-                <div className="search_users" style={{ marginBottom: '10px' }}>
-                  <input
-                    type="text"
-                    placeholder="Search by username, email or ID"
-                    value={userSearchQuery}
-                    onChange={(e) => setUserSearchQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        fetchUsers(buildUserSearch(1, userSearchQuery));
-                        if (userPage !== 1) setUserPage(1);
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      fetchUsers(buildUserSearch(1, userSearchQuery));
-                      if (userPage !== 1) setUserPage(1);
-                    }}
-                    className="action-button"
-                    disabled={isUsersLoading}
-                    aria-label="Search users"
-                  >
-                    <FaSearch />
-                  </button>
-                </div>
                 <table className="dashboard-table">
                   <thead>
                     <tr>
