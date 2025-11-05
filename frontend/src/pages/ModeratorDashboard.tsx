@@ -858,6 +858,61 @@ const renderDateCell = (iso?: string | null) => {
     }
   };
 
+    const sortedUsers = React.useMemo(() => {
+    const arr = [...users];
+    if (!userSortColumn) return arr;
+    const direction = userSortDirection === 'asc' ? 1 : -1;
+    return arr.sort((a, b) => {
+      if (userSortColumn === 'id') return a.id.localeCompare(b.id) * direction;
+      if (userSortColumn === 'brand') {
+        const aBrand = getBrand(a).toLowerCase();
+        const bBrand = getBrand(b).toLowerCase();
+        return aBrand.localeCompare(bBrand) * direction;
+      }
+      if (userSortColumn === 'role') return (a.role || '').localeCompare(b.role || '') * direction;
+      if (userSortColumn === 'is_blocked') {
+        const aBlocked = a.status === 'blocked' ? 1 : 0;
+        const bBlocked = b.status === 'blocked' ? 1 : 0;
+        return (aBlocked - bBlocked) * direction;
+      }
+      return 0;
+    });
+  }, [users, userSortColumn, userSortDirection, getBrand]);
+
+  const sortedJobPostsWithApps = React.useMemo(() => {
+    const arr = [...jobPostsWithApps];
+    if (!sortColumn) return arr;
+    const direction = sortDirection === 'asc' ? 1 : -1;
+    return arr.sort((a, b) => {
+      if (sortColumn === 'id') return a.id.localeCompare(b.id) * direction;
+      if (sortColumn === 'applicationCount') return (a.applicationCount - b.applicationCount) * direction;
+      if (sortColumn === 'created_at') return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * direction;
+      return 0;
+    });
+  }, [jobPostsWithApps, sortColumn, sortDirection]);
+
+  const paginatedJobPostsWithApps = sortedJobPostsWithApps.slice(
+    (jobPostsWithAppsPage - 1) * jobPostsWithAppsLimit,
+    jobPostsWithAppsPage * jobPostsWithAppsLimit
+  );
+
+  const usersToRender = sortedUsers;
+
+  const selectedJob = jobPosts.find(post => post.id === showJobModal);
+const safeDescription = sanitizeHtml(
+  (selectedJob?.description && typeof selectedJob.description === 'string')
+    ? selectedJob.description
+    : '', {
+  allowedTags: ['p','br','strong','em','u','ul','ol','li','a','blockquote','code','pre','h1','h2','h3','h4','h5','h6','span','img'],
+  allowedAttributes: {
+    a: ['href','target','rel'],
+    img: ['src','alt']
+  },
+  allowedSchemes: ['http','https','mailto'],
+  // Убираем transformTags — вместо этого добавим rel/target через allowedAttributes + post-processing
+});
+
+
   // RENDER
   if (isLoading) {
     return (
@@ -923,59 +978,6 @@ const renderDateCell = (iso?: string | null) => {
     );
   }
 
-  const sortedUsers = React.useMemo(() => {
-    const arr = [...users];
-    if (!userSortColumn) return arr;
-    const direction = userSortDirection === 'asc' ? 1 : -1;
-    return arr.sort((a, b) => {
-      if (userSortColumn === 'id') return a.id.localeCompare(b.id) * direction;
-      if (userSortColumn === 'brand') {
-        const aBrand = getBrand(a).toLowerCase();
-        const bBrand = getBrand(b).toLowerCase();
-        return aBrand.localeCompare(bBrand) * direction;
-      }
-      if (userSortColumn === 'role') return (a.role || '').localeCompare(b.role || '') * direction;
-      if (userSortColumn === 'is_blocked') {
-        const aBlocked = a.status === 'blocked' ? 1 : 0;
-        const bBlocked = b.status === 'blocked' ? 1 : 0;
-        return (aBlocked - bBlocked) * direction;
-      }
-      return 0;
-    });
-  }, [users, userSortColumn, userSortDirection, getBrand]);
-
-  const sortedJobPostsWithApps = React.useMemo(() => {
-    const arr = [...jobPostsWithApps];
-    if (!sortColumn) return arr;
-    const direction = sortDirection === 'asc' ? 1 : -1;
-    return arr.sort((a, b) => {
-      if (sortColumn === 'id') return a.id.localeCompare(b.id) * direction;
-      if (sortColumn === 'applicationCount') return (a.applicationCount - b.applicationCount) * direction;
-      if (sortColumn === 'created_at') return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * direction;
-      return 0;
-    });
-  }, [jobPostsWithApps, sortColumn, sortDirection]);
-
-  const paginatedJobPostsWithApps = sortedJobPostsWithApps.slice(
-    (jobPostsWithAppsPage - 1) * jobPostsWithAppsLimit,
-    jobPostsWithAppsPage * jobPostsWithAppsLimit
-  );
-
-  const usersToRender = sortedUsers;
-
-  const selectedJob = jobPosts.find(post => post.id === showJobModal);
-const safeDescription = sanitizeHtml(
-  (selectedJob?.description && typeof selectedJob.description === 'string')
-    ? selectedJob.description
-    : '', {
-  allowedTags: ['p','br','strong','em','u','ul','ol','li','a','blockquote','code','pre','h1','h2','h3','h4','h5','h6','span','img'],
-  allowedAttributes: {
-    a: ['href','target','rel'],
-    img: ['src','alt']
-  },
-  allowedSchemes: ['http','https','mailto'],
-  // Убираем transformTags — вместо этого добавим rel/target через allowedAttributes + post-processing
-});
 
   return (
     <div>
