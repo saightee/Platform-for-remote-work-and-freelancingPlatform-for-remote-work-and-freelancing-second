@@ -20,7 +20,6 @@ import { ApplicationLimitsModule } from './application-limits/application-limits
 import { TalentsModule } from './talents/talents.module';
 import { ComplaintsModule } from './complaints/complaints.module';
 import { StatsModule } from './stats/stats.module';
-import { ModeratorModule } from './moderator/moderator.module';
 import { EmailModule } from './email/email.module';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ChatModule } from './chat/chat.module';
@@ -80,7 +79,6 @@ import { SeoModule } from './seo/seo.module';
     TalentsModule,
     ComplaintsModule,
     StatsModule,
-    ModeratorModule,
     EmailModule,
     ChatModule,
     PlatformFeedbackModule,
