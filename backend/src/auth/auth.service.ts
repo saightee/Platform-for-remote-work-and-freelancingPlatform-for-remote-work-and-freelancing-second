@@ -34,7 +34,6 @@ export class AuthService {
     private blockedCountriesService: BlockedCountriesService,
     private antiFraudService: AntiFraudService,
     private emailService: EmailService,
-    @Inject('MAILER_TRANSPORT') private mailerTransport: Transporter,
     private adminService: AdminService,
     private configService: ConfigService,
     private settingsService: SettingsService, 
@@ -159,7 +158,7 @@ export class AuthService {
       await this.redisService.set(`verify_latest:${newUser.id}`, verificationToken, 3600);
       await this.emailService.sendVerificationEmail(emailNorm, username, verificationToken);
     } catch {
-      return { message: 'Регистрация успешна, но email не отправлен. Проверьте папку "Spam" или запросите повторно.' };
+      return { message: 'Registration was successful, but the email was not sent. Please check your spam folder or try again.' };
     }
 
     return { message: 'Registration is successful. Please confirm your email.' };

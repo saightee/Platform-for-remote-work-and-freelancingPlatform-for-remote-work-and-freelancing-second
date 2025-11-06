@@ -37,18 +37,18 @@ export class FeedbackService {
   }
 
   async getFeedback(adminId: string, page = 1, limit = 10) {
-    const admin = await this.usersRepository.findOne({ where: { id: adminId } });
-    if (!admin || admin.role !== 'admin') {
-      throw new UnauthorizedException('Only admins can view feedback');
+    const actor = await this.usersRepository.findOne({ where: { id: adminId } });
+    if (!actor || (actor.role !== 'admin' && actor.role !== 'moderator')) {
+      throw new UnauthorizedException('Only admins or moderators can view feedback');
     }
-
+  
     const [data, total] = await this.feedbackRepository.findAndCount({
       relations: ['user'],
       order: { created_at: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
-
+  
     return { total, data };
   }
 }

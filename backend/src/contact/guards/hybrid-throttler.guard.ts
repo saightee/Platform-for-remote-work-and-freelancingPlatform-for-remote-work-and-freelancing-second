@@ -3,7 +3,6 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 
 @Injectable()
 export class HybridThrottlerGuard extends ThrottlerGuard {
-  // Гость: 3/60; залогинен: 10/60
   protected async getLimit(context: ExecutionContext): Promise<number> {
     const req = this.getRequestFromContext(context);
     return req?.user?.userId ? 10 : 3;
