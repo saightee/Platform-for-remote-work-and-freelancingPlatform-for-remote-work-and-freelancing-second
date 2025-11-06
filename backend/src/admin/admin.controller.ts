@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Patch, Param, Query, Body, Headers, UnauthorizedException, UseGuards, BadRequestException, Res } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Patch, Param, Query, Body, Headers, UnauthorizedException, UseGuards, BadRequestException, Res, Req } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
@@ -9,6 +9,7 @@ import { Response } from 'express';
 import { AntiFraudService } from '../anti-fraud/anti-fraud.service';
 import { ComplaintsService } from '../complaints/complaints.service';
 import { ChatService } from '../chat/chat.service';
+import { FeedbackService } from '../feedback/feedback.service';
 
 @Controller(['admin', 'moderator'])
 export class AdminController {
@@ -19,6 +20,7 @@ export class AdminController {
     private antiFraudService: AntiFraudService, 
     private complaintsService: ComplaintsService,
     private chatService: ChatService,
+    private readonly feedbackService: FeedbackService,
   ) {}
 
   @Get('users/export-csv')
@@ -1309,5 +1311,24 @@ export class AdminController {
     const token = authHeader.replace('Bearer ', '');
     const { sub: adminId } = this.jwtService.verify(token);
     return this.adminService.deleteSiteReferralLink(adminId, id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('feedback')
+  @UseGuards(ModeratorGuard)
+  async listFeedbackForStaff(
+    @Req() req: any,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+  ) {
+    const adminId = req.user?.userId;
+    if (!adminId) throw new UnauthorizedException('Invalid token');
+
+    const p = parseInt(page, 10);
+    const l = parseInt(limit, 10);
+    if (!Number.isFinite(p) || p < 1) throw new BadRequestException('Page must be a positive integer');
+    if (!Number.isFinite(l) || l < 1) throw new BadRequestException('Limit must be a positive integer');
+
+    return this.feedbackService.getFeedback(adminId, p, l);
   }
 }

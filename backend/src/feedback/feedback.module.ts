@@ -20,5 +20,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
   ],
   controllers: [FeedbackController],
   providers: [FeedbackService],
+  exports: [FeedbackService],
 })
 export class FeedbackModule {}

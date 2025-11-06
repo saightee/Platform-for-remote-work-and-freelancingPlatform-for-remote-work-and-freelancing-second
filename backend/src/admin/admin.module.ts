@@ -35,6 +35,7 @@ import { ReferralLink } from '../referrals/entities/referral-link.entity';
 import { ReferralRegistration } from '../referrals/entities/referral-registration.entity';
 import { AuthModule } from '../auth/auth.module';
 import { JobPostCategory } from '../job-posts/job-post-category.entity';
+import { FeedbackModule } from '../feedback/feedback.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { JobPostCategory } from '../job-posts/job-post-category.entity';
     EmailModule,
     ChatModule,
     CategoriesModule,
+    FeedbackModule,
     forwardRef(() => AuthModule),
   ],
   controllers: [AdminController],
