@@ -7,14 +7,13 @@ import { User } from '../users/entities/user.entity';
 import { SettingsService } from '../settings/settings.service';
 import { RedisService } from '../redis/redis.service';
 import { EmailService } from '../email/email.service';
-import { ConfigService } from '@nestjs/config';
 
 export interface ChatNotificationSettings {
   enabled: boolean;
   onEmployerMessage: {
     immediate: boolean;
     delayedIfUnread: { enabled: boolean; minutes: number };
-    after24hIfUnread: { enabled: boolean; hours: number }; // NEW
+    after24hIfUnread: { enabled: boolean; hours: number };
     onlyFirstMessageInThread?: boolean;
   };
   throttle: { perChatCount: number; perMinutes: number };
@@ -40,7 +39,6 @@ export class ChatNotificationsService {
     private readonly settingsService: SettingsService,
     private readonly redis: RedisService,
     private readonly emailService: EmailService,
-    private readonly config: ConfigService,
   ) {
     setInterval(() => this.processDueJobs().catch(() => {}), this.QUEUE_POLL_MS);
   }
@@ -81,13 +79,11 @@ export class ChatNotificationsService {
       );
     }
 
-    // Delayed N minutes if unread
     if (settings.onEmployerMessage.delayedIfUnread.enabled) {
       const dueAtMs = Date.now() + settings.onEmployerMessage.delayedIfUnread.minutes * 60_000;
       await this.enqueueReminder(saved, dueAtMs, 'delayedIfUnread');
     }
 
-    // NEW: After 24h if unread (configurable hours)
     if (settings.onEmployerMessage.after24hIfUnread.enabled) {
       const dueAtMs = Date.now() + settings.onEmployerMessage.after24hIfUnread.hours * 3_600_000;
       await this.enqueueReminder(saved, dueAtMs, 'after24hIfUnread');
@@ -104,7 +100,7 @@ export class ChatNotificationsService {
     const pendingKey = `${base}:${type}`;
 
     const created = await client.setnx(pendingKey, '1');
-    if (!created) return; // уже есть такая задача
+    if (!created) return;
     const ttlMs = Math.max(dueAtMs - Date.now(), 60_000);
     await client.pexpire(pendingKey, ttlMs + 300_000);
 
@@ -180,7 +176,6 @@ export class ChatNotificationsService {
           settings,
         );
       } catch {
-        // проглатываем единичные сбои
       }
     }
   }
@@ -198,7 +193,7 @@ export class ChatNotificationsService {
       await client.expire(key, settings.throttle.perMinutes * 60);
     }
     if (nowCount > settings.throttle.perChatCount) {
-      return false; // дросселирование
+      return false;
     }
     await sendFn();
     return true;
@@ -210,9 +205,8 @@ export class ChatNotificationsService {
   }
 
   private async isRecipientOnline(userId: string): Promise<boolean> {
-    // ключ ставится/снимается гейтвеем: set(`socket:${userId}`, socketId, 3600) / del(...) — используем это как «онлайн» признак
     const client = this.redis.getClient();
-    const socketId = await client.get(`socket:${userId}`); // ← ChatGateway пишет этот ключ :contentReference[oaicite:4]{index=4}
+    const socketId = await client.get(`socket:${userId}`);
     return Boolean(socketId);
   }
 }

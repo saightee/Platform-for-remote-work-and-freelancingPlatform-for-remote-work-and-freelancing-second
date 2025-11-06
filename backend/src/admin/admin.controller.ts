@@ -234,7 +234,7 @@ export class AdminController {
     @Query('employer_id') employer_id: string,
     @Query('employer_username') employer_username: string,
     @Query('category_id') category_id: string, 
-    @Query('category_ids') category_ids_raw: string | string[],   // NEW
+    @Query('category_ids') category_ids_raw: string | string[],
     @Query('limit') limit: string, 
     @Query('id') id: string,
     @Query('salary_type') salary_type: 'per hour' | 'per month' | 'negotiable',
@@ -260,8 +260,8 @@ export class AdminController {
       title?: string;
       employer_id?: string;
       employer_username?: string;
-      category_id?: string;        // legacy
-      category_ids?: string[];     // NEW
+      category_id?: string;
+      category_ids?: string[];
       page?: number;
       limit?: number;
       id?: string; 
@@ -307,8 +307,8 @@ export class AdminController {
       status?: 'Active' | 'Draft' | 'Closed';
       salary_type?: 'per hour' | 'per month' | 'negotiable';  
       excluded_locations?: string[];  
-      category_id?: string;        // legacy (оставляем)
-      category_ids?: string[];     // NEW
+      category_id?: string;
+      category_ids?: string[];
     },
     @Headers('authorization') authHeader: string,
   ) {
@@ -1220,7 +1220,7 @@ export class AdminController {
           enabled: Boolean(body?.onEmployerMessage?.delayedIfUnread?.enabled),
           minutes: intPos(body?.onEmployerMessage?.delayedIfUnread?.minutes, 60),
         },
-        after24hIfUnread: {                                          // NEW
+        after24hIfUnread: {
           enabled: Boolean(body?.onEmployerMessage?.after24hIfUnread?.enabled),
           hours: intPos(body?.onEmployerMessage?.after24hIfUnread?.hours, 24),
         },

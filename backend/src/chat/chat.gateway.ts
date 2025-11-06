@@ -2,7 +2,6 @@ import { WebSocketGateway, SubscribeMessage, MessageBody, ConnectedSocket, WebSo
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
 import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
 import { createAdapter } from '@socket.io/redis-adapter';
@@ -27,7 +26,6 @@ export class ChatGateway {
   constructor(
     private chatService: ChatService,
     private jwtService: JwtService,
-    private configService: ConfigService,
     private redisService: RedisService,
   ) {
     console.log('ChatGateway constructed');
@@ -61,7 +59,6 @@ export class ChatGateway {
       const token = raw?.replace(/^Bearer\s+/i, '');
       if (!token) throw new UnauthorizedException('Token is required');
     
-      // Секрет берётся из JwtModule (env), без ручного указания
       const payload = this.jwtService.verify(token);
     
       client.data.userId = payload.sub;

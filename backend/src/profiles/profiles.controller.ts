@@ -230,7 +230,7 @@ export class ProfilesController {
           ? cb(null, true)
           : cb(new BadRequestException('Only PDF, DOC, and DOCX files are allowed'), false);
       },
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+      limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
   async uploadResume(
