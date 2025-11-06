@@ -16,7 +16,7 @@ import '../styles/admin-settings.css';
 import '../styles/post-job.css';
 import { toast } from '../utils/toast';
 import ExportUsersPopover from '../components/ExportUsersPopover';
-import { getTechFeedback, TechFeedbackAdminItem, unblockUser, blockUser } from '../services/api';
+import { getTechFeedbackModerator, TechFeedbackAdminItem, unblockUser, blockUser } from '../services/api';
 
 
 
@@ -325,7 +325,8 @@ const [siteReferrals, setSiteReferrals] = useState<SiteReferralLink[]>([]);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [userSortColumn, setUserSortColumn] = useState<'id' | 'role' | 'is_blocked' | 'brand' | null>(null);
   const [userSortDirection, setUserSortDirection] = useState<'asc' | 'desc'>('asc');
-
+  const [techLoading, setTechLoading] = useState(false);
+  const [techError, setTechError] = useState<string | null>(null);
   // SEARCH
   const [userSearchQuery, setUserSearchQuery] = useState<string>('');
   const [jobPostSearchQuery, setJobPostSearchQuery] = useState<string>('');
@@ -767,17 +768,21 @@ const renderDateCell = (iso?: string | null) => {
     }
   }, [activeTab, refSubTab, fetchSiteReferrals]);
 
-  useEffect(() => {
+useEffect(() => {
   if (activeTab === 'Feedback' && fbSubtab === 'tech') {
-    const load = async () => {
+    (async () => {
       try {
-        const data = await getTechFeedback({ page: 1, limit: 100 });
+        setTechLoading(true);
+        setTechError(null);
+        const data = await getTechFeedbackModerator({ page: 1, limit: 100 });
         setTechFeedback(data.data || []);
-      } catch (e) {
+      } catch (e: any) {
         setTechFeedback([]);
+        setTechError(e?.response?.data?.message || 'Failed to load tech feedback');
+      } finally {
+        setTechLoading(false);
       }
-    };
-    load();
+    })();
   }
 }, [activeTab, fbSubtab]);
 
@@ -1720,27 +1725,34 @@ const safeDescription = sanitizeHtml(
           <th>Actions</th>
         </tr>
       </thead>
-      <tbody>
-        {techFeedback.length > 0 ? techFeedback.map((fb) => (
-          <tr key={fb.id}>
-            <td>{format(new Date(fb.created_at), 'PP')}</td>
-            <td>
-              <div>{fb.user?.username || 'Unknown'}</div>
-              <div style={{ opacity: 0.8, fontSize: 12 }}>{fb.user?.email}</div>
-            </td>
-            <td>{fb.role || '—'}</td>
-            <td>{fb.category || '—'}</td>
-            <td title={fb.summary} style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {fb.summary}
-            </td>
-            <td>
-              <button onClick={() => setTechDetails(fb)} className="action-button">Details</button>
-            </td>
-          </tr>
-        )) : (
-          <tr><td colSpan={6}>No tech feedback found.</td></tr>
-        )}
-      </tbody>
+<tbody>
+  {techLoading ? (
+    <tr><td colSpan={6}>Loading…</td></tr>
+  ) : techError ? (
+    <tr><td colSpan={6} className="error-message">{techError}</td></tr>
+  ) : techFeedback.length > 0 ? (
+    techFeedback.map((fb) => (
+      <tr key={fb.id}>
+        <td>{format(new Date(fb.created_at), 'PP')}</td>
+        <td>
+          <div>{fb.user?.username || 'Unknown'}</div>
+          <div style={{ opacity: 0.8, fontSize: 12 }}>{fb.user?.email}</div>
+        </td>
+        <td>{fb.role || '—'}</td>
+        <td>{fb.category || '—'}</td>
+        <td title={fb.summary} style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {fb.summary}
+        </td>
+        <td>
+          <button onClick={() => setTechDetails(fb)} className="action-button">Details</button>
+        </td>
+      </tr>
+    ))
+  ) : (
+    <tr><td colSpan={6}>No tech feedback found.</td></tr>
+  )}
+</tbody>
+
     </table>
 
     {techDetails && (
