@@ -29,7 +29,6 @@ import { EmailNotification } from '../email-notifications/email-notification.ent
 import { ReferralRegistration } from '../referrals/entities/referral-registration.entity';
 import { ReferralLink } from '../referrals/entities/referral-link.entity';
 import { ConfigService } from '@nestjs/config';
-import { v4 as uuidv4 } from 'uuid';
 import { JobPostCategory } from '../job-posts/job-post-category.entity';
 
 @Injectable()
@@ -86,6 +85,14 @@ export class AdminService {
     }
     if (user.role !== 'admin') {
       throw new UnauthorizedException('Only admins can access this resource');
+    }
+  }
+
+  async checkAdminOrModerator(userId: string) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role !== 'admin' && user.role !== 'moderator') {
+      throw new UnauthorizedException('Only admins or moderators can access this resource');
     }
   }
 
@@ -154,7 +161,7 @@ export class AdminService {
       limit?: number;
     }
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const qb = this.usersRepository
       .createQueryBuilder('user')
@@ -211,7 +218,7 @@ export class AdminService {
   }
 
   async getUserById(adminId: string, userId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -323,7 +330,7 @@ export class AdminService {
   }
 
   async resetPassword(adminId: string, userId: string, newPassword: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -341,14 +348,14 @@ export class AdminService {
     title?: string;
     employer_id?: string;
     employer_username?: string; 
-    category_id?: string;         // legacy
-    category_ids?: string[];      // NEW
+    category_id?: string;
+    category_ids?: string[];
     page?: number;
     limit?: number;
     id?: string;
     salary_type?: 'per hour' | 'per month' | 'negotiable';
   }) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const qb = this.jobPostsRepository.createQueryBuilder('jobPost')
       .leftJoinAndSelect('jobPost.employer', 'employer');
@@ -419,8 +426,8 @@ export class AdminService {
     status?: 'Active' | 'Draft' | 'Closed'; 
     salary_type?: 'per hour' | 'per month' | 'negotiable';  
     excluded_locations?: string[];  
-    category_id?: string;        // legacy (оставляем)
-    category_ids?: string[];     // NEW
+    category_id?: string;
+    category_ids?: string[];
   }) {
     await this.checkAdminRole(adminId);
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
@@ -503,7 +510,7 @@ export class AdminService {
   }
 
   async approveJobPost(adminId: string, jobPostId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
     if (!jobPost) throw new NotFoundException('Job post not found');
 
@@ -524,7 +531,7 @@ export class AdminService {
   }
 
   async flagJobPost(adminId: string, jobPostId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
     if (!jobPost) {
       throw new NotFoundException('Job post not found');
@@ -538,7 +545,7 @@ export class AdminService {
     adminId: string,
     opts: { page?: number; limit?: number; status?: 'Pending' | 'Approved' | 'Rejected' } = {},
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const page = opts.page || 1;
     const limit = opts.limit || 10;
@@ -564,7 +571,7 @@ export class AdminService {
   }
 
   async approveReview(adminId: string, reviewId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const review = await this.reviewsRepository.findOne({ where: { id: reviewId } });
     if (!review) throw new NotFoundException('Review not found');
     if (review.status === 'Approved') return review;
@@ -587,7 +594,7 @@ export class AdminService {
   }
 
   async rejectReview(adminId: string, reviewId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const review = await this.reviewsRepository.findOne({ where: { id: reviewId } });
     if (!review) throw new NotFoundException('Review not found');
     if (review.status === 'Rejected') return review;
@@ -610,7 +617,7 @@ export class AdminService {
   }  
 
   async deleteReview(adminId: string, reviewId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const review = await this.reviewsRepository.findOne({ where: { id: reviewId } });
     if (!review) {
       throw new NotFoundException('Review not found');
@@ -642,12 +649,11 @@ export class AdminService {
         await this.employerRepository.save(employer);
       }
     }
-
     return { message: 'Review deleted successfully' };
   }
 
   async getAnalytics(adminId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const totalUsers = await this.usersRepository.count();
     const employers = await this.usersRepository.count({ where: { role: 'employer' } });
@@ -723,7 +729,7 @@ export class AdminService {
     interval: 'day' | 'week' | 'month',
     role: 'jobseeker' | 'employer' | 'all' = 'all', 
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     return this.usersService.getRegistrationStats(startDate, endDate, interval, role); 
   }
 
@@ -733,7 +739,7 @@ export class AdminService {
     startDate?: Date,
     endDate?: Date,
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
   
     let adjustedEndDate = endDate;
     if (endDate) {
@@ -768,7 +774,7 @@ export class AdminService {
   }
   
   async blockUser(adminId: string, userId: string) {
-  await this.checkAdminRole(adminId);
+  await this.checkAdminOrModerator(adminId);
   const user = await this.usersRepository.findOne({ where: { id: userId } });
   if (!user) {
     throw new NotFoundException('User not found');
@@ -784,7 +790,7 @@ export class AdminService {
   }
 
   async unblockUser(adminId: string, userId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -800,7 +806,7 @@ export class AdminService {
   }
 
   async getTopJobseekersByViews(adminId: string, limit: number = 10) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     return this.leaderboardsService.getTopJobseekersByViews(adminId, limit);
   }
 
@@ -812,15 +818,15 @@ export class AdminService {
       q?: string;
       email?: string;
       username?: string;
-      country?: string;            // 'unknown' => IS NULL
-      provider?: string;           // 'none' => IS NULL
+      country?: string;
+      provider?: string;
       referralSource?: string;
       companyName?: string;
       jobSearchStatus?: 'actively_looking'|'open_to_offers'|'hired';
       isEmailVerified?: boolean;
       identityVerified?: boolean;
       hasAvatar?: boolean;
-      hasResume?: boolean;         // for jobseekers
+      hasResume?: boolean;
       riskMin?: number;
       riskMax?: number;
       createdFrom?: Date;
@@ -831,14 +837,13 @@ export class AdminService {
       order?: 'ASC'|'DESC';
     }
   ): Promise<{ csv: string; suggestedFilename: string }> {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const qb = this.usersRepository
       .createQueryBuilder('u')
       .leftJoin(JobSeeker, 'js', 'js.user_id = u.id')
       .leftJoin(Employer, 'em', 'em.user_id = u.id');
 
-    // === Фильтры по User ===
     if (filters?.role)   qb.andWhere('u.role = :role', { role: filters.role });
     if (filters?.status) qb.andWhere('u.status = :status', { status: filters.status });
 
@@ -883,7 +888,6 @@ export class AdminService {
       qb.andWhere('u.created_at >= :cfrom', { cfrom: filters.createdFrom });
     }
     if (filters?.createdTo) {
-      // включительно по дате — установим 23:59:59.999
       const to = new Date(filters.createdTo);
       to.setHours(23,59,59,999);
       qb.andWhere('u.created_at <= :cto', { cto: to });
@@ -903,7 +907,6 @@ export class AdminService {
       else qb.andWhere('(u.avatar IS NULL OR u.avatar = \'\')');
     }
 
-    // === Фильтры по JobSeeker / Employer ===
     if (filters?.hasResume !== undefined) {
       if (filters.hasResume) qb.andWhere('(u.role = \'jobseeker\' AND js.resume IS NOT NULL AND js.resume <> \'\')');
       else qb.andWhere('(u.role = \'jobseeker\' AND (js.resume IS NULL OR js.resume = \'\'))');
@@ -915,12 +918,10 @@ export class AdminService {
       qb.andWhere('(u.role = \'employer\' AND em.company_name ILIKE :cname)', { cname: `%${filters.companyName}%` });
     }
 
-    // Сортировка
     const sortField = filters?.sortBy === 'last_login_at' ? 'u.last_login_at' : 'u.created_at';
     const sortOrder = filters?.order === 'ASC' ? 'ASC' : 'DESC';
     qb.orderBy(sortField, sortOrder);
 
-    // Подтягиваем нужные поля для CSV
     qb.select([
       'u.id AS id',
       'u.email AS email',
@@ -939,21 +940,18 @@ export class AdminService {
       'u.last_seen_at AS last_seen_at',
       'u.avatar AS avatar',
 
-      // jobseeker
       'js.job_search_status AS js_job_search_status',
       'js.expected_salary AS js_expected_salary',
       'js.currency AS js_currency',
       'js.average_rating AS js_average_rating',
       'js.resume AS js_resume',
 
-      // employer
       'em.company_name AS em_company_name',
       'em.average_rating AS em_average_rating',
     ]);
 
     const rows = await qb.getRawMany();
 
-    // Формируем CSV
     const csvStringifier = createObjectCsvStringifier({
       header: [
         { id: 'id', title: 'User ID' },
@@ -973,14 +971,12 @@ export class AdminService {
         { id: 'last_seen_at', title: 'Last Seen At' },
         { id: 'has_avatar', title: 'Has Avatar' },
 
-        // jobseeker доп.колонки
         { id: 'js_job_search_status', title: 'JS Job Search Status' },
         { id: 'js_expected_salary', title: 'JS Expected Salary' },
         { id: 'js_currency', title: 'JS Currency' },
         { id: 'js_average_rating', title: 'JS Avg Rating' },
         { id: 'has_resume', title: 'JS Has Resume' },
 
-        // employer доп.колонки
         { id: 'em_company_name', title: 'EM Company Name' },
         { id: 'em_average_rating', title: 'EM Avg Rating' },
       ],
@@ -1029,7 +1025,7 @@ export class AdminService {
   }
 
   async getGrowthTrends(adminId: string, period: '7d' | '30d') {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const days = period === '7d' ? 7 : 30;
     const endDate = new Date();
     const startDate = new Date(endDate);
@@ -1055,7 +1051,7 @@ export class AdminService {
     adminId: string,
     opts: { date?: string; tzOffset?: number },
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
   
     const tzOffset = Number.isFinite(opts.tzOffset) ? opts.tzOffset! : 0;
     const todayLocal = (() => {
@@ -1083,7 +1079,6 @@ export class AdminService {
   
     const [jsTotal, emTotal] = await Promise.all([jsQb.getCount(), emQb.getCount()]);
   
-    // Больше НЕ ограничиваем .take(limit) — берём все за день
     jsQb.orderBy('u.created_at', 'DESC');
     emQb.orderBy('u.created_at', 'DESC');
   
@@ -1130,7 +1125,7 @@ export class AdminService {
   }
 
   async getJobPostsWithApplications(adminId: string, status?: string, limit: number = 5) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const query = this.jobPostsRepository
       .createQueryBuilder('jobPost')
       .leftJoin('jobPost.applications', 'application')
@@ -1172,12 +1167,12 @@ export class AdminService {
   }
 
   async getOnlineUsers(adminId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     return this.redisService.getOnlineUsers();
   }
 
   async getUserRiskScore(adminId: string, userId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     return this.antiFraudService.getRiskScore(userId);
   }
 
@@ -1198,7 +1193,6 @@ export class AdminService {
       throw new BadRequestException('Notifications can only be sent for active job posts');
     }
 
-    // подтягиваем ВСЕ категории вакансии (много), и расширяем на потомков
     const attachedCatIds = await this.getJobCategoryIds(jobPostId);
     if (!attachedCatIds.length) {
       throw new BadRequestException('Job post has no categories assigned');
@@ -1218,7 +1212,6 @@ export class AdminService {
       .andWhere('user.role = :role', { role: 'jobseeker' })
       .andWhere('user.status = :status', { status: 'active' })
       .andWhere('user.is_email_verified = :isEmailVerified', { isEmailVerified: true })
-      // не слать тем, кто уже подался на ЭТУ вакансию
       .andWhere(`NOT EXISTS (
         SELECT 1 FROM job_applications a2
         WHERE a2.job_post_id = :thisJob AND a2.job_seeker_id = "jobSeeker"."user_id"
@@ -1332,7 +1325,6 @@ export class AdminService {
       .andWhere('u.role = :role', { role: 'jobseeker' })
       .andWhere('u.status = :status', { status: 'active' })
       .andWhere('u.is_email_verified = :verified', { verified: true })
-      // не слать тем, кто уже подался на ЭТУ вакансию
       .andWhere(`NOT EXISTS (
         SELECT 1 FROM job_applications a2
         WHERE a2.job_post_id = :thisJob AND a2.job_seeker_id = "js"."user_id"
@@ -1480,7 +1472,7 @@ export class AdminService {
   }
 
   async getPlatformFeedback(adminId: string, page = 1, limit = 10) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const [data, total] = await this.platformFeedbackRepository.findAndCount({
       relations: ['user'],
       skip: (page - 1) * limit,
@@ -1491,7 +1483,7 @@ export class AdminService {
   }
   
   async publishPlatformFeedback(adminId: string, feedbackId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const fb = await this.platformFeedbackRepository.findOne({ where: { id: feedbackId } });
     if (!fb) throw new NotFoundException('Platform feedback not found');
     if (!fb.allowed_to_publish) {
@@ -1502,7 +1494,7 @@ export class AdminService {
   }
   
   async unpublishPlatformFeedback(adminId: string, feedbackId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const fb = await this.platformFeedbackRepository.findOne({ where: { id: feedbackId } });
     if (!fb) throw new NotFoundException('Platform feedback not found');
     fb.is_public = false;
@@ -1510,7 +1502,7 @@ export class AdminService {
   }
 
   async deletePlatformFeedback(adminId: string, feedbackId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const feedback = await this.platformFeedbackRepository.findOne({ where: { id: feedbackId } });
     if (!feedback) {
       throw new NotFoundException('Platform feedback not found');
@@ -1520,7 +1512,7 @@ export class AdminService {
   }
 
   async rejectJobPost(adminId: string, jobPostId: string, reason: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId }, relations: ['employer'] });
     if (!jobPost) {
       throw new NotFoundException('Job post not found');
@@ -1594,7 +1586,7 @@ export class AdminService {
   }
 
   async createReferralLink(adminId: string, jobPostId: string, description?: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId } });
     if (!jobPost) {
@@ -1646,7 +1638,7 @@ export class AdminService {
   }
 
   async listReferralLinksByJobPost(adminId: string, jobPostId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const links = await this.referralLinksRepository.find({
       where: { job_post: { id: jobPostId } },
       relations: ['job_post', 'registrationsDetails', 'registrationsDetails.user'],
@@ -1680,7 +1672,7 @@ export class AdminService {
   }
 
   async updateReferralLinkDescription(adminId: string, linkId: string, description: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const link = await this.referralLinksRepository.findOne({ where: { id: linkId } });
     if (!link) throw new NotFoundException('Referral link not found');
     link.description = description;
@@ -1689,7 +1681,7 @@ export class AdminService {
   }
 
   async deleteReferralLink(adminId: string, linkId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const link = await this.referralLinksRepository.findOne({ where: { id: linkId } });
     if (!link) throw new NotFoundException('Referral link not found');
     await this.referralLinksRepository.delete(linkId);
@@ -1700,7 +1692,7 @@ export class AdminService {
     adminId: string,
     filters: { jobId?: string; jobTitle?: string } = {},
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const qb = this.referralLinksRepository
       .createQueryBuilder('link')
@@ -1813,7 +1805,7 @@ export class AdminService {
     byBrand: Array<{ brand: string; total: number; employers: number; jobseekers: number }>;
     overall: { total: number; employers: number; jobseekers: number };
   }> {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
   
     let adjustedEndDate: Date | undefined = endDate
       ? new Date(endDate)
@@ -1879,7 +1871,7 @@ export class AdminService {
     adminId: string,
     payload: { description?: string; landingPath?: string | null }
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const admin = await this.usersRepository.findOne({ where: { id: adminId } });
     if (!admin) throw new NotFoundException('Admin not found');
@@ -1917,7 +1909,7 @@ export class AdminService {
     adminId: string,
     filters: { createdByAdminId?: string; q?: string } = {},
   ) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
 
     const qb = this.referralLinksRepository
       .createQueryBuilder('link')
@@ -1956,7 +1948,7 @@ export class AdminService {
   }
 
   async updateSiteReferralLinkDescription(adminId: string, linkId: string, description: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const link = await this.referralLinksRepository.findOne({ where: { id: linkId } });
     if (!link) throw new NotFoundException('Referral link not found');
     if (link.scope !== 'site') throw new BadRequestException('This link is not a site referral link');
@@ -1966,13 +1958,11 @@ export class AdminService {
   }
 
   async deleteSiteReferralLink(adminId: string, linkId: string) {
-    await this.checkAdminRole(adminId);
+    await this.checkAdminOrModerator(adminId);
     const link = await this.referralLinksRepository.findOne({ where: { id: linkId } });
     if (!link) throw new NotFoundException('Referral link not found');
     if (link.scope !== 'site') throw new BadRequestException('This link is not a site referral link');
     await this.referralLinksRepository.delete(linkId);
     return { message: 'Deleted' };
   }
-  
-
 }

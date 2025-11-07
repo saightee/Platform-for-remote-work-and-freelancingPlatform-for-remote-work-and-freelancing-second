@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res, Query, Req, BadRequestException, UseInterceptors, UploadedFile, UploadedFiles } from '@nestjs/common';
+import { Controller, Post, Body, Headers, UnauthorizedException, Get, UseGuards, Request, Res, Query, Req, BadRequestException, UseInterceptors, UploadedFiles } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
@@ -12,7 +12,6 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { UsersService } from '../users/users.service';
 import { RedisService } from '../redis/redis.service';
 import { ConfigService } from '@nestjs/config';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { S3StorageService } from '../storage/s3-storage.service';
 import { pickCdnBaseByHost } from '../common/cdn.util';
@@ -163,7 +162,7 @@ export class AuthController {
     return this.authService.register(registerDto, ip, fingerprint, refCode, avatarUrl);
   }
 
-    @Get('verify-email')
+  @Get('verify-email')
     async verifyEmail(@Query('token') token: string, @Req() req: any, @Res() res: Response) {
       try {
         const { message, accessToken } = await this.authService.verifyEmail(token);
@@ -244,7 +243,6 @@ export class AuthController {
   @Get('google')
   @UseGuards(GoogleAuthGuard)
   async googleAuth() {
-    // GoogleAuthGuard перенаправляет на Google
   }
 
   @Get('google/callback')

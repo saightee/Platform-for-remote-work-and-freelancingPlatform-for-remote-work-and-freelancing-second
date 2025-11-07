@@ -54,15 +54,11 @@ async function bootstrap() {
     next();
   });
 
-  // ---------- PRERENDER.IO: только для лендинга /job/* и только для ботов ----------
   if (configService.get('ENABLE_PRERENDER') === '1') {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const prerender = require('prerender-node');
 
-    // базовые настройки
     prerender
       .set('protocol', 'https')
-      // чтобы кэш не дублировался из-за меток
       .set('ignoredQueryParameters', [
         'ref',
         'utm_source',
@@ -75,16 +71,13 @@ async function bootstrap() {
         'demo',
       ]);
 
-    // токен и (опц.) URL сервиса берём из ENV
     const token = configService.get('PRERENDER_TOKEN');
-    const serviceUrl = configService.get('PRERENDER_SERVICE_URL'); // опционально
+    const serviceUrl = configService.get('PRERENDER_SERVICE_URL');
     if (token) prerender.set('prerenderToken', token);
     if (serviceUrl) prerender.set('prerenderServiceUrl', serviceUrl);
 
-    // пререндерим ТОЛЬКО /job/*
     prerender.whitelisted(['^/$', '^/job/.*']);
 
-    // и НИКОГДА не трогаем API/сокеты/статику
     prerender.blacklisted([
       '^/api/.*',
       '^/socket\\.io/.*',
@@ -93,17 +86,14 @@ async function bootstrap() {
       '^/Uploads/.*',
     ]);
 
-    // чтобы прокси/кэши не склеивали ответы по разным UA
     app.use((req, res, next) => {
       res.setHeader('Vary', 'User-Agent');
       next();
     });
 
-    // регистрируем middleware
     app.use(prerender);
     console.log('[prerender.io] enabled for /job/*');
   }
-  // ---------- /PRERENDER.IO ----------
 
   app.setGlobalPrefix('api', {
     exclude: [

@@ -44,7 +44,6 @@ export class CategoriesService {
     let countsMap: Map<string, number> | undefined;
 
     if (includeCounts) {
-      // считаем КАЖДОЕ присвоение вакансии категории
       const raw = await this.jobPostsRepository.query(
         `
         SELECT jpc.category_id, COUNT(*) AS cnt

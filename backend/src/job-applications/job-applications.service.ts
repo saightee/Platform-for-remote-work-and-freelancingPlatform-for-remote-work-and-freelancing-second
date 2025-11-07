@@ -8,7 +8,6 @@ import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { ApplicationLimitsService } from '../application-limits/application-limits.service';
 import { Server } from 'socket.io';
 import { Inject } from '@nestjs/common';
-import { ChatGateway } from '../chat/chat.gateway';
 import { EmailService } from '../email/email.service';
 import { ReferralLink } from '../referrals/entities/referral-link.entity';
 import { ChatService } from '../chat/chat.service';

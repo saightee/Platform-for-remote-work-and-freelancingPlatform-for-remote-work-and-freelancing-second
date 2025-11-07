@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { ApplicationLimit } from './application-limit.entity';
 import { Between } from 'typeorm';
 import { JobApplication } from '../job-applications/job-application.entity';
-import { JobPost } from '../job-posts/job-post.entity';
 import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
@@ -12,7 +11,6 @@ import { SettingsService } from '../settings/settings.service';
     constructor(
       @InjectRepository(ApplicationLimit) private applicationLimitsRepository: Repository<ApplicationLimit>,
       @InjectRepository(JobApplication) private jobApplicationsRepository: Repository<JobApplication>,
-      @InjectRepository(JobPost) private jobPostsRepository: Repository<JobPost>,
       private settingsService: SettingsService,
     ) {}
 

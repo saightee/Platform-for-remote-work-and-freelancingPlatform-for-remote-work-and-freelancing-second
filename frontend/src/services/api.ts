@@ -1932,6 +1932,19 @@ export const getTechFeedback = async (params: {
   return data; // { total, data: TechFeedbackAdminItem[] }
 };
 
+export const getTechFeedbackModerator = async (params: {
+  page?: number;
+  limit?: number;
+  role?: 'employer' | 'jobseeker' | 'admin' | 'moderator';
+  category?: 'Bug' | 'UI' | 'Performance' | 'Data' | 'Other';
+  user?: string;
+  q?: string;
+} = {}) => {
+  const { data } = await api.get<PaginatedResponse<TechFeedbackAdminItem>>('/moderator/feedback', {
+    params,
+  });
+  return data;
+};
 
 // ---- Complaints (admin/moderator) paginated ----
 export type AdminComplaint = {
@@ -2055,3 +2068,5 @@ export const setAdminRegistrationAvatarRequired = async (required: boolean) => {
   const { data } = await api.post('/admin/settings/registration-avatar', { required });
   return data as { required: boolean };
 };
+
+

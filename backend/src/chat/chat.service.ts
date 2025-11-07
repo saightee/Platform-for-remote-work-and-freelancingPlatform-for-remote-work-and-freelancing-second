@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Message } from './entities/message.entity';
 import { JobApplication } from '../job-applications/job-application.entity';
-import { User } from '../users/entities/user.entity';
 import { JobPost } from '../job-posts/job-post.entity';
 import { ChatNotificationsService } from './chat-notifications.service';
 
@@ -15,8 +14,6 @@ export class ChatService {
     private messagesRepository: Repository<Message>,
     @InjectRepository(JobApplication)
     private jobApplicationsRepository: Repository<JobApplication>,
-    @InjectRepository(User)
-    private usersRepository: Repository<User>,
     private readonly chatNotifications: ChatNotificationsService,
   ) {}
 

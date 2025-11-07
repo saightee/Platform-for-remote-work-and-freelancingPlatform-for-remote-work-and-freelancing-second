@@ -1,15 +1,17 @@
-import { Controller, Get, Post, Put, Delete, Patch, Param, Query, Body, Headers, UnauthorizedException, UseGuards, BadRequestException, Res } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Patch, Param, Query, Body, Headers, UnauthorizedException, UseGuards, BadRequestException, Res, Req } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminGuard } from '../auth/guards/admin.guard';
+import { ModeratorGuard } from '../auth/guards/moderator.guard';
 import { SettingsService } from '../settings/settings.service';
 import { Response } from 'express';
 import { AntiFraudService } from '../anti-fraud/anti-fraud.service';
 import { ComplaintsService } from '../complaints/complaints.service';
 import { ChatService } from '../chat/chat.service';
+import { FeedbackService } from '../feedback/feedback.service';
 
-@Controller('admin')
+@Controller(['admin', 'moderator'])
 export class AdminController {
   constructor(
     private adminService: AdminService,
@@ -18,10 +20,11 @@ export class AdminController {
     private antiFraudService: AntiFraudService, 
     private complaintsService: ComplaintsService,
     private chatService: ChatService,
+    private readonly feedbackService: FeedbackService,
   ) {}
 
   @Get('users/export-csv')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async exportUsersToCsv(
     @Headers('authorization') authHeader: string,
     @Res() res: Response,
@@ -84,7 +87,7 @@ export class AdminController {
   }
 
   @Get('users')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async getUsers(
     @Query('username') username: string,
     @Query('email') email: string,
@@ -141,7 +144,7 @@ export class AdminController {
   }
 
   @Get('users/:id')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async getUserById(
     @Param('id') userId: string,
     @Headers('authorization') authHeader: string,
@@ -190,7 +193,7 @@ export class AdminController {
   }
 
   @Post('users/:id/reset-password')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async resetPassword(
     @Param('id') userId: string,
     @Body('newPassword') newPassword: string,
@@ -207,7 +210,7 @@ export class AdminController {
   }
 
   @Get('users/:id/risk-score')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async getUserRiskScore(
     @Param('id') userId: string,
     @Headers('authorization') authHeader: string,
@@ -218,12 +221,11 @@ export class AdminController {
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const adminId = payload.sub;
-    await this.adminService.checkAdminRole(adminId);
     return this.antiFraudService.getRiskScore(userId);
   }
 
   @Get('job-posts')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async getJobPosts(
     @Query('status') status: 'Active' | 'Draft' | 'Closed',
     @Query('pendingReview') pendingReview: string,
@@ -232,7 +234,7 @@ export class AdminController {
     @Query('employer_id') employer_id: string,
     @Query('employer_username') employer_username: string,
     @Query('category_id') category_id: string, 
-    @Query('category_ids') category_ids_raw: string | string[],   // NEW
+    @Query('category_ids') category_ids_raw: string | string[],
     @Query('limit') limit: string, 
     @Query('id') id: string,
     @Query('salary_type') salary_type: 'per hour' | 'per month' | 'negotiable',
@@ -258,8 +260,8 @@ export class AdminController {
       title?: string;
       employer_id?: string;
       employer_username?: string;
-      category_id?: string;        // legacy
-      category_ids?: string[];     // NEW
+      category_id?: string;
+      category_ids?: string[];
       page?: number;
       limit?: number;
       id?: string; 
@@ -305,8 +307,8 @@ export class AdminController {
       status?: 'Active' | 'Draft' | 'Closed';
       salary_type?: 'per hour' | 'per month' | 'negotiable';  
       excluded_locations?: string[];  
-      category_id?: string;        // legacy (оставляем)
-      category_ids?: string[];     // NEW
+      category_id?: string;
+      category_ids?: string[];
     },
     @Headers('authorization') authHeader: string,
   ) {
@@ -337,7 +339,7 @@ export class AdminController {
   }
 
   @Post('job-posts/:id/approve')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async approveJobPost(
     @Param('id') jobPostId: string,
     @Headers('authorization') authHeader: string,
@@ -353,7 +355,7 @@ export class AdminController {
   }
 
   @Post('job-posts/:id/reject')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async rejectJobPost(
     @Param('id') jobPostId: string,
     @Body('reason') reason: string,
@@ -374,7 +376,7 @@ export class AdminController {
   }
 
   @Post('job-posts/:id/flag')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async flagJobPost(
     @Param('id') jobPostId: string,
     @Headers('authorization') authHeader: string,
@@ -390,7 +392,7 @@ export class AdminController {
   }
 
   @Get('reviews')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async getReviews(
     @Headers('authorization') authHeader: string,
     @Query('page') page: string = '1',
@@ -410,7 +412,7 @@ export class AdminController {
   }
 
   @Patch('reviews/:id/approve')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async approveReview(
     @Param('id') reviewId: string,
     @Headers('authorization') authHeader: string,
@@ -422,7 +424,7 @@ export class AdminController {
   }
 
   @Patch('reviews/:id/reject')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async rejectReview(
     @Param('id') reviewId: string,
     @Headers('authorization') authHeader: string,
@@ -434,7 +436,7 @@ export class AdminController {
   }
 
   @Delete('reviews/:id')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async deleteReview(
     @Param('id') reviewId: string,
     @Headers('authorization') authHeader: string,
@@ -446,7 +448,7 @@ export class AdminController {
   }
 
   @Get('analytics')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async getAnalytics(
     @Headers('authorization') authHeader: string,
   ) {
@@ -554,7 +556,7 @@ export class AdminController {
   }
 
   @Get('analytics/registrations')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async getRegistrationStats(
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
@@ -579,7 +581,7 @@ export class AdminController {
   }
 
   @Get('analytics/geographic-distribution')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async getGeographicDistribution(
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
@@ -616,7 +618,7 @@ export class AdminController {
   }
 
   @Post('users/:id/block')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async blockUser(
     @Param('id') userId: string,
     @Headers('authorization') authHeader: string,
@@ -632,7 +634,7 @@ export class AdminController {
   }
 
   @Post('users/:id/unblock')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async unblockUser(
     @Param('id') userId: string,
     @Headers('authorization') authHeader: string,
@@ -648,7 +650,7 @@ export class AdminController {
   }
 
   @Get('leaderboards/top-jobseekers-by-views')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async getTopJobseekersByViews(
     @Query('limit') limit: string,
     @Headers('authorization') authHeader: string,
@@ -668,7 +670,7 @@ export class AdminController {
     return this.adminService.getTopJobseekersByViews(adminId, parsedLimit);
   }
 
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   @Get('analytics/growth-trends')
   async getGrowthTrends(
     @Query('period') period: '7d' | '30d' = '7d',
@@ -683,7 +685,7 @@ export class AdminController {
     return this.adminService.getGrowthTrends(adminId, period);
   }
 
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   @Get('analytics/recent-registrations')
   async getRecentRegistrations(
     @Query('date') date: string | undefined,
@@ -703,7 +705,7 @@ export class AdminController {
   }
 
   @Get('analytics/brands')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async getBrandAnalytics(
     @Query('startDate') startDate: string | undefined,
     @Query('endDate') endDate: string | undefined,
@@ -735,7 +737,7 @@ export class AdminController {
     return this.adminService.getBrandBreakdown(adminId, start, end);
   }
 
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   @Get('job-posts/applications')
   async getJobPostsWithApplications(
     @Headers('authorization') authHeader: string,
@@ -751,7 +753,7 @@ export class AdminController {
     return this.adminService.getJobPostsWithApplications(adminId, status, limit || 5);
   }
 
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   @Get('analytics/online-users')
   async getOnlineUsers(@Headers('authorization') authHeader: string) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -952,7 +954,7 @@ export class AdminController {
   }
 
   @Get('platform-feedback')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async getPlatformFeedback(
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
@@ -976,7 +978,7 @@ export class AdminController {
   }
   
   @Patch('platform-feedback/:id/publish')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async publishPlatformFeedback(@Param('id') id: string, @Headers('authorization') a: string) {
     if (!a?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
     const token = a.replace('Bearer ', '');
@@ -985,7 +987,7 @@ export class AdminController {
   }
 
   @Patch('platform-feedback/:id/unpublish')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async unpublishPlatformFeedback(@Param('id') id: string, @Headers('authorization') a: string) {
     if (!a?.startsWith('Bearer ')) throw new UnauthorizedException('Invalid token');
     const token = a.replace('Bearer ', '');
@@ -994,7 +996,7 @@ export class AdminController {
   }
 
   @Delete('platform-feedback/:id')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async deletePlatformFeedback(
     @Param('id') feedbackId: string,
     @Headers('authorization') authHeader: string,
@@ -1108,7 +1110,7 @@ export class AdminController {
   }
 
   @Post('job-posts/:id/referral-links')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async createReferralLink(
     @Param('id') jobPostId: string,
     @Body('description') description: string,
@@ -1124,7 +1126,7 @@ export class AdminController {
   }
 
   @Get('job-posts/:id/referral-links')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async listReferralLinksByJobPost(
     @Param('id') jobPostId: string,
     @Headers('authorization') authHeader: string,
@@ -1139,7 +1141,7 @@ export class AdminController {
   }
 
   @Put('referral-links/:linkId')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async updateReferralLinkDescription(
     @Param('linkId') linkId: string,
     @Body('description') description: string,
@@ -1155,7 +1157,7 @@ export class AdminController {
   }
 
   @Delete('referral-links/:linkId')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async deleteReferralLink(
     @Param('linkId') linkId: string,
     @Headers('authorization') authHeader: string,
@@ -1170,7 +1172,7 @@ export class AdminController {
   }
 
   @Get('referral-links')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async getReferralLinks(
       @Query('jobId') jobId: string,
       @Query('title') jobTitle: string,
@@ -1218,7 +1220,7 @@ export class AdminController {
           enabled: Boolean(body?.onEmployerMessage?.delayedIfUnread?.enabled),
           minutes: intPos(body?.onEmployerMessage?.delayedIfUnread?.minutes, 60),
         },
-        after24hIfUnread: {                                          // NEW
+        after24hIfUnread: {
           enabled: Boolean(body?.onEmployerMessage?.after24hIfUnread?.enabled),
           hours: intPos(body?.onEmployerMessage?.after24hIfUnread?.hours, 24),
         },
@@ -1259,7 +1261,7 @@ export class AdminController {
   }
 
   @Post('site-referral-links')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async createSiteReferralLink(
     @Body() body: { description?: string; landingPath?: string | null },
     @Headers('authorization') authHeader: string,
@@ -1274,7 +1276,7 @@ export class AdminController {
   }
   
   @Get('site-referral-links')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async listSiteReferralLinks(
     @Headers('authorization') authHeader: string,
     @Query('createdByAdminId') createdByAdminId?: string,
@@ -1287,7 +1289,7 @@ export class AdminController {
   }
   
   @Put('site-referral-links/:id')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async updateSiteReferralLinkDescription(
     @Param('id') id: string,
     @Body('description') description: string,
@@ -1300,7 +1302,7 @@ export class AdminController {
   }
   
   @Delete('site-referral-links/:id')
-  @UseGuards(AuthGuard('jwt'), AdminGuard)
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   async deleteSiteReferralLink(
     @Param('id') id: string,
     @Headers('authorization') authHeader: string,
@@ -1309,5 +1311,24 @@ export class AdminController {
     const token = authHeader.replace('Bearer ', '');
     const { sub: adminId } = this.jwtService.verify(token);
     return this.adminService.deleteSiteReferralLink(adminId, id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('feedback')
+  @UseGuards(ModeratorGuard)
+  async listFeedbackForStaff(
+    @Req() req: any,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+  ) {
+    const adminId = req.user?.userId;
+    if (!adminId) throw new UnauthorizedException('Invalid token');
+
+    const p = parseInt(page, 10);
+    const l = parseInt(limit, 10);
+    if (!Number.isFinite(p) || p < 1) throw new BadRequestException('Page must be a positive integer');
+    if (!Number.isFinite(l) || l < 1) throw new BadRequestException('Limit must be a positive integer');
+
+    return this.feedbackService.getFeedback(adminId, p, l);
   }
 }
