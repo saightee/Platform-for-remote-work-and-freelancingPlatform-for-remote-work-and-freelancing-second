@@ -72,14 +72,14 @@ export class TalentsService {
     if (filters.country) {
       qb.andWhere('user.country = :c1', { c1: filters.country.toUpperCase() });
     } else if (filters.countries?.length) {
-      qb.andWhere('user.country = ANY(:cList)', { cList: filters.countries.map(c => c.toUpperCase()) });
+      qb.andWhere('user.country IN (:...cList)', { cList: filters.countries.map(c => c.toUpperCase()) });
     }
 
     if (filters.languages?.length) {
       if (filters.languages_mode === 'all') {
-        qb.andWhere('jobSeeker.languages @> :langs', { langs: filters.languages });
+        qb.andWhere(`jobSeeker.languages @> ARRAY[:...langs]`, { langs: filters.languages });
       } else {
-        qb.andWhere('(jobSeeker.languages && :langs)', { langs: filters.languages });
+        qb.andWhere(`jobSeeker.languages && ARRAY[:...langs]`, { langs: filters.languages });
       }
     }
 
