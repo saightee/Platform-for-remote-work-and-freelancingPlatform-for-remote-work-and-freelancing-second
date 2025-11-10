@@ -731,3 +731,14 @@ select.ftl-input {
     padding: 8px 20px;
   }
 }
+
+@media (max-width: 480px) {
+  .ftl-pagination { gap: 6px; }
+  .ftl-page {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    font-size: 14px;
+    border-radius: 8px;
+  }
+}
