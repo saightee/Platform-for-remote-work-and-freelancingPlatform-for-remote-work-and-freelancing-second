@@ -268,6 +268,16 @@ function extractSkillNames(t: any): string[] {
     loadCats();
   }, []);
 
+  // рядом с остальными useState сверху компонента
+const [isMobile, setIsMobile] = useState(false);
+useEffect(() => {
+  const onResize = () => setIsMobile(window.innerWidth <= 480);
+  onResize();
+  window.addEventListener('resize', onResize);
+  return () => window.removeEventListener('resize', onResize);
+}, []);
+
+
   // Подгрузка талантов / соискателей
   const reqSeq = useRef(0);
   const firstRunRef = useRef(true);
@@ -541,28 +551,38 @@ const handlePageChange = (newPage: number) => {
 
   const totalPages = Math.ceil(total / filters.limit) || 1;
 
-  const getVisiblePages = () => {
-    const maxVisible = 5;
-    const pages: (number | string)[] = [];
-    const currentPage = filters.page;
+// ЗАМЕНИ свою getVisiblePages на эту
+const getVisiblePages = () => {
+  if (isMobile) {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    return [1, 2, 3, '…', totalPages]; // компактно на мобилке
+  }
 
-    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-    let end = Math.min(totalPages, start + maxVisible - 1);
+  // твоя текущая десктопная логика
+  const maxVisible = 5;
+  const pages: (number | string)[] = [];
+  const currentPage = filters.page;
 
-    if (end - start < maxVisible - 1) {
-      start = Math.max(1, end - maxVisible + 1);
-    }
-    if (start > 1) {
-      pages.push(1);
-      if (start > 2) pages.push('…');
-    }
-    for (let i = start; i <= end; i++) pages.push(i);
-    if (end < totalPages) {
-      if (end < totalPages - 1) pages.push('…');
-      pages.push(totalPages);
-    }
-    return pages;
-  };
+  let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+  let end = Math.min(totalPages, start + maxVisible - 1);
+
+  if (end - start < maxVisible - 1) {
+    start = Math.max(1, end - maxVisible + 1);
+  }
+  if (start > 1) {
+    pages.push(1);
+    if (start > 2) pages.push('…');
+  }
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (end < totalPages) {
+    if (end < totalPages - 1) pages.push('…');
+    pages.push(totalPages);
+  }
+  return pages;
+};
+
 
   return (
     <div>
