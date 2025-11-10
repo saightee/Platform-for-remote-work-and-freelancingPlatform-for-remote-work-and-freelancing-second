@@ -551,16 +551,33 @@ const handlePageChange = (newPage: number) => {
 
   const totalPages = Math.ceil(total / filters.limit) || 1;
 
-// ЗАМЕНИ свою getVisiblePages на эту
 const getVisiblePages = () => {
+  // Мобилка: максимум 6 элементов (без учёта кнопки Next)
   if (isMobile) {
     if (totalPages <= 5) {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     }
-    return [1, 2, 3, '…', totalPages]; // компактно на мобилке
+
+    const p = filters.page;
+    const N = totalPages;
+
+    // начало (1..3)
+    if (p <= 3) {
+      // 1 2 3 … N
+      return [1, 2, 3, '…', N];
+    }
+
+    // конец (N-2..N)
+    if (p >= N - 2) {
+      // 1 … N-2 N-1 N
+      return [1, '…', N - 2, N - 1, N];
+    }
+
+    // середина: 1 … P P+1 … N
+    return [1, '…', p, p + 1, '…', N];
   }
 
-  // твоя текущая десктопная логика
+  // Десктоп — твоя прежняя логика
   const maxVisible = 5;
   const pages: (number | string)[] = [];
   const currentPage = filters.page;
@@ -582,6 +599,7 @@ const getVisiblePages = () => {
   }
   return pages;
 };
+
 
 
   return (
