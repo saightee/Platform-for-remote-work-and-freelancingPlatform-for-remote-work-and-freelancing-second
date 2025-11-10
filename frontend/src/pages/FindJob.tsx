@@ -12,6 +12,7 @@ import Loader from '../components/Loader';
 import '../styles/find-job.css';
 import { Helmet } from 'react-helmet-async';
 import { brand, brandEvent } from '../brand';
+import Pagination from '../components/Pagination.tsx';
 
 const FindJob: React.FC = () => {
   const { profile } = useRole();
@@ -30,6 +31,13 @@ const FindJob: React.FC = () => {
   const [skillInput, setSkillInput] = useState('');
   const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+useEffect(() => {
+  const onResize = () => setIsMobile(window.innerWidth <= 480);
+  onResize();
+  window.addEventListener('resize', onResize);
+  return () => window.removeEventListener('resize', onResize);
+}, []);
 
   const initialCategoryId = searchParams.get('category_id') || '';
 
@@ -506,26 +514,16 @@ const handleSearch = (e: React.FormEvent, fromFilters = false) => {
                 )}
               </div>
 
-              {/* Pagination */}
-              <div className="fj-pagination">
-                {getVisiblePages().map((page, index) => (
-                  <button
-                    key={index}
-                    className={`fj-page ${page === searchState.page ? 'is-current' : ''} ${page === '…' ? 'is-ellipsis' : ''}`}
-                    onClick={() => typeof page === 'number' && handlePageChange(page)}
-                    disabled={page === '…' || page === searchState.page}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button
-                  className="fj-page fj-next"
-                  onClick={() => handlePageChange(searchState.page + 1)}
-                  disabled={searchState.page === totalPages}
-                >
-                  Next
-                </button>
-              </div>
+{/* Pagination */}
+{jobs.length > 0 && (
+  <Pagination
+    currentPage={searchState.page}
+    totalPages={totalPages}
+    totalItems={jobs.length * totalPages} // или можно передать total из response если есть
+    onPageChange={handlePageChange}
+    isMobile={false} // или добавь состояние isMobile если нужно
+  />
+)}
             </main>
           </div>
         </div>
