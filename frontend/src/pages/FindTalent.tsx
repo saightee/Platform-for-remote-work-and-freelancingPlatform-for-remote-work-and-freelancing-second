@@ -16,6 +16,7 @@ import { useRole } from '../context/RoleContext';
 import { toast } from '../utils/toast';
 import CountrySelect from '../components/inputs/CountrySelect';
 import '../styles/country-langs.css';
+import Pagination from '../components/Pagination.tsx';
 
 function useDebouncedValue<T>(value: T, delay = 400) {
   const [debounced, setDebounced] = useState(value);
@@ -552,52 +553,78 @@ const handlePageChange = (newPage: number) => {
   const totalPages = Math.ceil(total / filters.limit) || 1;
 
 const getVisiblePages = () => {
-  // Мобилка: максимум 6 элементов (без учёта кнопки Next)
+  const currentPage = filters.page;
+  const totalPages = Math.ceil(total / filters.limit) || 1;
+
+  if (totalPages <= 1) {
+    return [1];
+  }
+
   if (isMobile) {
+    // === MOBILE LOGIC ===
+    const pages: (number | string)[] = [];
+
+    // [1, 2, 3, ..., N] — если всего ≤ 5
     if (totalPages <= 5) {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     }
 
-    const p = filters.page;
-    const N = totalPages;
-
-    // начало (1..3)
-    if (p <= 3) {
-      // 1 2 3 … N
-      return [1, 2, 3, '…', N];
+    if (currentPage === 1) {
+      return [1, 2, 3, '…', totalPages];
+    } else if (currentPage === 2) {
+      return [1, 2, 3, '…', totalPages];
+    } else if (currentPage === 3) {
+      return ['…', 3, '…', totalPages];
+    } else if (currentPage >= 4 && currentPage < totalPages) {
+      return ['…', currentPage, '…', totalPages];
+    } else if (currentPage === totalPages) {
+      // Последняя страница → показываем последние 3 + "…" + предыдущая кнопка
+      if (totalPages >= 4) {
+        return ['…', totalPages - 2, totalPages - 1, totalPages];
+      } else {
+        return Array.from({ length: totalPages }, (_, i) => i + 1);
+      }
     }
 
-    // конец (N-2..N)
-    if (p >= N - 2) {
-      // 1 … N-2 N-1 N
-      return [1, '…', N - 2, N - 1, N];
+    return [1];
+  } else {
+    // === DESKTOP LOGIC ===
+    const pages: (number | string)[] = [];
+
+    // [1..7, ..., N] — для началa
+    if (currentPage <= 7) {
+      for (let i = 1; i <= Math.min(7, totalPages); i++) {
+        pages.push(i);
+      }
+      if (totalPages > 7) {
+        pages.push('…');
+        pages.push(totalPages);
+      }
+      return pages;
     }
 
-    // середина: 1 … P P+1 … N
-    return [1, '…', p, p + 1, '…', N];
-  }
+    // Последние 7 страниц → [1, ..., N-6, ..., N]
+    if (currentPage > totalPages - 7) {
+      pages.push(1);
+      pages.push('…');
+      for (let i = Math.max(2, totalPages - 6); i <= totalPages; i++) {
+        pages.push(i);
+      }
+      return pages;
+    }
 
-  // Десктоп — твоя прежняя логика
-  const maxVisible = 5;
-  const pages: (number | string)[] = [];
-  const currentPage = filters.page;
-
-  let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-  let end = Math.min(totalPages, start + maxVisible - 1);
-
-  if (end - start < maxVisible - 1) {
-    start = Math.max(1, end - maxVisible + 1);
-  }
-  if (start > 1) {
+    // Середина → [1, ..., currentPage-2, ..., currentPage, ..., currentPage+2, ..., N]
     pages.push(1);
-    if (start > 2) pages.push('…');
-  }
-  for (let i = start; i <= end; i++) pages.push(i);
-  if (end < totalPages) {
-    if (end < totalPages - 1) pages.push('…');
+    pages.push('…');
+    for (let i = currentPage - 2; i <= currentPage + 2; i++) {
+      if (i > 1 && i < totalPages) {
+        pages.push(i);
+      }
+    }
+    pages.push('…');
     pages.push(totalPages);
+    return pages;
   }
-  return pages;
 };
 
 
@@ -1075,34 +1102,25 @@ const getVisiblePages = () => {
                     )}
                   </div>
 
-                  {/* Pagination */}
-                  {total > 0 && (
-                    <div className="ftl-pagination" role="navigation" aria-label="Pagination">
-                      {getVisiblePages().map((page, index) => (
-                        <button
-                          key={index}
-                          className={`ftl-page ${page === filters.page ? 'is-current' : ''} ${page === '…' ? 'is-ellipsis' : ''}`}
-                          onClick={() => typeof page === 'number' && handlePageChange(page)}
-                          disabled={page === '…' || page === filters.page}
-                        >
-                          {page}
-                        </button>
-                      ))}
-                      <button
-                        className="ftl-page ftl-next"
-                        onClick={() => handlePageChange(filters.page + 1)}
-                        disabled={filters.page === totalPages}
-                      >
-                        Next
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </section>
-          </div>
-        </div>
-      </div>
+
+{total > 0 && (
+  <Pagination
+    currentPage={filters.page}
+    totalPages={totalPages}
+    totalItems={total}
+    onPageChange={handlePageChange}
+    isMobile={isMobile}
+  />
+)}
+          </>
+        )}
+      </section>
+    </div>
+  </div>
+</div>
+
+
+      
 {inviteOpen && (
   <div className="invmd-backdrop" onClick={closeInvite}>
     <div className="invmd-card mjp-modal-content" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="invmd-title">
