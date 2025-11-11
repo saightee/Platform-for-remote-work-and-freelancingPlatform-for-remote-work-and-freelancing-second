@@ -109,6 +109,7 @@ const [languages, setLanguages] = useState<string[]>([]);
   const [whatsapp, setWhatsapp]     = useState('');   
   const [telegram, setTelegram]     = useState('');   
   const [about, setAbout]           = useState('');
+  const [dob, setDob] = useState('');  
   // skills (jobseeker)
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<Category[]>([]);
@@ -190,6 +191,7 @@ const [languages, setLanguages] = useState<string[]>([]);
       setWhatsapp(d.whatsapp ?? '');
       setTelegram(d.telegram ?? '');
       setAbout(d.about ?? '');
+      setDob(d.dob || '');
       setSelectedSkills(Array.isArray(d.selectedSkills) ? d.selectedSkills : []);
     }
 
@@ -217,6 +219,7 @@ useEffect(() => {
     draft.whatsapp     = whatsapp;
     draft.telegram     = telegram;
     draft.about        = about;
+    draft.dob = dob;
     draft.selectedSkills = selectedSkills; // храним как есть (id+name)
   }
 
@@ -229,7 +232,7 @@ useEffect(() => {
   username, email, confirmEmail,
   experience, country, languages, resumeLink,
   linkedin, instagram, facebook, whatsapp, telegram,
-  about, selectedSkills
+  about, dob, selectedSkills
 ]);
 
 useEffect(() => {
@@ -301,6 +304,23 @@ const handleSubmit = async (e: React.FormEvent) => {
   if (password !== confirm) { setErr('Passwords do not match.'); return; }
   if (!isStrongPassword(password)) { setErr('Password does not meet security requirements.'); return; }
   if (role === 'jobseeker' && !experience) { setErr('Please select your experience.'); return; }
+    if (role === 'jobseeker') {
+      const v = dob.trim();
+      if (!v) {
+        setErr('Date of birth is required for jobseekers.');
+        return;
+      }
+      const re = /^\d{4}-\d{2}-\d{2}$/;
+      if (!re.test(v)) {
+        setErr('Date of birth must be in format YYYY-MM-DD.');
+        return;
+      }
+      const dt = new Date(v);
+      if (Number.isNaN(dt.getTime()) || dt > new Date()) {
+        setErr('Please enter a valid date of birth.');
+        return;
+      }
+    }
 
   // аватар обязателен, если флаг true
   if (role === 'jobseeker' && avatarRequired && !avatarFile) {
@@ -348,6 +368,7 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
         if (experience)            fd.append('experience', experience);
         if (selectedSkills.length) selectedSkills.forEach(s => fd.append('skills[]', String(s.id)));
         if (resumeLink.trim())     fd.append('resume', resumeLink.trim());
+        if (dob.trim())            fd.append('date_of_birth', dob.trim());
         if (linkedin.trim())       fd.append('linkedin', linkedin.trim());
         if (instagram.trim())      fd.append('instagram', instagram.trim());
         if (facebook.trim())       fd.append('facebook', facebook.trim());
@@ -376,6 +397,7 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
           ...(whatsapp.trim() ? { whatsapp: whatsapp.trim() } : {}),
           ...(telegram.trim() ? { telegram: telegram.trim() } : {}),
           ...(about.trim() ? { about: about.trim() } : {}),
+          ...(dob.trim() ? { date_of_birth: dob.trim() } : {}),
           ...(country.trim() ? { country: country.trim().toUpperCase() } : {}),
           ...(languages.length ? { languages } : {}),
         } : {})
@@ -597,9 +619,31 @@ if (role === 'jobseeker' && refCode && afterReturn) {
   <CountrySelect value={country} onChange={(code) => setCountry(code || '')} />
 </div>
 
-<div className="reg2-span2">
-  <LanguagesInput value={languages} onChange={setLanguages} />
+<div
+  className="reg2-span2"
+  style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}
+>
+  <div>
+    <LanguagesInput value={languages} onChange={setLanguages} />
+  </div>
+
+  <div>
+    <label className="reg2-label">
+      Date of birth <span className="reg2-req">*</span>
+    </label>
+    <input
+      className="reg2-input"
+      type="date"
+      value={dob}
+      onChange={e => setDob(e.target.value)}
+      placeholder="YYYY-MM-DD"
+      max={new Date().toISOString().slice(0, 10)}
+      required={isJobseeker}
+    />
+    <div className="reg2-note reg_dob">Format: YYYY-MM-DD</div>
+  </div>
 </div>
+
 
 {/* NEW: Avatar (required? depends on flag) */}
 <div className="reg2-field reg2-span2">

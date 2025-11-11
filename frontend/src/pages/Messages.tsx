@@ -18,7 +18,8 @@ import {
 } from '../services/api';
 import { JobApplication, JobPost, JobApplicationDetails } from '@types';
 import { format } from 'date-fns';
-import { FaComments, FaPaperPlane, FaUsers } from 'react-icons/fa';
+import { FaComments, FaPaperPlane, FaUsers, FaUserCircle } from 'react-icons/fa';
+import { brandOrigin } from '../brand';
 import '../styles/chat-hub.css';
 import { toast } from '../utils/toast';
 
@@ -60,6 +61,16 @@ interface RoleContextType {
   setLastInCache: (id: string, text: string, ts: number) => void;
 }
 
+// interface RoleContextType {
+//   profile: { id: string; username?: string } | null;
+//   currentRole: 'jobseeker' | 'employer' | null;
+//   socket: any;
+//   socketStatus: string;
+//   setSocketStatus: (status: string) => void;
+//   getLastFromCache: (id: string) => { text: string; ts: number } | undefined;
+//   setLastInCache: (id: string, text: string, ts: number) => void;
+// }
+
 // ==== country helpers (module-level) ====
 const pickCountryCode = (v: unknown): string | null => {
   const s = String(v ?? '').trim();
@@ -94,6 +105,29 @@ const regionName = (() => {
   }
 })();
 
+const makeAbs = (url: string) =>
+  url?.startsWith('http') ? url : `${brandOrigin()}/backend${url}`;
+
+
+const calcAge = (dob?: string | null): number | null => {
+  if (!dob) return null;
+  const m = dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]) - 1;
+  const day = Number(m[3]);
+  const birth = new Date(year, month, day);
+  if (Number.isNaN(birth.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const mdiff = today.getMonth() - birth.getMonth();
+  if (mdiff < 0 || (mdiff === 0 && today.getDate() < birth.getDate())) age--;
+
+  if (age < 0 || age > 150) return null;
+  return age;
+};
+
 
 
 const Messages: React.FC = () => {
@@ -124,6 +158,55 @@ const roleForChatApi: 'jobseeker' | 'employer' | 'admin' | 'moderator' = (() => 
 })();
 
 
+// const {
+//     profile: ctxProfile,
+//     currentRole: ctxRole,
+//     socket,
+//     socketStatus,
+//     setSocketStatus,
+//     getLastFromCache,
+//     setLastInCache,
+//   } = useRole() as RoleContextType;
+
+  
+//   const isDevMessages =
+//     typeof window !== 'undefined' &&
+//     window.location?.pathname?.startsWith?.('/dev-messages');
+
+  
+//   const [devRole] = useState<'jobseeker' | 'employer'>(() => {
+//     if (!isDevMessages) return 'jobseeker';
+//     try {
+//       const search = new URLSearchParams(window.location.search);
+//       const r = search.get('role');
+//       return r === 'employer' ? 'employer' : 'jobseeker';
+//     } catch {
+//       return 'jobseeker';
+//     }
+//   });
+
+  
+//   const profile = isDevMessages
+//     ? {
+//         id: devRole === 'employer' ? 'emp-dev' : 'js-dev',
+//         username: devRole === 'employer' ? 'Dev Employer' : 'Dev Jobseeker',
+//       }
+//     : ctxProfile;
+
+//   const currentRole = isDevMessages ? devRole : ctxRole;
+
+//   const roleForChatApi: 'jobseeker' | 'employer' | 'admin' | 'moderator' = (() => {
+//     const pr = (profile as any)?.role as string | undefined;
+//     if (pr === 'admin' || pr === 'moderator') return pr;
+//     if (currentRole === 'jobseeker' || currentRole === 'employer') return currentRole;
+//     return 'jobseeker';
+//   })();
+
+
+
+
+
+
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [jobPostApplications, setJobPostApplications] = useState<{
@@ -139,6 +222,21 @@ const [selectedChat, setSelectedChat] = useState<string | null>(
  const [messages, setMessages] = useState<{
     [jobApplicationId: string]: Message[];
   }>({});
+
+
+
+
+
+
+
+  // const [devLoaded, setDevLoaded] = useState(false);
+
+
+
+
+
+
+
 // ==== BEGIN: helper & comparator ====
 const getLastActivity = useCallback((id: string, appliedAt?: string | null) => {
   const list = messages[id];
@@ -381,13 +479,13 @@ useLayoutEffect(() => {
     };
   }, []);
 
-  // загрузка данных
+ 
 useEffect(() => {
   const fetchData = async () => {
     try {
       setIsLoading(true);
       
-      // Очищаем кэш сообщений при загрузке чтобы избежать конфликтов
+     
       setMessages({});
       setUnreadCounts({});
 
@@ -396,12 +494,10 @@ useEffect(() => {
         const filtered = all.filter(a => ['Pending','Accepted'].includes(a.status as any));
         setApplications(filtered);
 
-        // подписываемся на все чаты (для превью/истории)
         joinAllMyChats(filtered.map(a => toId(a.id)));
 await preloadLast(filtered.map(a => toId(a.id)));
         
-        // авто-выбор: 1) если пришли с preselect — он, 2) иначе из localStorage,
-        // 3) иначе самая свежая заявка (last)
+       
    if (preselectApplicationId && filtered.some(a => toId(a.id) === preselectApplicationId)) {
   setSelectedChat(preselectApplicationId);
 } else {
@@ -460,17 +556,113 @@ if (first) setSelectedChat(toId(first));
   if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole)) {
     fetchData(); 
   }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  
 }, [profile, currentRole]);
 
+// useEffect(() => {
   
+//   if (isDevMessages && devLoaded) {
+//     return;
+//   }
+
+//   const fetchData = async () => {
+//     try {
+//       setIsLoading(true);
+
+//       setMessages({});
+//       setUnreadCounts({});
+
+//       if (currentRole === 'jobseeker') {
+//         const all = await getMyApplications();
+//         const filtered = all.filter(a =>
+//           ['Pending', 'Accepted'].includes(a.status as any)
+//         );
+//         setApplications(filtered);
+
+//         const ids = filtered.map(a => toId(a.id));
+//         joinAllMyChats(ids);
+//         await preloadLast(ids);
+
+//         if (
+//           preselectApplicationId &&
+//           filtered.some(a => toId(a.id) === preselectApplicationId)
+//         ) {
+//           setSelectedChat(preselectApplicationId);
+//         } else {
+//           const ls = localStorage.getItem('lastSelectedChat');
+//           if (ls && filtered.some(a => toId(a.id) === toId(ls))) {
+//             setSelectedChat(toId(ls));
+//           } else {
+//             const latestId = pickLatestJobseekerApplicationId(filtered);
+//             if (latestId) setSelectedChat(latestId);
+//           }
+//         }
+//       } else if (currentRole === 'employer') {
+//         const posts = await getMyJobPosts();
+//         const active = posts.filter(isActiveJob);
+//         setJobPosts(active);
+
+//         const arrays = await Promise.all(
+//           active.map(p => getApplicationsForJobPost(p.id))
+//         );
+//         const map: Record<string, JobApplicationDetails[]> = {};
+//         active.forEach((p, i) => {
+//           map[p.id] = arrays[i];
+//         });
+//         setJobPostApplications(map);
+
+//         const allowed = arrays
+//           .flat()
+//           .filter(a => a.status === 'Pending' || a.status === 'Accepted');
+
+//         const allIds = allowed.map(a => toId(a.applicationId));
+//         joinAllMyChats(allIds);
+//         await preloadLast(allIds);
+
+//         if (!activeJobId && active[0]) setActiveJobId(active[0].id);
+
+//         if (!selectedChat) {
+//           const sorted = [...allowed].sort(
+//             (a, b) =>
+//               getLastActivity(b.applicationId, b.appliedAt) -
+//               getLastActivity(a.applicationId, a.appliedAt)
+//           );
+//           const first =
+//             preselectApplicationId ?? toId(sorted[0]?.applicationId);
+//           if (first) setSelectedChat(toId(first));
+//         }
+//       }
+//     } catch (e) {
+//       console.error('Error fetching applications:', e);
+//       setError('Failed to load applications.');
+//     } finally {
+//       setIsLoading(false);
+//     }
+//   };
+
+//   if (profile && currentRole && ['jobseeker', 'employer'].includes(currentRole)) {
+//     fetchData().then(() => {
+//       if (isDevMessages) {
+//         setDevLoaded(true); 
+//       }
+//     });
+//   }
+
+
+// }, [ctxProfile, ctxRole, isDevMessages, devLoaded]);
+
+
+
+
+
+
+
+
 
 // при смене выбранной вакансии (только у работодателя) — открыть самый «свежий» чат
 useEffect(() => {
   if (currentRole !== 'employer') return; // <-- ключевое ограничение по роли
 
-  setMultiMode(false);
-  clearSelection();
 
   if (!activeJobId) {
     setSelectedChat(null);
@@ -505,6 +697,19 @@ useEffect(() => {
   }
 }, [currentRole, activeJobId, jobPostApplications, getLastActivity]); // <-- убрали selectedChat
 
+const prevJobIdRef = useRef<string | null>(null);
+
+useEffect(() => {
+  if (currentRole !== 'employer') return;
+
+  
+  if (activeJobId && prevJobIdRef.current !== activeJobId) {
+    setMultiMode(false);
+    clearSelection();
+  }
+
+  prevJobIdRef.current = activeJobId ?? null;
+}, [currentRole, activeJobId]);
 
 
   const scrollToBottom = useCallback((smooth: boolean = false) => {
@@ -728,6 +933,8 @@ const id = toId(app.applicationId);
 
 
 
+
+
 // из ответа бэка берём в таком приоритете:
 const cc = getCountryCodeFrom(app as any);
 
@@ -787,6 +994,16 @@ return {
   getLastActivity, // ✅ Добавлено
   byLastActivityDesc, // ✅ Добавлено
 ]);
+
+
+const allSelected = useMemo(
+  () =>
+    currentRole === 'employer' &&
+    multiMode &&
+    chatList.length > 0 &&
+    chatList.every((c) => selectedIds.has(toId(c.id))),
+  [currentRole, multiMode, chatList, selectedIds]
+);
 
   // все чаты — для верхнего пикера
   const allChats = useMemo(() => {
@@ -903,6 +1120,22 @@ const currentCountryName = useMemo(() => {
     return code ? regionName(code) : '';
   }
   return '';
+}, [currentRole, currentApp]);
+
+const currentAvatar = useMemo(() => {
+  if (currentRole !== 'employer' || !currentApp) return null;
+  const a: any = currentApp;
+  // пробуем вытащить аватар из профиля / самой заявки
+  return a.profile?.avatar || a.avatar || null;
+}, [currentRole, currentApp]);
+
+const currentAge = useMemo(() => {
+  if (currentRole !== 'employer' || !currentApp) return null;
+  const a: any = currentApp;
+  // бек даёт applicant_date_of_birth, но на всякий случай fallback на date_of_birth
+  const dob: string | null =
+    a.applicant_date_of_birth ?? a.date_of_birth ?? null;
+  return calcAge(dob);
 }, [currentRole, currentApp]);
 
 
@@ -1181,8 +1414,39 @@ useEffect(() => {
 
           <div className="ch-layout">
             {/* список чатов */}
-            <aside className="ch-sidebar">
-              <h3 className="ch-sidebar__title">Chats</h3>
+<aside className="ch-sidebar">
+  <div
+    className="ch-sidebar__head"
+    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: '10px' }}
+  >
+    <h3 className="ch-sidebar__title">Chats</h3>
+
+    {currentRole === 'employer' && multiMode && chatList.length > 0 && (
+      <button
+        type="button"
+        className="ch-btn ch-btn--sm"
+        onClick={() => {
+          if (allSelected) {
+            // снять выделение со всех чатов текущей вакансии
+            setSelectedIds((prev) => {
+              const next = new Set(prev);
+              chatList.forEach((c) => next.delete(toId(c.id)));
+              return next;
+            });
+          } else {
+            // выделить все чаты текущей вакансии
+            setSelectedIds((prev) => {
+              const next = new Set(prev);
+              chatList.forEach((c) => next.add(toId(c.id)));
+              return next;
+            });
+          }
+        }}
+      >
+        {allSelected ? 'Unselect all' : 'Select all'}
+      </button>
+    )}
+  </div>
               {chatList.length > 0 ? (
                 <ul className="ch-chatlist" ref={chatListRef}>
                   {chatList.map((chat) => (
@@ -1421,31 +1685,96 @@ clearSelection();        // ← сбрасываем чекбоксы
                 </div>
               )}
 
-              {selectedChat ? (
-                <>
-                  <div className="ch-chat__head">
-                    <h3 className="ch-chat__title">
-  Chat with{' '}
-  {currentRole === 'employer' && currentApp ? (
-<a
-  href={`/public-profile/${currentApp.userId}`}
-  className="ch-link"
-  title="Open applicant profile"
-  target="_blank"
-  rel="noopener noreferrer"
->
-  {currentApp.username}
-</a>
-  ) : (
-    <span>
-      {applications.find((a) => a.id === selectedChat)?.job_post?.employer?.username || 'Unknown'}
-    </span>
+{selectedChat ? (
+  <>
+    <div className="ch-chat__head">
+      <div
+        className="ch-chat__title-row"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+        }}
+      >
+        <div
+          className="ch-chat__title-left"
+          style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+        >
+          {currentRole === 'employer' && (
+            <span
+              className="ch-chat__avatar-wrap"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {currentAvatar ? (
+                <img
+                  src={makeAbs(currentAvatar)}
+                  alt="Avatar"
+                  className="ch-chat__avatar"
+                  style={{
+                    width: 60,
+                    height: 60,
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                  }}
+                />
+              ) : (
+                <FaUserCircle
+                  className="ch-chat__avatar-fallback"
+                  size={60}
+                  style={{ opacity: 0.7 }}
+                />
+              )}
+            </span>
+          )}
 
-  )}
-    {currentCountryName && (
-    <span className="ch-country-inline"> | {currentCountryName}</span>
-  )}
-</h3>
+          <h3
+            className="ch-chat__title"
+            style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}
+          >
+            {currentRole === 'employer' && currentCountryName && (
+              <span className="ch-country-inline">
+                {currentCountryName}
+                {currentAge != null && ` • ${currentAge} y.o.`}
+              </span>
+            )}
+
+            {currentRole !== 'employer' && (
+              <>
+                Chat with{' '}
+                <span>
+                  {applications.find((a) => a.id === selectedChat)?.job_post?.employer?.username ||
+                    'Unknown'}
+                </span>
+              </>
+            )}
+ {currentRole === 'employer' && currentApp && (
+          <button
+            type="button"
+            className="ch-btn ch-review-btn"
+            // style={{ marginLeft: 10 }}
+            onClick={() => {
+              navigate(`/public-profile/${currentApp.userId}`);
+              closeAllMenus();
+            }}
+          >
+            Review profile
+          </button>
+        )}
+            
+          </h3>
+          
+        </div>
+
+       
+      </div>
+
+    
+
 
                 {currentRole === 'employer' && currentApp && (
   <div className="ch-actions">
