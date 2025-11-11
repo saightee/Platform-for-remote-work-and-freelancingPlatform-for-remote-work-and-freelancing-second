@@ -47,6 +47,7 @@ export class UsersService {
         description: additionalData.description || null,
         whatsapp: additionalData.whatsapp || null,
         telegram: additionalData.telegram || null,
+        date_of_birth: additionalData.date_of_birth || null,
       };
 
       jobSeekerEntity.resume = additionalData.resume || null;

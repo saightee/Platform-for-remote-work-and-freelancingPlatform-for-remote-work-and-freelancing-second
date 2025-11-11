@@ -73,6 +73,7 @@ export class ProfilesService {
         whatsapp: (jobSeeker as any).whatsapp ?? null,
         telegram: (jobSeeker as any).telegram ?? null,
         languages: jobSeeker.languages || [],
+        date_of_birth: (jobSeeker as any).date_of_birth || null,
         reviews,
         avatar: user.avatar,
         identity_verified: user.identity_verified,
@@ -140,6 +141,14 @@ export class ProfilesService {
 
       if (updateData.experience) jobSeeker.experience = updateData.experience;
 
+      if (Object.prototype.hasOwnProperty.call(updateData, 'date_of_birth')) {
+        const dob = String(updateData.date_of_birth || '').trim();
+        if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+          throw new BadRequestException('date_of_birth must be in format YYYY-MM-DD');
+        }
+        (jobSeeker as any).date_of_birth = dob || null;
+      }
+      
       if (Object.prototype.hasOwnProperty.call(updateData, 'description')) {
         const d = String(updateData.description || '');
         const limited = d.trim().split(/\s+/).slice(0, 150).join(' ');
