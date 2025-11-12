@@ -73,7 +73,10 @@
 /* ---------- RESPONSIVE ---------- */
 @media (max-width: 1024px){
   .jf2-grid--5{ grid-template-columns: 1.4fr 1fr 1fr 1fr; }
-  .jf2-col--brand{ grid-column:1/-1; border-right:none; padding-right:0; border-bottom:1px solid var(--jf2-line); padding-bottom:14px; margin-bottom:6px; }
+  .jf2-col--brand{ grid-column:1/-1; border-right:none; padding-right:0; border-bottom:1px solid var(--jf2-line);  margin-bottom:6px; }
+  .jf2-company-info {
+    margin-bottom: 10px;
+  }
 }
 
 @media (max-width: 768px){
@@ -86,7 +89,7 @@
 }
 
 @media (max-width: 520px){
-  .jf2-copy__inner{ flex-direction:column; align-items:flex-start; }
+  .jf2-copy__inner{ flex-direction:column;  }
 }
 
 
@@ -107,3 +110,81 @@
 @media (min-width: 769px) {
   .jf2-footer .jf2-title { cursor: default; }
 }
+
+/* Стили только для блока с компанией */
+.jf2-col--brand {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.jf2-col--brand .jf2-logo {
+  margin-bottom: 0.5rem;
+}
+
+.jf2-col--brand .jf2-company-info {
+  border-left: 2px solid rgba(255, 255, 255, 0.2);
+  padding-left: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.jf2-col--brand .jf2-company-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.jf2-col--brand .jf2-company-address {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  opacity: 0.8;
+}
+
+.jf2-col--brand .jf2-icon {
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+/* Адаптив только для блока компании */
+@media (max-width: 768px) {
+  .jf2-col--brand {
+    text-align: center;
+    gap: 0;
+  }
+  
+  .jf2-col--brand .jf2-company-info {
+    border-left: none;
+    border-top: 2px solid rgba(255, 255, 255, 0.2);
+    padding-left: 0;
+    padding-top: 1rem;
+    /* margin-top: 0.5rem; */
+  }
+  
+  /* .jf2-col--brand .jf2-company-name,
+  .jf2-col--brand .jf2-company-address {
+    justify-content: center;
+  } */
+
+  .jf2-logo {
+  text-align: center!important;
+  
+}
+
+.jf2-footer {
+  padding: 20px 0 36px;
+}
+
+
+}
+
+.jf2-logo {
+  text-align: left;
+  padding-left: 1em;
+}
+
