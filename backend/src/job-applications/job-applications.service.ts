@@ -187,6 +187,7 @@ export class JobApplicationsService {
           applicant_country: applicantCountry,
           applicant_country_code: applicantCountry,
           applicant_date_of_birth: (jobSeeker as any)?.date_of_birth || null,
+          applicant_avatar: userData.avatar || null,
         };
       }),
     );
@@ -280,9 +281,9 @@ export class JobApplicationsService {
       applicant_date_of_birth: (jobSeeker as any)?.date_of_birth || null,
       applicant_country: applicantCountry,
       applicant_country_code: applicantCountry,
+      applicant_avatar: application.job_seeker?.avatar || null,
     };
   }
-
   async inviteJobSeeker(
     employerId: string,
     jobPostId: string,
