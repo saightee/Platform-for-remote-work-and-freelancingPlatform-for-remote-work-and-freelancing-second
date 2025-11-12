@@ -54,7 +54,7 @@
   overflow:hidden;
   min-height:0;
 }
-.ch-sidebar__title{ margin:0 0 8px; font-size:16px; font-weight:700; color:var(--ch-text); }
+.ch-sidebar__title{ margin:0; font-size:16px; font-weight:700; color:var(--ch-text); }
 
 .ch-chatlist{
   list-style:none; padding:0; margin:0;
@@ -588,3 +588,45 @@ html, body { overflow-x: hidden; }
   }
 }
 .ch-chatlist__item { position: relative; pointer-events: auto; }
+.ch-review-btn {
+
+margin-left: 15px;
+}
+
+/* @media (max-width: 378px) {
+ .ch-review-btn {
+
+margin-left: 0px;
+}
+} */
+
+@media (max-width: 400px) {
+ .ch-chat__title {
+
+display: flex;
+flex-direction: column;
+
+}
+ .ch-review-btn {
+
+margin-left: 5px;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+} 
+
+
+@media (max-width: 507px) {
+  .ch-chat__head {
+    display: flex;
+    flex-direction: column;
+    /* align-items: stretch; */
+    gap: 8px;
+  }
+
+  .ch-chat__head .ch-actions {
+    margin-left: auto;            /* двигаем блок вправо */
+    display: flex;
+    justify-content: flex-end;
+  }
+}

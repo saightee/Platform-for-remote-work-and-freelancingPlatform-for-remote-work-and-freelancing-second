@@ -24,6 +24,10 @@ const Register: React.FC = () => {
 const STORAGE_KEY = useMemo(() => `reg_draft_${role || 'unknown'}`, [role]);
   // common
   const [username, setUsername] = useState('');
+   const isJobseeker = role === 'jobseeker';
+
+
+
  
 // Avatar state
 const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -74,7 +78,18 @@ const processAvatarFile = (f: File | null) => {
   setAvatarPreview(URL.createObjectURL(f));
 };
 
-// “обязателен ли аватар”
+
+ const [resumeLink, setResumeLink] = useState('');
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+
+  const resumeProvided = useMemo(() => {
+  if (!isJobseeker) return true;                
+  if (resumeFile) return true;                   
+  const s = resumeLink.trim();
+  return s.length > 0 && urlOk(s);              
+}, [isJobseeker, resumeFile, resumeLink]);
+
+
 const [avatarRequired, setAvatarRequired] = useState<boolean | null>(null);
 
   const [email, setEmail]       = useState('');
@@ -101,14 +116,14 @@ const [languages, setLanguages] = useState<string[]>([]);
 
   // jobseeker specifics
   const [experience, setExperience] = useState('');
-  const [resumeLink, setResumeLink] = useState('');
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  
   const [linkedin, setLinkedin]     = useState('');
   const [instagram, setInstagram]   = useState('');
   const [facebook, setFacebook]     = useState('');
   const [whatsapp, setWhatsapp]     = useState('');   
   const [telegram, setTelegram]     = useState('');   
   const [about, setAbout]           = useState('');
+  const [dob, setDob] = useState('');  
   // skills (jobseeker)
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<Category[]>([]);
@@ -190,12 +205,18 @@ const [languages, setLanguages] = useState<string[]>([]);
       setWhatsapp(d.whatsapp ?? '');
       setTelegram(d.telegram ?? '');
       setAbout(d.about ?? '');
+      setDob(d.dob || '');
       setSelectedSkills(Array.isArray(d.selectedSkills) ? d.selectedSkills : []);
     }
 
     // пароли и файл не восстанавливаем по соображениям безопасности
   } catch { /* ignore */ }
 }, [role, STORAGE_KEY]);
+
+
+
+
+
 
 // NEW: persist draft (except passwords & files)
 useEffect(() => {
@@ -217,6 +238,7 @@ useEffect(() => {
     draft.whatsapp     = whatsapp;
     draft.telegram     = telegram;
     draft.about        = about;
+    draft.dob = dob;
     draft.selectedSkills = selectedSkills; // храним как есть (id+name)
   }
 
@@ -229,7 +251,7 @@ useEffect(() => {
   username, email, confirmEmail,
   experience, country, languages, resumeLink,
   linkedin, instagram, facebook, whatsapp, telegram,
-  about, selectedSkills
+  about, dob, selectedSkills
 ]);
 
 useEffect(() => {
@@ -301,7 +323,33 @@ const handleSubmit = async (e: React.FormEvent) => {
   if (password !== confirm) { setErr('Passwords do not match.'); return; }
   if (!isStrongPassword(password)) { setErr('Password does not meet security requirements.'); return; }
   if (role === 'jobseeker' && !experience) { setErr('Please select your experience.'); return; }
-
+    if (role === 'jobseeker') {
+      const v = dob.trim();
+      if (!v) {
+        setErr('Date of birth is required for jobseekers.');
+        return;
+      }
+      const re = /^\d{4}-\d{2}-\d{2}$/;
+      if (!re.test(v)) {
+        setErr('Date of birth must be in format YYYY-MM-DD.');
+        return;
+      }
+      const dt = new Date(v);
+      if (Number.isNaN(dt.getTime()) || dt > new Date()) {
+        setErr('Please enter a valid date of birth.');
+        return;
+      }
+    }
+  if (role === 'jobseeker') {
+  if (!resumeFile && !resumeLink.trim()) {
+    setErr('Resume is required: upload a file or provide a URL.');
+    return;
+  }
+  if (!resumeFile && resumeLink.trim() && !urlOk(resumeLink)) {
+    setErr('Resume URL is invalid (use https://...).');
+    return;
+  }
+}
   // аватар обязателен, если флаг true
   if (role === 'jobseeker' && avatarRequired && !avatarFile) {
     setErr('Please upload an avatar.');
@@ -348,6 +396,7 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
         if (experience)            fd.append('experience', experience);
         if (selectedSkills.length) selectedSkills.forEach(s => fd.append('skills[]', String(s.id)));
         if (resumeLink.trim())     fd.append('resume', resumeLink.trim());
+        if (dob.trim())            fd.append('date_of_birth', dob.trim());
         if (linkedin.trim())       fd.append('linkedin', linkedin.trim());
         if (instagram.trim())      fd.append('instagram', instagram.trim());
         if (facebook.trim())       fd.append('facebook', facebook.trim());
@@ -376,6 +425,7 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
           ...(whatsapp.trim() ? { whatsapp: whatsapp.trim() } : {}),
           ...(telegram.trim() ? { telegram: telegram.trim() } : {}),
           ...(about.trim() ? { about: about.trim() } : {}),
+          ...(dob.trim() ? { date_of_birth: dob.trim() } : {}),
           ...(country.trim() ? { country: country.trim().toUpperCase() } : {}),
           ...(languages.length ? { languages } : {}),
         } : {})
@@ -456,7 +506,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
   if (!role) return null;
 
-  const isJobseeker = role === 'jobseeker';
+
 
   return (
     <div className="reg2-shell">
@@ -597,9 +647,31 @@ if (role === 'jobseeker' && refCode && afterReturn) {
   <CountrySelect value={country} onChange={(code) => setCountry(code || '')} />
 </div>
 
-<div className="reg2-span2">
-  <LanguagesInput value={languages} onChange={setLanguages} />
+<div
+  className="reg2-span2"
+  style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}
+>
+  <div>
+    <LanguagesInput value={languages} onChange={setLanguages} />
+  </div>
+
+  <div>
+    <label className="reg2-label">
+      Date of birth <span className="reg2-req">*</span>
+    </label>
+    <input
+      className="reg2-input"
+      type="date"
+      value={dob}
+      onChange={e => setDob(e.target.value)}
+      placeholder="YYYY-MM-DD"
+      max={new Date().toISOString().slice(0, 10)}
+      required={isJobseeker}
+    />
+    <div className="reg2-note reg_dob">Format: YYYY-MM-DD</div>
+  </div>
 </div>
+
 
 {/* NEW: Avatar (required? depends on flag) */}
 <div className="reg2-field reg2-span2">
@@ -686,7 +758,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
         <div className="reg2-field">
   <label className="reg2-label">
-    Resume Link <span className="reg2-opt">(optional)</span>
+    Resume Link <span className="reg2-req">*</span> <span className="reg2-opt">(required if no file)</span>
   </label>
   <input
     className="reg2-input"
@@ -695,11 +767,11 @@ if (role === 'jobseeker' && refCode && afterReturn) {
     onChange={e => setResumeLink(e.target.value)}
     placeholder="https://example.com/resume.pdf"
   />
-  <div className="reg2-note">You can upload a file after registration.</div>
+  {/* <div className="reg2-note">You can upload a file after registration.</div> */}
 </div>
 <div className="reg2-field">
   <label className="reg2-label">
-    Resume File <span className="reg2-opt">(optional)</span>
+    Resume File <span className="reg2-req">*</span> <span className="reg2-opt">(required if no link)</span>
   </label>
 
   <div
@@ -926,11 +998,11 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
 {/* submit + links */}
 <div className="reg2-actions reg2-span2">
-  <button
-    className="reg2-btn"
-    type="submit"
-    disabled={busy || emailsMismatch || !agree} // NEW: disabled until agreed
-  >
+<button
+  className="reg2-btn"
+  type="submit"
+  disabled={busy || emailsMismatch || !agree || !resumeProvided}
+>
     {busy ? 'Signing up…' : `Sign Up as ${role === 'employer' ? 'Employer' : 'Jobseeker'}`}
   </button>
 </div>

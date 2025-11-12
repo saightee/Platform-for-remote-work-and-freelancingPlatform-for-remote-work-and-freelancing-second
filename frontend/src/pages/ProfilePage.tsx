@@ -17,7 +17,7 @@ import { Profile, Category, JobSeekerProfile, EmployerProfile, Review } from '@t
 import { useRole } from '../context/RoleContext';
 import {
   FaUserCircle, FaFilePdf, FaPen, FaCheck, FaTimes,
-  FaLinkedin, FaInstagram, FaFacebook, FaWhatsapp, FaTelegramPlane, FaLanguage, FaMapMarkerAlt
+  FaLinkedin, FaInstagram, FaFacebook, FaWhatsapp, FaTelegramPlane, FaLanguage, FaMapMarkerAlt, FaBirthdayCake, 
 } from 'react-icons/fa';
 import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
@@ -41,7 +41,7 @@ type JobSeekerExtended = JobSeekerProfile & {
 
   // дублируем совместимый тип
   job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired' | string | null;
-
+  date_of_birth?: string | null;
   // явно описываем поля, чтобы не было any
   country?: string | null;
   languages?: string[];
@@ -53,6 +53,24 @@ type JobSeekerExtended = JobSeekerProfile & {
   telegram?: string | null;
 };
 
+const calcAge = (dob?: string | null): number | null => {
+  if (!dob) return null;
+  const m = dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]) - 1;
+  const day = Number(m[3]);
+  const birth = new Date(year, month, day);
+  if (Number.isNaN(birth.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const mdiff = today.getMonth() - birth.getMonth();
+  if (mdiff < 0 || (mdiff === 0 && today.getDate() < birth.getDate())) age--;
+
+  if (age < 0 || age > 150) return null;
+  return age;
+};
 
 
 const ProfilePage: React.FC = () => {
@@ -229,10 +247,9 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
         if (changed('video_intro', now.video_intro))         patch.video_intro      = now.video_intro;
         if (changed('resume', now.resume))                   patch.resume           = now.resume;
         if (changed('country', now.country ?? undefined))    patch.country   = now.country ?? undefined;
-if (Array.isArray(now.languages))                    patch.languages = now.languages!;
+        if (Array.isArray(now.languages))                    patch.languages = now.languages!;
 
-
-
+        if (changed('date_of_birth', now.date_of_birth ?? null))         patch.date_of_birth    = now.date_of_birth ?? null;
 
         if (changed('linkedin',  now.linkedin ?? null))    patch.linkedin  = now.linkedin  || null;
         if (changed('instagram', now.instagram ?? null))   patch.instagram = now.instagram || null;
@@ -445,21 +462,51 @@ if (Array.isArray(now.languages))                    patch.languages = now.langu
               <div className="pf-section">
                 {!isEditing ? (
                   <div className="pf-kv">
-                    
-                    <div className="pf-kv-row"><span className="pf-k">Timezone</span><span className="pf-v">{profileData.timezone || 'Not specified'}</span></div>
-                    <div className="pf-kv-row"><span className="pf-k">Currency</span><span className="pf-v">{profileData.currency || 'Not specified'}</span></div>
-                   <div className="pf-kv-row">
-  <span className="pf-k">Country</span>
-  <span className="pf-v">
-    {(profileData as any).country_name || (profileData as any).country || 'Not specified'}
-  </span>
-</div>
+                    <div className="pf-kv-row">
+                      <span className="pf-k">Timezone</span>
+                      <span className="pf-v">{profileData.timezone || 'Not specified'}</span>
+                    </div>
+                    <div className="pf-kv-row">
+                      <span className="pf-k">Currency</span>
+                      <span className="pf-v">{profileData.currency || 'Not specified'}</span>
+                    </div>
 
-{Array.isArray((profileData as any).languages) && (profileData as any).languages.length > 0 && (
-  <div className="pf-kv-row"><span className="pf-k">Languages</span><span className="pf-v">{(profileData as any).languages.join(', ')}</span></div>
-)}
+                    <div className="pf-kv-row">
+                      <span className="pf-k">Country</span>
+                      <span className="pf-v">
+                        {(profileData as any).country_name ||
+                          (profileData as any).country ||
+                          'Not specified'}
+                      </span>
+                    </div>
 
- 
+                    {Array.isArray((profileData as any).languages) &&
+                      (profileData as any).languages.length > 0 && (
+                        <div className="pf-kv-row">
+                          <span className="pf-k">Languages</span>
+                          <span className="pf-v">
+                            {(profileData as any).languages.join(', ')}
+                          </span>
+                        </div>
+                      )}
+
+                    {profileData.role === 'jobseeker' &&
+                      (profileData as any).date_of_birth && (
+                        <div className="pf-kv-row">
+                          <span className="pf-k">
+                            <FaBirthdayCake style={{ marginRight: 4 }} />
+                            Date of birth
+                          </span>
+                          <span className="pf-v">
+                            {(() => {
+                              const dob = (profileData as any).date_of_birth as string;
+                              const age = calcAge(dob);
+                              return age != null ? `${dob} (${age} y.o.)` : dob;
+                            })()}
+                          </span>
+                        </div>
+                      )}
+
                     {(profileData as any).expected_salary != null &&
                       (profileData as any).expected_salary !== '' &&
                       Number((profileData as any).expected_salary) !== 0 && (
@@ -471,6 +518,7 @@ if (Array.isArray(now.languages))                    patch.languages = now.langu
                         </div>
                       )}
                   </div>
+
                 ) : (
                   <>
                     {/* Username inline edit with small icon */}
@@ -578,25 +626,45 @@ if (Array.isArray(now.languages))                    patch.languages = now.langu
                         />
                       </div>
                     </div>
-                    <p className="pf-help" style={{ marginTop: 6 }}>
-                      Enter your expected salary amount. Currency is selected above. No automatic currency conversion is applied.
-                    </p>
+              
 <div className="pf-row">
-<CountrySelect
-  value={(profileData as any).country ?? undefined}
-  onChange={(code) =>
-    setProfileData({ ...(profileData as any), country: code } as any)
-  }
-/>
-
+  <CountrySelect
+    value={(profileData as any).country ?? undefined}
+    onChange={(code) =>
+      setProfileData({ ...(profileData as any), country: code } as any)
+    }
+  />
 </div>
 
 <div className="pf-row">
   <LanguagesInput
-    value={Array.isArray((profileData as any).languages) ? (profileData as any).languages : []}
-    onChange={(langs) => setProfileData({ ...(profileData as any), languages: langs } as any)}
+    value={
+      Array.isArray((profileData as any).languages)
+        ? (profileData as any).languages
+        : []
+    }
+    onChange={(langs) =>
+      setProfileData({ ...(profileData as any), languages: langs } as any)
+    }
   />
 </div>
+
+<div className="pf-row">
+  <label className="pf-label">Date of birth</label>
+  <input
+    className="pf-input"
+    type="date"
+    value={(profileData as any).date_of_birth || ''}
+    onChange={(e) =>
+      setProfileData({
+        ...(profileData as any),
+        date_of_birth: e.target.value,
+      } as any)
+    }
+    max={new Date().toISOString().slice(0, 10)}
+  />
+</div>
+
 
 
                   </>

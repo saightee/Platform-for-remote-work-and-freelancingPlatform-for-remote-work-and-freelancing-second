@@ -186,6 +186,7 @@ export class JobApplicationsService {
           job_post_id: app.job_post_id,
           applicant_country: applicantCountry,
           applicant_country_code: applicantCountry,
+          applicant_date_of_birth: (jobSeeker as any)?.date_of_birth || null,
         };
       }),
     );
@@ -276,7 +277,7 @@ export class JobApplicationsService {
         title: application.job_post.title,
         status: application.job_post.status,
       },
-
+      applicant_date_of_birth: (jobSeeker as any)?.date_of_birth || null,
       applicant_country: applicantCountry,
       applicant_country_code: applicantCountry,
     };

@@ -96,6 +96,7 @@ export class ProfilesController {
       whatsapp?: string | null;
       telegram?: string | null;
       languages?: string[];
+      date_of_birth?: string;
     },
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

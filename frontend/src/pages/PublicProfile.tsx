@@ -9,7 +9,7 @@ import { useRole } from '../context/RoleContext';
 import {
   FaUserCircle, FaEnvelope, FaGlobe, FaClock, FaStar, FaRegStar,
   FaBriefcase, FaLink, FaVideo, FaFilePdf, FaEye, FaShieldAlt, FaDollarSign,
-  FaLinkedin, FaInstagram, FaFacebook, FaWhatsapp, FaTelegramPlane, FaFlag
+  FaLinkedin, FaInstagram, FaFacebook, FaWhatsapp, FaTelegramPlane, FaFlag, FaBirthdayCake, 
 } from 'react-icons/fa';
 import Loader from '../components/Loader';
 import '../styles/public-profile.css';
@@ -25,6 +25,26 @@ import { toast } from '../utils/toast';
 
 const makeAbs = (url: string) =>
   url?.startsWith('http') ? url : `${brandOrigin()}/backend${url}`;
+
+const calcAge = (dob?: string | null): number | null => {
+  if (!dob) return null;
+  const m = dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]) - 1;
+  const day = Number(m[3]);
+  const birth = new Date(year, month, day);
+  if (Number.isNaN(birth.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const mdiff = today.getMonth() - birth.getMonth();
+  if (mdiff < 0 || (mdiff === 0 && today.getDate() < birth.getDate())) age--;
+
+  if (age < 0 || age > 150) return null;
+  return age;
+};
+
 
 const PublicProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -185,7 +205,6 @@ const submitInvite = async () => {
   </span>
 </li>
 
-
 {Array.isArray((profile as any).languages) && (profile as any).languages.length > 0 && (
   <li>
     <span className="ppx-kv-icon"><FaGlobe /></span>
@@ -193,7 +212,21 @@ const submitInvite = async () => {
     <span className="ppx-kv-value">{(profile as any).languages.join(', ')}</span>
   </li>
 )}
-              {profile.role === 'jobseeker' && (
+
+{profile.role === 'jobseeker' && (profile as any).date_of_birth && (
+  <li>
+    <span className="ppx-kv-icon"><FaBirthdayCake /></span>
+    <span className="ppx-kv-label">Age</span>
+    <span className="ppx-kv-value">
+      {(() => {
+        const age = calcAge((profile as any).date_of_birth);
+        return age != null ? `${age} y.o.` : 'Not specified';
+      })()}
+    </span>
+  </li>
+)}
+
+{profile.role === 'jobseeker' && (
   <li>
     <span className="ppx-kv-icon"><FaBriefcase /></span>
     <span className="ppx-kv-label">Job status</span>
@@ -213,6 +246,7 @@ const submitInvite = async () => {
     </span>
   </li>
 )}
+
         <li>
   <span className="ppx-kv-icon"><FaDollarSign /></span>
   <span className="ppx-kv-label">Currency</span>

@@ -234,6 +234,7 @@ input[type="password"]::-ms-clear{
   /* на всякий — элементы, которые растягивались на 2 колонки */
   .reg2-span2 {
     grid-column: 1 / -1;
+    grid-template-columns: 1fr !important;
   }
 
   /* поле пароля: запас под «глаз» и удобный тап-таргет */
@@ -355,4 +356,8 @@ input[type="password"]::-ms-clear{
   border: 1px solid #fecaca;
   box-shadow: 0 6px 24px rgba(0,0,0,.12);
   font-weight: 500;
+}
+
+.reg_dob {
+  margin-top: 5px;
 }

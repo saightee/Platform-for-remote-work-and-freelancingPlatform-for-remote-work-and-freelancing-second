@@ -57,6 +57,7 @@ export interface JobSeekerProfile {
   languages?: string[];     // произвольные строки
   expected_salary?: number | null;
   job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired' | string | null;
+  date_of_birth?: string | null;
 
   // соцсети (чтобы не было any)
   linkedin?: string | null;
@@ -294,6 +295,7 @@ export interface JobApplicationDetails {
   status: 'Pending' | 'Accepted' | 'Rejected';
   job_post_id: string; // Добавлено
   coverLetter?: string;
+  applicant_date_of_birth?: string | null;
 }
 
 export interface Analytics {

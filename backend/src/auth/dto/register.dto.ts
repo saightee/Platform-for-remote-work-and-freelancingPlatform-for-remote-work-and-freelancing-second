@@ -18,4 +18,5 @@ export class RegisterDto {
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsString() whatsapp?: string;
   @IsOptional() @IsString() telegram?: string;
+  @IsOptional() @IsString() date_of_birth?: string;
 }
