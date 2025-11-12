@@ -39,6 +39,9 @@ export class JobSeeker {
   @Column({ type: 'varchar', nullable: true })
   telegram?: string;
 
+  @Column({ type: 'date', nullable: true })
+  date_of_birth?: string;
+
   @Column({ type: 'varchar', default: 'open_to_offers' })
   job_search_status: 'actively_looking' | 'open_to_offers' | 'hired';
 

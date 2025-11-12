@@ -7,8 +7,8 @@
 
 ### 1. Register a User
 - **Endpoint**: `POST api/auth/register`
-- **Description**: Creates a new account (role: jobseeker or employer). Sends an email verification link.
-Also supports privileged creation of admin / moderator users when a valid secretKey is provided (returns an access token immediately).
+- **Description**: Creates a new account (role: jobseeker or employer). Sends an email verification link. For role=jobseeker, both resume (URL or file) and date_of_birth are REQUIRED.
+Also supports privileged creation of admin/moderator users when a valid secretKey is provided (returns an access token immediately).
 - **Headers**: 
   `x-fingerprint (required)` — device/browser fingerprint string.
   `x-forwarded-for (optional)` — client IP (used for geo & anti-fraud).
@@ -22,11 +22,12 @@ Also supports privileged creation of admin / moderator users when a valid secret
     "email": "user@example.com",
     "password": "StrongP@ssw0rd",
     "username": "jane",
-    "role": "jobseeker",            // "jobseeker" | "employer"
-    "country": "US",                // optional; inferred from IP if missing
+    "role": "jobseeker",                    // "jobseeker" | "employer"
+    "country": "US",                        // optional; inferred from IP if missing
     "skills": ["<categoryId1>", "<categoryId2>"],  // jobseeker only
-    "experience": "3 years",        // jobseeker only
-    "resume": "https://.../cv.pdf", // optional; auto-filled if resume_file uploaded
+    "experience": "3 years",                // jobseeker only
+    "resume": "https://.../cv.pdf",         // REQUIRED for jobseeker; auto-filled if resume_file uploaded
+    "date_of_birth": "1992-07-15",          // REQUIRED for jobseeker; format YYYY-MM-DD
     "linkedin": "https://linkedin.com/in/...",
     "instagram": "https://instagram.com/...",
     "facebook": "https://facebook.com/...",
@@ -34,8 +35,8 @@ Also supports privileged creation of admin / moderator users when a valid secret
     "telegram": "@username",
     "description": "up to 150 words",
     "languages": ["English", "German"],
-    "ref": "<referralCode>",        // optional (also accepted via query/header/cookie)
-    "secretKey": "<admin-or-moderator-secret>"     // privileged registration only
+    "ref": "<referralCode>",                // optional (also accepted via query/header/cookie)
+    "secretKey": "<admin-or-moderator-secret>" // privileged registration only
   }
 - **Response (Success - 200)**:
   ```json
@@ -49,6 +50,15 @@ Also supports privileged creation of admin / moderator users when a valid secret
 - **Response (Error - 400, Missing fingerprint)**:
   ```json
   {"statusCode": 400, "message": "Fingerprint is required", "error": "Bad Request"}
+- **Response (Error - 400, DOB is required)**:
+  ```json
+  {"statusCode": 400, "message": "date_of_birth is required for jobseeker registration", "error": "Bad Request"}
+- **Response (Error - 400, DOB is bad format)**:
+  ```json
+  {"statusCode": 400, "message": "date_of_birth must be in format YYYY-MM-DD", "error": "Bad Request"}
+- **Response (Error - 400, Missing resume)**:
+  ```json
+  {"statusCode": 400, "message": "Resume is required for jobseeker registration", "error": "Bad Request"}
 - **Response (Error - 400, Weak password)**:
   ```json
   {"statusCode": 400, "message": "Weak password", "error": "Bad Request"}
@@ -276,6 +286,7 @@ Also supports privileged creation of admin / moderator users when a valid secret
     "portfolio": "https://portfolio.com",
     "video_intro": "https://video.com",
     "resume": "https://example.com/resume.pdf",
+    "date_of_birth": "1992-07-15",
     "timezone": "Europe/Moscow",
     "currency": "USD",
     "expected_salary": 4500.0,
@@ -385,6 +396,7 @@ Also supports privileged creation of admin / moderator users when a valid secret
     "portfolio": "https://portfolio.com",
     "video_intro": "https://video.com",
     "resume": "https://example.com/resume.pdf",
+    "date_of_birth": "1992-07-15",
     "timezone": "Europe/Moscow",
     "currency": "USD",
     "expected_salary": 4500,
@@ -428,6 +440,7 @@ Also supports privileged creation of admin / moderator users when a valid secret
     "portfolio": "https://portfolio.com",
     "video_intro": "https://video.com",
     "resume": "https://example.com/resume.pdf",
+    "date_of_birth": "1992-07-15",
     "timezone": "Europe/Moscow",
     "currency": "USD",
     "expected_salary": 4500,
@@ -474,24 +487,25 @@ Also supports privileged creation of admin / moderator users when a valid secret
   ```json
   {
     "role": "jobseeker",
-    "username": "new_name",                        // optional; 1..100 chars
-    "country": "DE",                               // optional; stored uppercased
-    "languages": ["English", "German"],            // optional
-    "skillIds": ["<skillId1>", "<skillId2>"],      // optional; replaces full skills set
-    "experience": "3 years",                       // optional
-    "linkedin": "https://www.linkedin.com/in/...", // optional | null to clear
-    "instagram": "https://www.instagram.com/...",  // optional | null to clear
-    "facebook": "https://www.facebook.com/...",    // optional | null to clear
-    "whatsapp": "+15551234567",                    // optional | null to clear
-    "telegram": "@handle",                         // optional | null to clear
-    "description": "Up to 150 words ...",          // optional; server truncates to 150 words
-    "portfolio": "https://portfolio.com",          // optional
-    "video_intro": "https://video.com",            // optional
-    "resume": "https://example.com/resume.pdf",    // optional (use upload endpoint for files)
-    "timezone": "America/New_York",                // optional
-    "currency": "EUR",                             
-    "job_search_status": "actively_looking",       // optional; one of: actively_looking | open_to_offers | hired
-    "expected_salary": 4500                        // optional; non-negative number
+    "username": "new_name",
+    "country": "DE",
+    "languages": ["English", "German"],
+    "skillIds": ["<skillId1>", "<skillId2>"],
+    "experience": "3 years",
+    "linkedin": "https://www.linkedin.com/in/...", 
+    "instagram": "https://www.instagram.com/...",
+    "facebook": "https://www.facebook.com/...",
+    "whatsapp": "+15551234567",
+    "telegram": "@handle",
+    "description": "Up to 150 words ...",
+    "portfolio": "https://portfolio.com",
+    "video_intro": "https://video.com",
+    "resume": "https://example.com/resume.pdf",
+    "date_of_birth": "1992-07-15",
+    "timezone": "America/New_York",
+    "currency": "EUR",
+    "job_search_status": "actively_looking",
+    "expected_salary": 4500
   }
 - **Response (Success — 200):** Returns the updated profile (same format as GET /api/profile/myprofile).
   Email is included in the response because isAuthenticated = true is used internally.
@@ -519,6 +533,9 @@ Also supports privileged creation of admin / moderator users when a valid secret
 - **Response (Error — 400, invalid expected_salary)**:
   ```json
   {"statusCode": 400,"message": "expected_salary must be a non-negative number","error": "Bad Request"}
+- **Response (Error — 400, invalid date)**:
+  ```json
+  {"statusCode": 400, "message": "date_of_birth must be in format YYYY-MM-DD", "error": "Bad Request"}
 
 ### 14. Create Job Post
 - **Endpoint**: `POST /api/job-posts`
@@ -1214,7 +1231,8 @@ Also supports privileged creation of admin / moderator users when a valid secret
       "status": "Pending",
       "job_post_id": "<jobPostId>",
       "applicant_country": "US",
-      "applicant_country_code": "US"
+      "applicant_country_code": "US",
+      "applicant_date_of_birth": "1992-07-15"
     }
   ]
 - **Response (Error - 401, if token is invalid or missing)**:  
@@ -1253,7 +1271,8 @@ Also supports privileged creation of admin / moderator users when a valid secret
       "status": "Active"
     },
     "applicant_country": "US",
-    "applicant_country_code": "US"
+    "applicant_country_code": "US",
+    "applicant_date_of_birth": "1992-07-15"
   }
 - **Response (Error - 401, invalid/missing token)**:
   ```json

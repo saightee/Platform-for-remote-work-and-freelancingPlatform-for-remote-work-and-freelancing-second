@@ -100,6 +100,18 @@ export class AuthService {
       if (required && !avatarUrl) {
         throw new BadRequestException('Avatar is required for jobseeker registration');
       }
+      const r = dto as RegisterDto;
+      const resumeUrl = r.resume?.trim();
+      if (!resumeUrl) {
+        throw new BadRequestException('Resume is required for jobseeker registration');
+      }
+      const dob = (r as any).date_of_birth ? String((r as any).date_of_birth).trim() : '';
+      if (!dob) {
+        throw new BadRequestException('date_of_birth is required for jobseeker registration');
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+        throw new BadRequestException('date_of_birth must be in format YYYY-MM-DD');
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -121,6 +133,7 @@ export class AuthService {
       if (r.skills) additionalData.skills = r.skills;
       if (r.experience) additionalData.experience = r.experience;
       if (r.resume) additionalData.resume = r.resume || null;
+      if ((r as any).date_of_birth) additionalData.date_of_birth = (r as any).date_of_birth;
       additionalData.linkedin = r.linkedin || null;
       additionalData.instagram = r.instagram || null;
       additionalData.facebook = r.facebook || null;
