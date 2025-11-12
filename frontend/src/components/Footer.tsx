@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaChevronDown, FaChevronUp,  FaBuilding, FaMapMarkerAlt } from 'react-icons/fa';
 import { jwtDecode } from 'jwt-decode'; // ⬅️ добавили
 import '../styles/footer.css';
 import { brand } from '../brand'; 
@@ -37,13 +37,22 @@ const Footer: React.FC = () => {
       <div className="jf2-inner">
         <div className="jf2-grid jf2-grid--5">
           {/* BRAND / ABOUT */}
-          <div className="jf2-col jf2-col--brand">
-            <a className="jf2-logo">{brand.wordmark}</a>
-            <p className="jf2-desc">
-              The leading platform for connecting businesses with professional
-              virtual assistants worldwide.
-            </p>
-          </div>
+<div className="jf2-col jf2-col--brand">
+  <a className="jf2-logo">{brand.wordmark}</a>
+  <div className="jf2-company-info">
+    <div className="jf2-company-name">
+      <FaBuilding className="jf2-icon" />
+      <span>Online Jobs Media LLC</span>
+    </div>
+    <div className="jf2-company-address">
+      <FaMapMarkerAlt className="jf2-icon" />
+      <address style={{ fontStyle: 'normal', textAlign: 'left' }}>
+        30 N Gould ST STE R<br />
+        Sheridan, WY 82801, USA
+      </address>
+    </div>
+  </div>
+</div>
 
           {/* For Employers */}
           <div className="jf2-col">
