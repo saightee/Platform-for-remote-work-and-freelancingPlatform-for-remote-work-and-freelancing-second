@@ -429,13 +429,29 @@ useEffect(() => {
 }, [searchParams]);
 
 useEffect(() => {
-  if (!isLoading) {
-    // если вн. контейнер скроллится
-    resultsRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-    // на всякий случай — и окно
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  }
-}, [filters.page, isLoading]);
+  if (isLoading) return;
+
+  let r1 = 0, r2 = 0;
+  const doScroll = () => {
+    // скроллим и контейнер, и окно — что бы ни было реально скроллящимся
+    if (resultsRef.current) resultsRef.current.scrollTop = 0;
+    // дубль на всякий
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    window.scrollTo(0, 0);
+  };
+
+  // ждём раскладку/пейнт
+  r1 = requestAnimationFrame(() => {
+    r2 = requestAnimationFrame(doScroll);
+  });
+
+  return () => {
+    if (r1) cancelAnimationFrame(r1);
+    if (r2) cancelAnimationFrame(r2);
+  };
+}, [filters.page, total, isLoading]); // total добавлен: меняется высота списка
+
 
 
   // автокомплит категорий
@@ -531,7 +547,7 @@ nextParams.limit = String(filters.limit || 25);
 
 
 const handlePageChange = (newPage: number) => {
-  // обновляем стейт
+  resultsRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   setFilters(prev => (prev.page === newPage ? prev : { ...prev, page: newPage }));
 
   // синхронизируем URL -> триггер для ScrollToTop()
@@ -958,7 +974,7 @@ const getVisiblePages = () => {
                 <p className="ftl-error">{error}</p>
               ) : (
                 <>
-                  <div className="ftl-list">
+                  <div className="ftl-list" key={filters.page}>
                     {talents.length > 0 ? (
                       talents.map((talent) => {
                         const rating =

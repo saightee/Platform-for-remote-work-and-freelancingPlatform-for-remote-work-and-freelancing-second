@@ -24,6 +24,10 @@ const Register: React.FC = () => {
 const STORAGE_KEY = useMemo(() => `reg_draft_${role || 'unknown'}`, [role]);
   // common
   const [username, setUsername] = useState('');
+   const isJobseeker = role === 'jobseeker';
+
+
+
  
 // Avatar state
 const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -74,7 +78,18 @@ const processAvatarFile = (f: File | null) => {
   setAvatarPreview(URL.createObjectURL(f));
 };
 
-// “обязателен ли аватар”
+
+ const [resumeLink, setResumeLink] = useState('');
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+
+  const resumeProvided = useMemo(() => {
+  if (!isJobseeker) return true;                
+  if (resumeFile) return true;                   
+  const s = resumeLink.trim();
+  return s.length > 0 && urlOk(s);              
+}, [isJobseeker, resumeFile, resumeLink]);
+
+
 const [avatarRequired, setAvatarRequired] = useState<boolean | null>(null);
 
   const [email, setEmail]       = useState('');
@@ -101,8 +116,7 @@ const [languages, setLanguages] = useState<string[]>([]);
 
   // jobseeker specifics
   const [experience, setExperience] = useState('');
-  const [resumeLink, setResumeLink] = useState('');
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  
   const [linkedin, setLinkedin]     = useState('');
   const [instagram, setInstagram]   = useState('');
   const [facebook, setFacebook]     = useState('');
@@ -198,6 +212,11 @@ const [languages, setLanguages] = useState<string[]>([]);
     // пароли и файл не восстанавливаем по соображениям безопасности
   } catch { /* ignore */ }
 }, [role, STORAGE_KEY]);
+
+
+
+
+
 
 // NEW: persist draft (except passwords & files)
 useEffect(() => {
@@ -321,7 +340,16 @@ const handleSubmit = async (e: React.FormEvent) => {
         return;
       }
     }
-
+  if (role === 'jobseeker') {
+  if (!resumeFile && !resumeLink.trim()) {
+    setErr('Resume is required: upload a file or provide a URL.');
+    return;
+  }
+  if (!resumeFile && resumeLink.trim() && !urlOk(resumeLink)) {
+    setErr('Resume URL is invalid (use https://...).');
+    return;
+  }
+}
   // аватар обязателен, если флаг true
   if (role === 'jobseeker' && avatarRequired && !avatarFile) {
     setErr('Please upload an avatar.');
@@ -478,7 +506,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
   if (!role) return null;
 
-  const isJobseeker = role === 'jobseeker';
+
 
   return (
     <div className="reg2-shell">
@@ -730,7 +758,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
         <div className="reg2-field">
   <label className="reg2-label">
-    Resume Link <span className="reg2-opt">(optional)</span>
+    Resume Link <span className="reg2-req">*</span> <span className="reg2-opt">(required if no file)</span>
   </label>
   <input
     className="reg2-input"
@@ -739,11 +767,11 @@ if (role === 'jobseeker' && refCode && afterReturn) {
     onChange={e => setResumeLink(e.target.value)}
     placeholder="https://example.com/resume.pdf"
   />
-  <div className="reg2-note">You can upload a file after registration.</div>
+  {/* <div className="reg2-note">You can upload a file after registration.</div> */}
 </div>
 <div className="reg2-field">
   <label className="reg2-label">
-    Resume File <span className="reg2-opt">(optional)</span>
+    Resume File <span className="reg2-req">*</span> <span className="reg2-opt">(required if no link)</span>
   </label>
 
   <div
@@ -970,11 +998,11 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
 {/* submit + links */}
 <div className="reg2-actions reg2-span2">
-  <button
-    className="reg2-btn"
-    type="submit"
-    disabled={busy || emailsMismatch || !agree} // NEW: disabled until agreed
-  >
+<button
+  className="reg2-btn"
+  type="submit"
+  disabled={busy || emailsMismatch || !agree || !resumeProvided}
+>
     {busy ? 'Signing up…' : `Sign Up as ${role === 'employer' ? 'Employer' : 'Jobseeker'}`}
   </button>
 </div>

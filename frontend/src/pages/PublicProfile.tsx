@@ -216,12 +216,11 @@ const submitInvite = async () => {
 {profile.role === 'jobseeker' && (profile as any).date_of_birth && (
   <li>
     <span className="ppx-kv-icon"><FaBirthdayCake /></span>
-    <span className="ppx-kv-label">Date of birth</span>
+    <span className="ppx-kv-label">Age</span>
     <span className="ppx-kv-value">
       {(() => {
-        const dob = (profile as any).date_of_birth as string;
-        const age = calcAge(dob);
-        return age != null ? `${dob} (${age} y.o.)` : dob;
+        const age = calcAge((profile as any).date_of_birth);
+        return age != null ? `${age} y.o.` : 'Not specified';
       })()}
     </span>
   </li>

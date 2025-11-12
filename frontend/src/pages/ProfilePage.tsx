@@ -626,9 +626,7 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                         />
                       </div>
                     </div>
-                    <p className="pf-help" style={{ marginTop: 6 }}>
-                      Enter your expected salary amount. Currency is selected above. No automatic currency conversion is applied.
-                    </p>
+              
 <div className="pf-row">
   <CountrySelect
     value={(profileData as any).country ?? undefined}
@@ -665,7 +663,6 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
     }
     max={new Date().toISOString().slice(0, 10)}
   />
-  <p className="pf-help">Format: YYYY-MM-DD</p>
 </div>
 
 
