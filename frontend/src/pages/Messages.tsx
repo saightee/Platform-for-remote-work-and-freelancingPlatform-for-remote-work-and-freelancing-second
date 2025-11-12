@@ -1126,7 +1126,7 @@ const currentAvatar = useMemo(() => {
   if (currentRole !== 'employer' || !currentApp) return null;
   const a: any = currentApp;
   // пробуем вытащить аватар из профиля / самой заявки
-  return a.profile?.avatar || a.avatar || null;
+ return a.applicant_avatar || a.profile?.avatar || a.avatar || null;
 }, [currentRole, currentApp]);
 
 const currentAge = useMemo(() => {
