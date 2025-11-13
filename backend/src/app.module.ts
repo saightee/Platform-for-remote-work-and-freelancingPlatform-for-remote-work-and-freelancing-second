@@ -28,6 +28,7 @@ import { PlatformFeedbackModule } from './platform-feedback/platform-feedback.mo
 import { ReferralsModule } from './referrals/referrals.module';
 import { ContactModule } from './contact/contact.module';
 import { SeoModule } from './seo/seo.module';
+import { AffiliatesModule } from './affiliates/affiliates.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { SeoModule } from './seo/seo.module';
     ReferralsModule,
     ContactModule,
     SeoModule,
+    AffiliatesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

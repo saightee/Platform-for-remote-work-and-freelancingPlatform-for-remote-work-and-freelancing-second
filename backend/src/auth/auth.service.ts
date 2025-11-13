@@ -16,6 +16,7 @@ import { AdminService } from '../admin/admin.service';
 import { ConfigService } from '@nestjs/config';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { SettingsService } from '../settings/settings.service';
+import { AffiliateRegisterDto } from './dto/affiliate-register.dto';
 
 const normalizeEmail = (e: string) => (e || '').trim().toLowerCase();
 const isStrongPassword = (pw: string) =>
@@ -40,7 +41,7 @@ export class AuthService {
   ) {}
 
   async register(
-    dto: RegisterDto | CreateAdminDto | CreateModeratorDto,
+    dto: RegisterDto | CreateAdminDto | CreateModeratorDto | AffiliateRegisterDto,
     ip: string,
     fingerprint?: string,
     refCode?: string,
@@ -86,13 +87,13 @@ export class AuthService {
       throw new BadRequestException('Email already exists');
     }
 
-    let role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
+    let role: 'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate';
     if (isPrivileged) {
       const validSecretKey = this.configService.get<string>('ADMIN_SECRET_KEY');
       if ((dto as any).secretKey !== validSecretKey) throw new UnauthorizedException('Invalid secret key');
       role = (dto as any).email.includes('moderator') ? 'moderator' : 'admin';
     } else {
-      role = (dto as RegisterDto).role;
+      role = (dto as RegisterDto | AffiliateRegisterDto).role as any;
     }
 
     if (role === 'jobseeker') {
@@ -111,6 +112,13 @@ export class AuthService {
       }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
         throw new BadRequestException('date_of_birth must be in format YYYY-MM-DD');
+      }
+    }
+
+    if (role === 'affiliate') {
+      const a = dto as AffiliateRegisterDto;
+      if (!a.website_url || typeof a.website_url !== 'string') {
+        throw new BadRequestException('website_url is required for affiliate registration');
       }
     }
 
@@ -149,6 +157,22 @@ export class AuthService {
       if (Array.isArray((r as any).portfolio_files) && (r as any).portfolio_files.length) {
         additionalData.portfolio_files = (r as any).portfolio_files.slice(0, 10);
       }
+    }
+
+    if (role === 'affiliate') {
+      const a = dto as AffiliateRegisterDto;
+      additionalData.account_type = a.account_type || 'individual';
+      additionalData.company_name = a.company_name || null;
+      additionalData.website_url = a.website_url;
+      additionalData.traffic_sources = Array.isArray(a.traffic_sources) ? a.traffic_sources : [];
+      additionalData.promo_geo = Array.isArray(a.promo_geo) ? a.promo_geo : [];
+      additionalData.monthly_traffic = a.monthly_traffic || null;
+      additionalData.payout_method = a.payout_method || null;
+      additionalData.payout_details = a.payout_details || null;
+      additionalData.telegram = a.telegram || null;
+      additionalData.whatsapp = a.whatsapp || null;
+      additionalData.skype = a.skype || null;
+      additionalData.notes = a.notes || null;
     }
 
     const newUser = await this.usersService.create(userData, additionalData);

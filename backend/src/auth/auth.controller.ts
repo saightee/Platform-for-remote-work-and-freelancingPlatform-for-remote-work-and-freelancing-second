@@ -19,6 +19,7 @@ import { promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
 import { join, extname } from 'path';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { AffiliateRegisterDto } from './dto/affiliate-register.dto';
 
 const filesDriver = process.env.FILES_DRIVER || 's3';
 
@@ -409,5 +410,35 @@ export class AuthController {
   async resendVerification(@Body('email') email: string) {
     await this.authService.resendVerificationEmail(email);
     return { message: 'If the account exists and is not verified, we sent a new link.' };
+  }
+
+  @Post('register-affiliate')
+  async registerAffiliate(
+    @Body() registerDto: AffiliateRegisterDto & { ref?: string },
+    @Headers('x-forwarded-for') xForwardedFor?: string,
+    @Headers('x-real-ip') xRealIp?: string,
+    @Headers('x-fingerprint') fingerprint?: string,
+    @Req() req?: any,
+  ) {
+    const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
+    const ip = (ipHeader || '').split(',')[0].trim();
+
+    if (!fingerprint) {
+      throw new BadRequestException('Fingerprint is required');
+    }
+
+    const brand = mapBrandFromReq(req) || null;
+    (registerDto as any).__brand = brand;
+
+    const refFromBody = (registerDto as any)?.ref;
+    const refFromQuery = req?.query?.ref as string | undefined;
+    const refFromHeader = req?.headers?.['x-ref'] as string | undefined;
+    const refFromCookie = (req as any)?.cookies?.ref as string | undefined;
+
+    const refCode =
+      [refFromBody, refFromQuery, refFromHeader, refFromCookie]
+        .find(v => typeof v === 'string' && v.trim()) || undefined;
+
+    return this.authService.register(registerDto, ip, fingerprint, refCode);
   }
 }

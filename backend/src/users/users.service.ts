@@ -5,6 +5,7 @@ import { User } from './entities/user.entity';
 import { JobSeeker } from './entities/jobseeker.entity';
 import { Employer } from './entities/employer.entity';
 import { Category } from '../categories/category.entity';
+import { Affiliate } from './entities/affiliate.entity';
 
 @Injectable()
 export class UsersService {
@@ -18,9 +19,18 @@ export class UsersService {
     @InjectRepository(Category) 
     private categoriesRepository: Repository<Category>,
     @InjectRepository(User) private readonly usersRepo: Repository<User>,
+    @InjectRepository(Affiliate)
+    private affiliateRepository: Repository<Affiliate>,
   ) {}
 
-  async create(userData: Partial<User> & { email: string; username: string; role: 'employer'|'jobseeker'|'admin'|'moderator' },   additionalData: any): Promise<User> {
+  async create(
+    userData: Partial<User> & {
+      email: string;
+      username: string;
+      role: 'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate';
+    },
+    additionalData: any,
+  ): Promise<User> {
     const userEntity: DeepPartial<User> = {
       email: userData.email,
       username: userData.username,
@@ -81,6 +91,31 @@ export class UsersService {
       const employer = this.employerRepository.create(employerEntity);
       await this.employerRepository.save(employer);
       console.log('Employer profile created:', employer);
+    } else if (userData.role === 'affiliate') {
+      const affiliateEntity: DeepPartial<Affiliate> = {
+        user_id: savedUser.id,
+        account_type: additionalData.account_type || 'individual',
+        company_name: additionalData.company_name || null,
+        website_url: additionalData.website_url || null,
+        traffic_sources: Array.isArray(additionalData.traffic_sources)
+          ? additionalData.traffic_sources.join(', ')
+          : null,
+        promo_geo: Array.isArray(additionalData.promo_geo)
+          ? additionalData.promo_geo.join(', ')
+          : null,
+        monthly_traffic: additionalData.monthly_traffic || null,
+        payout_method: additionalData.payout_method || null,
+        payout_details: additionalData.payout_details || null,
+        telegram: additionalData.telegram || null,
+        whatsapp: additionalData.whatsapp || null,
+        skype: additionalData.skype || null,
+        notes: additionalData.notes || null,
+        referral_link: additionalData.referral_link || null,
+        referred_by_user_id: additionalData.referred_by_user_id || null,
+      };
+      const affiliate = this.affiliateRepository.create(affiliateEntity);
+      await this.affiliateRepository.save(affiliate);
+      console.log('Affiliate profile created:', affiliate);
     } else if (userData.role === 'admin' || userData.role === 'moderator') {
       console.log(`${userData.role} user created:`, savedUser);
     }
@@ -98,7 +133,7 @@ export class UsersService {
 
   async updateUser(
     userId: string,
-    role: 'employer' | 'jobseeker' | 'admin' | 'moderator',
+    role: 'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate',
     additionalData: any
   ) {
     console.log(`[UsersService] Обновление пользователя: userId=${userId}, role=${role}, data=${JSON.stringify(additionalData)}`);

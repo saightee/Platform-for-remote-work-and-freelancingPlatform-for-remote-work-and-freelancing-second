@@ -86,7 +86,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 
 ### 2. Verify Email
 - **Endpoint**: `GET api/auth/verify-email`
-- **Description**: Verifies a user’s email using a one-time token and **always redirects** to the frontend callback with a JWT for auto-login.
+- **Description**:Verifies a user’s email using a one-time token and always redirects to the frontend callback with a JWT for auto-login.
+  Works for all roles: jobseeker, employer, affiliate, admin, moderator.
 - **Query Parameters:**: `token`: (required) — verification token from the email link
 - **Cookies (read-only, optional)**:
   - `ref_to` — if present and is a relative path starting with `/`, it will be forwarded as `redirect` in the callback URL
@@ -114,7 +115,9 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 
 ### 4. Login a User
 - **Endpoint**: `POST api/auth/login`
-- **Description**: Logs a user in with email and password and returns a JWT. Non-privileged users must have a verified email.
+- **Description**: Logs a user in with email and password and returns a JWT.
+  Non-privileged users — jobseeker, employer, affiliate — must have a verified email (is_email_verified = true).
+  Admin and moderator accounts are allowed to log in without email verification.
 - **Headers**: 
  - `x-fingerprint (optional)` — device/browser fingerprint (used for anti-fraud & rate limiting).
 - **Request Body**:
@@ -4288,3 +4291,107 @@ A profile can have up to 10 portfolio files in total.
 - **Response (Error — 404)**
       ```json
   {"statusCode": 404,"message": "User not found","error": "Not Found"} 
+
+### 125. Register an Affiliate
+- **Endpoint:** `POST api/auth/register-affiliate`
+- **Description:** Creates a new affiliate account (role = "affiliate"). Sends an email verification link. No file uploads; only JSON body.
+  Password strength and geo-blocking rules are the same as for regular registration.
+- **Headers**: 
+  - `x-fingerprint` (required) — device/browser fingerprint string.
+  - `x-forwarded-for` (optional) — client IP (used for geo & anti-fraud).
+  - `x-real-ip` (optional) — alternative IP header.
+  - `x-site-brand` (optional) — explicit brand for multi-brand setup. If omitted, backend infers brand from Origin / Referer / Host.
+  - `x-ref (optional)` — referral code (also accepted via body/query/cookie).
+- **Content-Type:** application/json
+- **Request Body:**
+  ```json
+  {
+    "email": "affiliate@example.com",
+    "password": "StrongP@ssw0rd",
+    "username": "Jane Affiliate",
+    "role": "affiliate",
+    "country": "US",                    // optional; inferred from IP if missing
+    "account_type": "individual",       // "individual" | "company" (optional, defaults to "individual")
+    "company_name": "My Media LLC",     // optional (for account_type = "company")
+    "website_url": "https://my-traffic-site.com",  // REQUIRED
+    "traffic_sources": ["SEO", "PPC", "Social"],   // optional, array of strings
+    "promo_geo": ["US", "CA", "UK"],               // optional, array of strings
+    "monthly_traffic": "10000+ visits",            // optional free-form string
+    "payout_method": "PayPal",                     // optional
+    "payout_details": "paypal@example.com",        // optional (not exposed publicly)
+    "telegram": "@affiliate_username",             // optional
+    "whatsapp": "+12025550123",                    // optional
+    "skype": "live:affiliate.user",                // optional
+    "notes": "Short description of traffic and verticals", // optional
+    "ref": "AFF123"                                // optional referral code
+  }
+- **Response (Success - 200)**:
+  ```json
+  { "message": "Registration is successful. Please confirm your email." }
+- **Response (Error - 400 Missing fingerprint)**:
+  ```json
+  { "statusCode": 400, "message": "Fingerprint is required", "error": "Bad Request" }
+- **Response (Error - 403 Country blocked)**:
+  ```json
+  { "statusCode": 403, "message": "Registration is not allowed from your country", "error": "Forbidden" }
+- **Response (Error - 400 Weak password)**:
+  ```json
+  { "statusCode": 400, "message": "Weak password", "error": "Bad Request" }
+- **Response (Error - 400 Missing website URL)**:
+  ```json
+  {"statusCode": 400,"message": "website_url is required for affiliate registration","error": "Bad Request"}
+- **Response (Error - 400 Email already exists (verified))**:
+  ```json
+  { "statusCode": 400, "message": "Email already exists", "error": "Bad Request" }
+- **Response (Error - Email exists but not verified)**:
+  ```json
+  {"message": "Account exists but not verified. We sent a new confirmation link."}
+
+### 136. Get Current Affiliate Profile (Affiliate Dashboard)
+- **Endpoint:** `GET api/affiliates/me`
+- **Description:** Returns the current authenticated affiliate’s profile, including both affiliate-specific fields and the base user object. Intended for use in the affiliate dashboard.
+- **Authentication:** `Authorization: Bearer <accessToken>` — token must belong to a user with role = "affiliate"
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
+- **Success Response (200):**:
+  ```json
+  {
+    "user_id": "f6f4a1b0-1234-4cde-9fab-111111111111",
+    "account_type": "individual",
+    "company_name": "My Media LLC",
+    "website_url": "https://my-traffic-site.com",
+    "traffic_sources": "SEO, PPC, Social",
+    "promo_geo": "US, CA, UK",
+    "monthly_traffic": "10000+ visits",
+    "payout_method": "PayPal",
+    "payout_details": "paypal@example.com",
+    "telegram": "@affiliate_username",
+    "whatsapp": "+12025550123",
+    "skype": "live:affiliate.user",
+    "notes": "Short description of traffic and verticals",
+    "referral_link": "https://your-site.com/r/aff123",
+    "referred_by_user_id": null,
+    "created_at": "2025-11-13T10:00:00.000Z",
+    "updated_at": "2025-11-13T10:00:00.000Z",
+
+    "user": {
+      "id": "f6f4a1b0-1234-4cde-9fab-111111111111",
+      "email": "affiliate@example.com",
+      "username": "Jane Affiliate",
+      "role": "affiliate",
+      "country": "US",
+      "avatar": "https://cdn.../avatars/abc.webp",
+      "is_email_verified": true,
+      "status": "active",
+      "created_at": "2025-11-13T09:59:30.000Z",
+      "updated_at": "2025-11-13T10:00:00.000Z"
+    }
+  }
+- **Response (Error - 401 Missing/invalid token)**:
+  ```json
+  {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}
+- **Response (Error - 401 Token belongs to non-affiliate user)**:
+  ```json
+  {"statusCode": 401,"message": "Only affiliates can access this resource","error": "Unauthorized"}
+- **Response (Error - 404 Affiliate profile not found (edge case))**:
+  ```json
+  {"statusCode": 404,"message": "Affiliate profile not found","error": "Not Found"}

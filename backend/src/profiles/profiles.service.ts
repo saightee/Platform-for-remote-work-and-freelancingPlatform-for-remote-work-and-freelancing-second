@@ -40,7 +40,7 @@ export class ProfilesService {
     viewer?: {
       isAuthenticated?: boolean;
       viewerId?: string | null;
-      viewerRole?: 'employer' | 'jobseeker' | 'admin' | 'moderator' | null;
+      viewerRole?: 'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate' | null;
     },
   ) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });

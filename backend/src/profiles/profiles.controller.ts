@@ -59,7 +59,7 @@ export class ProfilesController {
     @Headers('authorization') authHeader?: string,
   ) {
     let viewerId: string | null = null;
-    let viewerRole: 'employer' | 'jobseeker' | 'admin' | 'moderator' | null = null;
+    let viewerRole: 'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate' | null = null;
     let isAuthenticated = false;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
