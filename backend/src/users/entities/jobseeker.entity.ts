@@ -51,6 +51,9 @@ export class JobSeeker {
   @Column({ nullable: true })
   portfolio?: string;
 
+  @Column({ type: 'text', array: true, nullable: true })
+  portfolio_files?: string[];
+
   @Column({ nullable: true })
   video_intro?: string;
 

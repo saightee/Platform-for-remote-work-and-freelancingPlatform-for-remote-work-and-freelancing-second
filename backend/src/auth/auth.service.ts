@@ -146,6 +146,9 @@ export class AuthService {
       if (Array.isArray(r.languages)) {
         additionalData.languages = r.languages;
       }
+      if (Array.isArray((r as any).portfolio_files) && (r as any).portfolio_files.length) {
+        additionalData.portfolio_files = (r as any).portfolio_files.slice(0, 10);
+      }
     }
 
     const newUser = await this.usersService.create(userData, additionalData);
@@ -157,7 +160,11 @@ export class AuthService {
     } catch (e) {
       console.error('[AntiFraud] calc on register failed:', e?.message || e);
     }
-    if (refCode) { try { await this.adminService.incrementRegistration(refCode, newUser.id); } catch {} }
+    if (refCode) {
+      try {
+        await this.adminService.incrementRegistration(refCode, newUser.id);
+      } catch {}
+    }
 
     if (role === 'admin' || role === 'moderator') {
       const payload = { email: newUser.email, sub: newUser.id, role: newUser.role };
@@ -171,7 +178,10 @@ export class AuthService {
       await this.redisService.set(`verify_latest:${newUser.id}`, verificationToken, 3600);
       await this.emailService.sendVerificationEmail(emailNorm, username, verificationToken);
     } catch {
-      return { message: 'Registration was successful, but the email was not sent. Please check your spam folder or try again.' };
+      return {
+        message:
+          'Registration was successful, but the email was not sent. Please check your spam folder or try again.',
+      };
     }
 
     return { message: 'Registration is successful. Please confirm your email.' };

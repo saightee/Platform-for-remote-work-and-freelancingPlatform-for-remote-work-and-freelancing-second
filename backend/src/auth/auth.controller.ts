@@ -62,36 +62,73 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  @UseInterceptors(FileFieldsInterceptor([
+  @UseInterceptors(FileFieldsInterceptor(
+    [
+      {
+        name: 'resume_file',
+        maxCount: 1,
+      },
+      {
+        name: 'avatar_file',
+        maxCount: 1,
+      },
+      {
+        name: 'portfolio_files',
+        maxCount: 10,
+      },
+    ],
     {
-      name: 'resume_file',
-      maxCount: 1,
+      storage: memoryStorage(),
+      fileFilter: (req, file, cb) => {
+        if (file.fieldname === 'resume_file') {
+          const allowedExt = /\.(pdf|doc|docx)$/i.test(file.originalname);
+          const allowedMime =
+            /pdf|msword|officedocument\.wordprocessingml\.document/.test(file.mimetype);
+          return allowedExt && allowedMime
+            ? cb(null, true)
+            : cb(
+                new BadRequestException(
+                  'Only PDF, DOC, and DOCX files are allowed for resume',
+                ),
+                false,
+              );
+        }
+        if (file.fieldname === 'avatar_file') {
+          const allowedExt = /\.(jpg|jpeg|png|webp)$/i.test(file.originalname);
+          const allowedMime = /^image\/(jpeg|png|webp)$/.test(file.mimetype);
+          return allowedExt && allowedMime
+            ? cb(
+                null,
+                true,
+              )
+            : cb(
+                new BadRequestException(
+                  'Avatar must be an image: JPG, PNG, or WEBP',
+                ),
+                false,
+              );
+        }
+        if (file.fieldname === 'portfolio_files') {
+          const allowedExt = /\.(pdf|doc|docx|jpg|jpeg|png|webp)$/i.test(
+            file.originalname,
+          );
+          const allowedMime = /pdf|msword|officedocument\.wordprocessingml\.document|image\/jpeg|image\/png|image\/webp/.test(
+            file.mimetype,
+          );
+          return allowedExt && allowedMime
+            ? cb(null, true)
+            : cb(
+                new BadRequestException(
+                  'Only PDF, DOC, DOCX, JPG, JPEG, PNG, and WEBP are allowed for portfolio files',
+                ),
+                false,
+              );
+        }
+        return cb(new BadRequestException('Unexpected file field'), false);
+      },
+      limits: { fileSize: 10 * 1024 * 1024 },
     },
-    {
-      name: 'avatar_file',
-      maxCount: 1,
-    },
-  ], {
-    storage: memoryStorage(),
-    fileFilter: (req, file, cb) => {
-      if (file.fieldname === 'resume_file') {
-        const allowedExt = /\.(pdf|doc|docx)$/i.test(file.originalname);
-        const allowedMime = /pdf|msword|officedocument\.wordprocessingml\.document/.test(file.mimetype);
-        return allowedExt && allowedMime
-          ? cb(null, true)
-          : cb(new BadRequestException('Only PDF, DOC, and DOCX files are allowed for resume'), false);
-      }
-      if (file.fieldname === 'avatar_file') {
-        const allowedExt = /\.(jpg|jpeg|png|webp)$/i.test(file.originalname);
-        const allowedMime = /^image\/(jpeg|png|webp)$/.test(file.mimetype);
-        return allowedExt && allowedMime
-          ? cb(null, true)
-          : cb(new BadRequestException('Avatar must be an image: JPG, PNG, or WEBP'), false);
-      }
-      return cb(new BadRequestException('Unexpected file field'), false);
-    },
-    limits: { fileSize: 10 * 1024 * 1024 },
-  }))
+  ))
   async register(
     @Body() registerDto: RegisterDto & { ref?: string },
     @Headers('x-forwarded-for') xForwardedFor?: string,
@@ -99,7 +136,12 @@ export class AuthController {
     @Headers('x-fingerprint') fingerprint?: string,
     @Headers('host') host?: string,
     @Req() req?: any,
-    @UploadedFiles() files?: { resume_file?: Express.Multer.File[]; avatar_file?: Express.Multer.File[] },
+    @UploadedFiles()
+    files?: {
+      resume_file?: Express.Multer.File[];
+      avatar_file?: Express.Multer.File[];
+      portfolio_files?: Express.Multer.File[];
+    },
   ) {
     const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
     const ip = (ipHeader || '').split(',')[0].trim();
@@ -107,6 +149,11 @@ export class AuthController {
 
     const resumeFile = files?.resume_file?.[0];
     const avatarFile = files?.avatar_file?.[0];
+    const portfolioFiles = files?.portfolio_files || [];
+
+    if (portfolioFiles.length > 10) {
+      throw new BadRequestException('You can upload up to 10 portfolio files');
+    }
 
     if (resumeFile?.buffer?.length) {
       if (filesDriver === 's3' && process.env.AWS_S3_BUCKET) {
@@ -147,12 +194,40 @@ export class AuthController {
       }
     }
 
+    const portfolioUrls: string[] = [];
+    for (const file of portfolioFiles) {
+      if (!file?.buffer?.length) continue;
+
+      if (filesDriver === 's3' && process.env.AWS_S3_BUCKET) {
+        const { key } = await this.s3.uploadBuffer(file.buffer, {
+          prefix: 'portfolios',
+          originalName: file.originalname,
+          contentType: file.mimetype,
+        });
+        const cdnBase = pickCdnBaseByHost(host);
+        portfolioUrls.push(`${cdnBase}/${key}`);
+      } else {
+        const ext = extname(file.originalname) || '';
+        const name = `${randomUUID()}${ext}`;
+        const dir = './uploads/portfolios';
+        await fs.mkdir(dir, { recursive: true });
+        await fs.writeFile(join(dir, name), file.buffer);
+        portfolioUrls.push(
+          `${process.env.BASE_URL}/uploads/portfolios/${name}`,
+        );
+      }
+    }
+
+    if (portfolioUrls.length) {
+      (registerDto as any).portfolio_files = portfolioUrls;
+    }
+
     const brand = mapBrandFromReq(req) || null;
     (registerDto as any).__brand = brand;
 
-    const refFromBody   = (registerDto as any)?.ref;
-    const refFromQuery  = req?.query?.ref as string | undefined;
-    const refFromHeader = (req?.headers?.['x-ref'] as string | undefined);
+    const refFromBody = (registerDto as any)?.ref;
+    const refFromQuery = req?.query?.ref as string | undefined;
+    const refFromHeader = req?.headers?.['x-ref'] as string | undefined;
     const refFromCookie = (req as any)?.cookies?.ref as string | undefined;
       
     const refCode =

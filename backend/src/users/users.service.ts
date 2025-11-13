@@ -52,7 +52,11 @@ export class UsersService {
 
       jobSeekerEntity.resume = additionalData.resume || null;
       jobSeekerEntity.experience = additionalData.experience || null;
-    
+
+      if (Array.isArray(additionalData.portfolio_files)) {
+        (jobSeekerEntity as any).portfolio_files = additionalData.portfolio_files;
+      }
+
       if (Array.isArray(additionalData.languages)) {
         jobSeekerEntity.languages = additionalData.languages;
       }
@@ -65,7 +69,6 @@ export class UsersService {
 
       const jobSeeker = this.jobSeekerRepository.create(jobSeekerEntity);
       await this.jobSeekerRepository.save(jobSeeker);
-
     } else if (userData.role === 'employer') {
       const employerEntity: DeepPartial<Employer> = {
         user_id: savedUser.id,
@@ -78,7 +81,6 @@ export class UsersService {
       const employer = this.employerRepository.create(employerEntity);
       await this.employerRepository.save(employer);
       console.log('Employer profile created:', employer);
-
     } else if (userData.role === 'admin' || userData.role === 'moderator') {
       console.log(`${userData.role} user created:`, savedUser);
     }

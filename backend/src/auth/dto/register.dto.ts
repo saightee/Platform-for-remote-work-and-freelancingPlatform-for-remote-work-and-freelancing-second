@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, IsArray, IsUrl,} from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, IsArray, IsUrl } from 'class-validator';
 
 export class RegisterDto {
   @IsEmail() email: string;
@@ -19,4 +19,9 @@ export class RegisterDto {
   @IsOptional() @IsString() whatsapp?: string;
   @IsOptional() @IsString() telegram?: string;
   @IsOptional() @IsString() date_of_birth?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  portfolio_files?: string[];
 }

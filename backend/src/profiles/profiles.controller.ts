@@ -10,9 +10,10 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  UploadedFiles,
   BadRequestException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { ProfilesService } from './profiles.service';
 import { AuthGuard } from '@nestjs/passport';
@@ -85,6 +86,7 @@ export class ProfilesController {
       job_experience?: string;
       description?: string;
       portfolio?: string;
+      portfolio_files?: string[];
       video_intro?: string;
       resume?: string;
       timezone?: string;
@@ -275,5 +277,73 @@ export class ProfilesController {
   @Post(':id/increment-view')
   async incrementProfileView(@Param('id') userId: string) {
     return this.profilesService.incrementProfileView(userId);
+  }
+
+  @Post('upload-portfolio')
+  @UseGuards(AuthGuard('jwt'))
+  @UseInterceptors(
+    FilesInterceptor('portfolio_files', 10, {
+      storage: memoryStorage(),
+      fileFilter: (req, file, cb) => {
+        const allowedExt = /\.(pdf|doc|docx|jpg|jpeg|png|webp)$/i.test(
+          file.originalname,
+        );
+        const allowedMime = /pdf|msword|officedocument\.wordprocessingml\.document|image\/jpeg|image\/png|image\/webp/.test(
+          file.mimetype,
+        );
+        return allowedExt && allowedMime
+          ? cb(null, true)
+          : cb(
+              new BadRequestException(
+                'Only PDF, DOC, DOCX, JPG, JPEG, PNG, and WEBP are allowed for portfolio files',
+              ),
+              false,
+            );
+      },
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  async uploadPortfolio(
+    @Headers('authorization') authHeader: string,
+    @Headers('host') host: string,
+    @UploadedFiles() portfolioFiles: Express.Multer.File[],
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const userId = payload.sub;
+  
+    if (!portfolioFiles || !portfolioFiles.length) {
+      throw new BadRequestException('Portfolio files are required');
+    }
+  
+    const urls: string[] = [];
+  
+    for (const file of portfolioFiles) {
+      if (!file?.buffer?.length) continue;
+      let url: string;
+    
+      if (FILES_DRIVER === 's3' && process.env.AWS_S3_BUCKET) {
+        const { key } = await this.s3.uploadBuffer(file.buffer, {
+          prefix: 'portfolios',
+          originalName: file.originalname,
+          contentType: file.mimetype,
+        });
+        url = `${pickCdnBaseByHost(host)}/${key}`;
+      } else {
+        const ext = extname(file.originalname) || '';
+        const name = `${randomUUID()}${ext}`;
+        const dir = './uploads/portfolios';
+        await fs.mkdir(dir, { recursive: true });
+        await fs.writeFile(join(dir, name), file.buffer);
+        url = `${process.env.BASE_URL}/uploads/portfolios/${name}`;
+      }
+    
+      urls.push(url);
+    }
+  
+    return this.profilesService.uploadPortfolioFiles(userId, urls);
   }
 }

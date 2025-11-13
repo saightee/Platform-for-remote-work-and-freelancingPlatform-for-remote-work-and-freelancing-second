@@ -60,6 +60,7 @@ export class ProfilesService {
         job_experience: (jobSeeker as any).job_experience || null,
         description: jobSeeker.description,
         portfolio: jobSeeker.portfolio,
+        portfolio_files: jobSeeker.portfolio_files || [],
         video_intro: jobSeeker.video_intro,
         resume: jobSeeker.resume,
         timezone: jobSeeker.timezone,
@@ -112,10 +113,12 @@ export class ProfilesService {
     }
 
     if (Object.prototype.hasOwnProperty.call(updateData, 'username')) {
-      if (typeof updateData.username !== 'string') throw new BadRequestException('Username must be a string');
+      if (typeof updateData.username !== 'string')
+        throw new BadRequestException('Username must be a string');
       const newUsername = updateData.username.trim();
       if (!newUsername) throw new BadRequestException('Username cannot be empty');
-      if (newUsername.length > 100) throw new BadRequestException('Username is too long (max 100)');
+      if (newUsername.length > 100)
+        throw new BadRequestException('Username is too long (max 100)');
       user.username = newUsername;
       await this.usersRepository.save(user);
     }
@@ -136,7 +139,9 @@ export class ProfilesService {
       if (updateData.resume) jobSeeker.resume = updateData.resume;
 
       if (updateData.skillIds && Array.isArray(updateData.skillIds)) {
-        const skills = await this.categoriesRepository.find({ where: { id: In(updateData.skillIds) } });
+        const skills = await this.categoriesRepository.find({
+          where: { id: In(updateData.skillIds) },
+        });
         jobSeeker.skills = skills;
       }
 
@@ -150,7 +155,9 @@ export class ProfilesService {
       if (Object.prototype.hasOwnProperty.call(updateData, 'date_of_birth')) {
         const dob = String(updateData.date_of_birth || '').trim();
         if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
-          throw new BadRequestException('date_of_birth must be in format YYYY-MM-DD');
+          throw new BadRequestException(
+            'date_of_birth must be in format YYYY-MM-DD',
+          );
         }
         (jobSeeker as any).date_of_birth = dob || null;
       }
@@ -161,7 +168,19 @@ export class ProfilesService {
         jobSeeker.description = limited || null;
       }
 
-      if (updateData.portfolio) jobSeeker.portfolio = updateData.portfolio;
+      if (Object.prototype.hasOwnProperty.call(updateData, 'portfolio')) {
+        jobSeeker.portfolio = updateData.portfolio;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(updateData, 'portfolio_files')) {
+        const arr = Array.isArray(updateData.portfolio_files)
+          ? updateData.portfolio_files.filter(
+              (v: any) => typeof v === 'string' && v.trim(),
+            )
+          : [];
+        jobSeeker.portfolio_files = arr;
+      }
+
       if (updateData.video_intro) jobSeeker.video_intro = updateData.video_intro;
       if (updateData.timezone) jobSeeker.timezone = updateData.timezone;
       if (updateData.currency) jobSeeker.currency = updateData.currency;
@@ -279,5 +298,32 @@ export class ProfilesService {
     jobSeeker.profile_views = (jobSeeker.profile_views || 0) + 1;
     await this.jobSeekerRepository.save(jobSeeker);
     return { message: 'Profile view count incremented', profile_views: jobSeeker.profile_views };
+  }
+
+  async uploadPortfolioFiles(userId: string, newUrls: string[]) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.role !== 'jobseeker') {
+      throw new BadRequestException('Only jobseekers can upload portfolio files');
+    }
+  
+    const jobSeeker = await this.jobSeekerRepository.findOne({
+      where: { user_id: userId },
+    });
+    if (!jobSeeker) {
+      throw new NotFoundException('JobSeeker profile not found');
+    }
+  
+    const existing = jobSeeker.portfolio_files || [];
+    if (existing.length + newUrls.length > 10) {
+      throw new BadRequestException('You can have up to 10 portfolio files');
+    }
+  
+    jobSeeker.portfolio_files = [...existing, ...newUrls];
+    await this.jobSeekerRepository.save(jobSeeker);
+  
+    return this.getProfile(userId, true);
   }
 }
