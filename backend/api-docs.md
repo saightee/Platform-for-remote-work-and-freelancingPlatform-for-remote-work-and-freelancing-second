@@ -47,6 +47,9 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Response (Error - 400, Invalid avatar file)**:
   ```json
   {"statusCode": 400, "message": "Avatar must be an image: JPG, PNG, or WEBP", "error": "Bad Request"}
+- **Response (Error - 400, Invalid portfolio files)**:
+  ```json
+  {"statusCode": 400, "message": "Only PDF, DOC, DOCX, JPG, JPEG, PNG, and WEBP are allowed for portfolio files", "error": "Bad Request"}
 - **Response (Error - 400, Missing fingerprint)**:
   ```json
   {"statusCode": 400, "message": "Fingerprint is required", "error": "Bad Request"}
@@ -260,7 +263,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
       }
     ]
   }
-- **Response (Success — 200) — Employer**
+- **Response (Success — 200) — Jobseeker**
   ```json
   {
     "id": "<userId>",
@@ -279,11 +282,16 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
       }
     ],
     "experience": "2 years",
+    "job_experience": "Worked as a frontend developer in 2 companies", 
     "linkedin": "https://www.linkedin.com/in/username",
     "instagram": "https://www.instagram.com/username",
     "facebook": "https://www.facebook.com/username",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
+    "portfolio_files": [
+    "https://cdn.example.com/portfolios/file1.pdf",
+    "https://cdn.example.com/portfolios/file2.png"
+    ],
     "video_intro": "https://video.com",
     "resume": "https://example.com/resume.pdf",
     "date_of_birth": "1992-07-15",
@@ -392,8 +400,13 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
       }
     ],
     "experience": "2 years",
+    "job_experience": "Worked as a frontend developer in 2 companies",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
+    "portfolio_files": [
+    "https://cdn.example.com/portfolios/file1.pdf",
+    "https://cdn.example.com/portfolios/file2.png"
+    ],
     "video_intro": "https://video.com",
     "resume": "https://example.com/resume.pdf",
     "date_of_birth": "1992-07-15",
@@ -436,8 +449,13 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "country_name": "United States",
     "skills": [],
     "experience": "2 years",
+    "job_experience": "Worked as a frontend developer in 2 companies",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
+    "portfolio_files": [
+    "https://cdn.example.com/portfolios/file1.pdf",
+    "https://cdn.example.com/portfolios/file2.png"
+    ],
     "video_intro": "https://video.com",
     "resume": "https://example.com/resume.pdf",
     "date_of_birth": "1992-07-15",
@@ -492,6 +510,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "languages": ["English", "German"],
     "skillIds": ["<skillId1>", "<skillId2>"],
     "experience": "3 years",
+    "job_experience": "Detailed description of job history",
     "linkedin": "https://www.linkedin.com/in/...", 
     "instagram": "https://www.instagram.com/...",
     "facebook": "https://www.facebook.com/...",
@@ -499,6 +518,10 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "telegram": "@handle",
     "description": "Up to 150 words ...",
     "portfolio": "https://portfolio.com",
+    "portfolio_files": [
+      "https://cdn.example.com/portfolios/file1.pdf",
+      "https://cdn.example.com/portfolios/file2.png"
+    ],
     "video_intro": "https://video.com",
     "resume": "https://example.com/resume.pdf",
     "date_of_birth": "1992-07-15",
@@ -4197,3 +4220,71 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
 - **Response (Error — 404 Not Found — link does not exist):**:
   ```json
   { "statusCode": 404, "message": "Referral link not found", "error": "Not Found" }  
+
+### 124. Upload Portfolio Files
+- **Endpoint**: `POST /api/profile/upload-portfolio`
+- **Description**: Uploads one or more portfolio files for the authenticated jobseeker.
+Files are stored in S3 under the portfolios/... prefix, and their URLs are appended to the portfolio_files array in the jobseeker profile.
+A profile can have up to 10 portfolio files in total.
+- **Headers**: `Authorization: Bearer <token>`
+  `Content-Type: multipart/form-data`
+- **Request (multipart/form-data)**:
+  - `portfolio_files` — required, array of files
+      `Allowed types`: pdf, doc, docx, jpg, jpeg, png, webp
+      `Max files per request`: 10
+      `Max size per file`: 10 MB
+- **Response (Success — 200)**:
+  ```json
+  {
+    "id": "<userId>",
+    "role": "jobseeker",
+    "email": "test@example.com",
+    "username": "jane_dev",
+    "country": "US",
+    "country_name": "United States",
+    "skills": [],
+    "experience": "2 years",
+    "job_experience": "Worked as a frontend developer in 2 companies",
+    "description": "Experienced web developer specializing in React and Node.js",
+    "portfolio": "https://portfolio.com",
+    "portfolio_files": [
+      "https://cdn.example.com/portfolios/file1.pdf",
+      "https://cdn.example.com/portfolios/file2.png"
+    ],
+    "video_intro": "https://video.com",
+    "resume": "https://example.com/resume.pdf",
+    "date_of_birth": "1992-07-15",
+    "timezone": "Europe/Moscow",
+    "currency": "USD",
+    "expected_salary": 4500,
+    "average_rating": 4.0,
+    "profile_views": 12,
+    "job_search_status": "open_to_offers",
+    "linkedin": "https://www.linkedin.com/in/username",
+    "instagram": "https://www.instagram.com/username",
+    "facebook": "https://www.facebook.com/username",
+    "whatsapp": "+15551234567",
+    "telegram": "@username",
+    "languages": ["English", "German"],
+    "reviews": [],
+    "avatar": "https://example.com/avatar.jpg",
+    "identity_verified": false
+  }
+- **Response (Error — 400, no files)**
+      ```json
+  {"statusCode": 400,"message": "Portfolio files are required","error": "Bad Request"}
+- **Response (Error — 400, invalid file type)**
+      ```json
+  {"statusCode": 400,"message": "Only PDF, DOC, DOCX, JPG, JPEG, PNG, and WEBP are allowed for portfolio files","error": "Bad Request"}
+- **Response (Error — 400, too many files in profile)**
+      ```json
+  {"statusCode": 400,"message": "You can have up to 10 portfolio files","error": "Bad Request"}
+- **Response (Error — 400, role not jobseeker)**
+      ```json
+  {"statusCode": 400,"message": "Only jobseekers can upload portfolio files","error": "Bad Request"}
+- **Response (Error — 401)**
+      ```json
+  {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"} 
+- **Response (Error — 404)**
+      ```json
+  {"statusCode": 404,"message": "User not found","error": "Not Found"} 

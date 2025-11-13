@@ -44,7 +44,13 @@ export class ProfilesController {
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
     const userId = payload.sub;
-    return this.profilesService.getProfile(userId);
+    const role = payload.role;
+
+    return this.profilesService.getProfile(userId, {
+      isAuthenticated: true,
+      viewerId: userId,
+      viewerRole: role,
+    });
   }
 
   @Get(':id')
@@ -52,18 +58,29 @@ export class ProfilesController {
     @Param('id') userId: string,
     @Headers('authorization') authHeader?: string,
   ) {
+    let viewerId: string | null = null;
+    let viewerRole: 'employer' | 'jobseeker' | 'admin' | 'moderator' | null = null;
     let isAuthenticated = false;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
         const token = authHeader.replace('Bearer ', '');
         const payload = this.jwtService.verify(token);
-        isAuthenticated = !!payload?.sub;
+        viewerId = payload.sub || null;
+        viewerRole = payload.role || null;
+        isAuthenticated = !!viewerId;
       } catch {
+        viewerId = null;
+        viewerRole = null;
+        isAuthenticated = false;
       }
     }
 
-    const profile = await this.profilesService.getProfile(userId, isAuthenticated);
+    const profile = await this.profilesService.getProfile(userId, {
+      isAuthenticated,
+      viewerId,
+      viewerRole,
+    });
 
     if (profile.role === 'jobseeker') {
       await this.profilesService.incrementProfileView(userId);
