@@ -18,6 +18,9 @@ export class JobSeeker {
   @Column({ nullable: true })
   experience?: string;
 
+  @Column({ type: 'text', nullable: true })
+  job_experience?: string | null;
+
   @Column('text', { nullable: true })
   description?: string;
 

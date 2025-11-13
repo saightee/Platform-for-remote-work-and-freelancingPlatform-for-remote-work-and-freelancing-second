@@ -57,6 +57,7 @@ export class ProfilesService {
         country_name: this.countryNameFromISO(user.country),
         skills: jobSeeker.skills,
         experience: jobSeeker.experience,
+        job_experience: (jobSeeker as any).job_experience || null,
         description: jobSeeker.description,
         portfolio: jobSeeker.portfolio,
         video_intro: jobSeeker.video_intro,
@@ -141,6 +142,11 @@ export class ProfilesService {
 
       if (updateData.experience) jobSeeker.experience = updateData.experience;
 
+      if (Object.prototype.hasOwnProperty.call(updateData, 'job_experience')) {
+        const v = String(updateData.job_experience || '').trim();
+        (jobSeeker as any).job_experience = v || null;
+      }
+
       if (Object.prototype.hasOwnProperty.call(updateData, 'date_of_birth')) {
         const dob = String(updateData.date_of_birth || '').trim();
         if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
@@ -148,7 +154,7 @@ export class ProfilesService {
         }
         (jobSeeker as any).date_of_birth = dob || null;
       }
-      
+
       if (Object.prototype.hasOwnProperty.call(updateData, 'description')) {
         const d = String(updateData.description || '');
         const limited = d.trim().split(/\s+/).slice(0, 150).join(' ');

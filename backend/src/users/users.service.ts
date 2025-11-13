@@ -130,6 +130,11 @@ export class UsersService {
       }
       if (additionalData.skills) jobSeeker.skills = additionalData.skills;
       if (additionalData.experience) jobSeeker.experience = additionalData.experience;
+
+      if (Object.prototype.hasOwnProperty.call(additionalData, 'job_experience')) {
+        (jobSeeker as any).job_experience = additionalData.job_experience;
+      }
+
       if (additionalData.description) jobSeeker.description = additionalData.description;
       if (additionalData.portfolio) jobSeeker.portfolio = additionalData.portfolio;
       if (additionalData.video_intro) jobSeeker.video_intro = additionalData.video_intro;

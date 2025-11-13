@@ -82,6 +82,7 @@ export class ProfilesController {
       // jobseeker:
       skillIds?: string[];
       experience?: string;
+      job_experience?: string;
       description?: string;
       portfolio?: string;
       video_intro?: string;
