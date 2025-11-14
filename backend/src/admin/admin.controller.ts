@@ -815,7 +815,8 @@ export class AdminController {
     @Param('id') jobPostId: string,
     @Body() body: { 
       limit: number; 
-      orderBy: 'beginning' | 'end' | 'random' 
+      orderBy: 'beginning' | 'end' | 'random';
+      categoryIds?: string[];
     },
     @Headers('authorization') authHeader: string,
   ) {
@@ -824,7 +825,7 @@ export class AdminController {
     }
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
-    const userIdAdmin = payload.sub;
+    const adminId = payload.sub;
 
     if (!body.limit || !Number.isInteger(body.limit) || body.limit < 1) {
       throw new BadRequestException('Limit must be a positive integer');
@@ -833,11 +834,16 @@ export class AdminController {
       throw new BadRequestException('OrderBy must be one of: beginning, end, random');
     }
 
+    const categoryIds = Array.isArray(body.categoryIds)
+      ? body.categoryIds.filter((id) => typeof id === 'string' && id.trim().length > 0)
+      : undefined;
+
     return this.adminService.notifyJobSeekers(
-      userIdAdmin,
+      adminId,
       jobPostId,
       body.limit,
       body.orderBy,
+      categoryIds,
     );
   }
   
@@ -848,6 +854,8 @@ export class AdminController {
     @Body() body: {
       limit: number;
       orderBy: 'beginning' | 'end' | 'random';
+      categoryIds?: string[];
+      sourceJobIds?: string[];
     },
     @Headers('authorization') authHeader: string,
   ) {
@@ -856,7 +864,7 @@ export class AdminController {
     }
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
-    const userIdAdmin = payload.sub;
+    const adminId = payload.sub;
 
     if (!body.limit || !Number.isInteger(body.limit) || body.limit < 1) {
       throw new BadRequestException('Limit must be a positive integer');
@@ -864,12 +872,22 @@ export class AdminController {
     if (!['beginning', 'end', 'random'].includes(body.orderBy)) {
       throw new BadRequestException('OrderBy must be one of: beginning, end, random');
     }
-    
+
+    const categoryIds = Array.isArray(body.categoryIds)
+      ? body.categoryIds.filter((id) => typeof id === 'string' && id.trim().length > 0)
+      : undefined;
+
+    const sourceJobIds = Array.isArray(body.sourceJobIds)
+      ? body.sourceJobIds.filter((id) => typeof id === 'string' && id.trim().length > 0)
+      : undefined;
+
     return this.adminService.notifyReferralApplicants(
-      payload.sub,
+      adminId,
       jobPostId,
       body.limit,
       body.orderBy,
+      categoryIds,
+      sourceJobIds,
     );
   }
 
