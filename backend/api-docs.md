@@ -4406,3 +4406,46 @@ A profile can have up to 10 portfolio files in total.
 - **Response (Error - 404 Affiliate profile not found (edge case))**:
   ```json
   {"statusCode": 404,"message": "Affiliate profile not found","error": "Not Found"}
+
+### 126. Get Category Analytics (Admin)
+- **Endpoint:** `GET /api/admin/analytics/categories`
+- **Description:** Returns aggregated statistics by categories for both jobseekers (based on their skills) and job posts (based on attached categories). Only categories with at least one matching jobseeker or job post are returned. Parent categories and their subcategories are sorted in descending order by count.
+- **Authentication:** `Authorization: Bearer <token>`
+- **Success Response (200):**:
+  ```json
+  {
+    "jobseekers": [
+      {
+        "id": "parent-category-id",
+        "name": "Design & Creative",
+        "jobseekersCount": 150,
+        "subcategories": [
+          {
+            "id": "sub-category-id",
+            "name": "Graphic Design",
+            "jobseekersCount": 80
+          }
+        ]
+      }
+    ],
+    "jobPosts": [
+      {
+        "id": "parent-category-id",
+        "name": "Design & Creative",
+        "jobPostsCount": 40,
+        "subcategories": [
+          {
+            "id": "sub-category-id",
+            "name": "Graphic Design",
+            "jobPostsCount": 18
+          }
+        ]
+      }
+    ]
+  }
+- **Response (Error – 401 Unauthorized — missing/malformed token or invalid token)**:
+  ```json
+  {"statusCode": 401, "message": "Invalid token", "error": "Unauthorized"}
+- **Response (Error – 403 Forbidden — not an admin/moderator)**:
+  ```json
+  {"statusCode": 403, "message": "Forbidden resource", "error": "Forbidden"}

@@ -2030,4 +2030,133 @@ export class AdminService {
     await this.referralLinksRepository.delete(linkId);
     return { message: 'Deleted' };
   }
+
+  async getCategoryAnalytics(adminId: string) {
+    await this.checkAdminOrModerator(adminId);
+
+    const categories = await this.categoriesRepository.find();
+    const parentMap = new Map<string, string | null>();
+    categories.forEach((c) => parentMap.set(c.id, c.parent_id || null));
+
+    const jsRaw = await this.jobSeekerRepository
+      .createQueryBuilder('js')
+      .innerJoin('js.skills', 'skill')
+      .innerJoin('js.user', 'u')
+      .select('js.user_id', 'job_seeker_id')
+      .addSelect('skill.id', 'category_id')
+      .where('u.role = :role', { role: 'jobseeker' })
+      .andWhere('u.status = :status', { status: 'active' })
+      .getRawMany();
+
+    const jsSetsByCategory = new Map<string, Set<string>>();
+
+    for (const row of jsRaw) {
+      const jsId: string = row.job_seeker_id;
+      let catId: string | null = row.category_id;
+      const visited = new Set<string>();
+
+      while (catId) {
+        if (visited.has(catId)) break;
+        visited.add(catId);
+
+        let set = jsSetsByCategory.get(catId);
+        if (!set) {
+          set = new Set<string>();
+          jsSetsByCategory.set(catId, set);
+        }
+        set.add(jsId);
+
+        catId = parentMap.get(catId) ?? null;
+      }
+    }
+
+    const jsCountMap = new Map<string, number>();
+    categories.forEach((c) => {
+      const set = jsSetsByCategory.get(c.id);
+      if (set && set.size > 0) {
+        jsCountMap.set(c.id, set.size);
+      }
+    });
+
+    const jpRaw = await this.jobPostsRepository
+      .createQueryBuilder('jp')
+      .innerJoin(JobPostCategory, 'jpc', 'jpc.job_post_id = jp.id')
+      .select('jp.id', 'job_post_id')
+      .addSelect('jpc.category_id', 'category_id')
+      .where('jp.status = :status', { status: 'Active' })
+      .andWhere('jp.pending_review = :pending', { pending: false })
+      .getRawMany();
+
+    const jpSetsByCategory = new Map<string, Set<string>>();
+
+    for (const row of jpRaw) {
+      const jpId: string = row.job_post_id;
+      let catId: string | null = row.category_id;
+      const visited = new Set<string>();
+
+      while (catId) {
+        if (visited.has(catId)) break;
+        visited.add(catId);
+
+        let set = jpSetsByCategory.get(catId);
+        if (!set) {
+          set = new Set<string>();
+          jpSetsByCategory.set(catId, set);
+        }
+        set.add(jpId);
+
+        catId = parentMap.get(catId) ?? null;
+      }
+    }
+
+    const jpCountMap = new Map<string, number>();
+    categories.forEach((c) => {
+      const set = jpSetsByCategory.get(c.id);
+      if (set && set.size > 0) {
+        jpCountMap.set(c.id, set.size);
+      }
+    });
+
+    const buildTree = <
+      K extends 'jobseekersCount' | 'jobPostsCount'
+    >(countMap: Map<string, number>, key: K) => {
+      const parents = categories.filter((c) => !c.parent_id);
+
+      const result = parents
+        .map((parent) => {
+          const parentCount = countMap.get(parent.id) || 0;
+          if (!parentCount) return null;
+
+          const children = categories.filter((c) => c.parent_id === parent.id);
+          const subcategories = children
+            .map((child) => {
+              const childCount = countMap.get(child.id) || 0;
+              if (!childCount) return null;
+              return {
+                id: child.id,
+                name: child.name,
+                [key]: childCount,
+              } as any;
+            })
+            .filter(Boolean)
+            .sort((a: any, b: any) => b[key] - a[key]);
+
+          return {
+            id: parent.id,
+            name: parent.name,
+            [key]: parentCount,
+            subcategories,
+          } as any;
+        })
+        .filter(Boolean)
+        .sort((a: any, b: any) => b[key] - a[key]);
+
+      return result;
+    };
+
+    const jobseekers = buildTree(jsCountMap, 'jobseekersCount');
+    const jobPosts = buildTree(jpCountMap, 'jobPostsCount');
+
+    return { jobseekers, jobPosts };
+  }
 }

@@ -1349,4 +1349,19 @@ export class AdminController {
 
     return this.feedbackService.getFeedback(adminId, p, l);
   }
+
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
+  @Get('analytics/categories')
+  async getCategoryAnalytics(
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+  
+    return this.adminService.getCategoryAnalytics(adminId);
+  }
 }
