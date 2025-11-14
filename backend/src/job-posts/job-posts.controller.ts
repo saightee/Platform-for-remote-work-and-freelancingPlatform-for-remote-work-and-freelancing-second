@@ -24,7 +24,8 @@ export class JobPostsController {
       title: string; 
       description: string; 
       location: string; 
-      salary?: number; 
+      salary?: number;
+      salary_max?: number;
       status: 'Active' | 'Draft' | 'Closed'; 
       category_ids?: string[];
       category_id?: string; 
@@ -52,7 +53,8 @@ export class JobPostsController {
       title?: string; 
       description?: string; 
       location?: string; 
-      salary?: number; 
+      salary?: number;
+      salary_max?: number;
       status?: 'Active' | 'Draft' | 'Closed'; 
       category_ids?: string[];
       category_id?: string; 
@@ -164,6 +166,7 @@ export class JobPostsController {
     @Body('title') title?: string,
     @Body('location') location?: string,
     @Body('salary') salary?: number,
+    @Body('salary_max') salary_max?: number,
     @Body('salary_type') salary_type?: 'per hour' | 'per month' | 'negotiable',
     @Body('job_type') job_type?: 'Full-time' | 'Part-time' | 'Project-based',
   ) {
@@ -177,7 +180,7 @@ export class JobPostsController {
     if (!user || user.role !== 'employer') {
       throw new UnauthorizedException('Only employers can generate descriptions');
     }
-    return this.jobPostsService.generateDescription({ aiBrief, title, location, salary, salary_type, job_type });
+    return this.jobPostsService.generateDescription({ aiBrief, title, location, salary, salary_max, salary_type, job_type });
   }
 
   @Get('by-slug-or-id/:slugOrId')

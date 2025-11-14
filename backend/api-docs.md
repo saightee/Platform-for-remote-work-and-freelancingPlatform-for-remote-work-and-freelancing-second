@@ -567,8 +567,9 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Endpoint**: `POST /api/job-posts`
 - **Description**: Creates a new job post for an authenticated **employer**.  
   - At least **one category** is required (`category_ids` preferred; `category_id` is legacy).  
-  - If `salary_type` = `"negotiable"`, the server stores `salary = null`.  
+  - If `salary_type` = `negotiable`, the server stores `salary` = null and  `salary_max` = null
   - If `description` is missing **and** `aiBrief` is provided, the server auto-generates a description.  
+  - If `salary_type` is not `negotiable`, `salary` is required. Optional `salary_max` must be greater than or equal to `salary` when provided.
   - New posts are created with `pending_review: true` (not publicly visible until approved), even if `status` is `"Active"`.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
@@ -578,6 +579,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "description": "We are looking for a skilled software engineer.",
     "location": "Remote",
     "salary": 50000,
+    "salary_max": 70000,
     "status": "Active",                           // "Active" | "Draft" | "Closed"
     "job_type": "Full-time",                      // "Full-time" | "Part-time" | "Project-based"
     "salary_type": "per month",                   // "per hour" | "per month" | "negotiable"
@@ -594,6 +596,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "description": "We are looking for a skilled software engineer.",
     "location": "Remote",
     "salary": 50000,
+    "salary_max": 70000,
     "status": "Active",
     "job_type": "Full-time",
     "salary_type": "per month",
@@ -629,6 +632,9 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Response (Error — 400, salary missing & not negotiable)**:
   ```json
   { "statusCode": 400, "message": "Salary is required unless salary_type is negotiable", "error": "Bad Request" }
+- **Response (Error — 400, salary missing & not negotiable)**:
+  ```json
+  { "statusCode": 400, "message": "salary_max must be greater than or equal to salary", "error": "Bad Request" }
 - **Response (Error — 400, no categories)**:
   ```json
   { "statusCode": 400, "message": "At least one category is required", "error": "Bad Request" }
@@ -648,11 +654,12 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 ### 15. Update Job Post
 - **Endpoint**: `PUT /api/job-posts/:id`
 - **Description**: Updates an existing job post for an authenticated **employer**.
-  - If `salary_type` = `"negotiable"`, the server stores `salary = null`.
+  - If `salary_type` = `negotiable`, the server stores `salary` = null and `salary_max` = null.
   - If changing `salary_type` to a non-negotiable value while the current salary is `null`, you **must** provide `salary` (otherwise 400).
   - If `aiBrief` is provided and `description` is omitted, the server **auto-generates** a description.
   - **You cannot set `status` to `"Closed"` here** — use the dedicated **Close Job** endpoint instead (attempting to set `"Closed"` returns 400).
   - If the title changes, the server recalculates `slug` and `slug_id`.
+  - When `salary_type` is not `negotiable`, the resulting `salary` (after applying updates) must not be null, and `salary_max` (if provided) must be ≥ `salary`.
 - **Headers**: `Authorization: Bearer <token>` 
 - **Request Body**::
   ```json
@@ -661,6 +668,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "description": "Updated description.",
     "location": "Remote",
     "salary": 60000,
+    "salary_max": 70000,
     "status": "Active",                          // "Active" | "Draft" (cannot set "Closed" here)
     "job_type": "Full-time",                     // "Full-time" | "Part-time" | "Project-based"
     "salary_type": "per month",                  // "per hour" | "per month" | "negotiable"
@@ -677,6 +685,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "description": "Updated description.",
     "location": "Remote",
     "salary": 60000,
+    "salary_max": 70000,
     "status": "Active",
     "job_type": "Full-time",
     "salary_type": "per month",
@@ -709,6 +718,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Response (Error — 400, salary required)**:
   ```json
   { "statusCode": 400, "message": "Salary is required unless salary_type is negotiable", "error": "Bad Request" }
+  { "statusCode": 400, "message": "salary_max must be greater than or equal to salary", "error": "Bad Request" }
 - **Response (Error — 400, categories)**:
   ```json
   { "statusCode": 400, "message": "At least one category is required", "error": "Bad Request" }
@@ -727,7 +737,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Endpoint**: `POST /api/job-posts/generate-description`
 - **Description**: Generates a **sanitized HTML** job description from a short AI brief.  
   - **Employers only** (JWT required).  
-  - Honors optional context fields (`title`, `location`, `salary`, `salary_type`, `job_type`).  
+  - Honors optional context fields `(title, location, salary, salary_max, salary_type, job_type)`.
+  If both salary and `salary_max` are provided (and salary_type is not "negotiable"), the generated text will display a range (e.g. 5–8 per hour).
   - If `salary_type = "negotiable"`, salary may be omitted and the output will display **Negotiable**.
   - Rate-limited via `ThrottlerGuard`.
 - **Headers**: `Authorization: Bearer <token>` (Required for employers)
@@ -738,6 +749,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "title": "Python Developer",
     "location": "Remote",
     "salary": 3000,
+    "salary_max": 3500,
     "salary_type": "per month",      // "per hour" | "per month" | "negotiable"
     "job_type": "Full-time"          // "Full-time" | "Part-time" | "Project-based"
   }
@@ -764,7 +776,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 ### 17. Get Job Post
 - **Endpoint**: `GET /api/job-posts/:id`
 - **Description**: Returns a single job post by its ID.  
-  *Note:* This endpoint is **public** and does **not** filter by status or review state. If `salary_type` is `"negotiable"`, `salary` may be `null` (UI should display “Negotiable”).
+  *Note:* This endpoint is **public** and does **not** filter by status or review state. If `salary_type` is `negotiable`, both salary and `salary_max` may be null (UI should display “Negotiable”).
+  If `salary_type` is not `negotiable` and both salary and `salary_max` are present, they form a range ([salary, salary_max]).
 - **Path Parameters**
   - `id` — job post ID (string, required)
 - **Response (Success - 200)**:
@@ -775,6 +788,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "description": "Develop and maintain web applications.",
     "location": "Remote",
     "salary": null,
+    "salary_max": 8000,
     "status": "Active",
     "job_type": "Full-time",
     "salary_type": "negotiable",
@@ -817,6 +831,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "description": "Develop and maintain web applications.",
     "location": "Remote",
     "salary": null,
+    "salary_max": 8000,
     "status": "Active",
     "job_type": "Full-time",
     "salary_type": "negotiable",
@@ -859,6 +874,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
       "description": "Updated description.",
       "location": "Remote",
       "salary": 60000,
+      "salary_max": 70000,
       "salary_type": "per month",
       "excluded_locations": ["IN"],
       "status": "Closed",
@@ -1358,8 +1374,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
   - `title` — string; partial match (ILIKE) against job title
   - `location` — string; partial match (ILIKE)
   - `job_type` — `"Full-time" | "Part-time" | "Project-based"`
-  - `salary_min` — number; minimum salary (ignored by posts where salary is `null`)
-  - `salary_max` — number; maximum salary (ignored by posts where salary is `null`)
+  - `salary_min` — number; minimum desired salary. A job post is included if its stored range [salary, salary_max] satisfies max >= salary_min. Posts with salary = null or salary_type = "negotiable" are ignored.
+  - `salary_max` — number; maximum desired salary. A job post is included if its stored range [salary, salary_max] satisfies min <= salary_max. Posts with salary = null or salary_type = "negotiable" are ignored.
   - `salary_type` — `"per hour" | "per month" | "negotiable"`
   - `category_id` — string; filter by a single category **including its descendants**
   - `required_skills` — string or string[]; matches when the job’s `required_skills` array overlaps the provided list
@@ -1379,6 +1395,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
       "description": "Develop and maintain web applications.",
       "location": "Remote",
       "salary": null,
+      "salary_max": 8000,
       "status": "Active",
       "job_type": "Full-time",
       "salary_type": "negotiable",

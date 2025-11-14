@@ -1271,6 +1271,7 @@ export class AdminService {
           {
             location: jobPost.location || (jobPost as any).work_mode || 'Remote',
             salary: jobPost.salary ?? null,
+            salary_max: jobPost.salary_max ?? null,
             salary_type: jobPost.salary_type as any,
             job_type: jobPost.job_type as any,
           },
@@ -1426,6 +1427,7 @@ export class AdminService {
           {
             location: jobPost.location || (jobPost as any).work_mode || 'Remote',
             salary: jobPost.salary ?? null,
+            salary_max: jobPost.salary_max ?? null,
             salary_type: jobPost.salary_type as any,
             job_type: jobPost.job_type as any,
           },
