@@ -22,6 +22,7 @@ import { FaComments, FaPaperPlane, FaUsers, FaUserCircle } from 'react-icons/fa'
 import { brandOrigin } from '../brand';
 import '../styles/chat-hub.css';
 import { toast } from '../utils/toast';
+import '../styles/photoGallery.css';
 
 interface Message {
   id: string;
@@ -1138,8 +1139,83 @@ const currentAge = useMemo(() => {
   return calcAge(dob);
 }, [currentRole, currentApp]);
 
+const isImageUrl = (u?: string) => !!u && /\.(jpe?g|png|webp)$/i.test(u);
+const makeAbs = (u: string) =>
+  u.startsWith('http') ? u : `${brandOrigin()}/backend${u}`;
 
 
+const currentGallery = useMemo(() => {
+  if (currentRole !== 'employer' || !currentApp) return [];
+  const a: any = currentApp;
+
+  const urls: string[] = [];
+  if (currentAvatar) urls.push(currentAvatar);
+
+  // ⬇️ подставь сюда реальные поля с фотками, если у тебя другие названия
+const extra =
+  a.portfolio_files ||
+  a.photos ||
+  a.gallery ||
+  a.profile?.portfolio_files;
+
+
+  if (Array.isArray(extra)) {
+    for (const v of extra) {
+      if (typeof v === 'string' && v.trim() && v !== currentAvatar) {
+        urls.push(v);
+      }
+    }
+  }
+
+  return urls;
+}, [currentRole, currentApp, currentAvatar]);
+
+const [photoIndex, setPhotoIndex] = useState<number | null>(null);
+
+const openPhotoModal = (idx: number) => {
+  if (!currentGallery.length) return;
+  setPhotoIndex(idx);
+};
+
+const closePhotoModal = () => setPhotoIndex(null);
+
+const stepPhoto = useCallback(
+  (dir: 1 | -1) => {
+    setPhotoIndex((idx) => {
+      if (idx == null || !currentGallery.length) return idx;
+      const len = currentGallery.length;
+      return (idx + dir + len) % len;
+    });
+  },
+  [currentGallery.length]
+);
+
+// поддержка Esc / стрелок при открытой галерее
+useEffect(() => {
+  if (photoIndex == null) return;
+
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closePhotoModal();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      stepPhoto(-1);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      stepPhoto(1);
+    }
+  };
+
+  document.addEventListener('keydown', onKey);
+  const prevOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+
+  return () => {
+    document.removeEventListener('keydown', onKey);
+    document.body.style.overflow = prevOverflow;
+  };
+}, [photoIndex, stepPhoto]);
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedChat) return;
@@ -1701,36 +1777,42 @@ clearSelection();        // ← сбрасываем чекбоксы
           className="ch-chat__title-left"
           style={{ display: 'flex', alignItems: 'center', gap: 8 }}
         >
-          {currentRole === 'employer' && (
-            <span
-              className="ch-chat__avatar-wrap"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {currentAvatar ? (
-                <img
-                  src={makeAbs(currentAvatar)}
-                  alt="Avatar"
-                  className="ch-chat__avatar"
-                  style={{
-                    width: 60,
-                    height: 60,
-                    borderRadius: '50%',
-                    objectFit: 'cover',
-                  }}
-                />
-              ) : (
-                <FaUserCircle
-                  className="ch-chat__avatar-fallback"
-                  size={60}
-                  style={{ opacity: 0.7 }}
-                />
-              )}
-            </span>
-          )}
+{currentRole === 'employer' && (
+  <button
+    type="button"
+    className="ch-chat__avatar-wrap"
+    onClick={() => currentGallery.length && openPhotoModal(0)}
+    title={
+      currentGallery.length > 1 ? 'Open applicant photos' : 'Open avatar'
+    }
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}
+  >
+    {currentAvatar ? (
+      <img
+        src={makeAbs(currentAvatar)}
+        alt="Avatar"
+        className="ch-chat__avatar"
+        style={{
+          width: 60,
+          height: 60,
+          borderRadius: '50%',
+          objectFit: 'cover',
+        }}
+      />
+    ) : (
+      <FaUserCircle
+        className="ch-chat__avatar-fallback"
+        size={60}
+        style={{ opacity: 0.7 }}
+      />
+    )}
+  </button>
+)}
+
 
           <h3
             className="ch-chat__title"
@@ -1995,6 +2077,78 @@ clearSelection();        // ← сбрасываем чекбоксы
     </div>
   </div>
 )}
+
+{photoIndex != null && currentGallery.length > 0 && (
+  <div className="ch-photo-modal" onClick={closePhotoModal}>
+    <div
+      className="ch-photo-modal__inner"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        className="ch-photo-modal__close"
+        onClick={closePhotoModal}
+        aria-label="Close"
+      >
+        ×
+      </button>
+
+      {currentGallery.length > 1 && (
+        <>
+          <button
+            type="button"
+            className="ch-photo-modal__nav ch-photo-modal__nav--prev"
+            onClick={(e) => {
+              e.stopPropagation();
+              stepPhoto(-1);
+            }}
+            aria-label="Previous photo"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="ch-photo-modal__nav ch-photo-modal__nav--next"
+            onClick={(e) => {
+              e.stopPropagation();
+              stepPhoto(1);
+            }}
+            aria-label="Next photo"
+          >
+            ›
+          </button>
+        </>
+      )}
+
+      <div className="ch-photo-modal__image-wrap">
+        <img
+          src={makeAbs(currentGallery[photoIndex])}
+          alt={`Photo ${photoIndex + 1} of ${currentGallery.length}`}
+          className="ch-photo-modal__img"
+        />
+      </div>
+
+      {currentGallery.length > 1 && (
+        <div className="ch-photo-modal__thumbs">
+          {currentGallery.map((url, idx) => (
+            <button
+              key={idx}
+              type="button"
+              className={
+                'ch-photo-modal__thumb' +
+                (idx === photoIndex ? ' is-active' : '')
+              }
+              onClick={() => setPhotoIndex(idx)}
+            >
+              <img src={makeAbs(url)} alt="" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
 
       <Footer />
       <Copyright />

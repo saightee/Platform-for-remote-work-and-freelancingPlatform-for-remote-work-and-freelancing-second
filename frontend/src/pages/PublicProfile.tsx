@@ -20,7 +20,8 @@ import {
 } from '../utils/socials';
 import { brandOrigin } from '../brand';
 import { toast } from '../utils/toast';
-
+import DOMPurify from 'dompurify';
+import '../styles/photoGallery.css';
 
 
 const makeAbs = (url: string) =>
@@ -61,6 +62,66 @@ const [selectedJobId, setSelectedJobId] = useState('');
 const [inviteMessage, setInviteMessage] = useState('');
 const [loadingJobs, setLoadingJobs] = useState(false);
 const [sendingInvite, setSendingInvite] = useState(false);
+
+// === Gallery state (avatar + photos) ===
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+
+  // Все картинки для галереи: сначала аватар, потом фото из portfolio_files (только изображения)
+  const galleryPhotos = useMemo(() => {
+    if (!profile) return [];
+    const list: string[] = [];
+
+    if (profile.avatar) {
+      list.push(makeAbs(profile.avatar));
+    }
+
+    const pf = (profile as any).portfolio_files;
+    if (Array.isArray(pf)) {
+      pf.forEach((u: string) => {
+        if (!u) return;
+        if (!/\.(jpe?g|png|webp)$/i.test(u)) return;
+        list.push(u.startsWith('http') ? u : makeAbs(u));
+      });
+    }
+
+    return list;
+  }, [profile]);
+
+  // Смещение индексов для портфолио (если есть аватар, портфолио начинается с 1, иначе с 0)
+  const galleryBaseIndex = profile?.avatar ? 1 : 0;
+
+  const openGallery = (index: number) => {
+    if (!galleryPhotos.length) return;
+    setGalleryImages(galleryPhotos);
+    setGalleryIndex(index);
+    setGalleryOpen(true);
+  };
+
+  const closeGallery = () => {
+    setGalleryOpen(false);
+  };
+
+  // ESC / стрелки влево-вправо
+  useEffect(() => {
+    if (!galleryOpen) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setGalleryOpen(false);
+      } else if (e.key === 'ArrowRight' && galleryImages.length > 1) {
+        setGalleryIndex((idx) => (idx + 1) % galleryImages.length);
+      } else if (e.key === 'ArrowLeft' && galleryImages.length > 1) {
+        setGalleryIndex((idx) =>
+          idx === 0 ? galleryImages.length - 1 : idx - 1
+        );
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [galleryOpen, galleryImages.length]);
 
 const openInvite = async () => {
   setInviteOpen(true);
@@ -144,6 +205,71 @@ const submitInvite = async () => {
     <div>
       <Header />
 
+      {galleryOpen && galleryImages.length > 0 && (
+      <div
+        className="img-modal-backdrop"
+        onClick={closeGallery}
+      >
+        <div
+          className="img-modal"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            className="img-modal-close"
+            onClick={closeGallery}
+            aria-label="Close image viewer"
+          >
+            ×
+          </button>
+
+          {galleryImages.length > 1 && (
+            <>
+              <button
+                type="button"
+                className="img-modal-prev"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setGalleryIndex((idx) =>
+                    idx === 0 ? galleryImages.length - 1 : idx - 1
+                  );
+                }}
+                aria-label="Previous image"
+              >
+                ‹
+              </button>
+
+              <button
+                type="button"
+                className="img-modal-next"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setGalleryIndex((idx) =>
+                    idx === galleryImages.length - 1 ? 0 : idx + 1
+                  );
+                }}
+                aria-label="Next image"
+              >
+                ›
+              </button>
+            </>
+          )}
+
+          <img
+            src={galleryImages[galleryIndex]}
+            alt={`Photo ${galleryIndex + 1}`}
+            className="img-modal-img"
+          />
+
+          {galleryImages.length > 1 && (
+            <div className="img-modal-counter">
+              {galleryIndex + 1} / {galleryImages.length}
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
       <div className="ppx-shell">
         <div className="ppx-head">
           {/* <h1 className="ppx-title">{profile.username}'s Profile</h1> */}
@@ -157,15 +283,42 @@ const submitInvite = async () => {
           {/* LEFT CARD */}
           <aside className="ppx-card ppx-left">
             <div className="ppx-avatar-wrap">
-              {profile.avatar ? (
-                <img src={makeAbs(profile.avatar)} alt="Avatar" className="ppx-avatar" />
-              ) : (
-                <FaUserCircle className="ppx-avatar-fallback" />
+    {profile.avatar ? (
+      <img
+        src={makeAbs(profile.avatar)}
+        alt="Avatar"
+        className="ppx-avatar"
+        onClick={() => openGallery(0)}               // ← открываем галерею с аватара
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') openGallery(0);
+        }}
+        style={{ cursor: galleryPhotos.length ? 'zoom-in' : 'default' }}
+      />
+    ) : (
+      <FaUserCircle className="ppx-avatar-fallback" />
+    )}
+  </div>
+            {/* NEW: photos carousel (center-cropped) */}
+              {Array.isArray((profile as any).portfolio_files) && (profile as any).portfolio_files.some((u: string) => /\.(jpe?g|png|webp)$/i.test(u)) && (
+                <div className="ppx-carousel" style={{marginTop:12}}>
+                  <div style={{display:'flex', gap:8, overflowX:'auto', paddingBottom:4}}>
+                    {(profile as any).portfolio_files.filter((u: string) => /\.(jpe?g|png|webp)$/i.test(u)).map((u: string, i: number) => (
+                      <div key={i} style={{width:96, height:96, borderRadius:12, overflow:'hidden', flex:'0 0 auto'}}>
+                        <img
+                          src={u.startsWith('http') ? u : makeAbs(u)}
+                          alt={`Photo ${i+1}`}
+                          style={{width:'100%', height:'100%', objectFit:'cover', objectPosition:'center'}}
+                          loading="lazy"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
-            </div>
 
             <h2 className="ppx-name">{profile.username}</h2>
-
             <div className="ppx-stars" aria-label={`rating ${profile.average_rating ?? 0} of 5`}>
               {stars}
               <span className="ppx-stars-num">
@@ -382,42 +535,64 @@ const submitInvite = async () => {
             
           </aside>
 
-          {/* RIGHT: description + reviews */}
-          <section className="ppx-right">
-            <div className="ppx-card">
-              <h3 className="ppx-block-title">Description</h3>
-              <p className="ppx-text">{profile.description || 'Not specified'}</p>
-            </div>
+      {/* RIGHT: description + reviews */}
+<section className="ppx-right">
+  {/* Description */}
+  <div className="ppx-card">
+    <h3 className="ppx-block-title">Description</h3>
+    {profile.description ? (
+      <div
+        className="ppx-richtext"
+        dangerouslySetInnerHTML={{
+          __html: DOMPurify.sanitize(profile.description as string),
+        }}
+      />
+    ) : (
+      <p className="ppx-text">Not specified</p>
+    )}
+  </div>
 
-            <div className="ppx-card">
-              <h3 className="ppx-block-title">Reviews</h3>
-              {reviews.length ? (
-                <ul className="ppx-reviews">
-                  {reviews.map((rv) => (
-                    <li key={rv.id} className="ppx-review">
-                      <div className="ppx-review-head">
-                        <strong>{rv.reviewer?.username || 'Anonymous'}</strong>
-                        <span className="ppx-review-stars" aria-label={`rating ${rv.rating}/5`}>
-                          {Array.from({ length: 5 }, (_, i) =>
-                            i < rv.rating ? <FaStar key={i} className="ppx-star on" /> : <FaRegStar key={i} className="ppx-star" />
-                          )}
-                        </span>
-                      </div>
-                      <div className="ppx-review-body">
-                        <div className="ppx-review-line"><b>Comment:</b> {rv.comment}</div>
-                        {/* <div className="ppx-review-line">
-  <b>Job:</b> {rv.job_application?.job_post?.title || 'Not specified'}
-</div> */}
-                        <div className="ppx-review-line"><b>Date:</b> {new Date(rv.created_at).toLocaleString()}</div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="ppx-text muted">No reviews yet.</p>
-              )}
+  {/* NEW: Work Experience (rich HTML timeline) */}
+  {(profile as any).job_experience ? (
+    <div className="ppx-card">
+      <h3 className="ppx-block-title">Work Experience</h3>
+      <div
+        className="ppx-richtext"
+        dangerouslySetInnerHTML={{
+          __html: DOMPurify.sanitize((profile as any).job_experience as string),
+        }}
+      />
+    </div>
+  ) : null}
+
+  {/* Reviews – единственный блок */}
+  <div className="ppx-card">
+    <h3 className="ppx-block-title">Reviews</h3>
+    {reviews.length ? (
+      <ul className="ppx-reviews">
+        {reviews.map((rv) => (
+          <li key={rv.id} className="ppx-review">
+            <div className="ppx-review-head">
+              <strong>{rv.reviewer?.username || 'Anonymous'}</strong>
+              <span className="ppx-review-stars" aria-label={`rating ${rv.rating}/5`}>
+                {Array.from({ length: 5 }, (_, i) =>
+                  i < rv.rating ? <FaStar key={i} className="ppx-star on" /> : <FaRegStar key={i} className="ppx-star" />
+                )}
+              </span>
             </div>
-          </section>
+            <div className="ppx-review-body">
+              <div className="ppx-review-line"><b>Comment:</b> {rv.comment}</div>
+              <div className="ppx-review-line"><b>Date:</b> {new Date(rv.created_at).toLocaleString()}</div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p className="ppx-text muted">No reviews yet.</p>
+    )}
+  </div>
+</section>
+
         </div>
       </div>
 {inviteOpen && (

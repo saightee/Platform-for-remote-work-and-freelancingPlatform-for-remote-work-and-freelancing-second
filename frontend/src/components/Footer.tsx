@@ -38,7 +38,9 @@ const Footer: React.FC = () => {
         <div className="jf2-grid jf2-grid--5">
           {/* BRAND / ABOUT */}
 <div className="jf2-col jf2-col--brand">
-  <a className="jf2-logo">{brand.wordmark}</a>
+  <Link to="/" className="jf2-logo" aria-label="Go to home page">
+  {brand.wordmark}
+</Link>
   <div className="jf2-company-info">
     <div className="jf2-company-name">
       <FaBuilding className="jf2-icon" />
@@ -127,6 +129,7 @@ const Footer: React.FC = () => {
               <Link to="#">About Us</Link>
               <Link to="#">Careers</Link>
               <Link to="#">Blog</Link>
+               <Link to="/affiliate">Affiliate Program</Link>
             </nav>
           </div>
 

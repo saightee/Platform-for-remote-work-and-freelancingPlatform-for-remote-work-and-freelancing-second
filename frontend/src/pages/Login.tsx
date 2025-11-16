@@ -177,7 +177,7 @@ const onResendFromLogin = async () => {
   value={email}
   onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
   placeholder="Enter your email"
-  autoComplete="username"
+  autoComplete="email"
   inputMode="email"
   autoCapitalize="off"
   spellCheck={false}

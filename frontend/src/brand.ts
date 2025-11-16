@@ -1,7 +1,7 @@
 const SITE = (import.meta.env.VITE_SITE || '').toLowerCase();
 
 type Brand = {
-  id: 'jobforge' | '22resumes';
+  id: 'jobforge' | '22resumes' | 'onlinejobs';
   name: string;            // короткое имя
   wordmark: string;        // текст логотипа
   domain: string;          // голый домен без протокола
@@ -56,20 +56,44 @@ const R22: Brand = {
   ogImagePath: '/public/static/og/22resumes.png',
 };
 
-const MAP: Record<string, Brand> = { jobforge: JOBFORGE, '22resumes': R22 };
+const ONLINE_JOBS: Brand = {
+  id: 'onlinejobs',
+  name: 'Online.jobs',
+  wordmark: 'Online.jobs_',
+  domain: 'online.jobs',
+  heroTitle: 'Find Remote and Local Jobs Online',
+  heroSubtitle:
+    'Discover curated job listings and connect directly with employers on Online.jobs.',
+  whyChooseTitle: 'Why Choose Online.jobs',
+  copyright: '© 2025 Online.jobs. All rights reserved.',
+  siteTitle: 'Online.jobs - Find Your Next Job Online',
+  siteDescription:
+    'Online.jobs connects talent and employers through clear listings, simple search, and direct communication.',
+  ogTitle: 'Online.jobs — Search Jobs & Hire Talent Online',
+  ogDescription:
+    'Browse fresh job listings, apply in a few clicks, and reach employers worldwide via Online.jobs.',
+  ogImagePath: '/public/static/og/onlinejobs.png',
+};
+
+const MAP: Record<string, Brand> = {
+  jobforge: JOBFORGE,
+  '22resumes': R22,
+  onlinejobs: ONLINE_JOBS,
+  // на всякий случай, если вдруг VITE_SITE зададут как "online.jobs"
+  'online.jobs': ONLINE_JOBS,
+};
 
 /** Фолбэк: если env нет — угадаем по домену */
 function fromLocation(): Brand {
   try {
     const h = window.location.hostname.toLowerCase();
     if (h.includes('22resumes')) return R22;
+    if (h.includes('online.jobs')) return ONLINE_JOBS;
     return JOBFORGE;
   } catch {
     return JOBFORGE;
   }
 }
-
-
 
 export const brand: Brand = MAP[SITE] || fromLocation();
 

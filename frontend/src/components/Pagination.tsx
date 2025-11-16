@@ -47,42 +47,55 @@ const Pagination: React.FC<PaginationProps> = ({
 
       return [1];
     } else {
-      const pages: (number | string)[] = [];
+  // Десктоп: универсальная логика
+  const pages: (number | string)[] = [];
 
-      // Изменено с 7 на 5 первых страниц
-      if (currentPage <= 5) {
-        for (let i = 1; i <= Math.min(5, totalPages); i++) {
-          pages.push(i);
-        }
-        if (totalPages > 5) {
-          pages.push('…');
-          pages.push(totalPages);
-        }
-        return pages;
-      }
-
-      // Изменено с 7 на 5 последних страниц
-      if (currentPage > totalPages - 5) {
-        pages.push(1);
-        pages.push('…');
-        for (let i = Math.max(2, totalPages - 4); i <= totalPages; i++) {
-          pages.push(i);
-        }
-        return pages;
-      }
-
-      // Середина - показываем 2 страницы до и после текущей
-      pages.push(1);
-      pages.push('…');
-      for (let i = currentPage - 2; i <= currentPage + 2; i++) {
-        if (i > 1 && i < totalPages) {
-          pages.push(i);
-        }
-      }
-      pages.push('…');
-      pages.push(totalPages);
-      return pages;
+  // Если страниц немного — показываем все
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
     }
+    return pages;
+  }
+
+  // Кандидаты: 1, last, current, и до двух соседей по краям
+  const candidates = new Set<number>();
+  candidates.add(1);
+  candidates.add(totalPages);
+  candidates.add(currentPage);
+
+  if (currentPage - 1 > 1) candidates.add(currentPage - 1);
+  if (currentPage - 2 > 1) candidates.add(currentPage - 2);
+  if (currentPage + 1 < totalPages) candidates.add(currentPage + 1);
+  if (currentPage + 2 < totalPages) candidates.add(currentPage + 2);
+
+  const sorted = Array.from(candidates).sort((a, b) => a - b);
+
+  const result: (number | string)[] = [];
+  let prev: number | undefined;
+
+  for (const p of sorted) {
+    if (prev === undefined) {
+      // первая страница
+      result.push(p);
+    } else if (p === prev + 1) {
+      // соседняя — просто добавляем
+      result.push(p);
+    } else if (p === prev + 2) {
+      // есть ровно одна пропущенная — вставляем её
+      result.push(prev + 1);
+      result.push(p);
+    } else {
+      // дырка больше чем на 1 — ставим "…"
+      result.push('…');
+      result.push(p);
+    }
+    prev = p;
+  }
+
+  return result;
+}
+
   };
 
   if (totalItems <= 0) {

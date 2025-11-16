@@ -7,7 +7,8 @@ import { jwtDecode } from 'jwt-decode';
 import { 
   User, Profile, JobPost, Category, JobApplication, Review, Feedback, 
   BlockedCountry, LoginCredentials, RegisterCredentials, PaginatedResponse,
-  JobSeekerProfile, JobApplicationDetails, Message, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings
+  JobSeekerProfile, JobApplicationDetails, Message, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings, CategoryAnalyticsItem, AffiliateProfile,
+  AffiliateRegisterPayload,
 } from '@types';
 
 
@@ -252,6 +253,25 @@ export const register = async (payload: any) => {
 
 
 
+export const registerAffiliate = async (payload: AffiliateRegisterPayload) => {
+  const fingerprint = await getFingerprint();
+
+  const body = {
+    ...payload,
+    email: normalizeEmail(payload.email),
+    role: 'affiliate' as const,
+  };
+
+  const { data } = await api.post<{ message: string }>(
+    '/auth/register-affiliate',
+    body,
+    { headers: { 'x-fingerprint': fingerprint } }
+  );
+
+  return data;
+};
+
+
 export const login = async (credentials: LoginCredentials) => {
   const fingerprint = await getFingerprint();
   const body = {
@@ -311,6 +331,11 @@ export const getProfile = async () => {
     console.error('GetProfile error:', error);
     throw error;
   }
+};
+
+export const getAffiliateProfile = async () => {
+  const { data } = await api.get<AffiliateProfile>('/affiliates/me');
+  return data;
 };
 
 export const getUserProfileById = async (id: string) => {
@@ -531,6 +556,10 @@ export const createJobPost = async (data: Partial<JobPost>) => {
     body.salary_type = body.salaryType;
     delete body.salaryType;
   }
+  if (body.salaryMax != null && !body.salary_max) {
+    body.salary_max = body.salaryMax;
+    delete body.salaryMax;
+  }
   if (body.excludedLocations && !body.excluded_locations) {
     body.excluded_locations = body.excludedLocations;
     delete body.excludedLocations;
@@ -546,9 +575,33 @@ export const createJobPost = async (data: Partial<JobPost>) => {
 
 
 export const updateJobPost = async (id: string, data: Partial<JobPost>) => {
-  const response = await api.put<JobPost>(`/job-posts/${id}`, data);
+  const body: any = { ...data };
+
+  if (body.categoryId && !body.category_id) {
+    body.category_id = body.categoryId;
+    delete body.categoryId;
+  }
+  if (body.salaryType && !body.salary_type) {
+    body.salary_type = body.salaryType;
+    delete body.salaryType;
+  }
+  if (body.salaryMax != null && !body.salary_max) {
+    body.salary_max = body.salaryMax;
+    delete body.salaryMax;
+  }
+  if (body.excludedLocations && !body.excluded_locations) {
+    body.excluded_locations = body.excludedLocations;
+    delete body.excludedLocations;
+  }
+  if (body.jobType && !body.job_type) {
+    body.job_type = body.jobType;
+    delete body.jobType;
+  }
+
+  const response = await api.put<JobPost>(`/job-posts/${id}`, body);
   return response.data;
 };
+
 
 export const getJobPost = async (id: string) => {
   console.log(`Fetching job post with ID: ${id}`);
@@ -2069,4 +2122,14 @@ export const setAdminRegistrationAvatarRequired = async (required: boolean) => {
   return data as { required: boolean };
 };
 
+export const uploadPortfolioFiles = (formData: FormData) =>
+  api.post('/profile/upload-portfolio', formData).then(r => r.data);
+
+export const getCategoryAnalytics = async () => {
+  const { data } = await api.get<{
+    jobseekers: CategoryAnalyticsItem[];
+    jobPosts: CategoryAnalyticsItem[];
+  }>('/admin/analytics/categories');
+  return data;
+};
 

@@ -13,7 +13,7 @@ const sanitize = (s: string) => s.replace(/\s+/g, ' ').trim();
 const LanguagesInput: React.FC<Props> = ({
   value = [],
   onChange,
-  label = 'Languages (multiple)',
+  label = 'Languages',
   placeholder = 'English, Spanish…',
 }) => {
   const [draft, setDraft] = useState('');
