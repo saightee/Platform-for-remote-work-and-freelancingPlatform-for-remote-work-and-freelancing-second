@@ -4466,3 +4466,36 @@ A profile can have up to 10 portfolio files in total.
 - **Response (Error – 403 Forbidden — not an admin/moderator)**:
   ```json
   {"statusCode": 403, "message": "Forbidden resource", "error": "Forbidden"}
+  
+### 127. Get Pending Session Status
+- **Endpoint:** `GET api/auth/pending-session`
+- **Description:** Checks the status of a pending login session created during registration and, if the user has confirmed their email on another device, returns a JWT for auto-login on the current device.
+Used for cross-device flow, e.g.:
+  - user registers on PC,
+  - confirms email from phone,
+  - PC polls this endpoint by pending_session_id to auto-login.
+- **Authentication:** Not required (public endpoint)
+- **Query Parameters:** `id` — (required) pending_session_id returned by the registration endpoint.
+- **Response (Success - 200, pending)**:
+  Returned when the user has not yet confirmed their email or the session is still in "waiting" state.
+  ```json
+  {
+    "status": "pending"
+  }
+- **Response (Success - 200, verified)**:
+  Returned when the user has confirmed their email (possibly on another device) and the backend has generated a JWT.
+  Frontend should treat this token exactly like a normal login token.
+  ```json
+  {
+    "status": "verified",
+    "accessToken": "<JWT>"
+  }
+- **Response (Success - 200, not_found / expired)**:
+  Returned when the pending session:
+  - does not exist,
+  - or has expired (TTL passed),
+  - or the id is invalid/unknown.
+  ```json
+  {
+    "status": "not_found"
+  }

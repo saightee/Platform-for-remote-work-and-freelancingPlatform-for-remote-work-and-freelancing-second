@@ -262,6 +262,34 @@ export class AuthController {
       }
     }
 
+  @Get('pending-session')
+  async getPendingSessionStatus(@Query('id') id: string) {
+    if (!id || typeof id !== 'string') {
+      throw new BadRequestException('id is required');
+    }
+
+    const raw = await this.redisService.get(`pending_session:${id}`);
+    if (!raw) {
+      return { status: 'not_found' as const };
+    }
+
+    let data: any;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return { status: 'pending' as const };
+    }
+
+    if (data && data.status === 'verified') {
+      return {
+        status: 'verified' as const,
+        accessToken: data.accessToken ?? null,
+      };
+    }
+
+    return { status: 'pending' as const };
+  }
+
   @Post('login')
   async login(@Body() loginDto: LoginDto, @Req() req: any) {
     return this.authService.login(
