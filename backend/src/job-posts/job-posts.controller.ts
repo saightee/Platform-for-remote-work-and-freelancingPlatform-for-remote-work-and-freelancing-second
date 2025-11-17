@@ -33,6 +33,7 @@ export class JobPostsController {
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
       salary_type?: 'per hour' | 'per month' | 'negotiable'; 
       excluded_locations?: string[]; 
+      company_name?: string;
     },
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -62,6 +63,7 @@ export class JobPostsController {
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
       salary_type?: 'per hour' | 'per month' | 'negotiable';  
       excluded_locations?: string[]; 
+      company_name?: string;
     },
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

@@ -585,7 +585,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "salary_type": "per month",                   // "per hour" | "per month" | "negotiable"
     "excluded_locations": ["IN", "PK"],          // optional array of country codes/labels
     "category_ids": ["<catId1>", "<catId2>"],    // preferred (multi)
-    "category_id": "<catId1>",                    // legacy (single)
+    "category_id": "<catId1>",                   // legacy (single)
+    "company_name": "ABC corp",
     "aiBrief": "Build and maintain web apps"      // optional; used when 'description' is omitted
   }
 - **Response (Success - 201)**:
@@ -602,7 +603,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "salary_type": "per month",
     "excluded_locations": ["IN"],
     "pending_review": true,
-
+    "company_name": "ABC corp",
     "category_id": "<categoryId>",
     "category": {
       "id": "<categoryId>",
@@ -675,6 +676,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "excluded_locations": ["IN"],
     "category_ids": ["<catId1>", "<catId2>"],   // preferred (multi)
     "category_id": "<catId1>",                  // legacy (single)
+    "company_name": "ABC corp",
     "aiBrief": "Tighten performance, own services, mentor team"
   }
 - **Response (Success - 200)**:
@@ -692,6 +694,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "excluded_locations": ["IN"],
     "pending_review": true,
     "category_id": "<categoryId>",
+    "company_name": "ABC corp",
     "category": {
       "id": "<categoryId>",
       "name": "Software Development",
