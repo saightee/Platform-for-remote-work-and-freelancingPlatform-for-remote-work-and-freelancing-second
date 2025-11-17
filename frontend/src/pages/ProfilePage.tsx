@@ -4,6 +4,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import Copyright from '../components/Copyright';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import {
   getProfile,
   updateProfile,
@@ -12,6 +14,7 @@ import {
   searchCategories,
   uploadAvatar,
   uploadResume,
+  uploadPortfolioFiles,
 } from '../services/api';
 import { Profile, Category, JobSeekerProfile, EmployerProfile, Review } from '@types';
 import { useRole } from '../context/RoleContext';
@@ -22,6 +25,7 @@ import {
 import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
 import '../styles/profile-page.css';
+import '../styles/photoGallery.css';
 import {
   normalizeTelegram, normalizeWhatsApp,
   normalizeLinkedIn, normalizeInstagram, normalizeFacebook
@@ -31,7 +35,7 @@ import TagsInput from '../components/TagsInput';
 import CountrySelect from '../components/inputs/CountrySelect';
 import LanguagesInput from '../components/inputs/LanguagesInput';
 import '../styles/country-langs.css';
-
+import DOMPurify from 'dompurify';
 
 
 const USERNAME_RGX = /^[a-zA-Z0-9_.-]{3,20}$/; // простая валидация
@@ -51,6 +55,7 @@ type JobSeekerExtended = JobSeekerProfile & {
   facebook?: string | null;
   whatsapp?: string | null;
   telegram?: string | null;
+  portfolio_files?: string[];
 };
 
 const calcAge = (dob?: string | null): number | null => {
@@ -84,10 +89,12 @@ const ProfilePage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false); // loader for Save
-
+  const [jobExperienceHtml, setJobExperienceHtml] = useState<string>('');
   // username inline edit
   const [usernameEditMode, setUsernameEditMode] = useState(false);
   const [usernameDraft, setUsernameDraft] = useState('');
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
 
   const navigate = useNavigate();
 
@@ -103,6 +110,10 @@ const ProfilePage: React.FC = () => {
   // --- resume
   const resumeRef = useRef<HTMLInputElement>(null);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+
+  const portfolioRef = useRef<HTMLInputElement>(null);
+  const [portfolioUploadFiles, setPortfolioUploadFiles] = useState<FileList | null>(null);
+  const isImageUrl = (u?: string) => !!u && /\.(jpe?g|png|webp)$/i.test(u);
 
   // --- static sets
   const timezones = Intl.supportedValuesOf('timeZone').sort();
@@ -172,6 +183,7 @@ const ProfilePage: React.FC = () => {
         setUsernameDraft(pData.username || '');
         if (pData.role === 'jobseeker') {
           setSelectedSkillIds((pData as JobSeekerProfile).skills?.map((s: Category) => s.id) || []);
+          setJobExperienceHtml(((pData as any).job_experience as string) || '');
         }
       } catch (e: any) {
         console.error('Error fetching data:', e);
@@ -190,6 +202,12 @@ const ProfilePage: React.FC = () => {
       fetchData();
     }
   }, [profile]);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0] || null;
+  if (!file) return;
+  setAvatarFile(file);
+};
 
   // ------- save profile
   const handleUpdateProfile = async (e: React.MouseEvent) => {
@@ -242,8 +260,33 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                                                              patch.job_search_status = (now as any).job_search_status || 'open_to_offers';
         if (skillsChanged)                                   patch.skillIds         = skillsIdsNow;
         if (changed('experience', now.experience))           patch.experience       = now.experience;
-        if (changed('description', now.description))         patch.description      = now.description;
+
+
+       
+
+        const toRichHtml = (t?: string | null): string | null => {
+  const v = (t || '').trim();
+  if (!v) return null;
+  // разбиваем по пустым строкам и заворачиваем в <p>
+  const parts = v.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
+  return parts.map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('');
+
+  if (changed('description', now.description)) {
+  const rich = toRichHtml((now as any).description as string | undefined);
+  patch.description = rich ?? null;
+}
+};
+
         if (changed('portfolio', now.portfolio))             patch.portfolio        = now.portfolio;
+
+        if (Array.isArray((now as any).portfolio_files)) {
+          const origList = Array.isArray((o as any)?.portfolio_files) ? (o as any).portfolio_files : [];
+          const same =
+            origList.length === (now as any).portfolio_files.length &&
+            origList.every((v: string, i: number) => v === (now as any).portfolio_files[i]);
+          if (!same) patch.portfolio_files = (now as any).portfolio_files;
+        }
+
         if (changed('video_intro', now.video_intro))         patch.video_intro      = now.video_intro;
         if (changed('resume', now.resume))                   patch.resume           = now.resume;
         if (changed('country', now.country ?? undefined))    patch.country   = now.country ?? undefined;
@@ -257,7 +300,11 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
         if (changed('whatsapp',  now.whatsapp ?? null))    patch.whatsapp  = now.whatsapp  || null;   // NEW
         if (changed('telegram',  now.telegram ?? null))    patch.telegram  = now.telegram  || null;   // NEW
 
-
+        const prevJobExp = (o?.job_experience ?? '') || '';
+        const nextJobExp = jobExperienceHtml || '';
+        if (prevJobExp !== nextJobExp) {
+          patch.job_experience = nextJobExp.trim() === '' ? null : nextJobExp;
+        }
         // если нечего менять — просто выходим из режима редактирования
         if (Object.keys(patch).length <= 1) { // только role
           setIsEditing(false);
@@ -352,6 +399,23 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
     }
   };
 
+  // NEW: upload portfolio files via POST /profile/upload-portfolio
+  const handleUploadPortfolio = async () => {
+    if (!portfolioUploadFiles || !portfolioUploadFiles.length) return;
+    try {
+      const fd = new FormData();
+      Array.from(portfolioUploadFiles).forEach(f => fd.append('portfolio_files', f));
+      const updated = await uploadPortfolioFiles(fd);
+      setProfileData(updated);
+      originalRef.current = updated;
+      setPortfolioUploadFiles(null);
+      await refreshProfile();
+    } catch (e: any) {
+      setFormError(e?.response?.data?.message || 'Failed to upload portfolio files.');
+    }
+  };
+
+
   // ------- avatar upload
   const uploadAvatarFile = async (file: File) => {
     try {
@@ -394,6 +458,52 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
   if (error) return <div className="pf-shell"><div className="pf-alert pf-err">{error}</div></div>;
   if (!profileData) return <div className="pf-shell"><div className="pf-alert pf-err">Profile data is unavailable.</div></div>;
 
+    const galleryImages: string[] = (() => {
+    const urls: string[] = [];
+
+    if (profileData.avatar) {
+      const a = profileData.avatar as string;
+      urls.push(
+        a.startsWith('http')
+          ? a
+          : `${brandOrigin()}/backend${a}`,
+      );
+    }
+
+    if (
+      profileData.role === 'jobseeker' &&
+      Array.isArray((profileData as any).portfolio_files)
+    ) {
+      (profileData as any).portfolio_files
+        .filter((u: string) => isImageUrl(u))
+        .forEach((u: string) => {
+          urls.push(
+            u.startsWith('http')
+              ? u
+              : `${brandOrigin()}/backend${u}`,
+          );
+        });
+    }
+
+    return urls;
+  })();
+
+  const openGalleryAt = (idx: number) => {
+    if (!galleryImages.length) return;
+    const safeIndex = (idx + galleryImages.length) % galleryImages.length;
+    setGalleryIndex(safeIndex);
+    setGalleryOpen(true);
+  };
+
+  const handleAvatarClick = () => {
+    // если нет аватара или в режиме редактирования — открываем загрузку
+    if (!profileData?.avatar || isEditing) {
+      avatarRef.current?.click();
+      return;
+    }
+    openGalleryAt(0);
+  };
+
   return (
     <div>
       <Header />
@@ -417,47 +527,81 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
           <div className="pf-grid">
             {/* LEFT: avatar & general */}
             <div className="pf-col pf-left">
-              <div
-                className="pf-avatar-wrap"
-                onClick={() => avatarRef.current?.click()}
-                title="Click to upload avatar"
-              >
-         {profileData.avatar ? (
-  (() => {
-    const a = profileData.avatar || '';
-    const avatarSrc = a.startsWith('http')
-      ? a
-      : `${brandOrigin()}/backend${a}`;
-    return <img src={avatarSrc} alt="Avatar" className="pf-avatar" />;
-  })()
-) : (
-                  <div className="pf-avatar-placeholder">
-                    <FaUserCircle className="pf-avatar-icon" />
-                    <span className="pf-avatar-add">+</span>
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png"
-                  ref={avatarRef}
-                  className="pf-file-hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setAvatarFile(file);
-                      if (!isEditing) {
-                        uploadAvatarFile(file);
-                      }
-                    }
-                  }}
-                />
-              </div>
+                         <div
+              className="pf-avatar-wrap"
+              onClick={handleAvatarClick}
+              title={profileData.avatar && !isEditing ? 'Click to view photos' : 'Click to upload avatar'}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleAvatarClick();
+                }
+              }}
+            >
+              {profileData.avatar ? (
+                (() => {
+                  const a = profileData.avatar || '';
+                  const avatarSrc = a.startsWith('http')
+                    ? a
+                    : `${brandOrigin()}/backend${a}`;
+                  return <img src={avatarSrc} alt="Avatar" className="pf-avatar" />;
+                })()
+              ) : (
+                <div className="pf-avatar-placeholder">
+                  <FaUserCircle className="pf-avatar-icon" />
+                  <span className="pf-avatar-add">+</span>
+                </div>
+              )}
+             <input
+  ref={avatarRef}
+  type="file"
+  accept="image/jpeg,image/png,image/webp"
+  style={{ display: 'none' }}
+  onChange={handleAvatarChange}
+/>
+
+            </div>
+
 
               {avatarFile && isEditing && (
                 <button className="pf-button pf-secondary" onClick={() => uploadAvatarFile(avatarFile)}>
                   Upload Avatar
                 </button>
               )}
+
+             {profileData.role === 'jobseeker' && Array.isArray((profileData as any).portfolio_files) && (profileData as any).portfolio_files.some(isImageUrl) && (
+  <div className="pf-carousel" style={{marginTop:12}}>
+    <div style={{display:'flex', gap:8, overflowX:'auto', paddingBottom:4}}>
+      {(profileData as any).portfolio_files
+        .filter(isImageUrl)
+        .map((u: string, i: number) => {
+          const src = u.startsWith('http') ? u : `${brandOrigin()}/backend${u}`;
+          const baseIndex = profileData.avatar ? 1 : 0; // если аватар есть, он 0-й в галерее
+          const galleryIdx = baseIndex + i;
+
+          return (
+            <button
+              key={u + i}
+              type="button"
+              className="pf-gallery-thumb"
+              onClick={() => openGalleryAt(galleryIdx)}
+              style={{width:96, height:96, borderRadius:12, overflow:'hidden', flex:'0 0 auto', padding:0, border:'none', background:'transparent'}}
+            >
+              <img
+                src={src}
+                alt={`Photo ${i+1}`}
+                style={{width:'100%', height:'100%', objectFit:'cover', objectPosition:'center'}}
+                loading="lazy"
+              />
+            </button>
+          );
+        })}
+    </div>
+  </div>
+)}
+
 
               <div className="pf-section">
                 {!isEditing ? (
@@ -743,7 +887,19 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                       </div>
                       <div className="pf-kv-row"><span className="pf-k">Skills</span><span className="pf-v">{(profileData as JobSeekerProfile).skills?.map(s => s.name).join(', ') || 'Not specified'}</span></div>
                       <div className="pf-kv-row"><span className="pf-k">Experience</span><span className="pf-v">{(profileData as JobSeekerProfile).experience || 'Not specified'}</span></div>
-                      <div className="pf-kv-row"><span className="pf-k">Description</span><span className="pf-v">{(profileData as JobSeekerProfile).description || 'Not specified'}</span></div>
+                      <div className="pf-kv-row pf-kv-row--desc">
+                          <span className="pf-k">Description</span>
+                          <span className="pf-v">
+                            { (profileData as JobSeekerProfile).description ? (
+                              <div
+                                className="pf-richtext"
+                                dangerouslySetInnerHTML={{
+                                  __html: DOMPurify.sanitize((profileData as JobSeekerProfile).description as string),
+                                }}
+                              />
+                            ) : 'Not specified' }
+                          </span>
+                        </div>
 
                       {/* Socials */}
 {(((profileData as any).linkedin) || ((profileData as any).instagram) || ((profileData as any).facebook) ||
@@ -889,6 +1045,9 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                           )}
                         </div>
 
+
+
+
                         <div className="pf-tags">
                           {(profileData as JobSeekerProfile).skills?.map(skill => (
                             <span key={skill.id} className="pf-tag">
@@ -954,6 +1113,20 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                           placeholder="Tell a bit about yourself…"
                         />
                       </div>
+
+                      {/*Work Experience*/}
+                      <div className="pf-row">
+                        <label className="pf-label">Work Experience</label>
+                        <div className="pf-quill">
+                          <ReactQuill
+                            theme="snow"
+                            value={jobExperienceHtml}
+                            onChange={setJobExperienceHtml}
+                            placeholder="This section can be auto-filled later."
+                          />
+                        </div>
+                      </div>
+
 
                       {/* Portfolio */}
                       <div className="pf-row">
@@ -1022,6 +1195,60 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                           )}
                         </div>
                       </div>
+
+                      {/* Portfolio files list (перезаписываем список через PUT /profile) */}
+<div className="pf-row">
+  <label className="pf-label">Portfolio files</label>
+  {Array.isArray((profileData as any).portfolio_files) && (profileData as any).portfolio_files.length ? (
+    <ul style={{display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8}}>
+      {(profileData as any).portfolio_files.map((u: string, i: number) => (
+        <li key={i} className="pf-file-pill" style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:8}}>
+          <a className="pf-link" href={u} target="_blank" rel="noopener noreferrer" style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+            {u}
+          </a>
+          <button
+            type="button"
+            className="pf-button pf-secondary"
+            onClick={() => {
+              const list = ((profileData as any).portfolio_files || []).filter((_: string, idx: number) => idx !== i);
+              setProfileData({ ...(profileData as any), portfolio_files: list } as any);
+            }}
+          >
+            Remove
+          </button>
+        </li>
+      ))}
+    </ul>
+  ) : (
+    <div className="pf-muted">No files yet.</div>
+  )}
+  <div className="pf-note">Tip: removing here only updates the list. Click “Save Profile” to persist.</div>
+</div>
+
+{/* Upload more files (POST /profile/upload-portfolio) */}
+<div className="pf-row">
+  <label className="pf-label">Upload more files</label>
+  <input
+    ref={portfolioRef}
+    type="file"
+    multiple
+    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/jpg,image/png,image/webp"
+    className="pf-file-hidden"
+    onChange={(e) => setPortfolioUploadFiles(e.target.files)}
+  />
+  <div className="pf-file-inline">
+    <button type="button" className="pf-button pf-secondary" onClick={() => portfolioRef.current?.click()}>
+      Choose Files
+    </button>
+    {portfolioUploadFiles && <span className="pf-file-name">Selected: {Array.from(portfolioUploadFiles).length}</span>}
+    {portfolioUploadFiles && (
+      <button type="button" className="pf-button" onClick={handleUploadPortfolio}>
+        Upload Files
+      </button>
+    )}
+  </div>
+  <div className="pf-note">Up to 10 in total in your profile.</div>
+</div>
 
                       {/* Socials (optional) */}
                     <div className="pf-row">
@@ -1119,6 +1346,8 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                         setUsernameDraft(profileData.username || '');
                         // откатываем визуальные изменения к оригиналу
                         if (originalRef.current) setProfileData(originalRef.current);
+                        setJobExperienceHtml(((originalRef.current as any).job_experience as string) || '');
+                        
                       }
                     }}
                     disabled={isSaving}
@@ -1177,6 +1406,81 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
           </div>
         )}
       </div>
+
+        {/* Avatar & portfolio gallery */}
+        {galleryOpen && galleryImages.length > 0 && (
+          <div
+            className="img-gallery-overlay"
+            onClick={() => setGalleryOpen(false)}
+          >
+            <div
+              className="img-gallery"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="img-gallery__close"
+                onClick={() => setGalleryOpen(false)}
+                aria-label="Close gallery"
+              >
+                ×
+              </button>
+
+              {galleryImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    className="img-gallery__arrow img-gallery__arrow--prev"
+                    onClick={() =>
+                      setGalleryIndex(
+                        (galleryIndex - 1 + galleryImages.length) % galleryImages.length,
+                      )
+                    }
+                    aria-label="Previous image"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    className="img-gallery__arrow img-gallery__arrow--next"
+                    onClick={() =>
+                      setGalleryIndex((galleryIndex + 1) % galleryImages.length)
+                    }
+                    aria-label="Next image"
+                  >
+                    ›
+                  </button>
+                </>
+              )}
+
+              <div className="img-gallery__main">
+                <img
+                  src={galleryImages[galleryIndex]}
+                  alt="Profile photo"
+                  className="img-gallery__main-img"
+                />
+              </div>
+
+              {galleryImages.length > 1 && (
+                <div className="img-gallery__thumbs">
+                  {galleryImages.map((src, idx) => (
+                    <button
+                      key={src + idx}
+                      type="button"
+                      className={
+                        'img-gallery__thumb' +
+                        (idx === galleryIndex ? ' img-gallery__thumb--active' : '')
+                      }
+                      onClick={() => setGalleryIndex(idx)}
+                    >
+                      <img src={src} alt="" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
       <Footer />
       <Copyright />

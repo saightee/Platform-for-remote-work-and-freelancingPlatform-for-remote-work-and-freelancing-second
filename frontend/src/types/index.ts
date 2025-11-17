@@ -58,6 +58,7 @@ export interface JobSeekerProfile {
   expected_salary?: number | null;
   job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired' | string | null;
   date_of_birth?: string | null;
+  
 
   // соцсети (чтобы не было any)
   linkedin?: string | null;
@@ -68,6 +69,7 @@ export interface JobSeekerProfile {
 
   skills?: Category[];
   experience?: string;
+  job_experience?: string | null;
   description?: string;
   portfolio?: string;
   video_intro?: string;
@@ -125,6 +127,7 @@ export interface JobPost {
   location?: string;
   salary: number | null;
   salary_type: SalaryType | null;
+  salary_max?: number | null;
   category_id?: string;
   category_ids?: string[];
   category?: Category | null;
@@ -139,6 +142,7 @@ export interface JobPost {
   status: string;
   required_skills?: string[];
   excluded_locations?: string[];
+  categories?: { id: string; name: string; parent_id?: string | null }[];
 }
 
 
@@ -362,3 +366,67 @@ type AdminRecentRegistrationsDTO = {
   jobseekers: AdminRecentUser[];
   employers: AdminRecentUser[];
 };
+
+export interface CategoryAnalyticsItem {
+  id: string;
+  name: string;
+  jobseekersCount?: number;
+  jobPostsCount?: number;
+  subcategories: CategoryAnalyticsItem[];
+}
+
+// types.ts
+
+export interface AffiliateProfile {
+  user_id: string;
+  account_type: 'individual' | 'company';
+  company_name?: string | null;
+  website_url: string;
+  traffic_sources?: string | null;   // бэкенд отдаёт строку "SEO, PPC, Social"
+  promo_geo?: string | null;        // строка "US, CA, UK"
+  monthly_traffic?: string | null;
+  payout_method?: string | null;
+  payout_details?: string | null;
+  telegram?: string | null;
+  whatsapp?: string | null;
+  skype?: string | null;
+  notes?: string | null;
+  referral_link?: string | null;
+  referred_by_user_id?: string | null;
+  created_at: string;
+  updated_at: string;
+
+  user: {
+    id: string;
+    email: string;
+    username: string;
+    role: 'affiliate';
+    country?: string | null;
+    avatar?: string | null;
+    is_email_verified: boolean;
+    status: 'active' | 'blocked';
+    created_at: string;
+    updated_at: string;
+  };
+}
+
+export interface AffiliateRegisterPayload {
+  email: string;
+  password: string;
+  username: string;
+  role?: 'affiliate';                  // мы всё равно проставим 'affiliate'
+  country?: string;                    // ISO-2, опционально
+  account_type?: 'individual' | 'company';
+  company_name?: string;
+  website_url: string;
+  traffic_sources?: string[];          // массив строк из формы
+  promo_geo?: string[];                // массив ISO/строк
+  monthly_traffic?: string;
+  payout_method?: string;
+  payout_details?: string;
+  telegram?: string;
+  whatsapp?: string;
+  skype?: string;
+  notes?: string;
+  ref?: string;                        // рефкод, если есть
+}

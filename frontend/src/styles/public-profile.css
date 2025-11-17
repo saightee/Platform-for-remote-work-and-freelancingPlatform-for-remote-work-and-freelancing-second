@@ -124,5 +124,14 @@
   vertical-align: middle;
 }
 
+.ppx-richtext p { margin: 0 0 .75rem; }
+.ppx-richtext ul, .ppx-richtext ol { margin: .5rem 0 .75rem 1.25rem; }
+.pf-richtext p { margin: 0 0 .75rem; }
+.pf-richtext ul, .pf-richtext ol { margin: .5rem 0 .75rem 1.25rem; }
 
-
+/* квадратные превью как в соцсетях */
+.pf-carousel img,
+.ppx-carousel img {
+  object-fit: cover;
+  object-position: center;
+}

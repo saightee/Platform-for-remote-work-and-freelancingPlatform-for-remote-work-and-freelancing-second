@@ -24,7 +24,7 @@
   padding-right:48px;
   border-right:1px solid var(--jf2-line);
 }
-.jf2-logo{ font-size:22px; font-weight:800; letter-spacing:.4px; margin-bottom:8px; color:#fff; }
+.jf2-logo{ text-decoration: none; font-size:22px; font-weight:800; letter-spacing:.4px; margin-bottom:8px; color:#fff; }
 .jf2-desc{ margin:0; color:var(--jf2-muted); line-height:1.7; font-size:14px; }
 
 /* заголовки секций */

@@ -6868,6 +6868,12 @@ header nav.mobile-menu-open .find-job {
     background: #cbd5e1; cursor: pointer; transition: transform .2s, background-color .2s;
   }
   .ts-dot--active { background: var(--ts-primary); transform: scale(1.15); }
+
+
+  .hv-final-cta-content h2 {
+  color: white;
+  font-size: 2rem;
+}
 }
 
 /* ====== Card ====== */
@@ -8849,4 +8855,15 @@ margin-right: 0px!important;
 
 .job-detail-item span {
   margin-left: 0px;
+}
+
+
+@media (max-width: 460px) {
+
+.job-details-content {
+ 
+  padding: 10px 10px 30px 10px;
+
+}
+
 }
