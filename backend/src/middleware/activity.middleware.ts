@@ -25,19 +25,25 @@ export class ActivityMiddleware implements NestMiddleware {
           secret: this.configService.get<string>('JWT_SECRET'),
         });
         const userId = payload.sub;
-        const role = payload.role;
+        const role = payload.role as
+          'jobseeker' | 'employer' | 'admin' | 'moderator' | 'affiliate';
 
-        if (['jobseeker', 'employer', 'admin', 'moderator'].includes(role)) {
-          console.log(`ActivityMiddleware: Установка статуса онлайн для userId=${userId}, role=${role}, sessionID=${req.sessionID}`);
-          await this.redisService.extendOnlineStatus(userId, role as 'jobseeker' | 'employer' | 'admin' | 'moderator');
+        if (['jobseeker', 'employer', 'admin', 'moderator', 'affiliate'].includes(role)) {
+          console.log(
+            `ActivityMiddleware: Установка статуса онлайн для userId=${userId}, role=${role}, sessionID=${req.sessionID}`,
+          );
+
+          await this.redisService.extendOnlineStatus(userId, role);
 
           const throttleKey = `lastseen:write:${userId}`;
           const skip = await this.redisService.get(throttleKey);
           if (!skip) {
             try {
               await this.usersService.touchLastSeen(userId);
-            } catch (e) {
-              console.error(`ActivityMiddleware: Ошибка touchLastSeen userId=${userId}: ${e.message}`);
+            } catch (e: any) {
+              console.error(
+                `ActivityMiddleware: Ошибка touchLastSeen userId=${userId}: ${e?.message}`,
+              );
             }
             await this.redisService.set(throttleKey, '1', 60);
           }
@@ -46,20 +52,34 @@ export class ActivityMiddleware implements NestMiddleware {
             req.session.user = { id: userId, email: payload.email, role };
             req.session.save((err) => {
               if (err) {
-                console.error(`ActivityMiddleware: Ошибка сохранения сессии для userId=${userId}, sessionID=${req.sessionID}, error=${err.message}`);
+                console.error(
+                  `ActivityMiddleware: Ошибка сохранения сессии для userId=${userId}, sessionID=${req.sessionID}, error=${err.message}`,
+                );
               } else {
-                console.log(`ActivityMiddleware: Сессия обновлена для userId=${userId}, sessionID=${req.sessionID}`);
+                console.log(
+                  `ActivityMiddleware: Сессия обновлена для userId=${userId}, sessionID=${req.sessionID}`,
+                );
               }
             });
           }
         } else {
-          console.warn(`ActivityMiddleware: Неверная роль role=${role}, userId=${userId}`);
+          console.warn(
+            `ActivityMiddleware: Неверная или неподдерживаемая роль role=${role}, userId=${userId}`,
+          );
         }
-      } catch (error) {
-        console.error(`ActivityMiddleware ошибка: userId=${req.session.user?.id || 'unknown'}, sessionID=${req.sessionID}, error=${error.message}`);
+      } catch (error: any) {
+        console.error(
+          `ActivityMiddleware ошибка: userId=${req.session.user?.id || 'unknown'}, sessionID=${
+            req.sessionID
+          }, error=${error?.message}`,
+        );
       }
     } else {
-      console.log(`ActivityMiddleware: Нет валидного заголовка авторизации, sessionID=${req.sessionID}, headers=${JSON.stringify(req.headers)}`);
+      console.log(
+        `ActivityMiddleware: Нет валидного заголовка авторизации, sessionID=${req.sessionID}, headers=${JSON.stringify(
+          req.headers,
+        )}`,
+      );
     }
     next();
   }

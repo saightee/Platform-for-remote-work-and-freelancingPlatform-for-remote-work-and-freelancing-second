@@ -71,6 +71,7 @@ export class JobPostsService {
       description?: string;
       location: string;
       salary?: number;
+      salary_max?: number;
       status: 'Active' | 'Draft' | 'Closed';
       aiBrief?: string;
       category_id?: string;
@@ -78,7 +79,7 @@ export class JobPostsService {
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
       salary_type?: 'per hour' | 'per month' | 'negotiable';
       excluded_locations?: string[];
-    }
+    },
   ) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -86,7 +87,9 @@ export class JobPostsService {
 
     const incomingIds = jobPostData.category_ids?.length
       ? jobPostData.category_ids
-      : (jobPostData.category_id ? [jobPostData.category_id] : []);
+      : jobPostData.category_id
+      ? [jobPostData.category_id]
+      : [];
 
     if (!incomingIds.length) {
       throw new BadRequestException('At least one category is required');
@@ -99,18 +102,32 @@ export class JobPostsService {
       }
     }
 
-    if (jobPostData.salary_type !== 'negotiable' && !jobPostData.salary) {
-      throw new BadRequestException('Salary is required unless salary_type is negotiable');
+    const salaryType = jobPostData.salary_type || 'per hour';
+
+    if (salaryType === 'negotiable') {
+      jobPostData.salary = null;
+      jobPostData.salary_max = null;
+    } else {
+      const hasMin = typeof jobPostData.salary === 'number';
+      if (!hasMin) {
+        throw new BadRequestException('Salary is required unless salary_type is negotiable');
+      }
+      if (
+        typeof jobPostData.salary_max === 'number' &&
+        jobPostData.salary_max < jobPostData.salary
+      ) {
+        throw new BadRequestException('salary_max must be greater than or equal to salary');
+      }
     }
-    if (jobPostData.salary_type === 'negotiable') jobPostData.salary = null;
 
     if (!jobPostData.description && jobPostData.aiBrief) {
       jobPostData.description = await this.generateDescription({
         aiBrief: jobPostData.aiBrief,
         title: jobPostData.title,
         location: jobPostData.location,
-        salary: jobPostData.salary,
-        salary_type: jobPostData.salary_type,
+        salary: jobPostData.salary ?? undefined,
+        salary_max: jobPostData.salary_max ?? undefined,
+        salary_type: salaryType,
         job_type: jobPostData.job_type,
       });
     }
@@ -124,7 +141,8 @@ export class JobPostsService {
       description: jobPostData.description!,
       location: jobPostData.location,
       salary: jobPostData.salary ?? null,
-      salary_type: jobPostData.salary_type,
+      salary_max: jobPostData.salary_max ?? null,
+      salary_type: salaryType,
       status: jobPostData.status,
       job_type: jobPostData.job_type,
       excluded_locations: jobPostData.excluded_locations,
@@ -141,7 +159,6 @@ export class JobPostsService {
     await this.jobPostsRepository.save(saved);
 
     await this.applicationLimitsService.initializeLimits(saved.id, globalLimit);
-
     await this.setJobCategories(saved.id, incomingIds);
 
     return this.getJobPost(saved.id);
@@ -155,6 +172,7 @@ export class JobPostsService {
       description?: string;
       location?: string;
       salary?: number;
+      salary_max?: number;
       status?: 'Active' | 'Draft' | 'Closed';
       category_id?: string;
       category_ids?: string[];
@@ -162,10 +180,14 @@ export class JobPostsService {
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
       salary_type?: 'per hour' | 'per month' | 'negotiable';
       excluded_locations?: string[];
-    }
+    },
   ) {
-    const jobPost = await this.jobPostsRepository.findOne({ where: { id: jobPostId, employer_id: userId } });
-    if (!jobPost) throw new NotFoundException('Job post not found or you do not have permission to update it');
+    const jobPost = await this.jobPostsRepository.findOne({
+      where: { id: jobPostId, employer_id: userId },
+    });
+    if (!jobPost) {
+      throw new NotFoundException('Job post not found or you do not have permission to update it');
+    }
 
     if (updates.status === 'Closed') {
       throw new BadRequestException('Use Close Job endpoint to close a job post');
@@ -173,7 +195,10 @@ export class JobPostsService {
 
     const incomingIds = updates.category_ids?.length
       ? updates.category_ids
-      : (updates.category_id ? [updates.category_id] : undefined);
+      : updates.category_id
+      ? [updates.category_id]
+      : undefined;
+
     if (incomingIds) {
       const found = await this.categoriesService.findManyByIds(incomingIds);
       if (found.length !== incomingIds.length) {
@@ -181,11 +206,20 @@ export class JobPostsService {
       }
     }
 
-    const effectiveSalaryType = updates.salary_type ?? jobPost.salary_type;
-    if (effectiveSalaryType === 'negotiable') {
-      jobPost.salary = null;
-    } else if (updates.salary === undefined && jobPost.salary === null) {
-      throw new BadRequestException('Salary is required unless salary_type is negotiable');
+    const nextSalaryType = updates.salary_type ?? jobPost.salary_type ?? 'per hour';
+    const nextMin =
+      updates.salary !== undefined ? updates.salary : jobPost.salary;
+    const nextMax =
+      updates.salary_max !== undefined ? updates.salary_max : jobPost.salary_max;
+
+    if (nextSalaryType === 'negotiable') {
+    } else {
+      if (nextMin == null) {
+        throw new BadRequestException('Salary is required unless salary_type is negotiable');
+      }
+      if (nextMax != null && nextMax < nextMin) {
+        throw new BadRequestException('salary_max must be greater than or equal to salary');
+      }
     }
 
     if (updates.aiBrief) {
@@ -193,8 +227,9 @@ export class JobPostsService {
         aiBrief: updates.aiBrief,
         title: updates.title || jobPost.title,
         location: updates.location || jobPost.location,
-        salary: updates.salary !== undefined ? updates.salary : jobPost.salary,
-        salary_type: updates.salary_type || jobPost.salary_type,
+        salary: nextSalaryType === 'negotiable' ? undefined : nextMin ?? undefined,
+        salary_max: nextSalaryType === 'negotiable' ? undefined : nextMax ?? undefined,
+        salary_type: nextSalaryType,
         job_type: updates.job_type || jobPost.job_type,
       });
     }
@@ -203,11 +238,18 @@ export class JobPostsService {
     if (updates.title) jobPost.title = updates.title;
     if (updates.description) jobPost.description = updates.description;
     if (updates.location) jobPost.location = updates.location;
-    if (updates.salary !== undefined) jobPost.salary = updates.salary;
     if (updates.status) jobPost.status = updates.status;
     if (updates.job_type) jobPost.job_type = updates.job_type;
-    if (updates.salary_type) jobPost.salary_type = updates.salary_type;
     if (updates.excluded_locations) jobPost.excluded_locations = updates.excluded_locations;
+
+    jobPost.salary_type = nextSalaryType;
+    if (nextSalaryType === 'negotiable') {
+      jobPost.salary = null;
+      jobPost.salary_max = null;
+    } else {
+      jobPost.salary = nextMin!;
+      jobPost.salary_max = nextMax ?? null;
+    }
 
     if (titleChanged) {
       const baseSlug = this.slugify(jobPost.title || '');
@@ -324,8 +366,14 @@ export class JobPostsService {
     if (filters.job_type) qb.andWhere('jp.job_type = :jt', { jt: filters.job_type });
     if (filters.salary_type) qb.andWhere('jp.salary_type = :stp', { stp: filters.salary_type });
 
-    if (Number.isFinite(filters.salary_min)) qb.andWhere('jp.salary >= :smin', { smin: filters.salary_min });
-    if (Number.isFinite(filters.salary_max)) qb.andWhere('jp.salary <= :smax', { smax: filters.salary_max });
+    if (Number.isFinite(filters.salary_min)) {
+      qb.andWhere('COALESCE(jp.salary_max, jp.salary) >= :smin', {
+        smin: filters.salary_min,
+      });
+    }
+    if (Number.isFinite(filters.salary_max)) {
+      qb.andWhere('jp.salary <= :smax', { smax: filters.salary_max });
+    }
 
     const rawCatIds = filters.category_ids?.length
       ? filters.category_ids
@@ -457,6 +505,7 @@ export class JobPostsService {
     title?: string;
     location?: string;
     salary?: number;
+    salary_max?: number;
     salary_type?: 'per hour' | 'per month' | 'negotiable';
     job_type?: 'Full-time' | 'Part-time' | 'Project-based';
   }): Promise<string> {
@@ -467,6 +516,14 @@ export class JobPostsService {
     if (!apiKey) {
       throw new InternalServerErrorException('xAI API key is not configured');
     }
+    const salaryText =
+      data.salary_type === 'negotiable'
+        ? 'Negotiable'
+        : data.salary != null && data.salary_max != null
+        ? `${data.salary}-${data.salary_max} ${data.salary_type || ''}`
+        : data.salary != null
+        ? `${data.salary} ${data.salary_type || ''}`
+        : 'Not specified';
     const prompt = `
       Generate a professional job description in English based solely on the provided brief: "${data.aiBrief}".
       Do NOT add any fictional details (e.g., company names, team sizes, benefits, or unspecified information).
@@ -486,7 +543,7 @@ export class JobPostsService {
       - List 3-5 skills or qualifications from the brief.
       ## Work Details
       - **Work Mode**: ${data.location || 'Not specified'}
-      - **Salary**: ${data.salary_type === 'negotiable' ? 'Negotiable' : (data.salary ? `${data.salary} ${data.salary_type || ''}` : 'Not specified')}
+      - **Salary**: ${salaryText}
       - **Job Type**: ${data.job_type || 'Not specified'}
       **Provided Details**:
       - Job Title: ${data.title || 'Not specified'}

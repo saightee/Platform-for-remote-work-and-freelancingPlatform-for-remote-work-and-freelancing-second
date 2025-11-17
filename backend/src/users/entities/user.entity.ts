@@ -16,7 +16,7 @@ export class User {
   username: string;
 
   @Column()
-  role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
+  role: 'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate';
 
   @Column({ type: 'varchar', nullable: true })
   provider: string | null;

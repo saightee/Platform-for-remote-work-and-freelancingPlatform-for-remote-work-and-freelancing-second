@@ -88,7 +88,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-async setUserOnline(userId: string, role: 'jobseeker' | 'employer' | 'admin' | 'moderator') {
+async setUserOnline(
+  userId: string,
+  role: 'jobseeker' | 'employer' | 'admin' | 'moderator' | 'affiliate',
+) {
   await this.set(`online:${userId}`, role, 300);
   console.debug(`User ${userId} set online with role ${role}, TTL: 300 seconds`);
 }
@@ -144,7 +147,10 @@ async cleanOldSessions() {
   }
 }
 
-async extendOnlineStatus(userId: string, role: 'jobseeker' | 'employer' | 'admin' | 'moderator') {
+async extendOnlineStatus(
+  userId: string,
+  role: 'jobseeker' | 'employer' | 'admin' | 'moderator' | 'affiliate',
+) {
   const key = `online:${userId}`;
   const exists = await this.client.get(key);
   if (exists) {

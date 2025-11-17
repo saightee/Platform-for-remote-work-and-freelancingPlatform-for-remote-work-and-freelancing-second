@@ -125,6 +125,7 @@ export class EmailService {
     options?: {
       location?: string;
       salary?: number | null;
+      salary_max?: number | null;
       salary_type?: 'per hour' | 'per month' | 'negotiable';
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
     },
@@ -145,9 +146,21 @@ export class EmailService {
     const salaryDisplay =
       options?.salary_type === 'negotiable'
         ? 'Negotiable'
+        : options?.salary != null && options?.salary_max != null
+        ? `${options.salary}-${options.salary_max} ${
+            options?.salary_type === 'per hour'
+              ? 'per hour'
+              : options?.salary_type === 'per month'
+              ? 'per month'
+              : ''
+          }`.trim()
         : options?.salary != null
         ? `${options.salary} ${
-            options?.salary_type === 'per hour' ? 'per hour' : options?.salary_type === 'per month' ? 'per month' : ''
+            options?.salary_type === 'per hour'
+              ? 'per hour'
+              : options?.salary_type === 'per month'
+              ? 'per month'
+              : ''
           }`.trim()
         : 'Not specified';
 

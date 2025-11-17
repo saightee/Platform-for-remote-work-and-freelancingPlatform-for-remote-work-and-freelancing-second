@@ -1181,6 +1181,7 @@ export class AdminService {
     jobPostId: string,
     limit: number,
     orderBy: 'beginning' | 'end' | 'random',
+    categoryIds?: string[],
   ) {
     await this.checkAdminRole(adminId);
 
@@ -1197,7 +1198,19 @@ export class AdminService {
     if (!attachedCatIds.length) {
       throw new BadRequestException('Job post has no categories assigned');
     }
-    const matchCatIds = await this.expandCategoryIdsForMatching(attachedCatIds);
+
+    let baseCatIds: string[];
+    if (categoryIds && categoryIds.length) {
+      const invalid = categoryIds.filter((id) => !attachedCatIds.includes(id));
+      if (invalid.length) {
+        throw new BadRequestException('Selected categories do not belong to this job post');
+      }
+      baseCatIds = categoryIds;
+    } else {
+      baseCatIds = attachedCatIds;
+    }
+
+    const matchCatIds = await this.expandCategoryIdsForMatching(baseCatIds);
 
     const subQuery = this.jobSeekerRepository
       .createQueryBuilder('js')
@@ -1212,14 +1225,22 @@ export class AdminService {
       .andWhere('user.role = :role', { role: 'jobseeker' })
       .andWhere('user.status = :status', { status: 'active' })
       .andWhere('user.is_email_verified = :isEmailVerified', { isEmailVerified: true })
-      .andWhere(`NOT EXISTS (
-        SELECT 1 FROM job_applications a2
-        WHERE a2.job_post_id = :thisJob AND a2.job_seeker_id = "jobSeeker"."user_id"
-      )`, { thisJob: jobPostId })
-      .andWhere(`NOT EXISTS (
-        SELECT 1 FROM email_notifications en
-        WHERE en.job_post_id = :thisJob AND en.recipient_email = "user"."email"
-      )`, { thisJob: jobPostId })
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM job_applications a2
+          WHERE a2.job_post_id = :thisJob 
+            AND a2.job_seeker_id = "jobSeeker"."user_id"
+        )`,
+        { thisJob: jobPostId },
+      )
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM email_notifications en
+          WHERE en.job_post_id = :thisJob 
+            AND en.recipient_email = "user"."email"
+        )`,
+        { thisJob: jobPostId },
+      )
       .setParameters(subQuery.getParameters());
 
     const total = await qb.getCount();
@@ -1250,9 +1271,10 @@ export class AdminService {
           {
             location: jobPost.location || (jobPost as any).work_mode || 'Remote',
             salary: jobPost.salary ?? null,
+            salary_max: jobPost.salary_max ?? null,
             salary_type: jobPost.salary_type as any,
             job_type: jobPost.job_type as any,
-          }
+          },
         );
 
         const notification = this.emailNotificationsRepository.create({
@@ -1294,6 +1316,8 @@ export class AdminService {
     jobPostId: string,
     limit: number,
     orderBy: 'beginning' | 'end' | 'random',
+    categoryIds?: string[],
+    sourceJobIds?: string[],
   ) {
     await this.checkAdminRole(adminId);
 
@@ -1307,7 +1331,36 @@ export class AdminService {
     if (!attachedCatIds.length) {
       throw new BadRequestException('Job post has no categories assigned');
     }
-    const matchCatIds = await this.expandCategoryIdsForMatching(attachedCatIds);
+
+    let baseCatIds: string[];
+    if (categoryIds && categoryIds.length) {
+      const invalid = categoryIds.filter((id) => !attachedCatIds.includes(id));
+      if (invalid.length) {
+        throw new BadRequestException('Selected categories do not belong to this job post');
+      }
+      baseCatIds = categoryIds;
+    } else {
+      baseCatIds = attachedCatIds;
+    }
+
+    const matchCatIds = await this.expandCategoryIdsForMatching(baseCatIds);
+
+    let allowedSourceJobIds: string[] | undefined;
+    if (sourceJobIds && sourceJobIds.length) {
+      const rows = await this.jobPostsRepository
+        .createQueryBuilder('jp')
+        .innerJoin(JobPostCategory, 'jpc', 'jpc.job_post_id = jp.id')
+        .where('jp.id IN (:...ids)', { ids: sourceJobIds })
+        .andWhere('jpc.category_id IN (:...attachedCatIds)', { attachedCatIds })
+        .select('DISTINCT jp.id', 'id')
+        .getRawMany();
+
+      allowedSourceJobIds = rows.map((r: any) => r.id);
+
+      if (!allowedSourceJobIds.length) {
+        throw new BadRequestException('Selected jobs do not share categories with this job post');
+      }
+    }
 
     const subRegs = this.referralRegistrationsRepository
       .createQueryBuilder('rr')
@@ -1315,8 +1368,13 @@ export class AdminService {
       .innerJoin('rl.job_post', 'jp')
       .innerJoin(JobPostCategory, 'jpc2', 'jpc2.job_post_id = jp.id')
       .innerJoin('rr.user', 'ru')
-      .where('jpc2.category_id IN (:...catIds)', { catIds: matchCatIds })
-      .select('DISTINCT ru.id');
+      .where('jpc2.category_id IN (:...catIds)', { catIds: matchCatIds });
+
+    if (allowedSourceJobIds && allowedSourceJobIds.length) {
+      subRegs.andWhere('jp.id IN (:...sourceJobIds)', { sourceJobIds: allowedSourceJobIds });
+    }
+
+    subRegs.select('DISTINCT ru.id');
 
     const qb = this.jobSeekerRepository
       .createQueryBuilder('js')
@@ -1325,14 +1383,22 @@ export class AdminService {
       .andWhere('u.role = :role', { role: 'jobseeker' })
       .andWhere('u.status = :status', { status: 'active' })
       .andWhere('u.is_email_verified = :verified', { verified: true })
-      .andWhere(`NOT EXISTS (
-        SELECT 1 FROM job_applications a2
-        WHERE a2.job_post_id = :thisJob AND a2.job_seeker_id = "js"."user_id"
-      )`, { thisJob: jobPostId })
-      .andWhere(`NOT EXISTS (
-        SELECT 1 FROM email_notifications en
-        WHERE en.job_post_id = :thisJob AND en.recipient_email = "u"."email"
-      )`, { thisJob: jobPostId })
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM job_applications a2
+          WHERE a2.job_post_id = :thisJob 
+            AND a2.job_seeker_id = "js"."user_id"
+        )`,
+        { thisJob: jobPostId },
+      )
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM email_notifications en
+          WHERE en.job_post_id = :thisJob 
+            AND en.recipient_email = "u"."email"
+        )`,
+        { thisJob: jobPostId },
+      )
       .setParameters(subRegs.getParameters());
 
     const total = await qb.getCount();
@@ -1361,9 +1427,10 @@ export class AdminService {
           {
             location: jobPost.location || (jobPost as any).work_mode || 'Remote',
             salary: jobPost.salary ?? null,
+            salary_max: jobPost.salary_max ?? null,
             salary_type: jobPost.salary_type as any,
             job_type: jobPost.job_type as any,
-          }
+          },
         );
 
         await this.emailNotificationsRepository.save(
@@ -1964,5 +2031,134 @@ export class AdminService {
     if (link.scope !== 'site') throw new BadRequestException('This link is not a site referral link');
     await this.referralLinksRepository.delete(linkId);
     return { message: 'Deleted' };
+  }
+
+  async getCategoryAnalytics(adminId: string) {
+    await this.checkAdminOrModerator(adminId);
+
+    const categories = await this.categoriesRepository.find();
+    const parentMap = new Map<string, string | null>();
+    categories.forEach((c) => parentMap.set(c.id, c.parent_id || null));
+
+    const jsRaw = await this.jobSeekerRepository
+      .createQueryBuilder('js')
+      .innerJoin('js.skills', 'skill')
+      .innerJoin('js.user', 'u')
+      .select('js.user_id', 'job_seeker_id')
+      .addSelect('skill.id', 'category_id')
+      .where('u.role = :role', { role: 'jobseeker' })
+      .andWhere('u.status = :status', { status: 'active' })
+      .getRawMany();
+
+    const jsSetsByCategory = new Map<string, Set<string>>();
+
+    for (const row of jsRaw) {
+      const jsId: string = row.job_seeker_id;
+      let catId: string | null = row.category_id;
+      const visited = new Set<string>();
+
+      while (catId) {
+        if (visited.has(catId)) break;
+        visited.add(catId);
+
+        let set = jsSetsByCategory.get(catId);
+        if (!set) {
+          set = new Set<string>();
+          jsSetsByCategory.set(catId, set);
+        }
+        set.add(jsId);
+
+        catId = parentMap.get(catId) ?? null;
+      }
+    }
+
+    const jsCountMap = new Map<string, number>();
+    categories.forEach((c) => {
+      const set = jsSetsByCategory.get(c.id);
+      if (set && set.size > 0) {
+        jsCountMap.set(c.id, set.size);
+      }
+    });
+
+    const jpRaw = await this.jobPostsRepository
+      .createQueryBuilder('jp')
+      .innerJoin(JobPostCategory, 'jpc', 'jpc.job_post_id = jp.id')
+      .select('jp.id', 'job_post_id')
+      .addSelect('jpc.category_id', 'category_id')
+      .where('jp.status = :status', { status: 'Active' })
+      .andWhere('jp.pending_review = :pending', { pending: false })
+      .getRawMany();
+
+    const jpSetsByCategory = new Map<string, Set<string>>();
+
+    for (const row of jpRaw) {
+      const jpId: string = row.job_post_id;
+      let catId: string | null = row.category_id;
+      const visited = new Set<string>();
+
+      while (catId) {
+        if (visited.has(catId)) break;
+        visited.add(catId);
+
+        let set = jpSetsByCategory.get(catId);
+        if (!set) {
+          set = new Set<string>();
+          jpSetsByCategory.set(catId, set);
+        }
+        set.add(jpId);
+
+        catId = parentMap.get(catId) ?? null;
+      }
+    }
+
+    const jpCountMap = new Map<string, number>();
+    categories.forEach((c) => {
+      const set = jpSetsByCategory.get(c.id);
+      if (set && set.size > 0) {
+        jpCountMap.set(c.id, set.size);
+      }
+    });
+
+    const buildTree = <
+      K extends 'jobseekersCount' | 'jobPostsCount'
+    >(countMap: Map<string, number>, key: K) => {
+      const parents = categories.filter((c) => !c.parent_id);
+
+      const result = parents
+        .map((parent) => {
+          const parentCount = countMap.get(parent.id) || 0;
+          if (!parentCount) return null;
+
+          const children = categories.filter((c) => c.parent_id === parent.id);
+          const subcategories = children
+            .map((child) => {
+              const childCount = countMap.get(child.id) || 0;
+              if (!childCount) return null;
+              return {
+                id: child.id,
+                name: child.name,
+                [key]: childCount,
+              } as any;
+            })
+            .filter(Boolean)
+            .sort((a: any, b: any) => b[key] - a[key]);
+
+          return {
+            id: parent.id,
+            name: parent.name,
+            [key]: parentCount,
+            subcategories,
+          } as any;
+        })
+        .filter(Boolean)
+        .sort((a: any, b: any) => b[key] - a[key]);
+
+      return result;
+    };
+
+    const jobseekers = buildTree(jsCountMap, 'jobseekersCount');
+    const jobPosts = buildTree(jpCountMap, 'jobPostsCount');
+
+    return { jobseekers, jobPosts };
   }
 }

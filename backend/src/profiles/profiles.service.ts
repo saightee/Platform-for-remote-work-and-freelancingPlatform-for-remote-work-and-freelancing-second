@@ -6,6 +6,7 @@ import { JobSeeker } from '../users/entities/jobseeker.entity';
 import { Employer } from '../users/entities/employer.entity';
 import { ReviewsService } from '../reviews/reviews.service';
 import { Category } from '../categories/category.entity';
+import { JobApplication } from '../job-applications/job-application.entity';
 
 @Injectable()
 export class ProfilesService {
@@ -18,6 +19,8 @@ export class ProfilesService {
     private employerRepository: Repository<Employer>,
     @InjectRepository(Category)
     private categoriesRepository: Repository<Category>,
+    @InjectRepository(JobApplication)
+    private jobApplicationsRepository: Repository<JobApplication>,
     private reviewsService: ReviewsService,
   ) {}
 
@@ -32,13 +35,24 @@ export class ProfilesService {
     }
   }
 
-  async getProfile(userId: string, isAuthenticated: boolean = false) {
+  async getProfile(
+    userId: string,
+    viewer?: {
+      isAuthenticated?: boolean;
+      viewerId?: string | null;
+      viewerRole?: 'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate' | null;
+    },
+  ) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
     const reviews = await this.reviewsService.getReviewsForUser(userId);
+    const isAuthenticated = !!viewer?.isAuthenticated;
+    const viewerId = viewer?.viewerId || null;
+    const viewerRole = viewer?.viewerRole || null;
+    const isOwner = viewerId === userId;
 
     if (user.role === 'jobseeker') {
       const jobSeeker = await this.jobSeekerRepository.findOne({
@@ -48,30 +62,52 @@ export class ProfilesService {
       if (!jobSeeker) {
         throw new NotFoundException('JobSeeker profile not found');
       }
+
+      let canSeePrivateContacts = false;
+
+      if (isOwner) {
+        canSeePrivateContacts = true;
+      }
+      else if (viewerRole === 'admin' || viewerRole === 'moderator') {
+        canSeePrivateContacts = true;
+      }
+
+      else if (viewerRole === 'employer' && viewerId) {
+        const count = await this.jobApplicationsRepository
+          .createQueryBuilder('app')
+          .innerJoin('app.job_post', 'jp')
+          .where('app.job_seeker_id = :jobSeekerId', { jobSeekerId: userId })
+          .andWhere('jp.employer_id = :employerId', { employerId: viewerId })
+          .getCount();
+        canSeePrivateContacts = count > 0;
+      }
+
       return {
         id: user.id,
         role: user.role,
-        email: isAuthenticated ? user.email : undefined,
+        email: canSeePrivateContacts ? user.email : undefined,
         username: user.username,
         country: user.country,
         country_name: this.countryNameFromISO(user.country),
         skills: jobSeeker.skills,
         experience: jobSeeker.experience,
+        job_experience: (jobSeeker as any).job_experience || null,
         description: jobSeeker.description,
         portfolio: jobSeeker.portfolio,
+        portfolio_files: jobSeeker.portfolio_files || [],
         video_intro: jobSeeker.video_intro,
-        resume: jobSeeker.resume,
+        resume: canSeePrivateContacts ? jobSeeker.resume : undefined,
         timezone: jobSeeker.timezone,
         currency: jobSeeker.currency,
         expected_salary: (jobSeeker as any).expected_salary ?? null,
         average_rating: jobSeeker.average_rating,
         profile_views: jobSeeker.profile_views,
         job_search_status: (jobSeeker as any).job_search_status,
-        linkedin: jobSeeker.linkedin,
-        instagram: jobSeeker.instagram,
-        facebook: jobSeeker.facebook,
-        whatsapp: (jobSeeker as any).whatsapp ?? null,
-        telegram: (jobSeeker as any).telegram ?? null,
+        linkedin: canSeePrivateContacts ? jobSeeker.linkedin : undefined,
+        instagram: canSeePrivateContacts ? jobSeeker.instagram : undefined,
+        facebook: canSeePrivateContacts ? jobSeeker.facebook : undefined,
+        whatsapp: canSeePrivateContacts ? (jobSeeker as any).whatsapp ?? null : undefined,
+        telegram: canSeePrivateContacts ? (jobSeeker as any).telegram ?? null : undefined,
         languages: jobSeeker.languages || [],
         date_of_birth: (jobSeeker as any).date_of_birth || null,
         reviews,
@@ -111,10 +147,12 @@ export class ProfilesService {
     }
 
     if (Object.prototype.hasOwnProperty.call(updateData, 'username')) {
-      if (typeof updateData.username !== 'string') throw new BadRequestException('Username must be a string');
+      if (typeof updateData.username !== 'string')
+        throw new BadRequestException('Username must be a string');
       const newUsername = updateData.username.trim();
       if (!newUsername) throw new BadRequestException('Username cannot be empty');
-      if (newUsername.length > 100) throw new BadRequestException('Username is too long (max 100)');
+      if (newUsername.length > 100)
+        throw new BadRequestException('Username is too long (max 100)');
       user.username = newUsername;
       await this.usersRepository.save(user);
     }
@@ -135,27 +173,48 @@ export class ProfilesService {
       if (updateData.resume) jobSeeker.resume = updateData.resume;
 
       if (updateData.skillIds && Array.isArray(updateData.skillIds)) {
-        const skills = await this.categoriesRepository.find({ where: { id: In(updateData.skillIds) } });
+        const skills = await this.categoriesRepository.find({
+          where: { id: In(updateData.skillIds) },
+        });
         jobSeeker.skills = skills;
       }
 
       if (updateData.experience) jobSeeker.experience = updateData.experience;
 
+      if (Object.prototype.hasOwnProperty.call(updateData, 'job_experience')) {
+        const v = String(updateData.job_experience || '').trim();
+        (jobSeeker as any).job_experience = v || null;
+      }
+
       if (Object.prototype.hasOwnProperty.call(updateData, 'date_of_birth')) {
         const dob = String(updateData.date_of_birth || '').trim();
         if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
-          throw new BadRequestException('date_of_birth must be in format YYYY-MM-DD');
+          throw new BadRequestException(
+            'date_of_birth must be in format YYYY-MM-DD',
+          );
         }
         (jobSeeker as any).date_of_birth = dob || null;
       }
-      
+
       if (Object.prototype.hasOwnProperty.call(updateData, 'description')) {
         const d = String(updateData.description || '');
         const limited = d.trim().split(/\s+/).slice(0, 150).join(' ');
         jobSeeker.description = limited || null;
       }
 
-      if (updateData.portfolio) jobSeeker.portfolio = updateData.portfolio;
+      if (Object.prototype.hasOwnProperty.call(updateData, 'portfolio')) {
+        jobSeeker.portfolio = updateData.portfolio;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(updateData, 'portfolio_files')) {
+        const arr = Array.isArray(updateData.portfolio_files)
+          ? updateData.portfolio_files.filter(
+              (v: any) => typeof v === 'string' && v.trim(),
+            )
+          : [];
+        jobSeeker.portfolio_files = arr;
+      }
+
       if (updateData.video_intro) jobSeeker.video_intro = updateData.video_intro;
       if (updateData.timezone) jobSeeker.timezone = updateData.timezone;
       if (updateData.currency) jobSeeker.currency = updateData.currency;
@@ -181,12 +240,17 @@ export class ProfilesService {
       if (Object.prototype.hasOwnProperty.call(updateData, 'telegram')) jobSeeker.telegram = updateData.telegram || null;
 
       if (Object.prototype.hasOwnProperty.call(updateData, 'languages')) {
-          const langs = Array.isArray(updateData.languages) ? updateData.languages : [];
-          jobSeeker.languages = langs;
+        const langs = Array.isArray(updateData.languages) ? updateData.languages : [];
+        jobSeeker.languages = langs;
       }
 
       await this.jobSeekerRepository.save(jobSeeker);
-      return this.getProfile(userId, true);
+      // возвращаем профиль как владелец
+      return this.getProfile(userId, {
+        isAuthenticated: true,
+        viewerId: userId,
+        viewerRole: user.role,
+      });
     }
 
     if (user.role === 'employer') {
@@ -200,7 +264,11 @@ export class ProfilesService {
       if (updateData.currency) employer.currency = updateData.currency;
 
       await this.employerRepository.save(employer);
-      return this.getProfile(userId, true);
+      return this.getProfile(userId, {
+        isAuthenticated: true,
+        viewerId: userId,
+        viewerRole: user.role,
+      });
     }
 
     throw new UnauthorizedException('User role not supported');
@@ -217,7 +285,11 @@ export class ProfilesService {
 
     user.avatar = avatarUrl;
     await this.usersRepository.save(user);
-    return this.getProfile(userId, true);
+    return this.getProfile(userId, {
+      isAuthenticated: true,
+      viewerId: userId,
+      viewerRole: user.role,
+    });
   }
 
   async uploadIdentityDocument(userId: string, documentUrl: string) {
@@ -231,7 +303,11 @@ export class ProfilesService {
 
     user.identity_document = documentUrl;
     await this.usersRepository.save(user);
-    return this.getProfile(userId, true);
+    return this.getProfile(userId, {
+      isAuthenticated: true,
+      viewerId: userId,
+      viewerRole: user.role,
+    });
   }
 
   async uploadResume(userId: string, resumeUrl: string) {
@@ -253,8 +329,12 @@ export class ProfilesService {
     
     jobSeeker.resume = resumeUrl;
     await this.jobSeekerRepository.save(jobSeeker);
-    return this.getProfile(userId, true);
-    }
+    return this.getProfile(userId, {
+      isAuthenticated: true,
+      viewerId: userId,
+      viewerRole: user.role,
+    });
+  }
 
   async incrementProfileView(userId: string) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
@@ -273,5 +353,36 @@ export class ProfilesService {
     jobSeeker.profile_views = (jobSeeker.profile_views || 0) + 1;
     await this.jobSeekerRepository.save(jobSeeker);
     return { message: 'Profile view count incremented', profile_views: jobSeeker.profile_views };
+  }
+
+  async uploadPortfolioFiles(userId: string, newUrls: string[]) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.role !== 'jobseeker') {
+      throw new BadRequestException('Only jobseekers can upload portfolio files');
+    }
+  
+    const jobSeeker = await this.jobSeekerRepository.findOne({
+      where: { user_id: userId },
+    });
+    if (!jobSeeker) {
+      throw new NotFoundException('JobSeeker profile not found');
+    }
+  
+    const existing = jobSeeker.portfolio_files || [];
+    if (existing.length + newUrls.length > 10) {
+      throw new BadRequestException('You can have up to 10 portfolio files');
+    }
+  
+    jobSeeker.portfolio_files = [...existing, ...newUrls];
+    await this.jobSeekerRepository.save(jobSeeker);
+  
+    return this.getProfile(userId, {
+      isAuthenticated: true,
+      viewerId: userId,
+      viewerRole: user.role,
+    });
   }
 }

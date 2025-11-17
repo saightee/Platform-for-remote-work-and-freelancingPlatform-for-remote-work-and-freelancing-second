@@ -47,6 +47,9 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Response (Error - 400, Invalid avatar file)**:
   ```json
   {"statusCode": 400, "message": "Avatar must be an image: JPG, PNG, or WEBP", "error": "Bad Request"}
+- **Response (Error - 400, Invalid portfolio files)**:
+  ```json
+  {"statusCode": 400, "message": "Only PDF, DOC, DOCX, JPG, JPEG, PNG, and WEBP are allowed for portfolio files", "error": "Bad Request"}
 - **Response (Error - 400, Missing fingerprint)**:
   ```json
   {"statusCode": 400, "message": "Fingerprint is required", "error": "Bad Request"}
@@ -83,7 +86,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 
 ### 2. Verify Email
 - **Endpoint**: `GET api/auth/verify-email`
-- **Description**: Verifies a user’s email using a one-time token and **always redirects** to the frontend callback with a JWT for auto-login.
+- **Description**:Verifies a user’s email using a one-time token and always redirects to the frontend callback with a JWT for auto-login.
+  Works for all roles: jobseeker, employer, affiliate, admin, moderator.
 - **Query Parameters:**: `token`: (required) — verification token from the email link
 - **Cookies (read-only, optional)**:
   - `ref_to` — if present and is a relative path starting with `/`, it will be forwarded as `redirect` in the callback URL
@@ -111,7 +115,9 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 
 ### 4. Login a User
 - **Endpoint**: `POST api/auth/login`
-- **Description**: Logs a user in with email and password and returns a JWT. Non-privileged users must have a verified email.
+- **Description**: Logs a user in with email and password and returns a JWT.
+  Non-privileged users — jobseeker, employer, affiliate — must have a verified email (is_email_verified = true).
+  Admin and moderator accounts are allowed to log in without email verification.
 - **Headers**: 
  - `x-fingerprint (optional)` — device/browser fingerprint (used for anti-fraud & rate limiting).
 - **Request Body**:
@@ -260,7 +266,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
       }
     ]
   }
-- **Response (Success — 200) — Employer**
+- **Response (Success — 200) — Jobseeker**
   ```json
   {
     "id": "<userId>",
@@ -279,11 +285,16 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
       }
     ],
     "experience": "2 years",
+    "job_experience": "Worked as a frontend developer in 2 companies", 
     "linkedin": "https://www.linkedin.com/in/username",
     "instagram": "https://www.instagram.com/username",
     "facebook": "https://www.facebook.com/username",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
+    "portfolio_files": [
+    "https://cdn.example.com/portfolios/file1.pdf",
+    "https://cdn.example.com/portfolios/file2.png"
+    ],
     "video_intro": "https://video.com",
     "resume": "https://example.com/resume.pdf",
     "date_of_birth": "1992-07-15",
@@ -392,8 +403,13 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
       }
     ],
     "experience": "2 years",
+    "job_experience": "Worked as a frontend developer in 2 companies",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
+    "portfolio_files": [
+    "https://cdn.example.com/portfolios/file1.pdf",
+    "https://cdn.example.com/portfolios/file2.png"
+    ],
     "video_intro": "https://video.com",
     "resume": "https://example.com/resume.pdf",
     "date_of_birth": "1992-07-15",
@@ -436,8 +452,13 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "country_name": "United States",
     "skills": [],
     "experience": "2 years",
+    "job_experience": "Worked as a frontend developer in 2 companies",
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
+    "portfolio_files": [
+    "https://cdn.example.com/portfolios/file1.pdf",
+    "https://cdn.example.com/portfolios/file2.png"
+    ],
     "video_intro": "https://video.com",
     "resume": "https://example.com/resume.pdf",
     "date_of_birth": "1992-07-15",
@@ -492,6 +513,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "languages": ["English", "German"],
     "skillIds": ["<skillId1>", "<skillId2>"],
     "experience": "3 years",
+    "job_experience": "Detailed description of job history",
     "linkedin": "https://www.linkedin.com/in/...", 
     "instagram": "https://www.instagram.com/...",
     "facebook": "https://www.facebook.com/...",
@@ -499,6 +521,10 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "telegram": "@handle",
     "description": "Up to 150 words ...",
     "portfolio": "https://portfolio.com",
+    "portfolio_files": [
+      "https://cdn.example.com/portfolios/file1.pdf",
+      "https://cdn.example.com/portfolios/file2.png"
+    ],
     "video_intro": "https://video.com",
     "resume": "https://example.com/resume.pdf",
     "date_of_birth": "1992-07-15",
@@ -541,8 +567,9 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Endpoint**: `POST /api/job-posts`
 - **Description**: Creates a new job post for an authenticated **employer**.  
   - At least **one category** is required (`category_ids` preferred; `category_id` is legacy).  
-  - If `salary_type` = `"negotiable"`, the server stores `salary = null`.  
+  - If `salary_type` = `negotiable`, the server stores `salary` = null and  `salary_max` = null
   - If `description` is missing **and** `aiBrief` is provided, the server auto-generates a description.  
+  - If `salary_type` is not `negotiable`, `salary` is required. Optional `salary_max` must be greater than or equal to `salary` when provided.
   - New posts are created with `pending_review: true` (not publicly visible until approved), even if `status` is `"Active"`.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body**:
@@ -552,6 +579,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "description": "We are looking for a skilled software engineer.",
     "location": "Remote",
     "salary": 50000,
+    "salary_max": 70000,
     "status": "Active",                           // "Active" | "Draft" | "Closed"
     "job_type": "Full-time",                      // "Full-time" | "Part-time" | "Project-based"
     "salary_type": "per month",                   // "per hour" | "per month" | "negotiable"
@@ -568,6 +596,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "description": "We are looking for a skilled software engineer.",
     "location": "Remote",
     "salary": 50000,
+    "salary_max": 70000,
     "status": "Active",
     "job_type": "Full-time",
     "salary_type": "per month",
@@ -603,6 +632,9 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Response (Error — 400, salary missing & not negotiable)**:
   ```json
   { "statusCode": 400, "message": "Salary is required unless salary_type is negotiable", "error": "Bad Request" }
+- **Response (Error — 400, salary missing & not negotiable)**:
+  ```json
+  { "statusCode": 400, "message": "salary_max must be greater than or equal to salary", "error": "Bad Request" }
 - **Response (Error — 400, no categories)**:
   ```json
   { "statusCode": 400, "message": "At least one category is required", "error": "Bad Request" }
@@ -622,11 +654,12 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 ### 15. Update Job Post
 - **Endpoint**: `PUT /api/job-posts/:id`
 - **Description**: Updates an existing job post for an authenticated **employer**.
-  - If `salary_type` = `"negotiable"`, the server stores `salary = null`.
+  - If `salary_type` = `negotiable`, the server stores `salary` = null and `salary_max` = null.
   - If changing `salary_type` to a non-negotiable value while the current salary is `null`, you **must** provide `salary` (otherwise 400).
   - If `aiBrief` is provided and `description` is omitted, the server **auto-generates** a description.
   - **You cannot set `status` to `"Closed"` here** — use the dedicated **Close Job** endpoint instead (attempting to set `"Closed"` returns 400).
   - If the title changes, the server recalculates `slug` and `slug_id`.
+  - When `salary_type` is not `negotiable`, the resulting `salary` (after applying updates) must not be null, and `salary_max` (if provided) must be ≥ `salary`.
 - **Headers**: `Authorization: Bearer <token>` 
 - **Request Body**::
   ```json
@@ -635,6 +668,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "description": "Updated description.",
     "location": "Remote",
     "salary": 60000,
+    "salary_max": 70000,
     "status": "Active",                          // "Active" | "Draft" (cannot set "Closed" here)
     "job_type": "Full-time",                     // "Full-time" | "Part-time" | "Project-based"
     "salary_type": "per month",                  // "per hour" | "per month" | "negotiable"
@@ -651,6 +685,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "description": "Updated description.",
     "location": "Remote",
     "salary": 60000,
+    "salary_max": 70000,
     "status": "Active",
     "job_type": "Full-time",
     "salary_type": "per month",
@@ -683,6 +718,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Response (Error — 400, salary required)**:
   ```json
   { "statusCode": 400, "message": "Salary is required unless salary_type is negotiable", "error": "Bad Request" }
+  { "statusCode": 400, "message": "salary_max must be greater than or equal to salary", "error": "Bad Request" }
 - **Response (Error — 400, categories)**:
   ```json
   { "statusCode": 400, "message": "At least one category is required", "error": "Bad Request" }
@@ -701,7 +737,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Endpoint**: `POST /api/job-posts/generate-description`
 - **Description**: Generates a **sanitized HTML** job description from a short AI brief.  
   - **Employers only** (JWT required).  
-  - Honors optional context fields (`title`, `location`, `salary`, `salary_type`, `job_type`).  
+  - Honors optional context fields `(title, location, salary, salary_max, salary_type, job_type)`.
+  If both salary and `salary_max` are provided (and salary_type is not "negotiable"), the generated text will display a range (e.g. 5–8 per hour).
   - If `salary_type = "negotiable"`, salary may be omitted and the output will display **Negotiable**.
   - Rate-limited via `ThrottlerGuard`.
 - **Headers**: `Authorization: Bearer <token>` (Required for employers)
@@ -712,6 +749,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "title": "Python Developer",
     "location": "Remote",
     "salary": 3000,
+    "salary_max": 3500,
     "salary_type": "per month",      // "per hour" | "per month" | "negotiable"
     "job_type": "Full-time"          // "Full-time" | "Part-time" | "Project-based"
   }
@@ -738,7 +776,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 ### 17. Get Job Post
 - **Endpoint**: `GET /api/job-posts/:id`
 - **Description**: Returns a single job post by its ID.  
-  *Note:* This endpoint is **public** and does **not** filter by status or review state. If `salary_type` is `"negotiable"`, `salary` may be `null` (UI should display “Negotiable”).
+  *Note:* This endpoint is **public** and does **not** filter by status or review state. If `salary_type` is `negotiable`, both salary and `salary_max` may be null (UI should display “Negotiable”).
+  If `salary_type` is not `negotiable` and both salary and `salary_max` are present, they form a range ([salary, salary_max]).
 - **Path Parameters**
   - `id` — job post ID (string, required)
 - **Response (Success - 200)**:
@@ -749,6 +788,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "description": "Develop and maintain web applications.",
     "location": "Remote",
     "salary": null,
+    "salary_max": 8000,
     "status": "Active",
     "job_type": "Full-time",
     "salary_type": "negotiable",
@@ -791,6 +831,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "description": "Develop and maintain web applications.",
     "location": "Remote",
     "salary": null,
+    "salary_max": 8000,
     "status": "Active",
     "job_type": "Full-time",
     "salary_type": "negotiable",
@@ -833,6 +874,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
       "description": "Updated description.",
       "location": "Remote",
       "salary": 60000,
+      "salary_max": 70000,
       "salary_type": "per month",
       "excluded_locations": ["IN"],
       "status": "Closed",
@@ -1332,8 +1374,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
   - `title` — string; partial match (ILIKE) against job title
   - `location` — string; partial match (ILIKE)
   - `job_type` — `"Full-time" | "Part-time" | "Project-based"`
-  - `salary_min` — number; minimum salary (ignored by posts where salary is `null`)
-  - `salary_max` — number; maximum salary (ignored by posts where salary is `null`)
+  - `salary_min` — number; minimum desired salary. A job post is included if its stored range [salary, salary_max] satisfies max >= salary_min. Posts with salary = null or salary_type = "negotiable" are ignored.
+  - `salary_max` — number; maximum desired salary. A job post is included if its stored range [salary, salary_max] satisfies min <= salary_max. Posts with salary = null or salary_type = "negotiable" are ignored.
   - `salary_type` — `"per hour" | "per month" | "negotiable"`
   - `category_id` — string; filter by a single category **including its descendants**
   - `required_skills` — string or string[]; matches when the job’s `required_skills` array overlaps the provided list
@@ -1353,6 +1395,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
       "description": "Develop and maintain web applications.",
       "location": "Remote",
       "salary": null,
+      "salary_max": 8000,
       "status": "Active",
       "job_type": "Full-time",
       "salary_type": "negotiable",
@@ -3020,20 +3063,35 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
 
 ### 85. Notify Job Seekers (Admin)
 - **Endpoint**: `POST /api/admin/job-posts/:id/notify-candidates`
-- **Description**: Send email notifications to **eligible jobseekers** whose skills/categories match the job post’s categories. Only **Active** job posts are eligible. Users who already applied to the job or already received a notification for this job are excluded. The selection can be ordered by earliest signups, latest signups, or randomized. The effective send limit is capped at **1000** per request.
+- **Description**: Send email notifications to eligible jobseekers whose skills/categories match the selected categories of the target job post.
+Only Active job posts are eligible.
+A user is included in the pool only if:
+  - their role is jobseeker;
+  - their account status is active;
+  - their email is verified;
+  - they have at least one matching skill/category from the selected categories;
+  - they have not applied to this job post;
+  - they have not previously received an email notification for this job post.
+The admin may optionally restrict notifications to specific categories attached to the job; otherwise all categories of the job post are used.
+The selection can be ordered by earliest sign-ups, latest sign-ups, or randomized.
+The effective send limit is capped at 1000 per request.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Parameters**: `id`: The ID of the job post
 - **Request Body**:
   ```json
   {
     "limit": 50,
-    "orderBy": "end"   // one of: "beginning" | "end" | "random"
+    "orderBy": "end",           // one of: "beginning" | "end" | "random"
+    "categoryIds": [            // optional; array of category IDs attached to this job post
+      "uuid-of-category-1",
+      "uuid-of-category-2"
+    ]
   }
 - **Response (Success - 200)**:
   ```json
   {
-    "total": 120,
-    "sent": 50,
+    "total": 120,                         // total number of eligible jobseekers found
+    "sent": 50,                           // number of emails successfully sent
     "emails": ["user1@example.com", "user2@example.com"],
     "jobPostId": "<jobPostId>"
   }
@@ -3043,6 +3101,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   {"statusCode": 400, "message": "OrderBy must be one of: beginning, end, random", "error": "Bad Request"}
   {"statusCode": 400, "message": "Notifications can only be sent for active job posts", "error": "Bad Request"}
   {"statusCode": 400, "message": "Job post has no categories assigned", "error": "Bad Request"}
+  {"statusCode": 400, "message": "Selected categories do not belong to this job post", "error": "Bad Request"}
 - **Response (Error - 401 Unauthorized — missing/malformed token or invalid token)**:
   ```json
   {"statusCode": 401, "message": "Invalid token", "error": "Unauthorized"}
@@ -3055,20 +3114,41 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
 
 ### 86. Notify Referral Applicants (Admin)
 - **Endpoint**: `POST /api/admin/job-posts/:id/notify-referral-applicants`
-- **Description**: Send email notifications to **eligible jobseekers who previously registered via referral links** that pointed to **job posts sharing at least one category** with the target job. Only **Active** job posts are eligible. Users who already applied to the target job or already received a notification for this job are excluded. Selection can be ordered by earliest signups, latest signups, or randomized. The effective send limit is capped at **1000** per request.
+- **Description**: Send email notifications to eligible jobseekers who previously registered via referral links that pointed to related job posts.
+A related job post is one that shares at least one category with the target job post, optionally further restricted by:
+  - a subset of categories chosen by the admin, and/or
+  - a set of specific previous job posts selected by the admin.
+Only Active job posts are eligible.
+A user is included in the pool only if:
+  - they registered via a referral link belonging to a related job post (according to the filters above);
+  - their role is jobseeker;
+  - their account status is active;
+  - their email is verified;
+  - they have not applied to the target job post;
+  - they have not previously received an email notification for the target job post.
+The selection can be ordered by earliest sign-ups, latest sign-ups, or randomized.
+The effective send limit is capped at 1000 per request.
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Parameters**: `id`: The ID of the job post
 - **Request Body**:
   ```json
   {
     "limit": 50,
-    "orderBy": "end"   // one of: "beginning" | "end" | "random"
+    "orderBy": "end",            // one of: "beginning" | "end" | "random"
+    "categoryIds": [             // optional; subset of categories of the target job post
+      "uuid-of-category-1",
+      "uuid-of-category-2"
+    ],
+    "sourceJobIds": [            // optional; job posts whose referral signups should be considered
+      "uuid-of-source-job-1",
+      "uuid-of-source-job-2"
+    ]
   }
 - **Response (Success - 200)**:
   ```json
   {
-    "total": 120,
-    "sent": 50,
+    "total": 120,                 // total number of eligible referral jobseekers found
+    "sent": 50,                   // number of emails successfully sent
     "jobPostId": "<jobPostId>"
   }
 - **Response (Error - 400 Bad Request — invalid input)**:
@@ -3077,6 +3157,8 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   {"statusCode": 400, "message": "OrderBy must be one of: beginning, end, random", "error": "Bad Request"}
   {"statusCode": 400, "message": "Notifications can only be sent for active job posts", "error": "Bad Request"}
   {"statusCode": 400, "message": "Job post has no categories assigned", "error": "Bad Request"}
+  {"statusCode": 400, "message": "Selected categories do not belong to this job post", "error": "Bad Request"}
+  {"statusCode": 400, "message": "Selected jobs do not share categories with this job post", "error": "Bad Request"}
 - **Response (Error - 401 Unauthorized — missing/malformed token or invalid token)**:
   ```json
   {"statusCode": 401, "message": "Invalid token", "error": "Unauthorized"}
@@ -3087,35 +3169,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 404, "message": "Job post not found", "error": "Not Found"}
 
-### 87. Notify Referral Applicants (Admin)
-- **Endpoint**: `POST /api/admin/job-posts/:id/notify-referral-applicants`
-- **Description**: Sends email notifications only to applicants who have previously applied via referral links for jobs in the same category as the specified vacancy. Allows you to select the recipient limit and the selection order by registration date.
-- **Headers**: `Authorization: Bearer <token>`
-- **Request Parameters**: `id`: The ID of the job post
-- **Request Body**:
-  ```json
-  {"limit": 50,"orderBy": "end"}
-- **Response (Success - 200)**:
-  ```json
-  {
-    "total": 120,
-    "sent": 50,
-    "jobPostId": "<jobPostId>"
-  }
-- **Response (Error - 400, invalid input)**:
-  ```json
-  {"statusCode": 400,"message": "Limit must be a positive integer","error": "Bad Request"}
-- **Response (Error - 400, no category)**:
-  ```json
-  {"statusCode": 400,"message": "Job post has no category assigned","error": "Bad Request"}
-- **Response (Error - 401, unauthorized)**:
-  ```json
-  {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}
-- **Response (Error - 404, job post not found)**:
-  ```json
-  {"statusCode": 404,"message": "Job post not found","error": "Not Found"}  
-
-### 88. Get Chat History (Admin)
+### 87. Get Chat History (Admin)
 - **Endpoint**: `GET /api/admin/chat/:jobApplicationId`
 - **Description**: Retrieve the chat history for a specific job application. Results are ordered by `created_at ASC`. Admins only.
 - **Headers**: `Authorization: Bearer <token>` (Required, JWT token).
@@ -3155,7 +3209,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 404, "message": "Job application not found", "error": "Not Found"}
 
-### 89. Submit Success Story
+### 88. Submit Success Story
 - **Endpoint**: `POST /api/platform-feedback`
 - **Description**: Allows **authenticated jobseekers or employers** to submit feedback / success stories about the platform.
 - **Headers**: `Authorization: Bearer <token>`
@@ -3199,7 +3253,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   { "statusCode": 404, "message": "User not found", "error": "Not Found" }
 
-### 90. Get Success Stories (Public)
+### 89. Get Success Stories (Public)
 - **Endpoint**: `GET /api/platform-feedback`
 - **Description**: Retrieves a paginated list of **published** platform feedback and success stories (`is_public = true`). Accessible to everyone (no auth required).
 - **Query Parameters (optional)**:
@@ -3231,7 +3285,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   { "statusCode": 400, "message": "Limit must be a positive integer", "error": "Bad Request" }
 
-### 91. Get Platform Feedback (Admin/Moderator)
+### 90. Get Platform Feedback (Admin/Moderator)
 - **Endpoint**: `GET /api/admin/platform-feedback`
 - **Endpoint**: `GET /api/moderator/platform-feedback`
 - **Description**: Return a paginated list of all platform feedback entries (success stories and reviews), including both **published and unpublished** items. Includes the submitting user.
@@ -3282,7 +3336,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 403,"message": "Forbidden resource","error": "Forbidden"}  
 
-### 92. Publish Platform Feedback (Admin/Moderator)
+### 91. Publish Platform Feedback (Admin/Moderator)
 - **Endpoint**: `PATCH /api/admin/platform-feedback/:id/publish`
 - **Endpoint**: `PATCH /api/moderator/platform-feedback/:id/publish`
 - **Description**: Publish a platform feedback entry by setting `is_public = true`. Allowed **only** if the submitter consented (`allowed_to_publish = true`). Admins or moderators.
@@ -3321,7 +3375,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 404, "message": "Platform feedback not found", "error": "Not Found"}  
 
-### 93. Unpublish Platform Feedback (Admin/Moderator)
+### 92. Unpublish Platform Feedback (Admin/Moderator)
 - **Endpoint**: `PATCH /api/admin/platform-feedback/:id/unpublish`
 - **Endpoint**: `PATCH /api/moderator/platform-feedback/:id/unpublish`
 - **Description**: Unpublish a platform feedback entry by setting `is_public = false`. Admins or moderators.
@@ -3356,7 +3410,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 404, "message": "Platform feedback not found", "error": "Not Found"} 
 
-### 94. Delete Platform Feedback (Admin/Moderator)
+### 93. Delete Platform Feedback (Admin/Moderator)
 - **Endpoint**: `DELETE /api/admin/platform-feedback/:id`
 - **Endpoint**: `DELETE /api/moderator/platform-feedback/:id`
 - **Description**: Delete a specific platform feedback entry. Admins or moderators.
@@ -3379,7 +3433,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 404, "message": "Platform feedback not found", "error": "Not Found"}   
 
-### 95. Reject Job Post (Admin/Moderator)
+### 94. Reject Job Post (Admin/Moderator)
 - **Endpoint**: `POST /api/admin/job-posts/:id/reject`
 - **Endpoint**: `POST /api/moderator/job-posts/:id/reject`
 - **Description**: Rejects a job post by **deleting** it and notifying the employer with the rejection reason. **Admins and moderators** only. Also deletes related records: job applications (and their reviews and messages), application limits, and complaints for the job post. A rejection email is attempted; if sending fails, the rejection still succeeds.
@@ -3407,7 +3461,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 404,"message": "Job post not found","error": "Not Found"}
 
-### 96. Get Email Notification Stats for Job Post (Admin)
+### 95. Get Email Notification Stats for Job Post (Admin)
 - **Endpoint**: `GET /api/admin/job-posts/:id/email-stats`
 - **Description**: Retrieve email notification statistics for a specific job post: total **sent**, **opened**, **clicked**, plus per-recipient details. Admins only.
 - **Headers**: `Authorization: Bearer <token>`
@@ -3440,7 +3494,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 404,"message": "Job post not found","error": "Not Found"}
 
-### 97. Get All Email Notification Stats (Admin)
+### 96. Get All Email Notification Stats (Admin)
 - **Endpoint**: `GET /api/admin/email-stats`
 - **Description**: Returns aggregated email notification statistics **across all job posts**, with optional filters. Includes totals for **sent**, **opened**, **clicked**, plus per-recipient details. Admins only.
 - **Headers**: `Authorization: Bearer <token>`
@@ -3476,7 +3530,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 403,"message": "Forbidden resource","error": "Forbidden"}  
 
-### 98. Create Referral Link for Job Post (Admin/Moderator)
+### 97. Create Referral Link for Job Post (Admin/Moderator)
 - **Endpoint**: `POST /api/admin/job-posts/:id/referral-links`
 - **Endpoint**: `POST /api/moderator/job-posts/:id/referral-links`
 - **Description**: Creates a new referral link for the specified job post. Multiple links per job post are allowed. Returns both the **pretty** campaign link (`/job/<slug_id>?ref=<code>`) and a **legacy** short link (`/ref/<code>`).
@@ -3505,7 +3559,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 404, "message": "Job post not found", "error": "Not Found"} 
 
-### 99. Get All Referral Links (Admin/Moderator)
+### 98. Get All Referral Links (Admin/Moderator)
 - **Endpoint**: `GET /api/admin/referral-links`
 - **Endpoint**: `GET /api/moderator/referral-links`
 - **Description**: Returns all generated referral links with job post context, click and registration counts, and per-registration user details. Supports filtering by job post ID and job title (partial match).
@@ -3550,7 +3604,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}
 
-### 100. List Referral Links for a Job Post (Admin/Moderator)
+### 99. List Referral Links for a Job Post (Admin/Moderator)
 - **Endpoint**: `GET /api/admin/job-posts/:id/referral-links`
 - **Endpoint**: `GET /api/moderator/job-posts/:id/referral-links`
 - **Description**: Returns all referral links created for the specified job post, including counts (clicks, registrations, verified registrations) and registration details.
@@ -3586,7 +3640,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}  
 
-### 101. Update Referral Link Description (Admin/Moderator)
+### 100. Update Referral Link Description (Admin/Moderator)
 - **Endpoint**: `PUT /api/admin/referral-links/:linkId`
 - **Endpoint**: `PUT /api/moderator/referral-links/:linkId`
 - **Description**: Updates the `description` field of a specific referral link.
@@ -3608,7 +3662,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 404, "message": "Referral link not found", "error": "Not Found"}  
 
-### 102. Delete Referral Link (Admin/Moderator)
+### 101. Delete Referral Link (Admin/Moderator)
 - **Endpoint**: `DELETE /api/admin/referral-links/:linkId`
 - **Endpoint**: `DELETE /api/moderator/referral-links/:linkId`
 - **Description**: Deletes a specific referral link.
@@ -3626,7 +3680,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 404, "message": "Referral link not found", "error": "Not Found"}  
 
-### 103. Referral Redirect (Public)
+### 102. Referral Redirect (Public)
 - **Endpoint**: `GET /ref/:refCode`
 - **Description**: Looks up the referral code, increments its click counter, sets referral cookies, and redirects the user to the intended target (job page or site page).
 - **Path Parameters**:
@@ -3643,7 +3697,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```text
     Internal server error
 
-### 104. Track Referral Click (Public)
+### 103. Track Referral Click (Public)
 - **Endpoint**: `POST /api/ref/track`
 - **Description**: Registers a click for a referral code on SPA pages (e.g., when landing on /job/<slug_id>?ref=<refCode>). Call once on initial mount.
 - **Request Body**:
@@ -3666,7 +3720,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 500,"message": "Internal server error","error": "Internal Server Error"}   
 
-### 105. Get Chat History
+### 104. Get Chat History
 - **Endpoint**: `GET /api/chat/:jobApplicationId`
 - **Description**: Retrieves the chat history for a specific job application with pagination. Accessible only to the jobseeker or employer associated with the accepted job application. Messages are ordered by `created_at` in ascending order.
 - **Headers**: `Authorization: Bearer <token>` (Required, JWT token).
@@ -3712,7 +3766,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 404,"message": "Job application not found",}
 
-### 106. Get Job Posts by Main Categories Stats
+### 105. Get Job Posts by Main Categories Stats
 - **Endpoint**: `GET /api/stats/job-posts-by-main-categories`
 - **Description**: Returns the number of **active & approved** job posts per **top-level** category, including all of each category’s **descendant subcategories** (recursive roll-up). Categories with zero jobs are excluded. Results are **sorted by count (DESC)**.
 - **Headers**: None
@@ -3731,7 +3785,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 500,"message": "Internal server error","error": "Internal Server Error"}
 
-### 107. Get Job Posts by Subcategories Stats
+### 106. Get Job Posts by Subcategories Stats
 - **Endpoint**: `GET /api/stats/job-posts-by-subcategories`
 - **Description**: Returns the number of **active & approved** job posts per **subcategory** (`categories.parent_id IS NOT NULL`). Counts include only the jobs **directly tagged** with each subcategory (no recursive roll-up). Categories with zero jobs are excluded. Results are **sorted by count (DESC)**.
 - **Headers**: None
@@ -3750,7 +3804,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 500,"message": "Internal server error","error": "Internal Server Error"}  
 
-### 108. Contact — Send a message
+### 107. Contact — Send a message
 - **Endpoint:** `POST /api/contact`
 - **Description:** Sends a message from the website contact form to support. Works in two modes:
   - **Guest (public):** no JWT, CAPTCHA required, honeypot enforced, links are forbidden.
@@ -3793,7 +3847,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   { "statusCode": 403, "message": "CAPTCHA verification failed.", "error": "Forbidden" }
 
-### 109. Get Chat Notification Settings (Admin)
+### 108. Get Chat Notification Settings (Admin)
 - **Endpoint:** `GET /api/admin/settings/chat-notifications`
 - **Description:** Returns the global chat email-notification settings used by the platform. Defaults are returned if no custom settings are saved. Admin only
 - **Headers**: `Authorization: Bearer <token>`
@@ -3813,7 +3867,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}   
 
-### 110. Update Chat Notification Settings (Admin)
+### 109. Update Chat Notification Settings (Admin)
 - **Endpoint:** `POST /api/admin/settings/chat-notifications`
 - **Description:** Updates the global chat email-notification settings. Admin only.
 - **Headers**: `Authorization: Bearer <token>`
@@ -3853,7 +3907,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}     
 
-### 111. Employer: Invite a candidate
+### 110. Employer: Invite a candidate
 - **Endpoint:** `POST /api/job-applications/invitations`
 - **Description:** Allows an **employer** to invite a jobseeker to apply for one of their **active & approved** job posts.  
   If a pending invitation already exists for the same job post and jobseeker, it is returned as-is.
@@ -3894,7 +3948,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   { "statusCode": 400, "message": "Cannot invite yourself", "error": "Bad Request" }
   { "statusCode": 400, "message": "Candidate has already applied to this job", "error": "Bad Request" }
 
-### 112. Jobseeker: List invitations
+### 111. Jobseeker: List invitations
 - **Endpoint:** `GET /api/job-applications/invitations`
 - **Description:** Returns invitations for the authenticated **jobseeker**.  
   - By default, returns **only pending** invitations.  
@@ -3931,7 +3985,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   { "statusCode": 404, "message": "User not found", "error": "Not Found" }
 
-### 113. Jobseeker: Decline invitation
+### 112. Jobseeker: Decline invitation
 - **Endpoint:** `POST /api/job-applications/invitations/:id/decline`
 - **Description:** Allows an **authenticated jobseeker** to decline a pending invitation.  
   If the invitation is not in `Pending` status, the current invitation object is returned unchanged.
@@ -3962,7 +4016,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   { "statusCode": 404, "message": "User not found", "error": "Not Found" }
   { "statusCode": 404, "message": "Invitation not found", "error": "Not Found" }
 
-### 114. Jobseeker: Accept invitation (starts application flow)
+### 113. Jobseeker: Accept invitation (starts application flow)
 - **Endpoint:** `POST /api/job-applications/invitations/:id/accept`
 - **Description:** Accepts a **pending** invitation for the authenticated **jobseeker** and creates a job application (same validations as regular apply). If an application for this job already exists, the invite is marked **Accepted** and the **existing application** is returned.
 - **Headers:** `Authorization: Bearer <token>`
@@ -4016,7 +4070,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   { "statusCode": 400, "message": "Invitation is not pending", "error": "Bad Request" }
 
-### 115. Send message to selected applicants
+### 114. Send message to selected applicants
 - **Endpoint:** `POST /api/chat/broadcast-selected/:jobPostId`
 - **Headers**: `Authorization: Bearer <token>`
 - **Request Body:**:
@@ -4029,7 +4083,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   { "sent": 2 }
 
-### 116. Bulk reject applications
+### 115. Bulk reject applications
 - **Endpoint:** `POST /api/job-applications/bulk-reject`
 - **Description:** For the authenticated **employer**, rejects multiple **Pending** applications that belong to the employer’s own job posts.
 - **Headers:** `Authorization: Bearer <token>`
@@ -4055,7 +4109,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   { "statusCode": 404, "message": "User not found", "error": "Not Found" }
 
-### 117. Set “Avatar Required on Registration” (Admin)
+### 116. Set “Avatar Required on Registration” (Admin)
 - **Endpoint:** `POST /api/admin/settings/registration-avatar`
 - **Description:** Enables or disables the requirement for users to upload an avatar during registration.
 - **Headers**: `Authorization: Bearer <token>`
@@ -4072,7 +4126,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}      
 
-### 118. Get “Avatar Required on Registration” (Admin)
+### 117. Get “Avatar Required on Registration” (Admin)
 - **Endpoint:** `GET /api/admin/settings/registration-avatar`
 - **Description:** Returns whether uploading an avatar is required during **registration**.
 - **Headers**: `Authorization: Bearer <token>`
@@ -4083,14 +4137,14 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}    
 
-### 119. Get “Avatar Required on Registration” (Public)
+### 118. Get “Avatar Required on Registration” (Public)
 - **Endpoint:** `GET /api/settings/registration-avatar`
 - **Description:** Returns whether a jobseeker must upload an avatar during registration (no auth required).
 - **Response (Success — 200):**
   ```json
   { "required": true }
 
-### 120. Create Site Referral Link (Admin/Moderator)
+### 119. Create Site Referral Link (Admin/Moderator)
 - **Endpoint:** `POST /api/admin/site-referral-links`
 - **Endpoint:** `POST /api/moderator/site-referral-links`
 - **Description:** Creates a global (site-wide) referral link not tied to a specific job post. The link is associated with the admin/moderator who created it.
@@ -4122,7 +4176,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   { "statusCode": 404, "message": "Admin not found", "error": "Not Found" }       
 
-### 121. Get Site Referral Links (Admin/Moderator)
+### 120. Get Site Referral Links (Admin/Moderator)
 - **Endpoint:** `GET /api/admin/site-referral-links`
 - **Endpoint:** `GET /api/moderator/site-referral-links`
 - **Description:** Returns a list of site-wide (global) referral links with metrics and registration details. Supports filtering by creator and text search.
@@ -4152,7 +4206,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}    
 
-### 122. Update Site Referral Link (Admin/Moderator)
+### 121. Update Site Referral Link (Admin/Moderator)
 - **Endpoint:** `PUT /api/admin/site-referral-links/:id`
 - **Endpoint:** `PUT /api/moderator/site-referral-links/:id`
 - **Description:** Updates the description of a site-wide (global) referral link.
@@ -4176,7 +4230,7 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
   ```json
   { "statusCode": 404, "message": "Referral link not found", "error": "Not Found" }
 
-### 123. Delete Site Referral Link (Admin/Moderator)
+### 122. Delete Site Referral Link (Admin/Moderator)
 - **Endpoint:** `DELETE /api/admin/site-referral-links/:id`
 - **Endpoint:** `DELETE /api/moderator/site-referral-links/:id`
 - **Description:** Deletes a site-wide (global) referral link.
@@ -4197,3 +4251,218 @@ Returns the saved complaint entity; the `resolver_id` is set, but a populated `r
 - **Response (Error — 404 Not Found — link does not exist):**:
   ```json
   { "statusCode": 404, "message": "Referral link not found", "error": "Not Found" }  
+
+### 123. Upload Portfolio Files
+- **Endpoint**: `POST /api/profile/upload-portfolio`
+- **Description**: Uploads one or more portfolio files for the authenticated jobseeker.
+Files are stored in S3 under the portfolios/... prefix, and their URLs are appended to the portfolio_files array in the jobseeker profile.
+A profile can have up to 10 portfolio files in total.
+- **Headers**: `Authorization: Bearer <token>`
+  `Content-Type: multipart/form-data`
+- **Request (multipart/form-data)**:
+  - `portfolio_files` — required, array of files
+      `Allowed types`: pdf, doc, docx, jpg, jpeg, png, webp
+      `Max files per request`: 10
+      `Max size per file`: 10 MB
+- **Response (Success — 200)**:
+  ```json
+  {
+    "id": "<userId>",
+    "role": "jobseeker",
+    "email": "test@example.com",
+    "username": "jane_dev",
+    "country": "US",
+    "country_name": "United States",
+    "skills": [],
+    "experience": "2 years",
+    "job_experience": "Worked as a frontend developer in 2 companies",
+    "description": "Experienced web developer specializing in React and Node.js",
+    "portfolio": "https://portfolio.com",
+    "portfolio_files": [
+      "https://cdn.example.com/portfolios/file1.pdf",
+      "https://cdn.example.com/portfolios/file2.png"
+    ],
+    "video_intro": "https://video.com",
+    "resume": "https://example.com/resume.pdf",
+    "date_of_birth": "1992-07-15",
+    "timezone": "Europe/Moscow",
+    "currency": "USD",
+    "expected_salary": 4500,
+    "average_rating": 4.0,
+    "profile_views": 12,
+    "job_search_status": "open_to_offers",
+    "linkedin": "https://www.linkedin.com/in/username",
+    "instagram": "https://www.instagram.com/username",
+    "facebook": "https://www.facebook.com/username",
+    "whatsapp": "+15551234567",
+    "telegram": "@username",
+    "languages": ["English", "German"],
+    "reviews": [],
+    "avatar": "https://example.com/avatar.jpg",
+    "identity_verified": false
+  }
+- **Response (Error — 400, no files)**
+      ```json
+  {"statusCode": 400,"message": "Portfolio files are required","error": "Bad Request"}
+- **Response (Error — 400, invalid file type)**
+      ```json
+  {"statusCode": 400,"message": "Only PDF, DOC, DOCX, JPG, JPEG, PNG, and WEBP are allowed for portfolio files","error": "Bad Request"}
+- **Response (Error — 400, too many files in profile)**
+      ```json
+  {"statusCode": 400,"message": "You can have up to 10 portfolio files","error": "Bad Request"}
+- **Response (Error — 400, role not jobseeker)**
+      ```json
+  {"statusCode": 400,"message": "Only jobseekers can upload portfolio files","error": "Bad Request"}
+- **Response (Error — 401)**
+      ```json
+  {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"} 
+- **Response (Error — 404)**
+      ```json
+  {"statusCode": 404,"message": "User not found","error": "Not Found"} 
+
+### 124. Register an Affiliate
+- **Endpoint:** `POST api/auth/register-affiliate`
+- **Description:** Creates a new affiliate account (role = "affiliate"). Sends an email verification link. No file uploads; only JSON body.
+  Password strength and geo-blocking rules are the same as for regular registration.
+- **Headers**: 
+  - `x-fingerprint` (required) — device/browser fingerprint string.
+  - `x-forwarded-for` (optional) — client IP (used for geo & anti-fraud).
+  - `x-real-ip` (optional) — alternative IP header.
+  - `x-site-brand` (optional) — explicit brand for multi-brand setup. If omitted, backend infers brand from Origin / Referer / Host.
+  - `x-ref (optional)` — referral code (also accepted via body/query/cookie).
+- **Content-Type:** application/json
+- **Request Body:**
+  ```json
+  {
+    "email": "affiliate@example.com",
+    "password": "StrongP@ssw0rd",
+    "username": "Jane Affiliate",
+    "role": "affiliate",
+    "country": "US",                    // optional; inferred from IP if missing
+    "account_type": "individual",       // "individual" | "company" (optional, defaults to "individual")
+    "company_name": "My Media LLC",     // optional (for account_type = "company")
+    "website_url": "https://my-traffic-site.com",  // REQUIRED
+    "traffic_sources": ["SEO", "PPC", "Social"],   // optional, array of strings
+    "promo_geo": ["US", "CA", "UK"],               // optional, array of strings
+    "monthly_traffic": "10000+ visits",            // optional free-form string
+    "payout_method": "PayPal",                     // optional
+    "payout_details": "paypal@example.com",        // optional (not exposed publicly)
+    "telegram": "@affiliate_username",             // optional
+    "whatsapp": "+12025550123",                    // optional
+    "skype": "live:affiliate.user",                // optional
+    "notes": "Short description of traffic and verticals", // optional
+    "ref": "AFF123"                                // optional referral code
+  }
+- **Response (Success - 200)**:
+  ```json
+  { "message": "Registration is successful. Please confirm your email." }
+- **Response (Error - 400 Missing fingerprint)**:
+  ```json
+  { "statusCode": 400, "message": "Fingerprint is required", "error": "Bad Request" }
+- **Response (Error - 403 Country blocked)**:
+  ```json
+  { "statusCode": 403, "message": "Registration is not allowed from your country", "error": "Forbidden" }
+- **Response (Error - 400 Weak password)**:
+  ```json
+  { "statusCode": 400, "message": "Weak password", "error": "Bad Request" }
+- **Response (Error - 400 Missing website URL)**:
+  ```json
+  {"statusCode": 400,"message": "website_url is required for affiliate registration","error": "Bad Request"}
+- **Response (Error - 400 Email already exists (verified))**:
+  ```json
+  { "statusCode": 400, "message": "Email already exists", "error": "Bad Request" }
+- **Response (Error - Email exists but not verified)**:
+  ```json
+  {"message": "Account exists but not verified. We sent a new confirmation link."}
+
+### 125. Get Current Affiliate Profile (Affiliate Dashboard)
+- **Endpoint:** `GET api/affiliates/me`
+- **Description:** Returns the current authenticated affiliate’s profile, including both affiliate-specific fields and the base user object. Intended for use in the affiliate dashboard.
+- **Authentication:** `Authorization: Bearer <accessToken>` — token must belong to a user with role = "affiliate"
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
+- **Success Response (200):**:
+  ```json
+  {
+    "user_id": "f6f4a1b0-1234-4cde-9fab-111111111111",
+    "account_type": "individual",
+    "company_name": "My Media LLC",
+    "website_url": "https://my-traffic-site.com",
+    "traffic_sources": "SEO, PPC, Social",
+    "promo_geo": "US, CA, UK",
+    "monthly_traffic": "10000+ visits",
+    "payout_method": "PayPal",
+    "payout_details": "paypal@example.com",
+    "telegram": "@affiliate_username",
+    "whatsapp": "+12025550123",
+    "skype": "live:affiliate.user",
+    "notes": "Short description of traffic and verticals",
+    "referral_link": "https://your-site.com/r/aff123",
+    "referred_by_user_id": null,
+    "created_at": "2025-11-13T10:00:00.000Z",
+    "updated_at": "2025-11-13T10:00:00.000Z",
+
+    "user": {
+      "id": "f6f4a1b0-1234-4cde-9fab-111111111111",
+      "email": "affiliate@example.com",
+      "username": "Jane Affiliate",
+      "role": "affiliate",
+      "country": "US",
+      "avatar": "https://cdn.../avatars/abc.webp",
+      "is_email_verified": true,
+      "status": "active",
+      "created_at": "2025-11-13T09:59:30.000Z",
+      "updated_at": "2025-11-13T10:00:00.000Z"
+    }
+  }
+- **Response (Error - 401 Missing/invalid token)**:
+  ```json
+  {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}
+- **Response (Error - 401 Token belongs to non-affiliate user)**:
+  ```json
+  {"statusCode": 401,"message": "Only affiliates can access this resource","error": "Unauthorized"}
+- **Response (Error - 404 Affiliate profile not found (edge case))**:
+  ```json
+  {"statusCode": 404,"message": "Affiliate profile not found","error": "Not Found"}
+
+### 126. Get Category Analytics (Admin)
+- **Endpoint:** `GET /api/admin/analytics/categories`
+- **Description:** Returns aggregated statistics by categories for both jobseekers (based on their skills) and job posts (based on attached categories). Only categories with at least one matching jobseeker or job post are returned. Parent categories and their subcategories are sorted in descending order by count.
+- **Authentication:** `Authorization: Bearer <token>`
+- **Success Response (200):**:
+  ```json
+  {
+    "jobseekers": [
+      {
+        "id": "parent-category-id",
+        "name": "Design & Creative",
+        "jobseekersCount": 150,
+        "subcategories": [
+          {
+            "id": "sub-category-id",
+            "name": "Graphic Design",
+            "jobseekersCount": 80
+          }
+        ]
+      }
+    ],
+    "jobPosts": [
+      {
+        "id": "parent-category-id",
+        "name": "Design & Creative",
+        "jobPostsCount": 40,
+        "subcategories": [
+          {
+            "id": "sub-category-id",
+            "name": "Graphic Design",
+            "jobPostsCount": 18
+          }
+        ]
+      }
+    ]
+  }
+- **Response (Error – 401 Unauthorized — missing/malformed token or invalid token)**:
+  ```json
+  {"statusCode": 401, "message": "Invalid token", "error": "Unauthorized"}
+- **Response (Error – 403 Forbidden — not an admin/moderator)**:
+  ```json
+  {"statusCode": 403, "message": "Forbidden resource", "error": "Forbidden"}
