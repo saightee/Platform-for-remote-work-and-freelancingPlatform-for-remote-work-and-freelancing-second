@@ -63,6 +63,18 @@ export class JobSeeker {
   @Column({ nullable: true })
   timezone?: string;
 
+  @Column({ nullable: true })
+  current_position?: string;
+
+  @Column({ nullable: true })
+  education?: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  job_experience_items?: any;
+
+  @Column({ type: 'jsonb', nullable: true })
+  education_items?: any;
+
   @Column({ type: 'numeric', nullable: true, precision: 12, scale: 2 })
   expected_salary?: number;
 

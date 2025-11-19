@@ -285,7 +285,26 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
       }
     ],
     "experience": "2 years",
-    "job_experience": "Worked as a frontend developer in 2 companies", 
+    "job_experience": "Worked as a frontend developer in 2 companies",
+    "current_position": "Senior Backend Developer",
+    "education": "BSc in Computer Science",
+    "job_experience_items": [
+      {
+        "title": "Senior Backend Developer",
+        "company": "Acme Inc",
+        "start_year": 2021,
+        "end_year": null,
+        "description": "Building microservices in Node.js and NestJS."
+      }
+    ],
+    "education_items": [
+      {
+        "degree": "BSc in Computer Science",
+        "institution": "University of Helsinki",
+        "start_year": 2014,
+        "end_year": 2018
+      }
+    ], 
     "linkedin": "https://www.linkedin.com/in/username",
     "instagram": "https://www.instagram.com/username",
     "facebook": "https://www.facebook.com/username",
@@ -404,6 +423,25 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     ],
     "experience": "2 years",
     "job_experience": "Worked as a frontend developer in 2 companies",
+    "current_position": "Middle Frontend Developer",
+    "education": "BSc in Computer Science",
+    "job_experience_items": [
+      {
+        "title": "Middle Frontend Developer",
+        "company": "Startup XYZ",
+        "start_year": 2020,
+        "end_year": null,
+        "description": "Working with React, TypeScript and Next.js"
+      }
+    ],
+    "education_items": [
+      {
+        "degree": "BSc in Computer Science",
+        "institution": "University of Helsinki",
+        "start_year": 2016,
+        "end_year": 2020
+      }
+    ],
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
     "portfolio_files": [
@@ -453,6 +491,25 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "skills": [],
     "experience": "2 years",
     "job_experience": "Worked as a frontend developer in 2 companies",
+    "current_position": "Middle Frontend Developer",
+    "education": "BSc in Computer Science",
+    "job_experience_items": [
+      {
+        "title": "Middle Frontend Developer",
+        "company": "Startup XYZ",
+        "start_year": 2020,
+        "end_year": null,
+        "description": "Working with React, TypeScript and Next.js"
+      }
+    ],
+    "education_items": [
+      {
+        "degree": "BSc in Computer Science",
+        "institution": "University of Helsinki",
+        "start_year": 2016,
+        "end_year": 2020
+      }
+    ],
     "description": "Experienced web developer specializing in React and Node.js",
     "portfolio": "https://portfolio.com",
     "portfolio_files": [
@@ -531,7 +588,33 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "timezone": "America/New_York",
     "currency": "EUR",
     "job_search_status": "actively_looking",
-    "expected_salary": 4500
+    "expected_salary": 4500,
+    "current_position": "Senior Backend Developer",
+    "education": "BSc in Computer Science",
+    "job_experience_items": [
+      {
+        "title": "Senior Backend Developer",
+        "company": "Acme Inc",
+        "start_year": 2021,
+        "end_year": null,
+        "description": "Building microservices in Node.js and NestJS."
+      },
+      {
+        "title": "Backend Developer",
+        "company": "Startup XYZ",
+        "start_year": 2018,
+        "end_year": 2021,
+        "description": "Worked on REST APIs and integrations."
+      }
+    ],
+    "education_items": [
+      {
+        "degree": "BSc in Computer Science",
+        "institution": "University of Helsinki",
+        "start_year": 2014,
+        "end_year": 2018
+      }
+    ]
   }
 - **Response (Success — 200):** Returns the updated profile (same format as GET /api/profile/myprofile).
   Email is included in the response because isAuthenticated = true is used internally.
@@ -562,6 +645,12 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Response (Error — 400, invalid date)**:
   ```json
   {"statusCode": 400, "message": "date_of_birth must be in format YYYY-MM-DD", "error": "Bad Request"}
+- **Response (Error — 400, current_position is too long (max 200 chars))**:
+  ```json
+  {"statusCode": 400, "message": "current_position is too long (max 200 chars)", "error": "Bad Request"}
+- **Response (Error — 400, education is too long (max 200 chars))**:
+  ```json
+  {"statusCode": 400, "message": "education is too long (max 200 chars)", "error": "Bad Request"}
 
 ### 14. Create Job Post
 - **Endpoint**: `POST /api/job-posts`

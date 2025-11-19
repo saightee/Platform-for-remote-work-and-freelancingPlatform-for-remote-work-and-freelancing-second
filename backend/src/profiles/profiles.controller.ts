@@ -117,6 +117,10 @@ export class ProfilesController {
       telegram?: string | null;
       languages?: string[];
       date_of_birth?: string;
+      current_position?: string | null;
+      education?: string | null;
+      job_experience_items?: any[]; // JobExperienceItem[]
+      education_items?: any[];      // EducationItem[]
     },
   ) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
