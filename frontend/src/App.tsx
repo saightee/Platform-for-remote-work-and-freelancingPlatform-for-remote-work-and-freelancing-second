@@ -96,7 +96,10 @@ const App: React.FC = () => {
             <Route path="/_dev/categories" element={<CategoriesCarouselPlayground />} />
             <Route path="/dev-talent" element={<FindTalent />} />
             <Route path="/dev-messages" element={<Messages />} />
-
+            <Route path="/dev-profilepage/:username" element={<JobseekerDashboard />}>
+              <Route index element={<ProfilePage />} />
+            </Route>
+            <Route path="/dev-public-profile/:id" element={<PublicProfile />} />
 
         <Route element={<RequireAuth allowed={['employer']} />}>
           <Route path="/employer-dashboard" element={<EmployerDashboard />}>

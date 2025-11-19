@@ -3,8 +3,9 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useRole } from '../context/RoleContext';
 import Loader from '../components/Loader';
 
+// добавили 'affiliate' в список допустимых ролей
 type Props = {
-  allowed?: Array<'employer' | 'jobseeker' | 'admin' | 'moderator'>;
+  allowed?: Array<'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate'>;
   fallback?: React.ReactNode;
 };
 
@@ -36,10 +37,11 @@ export default function RequireAuth({ allowed, fallback }: Props) {
 
   if (allowed && !allowed.includes(currentRole)) {
     const safeHome =
-      currentRole === 'employer' ? '/employer-dashboard' :
+      currentRole === 'employer'  ? '/employer-dashboard'  :
       currentRole === 'jobseeker' ? '/jobseeker-dashboard' :
-      currentRole === 'admin' ? '/admin' :
-      currentRole === 'moderator' ? '/moderator' : '/';
+      currentRole === 'admin'     ? '/admin'               :
+      currentRole === 'moderator' ? '/moderator'           :
+      '/';
     return <Navigate to={safeHome} replace />;
   }
 

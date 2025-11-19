@@ -2,10 +2,21 @@
 
 // @ts-nocheck  ← если хочешь совсем тишины, раскомментируй эту строку
 
-import type { Profile, Category, JobPost } from '@types';
+import type { Profile, Category, JobPost, JobSeekerProfile, Review } from '@types';
 
 const delay = (ms = 200) => new Promise(r => setTimeout(r, ms));
 const stamp = () => new Date().toISOString();
+/* -------------------- MOCK IMAGES -------------------- */
+
+// один аватар – используем и в списке талантов, и в публичном профиле
+const MOCK_AVATAR =
+  'https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=400&h=400&fit=crop';
+
+const MOCK_PORTFOLIO_IMAGES = [
+  'https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'https://images.pexels.com/photos/1181467/pexels-photo-1181467.jpeg?auto=compress&cs=tinysrgb&w=400',
+  'https://images.pexels.com/photos/1181524/pexels-photo-1181524.jpeg?auto=compress&cs=tinysrgb&w=400',
+];
 
 /* -------------------- CATEGORIES -------------------- */
 // делаем helper, который добавит обязательные поля (created_at/updated_at) рекурсивно
@@ -59,6 +70,8 @@ const TALENTS: MockProfile[] = [
     profile_views: 123,
     skills: ['CSS', 'SCSS', 'Tailwind', 'Responsive'],
     categories: [CATS[0].subcategories![0]],
+    avatar: MOCK_AVATAR,                 // ← АВАТАР ДЛЯ СПИСКА ТАЛАНТОВ
+    portfolio_files: MOCK_PORTFOLIO_IMAGES, // ← чтобы и в поиске, и в профайле были фотки (если надо)
   },
   {
     id: 2,
@@ -93,7 +106,6 @@ const TALENTS: MockProfile[] = [
     skills: ['Tailwind', 'Design Systems', 'Dark Mode'],
     categories: [CATS[0].subcategories![1]],
   },
-  
 ];
 
 /* -------------------- JOBS -------------------- */
@@ -180,4 +192,184 @@ export async function getMyJobPosts(): Promise<JobPost[]> {
 
 export async function sendInvitation(_: { job_post_id: any; job_seeker_id: any; message?: string }) {
   await delay(200); return { ok: true };
+}
+
+
+/* -------------------- PUBLIC PROFILE MOCK -------------------- */
+
+const PUBLIC_PROFILE: JobSeekerProfile = {
+  id: 'js-mock-1',
+  role: 'jobseeker',
+  email: 'css.ninja@example.com',
+  username: 'css_ninja',
+
+  country: 'LT',
+  languages: ['English', 'Lithuanian'],
+  expected_salary: 3500,
+  job_search_status: 'open_to_offers',
+  date_of_birth: '1995-05-12',
+
+  // соцсети
+  linkedin: 'https://www.linkedin.com/in/css-ninja',
+  instagram: 'https://www.instagram.com/css.ninja',
+  facebook: 'https://www.facebook.com/css.ninja',
+  whatsapp: '+37060000000',
+  telegram: '@css_ninja',
+
+  // skills: берём настоящие категории из CATS, чтобы всё совпадало по типу
+  skills: [
+    CATS[0].subcategories![0], // HTML/CSS
+    CATS[0].subcategories![1], // React
+  ],
+
+  experience: '3-6 years',
+  job_experience: `
+    <p><strong>Senior Frontend Developer</strong> at Creative Agency (2021 — now)</p>
+    <ul>
+      <li>Built design systems with Tailwind & CSS Modules</li>
+      <li>Led CSS architecture & code reviews</li>
+    </ul>
+    <p><strong>Frontend Developer</strong> at Startup (2018 — 2021)</p>
+  `,
+  description: `
+    <p>Pixel-perfect CSS engineer focused on responsive layouts, animations and accessibility.</p>
+    <p>Comfortable with Tailwind, BEM, SCSS and modern JS frameworks.</p>
+  `,
+  portfolio: 'https://dribbble.com/css_ninja',
+  video_intro: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+  timezone: 'Europe/Vilnius',
+  currency: 'EUR',
+  average_rating: 4.8,
+  profile_views: 123,
+
+  // крупный аватар (портрет)
+ avatar: MOCK_AVATAR,
+
+  identity_verified: true,
+  identity_document: null,
+
+  // РЕЗЮМЕ (пусть остаётся локальным/моковым)
+  resume: '/mock/resumes/css-ninja.pdf',
+
+  // НОВОЕ: файлы портфолио — крупные фотки + документы
+  portfolio_files: [
+    // вертикальная крупная
+    'https://placehold.co/1200x1600.png?text=Portfolio+1',
+
+    // горизонтальная
+    'https://placehold.co/1600x900.png?text=Portfolio+2',
+
+    // очень широкая
+    'https://placehold.co/2000x800.png?text=Portfolio+3',
+
+    // PDF (пример документа)
+    'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+
+    // DOCX (пример документа)
+    'https://file-examples.com/wp-content/uploads/2017/02/file-sample_100kB.docx',
+  ],
+
+
+
+  // основное поле, но для PublicProfile само наполним через PUBLIC_REVIEWS
+  reviews: [],
+};
+
+
+const PUBLIC_REVIEWS: Review[] = [
+  {
+    id: 'rev-1',
+    reviewer_id: 'emp-1',
+    reviewed_id: PUBLIC_PROFILE.id,
+    job_application_id: 'ja-1',
+    rating: 5,
+    comment: 'Great communication and excellent CSS work. Delivered on time.',
+    reviewer: {
+      id: 'emp-1',
+      email: 'employer@example.com',
+      username: 'design_hiring_manager',
+      role: 'employer',
+    },
+    reviewed: {
+      id: PUBLIC_PROFILE.id,
+      email: PUBLIC_PROFILE.email || 'css.ninja@example.com',
+      username: PUBLIC_PROFILE.username,
+      role: 'jobseeker',
+    },
+    job_application: {
+      id: 'ja-1',
+      job_post_id: '100',
+      job_seeker_id: PUBLIC_PROFILE.id,
+      status: 'Accepted',
+      job_post: { id: '100', title: 'Frontend (CSS/Tailwind) Engineer' },
+      job_seeker: { id: PUBLIC_PROFILE.id, username: PUBLIC_PROFILE.username },
+    },
+    job_post: {
+      id: '100',
+      title: 'Frontend (CSS/Tailwind) Engineer',
+    },
+    job_seeker: {
+      id: PUBLIC_PROFILE.id,
+      username: PUBLIC_PROFILE.username,
+    },
+    created_at: stamp(),
+    updated_at: stamp(),
+  },
+  {
+    id: 'rev-2',
+    reviewer_id: 'emp-2',
+    reviewed_id: PUBLIC_PROFILE.id,
+    job_application_id: 'ja-2',
+    rating: 4,
+    comment: 'Very strong skills, needed a bit more time on animations, but result was great.',
+    reviewer: {
+      id: 'emp-2',
+      email: 'hr@agency.com',
+      username: 'agency_hr',
+      role: 'employer',
+    },
+    reviewed: {
+      id: PUBLIC_PROFILE.id,
+      email: PUBLIC_PROFILE.email || 'css.ninja@example.com',
+      username: PUBLIC_PROFILE.username,
+      role: 'jobseeker',
+    },
+    job_application: {
+      id: 'ja-2',
+      job_post_id: '101',
+      job_seeker_id: PUBLIC_PROFILE.id,
+      status: 'Accepted',
+      job_post: { id: '101', title: 'UI Engineer (Animations)' },
+      job_seeker: { id: PUBLIC_PROFILE.id, username: PUBLIC_PROFILE.username },
+    },
+    job_post: {
+      id: '101',
+      title: 'UI Engineer (Animations)',
+    },
+    job_seeker: {
+      id: PUBLIC_PROFILE.id,
+      username: PUBLIC_PROFILE.username,
+    },
+    created_at: stamp(),
+    updated_at: stamp(),
+  },
+];
+
+/** GET /users/:id/public-profile */
+export async function getUserProfileById(id: string): Promise<JobSeekerProfile> {
+  await delay(150);
+  // можем подставить id из URL, чтобы в адресе и данных совпадало
+  return { ...(PUBLIC_PROFILE as any), id };
+}
+
+/** GET /reviews/user/:id */
+export async function getReviewsForUser(userId: string): Promise<Review[]> {
+  await delay(120);
+  return PUBLIC_REVIEWS;
+}
+
+/** POST /profiles/:id/view – просто имитируем инкремент просмотров */
+export async function incrementProfileView(userId: string): Promise<{ ok: boolean }> {
+  await delay(80);
+  return { ok: true };
 }
