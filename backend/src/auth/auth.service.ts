@@ -17,6 +17,7 @@ import { ConfigService } from '@nestjs/config';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { SettingsService } from '../settings/settings.service';
 import { AffiliateRegisterDto } from './dto/affiliate-register.dto';
+import { AffiliateProgramService } from '../affiliate-program/affiliate-program.service';
 
 const normalizeEmail = (e: string) => (e || '').trim().toLowerCase();
 const isStrongPassword = (pw: string) =>
@@ -41,6 +42,7 @@ export class AuthService {
     private adminService: AdminService,
     private configService: ConfigService,
     private settingsService: SettingsService, 
+    private affiliateProgramService: AffiliateProgramService,
   ) {}
 
   async register(
@@ -49,6 +51,8 @@ export class AuthService {
     fingerprint?: string,
     refCode?: string,
     avatarUrl?: string,
+    affCode?: string,
+    affClickId?: string,
   ) {
     const emailNorm = (dto.email || '').trim().toLowerCase();
     const username = (dto as any).username;
@@ -207,6 +211,26 @@ export class AuthService {
       try {
         await this.adminService.incrementRegistration(refCode, newUser.id);
       } catch {}
+    }
+
+    try {
+      const normalizedAffCode = affCode?.trim() || undefined;
+      const normalizedClickId = affClickId?.trim() || undefined;
+      const isAffiliateLead =
+        (role === 'jobseeker' || role === 'employer') &&
+        (normalizedAffCode || normalizedClickId);
+
+      if (isAffiliateLead) {
+        await this.affiliateProgramService.trackRegistration({
+          userId: newUser.id,
+          role: role as 'jobseeker' | 'employer',
+          affCode: normalizedAffCode,
+          clickId: normalizedClickId,
+          country,
+        });
+      }
+    } catch (err) {
+      console.error('[Affiliate] trackRegistration failed', err);
     }
 
     if (role === 'admin' || role === 'moderator') {

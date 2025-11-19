@@ -4323,7 +4323,83 @@ A profile can have up to 10 portfolio files in total.
       ```json
   {"statusCode": 404,"message": "User not found","error": "Not Found"} 
 
-### 124. Register an Affiliate
+### 124. Get Category Analytics (Admin)
+- **Endpoint:** `GET /api/admin/analytics/categories`
+- **Description:** Returns aggregated statistics by categories for both jobseekers (based on their skills) and job posts (based on attached categories). Only categories with at least one matching jobseeker or job post are returned. Parent categories and their subcategories are sorted in descending order by count.
+- **Authentication:** `Authorization: Bearer <token>`
+- **Success Response (200):**:
+  ```json
+  {
+    "jobseekers": [
+      {
+        "id": "parent-category-id",
+        "name": "Design & Creative",
+        "jobseekersCount": 150,
+        "subcategories": [
+          {
+            "id": "sub-category-id",
+            "name": "Graphic Design",
+            "jobseekersCount": 80
+          }
+        ]
+      }
+    ],
+    "jobPosts": [
+      {
+        "id": "parent-category-id",
+        "name": "Design & Creative",
+        "jobPostsCount": 40,
+        "subcategories": [
+          {
+            "id": "sub-category-id",
+            "name": "Graphic Design",
+            "jobPostsCount": 18
+          }
+        ]
+      }
+    ]
+  }
+- **Response (Error – 401 Unauthorized — missing/malformed token or invalid token)**:
+  ```json
+  {"statusCode": 401, "message": "Invalid token", "error": "Unauthorized"}
+- **Response (Error – 403 Forbidden — not an admin/moderator)**:
+  ```json
+  {"statusCode": 403, "message": "Forbidden resource", "error": "Forbidden"}
+  
+### 125. Get Pending Session Status
+- **Endpoint:** `GET api/auth/pending-session`
+- **Description:** Checks the status of a pending login session created during registration and, if the user has confirmed their email on another device, returns a JWT for auto-login on the current device.
+Used for cross-device flow, e.g.:
+  - user registers on PC,
+  - confirms email from phone,
+  - PC polls this endpoint by pending_session_id to auto-login.
+- **Authentication:** Not required (public endpoint)
+- **Query Parameters:** `id` — (required) pending_session_id returned by the registration endpoint.
+- **Response (Success - 200, pending)**:
+  Returned when the user has not yet confirmed their email or the session is still in "waiting" state.
+  ```json
+  {
+    "status": "pending"
+  }
+- **Response (Success - 200, verified)**:
+  Returned when the user has confirmed their email (possibly on another device) and the backend has generated a JWT.
+  Frontend should treat this token exactly like a normal login token.
+  ```json
+  {
+    "status": "verified",
+    "accessToken": "<JWT>"
+  }
+- **Response (Success - 200, not_found / expired)**:
+  Returned when the pending session:
+  - does not exist,
+  - or has expired (TTL passed),
+  - or the id is invalid/unknown.
+  ```json
+  {
+    "status": "not_found"
+  }  
+
+### 126. Register an Affiliate
 - **Endpoint:** `POST api/auth/register-affiliate`
 - **Description:** Creates a new affiliate account (role = "affiliate"). Sends an email verification link. No file uploads; only JSON body.
   Password strength and geo-blocking rules are the same as for regular registration.
@@ -4378,7 +4454,7 @@ A profile can have up to 10 portfolio files in total.
   ```json
   {"message": "Account exists but not verified. We sent a new confirmation link."}
 
-### 125. Get Current Affiliate Profile (Affiliate Dashboard)
+### 127. Get Current Affiliate Profile (Affiliate Dashboard)
 - **Endpoint:** `GET api/affiliates/me`
 - **Description:** Returns the current authenticated affiliate’s profile, including both affiliate-specific fields and the base user object. Intended for use in the affiliate dashboard.
 - **Authentication:** `Authorization: Bearer <accessToken>` — token must belong to a user with role = "affiliate"
@@ -4427,78 +4503,409 @@ A profile can have up to 10 portfolio files in total.
   ```json
   {"statusCode": 404,"message": "Affiliate profile not found","error": "Not Found"}
 
-### 126. Get Category Analytics (Admin)
-- **Endpoint:** `GET /api/admin/analytics/categories`
-- **Description:** Returns aggregated statistics by categories for both jobseekers (based on their skills) and job posts (based on attached categories). Only categories with at least one matching jobseeker or job post are returned. Parent categories and their subcategories are sorted in descending order by count.
-- **Authentication:** `Authorization: Bearer <token>`
+### 128. Get Affiliate Program Dashboard
+- **Endpoint:** `GET api/affiliate/me`
+- **Description:** Returns the current authenticated affiliate’s program dashboard data: base user info, affiliate profile, and a simple stats summary (clicks & registrations). Не путать с GET api/affiliates/me (чистый профиль аффилейта). Этот эндпоинт — именно “дашборд афф-программы”.
+- **Authentication:** `Authorization: Bearer <accessToken>` — token must belong to a user with role = "affiliate".
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
 - **Success Response (200):**:
   ```json
   {
-    "jobseekers": [
-      {
-        "id": "parent-category-id",
-        "name": "Design & Creative",
-        "jobseekersCount": 150,
-        "subcategories": [
-          {
-            "id": "sub-category-id",
-            "name": "Graphic Design",
-            "jobseekersCount": 80
-          }
-        ]
-      }
+    "user": {
+      "id": "f6f4a1b0-1234-4cde-9fab-111111111111",
+      "email": "affiliate@example.com",
+      "username": "Jane Affiliate"
+    },
+    "affiliate": {
+      "user_id": "f6f4a1b0-1234-4cde-9fab-111111111111",
+      "account_type": "individual",
+      "company_name": "My Media LLC",
+      "website_url": "https://my-traffic-site.com",
+      "traffic_sources": "SEO, PPC, Social",
+      "promo_geo": "US, CA, UK",
+      "monthly_traffic": "10000+ visits",
+      "payout_method": "PayPal",
+      "payout_details": "paypal@example.com",
+      "telegram": "@affiliate_username",
+      "whatsapp": "+12025550123",
+      "skype": "live:affiliate.user",
+      "notes": "Short description of traffic and verticals",
+      "referral_link": "https://your-site.com/r/aff123",
+      "referred_by_user_id": null,
+
+      "default_postback_url": "https://tracker.com/postback?cid={click_id}&event={event}",
+      "default_fb_pixel_code": "<script>/* fb pixel */</script>",
+      "default_ga_tag_code": "<script>/* ga tag */</script>",
+
+      "created_at": "2025-11-13T10:00:00.000Z",
+      "updated_at": "2025-11-13T10:00:00.000Z"
+    },
+    "summary": {
+      "clicks": 123,
+      "registrations": 10,
+      "qualified": 0,
+      "employerDeposits": 0,
+      "totalRevenue": 0
+    }
+  }
+- **Response (Error - 401 Missing/invalid token)**:
+  ```json
+  {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}
+- **Response (Error - 401 Token belongs to non-affiliate user)**:
+  ```json
+  {"statusCode": 401,"message": "Only affiliates can access this resource","error": "Unauthorized"}
+- **Response (Error - 404 Affiliate profile not found (edge case))**:
+  ```json
+  {"statusCode": 404,"message": "Affiliate profile not found","error": "Not Found"}
+
+### 129. Update Affiliate Tracking Settings
+- **Endpoint:** `PUT api/affiliate/settings/tracking`
+- **Description:** Updates global tracking settings for the current affiliate: default S2S postback URL and optional Facebook / Google tracking snippets.
+- **Authentication:** `Authorization: Bearer <accessToken>` — token must belong to a user with role = "affiliate".
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
+- **Request Body (JSON):**:
+  ```json
+  {
+    "defaultPostbackUrl": "https://tracker.com/postback?cid={click_id}&event={event}&payout={payout}",
+    "defaultFbPixelCode": "<script>/* fb pixel */</script>",
+    "defaultGaTagCode": "<script>/* ga tag */</script>"
+  }
+- **Success Response (200):**:
+  ```json
+  {
+    "defaultPostbackUrl": "https://tracker.com/postback?cid={click_id}&event={event}&payout={payout}",
+    "defaultFbPixelCode": "<script>/* fb pixel */</script>",
+    "defaultGaTagCode": "<script>/* ga tag */</script>"
+  }
+- **Response (Error - 401 Missing/invalid token)**:
+  ```json
+  {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}
+
+### 130. List Affiliate Offers
+- **Endpoint:** `GET api/affiliate/offers`
+- **Description:** Returns all active affiliate offers available for the current affiliate. Each offer describes what type of users to bring (jobseeker / employer) and the base payout model & rates.
+- **Authentication:** `Authorization: Bearer <accessToken>` — token must belong to a user with role = "affiliate".
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
+- **Success Response (200):**:
+  ```json
+  [
+    {
+      "id": "offer-jobseekers-uuid",
+      "name": "Jobseeker registrations",
+      "targetRole": "jobseeker",
+      "payoutModel": "cpa",
+      "defaultCpaAmount": 40,
+      "defaultRevsharePercent": null,
+      "currency": "USD",
+      "brand": "jobforge"
+    },
+    {
+      "id": "offer-employers-uuid",
+      "name": "Employer deposits",
+      "targetRole": "employer",
+      "payoutModel": "hybrid",
+      "defaultCpaAmount": 400,
+      "defaultRevsharePercent": 20,
+      "currency": "USD",
+      "brand": "jobforge"
+    }
+  ]
+- **Response (Error - 401 Missing/invalid token)**:
+  ```json
+  {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}
+
+### 131. Create Affiliate Tracking Link
+- **Endpoint:** `POST api/affiliate/links`
+- **Description:** Creates a new personal affiliate tracking link for the current affiliate, tied to a specific offer and (optionally) a landing path and comment/label.
+- **Authentication:** `Authorization: Bearer <accessToken>` — token must belong to a user with role = "affiliate".
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
+- **Request Body (JSON)**:
+  ```json
+  {
+    "offerId": "offer-employers-uuid",
+    "landingPath": "/signup/employer",       // optional, must start with "/"
+    "comment": "FB Mobile Campaign 01"       // optional notes for the affiliate
+  }
+- **Success Response (200)**:
+  ```json
+  {
+    "id": "link-uuid",
+    "code": "A1B2C3D4E5F6",
+    "fullUrl": "https://your-site.com/aff/c/A1B2C3D4E5F6",
+    "offer": {
+      "id": "offer-employers-uuid",
+      "name": "Employer deposits",
+      "targetRole": "employer"
+    },
+    "comment": "FB Mobile Campaign 01",
+    "landingPath": "/signup/employer",
+    "created_at": "2025-11-18T10:00:00.000Z"
+  } 
+- **Response (Error - 401 Missing/invalid token)**:
+  ```json
+  {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}
+- **Response (Error - 404 — offer not found or inactive)**:
+  ```json
+  { "statusCode": 404, "message": "Offer not found or inactive", "error": "Not Found" }
+
+### 132. List Affiliate Links with Basic Stats
+- **Endpoint:** `GET api/affiliate/links`
+- **Description:** Returns all personal affiliate links for the current affiliate, each with basic stats: unique clicks and registrations sourced by this link.
+- **Authentication:** `Authorization: Bearer <accessToken>` — token must belong to a user with role = "affiliate".
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
+- **Success Response (200)**:
+  ```json
+  [
+    {
+      "id": "link-uuid",
+      "code": "A1B2C3D4E5F6",
+      "fullUrl": "https://your-site.com/aff/c/A1B2C3D4E5F6",
+      "comment": "FB Mobile Campaign 01",
+      "landingPath": "/signup/employer",
+      "offer": {
+        "id": "offer-employers-uuid",
+        "name": "Employer deposits",
+        "targetRole": "employer"
+      },
+      "stats": {
+        "clicks": 123,
+        "registrations": 10,
+        "qualified": 0,
+        "revenue": 0
+      },
+      "created_at": "2025-11-18T10:00:00.000Z"
+    }
+  ]
+- **Response (Error - 401 Missing/invalid token)**:
+  ```json
+  {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}
+
+### 133. Handle Affiliate Click (Public Redirect)
+- **Endpoint:** `GET /aff/c/:code`
+- **Description:** Handles a public click on an affiliate tracking link:
+  - Looks up the affiliate link by code.
+  - Creates a new affiliate_click record with IP, User-Agent и optional sub1..sub5.
+  - Sets client cookies with click info.
+  - Redirects the user to the landing page, adding ?aff=<code> to the query string.
+- **Path Params:** `code` (required) — affiliate link code (AffiliateLink.code).
+- **Query Parameters (optional):** `sub1`, `sub2`, `sub3`, `sub4`, `sub5` — custom subid parameters passed through and stored with the click.
+- **Cookies set (in response):** 
+  - `aff_code` — the affiliate code (:code), lifetime ~30 days.
+  - `aff_click_id` — internal click UUID, lifetime ~30 days.
+  Оба cookie: httpOnly: false, sameSite: "lax", secure в проде, path: "/".
+- **Success Response (302 Redirect):** Redirects to: https://your-site.com<landingPath>?aff=<code> или ...?existing=query&aff=<code> если в landingPath уже есть query.
+  equest: GET https://your-site.com/aff/c/A1B2C3D4E5F6?sub1=fb&sub2=adset1
+  redirect: 302 Location: https://your-site.com/signup/employer?aff=A1B2C3D4E5F6
+- **Response (Error - 404 (Affiliate link not found))**:
+  ```json
+  {"statusCode": 404,"message": "Not Found","error": "Affiliate link not found"}
+- **Response (Error - 500 (Internal error))**:
+  ```json
+  {"statusCode": 500,"message": "Internal Server Error","error": "Internal server error"}  
+
+### 134. Update Current Affiliate Profile
+- **Endpoint:** `PUT /api/affiliates/me`
+- **Description:** Updates the current authenticated affiliate’s profile (account type, company info, website, traffic description, payout details, messengers, notes). Returns the full affiliate profile with the nested user object (same shape as GET /api/affiliates/me).
+- **Authentication:** `Authorization: Bearer <accessToken>` — token must belong to a user with role = "affiliate".
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
+- **Request Body**:
+  ```json
+  {
+    "account_type": "company",          // optional, "individual" | "company"
+    "company_name": "My Media LLC",     // optional
+    "website_url": "https://my-site.com", // optional
+    "traffic_sources": "SEO, PPC, Social", // optional, free-form string
+    "promo_geo": "US, CA, UK",          // optional, free-form string
+    "monthly_traffic": "10000+ visits", // optional
+    "payout_method": "PayPal",          // optional
+    "payout_details": "paypal@example.com", // optional
+    "telegram": "@affiliate_user",      // optional
+    "whatsapp": "+12025550123",         // optional
+    "skype": "live:affiliate.user",     // optional
+    "notes": "Mainly SEO traffic"       // optional
+  }
+- **Response (Success – 200)**:
+  ```json
+  {
+    "user_id": "f6f4a1b0-1234-4cde-9fab-111111111111",
+    "account_type": "company",
+    "company_name": "My Media LLC",
+    "website_url": "https://my-site.com",
+    "traffic_sources": "SEO, PPC, Social",
+    "promo_geo": "US, CA, UK",
+    "monthly_traffic": "10000+ visits",
+    "payout_method": "PayPal",
+    "payout_details": "paypal@example.com",
+    "telegram": "@affiliate_user",
+    "whatsapp": "+12025550123",
+    "skype": "live:affiliate.user",
+    "notes": "Mainly SEO traffic",
+    "referral_link": null,
+    "referred_by_user_id": null,
+    "default_postback_url": null,
+    "default_fb_pixel_code": null,
+    "default_ga_tag_code": null,
+    "created_at": "2025-11-19T10:00:00.000Z",
+    "updated_at": "2025-11-19T10:05:00.000Z",
+    "user": {
+      "id": "f6f4a1b0-1234-4cde-9fab-111111111111",
+      "email": "affiliate@example.com",
+      "username": "Jane Affiliate",
+      "role": "affiliate",
+      "country": "US",
+      "avatar": "https://cdn.../avatars/abc.webp",
+      "is_email_verified": true,
+      "status": "active",
+      "referral_source": null,
+      "created_at": "2025-11-19T09:59:30.000Z",
+      "updated_at": "2025-11-19T10:05:00.000Z"
+    }
+  }
+- **Response (Error - 401 Missing/invalid token)**:
+  ```json
+  {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}
+- **Response (Error - 401 Token belongs to non-affiliate user)**:
+  ```json
+  {"statusCode": 401,"message": "Only affiliates can access this resource","error": "Unauthorized"}
+- **Response (Error - 404 Affiliate profile not found (edge case))**:
+  ```json
+  {"statusCode": 404,"message": "Affiliate profile not found","error": "Not Found"}
+
+### 135. Get Affiliate Stats
+- **Endpoint:** `GET /api/affiliate/stats`
+- **Description:** Returns aggregated statistics for the current authenticated affiliate:
+  - total clicks and registrations for the selected period,
+  - breakdown by role (jobseekers vs employers),
+  - breakdown by country (geo).
+- **Authentication:** `Authorization: Bearer <accessToken>` — token must belong to a user with role = "affiliate".
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
+- **Query Parameters**:
+  - range (optional) — date range preset:
+    "today"
+    "yesterday"
+    "7d"
+    "30d"
+    "custom"
+    default: "7d" if not provided.
+  - from (required when range=custom) — ISO date string, e.g. "2025-01-01T00:00:00.000Z" or "2025-01-01".
+  - to (required when range=custom) — ISO date string.
+  `GET /api/affiliate/stats?range=custom&from=2025-01-01&to=2025-01-31`
+  `GET /api/affiliate/stats?range=30d`
+  `GET /api/affiliate/stats → last 7 days (default)`
+  `GET /api/affiliate/stats?range=today`
+  `GET /api/affiliate/stats?range=yesterday`
+- **Response (Success – 200)**:
+  ```json
+  {
+    "range": {
+      "from": "2025-11-13T00:00:00.000Z",
+      "to": "2025-11-20T10:00:00.000Z"
+    },
+    "totals": {
+      "clicks": 123,
+      "registrations": 45,
+      "jobseekers": 30,
+      "employers": 15
+    },
+    "byRole": [
+      { "role": "jobseeker", "registrations": 30 },
+      { "role": "employer", "registrations": 15 }
     ],
-    "jobPosts": [
+    "byCountry": [
       {
-        "id": "parent-category-id",
-        "name": "Design & Creative",
-        "jobPostsCount": 40,
-        "subcategories": [
-          {
-            "id": "sub-category-id",
-            "name": "Graphic Design",
-            "jobPostsCount": 18
-          }
-        ]
+        "country": "US",
+        "registrations": 20,
+        "jobseekers": 15,
+        "employers": 5
+      },
+      {
+        "country": "CA",
+        "registrations": 10,
+        "jobseekers": 7,
+        "employers": 3
+      },
+      {
+        "country": "UN",
+        "registrations": 15,
+        "jobseekers": 8,
+        "employers": 7
       }
     ]
   }
-- **Response (Error – 401 Unauthorized — missing/malformed token or invalid token)**:
+- **Response (Error - 401 Missing/invalid token)**:
   ```json
-  {"statusCode": 401, "message": "Invalid token", "error": "Unauthorized"}
-- **Response (Error – 403 Forbidden — not an admin/moderator)**:
+  {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}
+- **Response (Error - 401 Token belongs to non-affiliate user)**:
   ```json
-  {"statusCode": 403, "message": "Forbidden resource", "error": "Forbidden"}
-  
-### 127. Get Pending Session Status
-- **Endpoint:** `GET api/auth/pending-session`
-- **Description:** Checks the status of a pending login session created during registration and, if the user has confirmed their email on another device, returns a JWT for auto-login on the current device.
-Used for cross-device flow, e.g.:
-  - user registers on PC,
-  - confirms email from phone,
-  - PC polls this endpoint by pending_session_id to auto-login.
-- **Authentication:** Not required (public endpoint)
-- **Query Parameters:** `id` — (required) pending_session_id returned by the registration endpoint.
-- **Response (Success - 200, pending)**:
-  Returned when the user has not yet confirmed their email or the session is still in "waiting" state.
+  {"statusCode": 401,"message": "Only affiliates can access this resource","error": "Unauthorized"}
+- **Response (Error – 400 Invalid custom range)**:
+  ```json
+  {"statusCode": 400,"message": "from and to are required for custom range","error": "Bad Request"}
+- **Response (Error – 400 Invalid from/to date)**:
+  ```json
+  {"statusCode": 400,"message": "Invalid from/to date","error": "Bad Request"}
+
+### 136. List Affiliate Registrations (Leads)
+- **Endpoint:** `GET api/affiliate/registrations`
+- **Description:** Returns a paginated list of registrations (leads) attributed to the current authenticated affiliate.
+Each item represents a single user registration (jobseeker or employer) that came via this affiliate’s links.
+- **Authentication:** `Authorization: Bearer <accessToken>` — token must belong to a user with role = "affiliate".
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
+- **Query Parameters**:
+  - `page` — page number (integer, default: 1, minimum: 1).
+  - `limit` — page size (integer, default: 20, maximum: 100).
+  - `role` — filter by registered user role:
+    "jobseeker"
+    "employer"
+  - `status` — filter by lead status (AffiliateLeadStatus):
+    "unqualified"
+    "qualified"
+    "rejected"
+    "fraud"
+  `GET api/affiliate/registrations`
+  `GET api/affiliate/registrations?page=2&limit=50`
+  `GET api/affiliate/registrations?role=jobseeker&status=unqualified`
+- **Response (Success – 200)**:
   ```json
   {
-    "status": "pending"
+    "total": 3,
+    "page": 1,
+    "limit": 20,
+    "items": [
+      {
+        "id": "reg-uuid",
+        "role": "jobseeker",
+        "status": "unqualified",
+        "country": "US",
+        "registered_at": "2025-11-19T10:00:00.000Z",
+        "payout_status": "pending",
+        "payout_amount": null,
+        "payout_currency": null,
+        "link": {
+          "id": "link-uuid",
+          "code": "A1B2C3D4E5F6",
+          "comment": "FB Mobile Campaign 01"
+        },
+        "offer": {
+          "id": "offer-jobseekers-uuid",
+          "name": "Jobseeker registrations",
+          "targetRole": "jobseeker"
+        },
+        "user": {
+          "id": "user-uuid",
+          "email": "js@example.com",
+          "role": "jobseeker",
+          "created_at": "2025-11-19T09:59:30.000Z"
+        }
+      }
+    ]
   }
-- **Response (Success - 200, verified)**:
-  Returned when the user has confirmed their email (possibly on another device) and the backend has generated a JWT.
-  Frontend should treat this token exactly like a normal login token.
+- **Response (Error - 401 Missing/invalid token)**:
   ```json
-  {
-    "status": "verified",
-    "accessToken": "<JWT>"
-  }
-- **Response (Success - 200, not_found / expired)**:
-  Returned when the pending session:
-  - does not exist,
-  - or has expired (TTL passed),
-  - or the id is invalid/unknown.
+  {"statusCode": 401,"message": "Invalid token","error": "Unauthorized"}
+- **Response (Error - 401 Token belongs to non-affiliate user)**:
   ```json
-  {
-    "status": "not_found"
-  }
+  {"statusCode": 401,"message": "Only affiliates can access this resource","error": "Unauthorized"}
+- **Response (Error – 404 Affiliate profile not found (edge case))**:
+  ```json
+  {"statusCode": 404,"message": "Affiliate profile not found","error": "Not Found"}

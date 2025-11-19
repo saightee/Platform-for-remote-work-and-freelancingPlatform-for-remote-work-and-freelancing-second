@@ -42,6 +42,7 @@ import { ComplaintsModule } from '../complaints/complaints.module';
 import { ChatModule } from '../chat/chat.module';
 import { CategoriesModule } from '../categories/categories.module';
 import { StorageModule } from '../storage/storage.module';
+import { AffiliateProgramModule } from '../affiliate-program/affiliate-program.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { StorageModule } from '../storage/storage.module';
     ComplaintsModule,
     ChatModule,
     CategoriesModule,
+    AffiliateProgramModule,
     forwardRef(() => AdminModule),
     TypeOrmModule.forFeature([
       User,
