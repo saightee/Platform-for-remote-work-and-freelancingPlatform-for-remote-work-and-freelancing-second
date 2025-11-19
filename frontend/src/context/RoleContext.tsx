@@ -30,7 +30,7 @@ interface WebSocketError {
 }
 
 interface RoleContextType {
-  currentRole: 'employer' | 'jobseeker' | 'admin' | 'moderator' | null;
+  currentRole: 'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate' | null;
   profile: Profile | null;
   isLoading: boolean;
   error: string | null;
@@ -45,7 +45,7 @@ interface RoleContextType {
 interface DecodedToken {
   email: string;
   sub: string;
-  role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
+  role: 'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate';
   iat: number;
   exp: number;
 }
@@ -67,7 +67,7 @@ const getAsParam = () => {
 };
 
 export const RoleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentRole, setCurrentRole] = useState<'employer' | 'jobseeker' | 'admin' | 'moderator' | null>(null);
+  const [currentRole, setCurrentRole] = useState<'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate' | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -170,6 +170,21 @@ const getLastFromCache = (id: string) => lastMsgCacheRef.current.get(id);
         setSocketStatus('disconnected');
         return;
       }
+
+      if (decoded.role === 'affiliate') {
+      const basicProfile: any = {
+        id: decoded.sub,
+        email: decoded.email,
+        role: decoded.role,
+        username: decoded.email?.split('@')[0] || 'Affiliate',
+      };
+
+           setProfile(basicProfile);
+      setIsLoading(false);
+      setSocket(null);
+      setSocketStatus('disconnected');
+      return;
+    }
 
       setIsLoading(true);
       setError(null);

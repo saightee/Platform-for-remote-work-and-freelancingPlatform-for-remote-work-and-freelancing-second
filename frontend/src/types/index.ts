@@ -12,7 +12,7 @@ export interface User {
   id: string;
   email: string;
   username: string;
-  role: 'employer' | 'jobseeker' | 'admin' | 'moderator';
+  role: 'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate';
   provider?: string | null;
   created_at: string;
   updated_at: string;
@@ -116,7 +116,29 @@ export interface ModeratorProfile {
   updated_at: string;
 }
 
-export type Profile = EmployerProfile | JobSeekerProfile | AdminProfile | ModeratorProfile;
+export interface AffiliateUserProfile {
+  id: string;
+  role: 'affiliate';
+  email: string;
+  username: string;
+timezone?: string;
+  currency?: string;
+  country?: string | null;
+  avatar?: string | null;
+  status?: 'active' | 'blocked';
+
+  created_at: string;
+  updated_at: string;
+}
+
+
+export type Profile =
+  | EmployerProfile
+  | JobSeekerProfile
+  | AdminProfile
+  | ModeratorProfile
+  | AffiliateUserProfile;
+
 
 export type SalaryType = 'per hour' | 'per month' | 'negotiable';
 

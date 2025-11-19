@@ -29,6 +29,7 @@ const isAllowedForRole = (path: string, role: string) => {
   if (role === 'jobseeker') return path.startsWith('/jobseeker-dashboard');
   if (role === 'admin') return path.startsWith('/admin');
   if (role === 'moderator') return path.startsWith('/moderator');
+  if (role === 'affiliate') return path.startsWith('/affiliate');
   return false;
 };
 
@@ -38,6 +39,7 @@ const defaultForRole = (role: string) => {
     case 'jobseeker': return '/jobseeker-dashboard';
     case 'admin': return '/admin';
     case 'moderator': return '/moderator';
+    case 'affiliate': return '/affiliate/dashboard';
     default: return '/';
   }
 };
