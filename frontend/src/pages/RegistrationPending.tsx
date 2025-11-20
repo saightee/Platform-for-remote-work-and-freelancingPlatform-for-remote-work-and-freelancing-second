@@ -1,22 +1,158 @@
 // src/pages/RegistrationPending.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import '../styles/registration-pending.css';
 import { brand } from '../brand';
+import { getPendingSessionStatus } from '../services/api';
+import { useRole } from '../context/RoleContext';
 
 const REDIRECT_MS = 12000; // 12 seconds
 
 const RegistrationPending: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation() as { state?: { email?: string } };
+  const location = useLocation() as { state?: { email?: string; pendingSessionId?: string } };
   const email = location?.state?.email;
   const progressRef = useRef<HTMLDivElement | null>(null);
+
+  const { refreshProfile, profile } = useRole();
+  const [autoLoginActive, setAutoLoginActive] = useState(false);
+  const autoLoginStartedRef = useRef(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
       navigate('/login', { replace: true });
     }, REDIRECT_MS);
+
+  useEffect(() => {
+    // pending_session_id из state или localStorage
+    const stateId = location?.state?.pendingSessionId;
+    const storedId = (() => {
+      try {
+        return localStorage.getItem('pendingSessionId');
+      } catch {
+        return null;
+      }
+    })();
+
+    const pendingId = stateId || storedId;
+    if (!pendingId) return;
+
+    if (autoLoginStartedRef.current) return;
+    autoLoginStartedRef.current = true;
+
+    let cancelled = false;
+    const startedAt = Date.now();
+    const MAX_MS = 5 * 60_000; // максимум 5 минут
+
+    const poll = async () => {
+      if (cancelled) return;
+
+      try {
+        const res = await getPendingSessionStatus(pendingId);
+        if (res.status === 'verified' && res.accessToken) {
+          // отмечаем, что авто-логин пошёл
+          setAutoLoginActive(true);
+
+          // чистим старую cookie сессии, как в AuthCallback
+          document.cookie = `${brand.id}.sid=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+
+          try {
+            localStorage.setItem('token', res.accessToken);
+            localStorage.removeItem('pendingSessionId');
+          } catch {}
+
+          try {
+            await refreshProfile();
+          } catch (e) {
+            console.error('Auto-login refreshProfile failed', e);
+            try { localStorage.removeItem('token'); } catch {}
+            document.cookie = `${brand.id}.sid=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+            return;
+          }
+
+          // дальше редирект сделает другой useEffect (ниже) по авто-логину + profile
+          return;
+        }
+
+        if (res.status === 'not_found') {
+          // сессия умерла/не найдена — прекращаем попытки
+          try { localStorage.removeItem('pendingSessionId'); } catch {}
+          cancelled = true;
+          return;
+        }
+
+        // status === 'pending' — продолжаем polling
+      } catch (e) {
+        console.error('Error polling pending-session', e);
+        // Ошибку логируем, но даём шанс повторять до таймаута
+      }
+
+      if (!cancelled && Date.now() - startedAt < MAX_MS) {
+        setTimeout(poll, 4000); // 4 секунды между запросами
+      }
+    };
+
+    // маленькая задержка перед первым запросом
+    const first = setTimeout(poll, 3000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(first);
+    };
+  }, [location, refreshProfile]);
+
+    useEffect(() => {
+    if (!autoLoginActive) return;
+    if (!profile) return;
+
+    const safe = (p?: string | null) =>
+      p && p.startsWith('/') && !p.startsWith('//') ? p : null;
+
+    const roleFromStorage = ((): 'employer' | 'jobseeker' | null => {
+      try {
+        return (localStorage.getItem('pendingRole') as any) || null;
+      } catch {
+        return null;
+      }
+    })();
+
+    let after = '';
+    try {
+      after = localStorage.getItem('afterVerifyReturn') || '';
+    } catch {
+      after = '';
+    }
+    const hasAfter = safe(after) != null;
+
+    // чистим хвосты pending-данных
+    try { localStorage.removeItem('afterVerifyReturn'); } catch {}
+    try { localStorage.removeItem('pendingRole'); } catch {}
+    try { localStorage.removeItem('pendingEmail'); } catch {}
+    try { localStorage.removeItem('pendingSessionId'); } catch {}
+
+    const role = profile.role;
+
+    if ((roleFromStorage === 'jobseeker' || role === 'jobseeker') && hasAfter) {
+      const dest = safe(after)!;
+      navigate(dest, { replace: true });
+      return;
+    }
+
+    if (role === 'employer' || roleFromStorage === 'employer') {
+      navigate('/employer-dashboard', { replace: true });
+      return;
+    }
+
+    if (role === 'affiliate') {
+      navigate('/affiliate/dashboard', { replace: true });
+      return;
+    }
+
+    // дефолт — джобсикер
+    navigate('/jobseeker-dashboard', { replace: true });
+  }, [autoLoginActive, profile, navigate]);
+
 
     let raf = 0;
     const start = performance.now();

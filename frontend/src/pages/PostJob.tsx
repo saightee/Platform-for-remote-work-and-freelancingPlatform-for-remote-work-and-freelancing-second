@@ -13,7 +13,7 @@ import 'react-quill/dist/quill.snow.css';
 import Loader from '../components/Loader';
 import {
   FaBriefcase, FaMapMarkerAlt, FaMoneyBillWave, FaListUl,
-  FaBolt, FaRedo, FaSearch, FaTimes, FaLightbulb, FaInfoCircle, FaHistory, FaTimesCircle
+  FaBolt, FaRedo, FaSearch, FaTimes, FaLightbulb, FaInfoCircle, FaHistory, FaTimesCircle, FaBuilding
 } from 'react-icons/fa';
 import '../styles/post-job.css';
 import { toast } from '../utils/toast';
@@ -34,6 +34,7 @@ const PostJob: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [skillInput, setSkillInput] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [salaryType, setSalaryType] = useState<SalaryType>('per hour');
@@ -181,6 +182,7 @@ const fillFromPrevious = async (jobId: string) => {
 
     // === подстановка полей из выбранной вакансии ===
     setTitle(j.title || '');
+    setCompanyName((j as any).company_name || (j as any).companyName || '');
     setLocationMode(j.location || '');
     setSalaryType((j.salary_type as SalaryType) ?? 'per hour');
     setSalary(j.salary_type === 'negotiable' ? null : (j.salary ?? null));
@@ -220,6 +222,7 @@ const clearPrevSelection = () => {
 
   // очищаем ВСЕ вставленные поля формы
   setTitle('');
+  setCompanyName('');
   setLocationMode('');
   setSalaryType('per hour');
   setSalary(null);
@@ -358,6 +361,10 @@ useEffect(() => {
     // --- changed: send multi-select values ---
     category_ids: selectedCategoryIds,
   };
+
+  if (companyName.trim()) {
+    (jobData as any).company_name = companyName.trim();
+  }
 
   // Заполняем только если не negotiable
   if (salaryType !== 'negotiable') {
@@ -543,6 +550,21 @@ navigate('/employer-dashboard');
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g., Senior Virtual Assistant (E-commerce, Amazon)"
                   required
+                />
+              </div>
+
+                    <div className="pjx-row">
+                <label className="pjx-label">
+                  <FaBuilding /> Company name{' '}
+                  <InfoTip tip="Optional. This name will be displayed on job cards instead of your account name." />
+                </label>
+                <input
+                  className="pjx-input"
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="e.g., BigJobs Inc."
+                  maxLength={255}
                 />
               </div>
 

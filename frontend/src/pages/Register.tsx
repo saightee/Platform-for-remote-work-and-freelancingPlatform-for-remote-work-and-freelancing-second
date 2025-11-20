@@ -14,6 +14,9 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
 const urlOk = (v: string) => /^https?:\/\/\S+$/i.test(v.trim());
+
+const USERNAME_RGX = /^[a-zA-Z0-9 ._-]{3,20}$/; // 3–20 символов: буквы, цифры, пробел, ._- 
+
 const getCookie = (name: string): string | undefined => {
   const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '=([^;]*)'));
   return m ? decodeURIComponent(m[1]) : undefined;
@@ -217,6 +220,24 @@ const wordCount = useMemo(() => {
   return text.split(/\s+/).length;
 }, [about]);
 
+const toRichBioHtml = (t?: string | null): string | null => {
+  const v = (t || '').trim();
+  if (!v) return null;
+
+  // если строка уже похожа на HTML (Quill, старые данные) — возвращаем как есть
+  const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(v);
+  if (looksLikeHtml) return v;
+
+  // обычный текст -> абзацы и переносы
+  const parts = v
+    .split(/\n{2,}/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  return parts
+    .map((p) => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
+    .join('');
+};
 
   const addSkill = (s: Category) => {
     if (!selectedSkills.find(x => x.id === s.id)) {
@@ -360,8 +381,15 @@ const handleSubmit = async (e: React.FormEvent) => {
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   // валидации
-  if (!username.trim()) { setErr('Username is required.'); return; }
+   const usernameTrim = username.trim();
+
+  // валидации
+  if (!USERNAME_RGX.test(usernameTrim)) {
+    setErr('Username must be 3–20 characters and can contain letters, numbers, spaces, ".", "-", "_".');
+    return;
+  }
   if (!normEmail || !emailRe.test(normEmail)) { setErr('Valid email is required.'); return; }
+
   if (!normConfirmEmail || !emailRe.test(normConfirmEmail)) { setErr('Please re-enter a valid email.'); return; }
   if (normEmail !== normConfirmEmail) { setErr('Emails do not match.'); return; }
 
@@ -426,7 +454,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   try {
     setBusy(true);
     setErr(null);
-
+    const richAbout = toRichBioHtml(about);
     // единоразово считаем refCode
     const urlRef = new URLSearchParams(window.location.search).get('ref') || undefined;
     const lsRef  = localStorage.getItem('referralCode') || undefined;
@@ -441,7 +469,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     if (needsFD) {
       const fd = new FormData();
-      fd.append('username', username);
+      fd.append('username', usernameTrim);
       fd.append('email', normEmail);
       fd.append('password', password);
       fd.append('role', role);
@@ -464,7 +492,7 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
         if (facebook.trim())       fd.append('facebook', facebook.trim());
         if (whatsapp.trim())       fd.append('whatsapp', whatsapp.trim());
         if (telegram.trim())       fd.append('telegram', telegram.trim());
-        if (about.trim())          fd.append('about', about.trim());
+        if (richAbout)             fd.append('about', richAbout);
         if (country.trim())        fd.append('country', country.trim().toUpperCase());
         if (languages.length)      languages.forEach(l => fd.append('languages[]', l));
       }
@@ -473,7 +501,7 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
       payload = fd;
     } else {
       payload = {
-        username,
+        username: usernameTrim,
         email: normEmail,
         password,
         role,
@@ -486,7 +514,7 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
           ...(facebook.trim() ? { facebook: facebook.trim() } : {}),
           ...(whatsapp.trim() ? { whatsapp: whatsapp.trim() } : {}),
           ...(telegram.trim() ? { telegram: telegram.trim() } : {}),
-          ...(about.trim() ? { about: about.trim() } : {}),
+          ...(richAbout ? { about: richAbout } : {}),
           ...(dob.trim() ? { date_of_birth: dob.trim() } : {}),
           ...(country.trim() ? { country: country.trim().toUpperCase() } : {}),
           ...(languages.length ? { languages } : {}),
@@ -495,10 +523,21 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
       if (refCode) (payload as any).ref = refCode;
     }
 
-    await register(payload);
+    const regRes = await register(payload);
+
+     const pendingSessionId =
+      (regRes as any)?.pending_session_id ||
+      (regRes as any)?.pendingSessionId ||
+      null;
+
+    if (pendingSessionId) {
+      try {
+        localStorage.setItem('pendingSessionId', pendingSessionId);
+      } catch {}
+    }
 
     // cleanup + redirect
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+   try { localStorage.removeItem(STORAGE_KEY); } catch {}
     localStorage.setItem('pendingEmail', normEmail);
     localStorage.setItem('pendingRole', role);
 
@@ -545,7 +584,9 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
     if (refCode) { try { localStorage.removeItem('referralCode'); } catch {} }
 
-    navigate('/registration-pending', { state: { email: normEmail } });
+    navigate('/registration-pending', {
+  state: { email: normEmail, pendingSessionId },
+});
   } catch (error: any) {
     console.error('Register error', error);
     const msg = error?.response?.data?.message;
@@ -584,33 +625,37 @@ if (role === 'jobseeker' && refCode && afterReturn) {
         <form onSubmit={handleSubmit} className={`reg2-form ${isJobseeker ? 'is-two' : ''}`}>
           {/* left column */}
           <div className="reg2-field reg2-span2">
-            <label className="reg2-label">Username</label>
-            <input
-              className="reg2-input"
-              type="text"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              placeholder="Enter your username"
-              autoComplete="nickname"
-              required
-            />
+            <label className="reg2-label">Username <span className="reg2-req">*</span></label>
+              <input
+                className="reg2-input"
+                type="text"
+                id="signup-nickname"
+                name="display-name"                // не "username", чтобы менеджер не путал
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder="Enter your username"
+                autoComplete="nickname"
+                required
+              />
+
           </div>
 
           <div className="reg2-field">
-            <label className="reg2-label">Email</label>
-      <input
-  className="reg2-input"
-  type="email"
-  value={email}
-  onChange={e => setEmail(e.target.value.trim().toLowerCase())}
-  placeholder="Enter your email"
-  autoComplete="email"
-  inputMode="email"
-  autoCapitalize="off"
-  spellCheck={false}
-  required
-/>
-
+            <label className="reg2-label">Email <span className="reg2-req">*</span></label>
+              <input
+                className="reg2-input"
+                type="email"
+                id="signup-email"
+                name="username"                    // то же имя, что и на логине
+                value={email}
+                onChange={e => setEmail(e.target.value.trim().toLowerCase())}
+                placeholder="Enter your email"
+                autoComplete="username"           // даём понять: это логин
+                inputMode="email"
+                autoCapitalize="off"
+                spellCheck={false}
+                required
+              />
           </div>
 
           
@@ -648,7 +693,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
 
 <div className="reg2-field">
-  <label className="reg2-label">Password</label>
+  <label className="reg2-label">Password <span className="reg2-req">*</span></label>
   <div className="reg2-passwrap">
     <input
       className="reg2-input"
@@ -689,7 +734,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
           {isJobseeker && (
             <>
               <div className="reg2-field">
-                <label className="reg2-label">Online Work Experience</label>
+                <label className="reg2-label">Online Work Experience <span className="reg2-req">*</span></label>
                 <select
                   className="reg2-input"
                   value={experience}
@@ -737,7 +782,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
 {/* NEW: Avatar (required? depends on flag) */}
 <div className="reg2-field reg2-span2">
-<label className="reg2-label">Avatar</label>
+<label className="reg2-label">Avatar <span className="reg2-req">*</span> </label>
 
   <div
   onDragEnter={(e) => { e.preventDefault(); setIsAvatarDragOver(true); }}
@@ -991,7 +1036,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
               <div className="reg2-field">
                 <label className="reg2-label">
-                  LinkedIn <span className="reg2-opt">(optional)</span>
+                  LinkedIn 
                 </label>
                 <input
                   className="reg2-input"
@@ -1004,7 +1049,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
               <div className="reg2-field">
                 <label className="reg2-label">
-                  Instagram <span className="reg2-opt">(optional)</span>
+                  Instagram 
                 </label>
                 <input
                   className="reg2-input"
@@ -1017,7 +1062,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
               <div className="reg2-field">
                 <label className="reg2-label">
-                  Facebook <span className="reg2-opt">(optional)</span>
+                  Facebook 
                 </label>
                 <input
                   className="reg2-input"
@@ -1030,7 +1075,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
               <div className="reg2-field">
   <label className="reg2-label">
-    WhatsApp <span className="reg2-opt">(optional)</span>
+    WhatsApp 
   </label>
   <input
     className="reg2-input"
@@ -1044,7 +1089,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 {/* NEW: Telegram */}
 <div className="reg2-field">
   <label className="reg2-label">
-    Telegram <span className="reg2-opt">(optional)</span>
+    Telegram 
   </label>
   <input
     className="reg2-input"

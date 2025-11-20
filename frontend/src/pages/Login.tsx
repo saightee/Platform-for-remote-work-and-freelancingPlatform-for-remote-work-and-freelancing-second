@@ -175,16 +175,17 @@ const onResendFromLogin = async () => {
 <input
   type="email"
   id="login-email"
-  name="email"
+  name="username"  
   value={email}
   onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
   placeholder="Enter your email"
-  autoComplete="email"
+  autoComplete="username"  
   inputMode="email"
   autoCapitalize="off"
   spellCheck={false}
   required
 />
+
 
   </div>
   <div className="login-form-group login-password-container">

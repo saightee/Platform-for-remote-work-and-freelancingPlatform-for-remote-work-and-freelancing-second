@@ -53,7 +53,7 @@ import '../styles/country-langs.css';
 import DOMPurify from 'dompurify';
 
 
-const USERNAME_RGX = /^[a-zA-Z0-9_.-]{3,20}$/; // простая валидация
+const USERNAME_RGX = /^[a-zA-Z0-9 ._-]{3,20}$/; // простая валидация
 type JobSeekerExtended = JobSeekerProfile & {
   // сохраняем возможность строки из инпута
   expected_salary?: number | string | null;
@@ -315,7 +315,9 @@ const ProfilePage: React.FC = () => {
 
     const usernameToSave = (usernameEditMode ? usernameDraft.trim() : (profileData.username || '')).trim();
     if (usernameToSave && !USERNAME_RGX.test(usernameToSave)) {
-      setFormError('Username must be 3-20 chars and contain only letters, numbers, ".", "-", "_".');
+           setFormError(
+            'Username must be 3–20 characters and can contain letters, numbers, spaces, ".", "-", "_".',
+          );
       return;
     }
 
@@ -412,17 +414,29 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
        
 
         const toRichHtml = (t?: string | null): string | null => {
-  const v = (t || '').trim();
-  if (!v) return null;
-  // разбиваем по пустым строкам и заворачиваем в <p>
-  const parts = v.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
-  return parts.map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('');
+          const v = (t || '').trim();
+          if (!v) return null;
 
-  if (changed('description', now.description)) {
-  const rich = toRichHtml((now as any).description as string | undefined);
-  patch.description = rich ?? null;
-}
-};
+          // если это уже HTML (прилетело из Quill или старой версии) — оставляем как есть
+          const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(v);
+          if (looksLikeHtml) return v;
+
+          // обычный текст: абзацы через пустую строку, переносы → <br/>
+          const parts = v
+            .split(/\n{2,}/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+
+          return parts
+            .map((p) => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
+            .join('');
+        };
+
+        if (changed('description', now.description)) {
+          const rich = toRichHtml((now as any).description as string | undefined);
+          patch.description = rich ?? null;
+        }
+
 
         if (changed('portfolio', now.portfolio))             patch.portfolio        = now.portfolio;
 
@@ -977,62 +991,7 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                 </div>
               )}
 
-              {/* Карточка мини-галереи из портфолио (thumbs под аватаром) */}
-              {profileData.role === 'jobseeker' &&
-                Array.isArray((profileData as any).portfolio_files) &&
-                (profileData as any).portfolio_files.some(isImageUrl) && (
-                  <div className="pf-carousel" style={{ marginTop: 12 }}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: 8,
-                        overflowX: 'auto',
-                        paddingBottom: 4,
-                      }}
-                    >
-                      {(profileData as any).portfolio_files
-                        .filter(isImageUrl)
-                        .map((u: string, i: number) => {
-                          const src = u.startsWith('http')
-                            ? u
-                            : `${brandOrigin()}/backend${u}`;
-                          const baseIndex = profileData.avatar ? 1 : 0;
-                          const galleryIdx = baseIndex + i;
-
-                          return (
-                            <button
-                              key={u + i}
-                              type="button"
-                              className="pf-gallery-thumb"
-                              onClick={() => openGalleryAt(galleryIdx)}
-                              style={{
-                                width: 96,
-                                height: 96,
-                                borderRadius: 12,
-                                overflow: 'hidden',
-                                flex: '0 0 auto',
-                                padding: 0,
-                                border: 'none',
-                                background: 'transparent',
-                              }}
-                            >
-                              <img
-                                src={src}
-                                alt={`Photo ${i + 1}`}
-                                style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  objectFit: 'cover',
-                                  objectPosition: 'center',
-                                }}
-                                loading="lazy"
-                              />
-                            </button>
-                          );
-                        })}
-                    </div>
-                  </div>
-                )}
+        
             </div>
 
             {/* RIGHT COLUMN */}
