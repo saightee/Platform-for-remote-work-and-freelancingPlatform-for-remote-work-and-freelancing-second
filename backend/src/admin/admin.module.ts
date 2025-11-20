@@ -36,6 +36,8 @@ import { ReferralRegistration } from '../referrals/entities/referral-registratio
 import { AuthModule } from '../auth/auth.module';
 import { JobPostCategory } from '../job-posts/job-post-category.entity';
 import { FeedbackModule } from '../feedback/feedback.module';
+import { Affiliate } from '../users/entities/affiliate.entity';
+import { AffiliateOffer } from '../affiliate-program/entities/affiliate-offer.entity';
 
 @Module({
   imports: [
@@ -58,6 +60,8 @@ import { FeedbackModule } from '../feedback/feedback.module';
       ReferralLink,
       JobPostCategory,
       ReferralRegistration,
+      Affiliate,
+      AffiliateOffer,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
