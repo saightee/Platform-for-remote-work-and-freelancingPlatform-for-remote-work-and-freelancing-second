@@ -234,8 +234,29 @@ export class AuthController {
     const refCode =
       [refFromBody, refFromQuery, refFromHeader, refFromCookie]
         .find(v => typeof v === 'string' && v.trim()) || undefined;
-      
-    return this.authService.register(registerDto, ip, fingerprint, refCode, avatarUrl);
+
+    const affFromQuery = req?.query?.aff as string | undefined;
+    const affFromCookie = (req as any)?.cookies?.aff_code as string | undefined;
+    const affClickFromCookie = (req as any)?.cookies?.aff_click_id as string | undefined;
+
+    const affCode =
+      [affFromQuery, affFromCookie]
+        .find(v => typeof v === 'string' && v.trim()) || undefined;
+
+    const affClickId =
+      typeof affClickFromCookie === 'string' && affClickFromCookie.trim()
+        ? affClickFromCookie.trim()
+        : undefined;
+
+    return this.authService.register(
+      registerDto,
+      ip,
+      fingerprint,
+      refCode,
+      avatarUrl,
+      affCode,
+      affClickId,
+    );
   }
 
   @Get('verify-email')
@@ -261,6 +282,34 @@ export class AuthController {
         }
       }
     }
+
+  @Get('pending-session')
+  async getPendingSessionStatus(@Query('id') id: string) {
+    if (!id || typeof id !== 'string') {
+      throw new BadRequestException('id is required');
+    }
+
+    const raw = await this.redisService.get(`pending_session:${id}`);
+    if (!raw) {
+      return { status: 'not_found' as const };
+    }
+
+    let data: any;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return { status: 'pending' as const };
+    }
+
+    if (data && data.status === 'verified') {
+      return {
+        status: 'verified' as const,
+        accessToken: data.accessToken ?? null,
+      };
+    }
+
+    return { status: 'pending' as const };
+  }
 
   @Post('login')
   async login(@Body() loginDto: LoginDto, @Req() req: any) {
@@ -362,7 +411,7 @@ export class AuthController {
     const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
     const ip = ipHeader.split(',')[0].trim();
     console.log('Client IP:', ip);
-    return this.authService.register(createAdminDto, ip, fingerprint);
+        return this.authService.register(createAdminDto, ip, fingerprint, undefined, undefined, undefined, undefined);
   }
 
   @Post('create-moderator')
@@ -376,7 +425,7 @@ export class AuthController {
     const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
     const ip = ipHeader.split(',')[0].trim();
     console.log('Client IP:', ip);
-    return this.authService.register(createModeratorDto, ip, fingerprint);
+        return this.authService.register(createModeratorDto, ip, fingerprint, undefined, undefined, undefined, undefined);
   }
 
   @Post('forgot-password')
@@ -402,7 +451,7 @@ export class AuthController {
     const ip = ipHeader.split(',')[0].trim();
     console.log('Клиентский IP:', ip);
     const registerDto = { email: body.email, password: body.password, username: body.username, role: body.role };
-    const user = await this.authService.register(registerDto, ip, fingerprint);
+    const user = await this.authService.register(registerDto, ip, fingerprint, undefined, undefined, undefined, undefined);
     return res.json(user);
   }
 
@@ -437,8 +486,16 @@ export class AuthController {
 
     const refCode =
       [refFromBody, refFromQuery, refFromHeader, refFromCookie]
-        .find(v => typeof v === 'string' && v.trim()) || undefined;
+        .find((v) => typeof v === 'string' && v.trim()) || undefined;
 
-    return this.authService.register(registerDto, ip, fingerprint, refCode);
+    return this.authService.register(
+      registerDto,
+      ip,
+      fingerprint,
+      refCode,
+      undefined,
+      undefined,
+      undefined,
+    );
   }
 }

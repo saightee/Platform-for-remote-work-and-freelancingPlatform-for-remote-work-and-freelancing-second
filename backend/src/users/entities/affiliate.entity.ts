@@ -60,6 +60,15 @@ export class Affiliate {
   @Column({ nullable: true })
   referred_by_user_id?: string;
 
+  @Column({ type: 'text', nullable: true })
+  default_postback_url?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  default_fb_pixel_code?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  default_ga_tag_code?: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 

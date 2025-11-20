@@ -14,6 +14,9 @@ export class JobPost {
   @Column('text') description: string;
   @Column() location: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  company_name?: string | null;
+
   @Column('int', { nullable: true })
   salary?: number | null;
 

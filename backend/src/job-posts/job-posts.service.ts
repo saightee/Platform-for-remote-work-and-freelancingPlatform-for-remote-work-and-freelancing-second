@@ -79,6 +79,7 @@ export class JobPostsService {
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
       salary_type?: 'per hour' | 'per month' | 'negotiable';
       excluded_locations?: string[];
+      company_name?: string;
     },
   ) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
@@ -148,6 +149,7 @@ export class JobPostsService {
       excluded_locations: jobPostData.excluded_locations,
       employer_id: userId,
       pending_review: true,
+      company_name: jobPostData.company_name?.trim() || null,
     });
 
     const saved = await this.jobPostsRepository.save(jobPost);
@@ -180,6 +182,7 @@ export class JobPostsService {
       job_type?: 'Full-time' | 'Part-time' | 'Project-based';
       salary_type?: 'per hour' | 'per month' | 'negotiable';
       excluded_locations?: string[];
+      company_name?: string;
     },
   ) {
     const jobPost = await this.jobPostsRepository.findOne({
@@ -241,6 +244,12 @@ export class JobPostsService {
     if (updates.status) jobPost.status = updates.status;
     if (updates.job_type) jobPost.job_type = updates.job_type;
     if (updates.excluded_locations) jobPost.excluded_locations = updates.excluded_locations;
+
+    if (Object.prototype.hasOwnProperty.call(updates, 'company_name')) {
+      jobPost.company_name = updates.company_name
+        ? updates.company_name.trim()
+        : null;
+    }
 
     jobPost.salary_type = nextSalaryType;
     if (nextSalaryType === 'negotiable') {

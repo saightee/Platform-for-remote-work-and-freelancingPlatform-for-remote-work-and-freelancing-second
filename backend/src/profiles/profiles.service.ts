@@ -92,6 +92,10 @@ export class ProfilesService {
         skills: jobSeeker.skills,
         experience: jobSeeker.experience,
         job_experience: (jobSeeker as any).job_experience || null,
+        current_position: (jobSeeker as any).current_position || null,
+        education: (jobSeeker as any).education || null,
+        job_experience_items: (jobSeeker as any).job_experience_items || [],
+        education_items: (jobSeeker as any).education_items || [],
         description: jobSeeker.description,
         portfolio: jobSeeker.portfolio,
         portfolio_files: jobSeeker.portfolio_files || [],
@@ -244,8 +248,91 @@ export class ProfilesService {
         jobSeeker.languages = langs;
       }
 
+      if (Object.prototype.hasOwnProperty.call(updateData, 'current_position')) {
+        const v = (updateData.current_position ?? '').toString().trim();
+        if (v.length > 200) {
+          throw new BadRequestException('current_position is too long (max 200 chars)');
+        }
+        (jobSeeker as any).current_position = v || null;
+      }
+    
+      if (Object.prototype.hasOwnProperty.call(updateData, 'education')) {
+        const v = (updateData.education ?? '').toString().trim();
+        if (v.length > 200) {
+          throw new BadRequestException('education is too long (max 200 chars)');
+        }
+        (jobSeeker as any).education = v || null;
+      }
+    
+      if (Object.prototype.hasOwnProperty.call(updateData, 'job_experience_items')) {
+        const arr = Array.isArray(updateData.job_experience_items)
+          ? updateData.job_experience_items
+          : [];
+      
+        const normalized = arr.map((item: any) => {
+          if (!item) return null;
+          const title = (item.title ?? '').toString().trim();
+          const company = (item.company ?? '').toString().trim();
+          const startYear = Number(item.start_year);
+          const endYear =
+            item.end_year === null || item.end_year === undefined
+              ? null
+              : Number(item.end_year);
+        
+          if (!title || !company || Number.isNaN(startYear)) {
+            throw new BadRequestException(
+              'Each job_experience_items item must have title, company, start_year',
+            );
+          }
+        
+          const description =
+            (item.description ?? '').toString().trim().split(/\s+/).slice(0, 100).join(' ') || null;
+        
+          return {
+            title,
+            company,
+            start_year: startYear,
+            end_year: Number.isNaN(endYear as any) ? null : endYear,
+            description,
+          };
+        }).filter(Boolean);
+      
+        (jobSeeker as any).job_experience_items = normalized;
+      }
+    
+      if (Object.prototype.hasOwnProperty.call(updateData, 'education_items')) {
+        const arr = Array.isArray(updateData.education_items)
+          ? updateData.education_items
+          : [];
+      
+        const normalized = arr.map((item: any) => {
+          if (!item) return null;
+          const degree = (item.degree ?? '').toString().trim();
+          const institution = (item.institution ?? '').toString().trim();
+          const startYear = Number(item.start_year);
+          const endYear =
+            item.end_year === null || item.end_year === undefined
+              ? null
+              : Number(item.end_year);
+        
+          if (!degree || !institution || Number.isNaN(startYear)) {
+            throw new BadRequestException(
+              'Each education_items item must have degree, institution, start_year',
+            );
+          }
+        
+          return {
+            degree,
+            institution,
+            start_year: startYear,
+            end_year: Number.isNaN(endYear as any) ? null : endYear,
+          };
+        }).filter(Boolean);
+      
+        (jobSeeker as any).education_items = normalized;
+      }
+    
       await this.jobSeekerRepository.save(jobSeeker);
-      // возвращаем профиль как владелец
       return this.getProfile(userId, {
         isAuthenticated: true,
         viewerId: userId,

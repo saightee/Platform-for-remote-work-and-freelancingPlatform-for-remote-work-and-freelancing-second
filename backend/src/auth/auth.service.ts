@@ -17,6 +17,7 @@ import { ConfigService } from '@nestjs/config';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { SettingsService } from '../settings/settings.service';
 import { AffiliateRegisterDto } from './dto/affiliate-register.dto';
+import { AffiliateProgramService } from '../affiliate-program/affiliate-program.service';
 
 const normalizeEmail = (e: string) => (e || '').trim().toLowerCase();
 const isStrongPassword = (pw: string) =>
@@ -26,6 +27,9 @@ const isStrongPassword = (pw: string) =>
   /[A-Z]/.test(pw) &&
   /\d/.test(pw) &&
   /[^A-Za-z0-9]/.test(pw);
+const PENDING_SESSION_TTL_SECONDS = 2 * 24 * 60 * 60;
+const LOGIN_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -38,6 +42,7 @@ export class AuthService {
     private adminService: AdminService,
     private configService: ConfigService,
     private settingsService: SettingsService, 
+    private affiliateProgramService: AffiliateProgramService,
   ) {}
 
   async register(
@@ -46,6 +51,8 @@ export class AuthService {
     fingerprint?: string,
     refCode?: string,
     avatarUrl?: string,
+    affCode?: string,
+    affClickId?: string,
   ) {
     const emailNorm = (dto.email || '').trim().toLowerCase();
     const username = (dto as any).username;
@@ -73,6 +80,18 @@ export class AuthService {
     const existingUser = await this.usersService.findByEmail(emailNorm);
     if (existingUser) {
       if (!existingUser.is_email_verified) {
+        const pendingSessionId = uuidv4();
+        await this.redisService.set(
+          `pending_session:${pendingSessionId}`,
+          JSON.stringify({ userId: existingUser.id, status: 'pending' }),
+          PENDING_SESSION_TTL_SECONDS,
+        );
+        await this.redisService.set(
+          `pending_session_latest:${existingUser.id}`,
+          pendingSessionId,
+          PENDING_SESSION_TTL_SECONDS,
+        );
+
         const rlKey = `verify_resend:${existingUser.id}`;
         const locked = await this.redisService.get(rlKey);
         if (!locked) {
@@ -82,7 +101,11 @@ export class AuthService {
           await this.emailService.sendVerificationEmail(existingUser.email, existingUser.username, token);
           await this.redisService.set(rlKey, '1', 300);
         }
-        return { message: 'Account exists but not verified. We sent a new confirmation link.' };
+
+        return {
+          message: 'Account exists but not verified. We sent a new confirmation link.',
+          pending_session_id: pendingSessionId,
+        };
       }
       throw new BadRequestException('Email already exists');
     }
@@ -190,11 +213,43 @@ export class AuthService {
       } catch {}
     }
 
+    try {
+      const normalizedAffCode = affCode?.trim() || undefined;
+      const normalizedClickId = affClickId?.trim() || undefined;
+      const isAffiliateLead =
+        (role === 'jobseeker' || role === 'employer') &&
+        (normalizedAffCode || normalizedClickId);
+
+      if (isAffiliateLead) {
+        await this.affiliateProgramService.trackRegistration({
+          userId: newUser.id,
+          role: role as 'jobseeker' | 'employer',
+          affCode: normalizedAffCode,
+          clickId: normalizedClickId,
+          country,
+        });
+      }
+    } catch (err) {
+      console.error('[Affiliate] trackRegistration failed', err);
+    }
+
     if (role === 'admin' || role === 'moderator') {
       const payload = { email: newUser.email, sub: newUser.id, role: newUser.role };
       const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
       return { accessToken };
     }
+
+    const pendingSessionId = uuidv4();
+    await this.redisService.set(
+      `pending_session:${pendingSessionId}`,
+      JSON.stringify({ userId: newUser.id, status: 'pending' }),
+      PENDING_SESSION_TTL_SECONDS,
+    );
+    await this.redisService.set(
+      `pending_session_latest:${newUser.id}`,
+      pendingSessionId,
+      PENDING_SESSION_TTL_SECONDS,
+    );
 
     try {
       const verificationToken = uuidv4();
@@ -205,10 +260,14 @@ export class AuthService {
       return {
         message:
           'Registration was successful, but the email was not sent. Please check your spam folder or try again.',
+        pending_session_id: pendingSessionId,
       };
     }
 
-    return { message: 'Registration is successful. Please confirm your email.' };
+    return {
+      message: 'Registration is successful. Please confirm your email.',
+      pending_session_id: pendingSessionId,
+    };
   }
 
   async verifyEmail(token: string): Promise<{ message: string; accessToken: string }> {
@@ -237,7 +296,7 @@ export class AuthService {
         console.log(`[verifyEmail] Update is_email_verified for userId: ${userId}`);
         await this.usersService.updateUser(userId, user.role, { is_email_verified: true });
         console.log(`[verifyEmail] The update was successful for ${user.email}`);
-      } catch (error) {
+      } catch (error: any) {
         console.error(`[verifyEmail] Error updating user: ${error.message}`);
         throw error;
       }
@@ -248,7 +307,29 @@ export class AuthService {
     
       const payload = { email: user.email, sub: user.id, role: user.role };
       const accessToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-      await this.redisService.set(`token:${user.id}`, accessToken, 7 * 24 * 60 * 60);
+      await this.redisService.set(`token:${user.id}`, accessToken, LOGIN_TOKEN_TTL_SECONDS);
+
+      try {
+        const pendingSessionId = await this.redisService.get(`pending_session_latest:${user.id}`);
+        if (pendingSessionId) {
+          const value = JSON.stringify({
+            userId: user.id,
+            status: 'verified',
+            accessToken,
+          });
+          await this.redisService.set(
+            `pending_session:${pendingSessionId}`,
+            value,
+            LOGIN_TOKEN_TTL_SECONDS,
+          );
+          console.log(
+            `[verifyEmail] Pending session ${pendingSessionId} marked as verified for user ${user.id}`,
+          );
+        }
+      } catch (e) {
+        console.error('[verifyEmail] Failed to update pending session:', (e as any)?.message || e);
+      }
+
       return { message: 'Email successfully confirmed', accessToken };
     }
 

@@ -1364,4 +1364,75 @@ export class AdminController {
   
     return this.adminService.getCategoryAnalytics(adminId);
   }
+
+    // ===== AFFILIATES (ADMIN) =====
+
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
+  @Get('affiliate/affiliates')
+  async adminListAffiliates(@Req() req: any) {
+    const adminUserId = req.user.id;
+    return this.adminService.listAffiliatesForAdmin(adminUserId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
+  @Get('affiliate/affiliates/:userId')
+  async adminGetAffiliate(
+    @Req() req: any,
+    @Param('userId') userId: string,
+  ) {
+    const adminUserId = req.user.id;
+    return this.adminService.getAffiliateForAdmin(adminUserId, userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
+  @Put('affiliate/affiliates/:userId')
+  async adminUpdateAffiliate(
+    @Req() req: any,
+    @Param('userId') userId: string,
+    @Body() body: any,
+  ) {
+    const adminUserId = req.user.id;
+    return this.adminService.updateAffiliateFromAdmin(
+      adminUserId,
+      userId,
+      body,
+    );
+  }  
+
+    // ===== AFFILIATE OFFERS (ADMIN) =====
+
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
+  @Get('affiliate/offers')
+  async adminListAffiliateOffers(@Req() req: any) {
+    const adminUserId = req.user.id;
+    return this.adminService.listAffiliateOffersForAdmin(adminUserId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
+  @Post('affiliate/offers')
+  async adminCreateAffiliateOffer(
+    @Req() req: any,
+    @Body() body: any,
+  ) {
+    const adminUserId = req.user.id;
+    return this.adminService.createAffiliateOfferForAdmin(
+      adminUserId,
+      body,
+    );
+  }
+
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
+  @Put('affiliate/offers/:offerId')
+  async adminUpdateAffiliateOffer(
+    @Req() req: any,
+    @Param('offerId') offerId: string,
+    @Body() body: any,
+  ) {
+    const adminUserId = req.user.id;
+    return this.adminService.updateAffiliateOfferForAdmin(
+      adminUserId,
+      offerId,
+      body,
+    );
+  }
 }

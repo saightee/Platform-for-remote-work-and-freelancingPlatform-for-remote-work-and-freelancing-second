@@ -30,6 +30,8 @@ import { ReferralRegistration } from '../referrals/entities/referral-registratio
 import { ReferralLink } from '../referrals/entities/referral-link.entity';
 import { ConfigService } from '@nestjs/config';
 import { JobPostCategory } from '../job-posts/job-post-category.entity';
+import { Affiliate } from '../users/entities/affiliate.entity';
+import { AffiliateOffer } from '../affiliate-program/entities/affiliate-offer.entity';
 
 @Injectable()
 export class AdminService {
@@ -75,6 +77,10 @@ export class AdminService {
     private referralLinksRepository: Repository<ReferralLink>,
     @InjectRepository(ReferralRegistration)
     private referralRegistrationsRepository: Repository<ReferralRegistration>,
+    @InjectRepository(Affiliate)
+    private affiliatesRepository: Repository<Affiliate>,
+    @InjectRepository(AffiliateOffer)
+    private affiliateOffersRepository: Repository<AffiliateOffer>,
     private configService: ConfigService,
   ) {}
 
@@ -2160,5 +2166,307 @@ export class AdminService {
     const jobPosts = buildTree(jpCountMap, 'jobPostsCount');
 
     return { jobseekers, jobPosts };
+  }
+
+    /**
+   * Афилейты и афилейт программы
+   */
+
+  async listAffiliatesForAdmin(adminUserId: string) {
+    await this.checkAdminOrModerator(adminUserId);
+
+    const affiliates = await this.affiliatesRepository.find({
+      relations: ['user'],
+      order: { created_at: 'DESC' },
+    });
+
+    return affiliates.map((a) => ({
+      user_id: a.user_id,
+      account_type: a.account_type,
+      company_name: a.company_name,
+      website_url: a.website_url,
+      traffic_sources: a.traffic_sources,
+      promo_geo: a.promo_geo,
+      monthly_traffic: a.monthly_traffic,
+      payout_method: a.payout_method,
+      payout_details: a.payout_details,
+      telegram: a.telegram,
+      whatsapp: a.whatsapp,
+      skype: a.skype,
+      notes: a.notes,
+      created_at: a.created_at,
+      updated_at: a.updated_at,
+
+      user: a.user
+        ? {
+            id: a.user.id,
+            email: a.user.email,
+            username: a.user.username,
+            role: a.user.role,
+            country: a.user.country,
+            status: a.user.status,
+            created_at: a.user.created_at,
+          }
+        : null,
+    }));
+  }
+
+  async getAffiliateForAdmin(adminUserId: string, affiliateUserId: string) {
+    await this.checkAdminOrModerator(adminUserId);
+
+    const affiliate = await this.affiliatesRepository.findOne({
+      where: { user_id: affiliateUserId },
+      relations: ['user'],
+    });
+
+    if (!affiliate) {
+      throw new NotFoundException('Affiliate profile not found');
+    }
+
+    return {
+      user: affiliate.user,
+      affiliate,
+    };
+  }
+
+  async updateAffiliateFromAdmin(
+    adminUserId: string,
+    affiliateUserId: string,
+    payload: {
+      account_type?: string;
+      company_name?: string | null;
+      website_url?: string;
+      traffic_sources?: string | null;
+      promo_geo?: string | null;
+      monthly_traffic?: string | null;
+      payout_method?: string | null;
+      payout_details?: string | null;
+      telegram?: string | null;
+      whatsapp?: string | null;
+      skype?: string | null;
+      notes?: string | null;
+    },
+  ) {
+    await this.checkAdminOrModerator(adminUserId);
+
+    const affiliate = await this.affiliatesRepository.findOne({
+      where: { user_id: affiliateUserId },
+    });
+
+    if (!affiliate) {
+      throw new NotFoundException('Affiliate profile not found');
+    }
+
+    if (payload.account_type !== undefined) {
+      affiliate.account_type = payload.account_type as any;
+    }
+    if (payload.company_name !== undefined) {
+      affiliate.company_name = payload.company_name;
+    }
+    if (payload.website_url !== undefined) {
+      affiliate.website_url = payload.website_url;
+    }
+    if (payload.traffic_sources !== undefined) {
+      affiliate.traffic_sources = payload.traffic_sources;
+    }
+    if (payload.promo_geo !== undefined) {
+      affiliate.promo_geo = payload.promo_geo;
+    }
+    if (payload.monthly_traffic !== undefined) {
+      affiliate.monthly_traffic = payload.monthly_traffic;
+    }
+    if (payload.payout_method !== undefined) {
+      affiliate.payout_method = payload.payout_method;
+    }
+    if (payload.payout_details !== undefined) {
+      affiliate.payout_details = payload.payout_details;
+    }
+    if (payload.telegram !== undefined) {
+      affiliate.telegram = payload.telegram;
+    }
+    if (payload.whatsapp !== undefined) {
+      affiliate.whatsapp = payload.whatsapp;
+    }
+    if (payload.skype !== undefined) {
+      affiliate.skype = payload.skype;
+    }
+    if (payload.notes !== undefined) {
+      affiliate.notes = payload.notes;
+    }
+
+    const saved = await this.affiliatesRepository.save(affiliate);
+
+    return saved;
+  }
+
+  async listAffiliateOffersForAdmin(adminUserId: string) {
+    await this.checkAdminOrModerator(adminUserId);
+
+    const offers = await this.affiliateOffersRepository.find({
+      relations: ['affiliate_user'],
+      order: { created_at: 'DESC' },
+    });
+
+    return offers.map((o) => ({
+      id: o.id,
+      name: o.name,
+      target_role: o.target_role,
+      payout_model: o.payout_model,
+      default_cpa_amount: o.default_cpa_amount,
+      default_revshare_percent: o.default_revshare_percent,
+      currency: o.currency,
+      brand: o.brand,
+      is_active: o.is_active,
+      visibility: o.visibility,
+      affiliate_user_id: o.affiliate_user ? o.affiliate_user.id : null,
+      created_at: o.created_at,
+      updated_at: o.updated_at,
+    }));
+  }
+
+  async createAffiliateOfferForAdmin(
+    adminUserId: string,
+    payload: {
+      name: string;
+      target_role: 'jobseeker' | 'employer';
+      payout_model: 'cpa' | 'revshare' | 'hybrid';
+      default_cpa_amount?: number | null;
+      default_revshare_percent?: number | null;
+      currency?: string;
+      brand?: string;
+      is_active?: boolean;
+      visibility?: 'public' | 'private';
+      affiliate_user_id?: string | null;
+    },
+  ) {
+    await this.checkAdminOrModerator(adminUserId);
+
+    let affiliateUser: User | null = null;
+
+    if ((payload.visibility ?? 'public') === 'private') {
+      if (!payload.affiliate_user_id) {
+        throw new BadRequestException(
+          'affiliate_user_id is required for private offers',
+        );
+      }
+
+      affiliateUser = await this.usersRepository.findOne({
+        where: { id: payload.affiliate_user_id },
+      });
+
+      if (!affiliateUser) {
+        throw new NotFoundException('Affiliate user not found');
+      }
+    }
+
+    const offer = this.affiliateOffersRepository.create({
+      name: payload.name,
+      target_role: payload.target_role,
+      payout_model: payload.payout_model,
+      default_cpa_amount:
+        payload.default_cpa_amount !== undefined
+          ? payload.default_cpa_amount
+          : null,
+      default_revshare_percent:
+        payload.default_revshare_percent !== undefined
+          ? payload.default_revshare_percent
+          : null,
+      currency: payload.currency || 'USD',
+      brand:
+        payload.brand ||
+        this.configService.get<string>('SITE_BRAND') ||
+        this.configService.get<string>('BRAND') ||
+        'default',
+      is_active:
+        payload.is_active !== undefined ? payload.is_active : true,
+      visibility: payload.visibility || 'public',
+      affiliate_user: affiliateUser,
+    });
+
+    const saved = await this.affiliateOffersRepository.save(offer);
+    return saved;
+  }
+
+  async updateAffiliateOfferForAdmin(
+    adminUserId: string,
+    offerId: string,
+    payload: {
+      name?: string;
+      target_role?: 'jobseeker' | 'employer';
+      payout_model?: 'cpa' | 'revshare' | 'hybrid';
+      default_cpa_amount?: number | null;
+      default_revshare_percent?: number | null;
+      currency?: string;
+      brand?: string;
+      is_active?: boolean;
+      visibility?: 'public' | 'private';
+      affiliate_user_id?: string | null;
+    },
+  ) {
+    await this.checkAdminOrModerator(adminUserId);
+
+    const offer = await this.affiliateOffersRepository.findOne({
+      where: { id: offerId },
+      relations: ['affiliate_user'],
+    });
+
+    if (!offer) {
+      throw new NotFoundException('Affiliate offer not found');
+    }
+
+    if (payload.name !== undefined) {
+      offer.name = payload.name;
+    }
+    if (payload.target_role !== undefined) {
+      offer.target_role = payload.target_role;
+    }
+    if (payload.payout_model !== undefined) {
+      offer.payout_model = payload.payout_model;
+    }
+    if (payload.default_cpa_amount !== undefined) {
+      offer.default_cpa_amount = payload.default_cpa_amount;
+    }
+    if (payload.default_revshare_percent !== undefined) {
+      offer.default_revshare_percent = payload.default_revshare_percent;
+    }
+    if (payload.currency !== undefined) {
+      offer.currency = payload.currency;
+    }
+    if (payload.brand !== undefined) {
+      offer.brand = payload.brand;
+    }
+    if (payload.is_active !== undefined) {
+      offer.is_active = payload.is_active;
+    }
+    if (payload.visibility !== undefined) {
+      offer.visibility = payload.visibility;
+    }
+
+    // Логика привязки к аффу
+    if (payload.visibility === 'public') {
+      offer.affiliate_user = null;
+    } else if (payload.visibility === 'private') {
+      if (payload.affiliate_user_id) {
+        const affiliateUser = await this.usersRepository.findOne({
+          where: { id: payload.affiliate_user_id },
+        });
+        if (!affiliateUser) {
+          throw new NotFoundException('Affiliate user not found');
+        }
+        offer.affiliate_user = affiliateUser;
+      } else if (!offer.affiliate_user) {
+        throw new BadRequestException(
+          'affiliate_user_id is required for private offers',
+        );
+      }
+    }
+
+    if (payload.affiliate_user_id === null) {
+      // Явно отвязать оффер от конкретного аффа
+      offer.affiliate_user = null;
+    }
+
+    const saved = await this.affiliateOffersRepository.save(offer);
+    return saved;
   }
 }
