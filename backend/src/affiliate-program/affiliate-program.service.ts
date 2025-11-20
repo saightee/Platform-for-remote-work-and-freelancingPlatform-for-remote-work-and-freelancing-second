@@ -151,12 +151,18 @@ export class AffiliateProgramService {
    * Список активных офферов для аффа.
    */
   async listOffersForAffiliate(userId: string) {
-    await this.ensureAffiliateUser(userId);
-
+    const { user } = await this.ensureAffiliateUser(userId);
+  
     const offers = await this.offersRepository.find({
-      where: { is_active: true },
+      where: [
+        // публичные офферы
+        { is_active: true, visibility: 'public' },
+        // индивидуальные офферы для конкретного аффа
+        { is_active: true, visibility: 'private', affiliate_user: { id: user.id } },
+      ],
+      relations: ['affiliate_user'],
     });
-
+  
     return offers.map((offer) => ({
       id: offer.id,
       name: offer.name,
@@ -166,6 +172,9 @@ export class AffiliateProgramService {
       defaultRevsharePercent: offer.default_revshare_percent,
       currency: offer.currency,
       brand: offer.brand,
+      // можно отдать фронту info о типе оффера
+      visibility: offer.visibility,
+      isPersonal: !!offer.affiliate_user,
     }));
   }
 
