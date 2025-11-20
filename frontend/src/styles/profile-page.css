@@ -487,3 +487,228 @@
   }
   .pf-section { display: grid; gap: 14px; padding-left: 0px; }
 }
+
+
+/* profile.css — ПОСЛЕ: таймлайн опыта и образования */
+
+/* Общие вещи для секций */
+.pf-section-wide {
+  margin-bottom: 24px;
+}
+
+.pf-label-section {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+/* ---------- TIMELINE: Job experience ---------- */
+
+.pf-experience-item {
+  position: relative;
+  padding-left: 24px;
+  margin-bottom: 16px;
+}
+
+.pf-experience-item:last-child {
+  margin-bottom: 0;
+}
+
+/* вертикальная линия */
+.pf-experience-item::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 4px;
+  bottom: -16px;
+  width: 2px;
+  background-color: #e5e7eb; /* светло-серый */
+}
+
+/* точка на линии */
+.pf-experience-item::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background-color: #3b82f6; /* синий маркер */
+}
+
+/* для последнего элемента линию вниз не тянем */
+.pf-experience-item:last-child::before {
+  bottom: 4px;
+}
+
+.pf-experience-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 4px;
+}
+
+.pf-experience-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.pf-experience-company {
+  font-weight: 400;
+  color: #6b7280; /* gray-500 */
+}
+
+.pf-experience-dates {
+  font-size: 13px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.pf-experience-description {
+  font-size: 14px;
+  color: #374151; /* gray-700 */
+  line-height: 1.4;
+}
+
+/* ---------- TIMELINE: Education ---------- */
+
+.pf-education-item {
+  position: relative;
+  padding-left: 24px;
+  margin-bottom: 16px;
+}
+
+.pf-education-item:last-child {
+  margin-bottom: 0;
+}
+
+.pf-education-item::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 4px;
+  bottom: -16px;
+  width: 2px;
+  background-color: #e5e7eb;
+}
+
+.pf-education-item::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background-color: #10b981; /* зелёный маркер */
+}
+
+.pf-education-item:last-child::before {
+  bottom: 4px;
+}
+
+.pf-education-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pf-education-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.pf-education-institution {
+  font-size: 14px;
+  color: #374151;
+}
+
+.pf-education-dates {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* ---------- Edit mode: списки карточек ---------- */
+
+.pf-experience-edit-list,
+.pf-education-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pf-experience-edit-item,
+.pf-education-edit-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 12px 8px 12px;
+  background-color: #f9fafb;
+}
+
+/* немного воздуха между рядами внутри карточек */
+.pf-experience-edit-item .pf-row,
+.pf-education-edit-item .pf-row {
+  margin-bottom: 8px;
+}
+
+.pf-experience-edit-item .pf-row:last-child,
+.pf-education-edit-item .pf-row:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- Доп. утилиты, которые мы использовали ---------- */
+
+.pf-row-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* если у тебя уже есть .pf-row с display:flex, можно упростить до .pf-row.pf-row-stack { ... } */
+.pf-row-stack .pf-col {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.pf-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.pf-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
+}
+
+/* маленькая линк-кнопка "Remove item" */
+.pf-btn-small {
+  font-size: 13px;
+  padding: 2px 4px;
+}
+
+.pf-btn-link {
+  border: none;
+  background: transparent;
+  color: #3b82f6;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pf-btn-link:hover {
+  text-decoration: underline;
+}
+
+/* "Not specified" уже может быть, но на всякий */
+.pf-muted {
+  font-size: 14px;
+  color: #9ca3af;
+}

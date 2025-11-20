@@ -452,3 +452,18 @@ export interface AffiliateRegisterPayload {
   notes?: string;
   ref?: string;                        // рефкод, если есть
 }
+
+export type JobExperienceItem = {
+  title: string;
+  company: string;
+  start_year: number;
+  end_year: number | null;
+  description: string | null;
+};
+
+export type EducationItem = {
+  degree: string;
+  institution: string;
+  start_year: number;
+  end_year: number | null;
+};
