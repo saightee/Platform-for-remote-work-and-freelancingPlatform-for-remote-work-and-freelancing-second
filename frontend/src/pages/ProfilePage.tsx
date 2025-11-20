@@ -30,7 +30,8 @@ import {
 //   isDevProfilePage,
 // } from '../services/api.profile-dev';
 
-import { Profile, Category, JobSeekerProfile, EmployerProfile, Review } from '@types';
+import { Profile, Category, JobSeekerProfile, EmployerProfile, Review, JobExperienceItem,
+  EducationItem, } from '@types';
 import { useRole } from '../context/RoleContext';
 import {
   FaUserCircle, FaFilePdf, FaPen, FaCheck, FaTimes,
@@ -70,6 +71,10 @@ type JobSeekerExtended = JobSeekerProfile & {
   whatsapp?: string | null;
   telegram?: string | null;
   portfolio_files?: string[];
+  current_position?: string | null;       
+  education?: string | null;             
+  job_experience_items?: JobExperienceItem[]; 
+  education_items?: EducationItem[]; 
 };
 
 const calcAge = (dob?: string | null): number | null => {
@@ -104,11 +109,14 @@ const ProfilePage: React.FC = () => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false); // loader for Save
   const [jobExperienceHtml, setJobExperienceHtml] = useState<string>('');
+  const [jobExperienceItems, setJobExperienceItems] = useState<JobExperienceItem[]>([]);
+  const [educationItems, setEducationItems] = useState<EducationItem[]>([]);
   // username inline edit
   const [usernameEditMode, setUsernameEditMode] = useState(false);
   const [usernameDraft, setUsernameDraft] = useState('');
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  
 
   const navigate = useNavigate();
 
@@ -239,11 +247,14 @@ const ProfilePage: React.FC = () => {
         setCategories(cats || []);
         setUsernameDraft(pData.username || '');
         if (pData.role === 'jobseeker') {
-          setSelectedSkillIds((pData as JobSeekerProfile).skills?.map((s: Category) => s.id) || []);
-          setJobExperienceHtml(((pData as any).job_experience as string) || '');
+          const js = pData as JobSeekerExtended;
+          setSelectedSkillIds(js.skills?.map((s: Category) => s.id) || []);
+          setJobExperienceItems(js.job_experience_items || []);
+          setEducationItems(js.education_items || []);
         }
       } catch (e: any) {
         console.error('Error fetching data:', e);
+
         setError(e?.response?.data?.message || 'Failed to load profile or categories.');
       } finally {
         setIsLoading(false);
@@ -314,7 +325,7 @@ const ProfilePage: React.FC = () => {
     try {
       const orig = originalRef.current;
 
-      if (profileData.role === 'jobseeker') {
+    if (profileData.role === 'jobseeker') {
         // validate salary
         const salaryRaw = (profileData as any).expected_salary;
         let expectedSalaryNum: number | undefined = undefined;
@@ -327,8 +338,56 @@ const ProfilePage: React.FC = () => {
           expectedSalaryNum = Math.round(parsed * 100) / 100;
         }
 
+        // validate structured job experience
+        const hasInvalidJobItem = jobExperienceItems.some((item) => {
+          const hasAny =
+            (item.title && item.title.trim() !== '') ||
+            (item.company && item.company.trim() !== '') ||
+            item.start_year ||
+            item.end_year ||
+            (item.description && item.description.trim() !== '');
+          const hasRequired =
+            item.title &&
+            item.title.trim() !== '' &&
+            item.company &&
+            item.company.trim() !== '' &&
+            item.start_year;
+          return hasAny && !hasRequired;
+        });
+
+        if (hasInvalidJobItem) {
+          setFormError(
+            'Please fill title, company and start year for each job experience item or remove incomplete rows.',
+          );
+          return;
+        }
+
+        // validate structured education
+        const hasInvalidEducationItem = educationItems.some((item) => {
+          const hasAny =
+            (item.degree && item.degree.trim() !== '') ||
+            (item.institution && item.institution.trim() !== '') ||
+            item.start_year ||
+            item.end_year;
+          const hasRequired =
+            item.degree &&
+            item.degree.trim() !== '' &&
+            item.institution &&
+            item.institution.trim() !== '' &&
+            item.start_year;
+          return hasAny && !hasRequired;
+        });
+
+        if (hasInvalidEducationItem) {
+          setFormError(
+            'Please fill degree, institution and start year for each education item or remove incomplete rows.',
+          );
+          return;
+        }
+
         const now = profileData as JobSeekerExtended;
 const o   = (orig as JobSeekerExtended | null);
+
 
 const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtended[K]) =>
   o ? o[key] !== val : val !== undefined;
@@ -382,19 +441,70 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
 
         if (changed('date_of_birth', now.date_of_birth ?? null))         patch.date_of_birth    = now.date_of_birth ?? null;
 
-        if (changed('linkedin',  now.linkedin ?? null))    patch.linkedin  = now.linkedin  || null;
+               if (changed('linkedin',  now.linkedin ?? null))    patch.linkedin  = now.linkedin  || null;
         if (changed('instagram', now.instagram ?? null))   patch.instagram = now.instagram || null;
         if (changed('facebook',  now.facebook ?? null))    patch.facebook  = now.facebook  || null;
         if (changed('whatsapp',  now.whatsapp ?? null))    patch.whatsapp  = now.whatsapp  || null;   // NEW
         if (changed('telegram',  now.telegram ?? null))    patch.telegram  = now.telegram  || null;   // NEW
 
-        const prevJobExp = (o?.job_experience ?? '') || '';
-        const nextJobExp = jobExperienceHtml || '';
-        if (prevJobExp !== nextJobExp) {
-          patch.job_experience = nextJobExp.trim() === '' ? null : nextJobExp;
+        // --- job_experience_items / education_items ---
+
+        const normalizeJobItem = (item: JobExperienceItem): JobExperienceItem => ({
+          title: (item.title || '').trim(),
+          company: (item.company || '').trim(),
+          start_year: item.start_year,
+          end_year: item.end_year,
+          description:
+            item.description && item.description.trim() !== ''
+              ? item.description.trim()
+              : null,
+        });
+
+        const normalizeEducationItem = (item: EducationItem): EducationItem => ({
+          degree: (item.degree || '').trim(),
+          institution: (item.institution || '').trim(),
+          start_year: item.start_year,
+          end_year: item.end_year,
+        });
+
+        const normalizedJobItems = jobExperienceItems
+          .map(normalizeJobItem)
+          .filter(
+            (item) =>
+              item.title &&
+              item.company &&
+              typeof item.start_year === 'number',
+          );
+
+        const normalizedEducationItems = educationItems
+          .map(normalizeEducationItem)
+          .filter(
+            (item) =>
+              item.degree &&
+              item.institution &&
+              typeof item.start_year === 'number',
+          );
+
+        const origJobItems =
+          (o?.job_experience_items as JobExperienceItem[] | undefined) || [];
+        const origEducationItems =
+          (o?.education_items as EducationItem[] | undefined) || [];
+
+        if (
+          JSON.stringify(origJobItems) !== JSON.stringify(normalizedJobItems)
+        ) {
+          patch.job_experience_items = normalizedJobItems;
         }
-        // если нечего менять — просто выходим из режима редактирования
-        if (Object.keys(patch).length <= 1) { // только role
+
+        if (
+          JSON.stringify(origEducationItems) !==
+          JSON.stringify(normalizedEducationItems)
+        ) {
+          patch.education_items = normalizedEducationItems;
+        }
+
+        // ???? ?????? ?????? — ?????? ??????? ?? ?????? ??????????????
+        if (Object.keys(patch).length <= 1) { // ?????? role
           setIsEditing(false);
           setUsernameEditMode(false);
           setIsSaving(false);
@@ -406,7 +516,14 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
         originalRef.current = updated;
         setUsernameDraft(updated.username || usernameToSave);
 
+        if (updated.role === 'jobseeker') {
+          const updatedJs = updated as JobSeekerExtended;
+          setJobExperienceItems(updatedJs.job_experience_items || []);
+          setEducationItems(updatedJs.education_items || []);
+        }
+
         alert('The changes are saved');
+
       } else if (profileData.role === 'employer') {
         // для работодателя тоже шлём только изменённое
         const now = profileData as EmployerProfile;
@@ -1794,32 +1911,342 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                 </div>
               </div>
 
-              {/* JOB EXPERIENCE */}
+                           {/* JOB EXPERIENCE */}
               <div className="pf-section-wide">
                 <div className="pf-row">
                   <label className="pf-label pf-label-section">
                     Job experience
                   </label>
                   {!isEditing ? (
-                    ((profileData as any).job_experience && (
-                      <div
-                        className="pf-richtext"
-                        dangerouslySetInnerHTML={{
-                          __html: DOMPurify.sanitize(
-                            (profileData as any)
-                              .job_experience as string,
-                          ),
-                        }}
-                      />
-                    )) || <div className="pf-muted">Not specified</div>
+                    jobExperienceItems.length > 0 ? (
+                      <div className="pf-richtext">
+                        {jobExperienceItems.map((item, index) => (
+                          <div key={index} className="pf-experience-item">
+                            <div className="pf-experience-header">
+                              <div className="pf-experience-title">
+                                {item.title}
+                                {item.company && (
+                                  <span className="pf-experience-company">
+                                    {' '}
+                                    at {item.company}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="pf-experience-dates">
+                                {item.start_year}
+                                {' — '}
+                                {item.end_year ?? 'Present'}
+                              </div>
+                            </div>
+                            {item.description && (
+                              <div className="pf-experience-description">
+                                {item.description}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="pf-muted">Not specified</div>
+                    )
                   ) : (
-                    <div className="pf-quill">
-                      <ReactQuill
-                        theme="snow"
-                        value={jobExperienceHtml}
-                        onChange={setJobExperienceHtml}
-                        placeholder="This section can be auto-filled later."
-                      />
+                    <div className="pf-experience-edit-list">
+                      {jobExperienceItems.length === 0 && (
+                        <div className="pf-muted" style={{ marginBottom: '8px' }}>
+                          You have not added any job experience yet.
+                        </div>
+                      )}
+
+                      {jobExperienceItems.map((item, index) => (
+                        <div key={index} className="pf-experience-edit-item">
+                          <div className="pf-row pf-row-stack">
+                            <div className="pf-col">
+                              <label className="pf-label">Title</label>
+                              <input
+                                className="pf-input"
+                                type="text"
+                                value={item.title}
+                                onChange={(e) =>
+                                  setJobExperienceItems((prev) =>
+                                    prev.map((it, i) =>
+                                      i === index
+                                        ? { ...it, title: e.target.value }
+                                        : it,
+                                    ),
+                                  )
+                                }
+                                placeholder="Senior Backend Developer"
+                              />
+                            </div>
+                            <div className="pf-col">
+                              <label className="pf-label">Company</label>
+                              <input
+                                className="pf-input"
+                                type="text"
+                                value={item.company}
+                                onChange={(e) =>
+                                  setJobExperienceItems((prev) =>
+                                    prev.map((it, i) =>
+                                      i === index
+                                        ? { ...it, company: e.target.value }
+                                        : it,
+                                    ),
+                                  )
+                                }
+                                placeholder="Acme Inc"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="pf-row pf-row-stack">
+                            <div className="pf-col">
+                              <label className="pf-label">Start year</label>
+                              <input
+                                className="pf-input"
+                                type="number"
+                                value={item.start_year}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const year = val === '' ? item.start_year : parseInt(val, 10);
+                                  setJobExperienceItems((prev) =>
+                                    prev.map((it, i) =>
+                                      i === index ? { ...it, start_year: year } : it,
+                                    ),
+                                  );
+                                }}
+                              />
+                            </div>
+                            <div className="pf-col">
+                              <label className="pf-label">End year</label>
+                              <input
+                                className="pf-input"
+                                type="number"
+                                value={item.end_year ?? ''}
+                                placeholder="Present"
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const year = val === '' ? null : parseInt(val, 10);
+                                  setJobExperienceItems((prev) =>
+                                    prev.map((it, i) =>
+                                      i === index ? { ...it, end_year: year } : it,
+                                    ),
+                                  );
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="pf-row">
+                            <div className="pf-col">
+                              <label className="pf-label">Description</label>
+                              <textarea
+                                className="pf-textarea"
+                                rows={3}
+                                value={item.description ?? ''}
+                                onChange={(e) =>
+                                  setJobExperienceItems((prev) =>
+                                    prev.map((it, i) =>
+                                      i === index
+                                        ? { ...it, description: e.target.value }
+                                        : it,
+                                    ),
+                                  )
+                                }
+                                placeholder="Short description of your responsibilities and achievements"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="pf-row">
+                            <button
+                              type="button"
+                              className="pf-btn pf-btn-link pf-btn-small"
+                              onClick={() =>
+                                setJobExperienceItems((prev) =>
+                                  prev.filter((_, i) => i !== index),
+                                )
+                              }
+                            >
+                              Remove item
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        className="pf-btn pf-btn-link"
+                        onClick={() =>
+                          setJobExperienceItems((prev) => [
+                            ...prev,
+                            {
+                              title: '',
+                              company: '',
+                              start_year: new Date().getFullYear(),
+                              end_year: null,
+                              description: '',
+                            },
+                          ])
+                        }
+                      >
+                        Add job experience
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+
+                            {/* EDUCATION */}
+              <div className="pf-section-wide">
+                <div className="pf-row">
+                  <label className="pf-label pf-label-section">
+                    Education
+                  </label>
+                  {!isEditing ? (
+                    educationItems.length > 0 ? (
+                      <div className="pf-richtext">
+                        {educationItems.map((item, index) => (
+                          <div key={index} className="pf-education-item">
+                            <div className="pf-education-header">
+                              <div className="pf-education-title">
+                                {item.degree}
+                              </div>
+                              <div className="pf-education-institution">
+                                {item.institution}
+                              </div>
+                              <div className="pf-education-dates">
+                                {item.start_year}
+                                {' — '}
+                                {item.end_year ?? 'Present'}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="pf-muted">Not specified</div>
+                    )
+                  ) : (
+                    <div className="pf-education-edit-list">
+                      {educationItems.length === 0 && (
+                        <div className="pf-muted" style={{ marginBottom: '8px' }}>
+                          You have not added any education yet.
+                        </div>
+                      )}
+
+                      {educationItems.map((item, index) => (
+                        <div key={index} className="pf-education-edit-item">
+                          <div className="pf-row pf-row-stack">
+                            <div className="pf-col">
+                              <label className="pf-label">Degree</label>
+                              <input
+                                className="pf-input"
+                                type="text"
+                                value={item.degree}
+                                onChange={(e) =>
+                                  setEducationItems((prev) =>
+                                    prev.map((it, i) =>
+                                      i === index
+                                        ? { ...it, degree: e.target.value }
+                                        : it,
+                                    ),
+                                  )
+                                }
+                                placeholder="BSc in Computer Science"
+                              />
+                            </div>
+                            <div className="pf-col">
+                              <label className="pf-label">Institution</label>
+                              <input
+                                className="pf-input"
+                                type="text"
+                                value={item.institution}
+                                onChange={(e) =>
+                                  setEducationItems((prev) =>
+                                    prev.map((it, i) =>
+                                      i === index
+                                        ? { ...it, institution: e.target.value }
+                                        : it,
+                                    ),
+                                  )
+                                }
+                                placeholder="University of Helsinki"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="pf-row pf-row-stack">
+                            <div className="pf-col">
+                              <label className="pf-label">Start year</label>
+                              <input
+                                className="pf-input"
+                                type="number"
+                                value={item.start_year}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const year = val === '' ? item.start_year : parseInt(val, 10);
+                                  setEducationItems((prev) =>
+                                    prev.map((it, i) =>
+                                      i === index ? { ...it, start_year: year } : it,
+                                    ),
+                                  );
+                                }}
+                              />
+                            </div>
+                            <div className="pf-col">
+                              <label className="pf-label">End year</label>
+                              <input
+                                className="pf-input"
+                                type="number"
+                                value={item.end_year ?? ''}
+                                placeholder="Present"
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const year = val === '' ? null : parseInt(val, 10);
+                                  setEducationItems((prev) =>
+                                    prev.map((it, i) =>
+                                      i === index ? { ...it, end_year: year } : it,
+                                    ),
+                                  );
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="pf-row">
+                            <button
+                              type="button"
+                              className="pf-btn pf-btn-link pf-btn-small"
+                              onClick={() =>
+                                setEducationItems((prev) =>
+                                  prev.filter((_, i) => i !== index),
+                                )
+                              }
+                            >
+                              Remove item
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        className="pf-btn pf-btn-link"
+                        onClick={() =>
+                          setEducationItems((prev) => [
+                            ...prev,
+                            {
+                              degree: '',
+                              institution: '',
+                              start_year: new Date().getFullYear(),
+                              end_year: null,
+                            },
+                          ])
+                        }
+                      >
+                        Add education
+                      </button>
                     </div>
                   )}
                 </div>
@@ -2105,4 +2532,3 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
 };
 
 export default ProfilePage;
-

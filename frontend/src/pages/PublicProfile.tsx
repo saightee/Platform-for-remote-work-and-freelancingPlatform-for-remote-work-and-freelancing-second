@@ -349,7 +349,7 @@ const submitInvite = async () => {
             </div>
 
             {/* мини-карусель фоток под аватаром (оставляем как есть) */}
-            {Array.isArray((profile as any).portfolio_files) &&
+            {/* {Array.isArray((profile as any).portfolio_files) &&
               (profile as any).portfolio_files.some((u: string) =>
                 /\.(jpe?g|png|webp)$/i.test(u)
               ) && (
@@ -390,7 +390,7 @@ const submitInvite = async () => {
                       ))}
                   </div>
                 </div>
-              )}
+              )} */}
 
             <h2 className="ppx-name">{profile.username}</h2>
 
@@ -717,6 +717,7 @@ const submitInvite = async () => {
           </aside>
 
           {/* RIGHT COLUMN: BIO + WORK EXPERIENCE */}
+  {/* RIGHT COLUMN: BIO + CAREER + EDUCATION */}
           <section className="ppx-right">
             {/* BIO */}
             <div className="ppx-card">
@@ -733,20 +734,91 @@ const submitInvite = async () => {
               )}
             </div>
 
-            {/* Work Experience */}
-            {(profile as any).job_experience && (
+            {/* Work Experience (structured) */}
+            {(Array.isArray((profile as any).job_experience_items) &&
+              (profile as any).job_experience_items.length) ||
+            (profile as any).current_position ? (
               <div className="ppx-card">
                 <h3 className="ppx-block-title">Work Experience</h3>
-                <div
-                  className="ppx-richtext"
-                  dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(
-                      (profile as any).job_experience as string
-                    ),
-                  }}
-                />
+
+                {(profile as any).current_position && (
+                  <p className="ppx-text-muted" style={{ marginBottom: 8 }}>
+                    Current position:{' '}
+                    <strong>{(profile as any).current_position}</strong>
+                  </p>
+                )}
+
+                {Array.isArray((profile as any).job_experience_items) &&
+                (profile as any).job_experience_items.length ? (
+                  <ul className="ppx-timeline">
+                    {(profile as any).job_experience_items.map(
+                      (item: any, idx: number) => (
+                        <li key={idx} className="ppx-timeline-item">
+                          <div className="ppx-timeline-main">
+                            <div className="ppx-timeline-title">
+                              {item.title || 'Untitled role'}
+                            </div>
+                            <div className="ppx-timeline-sub">
+                              {item.company || 'Company not specified'} ·{' '}
+                              {item.start_year || '—'} —{' '}
+                              {item.end_year ?? 'Present'}
+                            </div>
+                          </div>
+                          {item.description && (
+                            <div className="ppx-timeline-desc">
+                              {item.description}
+                            </div>
+                          )}
+                        </li>
+                      )
+                    )}
+                  </ul>
+                ) : (
+                  <p className="ppx-text">Not specified</p>
+                )}
               </div>
-            )}
+            ) : null}
+
+            {/* Education */}
+            {(Array.isArray((profile as any).education_items) &&
+              (profile as any).education_items.length) ||
+            (profile as any).education ? (
+              <div className="ppx-card">
+                <h3 className="ppx-block-title">Education</h3>
+
+                {(profile as any).education && (
+                  <p className="ppx-text-muted" style={{ marginBottom: 8 }}>
+                    Summary:{' '}
+                    <strong>{(profile as any).education}</strong>
+                  </p>
+                )}
+
+                {Array.isArray((profile as any).education_items) &&
+                (profile as any).education_items.length ? (
+                  <ul className="ppx-timeline">
+                    {(profile as any).education_items.map(
+                      (item: any, idx: number) => (
+                        <li key={idx} className="ppx-timeline-item">
+                          <div className="ppx-timeline-main">
+                            <div className="ppx-timeline-title">
+                              {item.degree || 'Degree not specified'}
+                            </div>
+                            <div className="ppx-timeline-sub">
+                              {item.institution ||
+                                'Institution not specified'}{' '}
+                              · {item.start_year || '—'} —{' '}
+                              {item.end_year ?? 'Present'}
+                            </div>
+                          </div>
+                        </li>
+                      )
+                    )}
+                  </ul>
+                ) : (
+                  <p className="ppx-text">Not specified</p>
+                )}
+              </div>
+            ) : null}
           </section>
         </div>
 
