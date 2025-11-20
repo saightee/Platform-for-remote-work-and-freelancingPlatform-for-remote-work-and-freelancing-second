@@ -510,7 +510,7 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
           setIsSaving(false);
           return;
         }
-
+        console.log('PATCH >>>', patch);
         const updated = await updateProfile(patch);
         setProfileData(updated);
         originalRef.current = updated;

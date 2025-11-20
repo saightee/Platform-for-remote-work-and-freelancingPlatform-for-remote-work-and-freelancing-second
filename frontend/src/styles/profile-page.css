@@ -668,7 +668,7 @@
 
 /* если у тебя уже есть .pf-row с display:flex, можно упростить до .pf-row.pf-row-stack { ... } */
 .pf-row-stack .pf-col {
-  flex: 1 1 180px;
+  /* flex: 1 1 180px; */
   min-width: 0;
 }
 
