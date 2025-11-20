@@ -44,6 +44,7 @@ import { CategoriesModule } from '../categories/categories.module';
 import { StorageModule } from '../storage/storage.module';
 import { AffiliateProgramModule } from '../affiliate-program/affiliate-program.module';
 
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -71,8 +72,8 @@ import { AffiliateProgramModule } from '../affiliate-program/affiliate-program.m
     ComplaintsModule,
     ChatModule,
     CategoriesModule,
-    AffiliateProgramModule,
     forwardRef(() => AdminModule),
+    AffiliateProgramModule,
     TypeOrmModule.forFeature([
       User,
       JobPost,
@@ -102,7 +103,6 @@ import { AffiliateProgramModule } from '../affiliate-program/affiliate-program.m
     GoogleAuthGuard,
     AdminGuard,
     ModeratorGuard,
-    AdminService,
     {
       provide: 'MAILER_TRANSPORT',
       useFactory: (configService: ConfigService) => {
