@@ -111,6 +111,10 @@ export class AffiliateProgramService {
         default_postback_url: affiliate.default_postback_url || null,
         default_fb_pixel_code: affiliate.default_fb_pixel_code || null,
         default_ga_tag_code: affiliate.default_ga_tag_code || null,
+        referral_link: affiliate.referral_link,
+        referred_by_user_id: affiliate.referred_by_user_id,
+        created_at: affiliate.created_at,
+        updated_at: affiliate.updated_at,
       },
       summary: {
         clicks: clicksCount,
@@ -152,7 +156,7 @@ export class AffiliateProgramService {
    */
   async listOffersForAffiliate(userId: string) {
     const { user } = await this.ensureAffiliateUser(userId);
-  
+
     const offers = await this.offersRepository.find({
       where: [
         // публичные офферы
@@ -162,7 +166,7 @@ export class AffiliateProgramService {
       ],
       relations: ['affiliate_user'],
     });
-  
+
     return offers.map((offer) => ({
       id: offer.id,
       name: offer.name,

@@ -1369,18 +1369,18 @@ export class AdminController {
 
   @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   @Get('affiliate/affiliates')
-  async adminListAffiliates(@Req() req: any) {
-    const adminUserId = req.user.id;
+  async listAffiliates(@Headers('authorization') authHeader: string) {
+    const { sub: adminUserId } = this.jwtService.verify(authHeader.replace('Bearer ', ''));
     return this.adminService.listAffiliatesForAdmin(adminUserId);
   }
 
   @UseGuards(AuthGuard('jwt'), ModeratorGuard)
   @Get('affiliate/affiliates/:userId')
-  async adminGetAffiliate(
-    @Req() req: any,
+  async getAffiliate(
+    @Headers('authorization') authHeader: string,
     @Param('userId') userId: string,
   ) {
-    const adminUserId = req.user.id;
+    const { sub: adminUserId } = this.jwtService.verify(authHeader.replace('Bearer ', ''));
     return this.adminService.getAffiliateForAdmin(adminUserId, userId);
   }
 

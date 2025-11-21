@@ -4998,3 +4998,249 @@ Each item represents a single user registration (jobseeker or employer) that cam
 - **Response (Error – 404 Affiliate profile not found (edge case))**:
   ```json
   {"statusCode": 404,"message": "Affiliate profile not found","error": "Not Found"}
+
+### 137. List Affiliates (Admin)
+- **Endpoint:** `GET /api/admin/affiliate/affiliates`
+- **Description:** Returns a list of all affiliates with a linked user. Used in the admin panel to view and filter affiliates.
+- **Authentication:** `Authorization: Bearer <accessToken>` — admin or moderator token.
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
+- **Response (Success – 200)**:
+  ```json
+  [
+    {
+      "user_id": "affiliate-user-uuid",
+      "account_type": "individual",
+      "company_name": "My Media LLC",
+      "website_url": "https://my-traffic-site.com",
+      "traffic_sources": "SEO, PPC, Social",
+      "promo_geo": "US, CA, UK",
+      "monthly_traffic": "10000+ visits",
+      "payout_method": "PayPal",
+      "payout_details": "paypal@example.com",
+      "telegram": "@affiliate_username",
+      "whatsapp": "+12025550123",
+      "skype": "live:affiliate.user",
+      "notes": "Short description of traffic and verticals",
+      "created_at": "2025-11-18T10:00:00.000Z",
+      "updated_at": "2025-11-19T08:00:00.000Z",
+
+      "user": {
+        "id": "affiliate-user-uuid",
+        "email": "affiliate@example.com",
+        "username": "Jane Affiliate",
+        "role": "affiliate",
+        "country": "US",
+        "status": "active",
+        "created_at": "2025-11-13T09:59:30.000Z"
+      }
+    }
+  ]
+- **Response (Error - 401 Missing/invalid token)**:
+  ```json
+  {"statusCode": 401,"message": "Unauthorized","error": "Unauthorized"}
+
+### 138. Get Affiliate by User ID (Admin)
+- **Endpoint:** `GET /api/admin/affiliate/affiliates/:userId`
+- **Description:** Returns detailed information on a specific affiliate (affiliate profile + user) by `userId`
+- **Authentication:** `Authorization: Bearer <accessToken>` — admin or moderator token.
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
+- **Path Params:** `userId` — UUID of the user (user.id) with the affiliate role.
+- **Response (Success – 200)**:
+  ```json
+  {
+    "user": {
+      "id": "affiliate-user-uuid",
+      "email": "affiliate@example.com",
+      "username": "Jane Affiliate",
+      "role": "affiliate",
+      "country": "US",
+      "status": "active",
+      "created_at": "2025-11-13T09:59:30.000Z",
+      "updated_at": "2025-11-19T10:00:00.000Z"
+    },
+    "affiliate": {
+      "user_id": "affiliate-user-uuid",
+      "account_type": "individual",
+      "company_name": "My Media LLC",
+      "website_url": "https://my-traffic-site.com",
+      "traffic_sources": "SEO, PPC, Social",
+      "promo_geo": "US, CA, UK",
+      "monthly_traffic": "10000+ visits",
+      "payout_method": "PayPal",
+      "payout_details": "paypal@example.com",
+      "telegram": "@affiliate_username",
+      "whatsapp": "+12025550123",
+      "skype": "live:affiliate.user",
+      "notes": "Short description of traffic and verticals",
+      "created_at": "2025-11-18T10:00:00.000Z",
+      "updated_at": "2025-11-19T08:00:00.000Z"
+    }
+  }
+- **Response (Error - 401 Missing/invalid token)**:
+  ```json
+  {"statusCode": 401,"message": "Unauthorized","error": "Unauthorized"}  
+- **Response (Error - 404)**:
+  ```json
+  { "statusCode": 404, "message": "Affiliate profile not found", "error": "Not Found" }
+
+### 139. Update Affiliate Profile (Admin)
+- **Endpoint:** `PUT /api/admin/affiliate/affiliates/:userId`
+- **Description:** Updates the affiliate profile of a specific user (without changing the User itself—only the Affiliate entity). Used by admins to edit affiliate data (website, payouts, contacts, etc.).
+- **Authentication:** `Authorization: Bearer <accessToken>` — admin or moderator token.
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
+- **Path Params:** `userId` — UUID of the user (user.id) with the affiliate role.
+- **Request Body (JSON, all fields optional)**:
+  ```json
+  {
+    "account_type": "company",              // "individual" | "company"
+    "company_name": "New Media LTD",
+    "website_url": "https://new-site.com",
+    "traffic_sources": "SEO, PPC",
+    "promo_geo": "US, CA",
+    "monthly_traffic": "5000-10000",
+    "payout_method": "Bank Wire",
+    "payout_details": "IBAN / SWIFT ...",
+    "telegram": "@new_telegram",
+    "whatsapp": "+12025550123",
+    "skype": "live:new.skype",
+    "notes": "Verified partner, high-quality traffic"
+  }
+- **Success Response (200): (returns the updated Affiliate entity)**:
+  ```json
+  {
+    "user_id": "affiliate-user-uuid",
+    "account_type": "company",
+    "company_name": "New Media LTD",
+    "website_url": "https://new-site.com",
+    "traffic_sources": "SEO, PPC",
+    "promo_geo": "US, CA",
+    "monthly_traffic": "5000-10000",
+    "payout_method": "Bank Wire",
+    "payout_details": "IBAN / SWIFT ...",
+    "telegram": "@new_telegram",
+    "whatsapp": "+12025550123",
+    "skype": "live:new.skype",
+    "notes": "Verified partner, high-quality traffic",
+    "created_at": "2025-11-18T10:00:00.000Z",
+    "updated_at": "2025-11-19T09:30:00.000Z"
+  }
+- **Response (Error - 401 Missing/invalid token)**:
+  ```json
+  {"statusCode": 401,"message": "Unauthorized","error": "Unauthorized"}  
+- **Response (Error - 404)**:
+  ```json
+  { "statusCode": 404, "message": "Affiliate profile not found", "error": "Not Found" }
+
+### 140. List Affiliate Offers (Admin)
+- **Endpoint:** `GET /api/admin/affiliate/offers`
+- **Description:** Returns a list of all affiliate offers (both public and private), with basic fields and a link to a specific affiliate if the offer is private.
+- **Authentication:** `Authorization: Bearer <accessToken>` — admin or moderator token.
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
+- **Success Response (200)**:
+  ```json
+  [
+    {
+      "id": "offer-uuid",
+      "name": "Jobseeker registrations",
+      "target_role": "jobseeker",
+      "payout_model": "cpa",
+      "default_cpa_amount": 40,
+      "default_revshare_percent": null,
+      "currency": "USD",
+      "brand": "jobforge",
+      "is_active": true,
+      "visibility": "public",             // "public" | "private"
+      "affiliate_user_id": null,          // если private и персональный — тут будет user.id
+      "created_at": "2025-11-18T10:00:00.000Z",
+      "updated_at": "2025-11-19T09:00:00.000Z"
+    }
+  ]
+
+### 141. Create Affiliate Offer (Admin)
+- **Endpoint:** `POST /api/admin/affiliate/offers`
+- **Description:** Creates a new affiliate offer (public or private). A private offer can be linked to a specific affiliate. Currently, there are no geo-restrictions or deposits—just basic settings.
+- **Authentication:** `Authorization: Bearer <accessToken>` — admin or moderator token.
+- **Headers:** `Authorization (required)` — Bearer <JWT>.
+- **Request Body (JSON)**:
+  ```json
+  {
+    "name": "Employer deposits",
+    "target_role": "employer",            // "jobseeker" | "employer"
+    "payout_model": "hybrid",             // "cpa" | "revshare" | "hybrid"
+    "default_cpa_amount": 400,            // optional, null для revshare-only
+    "default_revshare_percent": 20,       // optional, null для чистого CPA
+    "currency": "USD",                    // optional, default: "USD"
+    "brand": "jobforge",                  // optional, default: из SITE_BRAND/BRAND или "default"
+    "is_active": true,                    // optional, default: true
+    "visibility": "public",               // "public" | "private", default: "public"
+    "affiliate_user_id": null             // required если visibility = "private"
+  }
+- **Success Response (200): (created offer - AffiliateOffer entity)**:
+  ```json
+  {
+    "id": "offer-uuid",
+    "name": "Employer deposits",
+    "target_role": "employer",
+    "payout_model": "hybrid",
+    "default_cpa_amount": 400,
+    "default_revshare_percent": 20,
+    "currency": "USD",
+    "brand": "jobforge",
+    "is_active": true,
+    "visibility": "public",
+    "affiliate_user": null,
+    "created_at": "2025-11-19T09:10:00.000Z",
+    "updated_at": "2025-11-19T09:10:00.000Z"
+  }
+- **Response (Error – 400, private without affiliate_user_id)**:
+  ```json
+  {"statusCode": 400,"message": "affiliate_user_id is required for private offers","error": "Bad Request"}
+- **Response (Error – 404, affiliate user not found)**:
+  ```json
+  {"statusCode": 404,"message": "Affiliate user not found","error": "Not Found"}
+
+### 142. Update Affiliate Offer (Admin)
+- **Endpoint:** `PUT /api/admin/affiliate/offers/:offerId`
+- **Description:** Updates an existing offer: you can change the name, payout model, activity, publicity, link to a specific affiliate, etc.
+- **Authentication:** `Authorization: Bearer <accessToken>` — admin or moderator token.
+- **Path Params:** `offerId` — UUID of the offer.
+- **Request Body (JSON, all fields optional)**:
+  ```json
+  {
+    "name": "Employer deposits (Tier1)",
+    "target_role": "employer",
+    "payout_model": "hybrid",
+    "default_cpa_amount": 500,
+    "default_revshare_percent": 25,
+    "currency": "USD",
+    "brand": "jobforge",
+    "is_active": true,
+    "visibility": "private",          // переключить на private/public
+    "affiliate_user_id": "affiliate-user-uuid"  // привязать к конкретному аффу
+  }
+- **Success Response (200)**:
+  ```json
+  {
+    "id": "offer-uuid",
+    "name": "Employer deposits (Tier1)",
+    "target_role": "employer",
+    "payout_model": "hybrid",
+    "default_cpa_amount": 500,
+    "default_revshare_percent": 25,
+    "currency": "USD",
+    "brand": "jobforge",
+    "is_active": true,
+    "visibility": "private",
+    "affiliate_user": {
+      "id": "affiliate-user-uuid"
+      // ...остальные поля юзера по твоей конфигурации сериализации
+    },
+    "created_at": "2025-11-18T10:00:00.000Z",
+    "updated_at": "2025-11-19T09:20:00.000Z"
+  }
+- **Response (Error – 404)**:
+  ```json
+  {"statusCode": 404,"message": "Affiliate offer not found","error": "Not Found"}
+- **Response (Error – 400, Incorrect private configuration)**:
+  ```json
+  {"statusCode": 400,"message": "affiliate_user_id is required for private offers","error": "Bad Request"}
