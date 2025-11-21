@@ -63,6 +63,22 @@ const renderSalary = (j: JobPost): string => {
 };
 
 
+const getDisplayCompanyName = (job: JobPost): string => {
+  const j = job as JobPost & { company_name?: string | null; companyName?: string | null };
+  const byCompanyField = j.company_name ?? j.companyName;
+  const byEmployer =
+    j.employer?.username ||
+    (j as any).employer_username ||
+    (j as any).owner_username ||
+    (j as any).created_by_username ||
+    (j as any).posted_by_username ||
+    'Unknown';
+
+  return (byCompanyField && byCompanyField.trim()) || byEmployer;
+};
+
+
+
 
 
 const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
@@ -93,10 +109,11 @@ const truncateDescription = (description: string | undefined, maxLength: number)
           </div>
 
           <p className="jc-employer">
-            <strong className="jc-employer-name">{job.employer?.username || 'Unknown'}</strong>
+            <strong className="jc-employer-name">{getDisplayCompanyName(job)}</strong>
             {' '}|{' '}
             <span className="jc-date"><FaCalendarAlt /> {formatDateInTimezone(job.created_at)}</span>
           </p>
+
 
           <p className="jc-desc">
             {truncateDescription(job.description, 100)}
@@ -161,10 +178,11 @@ const truncateDescription = (description: string | undefined, maxLength: number)
         <div className="jc-meta">
           <span className="jc-chip"><FaBriefcase /> {job.job_type || 'Not specified'}</span>
           <span className="jc-divider">•</span>
-          <span className="jc-employer-name">{job.employer?.username || 'Unknown'}</span>
+          <span className="jc-employer-name">{getDisplayCompanyName(job)}</span>
           <span className="jc-divider">|</span>
           <span className="jc-date"><FaCalendarAlt /> {formatDateInTimezone(job.created_at)}</span>
         </div>
+
 
         <p className="jc-desc">
           {truncateDescription(job.description, 150)}

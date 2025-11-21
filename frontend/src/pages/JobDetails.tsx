@@ -416,31 +416,40 @@ const backAfterReport =
       null;
 
     return avatar ? (
-  <img
-    src={String(avatar).startsWith('http') ? avatar : `${brandBackendOrigin()}${avatar}`}
-    alt="Employer Avatar"
-    className="employer-avatar"
-  />
-) : (
-  <FaUserCircle className="employer-avatar" />
-);
-
+      <img
+        src={String(avatar).startsWith('http') ? avatar : `${brandBackendOrigin()}${avatar}`}
+        alt="Employer Avatar"
+        className="employer-avatar"
+      />
+    ) : (
+      <FaUserCircle className="employer-avatar" />
+    );
   })()}
 
   {(() => {
-    const displayEmployer =
-      job.employer?.username ??
-      (job as any).employer_username ??
-      (job as any).owner_username ??
-      (job as any).created_by_username ??
-      (job as any).posted_by_username ??
-      (job as any).employer?.name ??
-      (job as any).employer?.company_name ??
+    const j = job as JobPost & { company_name?: string | null; companyName?: string | null };
+
+    const byCompanyField =
+      j.company_name ??
+      j.companyName;
+
+    const byEmployerUsername =
+      j.employer?.username ??
+      (j as any).employer_username ??
+      (j as any).owner_username ??
+      (j as any).created_by_username ??
+      (j as any).posted_by_username ??
+      (j as any).employer?.name ??
+      (j as any).employer?.company_name ??
       'Unknown';
+
+    const displayEmployer =
+      (byCompanyField && byCompanyField.trim()) || byEmployerUsername;
 
     return <span className="employer-name">{displayEmployer}</span>;
   })()}
 </div>
+
 
 
                    {!profile && (

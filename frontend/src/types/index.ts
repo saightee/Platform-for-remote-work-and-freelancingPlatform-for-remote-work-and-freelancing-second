@@ -165,6 +165,7 @@ export interface JobPost {
   required_skills?: string[];
   excluded_locations?: string[];
   categories?: { id: string; name: string; parent_id?: string | null }[];
+  company_name?: string | null;
 }
 
 

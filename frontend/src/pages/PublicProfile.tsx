@@ -555,10 +555,11 @@ const submitInvite = async () => {
                       {profile.portfolio}
                     </a>
                   ) : (
-                    'Not specified'
+                    'Not visible'
                   )}
                 </span>
               </li>
+
 
               <li>
                 <span className="ppx-kv-icon">
@@ -577,10 +578,11 @@ const submitInvite = async () => {
                       {profile.video_intro}
                     </a>
                   ) : (
-                    'Not specified'
+                    'Not visible'
                   )}
                 </span>
               </li>
+
 
               <li>
                 <span className="ppx-kv-icon">
@@ -599,10 +601,11 @@ const submitInvite = async () => {
                       Download Resume
                     </a>
                   ) : (
-                    'Not specified'
+                    'Not visible'
                   )}
                 </span>
               </li>
+
 
               {(profile as any).linkedin ||
               (profile as any).instagram ||

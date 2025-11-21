@@ -743,4 +743,30 @@ select.ftl-input {
   }
 }
 
+.ftl-headbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.ftl-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* новый счётчик найденных талантов */
+.ftl-count {
+  font-size: 14px;
+  color: #6b7280; /* gray-500 */
+  white-space: nowrap;
+}
+
+/* на очень узких экранах можно спрятать, чтобы не ломал верстку */
+@media (max-width: 640px) {
+  .ftl-count {
+    display: none;
+  }
+}
 

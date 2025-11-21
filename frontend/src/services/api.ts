@@ -240,15 +240,16 @@ export const register = async (payload: any) => {
     typeof FormData !== 'undefined' && payload instanceof FormData;
 
   const headers: Record<string, any> = { 'x-fingerprint': fingerprint };
-  if (isFormData) headers['Content-Type'] = undefined; // <— ключевой момент
+  if (isFormData) headers['Content-Type'] = undefined; // <— для FormData
 
-  const { data } = await api.post<{ message: string }>(
+  const { data } = await api.post<{ message: string; pending_session_id?: string }>(
     '/auth/register',
     payload,
     { headers }
   );
   return data;
 };
+
 
 
 
@@ -317,6 +318,15 @@ export const forgotPassword = async (email: string) => {
 
 export const verifyEmail = async (token: string) => {
   const response = await api.get<{ message: string }>('/auth/verify-email', { params: { token } });
+  return response.data;
+};
+
+export const getPendingSessionStatus = async (id: string) => {
+  const response = await api.get<{
+    status: 'pending' | 'verified' | 'not_found';
+    accessToken?: string;
+  }>('/auth/pending-session', { params: { id } });
+
   return response.data;
 };
 

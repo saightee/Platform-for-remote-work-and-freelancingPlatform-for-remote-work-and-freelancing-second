@@ -231,36 +231,53 @@ const [notifyJobTitleQuery, setNotifyJobTitleQuery] = useState('');
 const [jobSearchResults, setJobSearchResults] = useState<JobPost[]>([]);
 const [selectedSourceJobIds, setSelectedSourceJobIds] = useState<string[]>([]);
 const [allSourceJobs, setAllSourceJobs] = useState<JobPost[]>([]);
+const [notifyJobPostId, setNotifyJobPostId] = useState<string>('');
+  const notifyJob = jobPosts.find(p => p.id === notifyJobPostId);
 
-const handleJobSearchKey = async (e: React.KeyboardEvent) => {
-  if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault();
-    const term = notifyJobTitleQuery.trim();
-    if (!term) return;
+useEffect(() => {
+  if (notifyAudience !== 'referral') {
+    setJobSearchResults([]);
+    return;
+  }
+
+  const term = notifyJobTitleQuery.trim();
+  if (!term || !notifyJobPostId) {
+    setJobSearchResults([]);
+    return;
+  }
+
+  const timeout = setTimeout(async () => {
     try {
       const jobs = await adminFindJobPostsByTitle(term);
-      // Фильтруем по совпадению категорий с текущим джобом
-      const currentJob = jobPosts.find(p => p.id === notifyJobPostId);
+
+      const currentJob = jobPosts.find((p) => p.id === notifyJobPostId);
       if (!currentJob?.categories?.length) {
         setJobSearchResults([]);
         return;
       }
-      const currentCatIds = new Set(currentJob.categories.map((c: any) => c.id));
-      const filtered = jobs.filter(j => 
+
+      const currentCatIds = new Set(
+        currentJob.categories.map((c: any) => c.id)
+      );
+
+      const filtered = jobs.filter((j) =>
         j.categories?.some((c: any) => currentCatIds.has(c.id))
       );
+
       setAllSourceJobs(filtered);
       setJobSearchResults(filtered);
     } catch {
       setJobSearchResults([]);
     }
-  }
-};
+  }, 300);
+
+  return () => clearTimeout(timeout);
+}, [notifyJobTitleQuery, notifyAudience, notifyJobPostId, jobPosts]);
 
 const toggleSelectedJob = (job: JobPost) => {
-  setSelectedSourceJobIds(prev =>
+  setSelectedSourceJobIds((prev) =>
     prev.includes(job.id)
-      ? prev.filter(id => id !== job.id)
+      ? prev.filter((id) => id !== job.id)
       : [...prev, job.id]
   );
   setNotifyJobTitleQuery('');
@@ -268,7 +285,7 @@ const toggleSelectedJob = (job: JobPost) => {
 };
 
 const removeSelectedJob = (id: string) => {
-  setSelectedSourceJobIds(prev => prev.filter(jid => jid !== id));
+  setSelectedSourceJobIds((prev) => prev.filter((jid) => jid !== id));
 };
 
 const toggleJob = (jobId: string) =>
@@ -465,8 +482,7 @@ const setFilter = <K extends keyof typeof exportFilters>(key: K, val: (typeof ex
   const [onlineStatuses, setOnlineStatuses] = useState<{ [key: string]: boolean }>({});
   const [fetchErrors, setFetchErrors] = useState<{ [key: string]: string }>({});
   const [showNotifyModal, setShowNotifyModal] = useState(false);
-const [notifyJobPostId, setNotifyJobPostId] = useState<string>('');
-  const notifyJob = jobPosts.find(p => p.id === notifyJobPostId);
+
 const [userPage, setUserPage] = useState(1);
 const [userLimit] = useState(30);
 const [isUsersLoading, setIsUsersLoading] = useState(false);
@@ -3124,19 +3140,30 @@ if (isLoading) {
   <label>Filter by categories (optional)</label>
   <select
     multiple
+    className="category-select"
     value={notifyCategoryIds}
+    // size: чтобы сразу было видно несколько строк
+    size={Math.min(
+      8,
+      (jobPosts.find(p => p.id === notifyJobPostId)?.categories?.length || 4)
+    )}
     onChange={(e) => {
-      const selected = Array.from(e.target.selectedOptions, opt => opt.value);
+      const selected = Array.from(e.target.selectedOptions, (opt) => opt.value);
       setNotifyCategoryIds(selected);
     }}
-    className="category-select"
   >
     {(jobPosts.find(p => p.id === notifyJobPostId)?.categories || []).map((cat: any) => (
-      <option key={cat.id} value={cat.id}>{cat.name}</option>
+      <option key={cat.id} value={cat.id}>
+        {cat.name}
+      </option>
     ))}
   </select>
-  <small className="hint">Leave empty to use all categories of this job post.</small>
+  <small className="hint">
+    Hold Ctrl (Cmd on Mac) to select multiple categories. Leave empty to use all
+    categories of this job post.
+  </small>
 </div>
+
 
 {/* === Previous Jobs Filter (only for referral) === */}
 {notifyAudience === 'referral' && (
@@ -3147,33 +3174,47 @@ if (isLoading) {
       value={notifyJobTitleQuery}
       onChange={(e) => setNotifyJobTitleQuery(e.target.value)}
       placeholder="Type to search job titles…"
-      onKeyDown={handleJobSearchKey}
     />
+
     {jobSearchResults.length > 0 && (
       <ul className="job-search-dropdown">
-        {jobSearchResults.map(job => (
+        {jobSearchResults.map((job) => (
           <li key={job.id} onClick={() => toggleSelectedJob(job)}>
-            <strong>{job.title}</strong> {job.employer?.username && `— ${job.employer.username}`}
+            <strong>{job.title}</strong>{' '}
+            {job.employer?.username && `— ${job.employer.username}`}
             {selectedSourceJobIds.includes(job.id) && ' ✓'}
           </li>
         ))}
       </ul>
     )}
+
     {selectedSourceJobIds.length > 0 && (
       <div className="selected-jobs">
-        {selectedSourceJobIds.map(id => {
-          const job = allSourceJobs.find(j => j.id === id);
+        {selectedSourceJobIds.map((id) => {
+          const job = allSourceJobs.find((j) => j.id === id);
           return job ? (
             <span key={id} className="selected-job-tag">
-              {job.title} <button type="button" onClick={() => removeSelectedJob(id)}>×</button>
+              {job.title}{' '}
+              <button
+                type="button"
+                onClick={() => removeSelectedJob(id)}
+                aria-label={`Remove ${job.title}`}
+              >
+                ×
+              </button>
             </span>
           ) : null;
         })}
       </div>
     )}
-    <small className="hint">Only jobs sharing at least one category with this job are shown.</small>
+
+    <small className="hint">
+      Only jobs sharing at least one category with this job are shown. Start typing
+      to see matching job titles and select one or more.
+    </small>
   </div>
 )}
+
 
         <div className="form-group">
 

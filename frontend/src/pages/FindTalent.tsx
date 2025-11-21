@@ -689,6 +689,9 @@ const getVisiblePages = () => {
             <h1 className="ftl-title">Find Talent</h1>
 
        <form className="ftl-search" onSubmit={handleSearch}>
+        <div className="ftl-count">
+      {isLoading ? 'Loading…' : `${total} talents found`}
+    </div>
   <input
     className="ftl-input"
     type="text"

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAffiliateProfile } from '../services/api';
 import { AffiliateProfile } from '@types';
-import '../styles/affiliate.css';
+import '../styles/affiliate-dashboard.css';
 import { toast } from '../utils/toast';
 
 const AffiliateDashboard: React.FC = () => {
