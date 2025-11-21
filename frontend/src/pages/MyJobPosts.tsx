@@ -31,7 +31,7 @@ import '../styles/post-job.css';
 import {
   FaBriefcase, FaEdit, FaEye, FaCheckCircle, FaTimesCircle,
   FaFolderOpen, FaChevronDown, FaChevronUp, FaSyncAlt, FaUser,
-  FaEnvelope, FaSearch, FaTimes, FaStar, FaComments, FaListUl
+  FaEnvelope, FaSearch, FaTimes, FaStar, FaComments, FaListUl, FaBuilding,
 } from 'react-icons/fa';
 
 import '../styles/my-job-posts.css';
@@ -336,6 +336,13 @@ const handleViewApplications = async (jobPostId: string) => {
         // legacy field not needed anymore
       } as any;
 
+              const companyNameRaw =
+          (editingJob as any).company_name ?? (editingJob as any).companyName ?? '';
+        if (typeof companyNameRaw === 'string') {
+          const trimmed = companyNameRaw.trim();
+          (payload as any).company_name = trimmed || null; // пустую строку превращаем в null
+        }
+
       if (editingJob.salary_type === 'negotiable') {
         (payload as any).salary_max = null;
       } else {
@@ -482,6 +489,28 @@ const handleViewApplications = async (jobPostId: string) => {
                           onChange={(e) => editingJob && setEditingJob({ ...editingJob, title: e.target.value })}
                         />
                       </div>
+
+                        {/* Company name (NEW) */}
+                        <div className="mjp-row">
+                          <label className="mjp-label">
+                            <FaBuilding /> Company name
+                          </label>
+                          <input
+                            className="mjp-input"
+                            type="text"
+                            value={(editingJob as any).company_name || ''}
+                            onChange={(e) =>
+                              editingJob &&
+                              setEditingJob({
+                                ...(editingJob as any),
+                                company_name: e.target.value,
+                              } as any)
+                            }
+                            placeholder="e.g., BigJobs Inc."
+                            maxLength={255}
+                          />
+                        </div>
+                      
 
                       <div className="mjp-row">
                         <label className="mjp-label"><FaEdit /> Description</label>

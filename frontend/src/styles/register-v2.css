@@ -462,3 +462,65 @@ input[type="password"]::-ms-clear {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* === Portfolio dropzone & list === */
+.reg2-dropzone {
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  background: #ffffff;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.reg2-dropzone.is-dragover {
+  border-color: var(--r2-accent);
+  background: #f3f6ff;
+  box-shadow: 0 0 0 3px rgba(78, 116, 200, 0.12);
+}
+
+.reg2-portfolio-list {
+  margin-top: 8px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reg2-portfolio-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.reg2-portfolio-name {
+  flex: 1 1 auto;
+  font-size: 12px;
+  color: var(--r2-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* уменьшенная кнопка для удаления файла */
+.reg2-btn--chip {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+}
+
+/* mobile tweaks */
+@media (max-width: 640px) {
+  .reg2-portfolio-item {
+    align-items: flex-start;
+  }
+
+  .reg2-portfolio-name {
+    white-space: normal;
+  }
+}

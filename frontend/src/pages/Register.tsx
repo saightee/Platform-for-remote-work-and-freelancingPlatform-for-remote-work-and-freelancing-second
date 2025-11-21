@@ -45,6 +45,7 @@ const [isAvatarDragOver, setIsAvatarDragOver] = useState(false);      // ← ava
 const portfolioInputRef = useRef<HTMLInputElement | null>(null);
 const [portfolioFiles, setPortfolioFiles] = useState<File[]>([]);
 const [portfolioErr, setPortfolioErr] = useState<string | null>(null);
+const [isPortfolioDragOver, setIsPortfolioDragOver] = useState(false);
 
 
 const processResumeFile = (f: File | null) => {
@@ -492,7 +493,7 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
         if (facebook.trim())       fd.append('facebook', facebook.trim());
         if (whatsapp.trim())       fd.append('whatsapp', whatsapp.trim());
         if (telegram.trim())       fd.append('telegram', telegram.trim());
-        if (richAbout)             fd.append('about', richAbout);
+        if (richAbout)             fd.append('description', richAbout);
         if (country.trim())        fd.append('country', country.trim().toUpperCase());
         if (languages.length)      languages.forEach(l => fd.append('languages[]', l));
       }
@@ -514,7 +515,7 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
           ...(facebook.trim() ? { facebook: facebook.trim() } : {}),
           ...(whatsapp.trim() ? { whatsapp: whatsapp.trim() } : {}),
           ...(telegram.trim() ? { telegram: telegram.trim() } : {}),
-          ...(richAbout ? { about: richAbout } : {}),
+          ...(richAbout ? { description: richAbout } : {}),
           ...(dob.trim() ? { date_of_birth: dob.trim() } : {}),
           ...(country.trim() ? { country: country.trim().toUpperCase() } : {}),
           ...(languages.length ? { languages } : {}),
@@ -865,54 +866,82 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 <div className="reg2-line">
   {/* LEFT: Photos / Portfolio files */}
   <div className="reg2-field">
-    <label className="reg2-label">
-      Photos / Portfolio files <span className="reg2-req">*</span> 
-      <span className="reg2-opt">(min. 1 photo)</span>
-    </label>
+  <label className="reg2-label">
+    Photos / Portfolio files <span className="reg2-req">*</span> 
+    <span className="reg2-opt">(min. 1 photo)</span>
+  </label>
 
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => portfolioInputRef.current?.click()}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') portfolioInputRef.current?.click(); }}
-      style={{ border: '2px dashed #d1d5db', borderRadius: 12, padding: 16, cursor: 'pointer' }}
-    >
-
-      
-      <div className="reg2-note" style={{fontWeight:600}}>
-        Click to select up to 10 files
-      </div>
-      {portfolioFiles.length > 0 ? (
-        <ul style={{marginTop:8, display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8}}>
-          {portfolioFiles.map((f, i) => (
-            <li key={i} style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:8}}>
-              <span className="reg2-note" style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{f.name}</span>
-              <button
-                type="button"
-                className="reg2-btn"
-                onClick={(e) => { e.stopPropagation(); removePortfolioIndex(i); }}
-              >
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="reg2-note">JPG/PNG/WEBP/PDF/DOC/DOCX</div>
-      )}
+  <div
+    className={`reg2-dropzone ${isPortfolioDragOver ? 'is-dragover' : ''}`}
+    role="button"
+    tabIndex={0}
+    onClick={() => portfolioInputRef.current?.click()}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') portfolioInputRef.current?.click();
+    }}
+    onDragEnter={(e) => {
+      e.preventDefault();
+      setIsPortfolioDragOver(true);
+    }}
+    onDragOver={(e) => {
+      e.preventDefault();
+      setIsPortfolioDragOver(true);
+    }}
+    onDragLeave={(e) => {
+      e.preventDefault();
+      setIsPortfolioDragOver(false);
+    }}
+    onDrop={(e) => {
+      e.preventDefault();
+      setIsPortfolioDragOver(false);
+      addPortfolioFiles(e.dataTransfer.files);
+    }}
+  >
+    <div className="reg2-note" style={{ fontWeight: 600 }}>
+      Click or drop files here (up to 10)
     </div>
 
-    <input
-      ref={portfolioInputRef}
-      type="file"
-      multiple
-      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/jpg,image/png,image/webp"
-      style={{display:'none'}}
-      onChange={(e) => addPortfolioFiles(e.target.files)}
-    />
-
-    {portfolioErr && <div className="reg2-hint reg2-hint--err" role="alert">{portfolioErr}</div>}
+    {portfolioFiles.length > 0 ? (
+      <ul className="reg2-portfolio-list">
+        {portfolioFiles.map((f, i) => (
+          <li key={i} className="reg2-portfolio-item">
+            <span className="reg2-portfolio-name">{f.name}</span>
+            <button
+              type="button"
+              className="reg2-btn reg2-btn--chip"
+              onClick={(e) => {
+                e.stopPropagation();
+                removePortfolioIndex(i);
+              }}
+            >
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <div className="reg2-note">
+        JPG/PNG/WEBP/PDF/DOC/DOCX, up to 10 MB per file.
+      </div>
+    )}
   </div>
+
+  <input
+    ref={portfolioInputRef}
+    type="file"
+    multiple
+    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/jpg,image/png,image/webp"
+    style={{ display: 'none' }}
+    onChange={(e) => addPortfolioFiles(e.target.files)}
+  />
+
+  {portfolioErr && (
+    <div className="reg2-hint reg2-hint--err" role="alert">
+      {portfolioErr}
+    </div>
+  )}
+</div>
+
 
   {/* RIGHT: Resume File */}
   <div className="reg2-field">
