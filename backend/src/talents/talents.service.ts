@@ -129,6 +129,7 @@ export class TalentsService {
         country: js.user.country,
         languages: js.languages ?? null,
         has_resume: !!js.resume,
+        date_of_birth: js.date_of_birth ?? null,
       })),
     };
   }
