@@ -2266,70 +2266,61 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
 
                   <div className="pf-row">
                     <label className="pf-label">Portfolio files</label>
-                    {portfolioFiles.length ? (
-                      <div className="pf-portfolio-grid">
-                        {portfolioFiles.map((file, i) => (
-                          <div key={i} className="pf-portfolio-item">
-                            {file.isImg ? (
-                              <button
-                                type="button"
-                                className="pf-portfolio-thumb"
-                                onClick={() => {
-                                  const idx = galleryIndexByUrl.get(file.src);
-                                  if (idx != null) {
-                                    openGalleryAt(idx);
-                                  } else {
-                                    window.open(file.src, '_blank', 'noopener');
-                                  }
-                                }}
-                              >
-                                <img
-                                  src={file.src}
-                                  alt={file.filename}
-                                  className="pf-portfolio-img"
-                                />
-                              </button>
-                            ) : (
-                              <a
-                                href={file.src}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="pf-portfolio-doc"
-                              >
-                                <span className="pf-portfolio-doc-icon">
-                                  <FaFilePdf />
-                                </span>
-                                <span className="pf-portfolio-doc-name">
-                                  {file.filename}
-                                </span>
-                              </a>
-                            )}
+                   {portfolioFiles.length ? (
+  <div className="pf-portfolio-grid">
+    {portfolioFiles.map((file, i) => (
+      <div key={i} className="pf-portfolio-item">
+        {file.isImg ? (
+          // БОЛЬШЕ НЕ КНОПКА, БЕЗ onClick
+          <div className="pf-portfolio-thumb">
+            <img
+              src={file.src}
+              alt={file.filename}
+              className="pf-portfolio-img"
+            />
+          </div>
+        ) : (
+          <a
+            href={file.src}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pf-portfolio-doc"
+          >
+            <span className="pf-portfolio-doc-icon">
+              <FaFilePdf />
+            </span>
+            <span className="pf-portfolio-doc-name">
+              {file.filename}
+            </span>
+          </a>
+        )}
 
-                            {isEditing && (
-                              <button
-                                type="button"
-                                className="pf-portfolio-remove"
-                                onClick={() => {
-                                  const list = portfolioFilesRaw.filter(
-                                    (_u, idx) => idx !== i,
-                                  );
-                                  setProfileData(
-                                    {
-                                      ...(profileData as any),
-                                      portfolio_files: list,
-                                    } as any,
-                                  );
-                                }}
-                              >
-                                ×
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="pf-muted">No files yet.</div>
-                    )}
+        {isEditing && (
+          <button
+            type="button"
+            className="pf-portfolio-remove"
+            onClick={() => {
+              const list = portfolioFilesRaw.filter(
+                (_u, idx) => idx !== i,
+              );
+              setProfileData(
+                {
+                  ...(profileData as any),
+                  portfolio_files: list,
+                } as any,
+              );
+            }}
+          >
+            ×
+          </button>
+        )}
+      </div>
+    ))}
+  </div>
+) : (
+  <div className="pf-muted">No files yet.</div>
+)}
+
 
                  
                   </div>
@@ -2466,85 +2457,7 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
         )}
       </div>
 
-      {/* GALLERY OVERLAY */}
-      {galleryOpen && galleryImages.length > 0 && (
-        <div
-          className="img-gallery-overlay"
-          onClick={() => setGalleryOpen(false)}
-        >
-          <div
-            className="img-gallery"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="img-gallery__close"
-              onClick={() => setGalleryOpen(false)}
-              aria-label="Close gallery"
-            >
-              ×
-            </button>
-
-            {galleryImages.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  className="img-gallery__arrow img-gallery__arrow--prev"
-                  onClick={() =>
-                    setGalleryIndex(
-                      (galleryIndex - 1 + galleryImages.length) %
-                        galleryImages.length,
-                    )
-                  }
-                  aria-label="Previous image"
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  className="img-gallery__arrow img-gallery__arrow--next"
-                  onClick={() =>
-                    setGalleryIndex(
-                      (galleryIndex + 1) % galleryImages.length,
-                    )
-                  }
-                  aria-label="Next image"
-                >
-                  ›
-                </button>
-              </>
-            )}
-
-            <div className="img-gallery__main">
-              <img
-                src={galleryImages[galleryIndex]}
-                alt="Profile photo"
-                className="img-gallery__main-img"
-              />
-            </div>
-
-            {galleryImages.length > 1 && (
-              <div className="img-gallery__thumbs">
-                {galleryImages.map((src, idx) => (
-                  <button
-                    key={src + idx}
-                    type="button"
-                    className={
-                      'img-gallery__thumb' +
-                      (idx === galleryIndex
-                        ? ' img-gallery__thumb--active'
-                        : '')
-                    }
-                    onClick={() => setGalleryIndex(idx)}
-                  >
-                    <img src={src} alt="" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+   
 
       <Footer />
       <Copyright />
