@@ -260,11 +260,18 @@ useEffect(() => {
         currentJob.categories.map((c: any) => c.id)
       );
 
-      const filtered = jobs.filter((j) =>
+ const filtered = jobs.filter((j) =>
         j.categories?.some((c: any) => currentCatIds.has(c.id))
       );
 
-      setAllSourceJobs(filtered);
+      // НЕ затираем старые, а аккуратно мёржим по id
+      setAllSourceJobs((prev) => {
+        const map = new Map<string, JobPost>();
+        prev.forEach((j) => map.set(j.id, j));
+        filtered.forEach((j) => map.set(j.id, j));
+        return Array.from(map.values());
+      });
+
       setJobSearchResults(filtered);
     } catch {
       setJobSearchResults([]);

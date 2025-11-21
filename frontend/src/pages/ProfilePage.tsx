@@ -390,6 +390,14 @@ const ProfilePage: React.FC = () => {
         const now = profileData as JobSeekerExtended;
 const o   = (orig as JobSeekerExtended | null);
 
+const normCurrentPosition = ((now as any).current_position || '').trim();
+if (normCurrentPosition.length > 200) {
+  setFormError('Current position must be at most 200 characters.');
+  setIsSaving(false);
+  return;
+}
+(now as any).current_position = normCurrentPosition || null;
+
 
 const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtended[K]) =>
   o ? o[key] !== val : val !== undefined;
@@ -409,7 +417,10 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                                                              patch.job_search_status = (now as any).job_search_status || 'open_to_offers';
         if (skillsChanged)                                   patch.skillIds         = skillsIdsNow;
         if (changed('experience', now.experience))           patch.experience       = now.experience;
-
+        if (changed('current_position', now.current_position ?? null)) {
+            patch.current_position = now.current_position || null;
+          }
+        
 
        
 
@@ -1195,6 +1206,13 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                         </span>
                       </div>
 
+                      <div className="pf-kv-row">
+                               <span className="pf-k">Current position</span>
+                               <span className="pf-v">
+                                 {(profileData as any).current_position || 'Not specified'}
+                               </span>
+                             </div>
+
                       {/* Skills */}
                       <div className="pf-kv-row">
                         <span className="pf-k">Skills</span>
@@ -1385,19 +1403,39 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                         </select>
                       </div>
 
+                    {/* Current position */}
+                     <div className="pf-row">
+                       <label className="pf-label">Current position</label>
+                       <input
+                         className="pf-input"
+                         type="text"
+                         maxLength={200}
+                         value={(profileData as any).current_position || ''}
+                         onChange={(e) =>
+                           setProfileData(
+                             {
+                               ...(profileData as any),
+                               current_position: e.target.value,
+                             } as any,
+                           )
+                         }
+                         placeholder="e.g., Senior Backend Developer"
+                       />
+                     </div>
+
                   {/* Skills */}
-<div className="pf-row">
-  <label className="pf-label">Skills</label>
-  <div className="pf-ac-wrap">
-    <input
-      className="pf-input"
-      type="text"
-      value={skillInput}
-      onChange={(e) => setSkillInput(e.target.value)}
-      placeholder="Type to search skills…"
-      onFocus={() => setIsDropdownOpen(true)}
-      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-    />
+                    <div className="pf-row">
+                      <label className="pf-label">Skills</label>
+                      <div className="pf-ac-wrap">
+                        <input
+                          className="pf-input"
+                          type="text"
+                          value={skillInput}
+                          onChange={(e) => setSkillInput(e.target.value)}
+                          placeholder="Type to search skills…"
+                          onFocus={() => setIsDropdownOpen(true)}
+                          onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                        />
 
     {isDropdownOpen && (
       <ul className="pf-ac-dropdown">

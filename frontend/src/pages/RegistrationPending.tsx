@@ -11,19 +11,50 @@ const REDIRECT_MS = 12000; // 12 seconds
 
 const RegistrationPending: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation() as { state?: { email?: string; pendingSessionId?: string } };
+  const location = useLocation() as {
+    state?: { email?: string; pendingSessionId?: string };
+  };
+
   const email = location?.state?.email;
   const progressRef = useRef<HTMLDivElement | null>(null);
 
   const { refreshProfile, profile } = useRole();
+
+  // флаг, что авто-логин сработал (получили токен из pending-session)
   const [autoLoginActive, setAutoLoginActive] = useState(false);
   const autoLoginStartedRef = useRef(false);
 
+  // -----------------------------
+  // 1) Таймер + прогресс-бар
+  // -----------------------------
   useEffect(() => {
     const t = setTimeout(() => {
       navigate('/login', { replace: true });
     }, REDIRECT_MS);
 
+    let raf = 0;
+    const start = performance.now();
+
+    const tick = (now: number) => {
+      const el = progressRef.current;
+      if (!el) return;
+      const elapsed = Math.min(now - start, REDIRECT_MS);
+      const pct = 100 - (elapsed / REDIRECT_MS) * 100;
+      el.style.width = `${pct}%`;
+      raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+
+    return () => {
+      clearTimeout(t);
+      cancelAnimationFrame(raf);
+    };
+  }, [navigate]);
+
+  // -----------------------------
+  // 2) Пуллинг pending-session
+  // -----------------------------
   useEffect(() => {
     // pending_session_id из state или localStorage
     const stateId = location?.state?.pendingSessionId;
@@ -36,9 +67,9 @@ const RegistrationPending: React.FC = () => {
     })();
 
     const pendingId = stateId || storedId;
-    if (!pendingId) return;
-
+    if (!pendingId) return;              // нет id — ничего не делаем
     if (autoLoginStartedRef.current) return;
+
     autoLoginStartedRef.current = true;
 
     let cancelled = false;
@@ -50,11 +81,12 @@ const RegistrationPending: React.FC = () => {
 
       try {
         const res = await getPendingSessionStatus(pendingId);
+
         if (res.status === 'verified' && res.accessToken) {
-          // отмечаем, что авто-логин пошёл
+          // помечаем, что авто-логин пошёл
           setAutoLoginActive(true);
 
-          // чистим старую cookie сессии, как в AuthCallback
+          // чистим старую cookie-сессию
           document.cookie = `${brand.id}.sid=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
 
           try {
@@ -66,26 +98,29 @@ const RegistrationPending: React.FC = () => {
             await refreshProfile();
           } catch (e) {
             console.error('Auto-login refreshProfile failed', e);
-            try { localStorage.removeItem('token'); } catch {}
+            try {
+              localStorage.removeItem('token');
+            } catch {}
             document.cookie = `${brand.id}.sid=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-            return;
           }
 
-          // дальше редирект сделает другой useEffect (ниже) по авто-логину + profile
+          // дальше редирект сделает следующий useEffect
           return;
         }
 
         if (res.status === 'not_found') {
-          // сессия умерла/не найдена — прекращаем попытки
-          try { localStorage.removeItem('pendingSessionId'); } catch {}
+          // сессия умерла/не найдена — прекращаем
+          try {
+            localStorage.removeItem('pendingSessionId');
+          } catch {}
           cancelled = true;
           return;
         }
 
-        // status === 'pending' — продолжаем polling
+        // status === 'pending' — просто ждём следующего запроса
       } catch (e) {
         console.error('Error polling pending-session', e);
-        // Ошибку логируем, но даём шанс повторять до таймаута
+        // ошибку логируем, но даём шанс повторять до таймаута
       }
 
       if (!cancelled && Date.now() - startedAt < MAX_MS) {
@@ -93,8 +128,7 @@ const RegistrationPending: React.FC = () => {
       }
     };
 
-    // маленькая задержка перед первым запросом
-    const first = setTimeout(poll, 3000);
+    const first = setTimeout(poll, 3000); // небольшая задержка перед первым запросом
 
     return () => {
       cancelled = true;
@@ -102,7 +136,10 @@ const RegistrationPending: React.FC = () => {
     };
   }, [location, refreshProfile]);
 
-    useEffect(() => {
+  // -----------------------------
+  // 3) Редирект после авто-логина
+  // -----------------------------
+  useEffect(() => {
     if (!autoLoginActive) return;
     if (!profile) return;
 
@@ -123,7 +160,8 @@ const RegistrationPending: React.FC = () => {
     } catch {
       after = '';
     }
-    const hasAfter = safe(after) != null;
+    const safeAfter = safe(after);
+    const hasAfter = !!safeAfter;
 
     // чистим хвосты pending-данных
     try { localStorage.removeItem('afterVerifyReturn'); } catch {}
@@ -133,54 +171,35 @@ const RegistrationPending: React.FC = () => {
 
     const role = profile.role;
 
+    // 1) jobseeker + есть безопасный afterVerifyReturn
     if ((roleFromStorage === 'jobseeker' || role === 'jobseeker') && hasAfter) {
-      const dest = safe(after)!;
-      navigate(dest, { replace: true });
+      navigate(safeAfter!, { replace: true });
       return;
     }
 
+    // 2) работодатель
     if (role === 'employer' || roleFromStorage === 'employer') {
       navigate('/employer-dashboard', { replace: true });
       return;
     }
 
+    // 3) аффилиат
     if (role === 'affiliate') {
       navigate('/affiliate/dashboard', { replace: true });
       return;
     }
 
-    // дефолт — джобсикер
+    // 4) дефолт — джобсикер
     navigate('/jobseeker-dashboard', { replace: true });
   }, [autoLoginActive, profile, navigate]);
 
-
-    let raf = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const el = progressRef.current;
-      if (!el) return;
-      const elapsed = Math.min(now - start, REDIRECT_MS);
-      const pct = 100 - (elapsed / REDIRECT_MS) * 100;
-      el.style.width = `${pct}%`;
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-
-    return () => {
-      clearTimeout(t);
-      cancelAnimationFrame(raf);
-    };
-  }, [navigate]);
-
   return (
     <div className="rp-shell rp-shell--light">
-   <Helmet>
-  <title>Check your email — {brand.name}</title>
-</Helmet>
+      <Helmet>
+        <title>Check your email — {brand.name}</title>
+      </Helmet>
 
       <main className="rp-card rp-card--light" role="main" aria-live="polite">
-        {/* убран бейдж "Thank you" */}
-
         <div className="rp-icon" aria-hidden="true">
           <svg viewBox="0 0 64 64" width="56" height="56">
             <circle className="rp-icon__ring" cx="32" cy="32" r="28" />
@@ -215,7 +234,9 @@ const RegistrationPending: React.FC = () => {
         </div>
 
         <div className="rp-actions">
-          <Link className="rp-btn rp-btn--primary" to="/login">Go to Login now</Link>
+          <Link className="rp-btn rp-btn--primary" to="/login">
+            Go to Login now
+          </Link>
         </div>
       </main>
     </div>

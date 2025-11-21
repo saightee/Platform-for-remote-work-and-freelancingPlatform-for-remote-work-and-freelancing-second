@@ -1071,9 +1071,7 @@ const getVisiblePages = () => {
                 <strong>Skills:</strong>{' '}
                 {skillNames.length > 0 ? skillNames.join(', ') : 'Not specified'}
               </p>
-              <p className="ftl-line">
-                <strong>Experience:</strong> {experience || 'Not specified'}
-              </p>
+             
               <p className="ftl-line">
                 <strong>Country:</strong>{' '}
                 {(talent as any).country || 'Not specified'}
@@ -1085,19 +1083,23 @@ const getVisiblePages = () => {
                     {(talent as any).languages.join(', ')}
                   </p>
               )}
-              <p className="ftl-line">
-                <strong>Age:</strong>{' '}
-                {(() => {
-                  const age = calcAge((talent as any).date_of_birth || null);
-                  return age != null ? `${age}` : 'Not specified';
-                })()}
-              </p>
+           
             </div>
 
             <div className="ftl-col">
               <p className="ftl-line">
                 <strong>Profile Views:</strong>{' '}
                 {typeof profileViews === 'number' ? profileViews : 0}
+              </p>
+                 <p className="ftl-line">
+                <strong>Age:</strong>{' '}
+                {(() => {
+                  const age = calcAge((talent as any).date_of_birth || null);
+                  return age != null ? `${age}` : 'Not specified';
+                })()}
+              </p>
+               <p className="ftl-line">
+                <strong>Experience:</strong> {experience || 'Not specified'}
               </p>
 
               {(talent as any).expected_salary != null &&

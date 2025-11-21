@@ -146,3 +146,80 @@
 
 /* spacing tweaks for switch rows */
 .bo-row--switch .bo-row__control { justify-content: flex-start; }
+
+
+/* Обёртка под инпут + список (если захочешь – можешь не использовать, но удобно) */
+.form-group .job-search-wrapper {
+  position: relative;
+}
+
+/* Сам список результатов поиска */
+.job-search-dropdown {
+  margin-top: 4px;
+  padding: 4px 0;
+  list-style: none;
+  border: 1px solid #d0d7e2;
+  border-radius: 4px;
+  background: #ffffff;
+  max-height: 220px;         /* скролл, чтобы список не раздувал модалку */
+  overflow-y: auto;
+  font-size: 13px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+  z-index: 20;
+}
+
+/* Элемент списка */
+.job-search-dropdown li {
+  padding: 6px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+/* Ховер по строке */
+.job-search-dropdown li:hover {
+  background-color: #f1f5ff;
+}
+
+/* Уже выбранная вакансия в списке (где ты ставишь ✓) */
+.job-search-dropdown li.selected,
+.job-search-dropdown li:has(strong + span)::before {
+  font-weight: 500;
+}
+
+/* Контейнер для выбранных job’ов */
+.selected-jobs {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Чип выбранной вакансии */
+.selected-job-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background-color: #e7efff;
+  color: #2c3e50;
+  font-size: 12px;
+}
+
+/* Крестик внутри чипа */
+.selected-job-tag button {
+  border: none;
+  background: transparent;
+  color: #4e74c8;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.selected-job-tag button:hover {
+  color: #2c3e50;
+}
