@@ -86,6 +86,11 @@ if (profile.role === 'jobseeker') {
       return;
     }
 
+      if (profile.role === 'affiliate') {
+      navigate('/affiliate/dashboard', { replace: true });
+      return;
+    }
+
     navigate('/', { replace: true });
   };
 

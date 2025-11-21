@@ -265,7 +265,6 @@ const formatDateInTimezone = (dateString?: string, timezone?: string): string =>
 
 
 const renderSalary = (j: JobPost): string => {
-  // страхуемся от пробелов, регистра и подчеркиваний
   const st = String(j.salary_type ?? '')
     .trim()
     .toLowerCase()
@@ -273,19 +272,35 @@ const renderSalary = (j: JobPost): string => {
 
   if (st === 'negotiable') return 'Negotiable';
 
-  // salary может прийти строкой — нормализуем
-  const num = j.salary != null ? Number(j.salary) : NaN;
-  if (Number.isFinite(num) && num > 0) {
-    const unit = st === 'per hour' ? '/ hour' : st === 'per month' ? '/ month' : '';
-    const currency =
-      (j as any).currency ||
-      (j as any).salary_currency ||
-      '$';
-    return `${currency}${num} ${unit}`.trim();
+  const unit =
+    st === 'per hour' ? 'per hour' :
+    st === 'per month' ? 'per month' :
+    st || '';
+
+  const min = j.salary != null ? Number(j.salary) : NaN;
+  const max = (j as any).salary_max != null ? Number((j as any).salary_max) : NaN;
+
+  const currency =
+    (j as any).currency ||
+    (j as any).salary_currency ||
+    '';
+
+  if (!Number.isFinite(min) && !Number.isFinite(max)) return 'Not specified';
+
+  if (Number.isFinite(min) && Number.isFinite(max) && max !== min) {
+    const prefix = currency ? `${currency}` : '';
+    return `${prefix}${min}–${max} ${unit}`.trim();
+  }
+
+  const value = Number.isFinite(min) ? min : max;
+  if (Number.isFinite(value)) {
+    const prefix = currency ? `${currency}` : '';
+    return unit ? `${prefix}${value} ${unit}`.trim() : `${prefix}${value}`;
   }
 
   return 'Not specified';
 };
+
 
 // локальный доп. тип — НЕ меняем глобальный JobPost
 type JobExtras = {
@@ -401,31 +416,40 @@ const backAfterReport =
       null;
 
     return avatar ? (
-  <img
-    src={String(avatar).startsWith('http') ? avatar : `${brandBackendOrigin()}${avatar}`}
-    alt="Employer Avatar"
-    className="employer-avatar"
-  />
-) : (
-  <FaUserCircle className="employer-avatar" />
-);
-
+      <img
+        src={String(avatar).startsWith('http') ? avatar : `${brandBackendOrigin()}${avatar}`}
+        alt="Employer Avatar"
+        className="employer-avatar"
+      />
+    ) : (
+      <FaUserCircle className="employer-avatar" />
+    );
   })()}
 
   {(() => {
-    const displayEmployer =
-      job.employer?.username ??
-      (job as any).employer_username ??
-      (job as any).owner_username ??
-      (job as any).created_by_username ??
-      (job as any).posted_by_username ??
-      (job as any).employer?.name ??
-      (job as any).employer?.company_name ??
+    const j = job as JobPost & { company_name?: string | null; companyName?: string | null };
+
+    const byCompanyField =
+      j.company_name ??
+      j.companyName;
+
+    const byEmployerUsername =
+      j.employer?.username ??
+      (j as any).employer_username ??
+      (j as any).owner_username ??
+      (j as any).created_by_username ??
+      (j as any).posted_by_username ??
+      (j as any).employer?.name ??
+      (j as any).employer?.company_name ??
       'Unknown';
+
+    const displayEmployer =
+      (byCompanyField && byCompanyField.trim()) || byEmployerUsername;
 
     return <span className="employer-name">{displayEmployer}</span>;
   })()}
 </div>
+
 
 
                    {!profile && (
@@ -496,34 +520,6 @@ const backAfterReport =
         </div>
         <div className="job-details-content">
           <div className="job-details-info">
-            
-          {!profile && job.status === 'Active' && (
-  <div style={{ display: 'flex', justifyContent: 'center', fontWeight: 'bold' }}>
-    <button
-      onClick={() => {
-  const base = '/register/jobseeker';
-  const ret = slugId ? `/vacancy/${slugId}` : (job?.id ? `/jobs/${job.id}` : '/find-job');
-  const url = hasReferral
-    ? `${base}?utm_source=job_details&job=${encodeURIComponent(job?.id || '')}&return=${encodeURIComponent(ret)}`
-    : `${base}?utm_source=job_details`;
-  navigate(url);
-}}
-
-  className="action-button"
-          style={{
-            fontSize: '15px',
-            padding: '4px 12px',
-            borderRadius: '10px',
-            minWidth: '223px',
-            height: '47px',
-            lineHeight: '20px'
-          }}
-         aria-label="Register to apply for this job"
-    >
-      Register to Apply for Job
-    </button>
-  </div>
-)}
 
             <h2>Job Overview</h2>
             <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(job.description) }} />
@@ -549,10 +545,21 @@ const backAfterReport =
       <button onClick={handleApply} className="action-button">
         Apply Now
       </button>
-    ) : null /* пока статус неизвестен — ничего не показываем, чтобы не мигало */
+    ) : null
   ) : !profile ? (
-    <button onClick={() => navigate('/login')} className="action-button">
-      Login to Apply
+    <button
+      onClick={() => {
+        const base = '/register/jobseeker';
+        const ret = slugId ? `/vacancy/${slugId}` : (job?.id ? `/jobs/${job.id}` : '/find-job');
+        const url = hasReferral
+          ? `${base}?utm_source=job_details&job=${encodeURIComponent(job?.id || '')}&return=${encodeURIComponent(ret)}`
+          : `${base}?utm_source=job_details`;
+        navigate(url);
+      }}
+      className="action-button"
+      aria-label="Register to apply for this job"
+    >
+      Register to Apply for Job
     </button>
   ) : null}
 
@@ -565,6 +572,7 @@ const backAfterReport =
     </Link>
   )}
 </div>
+
 
         </div>
 {isApplyModalOpen && (

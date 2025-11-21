@@ -1,0 +1,488 @@
+:root {
+  /* палитра (HSL как у тебя) */
+  --al-background: hsl(210 20% 98%);
+  --al-foreground: hsl(215 25% 15%);
+
+  --al-card-bg: hsl(0 0% 100%);
+  --al-card-foreground: hsl(215 25% 15%);
+  --al-card-shadow: 0 4px 20px -4px hsl(200 95% 40% / 0.1);
+  --al-card-shadow-hover: 0 8px 30px -4px hsl(200 95% 40% / 0.18);
+
+  --al-primary: hsl(200 95% 40%);
+  --al-primary-soft: hsl(200 95% 45%);
+  --al-primary-foreground: hsl(0 0% 100%);
+
+  --al-secondary: hsl(210 15% 92%);
+  --al-secondary-bg-soft: hsl(210 20% 96%);
+  --al-secondary-foreground: hsl(215 25% 15%);
+
+  --al-muted: hsl(210 20% 95%);
+  --al-muted-foreground: hsl(215 15% 45%);
+
+  --al-accent: hsl(25 95% 58%);
+  --al-accent-foreground: hsl(0 0% 100%);
+
+  --al-border: hsl(215 20% 88%);
+
+  --al-radius-lg: 10px;
+  --al-radius-md: 10px;
+}
+
+/* базовые вещи для этой страницы */
+
+.al-page {
+  min-height: 100vh;
+  background: var(--al-background);
+  color: var(--al-foreground);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text',
+    'Segoe UI', sans-serif;
+}
+
+/* контейнер */
+
+.al-container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+.al-container--narrow {
+  max-width: 780px;
+}
+
+/* HERO */
+
+.al-hero {
+  position: relative;
+  min-height: 620px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.al-hero-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top left, rgba(62, 126, 190, 0.16), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(239, 150, 70, 0.15), transparent 55%),
+    linear-gradient(135deg, rgba(13, 148, 255, 0.06), rgba(44, 62, 80, 0.03));
+  z-index: 0;
+}
+
+.al-hero-image {
+  position: absolute;
+  inset: 0;
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.al-hero-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.al-hero-inner {
+  position: relative;
+  z-index: 1;
+  padding: 80px 0 60px;
+  text-align: center;
+}
+
+.al-hero-title {
+  font-size: clamp(2.8rem, 4vw, 3.6rem);
+  line-height: 1.05;
+  margin: 0 0 18px;
+  font-weight: 700;
+}
+
+.al-hero-title span {
+  background: linear-gradient(90deg, var(--al-primary), var(--al-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 70px;
+  
+}
+
+.al-hero-subtitle {
+  font-size: clamp(1.2rem, 1.7vw, 1.5rem);
+  max-width: 640px;
+  margin: 0 auto 28px;
+  color: var(--al-muted-foreground);
+  font-weight: 400;
+}
+
+.al-hero-btn {
+  padding-inline: 32px;
+  padding-block: 14px;
+  font-size: 1rem;
+}
+
+/* СЕКЦИИ */
+
+.al-section {
+  padding: 72px 0;
+}
+
+.al-section--plans {
+  background: var(--al-background);
+}
+
+.al-section--benefits {
+  background: var(--al-secondary-bg-soft);
+}
+
+.al-section--cta {
+  background: transparent;
+  padding-bottom: 96px;
+}
+
+.al-section-head {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.al-section-title {
+  font-size: clamp(2.1rem, 3vw, 2.6rem);
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+
+.al-section-subtitle {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--al-muted-foreground);
+}
+
+/* ПЛАНЫ */
+
+.al-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.al-card {
+  background: var(--al-card-bg);
+  color: var(--al-card-foreground);
+  border-radius: var(--al-radius-lg);
+  padding: 24px 22px 26px;
+  box-shadow: var(--al-card-shadow);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+
+.al-card:hover {
+  box-shadow: var(--al-card-shadow-hover);
+  transform: translateY(-4px);
+  border-color: hsl(200 95% 40% / 0.7);
+}
+
+.al-plan-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  color: #fff;
+}
+
+.al-plan-icon__svg {
+  width: 28px;
+  height: 28px;
+}
+
+/* разные градиенты под каждый план */
+.al-plan-icon--business {
+  background: linear-gradient(135deg, hsl(200 95% 40%), hsl(200 95% 55%));
+}
+
+.al-plan-icon--freelancer {
+  background: linear-gradient(135deg, hsl(25 95% 58%), hsl(25 95% 68%));
+}
+
+.al-plan-icon--revenue {
+  background: linear-gradient(135deg, hsl(200 95% 40%), hsl(25 95% 58%));
+}
+
+.al-card-title {
+  margin: 0 0 6px;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.al-card-desc {
+  margin: 0 0 16px;
+  font-size: 0.96rem;
+  color: var(--al-muted-foreground);
+}
+
+.al-plan-earning {
+  margin-bottom: 16px;
+}
+
+.al-plan-earning__value {
+  font-size: 2.6rem;
+  font-weight: 800;
+  background: linear-gradient(90deg, var(--al-primary), var(--al-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.al-plan-earning__unit {
+  margin-top: 2px;
+  font-size: 0.85rem;
+  color: var(--al-muted-foreground);
+}
+
+.al-card-text {
+  margin: 0 0 16px;
+  font-size: 0.95rem;
+  color: var(--al-foreground);
+}
+
+/* БЕНЕФИТЫ */
+
+.al-benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.al-benefit-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 20px 24px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+.al-benefit-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--al-primary);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.al-benefit-text {
+  font-size: 0.98rem;
+}
+
+/* CTA */
+
+.al-cta-card {
+  background: linear-gradient(135deg, var(--al-primary), var(--al-accent));
+  border-radius: 10px;
+  padding: 32px 24px 30px;
+  color: #fff;
+  text-align: center;
+  box-shadow: var(--al-card-shadow-hover);
+}
+
+.al-cta-title {
+  margin: 0 0 8px;
+  font-size: clamp(2.1rem, 3vw, 2.6rem);
+  font-weight: 800;
+  color: white;
+}
+
+.al-cta-subtitle {
+  margin: 0 0 20px;
+  font-size: 1.05rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.al-cta-form {
+  max-width: 460px;
+  margin: 0 auto 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.al-input {
+  flex: 1 1 220px;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 0;
+  font-size: 0.95rem;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.al-input::placeholder {
+  color: rgba(15, 23, 42, 0.45);
+}
+
+.al-cta-note {
+  margin: 0;
+  font-size: 0.86rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.al-cta-note a {
+  color: #fff;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* КНОПКИ */
+
+.al-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 18px 35px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+    transform 0.08s ease, box-shadow 0.12s ease;
+    text-decoration: none;
+}
+
+.al-btn--primary {
+  background: var(--al-primary);
+  color: var(--al-primary-foreground);
+  border-color: var(--al-primary);
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.25);
+}
+
+.al-btn--primary:hover {
+  background: var(--al-primary-soft);
+  transform: translateY(-1px);
+}
+
+.al-btn--outline {
+  background: #fff;
+  border-color: var(--al-border);
+  color: var(--al-foreground);
+}
+
+.al-btn--outline:hover {
+  border-color: var(--al-primary);
+  color: var(--al-primary);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.12);
+}
+
+.al-btn--secondary {
+  background: #fff;
+  color: var(--al-foreground);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.al-btn--secondary:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-1px);
+}
+
+.al-btn--full {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.al-btn--lg {
+  padding: 11px 26px;
+  font-size: 1rem;
+}
+
+/* АНИМАЦИИ */
+
+@keyframes al-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.al-animate-fade-in {
+  opacity: 0;
+  animation: al-fade-in 0.5s ease-out forwards;
+}
+
+/* АДАПТИВ */
+
+@media (max-width: 960px) {
+  .al-plans-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .al-benefits-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .al-hero {
+    min-height: 520px;
+  }
+
+  .al-hero-inner {
+    padding-top: 64px;
+    padding-bottom: 56px;
+  }
+
+  .al-hero-title span {
+
+  font-size: 50px;
+  
+}
+}
+
+@media (max-width: 720px) {
+  .al-section {
+    padding: 56px 0;
+  }
+
+  .al-plans-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .al-card {
+    padding: 20px 18px 22px;
+  }
+
+  .al-cta-card {
+    padding-inline: 18px;
+  }
+
+  .al-cta-form {
+    flex-direction: column;
+  }
+
+  .al-btn--full {
+    width: 100%;
+  }
+
+    .al-hero-title span {
+
+  font-size: 40px;
+  
+}
+
+.al-input {
+    flex: none;
+}
+
+.al-btn {
+  font-size: 0.9rem; 
+  padding: 14px 28px;
+}
+}

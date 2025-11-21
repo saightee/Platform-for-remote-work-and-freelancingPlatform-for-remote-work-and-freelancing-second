@@ -29,21 +29,55 @@ const renderSalary = (j: JobPost): string => {
 
   if (st === 'negotiable') return 'Negotiable';
 
-  const num = j.salary != null ? Number(j.salary) : NaN;
-  if (Number.isFinite(num) && num > 0) {
-    const unit =
-      st === 'per hour' ? '/ hour' :
-      st === 'per month' ? '/ month' :
-      '';
-    const currency =
-      (j as any).currency ||
-      (j as any).salary_currency ||
-      '$';
-    return `${currency}${num} ${unit}`.trim();
+  const unit =
+    st === 'per hour' ? 'per hour' :
+    st === 'per month' ? 'per month' :
+    st || '';
+
+  // min и max из API: salary — минимум, salary_max — максимум (может быть null)
+  const min = j.salary != null ? Number(j.salary) : NaN;
+  const max = (j as any).salary_max != null ? Number((j as any).salary_max) : NaN;
+
+  const currency =
+    (j as any).currency ||
+    (j as any).salary_currency ||
+    ''; // если хочешь — можно вернуть '$' как дефолт
+
+  // если вообще нет чисел
+  if (!Number.isFinite(min) && !Number.isFinite(max)) return 'Not specified';
+
+  // оба есть и разные → диапазон "5–8 per hour"
+  if (Number.isFinite(min) && Number.isFinite(max) && max !== min) {
+    const prefix = currency ? `${currency}` : '';
+    return `${prefix}${min}–${max} ${unit}`.trim();
+  }
+
+  // только одна сторона (по идее у нас всегда есть min, но на всякий случай)
+  const value = Number.isFinite(min) ? min : max;
+  if (Number.isFinite(value)) {
+    const prefix = currency ? `${currency}` : '';
+    return unit ? `${prefix}${value} ${unit}`.trim() : `${prefix}${value}`;
   }
 
   return 'Not specified';
 };
+
+
+const getDisplayCompanyName = (job: JobPost): string => {
+  const j = job as JobPost & { company_name?: string | null; companyName?: string | null };
+  const byCompanyField = j.company_name ?? j.companyName;
+  const byEmployer =
+    j.employer?.username ||
+    (j as any).employer_username ||
+    (j as any).owner_username ||
+    (j as any).created_by_username ||
+    (j as any).posted_by_username ||
+    'Unknown';
+
+  return (byCompanyField && byCompanyField.trim()) || byEmployer;
+};
+
+
 
 
 
@@ -75,10 +109,11 @@ const truncateDescription = (description: string | undefined, maxLength: number)
           </div>
 
           <p className="jc-employer">
-            <strong className="jc-employer-name">{job.employer?.username || 'Unknown'}</strong>
+            <strong className="jc-employer-name">{getDisplayCompanyName(job)}</strong>
             {' '}|{' '}
             <span className="jc-date"><FaCalendarAlt /> {formatDateInTimezone(job.created_at)}</span>
           </p>
+
 
           <p className="jc-desc">
             {truncateDescription(job.description, 100)}
@@ -143,10 +178,11 @@ const truncateDescription = (description: string | undefined, maxLength: number)
         <div className="jc-meta">
           <span className="jc-chip"><FaBriefcase /> {job.job_type || 'Not specified'}</span>
           <span className="jc-divider">•</span>
-          <span className="jc-employer-name">{job.employer?.username || 'Unknown'}</span>
+          <span className="jc-employer-name">{getDisplayCompanyName(job)}</span>
           <span className="jc-divider">|</span>
           <span className="jc-date"><FaCalendarAlt /> {formatDateInTimezone(job.created_at)}</span>
         </div>
+
 
         <p className="jc-desc">
           {truncateDescription(job.description, 150)}

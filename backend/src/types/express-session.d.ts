@@ -5,7 +5,7 @@ declare module 'express-session' {
     user?: {
       id: string;
       email: string;
-      role: 'jobseeker' | 'employer' | 'admin' | 'moderator';
+      role: 'jobseeker' | 'employer' | 'admin' | 'moderator' | 'affiliate';
     };
   }
 }

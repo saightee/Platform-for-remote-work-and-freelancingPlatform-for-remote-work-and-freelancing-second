@@ -27,6 +27,47 @@ type Props = {
   prefetchedJob?: JobPost;
 };
 
+const renderSalary = (j: JobPost): string => {
+  const st = String(j.salary_type ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, ' ');
+
+  if (!st) return 'Not specified';
+  if (st === 'negotiable') return 'Negotiable';
+
+  const unit =
+    st === 'per hour' ? 'per hour' :
+    st === 'per month' ? 'per month' :
+    st;
+
+  const min = j.salary != null ? Number(j.salary) : NaN;
+  const max = (j as any).salary_max != null ? Number((j as any).salary_max) : NaN;
+
+  const currency =
+    (j as any).currency ||
+    (j as any).salary_currency ||
+    '';
+
+  // если вообще нет числовых значений
+  if (!Number.isFinite(min) && !Number.isFinite(max)) return 'Not specified';
+
+  // диапазон: min–max
+  if (Number.isFinite(min) && Number.isFinite(max) && max !== min) {
+    const prefix = currency ? `${currency}` : '';
+    return `${prefix}${min}–${max} ${unit}`.trim();
+  }
+
+  // только одна сторона или они равны → показываем одно число
+  const value = Number.isFinite(min) ? min : max;
+  if (Number.isFinite(value)) {
+    const prefix = currency ? `${currency}` : '';
+    return unit ? `${prefix}${value} ${unit}`.trim() : `${prefix}${value}`;
+  }
+
+  return 'Not specified';
+};
+
 export default function JobLanding({ prefetchedJob }: Props) {
   const { slugId = '' } = useParams();
   const location = useLocation();
@@ -236,15 +277,14 @@ const ogImage = `${brandOrigin()}${brand.ogImagePath}`;
                 <FaBriefcase className="jl-ico" />
                 <strong>Title:</strong> {job.title}
               </li>
-             {job.salary_type && (
+{job.salary_type && (
   <li>
     <FaMoneyBillWave className="jl-ico" />
     <strong>Pay:</strong>{' '}
-    {job.salary_type.toLowerCase() === 'negotiable'
-      ? 'Negotiable'
-      : `${String(job.salary ?? 'Negotiable')} ${job.salary_type}`}
+    {renderSalary(job)}
   </li>
 )}
+
 
               {job.job_type && (
                 <li>

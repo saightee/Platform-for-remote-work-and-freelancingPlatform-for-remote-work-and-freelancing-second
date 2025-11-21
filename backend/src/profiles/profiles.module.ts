@@ -10,10 +10,11 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Category } from '../categories/category.entity';
 import { StorageModule } from '../storage/storage.module';
+import { JobApplication } from '../job-applications/job-application.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, JobSeeker, Employer, Category]),
+    TypeOrmModule.forFeature([User, JobSeeker, Employer, Category, JobApplication]),
     ReviewsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

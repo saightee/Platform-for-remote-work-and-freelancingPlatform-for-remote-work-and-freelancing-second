@@ -13,7 +13,7 @@ import 'react-quill/dist/quill.snow.css';
 import Loader from '../components/Loader';
 import {
   FaBriefcase, FaMapMarkerAlt, FaMoneyBillWave, FaListUl,
-  FaBolt, FaRedo, FaSearch, FaTimes, FaLightbulb, FaInfoCircle, FaHistory, FaTimesCircle
+  FaBolt, FaRedo, FaSearch, FaTimes, FaLightbulb, FaInfoCircle, FaHistory, FaTimesCircle, FaBuilding
 } from 'react-icons/fa';
 import '../styles/post-job.css';
 import { toast } from '../utils/toast';
@@ -34,6 +34,7 @@ const PostJob: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [skillInput, setSkillInput] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [salaryType, setSalaryType] = useState<SalaryType>('per hour');
@@ -51,6 +52,7 @@ const [categoryError, setCategoryError] = useState<string | null>(null);
 
   // src/pages/PostJob.tsx
   const [salary, setSalary] = useState<number | null>(null);
+  const [salaryMax, setSalaryMax] = useState<number | null>(null);
   // --- changed: support multiple categories ---
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -180,9 +182,11 @@ const fillFromPrevious = async (jobId: string) => {
 
     // === подстановка полей из выбранной вакансии ===
     setTitle(j.title || '');
+    setCompanyName((j as any).company_name || (j as any).companyName || '');
     setLocationMode(j.location || '');
     setSalaryType((j.salary_type as SalaryType) ?? 'per hour');
     setSalary(j.salary_type === 'negotiable' ? null : (j.salary ?? null));
+    setSalaryMax(j.salary_type === 'negotiable' ? null : (j as any).salary_max ?? null);
     setJobType(j.job_type ?? undefined);
 
     // категории
@@ -218,9 +222,11 @@ const clearPrevSelection = () => {
 
   // очищаем ВСЕ вставленные поля формы
   setTitle('');
+  setCompanyName('');
   setLocationMode('');
   setSalaryType('per hour');
   setSalary(null);
+  setSalaryMax(null);
   setJobType(undefined);
   setSelectedCategoryIds([]);
   setExcludedCountries([]);
@@ -242,7 +248,7 @@ const clearPrevSelection = () => {
 };
 
   useEffect(() => {
-    if (salaryType === 'negotiable') setSalary(null);
+    if (salaryType === 'negotiable') setSalary(null); setSalaryMax(null);
   }, [salaryType]);
 
   useEffect(() => {
@@ -327,29 +333,50 @@ useEffect(() => {
   return;
 }
 
-    try {
-      setError(null);
-      setIsSubmitting(true);
+   try {
+  setError(null);
+  setIsSubmitting(true);
 
-      if (salaryType !== 'negotiable') {
-        if (salary === null || salary <= 0) {
-          setError('Salary is required (>0) unless salary type is negotiable.');
-          setIsSubmitting(false);
-          return;
-        }
-      }
+  if (salaryType !== 'negotiable') {
+    if (salary === null || salary <= 0) {
+      setError('Salary is required (>0) unless salary type is negotiable.');
+      setIsSubmitting(false);
+      return;
+    }
 
-const jobData: Partial<JobPost> & { aiBrief?: string } = {
-  title,
-  location: locationMode,
-  salary: salaryType === 'negotiable' ? null : (salary ?? null),
-  salary_type: salaryType,
-  excluded_locations: excludedCountries,
-  status: 'Active',
-  job_type: jobType,
-  // --- changed: send multi-select values ---
-  category_ids: selectedCategoryIds,
-};
+    if (salaryMax != null && salary != null && salaryMax < salary) {
+      setError('Maximum salary cannot be less than minimum salary.');
+      setIsSubmitting(false);
+      return;
+    }
+  }
+
+  const jobData: Partial<JobPost> & { aiBrief?: string } = {
+    title,
+    location: locationMode,
+    salary_type: salaryType,
+    excluded_locations: excludedCountries,
+    status: 'Active',
+    job_type: jobType,
+    // --- changed: send multi-select values ---
+    category_ids: selectedCategoryIds,
+  };
+
+  if (companyName.trim()) {
+    (jobData as any).company_name = companyName.trim();
+  }
+
+  // Заполняем только если не negotiable
+  if (salaryType !== 'negotiable') {
+    jobData.salary = salary ?? null;
+
+    // Если фиксированная сумма — employer может не указывать max,
+    // тогда шлём только salary.
+    if (salaryMax != null) {
+      jobData.salary_max = salaryMax;
+    }
+  }
+
 
 // ВСЕГДА отправляем description — тогда бэк НЕ будет заново генерировать
 jobData.description = description;
@@ -526,6 +553,21 @@ navigate('/employer-dashboard');
                 />
               </div>
 
+                    <div className="pjx-row">
+                <label className="pjx-label">
+                  <FaBuilding /> Company name{' '}
+                  <InfoTip tip="Optional. This name will be displayed on job cards instead of your account name." />
+                </label>
+                <input
+                  className="pjx-input"
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="e.g., BigJobs Inc."
+                  maxLength={255}
+                />
+              </div>
+
               <div className="pjx-row">
                 <label className="pjx-label">
                   <FaMapMarkerAlt /> Location Exclusions{' '}
@@ -592,31 +634,45 @@ navigate('/employer-dashboard');
               </div>
 
               <div className="pjx-row">
-                <label className="pjx-label">
-                  <FaMoneyBillWave /> Salary{' '}
-                  <InfoTip tip="Choose a unit. Select ‘negotiable’ to hide the exact amount." />
-                </label>
-                <div className="pjx-salary">
-                  <input
-                    className="pjx-input"
-                    type="number"
-                    value={salaryType === 'negotiable' ? '' : salary ?? ''}
-                    onChange={(e) => setSalary(e.target.value ? Number(e.target.value) : null)}
-                    placeholder={salaryType === 'negotiable' ? 'Negotiable' : 'Enter amount'}
-                    min={0}
-                    disabled={salaryType === 'negotiable'}
-                  />
-                  <select
-                    className="pjx-select"
-                    value={salaryType}
-                    onChange={(e) => setSalaryType(e.target.value as SalaryType)}
-                  >
-                    <option value="per hour">per hour</option>
-                    <option value="per month">per month</option>
-                    <option value="negotiable">negotiable</option>
-                  </select>
-                </div>
-              </div>
+  <label className="pjx-label">
+    <FaMoneyBillWave /> Salary{' '}
+    <InfoTip tip="Choose a unit. Select ‘negotiable’ to hide the exact amount. You can also set a range (min–max)." />
+  </label>
+  <div className="pjx-salary">
+    {/* Min salary (required if not negotiable) */}
+    <input
+      className="pjx-input"
+      type="number"
+      value={salaryType === 'negotiable' ? '' : salary ?? ''}
+      onChange={(e) => setSalary(e.target.value ? Number(e.target.value) : null)}
+      placeholder={salaryType === 'negotiable' ? 'Negotiable' : 'Min'}
+      min={0}
+      disabled={salaryType === 'negotiable'}
+    />
+
+    {/* Max salary (optional) */}
+    <input
+      className="pjx-input"
+      type="number"
+      value={salaryType === 'negotiable' ? '' : salaryMax ?? ''}
+      onChange={(e) => setSalaryMax(e.target.value ? Number(e.target.value) : null)}
+      placeholder={salaryType === 'negotiable' ? 'Negotiable' : 'Max (optional)'}
+      min={0}
+      disabled={salaryType === 'negotiable'}
+    />
+
+    <select
+      className="pjx-select"
+      value={salaryType}
+      onChange={(e) => setSalaryType(e.target.value as SalaryType)}
+    >
+      <option value="per hour">per hour</option>
+      <option value="per month">per month</option>
+      <option value="negotiable">negotiable</option>
+    </select>
+  </div>
+</div>
+
 
               <div className="pjx-row">
                 <label className="pjx-label">

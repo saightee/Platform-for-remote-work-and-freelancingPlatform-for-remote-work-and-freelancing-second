@@ -58,7 +58,9 @@ import Toaster from './components/Toaster';
 import RequireAuth from './routes/RequireAuth';
 import CategoriesCarouselPlayground from './dev/CategoriesCarouselPlayground';
 import Loader from './components/Loader';
-
+import AffiliateLanding from './pages/AffiliateLanding';
+import AffiliateRegister from './pages/AffiliateRegister';
+import AffiliateDashboard from './pages/AffiliateDashboard';
 
 
 const App: React.FC = () => {
@@ -82,11 +84,22 @@ const App: React.FC = () => {
           <Route path="/philippino-freelancer" element={<PromoPhilippinoFreelancer />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/contact-support" element={<ContactSupport />} />
-           <Route path="/report-issue" element={<ReportIssue />} />
-           <Route path="/share-story" element={<ShareStory />} />
+          <Route path="/report-issue" element={<ReportIssue />} />
+          <Route path="/share-story" element={<ShareStory />} />
+          <Route path="/affiliate" element={<AffiliateLanding />} />
+          <Route path="/affiliate/register" element={<AffiliateRegister />} />
+          <Route path="/affiliate/dashboard" element={<AffiliateDashboard />} />
+
+
+
+
             <Route path="/_dev/categories" element={<CategoriesCarouselPlayground />} />
             <Route path="/dev-talent" element={<FindTalent />} />
             <Route path="/dev-messages" element={<Messages />} />
+            <Route path="/dev-profilepage/:username" element={<JobseekerDashboard />}>
+              <Route index element={<ProfilePage />} />
+            </Route>
+            <Route path="/dev-public-profile/:id" element={<PublicProfile />} />
 
         <Route element={<RequireAuth allowed={['employer']} />}>
           <Route path="/employer-dashboard" element={<EmployerDashboard />}>

@@ -14,8 +14,14 @@ export class JobPost {
   @Column('text') description: string;
   @Column() location: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  company_name?: string | null;
+
   @Column('int', { nullable: true })
-  salary?: number;
+  salary?: number | null;
+
+  @Column('int', { nullable: true })
+  salary_max?: number | null;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
   salary_type?: 'per hour' | 'per month' | 'negotiable';

@@ -815,7 +815,8 @@ export class AdminController {
     @Param('id') jobPostId: string,
     @Body() body: { 
       limit: number; 
-      orderBy: 'beginning' | 'end' | 'random' 
+      orderBy: 'beginning' | 'end' | 'random';
+      categoryIds?: string[];
     },
     @Headers('authorization') authHeader: string,
   ) {
@@ -824,7 +825,7 @@ export class AdminController {
     }
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
-    const userIdAdmin = payload.sub;
+    const adminId = payload.sub;
 
     if (!body.limit || !Number.isInteger(body.limit) || body.limit < 1) {
       throw new BadRequestException('Limit must be a positive integer');
@@ -833,11 +834,16 @@ export class AdminController {
       throw new BadRequestException('OrderBy must be one of: beginning, end, random');
     }
 
+    const categoryIds = Array.isArray(body.categoryIds)
+      ? body.categoryIds.filter((id) => typeof id === 'string' && id.trim().length > 0)
+      : undefined;
+
     return this.adminService.notifyJobSeekers(
-      userIdAdmin,
+      adminId,
       jobPostId,
       body.limit,
       body.orderBy,
+      categoryIds,
     );
   }
   
@@ -848,6 +854,8 @@ export class AdminController {
     @Body() body: {
       limit: number;
       orderBy: 'beginning' | 'end' | 'random';
+      categoryIds?: string[];
+      sourceJobIds?: string[];
     },
     @Headers('authorization') authHeader: string,
   ) {
@@ -856,7 +864,7 @@ export class AdminController {
     }
     const token = authHeader.replace('Bearer ', '');
     const payload = this.jwtService.verify(token);
-    const userIdAdmin = payload.sub;
+    const adminId = payload.sub;
 
     if (!body.limit || !Number.isInteger(body.limit) || body.limit < 1) {
       throw new BadRequestException('Limit must be a positive integer');
@@ -864,12 +872,22 @@ export class AdminController {
     if (!['beginning', 'end', 'random'].includes(body.orderBy)) {
       throw new BadRequestException('OrderBy must be one of: beginning, end, random');
     }
-    
+
+    const categoryIds = Array.isArray(body.categoryIds)
+      ? body.categoryIds.filter((id) => typeof id === 'string' && id.trim().length > 0)
+      : undefined;
+
+    const sourceJobIds = Array.isArray(body.sourceJobIds)
+      ? body.sourceJobIds.filter((id) => typeof id === 'string' && id.trim().length > 0)
+      : undefined;
+
     return this.adminService.notifyReferralApplicants(
-      payload.sub,
+      adminId,
       jobPostId,
       body.limit,
       body.orderBy,
+      categoryIds,
+      sourceJobIds,
     );
   }
 
@@ -1330,5 +1348,91 @@ export class AdminController {
     if (!Number.isFinite(l) || l < 1) throw new BadRequestException('Limit must be a positive integer');
 
     return this.feedbackService.getFeedback(adminId, p, l);
+  }
+
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
+  @Get('analytics/categories')
+  async getCategoryAnalytics(
+    @Headers('authorization') authHeader: string,
+  ) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Invalid token');
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = this.jwtService.verify(token);
+    const adminId = payload.sub;
+  
+    return this.adminService.getCategoryAnalytics(adminId);
+  }
+
+    // ===== AFFILIATES (ADMIN) =====
+
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
+  @Get('affiliate/affiliates')
+  async listAffiliates(@Headers('authorization') authHeader: string) {
+    const { sub: adminUserId } = this.jwtService.verify(authHeader.replace('Bearer ', ''));
+    return this.adminService.listAffiliatesForAdmin(adminUserId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
+  @Get('affiliate/affiliates/:userId')
+  async getAffiliate(
+    @Headers('authorization') authHeader: string,
+    @Param('userId') userId: string,
+  ) {
+    const { sub: adminUserId } = this.jwtService.verify(authHeader.replace('Bearer ', ''));
+    return this.adminService.getAffiliateForAdmin(adminUserId, userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
+  @Put('affiliate/affiliates/:userId')
+  async adminUpdateAffiliate(
+    @Req() req: any,
+    @Param('userId') userId: string,
+    @Body() body: any,
+  ) {
+    const adminUserId = req.user.id;
+    return this.adminService.updateAffiliateFromAdmin(
+      adminUserId,
+      userId,
+      body,
+    );
+  }  
+
+    // ===== AFFILIATE OFFERS (ADMIN) =====
+
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
+  @Get('affiliate/offers')
+  async adminListAffiliateOffers(@Req() req: any) {
+    const adminUserId = req.user.id;
+    return this.adminService.listAffiliateOffersForAdmin(adminUserId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
+  @Post('affiliate/offers')
+  async adminCreateAffiliateOffer(
+    @Req() req: any,
+    @Body() body: any,
+  ) {
+    const adminUserId = req.user.id;
+    return this.adminService.createAffiliateOfferForAdmin(
+      adminUserId,
+      body,
+    );
+  }
+
+  @UseGuards(AuthGuard('jwt'), ModeratorGuard)
+  @Put('affiliate/offers/:offerId')
+  async adminUpdateAffiliateOffer(
+    @Req() req: any,
+    @Param('offerId') offerId: string,
+    @Body() body: any,
+  ) {
+    const adminUserId = req.user.id;
+    return this.adminService.updateAffiliateOfferForAdmin(
+      adminUserId,
+      offerId,
+      body,
+    );
   }
 }

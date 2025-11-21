@@ -10,7 +10,9 @@
   margin: 10px auto 56px;
   padding: 0 0px;
 }
-
+.pf-note {
+  padding-bottom: 16px;
+}
 .pf-card {
   background: var(--cs-white);
   border-radius: var(--cs-radius);
@@ -31,12 +33,12 @@
 
 .pf-title {
   margin: 0;
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--cs-text);
   letter-spacing: .2px;
 }
-.pf-role { color: var(--cs-muted); font-weight: 700; }
+.pf-role { color: var(--cs-muted); font-size: 20px; font-weight: normal; }
 
 .pf-subtitle {
   margin: 0 0 10px;
@@ -47,7 +49,7 @@
 
 .pf-grid {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 270px 1fr;
   gap: 22px;
 }
 
@@ -55,7 +57,7 @@
 .pf-left {}
 .pf-right {}
 
-.pf-section { display: grid; gap: 14px; }
+.pf-section { display: grid; gap: 14px; padding-left: 10px; }
 
 /* alerts */
 .pf-alert {
@@ -335,4 +337,378 @@
   .ppx-actions-line .ppx-report {
     margin-left: 0px;
   }
+}
+
+.ppx-richtext p { margin: 0 0 .75rem; }
+.ppx-richtext ul, .ppx-richtext ol { margin: .5rem 0 .75rem 1.25rem; }
+.pf-richtext p { margin: 0 0 .75rem; }
+.pf-richtext ul, .pf-richtext ol { margin: .5rem 0 .75rem 1.25rem; }
+
+/* квадратные превью как в соцсетях */
+.pf-carousel img,
+.ppx-carousel img {
+  object-fit: cover;
+  object-position: center;
+}
+
+.pf-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  /* ВАЖНО: разрешаем колонке сжиматься внутри грида */
+  min-width: 0;
+}
+.pf-right {
+  min-width: 0;
+}
+.pf-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.jsd-embed .pf-shell {
+  max-width: 100%;
+  margin: 10px 0 56px;
+}
+.pf-quill {
+  min-width: 0;
+}
+
+.pf-quill .ql-container,
+.pf-quill .ql-editor,
+.pf-quill .ql-toolbar {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* чтобы колонки не распирали карточку */
+.pf-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.pf-right {
+  min-width: 0;
+}
+
+/* широкие секции под основной сеткой */
+.pf-section-wide {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e3e6ef;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* маленький заголовок секции (BIO / Job Exp / Portfolio) */
+.pf-label-section {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cs-muted);
+}
+
+/* две колонки в одной строке (Currency + Expected salary) */
+.pf-row-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* сетка файлов портфолио */
+.pf-files-grid {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.pf-file-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #e3e6ef;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+/* чуть плотнее обёртка summary в правой колонке */
+.pf-summary-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* === Аватар, десктоп === */
+.pf-avatar-wrap {
+  position: relative;
+  width: 100%;
+  /* было: aspect-ratio: 16/9;  — горизонтальный */
+  aspect-ratio: 3 / 4;          /* портретное соотношение: ширина < высоты */
+  background: var(--cs-bg);
+  border: 1px solid #e3e6ef;
+  border-radius: 14px;
+  box-shadow: var(--cs-shadow-sm);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.pf-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* === Аватар на планшетах / мобилках === */
+@media (max-width: 980px) {
+  .pf-avatar-wrap {
+    max-width: 260px;      /* чтобы не занимал всю ширину */
+    margin: 0 auto 16px;   /* центрируем в колонке */
+  }
+}
+
+@media (max-width: 640px) {
+
+  .pf-kv-row {
+    gap: 0px;
+  }
+  .pf-avatar-wrap {
+    max-width: 220px;      /* ещё чуть меньше на телефонах */
+  }
+  .pf-section { display: grid; gap: 14px; padding-left: 0px; }
+}
+
+
+/* profile.css — ПОСЛЕ: таймлайн опыта и образования */
+
+/* Общие вещи для секций */
+.pf-section-wide {
+  margin-bottom: 24px;
+}
+
+.pf-label-section {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+/* ---------- TIMELINE: Job experience ---------- */
+
+.pf-experience-item {
+  position: relative;
+  padding-left: 24px;
+  margin-bottom: 16px;
+}
+
+.pf-experience-item:last-child {
+  margin-bottom: 0;
+}
+
+/* вертикальная линия */
+.pf-experience-item::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 4px;
+  bottom: -16px;
+  width: 2px;
+  background-color: #e5e7eb; /* светло-серый */
+}
+
+/* точка на линии */
+.pf-experience-item::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background-color: #3b82f6; /* синий маркер */
+}
+
+/* для последнего элемента линию вниз не тянем */
+.pf-experience-item:last-child::before {
+  bottom: 4px;
+}
+
+.pf-experience-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 4px;
+}
+
+.pf-experience-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.pf-experience-company {
+  font-weight: 400;
+  color: #6b7280; /* gray-500 */
+}
+
+.pf-experience-dates {
+  font-size: 13px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.pf-experience-description {
+  font-size: 14px;
+  color: #374151; /* gray-700 */
+  line-height: 1.4;
+}
+
+/* ---------- TIMELINE: Education ---------- */
+
+.pf-education-item {
+  position: relative;
+  padding-left: 24px;
+  margin-bottom: 16px;
+}
+
+.pf-education-item:last-child {
+  margin-bottom: 0;
+}
+
+.pf-education-item::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 4px;
+  bottom: -16px;
+  width: 2px;
+  background-color: #e5e7eb;
+}
+
+.pf-education-item::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background-color: #10b981; /* зелёный маркер */
+}
+
+.pf-education-item:last-child::before {
+  bottom: 4px;
+}
+
+.pf-education-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pf-education-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.pf-education-institution {
+  font-size: 14px;
+  color: #374151;
+}
+
+.pf-education-dates {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* ---------- Edit mode: списки карточек ---------- */
+
+.pf-experience-edit-list,
+.pf-education-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pf-experience-edit-item,
+.pf-education-edit-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 12px 8px 12px;
+  background-color: #f9fafb;
+}
+
+/* немного воздуха между рядами внутри карточек */
+.pf-experience-edit-item .pf-row,
+.pf-education-edit-item .pf-row {
+  margin-bottom: 8px;
+}
+
+.pf-experience-edit-item .pf-row:last-child,
+.pf-education-edit-item .pf-row:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- Доп. утилиты, которые мы использовали ---------- */
+
+.pf-row-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* если у тебя уже есть .pf-row с display:flex, можно упростить до .pf-row.pf-row-stack { ... } */
+.pf-row-stack .pf-col {
+  /* flex: 1 1 180px; */
+  min-width: 0;
+}
+
+.pf-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.pf-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
+}
+
+/* маленькая линк-кнопка "Remove item" */
+.pf-btn-small {
+  font-size: 13px;
+  padding: 2px 4px;
+}
+
+.pf-btn-link {
+  border: none;
+  background: transparent;
+  color: #3b82f6;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pf-btn-link:hover {
+  text-decoration: underline;
+}
+
+/* "Not specified" уже может быть, но на всякий */
+.pf-muted {
+  font-size: 14px;
+  color: #9ca3af;
 }

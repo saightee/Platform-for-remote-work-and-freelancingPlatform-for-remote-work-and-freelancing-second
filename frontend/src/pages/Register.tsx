@@ -10,8 +10,13 @@ import CountrySelect from '../components/inputs/CountrySelect';
 import LanguagesInput from '../components/inputs/LanguagesInput';
 import '../styles/country-langs.css';
 import { brand } from '../brand';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 const urlOk = (v: string) => /^https?:\/\/\S+$/i.test(v.trim());
+
+const USERNAME_RGX = /^[a-zA-Z0-9 ._-]{3,20}$/; // 3–20 символов: буквы, цифры, пробел, ._- 
+
 const getCookie = (name: string): string | undefined => {
   const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '=([^;]*)'));
   return m ? decodeURIComponent(m[1]) : undefined;
@@ -37,6 +42,10 @@ const fileInputResumeRef = useRef<HTMLInputElement | null>(null);
 const [isResumeDragOver, setIsResumeDragOver] = useState(false);
 const fileInputRef = useRef<HTMLInputElement | null>(null);           // ← avatar input
 const [isAvatarDragOver, setIsAvatarDragOver] = useState(false);      // ← avatar dnd
+const portfolioInputRef = useRef<HTMLInputElement | null>(null);
+const [portfolioFiles, setPortfolioFiles] = useState<File[]>([]);
+const [portfolioErr, setPortfolioErr] = useState<string | null>(null);
+const [isPortfolioDragOver, setIsPortfolioDragOver] = useState(false);
 
 
 const processResumeFile = (f: File | null) => {
@@ -58,6 +67,42 @@ const processResumeFile = (f: File | null) => {
 
   setResumeFile(f);
 };
+
+const ALLOWED_PORTFOLIO = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/jpeg','image/jpg','image/png','image/webp'
+];
+
+const addPortfolioFiles = (files: FileList | null) => {
+  if (!files || !files.length) return;
+  setPortfolioErr(null);
+
+  const current = [...portfolioFiles];
+  for (const f of Array.from(files)) {
+    if (!ALLOWED_PORTFOLIO.includes(f.type)) {
+      setPortfolioErr('Only PDF, DOC, DOCX, JPG, JPEG, PNG, WEBP are allowed.');
+      continue;
+    }
+    const MB10 = 10 * 1024 * 1024;
+    if (f.size > MB10) {
+      setPortfolioErr('Each file must be up to 10 MB.');
+      continue;
+    }
+    if (current.length < 10) current.push(f);
+  }
+  if (current.length > 10) current.length = 10;
+  setPortfolioFiles(current);
+};
+
+const removePortfolioIndex = (idx: number) => {
+  const next = portfolioFiles.filter((_, i) => i !== idx);
+  setPortfolioFiles(next);
+};
+
+const hasAtLeastOneImage = () =>
+  portfolioFiles.some(f => f.type.startsWith('image/'));
 
 const processAvatarFile = (f: File | null) => {
   setAvatarErr(null);
@@ -167,10 +212,33 @@ const [languages, setLanguages] = useState<string[]>([]);
     return () => clearTimeout(t);
   }, [skillQuery, role]);
 
-  const wordCount = useMemo(() => {
-    const words = about.trim().split(/\s+/).filter(Boolean);
-    return words.length;
-  }, [about]);
+const wordCount = useMemo(() => {
+  // about теперь HTML из Quill — вытащим видимый текст
+  const div = document.createElement('div');
+  div.innerHTML = about || '';
+  const text = (div.textContent || '').trim();
+  if (!text) return 0;
+  return text.split(/\s+/).length;
+}, [about]);
+
+const toRichBioHtml = (t?: string | null): string | null => {
+  const v = (t || '').trim();
+  if (!v) return null;
+
+  // если строка уже похожа на HTML (Quill, старые данные) — возвращаем как есть
+  const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(v);
+  if (looksLikeHtml) return v;
+
+  // обычный текст -> абзацы и переносы
+  const parts = v
+    .split(/\n{2,}/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  return parts
+    .map((p) => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
+    .join('');
+};
 
   const addSkill = (s: Category) => {
     if (!selectedSkills.find(x => x.id === s.id)) {
@@ -314,8 +382,15 @@ const handleSubmit = async (e: React.FormEvent) => {
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   // валидации
-  if (!username.trim()) { setErr('Username is required.'); return; }
+   const usernameTrim = username.trim();
+
+  // валидации
+  if (!USERNAME_RGX.test(usernameTrim)) {
+    setErr('Username must be 3–20 characters and can contain letters, numbers, spaces, ".", "-", "_".');
+    return;
+  }
   if (!normEmail || !emailRe.test(normEmail)) { setErr('Valid email is required.'); return; }
+
   if (!normConfirmEmail || !emailRe.test(normConfirmEmail)) { setErr('Please re-enter a valid email.'); return; }
   if (normEmail !== normConfirmEmail) { setErr('Emails do not match.'); return; }
 
@@ -357,6 +432,17 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
   if (avatarErr) { setErr(avatarErr); return; }
 
+  if (role === 'jobseeker') {
+  if (portfolioFiles.length === 0 || !hasAtLeastOneImage()) {
+    setErr('Please upload at least 1 photo (JPG/PNG/WEBP) in Portfolio Files.');
+    return;
+  }
+  if (portfolioFiles.length > 10) {
+    setErr('You can upload up to 10 portfolio files.');
+    return;
+  }
+}
+
   // URL-поля
   const urlErrors: string[] = [];
   const check = (val: string, label: string) => { if (val && !urlOk(val)) urlErrors.push(`${label} URL is invalid (use https://...)`); };
@@ -369,7 +455,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   try {
     setBusy(true);
     setErr(null);
-
+    const richAbout = toRichBioHtml(about);
     // единоразово считаем refCode
     const urlRef = new URLSearchParams(window.location.search).get('ref') || undefined;
     const lsRef  = localStorage.getItem('referralCode') || undefined;
@@ -377,19 +463,24 @@ const handleSubmit = async (e: React.FormEvent) => {
     const refCode = urlRef || lsRef || ckRef || undefined;
 
     // решаем, нужен ли FormData
-    const needsFD = role === 'jobseeker' && (resumeFile || avatarFile);
+    const needsFD = role === 'jobseeker' && (resumeFile || avatarFile || portfolioFiles.length > 0);
+
 
     let payload: FormData | Record<string, any>;
 
     if (needsFD) {
       const fd = new FormData();
-      fd.append('username', username);
+      fd.append('username', usernameTrim);
       fd.append('email', normEmail);
       fd.append('password', password);
       fd.append('role', role);
 
       if (resumeFile) fd.append('resume_file', resumeFile);
 if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя поля, как ждёт бек
+
+ if (role === 'jobseeker' && portfolioFiles.length) {
+    portfolioFiles.forEach(f => fd.append('portfolio_files', f));
+  }
 
 
       if (role === 'jobseeker') {
@@ -402,7 +493,7 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
         if (facebook.trim())       fd.append('facebook', facebook.trim());
         if (whatsapp.trim())       fd.append('whatsapp', whatsapp.trim());
         if (telegram.trim())       fd.append('telegram', telegram.trim());
-        if (about.trim())          fd.append('about', about.trim());
+        if (richAbout)             fd.append('description', richAbout);
         if (country.trim())        fd.append('country', country.trim().toUpperCase());
         if (languages.length)      languages.forEach(l => fd.append('languages[]', l));
       }
@@ -411,7 +502,7 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
       payload = fd;
     } else {
       payload = {
-        username,
+        username: usernameTrim,
         email: normEmail,
         password,
         role,
@@ -424,7 +515,7 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
           ...(facebook.trim() ? { facebook: facebook.trim() } : {}),
           ...(whatsapp.trim() ? { whatsapp: whatsapp.trim() } : {}),
           ...(telegram.trim() ? { telegram: telegram.trim() } : {}),
-          ...(about.trim() ? { about: about.trim() } : {}),
+          ...(richAbout ? { description: richAbout } : {}),
           ...(dob.trim() ? { date_of_birth: dob.trim() } : {}),
           ...(country.trim() ? { country: country.trim().toUpperCase() } : {}),
           ...(languages.length ? { languages } : {}),
@@ -433,10 +524,21 @@ if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя �
       if (refCode) (payload as any).ref = refCode;
     }
 
-    await register(payload);
+    const regRes = await register(payload);
+
+     const pendingSessionId =
+      (regRes as any)?.pending_session_id ||
+      (regRes as any)?.pendingSessionId ||
+      null;
+
+    if (pendingSessionId) {
+      try {
+        localStorage.setItem('pendingSessionId', pendingSessionId);
+      } catch {}
+    }
 
     // cleanup + redirect
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+   try { localStorage.removeItem(STORAGE_KEY); } catch {}
     localStorage.setItem('pendingEmail', normEmail);
     localStorage.setItem('pendingRole', role);
 
@@ -483,7 +585,9 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
     if (refCode) { try { localStorage.removeItem('referralCode'); } catch {} }
 
-    navigate('/registration-pending', { state: { email: normEmail } });
+    navigate('/registration-pending', {
+  state: { email: normEmail, pendingSessionId },
+});
   } catch (error: any) {
     console.error('Register error', error);
     const msg = error?.response?.data?.message;
@@ -521,34 +625,38 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
         <form onSubmit={handleSubmit} className={`reg2-form ${isJobseeker ? 'is-two' : ''}`}>
           {/* left column */}
-          <div className="reg2-field">
-            <label className="reg2-label">Username</label>
-            <input
-              className="reg2-input"
-              type="text"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              placeholder="Enter your username"
-              autoComplete="username"
-              required
-            />
+          <div className="reg2-field reg2-span2">
+            <label className="reg2-label">Username <span className="reg2-req">*</span></label>
+              <input
+                className="reg2-input"
+                type="text"
+                id="signup-nickname"
+                name="display-name"                // не "username", чтобы менеджер не путал
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder="Enter your username"
+                autoComplete="nickname"
+                required
+              />
+
           </div>
 
           <div className="reg2-field">
-            <label className="reg2-label">Email</label>
-      <input
-  className="reg2-input"
-  type="email"
-  value={email}
-  onChange={e => setEmail(e.target.value.trim().toLowerCase())}
-  placeholder="Enter your email"
-  autoComplete="email"
-  inputMode="email"
-  autoCapitalize="off"
-  spellCheck={false}
-  required
-/>
-
+            <label className="reg2-label">Email <span className="reg2-req">*</span></label>
+              <input
+                className="reg2-input"
+                type="email"
+                id="signup-email"
+                name="username"                    // то же имя, что и на логине
+                value={email}
+                onChange={e => setEmail(e.target.value.trim().toLowerCase())}
+                placeholder="Enter your email"
+                autoComplete="username"           // даём понять: это логин
+                inputMode="email"
+                autoCapitalize="off"
+                spellCheck={false}
+                required
+              />
           </div>
 
           
@@ -586,7 +694,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
 
 <div className="reg2-field">
-  <label className="reg2-label">Password</label>
+  <label className="reg2-label">Password <span className="reg2-req">*</span></label>
   <div className="reg2-passwrap">
     <input
       className="reg2-input"
@@ -627,7 +735,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
           {isJobseeker && (
             <>
               <div className="reg2-field">
-                <label className="reg2-label">Online Work Experience</label>
+                <label className="reg2-label">Online Work Experience <span className="reg2-req">*</span></label>
                 <select
                   className="reg2-input"
                   value={experience}
@@ -675,7 +783,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
 {/* NEW: Avatar (required? depends on flag) */}
 <div className="reg2-field reg2-span2">
-<label className="reg2-label">Avatar</label>
+<label className="reg2-label">Avatar <span className="reg2-req">*</span> </label>
 
   <div
   onDragEnter={(e) => { e.preventDefault(); setIsAvatarDragOver(true); }}
@@ -754,146 +862,210 @@ if (role === 'jobseeker' && refCode && afterReturn) {
   )}
 </div>
 
-
-
-        <div className="reg2-field">
+{/* Photos/Portfolio и Resume File в одной строке */}
+<div className="reg2-line">
+  {/* LEFT: Photos / Portfolio files */}
+  <div className="reg2-field">
   <label className="reg2-label">
-    Resume Link <span className="reg2-req">*</span> <span className="reg2-opt">(required if no file)</span>
-  </label>
-  <input
-    className="reg2-input"
-    type="url"
-    value={resumeLink}
-    onChange={e => setResumeLink(e.target.value)}
-    placeholder="https://example.com/resume.pdf"
-  />
-  {/* <div className="reg2-note">You can upload a file after registration.</div> */}
-</div>
-<div className="reg2-field">
-  <label className="reg2-label">
-    Resume File <span className="reg2-req">*</span> <span className="reg2-opt">(required if no link)</span>
+    Photos / Portfolio files <span className="reg2-req">*</span> 
+    <span className="reg2-opt">(min. 1 photo)</span>
   </label>
 
   <div
-    onDragEnter={(e) => { e.preventDefault(); setIsResumeDragOver(true); }}
-    onDragOver={(e) => { e.preventDefault(); setIsResumeDragOver(true); }}
-    onDragLeave={(e) => { e.preventDefault(); setIsResumeDragOver(false); }}
-    onDrop={(e) => {
-      e.preventDefault();
-      setIsResumeDragOver(false);
-      const f = e.dataTransfer.files?.[0] || null;
-      processResumeFile(f);
-    }}
-    onClick={() => fileInputResumeRef.current?.click()}
+    className={`reg2-dropzone ${isPortfolioDragOver ? 'is-dragover' : ''}`}
     role="button"
     tabIndex={0}
-    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputResumeRef.current?.click(); }}
-    style={{
-      border: '2px dashed #d1d5db',
-      borderColor: isResumeDragOver ? '#6b7280' : '#d1d5db',
-      borderRadius: 12,
-      padding: 16,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 12,
-      cursor: 'pointer',
-      background: isResumeDragOver ? '#f9fafb' : 'transparent'
+    onClick={() => portfolioInputRef.current?.click()}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') portfolioInputRef.current?.click();
+    }}
+    onDragEnter={(e) => {
+      e.preventDefault();
+      setIsPortfolioDragOver(true);
+    }}
+    onDragOver={(e) => {
+      e.preventDefault();
+      setIsPortfolioDragOver(true);
+    }}
+    onDragLeave={(e) => {
+      e.preventDefault();
+      setIsPortfolioDragOver(false);
+    }}
+    onDrop={(e) => {
+      e.preventDefault();
+      setIsPortfolioDragOver(false);
+      addPortfolioFiles(e.dataTransfer.files);
     }}
   >
-    <div style={{display:'flex', flexDirection:'column', gap:6}}>
-      {resumeFile ? (
-        <>
-          <div className="reg2-note" style={{fontWeight:600}}>
-            {resumeFile.name}
-          </div>
-          <div className="reg2-note">Click to replace or drop a new file.</div>
-        </>
-      ) : (
-        <>
-          <div className="reg2-note" style={{fontWeight:600}}>
-            Drop file here or click to upload
-          </div>
-          <div className="reg2-note">PDF/DOC/DOCX, up to 10 MB.</div>
-        </>
-      )}
+    <div className="reg2-note" style={{ fontWeight: 600 }}>
+      Click or drop files here (up to 10)
     </div>
 
-    {resumeFile && (
-      <button
-        type="button"
-        className="reg2-btn"
-        onClick={(e) => {
-          e.stopPropagation();
-          setResumeFile(null);
-          if (fileInputResumeRef.current) fileInputResumeRef.current.value = '';
-        }}
-      >
-        Remove
-      </button>
+    {portfolioFiles.length > 0 ? (
+      <ul className="reg2-portfolio-list">
+        {portfolioFiles.map((f, i) => (
+          <li key={i} className="reg2-portfolio-item">
+            <span className="reg2-portfolio-name">{f.name}</span>
+            <button
+              type="button"
+              className="reg2-btn reg2-btn--chip"
+              onClick={(e) => {
+                e.stopPropagation();
+                removePortfolioIndex(i);
+              }}
+            >
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <div className="reg2-note">
+        JPG/PNG/WEBP/PDF/DOC/DOCX, up to 10 MB per file.
+      </div>
     )}
-
-    {/* скрытый input под клик */}
-    <input
-      ref={fileInputResumeRef}
-      type="file"
-      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      style={{ display: 'none' }}
-      onChange={(e) => processResumeFile(e.target.files?.[0] || null)}
-    />
   </div>
+
+  <input
+    ref={portfolioInputRef}
+    type="file"
+    multiple
+    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/jpg,image/png,image/webp"
+    style={{ display: 'none' }}
+    onChange={(e) => addPortfolioFiles(e.target.files)}
+  />
+
+  {portfolioErr && (
+    <div className="reg2-hint reg2-hint--err" role="alert">
+      {portfolioErr}
+    </div>
+  )}
 </div>
 
 
-              <div className="reg2-field reg2-span2">
-                <label className="reg2-label">Talents/Skills</label>
-                <div className="reg2-auto">
-                  <input
-                    className="reg2-input"
-                    type="text"
-                    value={skillQuery}
-                    onChange={e => setSkillQuery(e.target.value)}
-                    placeholder="Start typing to search skills…"
-                    onFocus={() => skillQuery.trim() && setOpenDrop(true)}
-                    onBlur={() => setTimeout(() => setOpenDrop(false), 200)}
-                  />
-                  {openDrop && filteredSkills.length > 0 && (
-                    <ul className="reg2-dd">
-                      {filteredSkills.map(s => (
-                        <li
-                          key={s.id}
-                          className="reg2-dd__item"
-                          onMouseDown={() => addSkill(s)}
-                        >
-                          {s.parent_id
-                            ? `${categories.find(c => c.id === s.parent_id)?.name || 'Category'} > ${s.name}`
-                            : s.name}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+  {/* RIGHT: Resume File */}
+  <div className="reg2-field">
+    <label className="reg2-label">
+      Resume File <span className="reg2-req">*</span> <span className="reg2-opt">(required if no link)</span>
+    </label>
 
-                {selectedSkills.length > 0 && (
-                  <div className="reg2-tags">
-                    {selectedSkills.map(s => (
-                      <span className="reg2-tag" key={s.id}>
-                        {s.name}
-                        <button type="button" className="reg2-tag__x" onClick={() => removeSkill(s.id)}>
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+    <div
+      onDragEnter={(e) => { e.preventDefault(); setIsResumeDragOver(true); }}
+      onDragOver={(e) => { e.preventDefault(); setIsResumeDragOver(true); }}
+      onDragLeave={(e) => { e.preventDefault(); setIsResumeDragOver(false); }}
+      onDrop={(e) => { e.preventDefault(); setIsResumeDragOver(false); const f = e.dataTransfer.files?.[0] || null; processResumeFile(f); }}
+      onClick={() => fileInputResumeRef.current?.click()}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputResumeRef.current?.click(); }}
+      style={{
+        border: '2px dashed #d1d5db',
+        borderColor: isResumeDragOver ? '#6b7280' : '#d1d5db',
+        borderRadius: 12,
+        padding: 16,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        cursor: 'pointer',
+        background: isResumeDragOver ? '#f9fafb' : 'transparent'
+      }}
+    >
+      <div style={{display:'flex', flexDirection:'column', gap:6}}>
+        {resumeFile ? (
+          <>
+            <div className="reg2-note" style={{fontWeight:600}}>{resumeFile.name}</div>
+            <div className="reg2-note">Click to replace or drop a new file.</div>
+          </>
+        ) : (
+          <>
+            <div className="reg2-note" style={{fontWeight:600}}>Drop file here or click to upload</div>
+            <div className="reg2-note">PDF/DOC/DOCX, up to 10 MB.</div>
+          </>
+        )}
+      </div>
+
+      {resumeFile && (
+        <button
+          type="button"
+          className="reg2-btn"
+          onClick={(e) => { e.stopPropagation(); setResumeFile(null); if (fileInputResumeRef.current) fileInputResumeRef.current.value = ''; }}
+        >
+          Remove
+        </button>
+      )}
+
+      <input
+        ref={fileInputResumeRef}
+        type="file"
+        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        style={{ display: 'none' }}
+        onChange={(e) => processResumeFile(e.target.files?.[0] || null)}
+      />
+    </div>
+  </div>
+</div>
+
+{/* Resume Link и Talents/Skills в одной строке */}
+<div className="reg2-line">
+  {/* LEFT: Resume Link */}
+  <div className="reg2-field">
+    <label className="reg2-label">
+      Resume Link <span className="reg2-req">*</span> <span className="reg2-opt">(required if no file)</span>
+    </label>
+    <input
+      className="reg2-input"
+      type="url"
+      value={resumeLink}
+      onChange={e => setResumeLink(e.target.value)}
+      placeholder="https://example.com/resume.pdf"
+    />
+  </div>
+
+  {/* RIGHT: Talents/Skills */}
+  <div className="reg2-field">
+    <label className="reg2-label">Talents/Skills</label>
+    <div className="reg2-auto">
+      <input
+        className="reg2-input"
+        type="text"
+        value={skillQuery}
+        onChange={e => setSkillQuery(e.target.value)}
+        placeholder="Start typing to search skills…"
+        onFocus={() => skillQuery.trim() && setOpenDrop(true)}
+        onBlur={() => setTimeout(() => setOpenDrop(false), 200)}
+      />
+      {openDrop && filteredSkills.length > 0 && (
+        <ul className="reg2-dd">
+          {filteredSkills.map(s => (
+            <li key={s.id} className="reg2-dd__item" onMouseDown={() => addSkill(s)}>
+              {s.parent_id ? `${categories.find(c => c.id === s.parent_id)?.name || 'Category'} > ${s.name}` : s.name}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+
+    {selectedSkills.length > 0 && (
+      <div className="reg2-tags">
+        {selectedSkills.map(s => (
+          <span className="reg2-tag" key={s.id}>
+            {s.name}
+            <button type="button" className="reg2-tag__x" onClick={() => removeSkill(s.id)}>×</button>
+          </span>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
+
 
               {/* Optional socials */}
               <div className="reg2-divider reg2-span2">Optional</div>
 
               <div className="reg2-field">
                 <label className="reg2-label">
-                  LinkedIn <span className="reg2-opt">(optional)</span>
+                  LinkedIn 
                 </label>
                 <input
                   className="reg2-input"
@@ -906,7 +1078,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
               <div className="reg2-field">
                 <label className="reg2-label">
-                  Instagram <span className="reg2-opt">(optional)</span>
+                  Instagram 
                 </label>
                 <input
                   className="reg2-input"
@@ -919,7 +1091,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
               <div className="reg2-field">
                 <label className="reg2-label">
-                  Facebook <span className="reg2-opt">(optional)</span>
+                  Facebook 
                 </label>
                 <input
                   className="reg2-input"
@@ -932,7 +1104,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
               <div className="reg2-field">
   <label className="reg2-label">
-    WhatsApp <span className="reg2-opt">(optional)</span>
+    WhatsApp 
   </label>
   <input
     className="reg2-input"
@@ -946,7 +1118,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 {/* NEW: Telegram */}
 <div className="reg2-field">
   <label className="reg2-label">
-    Telegram <span className="reg2-opt">(optional)</span>
+    Telegram 
   </label>
   <input
     className="reg2-input"
@@ -957,21 +1129,32 @@ if (role === 'jobseeker' && refCode && afterReturn) {
   />
 </div>
 
-              <div className="reg2-field reg2-span2">
-                <label className="reg2-label">
-                  About me <span className="reg2-opt">(up to 150 words)</span>
-                </label>
-                <textarea
-                  className="reg2-textarea"
-                  rows={4}
-                  value={about}
-                  onChange={e => setAbout(e.target.value)}
-                  placeholder="Tell briefly about your experience, strengths and what roles you're seeking…"
-                />
-                <div className={`reg2-counter ${wordCount > 150 ? 'is-over' : ''}`}>
-                  {wordCount} / 150 words
-                </div>
-              </div>
+<div className="reg2-field reg2-span2">
+  <label className="reg2-label">
+    BIO <span className="reg2-opt">(up to 150 words)</span>
+  </label>
+
+  <div className="reg2-quill">
+    <ReactQuill
+      className="reg2-quill__editor"
+      theme="snow"
+      modules={{ toolbar: false }}  
+      formats={[]}                
+      value={about}
+      onChange={(html) => {
+      
+        setAbout(html || '');
+      }}
+      placeholder="Tell briefly about your experience, strengths and what roles you're seeking…"
+    />
+  </div>
+
+  <div className={`reg2-counter ${wordCount > 150 ? 'is-over' : ''}`}>
+    {wordCount} / 150 words
+  </div>
+</div>
+
+
             </>
           )}
 

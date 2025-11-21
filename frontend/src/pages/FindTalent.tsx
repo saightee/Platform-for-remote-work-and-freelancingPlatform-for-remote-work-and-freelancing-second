@@ -32,6 +32,28 @@ interface TalentResponse {
   data: Profile[];
 }
 
+
+const calcAge = (dob?: string | null): number | null => {
+  if (!dob) return null;
+  const m = dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+
+  const year = Number(m[1]);
+  const month = Number(m[2]) - 1;
+  const day = Number(m[3]);
+  const birth = new Date(year, month, day);
+  if (Number.isNaN(birth.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const mdiff = today.getMonth() - birth.getMonth();
+  if (mdiff < 0 || (mdiff === 0 && today.getDate() < birth.getDate())) age--;
+
+  if (age < 0 || age > 150) return null;
+  return age;
+};
+
+
 const FindTalent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(searchParams.get('description') || '');
@@ -667,6 +689,9 @@ const getVisiblePages = () => {
             <h1 className="ftl-title">Find Talent</h1>
 
        <form className="ftl-search" onSubmit={handleSearch}>
+        <div className="ftl-count">
+      {isLoading ? 'Loading…' : `${total} talents found`}
+    </div>
   <input
     className="ftl-input"
     type="text"
@@ -975,147 +1000,144 @@ const getVisiblePages = () => {
               ) : (
                 <>
                   <div className="ftl-list" key={filters.page}>
-                    {talents.length > 0 ? (
-                      talents.map((talent) => {
-                        const rating =
-                          (talent as any).average_rating ?? (talent as any).averageRating ?? null;
-                        const skillNames = extractSkillNames(talent);
+                   {talents.length > 0 ? (
+  talents.map((talent) => {
+    const rating =
+      (talent as any).average_rating ?? (talent as any).averageRating ?? null;
+    const skillNames = extractSkillNames(talent);
 
-                        const experience = (talent as any).experience ?? null;
-                        const description = (talent as any).description ?? null;
-                        const profileViews =
-                          (talent as any).profile_views ?? (talent as any).profileViews ?? 0;
+    const experience = (talent as any).experience ?? null;
+    const profileViews =
+      (talent as any).profile_views ?? (talent as any).profileViews ?? 0;
 
-                        return (
-                          <article key={talent.id} className="ftl-card-item" role="article">
-                     
-
-                            <div className="ftl-body">
-                              <div className="ftl-row ftl-row-head">
-                                 <div className={`ftl-avatar ${talent.avatar ? 'has-img' : ''}`}>
-{talent.avatar && (
-  (() => {
-    const a = talent.avatar || '';
-    const avatarSrc = a.startsWith('http')
-      ? a
-      : `${brandBackendOrigin()}${a}`;
     return (
-      <img
-        src={avatarSrc}
-        alt="Talent Avatar"
-        className="ftl-avatar-img"
-        onError={(e) => {
-          const box = e.currentTarget.parentElement as HTMLElement | null;
-          box?.classList.remove('has-img');
-          e.currentTarget.style.display = 'none';
-        }}
-      />
+      <article key={talent.id} className="ftl-card-item" role="article">
+        <div className="ftl-body">
+          <div className="ftl-row ftl-row-head">
+            <div className={`ftl-avatar ${talent.avatar ? 'has-img' : ''}`}>
+              {talent.avatar && (() => {
+                const a = talent.avatar || '';
+                const avatarSrc = a.startsWith('http')
+                  ? a
+                  : `${brandBackendOrigin()}${a}`;
+                return (
+                  <img
+                    src={avatarSrc}
+                    alt="Talent Avatar"
+                    className="ftl-avatar-img"
+                    onError={(e) => {
+                      const box = e.currentTarget.parentElement as HTMLElement | null;
+                      box?.classList.remove('has-img');
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                );
+              })()}
+
+              <FaUserCircle className="ftl-avatar-fallback" />
+            </div>
+
+            <div className="ftl-name-stars">
+              <h3 className="ftl-name">{talent.username}</h3>
+              {(() => {
+                const v = (talent as any).job_search_status;
+                if (!v) return null;
+                const label =
+                  v === 'actively_looking'
+                    ? 'Actively looking'
+                    : v === 'hired'
+                    ? 'Hired'
+                    : 'Open to offers';
+                return <span className={`ftl-status-badge ${v}`}>{label}</span>;
+              })()}
+              {typeof rating === 'number' && (
+                <span className="ftl-stars" aria-label={`rating ${rating}/5`}>
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <span
+                      key={i}
+                      className={i < Math.floor(rating) ? 'ftl-star is-on' : 'ftl-star'}
+                    >
+                      ★
+                    </span>
+                  ))}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="ftl-cols">
+            <div className="ftl-col">
+              <p className="ftl-line">
+                <strong>Skills:</strong>{' '}
+                {skillNames.length > 0 ? skillNames.join(', ') : 'Not specified'}
+              </p>
+             
+              <p className="ftl-line">
+                <strong>Country:</strong>{' '}
+                {(talent as any).country || 'Not specified'}
+              </p>
+              {Array.isArray((talent as any).languages) &&
+                (talent as any).languages.length > 0 && (
+                  <p className="ftl-line">
+                    <strong>Languages:</strong>{' '}
+                    {(talent as any).languages.join(', ')}
+                  </p>
+              )}
+           
+            </div>
+
+            <div className="ftl-col">
+              <p className="ftl-line">
+                <strong>Profile Views:</strong>{' '}
+                {typeof profileViews === 'number' ? profileViews : 0}
+              </p>
+                 <p className="ftl-line">
+                <strong>Age:</strong>{' '}
+                {(() => {
+                  const age = calcAge((talent as any).date_of_birth || null);
+                  return age != null ? `${age}` : 'Not specified';
+                })()}
+              </p>
+               <p className="ftl-line">
+                <strong>Experience:</strong> {experience || 'Not specified'}
+              </p>
+
+              {(talent as any).expected_salary != null &&
+                (talent as any).expected_salary !== '' && (
+                  <p className="ftl-line">
+                    <strong>Expected salary:</strong>{' '}
+                    {(talent as any).expected_salary}{' '}
+                    {(talent as any).currency || ''}
+                  </p>
+              )}
+            </div>
+          </div>
+
+          <div className="ftl-foot">
+            <div className="ftl-spacer" />
+            {currentUser?.role === 'employer' &&
+              currentUser.id !== talent.id && (
+                <button
+                  type="button"
+                  className="ftl-btn ftl-primary"
+                  onClick={() => openInvite(talent)}
+                  title="Invite to job"
+                >
+                  Invite to interview
+                </button>
+            )}
+            <Link to={`/public-profile/${talent.id}`}>
+              <button className="ftl-btn ftl-outline">View Profile</button>
+            </Link>
+          </div>
+        </div>
+      </article>
     );
-  })()
+  })
+) : (
+  <p className="ftl-empty">No talents found. Try adjusting filters.</p>
 )}
 
-  <FaUserCircle className="ftl-avatar-fallback" />
-</div>
-
-<div className="ftl-name-stars">
-  <h3 className="ftl-name">{talent.username}</h3>
-{(() => {
-  const v = (talent as any).job_search_status;
-  if (!v) return null;
-  const label = v === 'actively_looking' ? 'Actively looking' : v === 'hired' ? 'Hired' : 'Open to offers';
-  return <span className={`ftl-status-badge ${v}`}>{label}</span>;
-})()}
-                                {typeof rating === 'number' && (
-                                  <span className="ftl-stars" aria-label={`rating ${rating}/5`}>
-                                    {Array.from({ length: 5 }, (_, i) => (
-                                      <span
-                                        key={i}
-                                        className={i < Math.floor(rating) ? 'ftl-star is-on' : 'ftl-star'}
-                                      >
-                                        ★
-                                      </span>
-                                    ))}
-                                  </span>
-                                )}
-                              </div>
-</div>
-                              
-
-                              <div className="ftl-cols">
-                                <div className="ftl-col">
-                            <p className="ftl-line">
-  <strong>Skills:</strong>{' '}
-  {skillNames.length > 0 ? skillNames.join(', ') : 'Not specified'}
-</p>
-                                  <p className="ftl-line">
-                                    <strong>Experience:</strong> {experience || 'Not specified'}
-                                  </p>
-                                  <p className="ftl-line">
-  <strong>Country:</strong> {(talent as any).country || 'Not specified'}
-</p>
-{Array.isArray((talent as any).languages) && (talent as any).languages.length > 0 && (
-  <p className="ftl-line">
-    <strong>Languages:</strong> {(talent as any).languages.join(', ')}
-  </p>
-)}
-                                </div>
-                                <div className="ftl-col">
-                                  <p className="ftl-line">
-                                    <strong>Profile Views:</strong>{' '}
-                                    {typeof profileViews === 'number' ? profileViews : 0}
-                                  </p>
-                                  <p className="ftl-line">
-                                    <strong>Description:</strong>{' '}
-                                    {description ? truncateDescription(description, 120) : 'Not specified'}
-                                  </p>
-                                  {(talent as any).expected_salary != null && (talent as any).expected_salary !== '' && (
-  <p className="ftl-line">
-    <strong>Expected salary:</strong>{' '}
-    {(talent as any).expected_salary} {(talent as any).currency || ''}
-  </p>
-)}
-                                  <p className="ftl-line">
-                                    <strong>Resume:</strong>{' '}
-                                    {(talent as any).resume ? (
-                            <a
-  href={(talent as any).resume.startsWith('http')
-    ? (talent as any).resume
-    : `${brandBackendOrigin()}${(talent as any).resume}`}
-  target="_blank"
-  rel="noopener noreferrer"
->
-  Download Resume
-</a>
-
-                                    ) : 'Not provided'}
-                                  </p>
-                                </div>
-                              </div>
-
-                             <div className="ftl-foot">
-  <div className="ftl-spacer" />
-  {currentUser?.role === 'employer' && currentUser.id !== talent.id && (
-    <button
-      type="button"
-      className="ftl-btn ftl-primary"
-      onClick={() => openInvite(talent)}
-      title="Invite to job"
-    >
-      Invite to interview
-    </button>
-  )}
-  <Link to={`/public-profile/${talent.id}`}>
-    <button className="ftl-btn ftl-outline">View Profile</button>
-  </Link>
-</div>
-
-                            </div>
-                          </article>
-                        );
-                      })
-                    ) : (
-                      <p className="ftl-empty">No talents found.</p>
-                    )}
                   </div>
 
 

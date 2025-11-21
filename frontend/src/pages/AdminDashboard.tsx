@@ -30,9 +30,9 @@ import {
   logout, getAdminCategories, deletePlatformFeedback, JobPostWithApplications, getPlatformFeedback, deleteCategory, rejectJobPost, getEmailStatsForJob, getAllEmailStats, createReferralLink, getReferralLinks, getReferralLinksByJob, updateReferralLink, deleteReferralLink,  publishPlatformFeedback, unpublishPlatformFeedback, getChatNotificationSettings,
   updateChatNotificationSettings,
   notifyReferralApplicants, getRecentRegistrationsToday, getBrandsAnalytics, getAdminReviews, approveReview, rejectReview, createSiteReferralLink, getSiteReferralLinks, updateSiteReferralLink, deleteSiteReferralLink, getAdminRegistrationAvatarRequired,
-  setAdminRegistrationAvatarRequired, 
+  setAdminRegistrationAvatarRequired, getCategoryAnalytics, adminFindJobPostsByTitle
 } from '../services/api';
-import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings } from '@types';
+import { User, JobPost, Review, Feedback, BlockedCountry, Category, PaginatedResponse, JobApplicationDetails, JobSeekerProfile, PlatformFeedbackAdminItem, PlatformFeedbackList, ChatNotificationsSettings, CategoryAnalyticsItem } from '@types';
 import { AxiosError } from 'axios';
 import '../styles/referral-links.css';
 import ReactQuill from 'react-quill';
@@ -83,7 +83,6 @@ interface RecentRegistrations {
     referral_job_description: string | null;
   }>;
 }
-
 
 
 interface DecodedToken {
@@ -195,6 +194,15 @@ const [savingRegAvatar, setSavingRegAvatar] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Resolved' | 'Rejected'>('All');
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [jobPostsWithApps, setJobPostsWithApps] = useState<JobPostWithApplications[]>([]);
+
+  const [categoryAnalytics, setCategoryAnalytics] = useState<{
+  jobseekers: CategoryAnalyticsItem[];
+  jobPosts: CategoryAnalyticsItem[];
+} | null>(null);
+const [categoryAnalyticsLoading, setCategoryAnalyticsLoading] = useState(false);
+const [categoryAnalyticsError, setCategoryAnalyticsError] = useState<string | null>(null);
+const [expandedCategoryJobseekers, setExpandedCategoryJobseekers] = useState<Record<string, boolean>>({});
+const [expandedCategoryJobPosts, setExpandedCategoryJobPosts] = useState<Record<string, boolean>>({});
  
  
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -218,6 +226,75 @@ const [autoRefresh, setAutoRefresh] = useState(false);
 const [notifyAudience, setNotifyAudience] = useState<'all' | 'referral'>('all');
 const [notifyTitleFilter, setNotifyTitleFilter] = useState<string>(''); // опционально
 const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
+const [notifyCategoryIds, setNotifyCategoryIds] = useState<string[]>([]);
+const [notifyJobTitleQuery, setNotifyJobTitleQuery] = useState('');
+const [jobSearchResults, setJobSearchResults] = useState<JobPost[]>([]);
+const [selectedSourceJobIds, setSelectedSourceJobIds] = useState<string[]>([]);
+const [allSourceJobs, setAllSourceJobs] = useState<JobPost[]>([]);
+const [notifyJobPostId, setNotifyJobPostId] = useState<string>('');
+  const notifyJob = jobPosts.find(p => p.id === notifyJobPostId);
+
+useEffect(() => {
+  if (notifyAudience !== 'referral') {
+    setJobSearchResults([]);
+    return;
+  }
+
+  const term = notifyJobTitleQuery.trim();
+  if (!term || !notifyJobPostId) {
+    setJobSearchResults([]);
+    return;
+  }
+
+  const timeout = setTimeout(async () => {
+    try {
+      const jobs = await adminFindJobPostsByTitle(term);
+
+      const currentJob = jobPosts.find((p) => p.id === notifyJobPostId);
+      if (!currentJob?.categories?.length) {
+        setJobSearchResults([]);
+        return;
+      }
+
+      const currentCatIds = new Set(
+        currentJob.categories.map((c: any) => c.id)
+      );
+
+ const filtered = jobs.filter((j) =>
+        j.categories?.some((c: any) => currentCatIds.has(c.id))
+      );
+
+      // НЕ затираем старые, а аккуратно мёржим по id
+      setAllSourceJobs((prev) => {
+        const map = new Map<string, JobPost>();
+        prev.forEach((j) => map.set(j.id, j));
+        filtered.forEach((j) => map.set(j.id, j));
+        return Array.from(map.values());
+      });
+
+      setJobSearchResults(filtered);
+    } catch {
+      setJobSearchResults([]);
+    }
+  }, 300);
+
+  return () => clearTimeout(timeout);
+}, [notifyJobTitleQuery, notifyAudience, notifyJobPostId, jobPosts]);
+
+const toggleSelectedJob = (job: JobPost) => {
+  setSelectedSourceJobIds((prev) =>
+    prev.includes(job.id)
+      ? prev.filter((id) => id !== job.id)
+      : [...prev, job.id]
+  );
+  setNotifyJobTitleQuery('');
+  setJobSearchResults([]);
+};
+
+const removeSelectedJob = (id: string) => {
+  setSelectedSourceJobIds((prev) => prev.filter((jid) => jid !== id));
+};
+
 const toggleJob = (jobId: string) =>
   setExpandedJobs(prev => ({ ...prev, [jobId]: !prev[jobId] }));
 
@@ -412,8 +489,7 @@ const setFilter = <K extends keyof typeof exportFilters>(key: K, val: (typeof ex
   const [onlineStatuses, setOnlineStatuses] = useState<{ [key: string]: boolean }>({});
   const [fetchErrors, setFetchErrors] = useState<{ [key: string]: string }>({});
   const [showNotifyModal, setShowNotifyModal] = useState(false);
-const [notifyJobPostId, setNotifyJobPostId] = useState<string>('');
-  const notifyJob = jobPosts.find(p => p.id === notifyJobPostId);
+
 const [userPage, setUserPage] = useState(1);
 const [userLimit] = useState(30);
 const [isUsersLoading, setIsUsersLoading] = useState(false);
@@ -1532,6 +1608,7 @@ const requests = [
   getOnlineUsers(),                                                     // 21
   getRecentRegistrationsToday({ tzOffset, limit: 5 }),                                 // 22
   getJobPostsWithApplications(),                                        // 23
+  getCategoryAnalytics(), // 24
 ];
 
 
@@ -1556,6 +1633,7 @@ const requests = [
       | RecentRegistrations
       | JobPostWithApplications[]
       | PlatformFeedbackList;
+      
 
     const results = await Promise.allSettled(requests);
     const errors: { [key: string]: string } = {};
@@ -1585,6 +1663,7 @@ const endpoints = [
   'getOnlineUsers',            // 21
   'getRecentRegistrations',    // 22
   'getJobPostsWithApplications', // 23
+  'getCategoryAnalytics', // 24
 ];
 
 
@@ -1638,9 +1717,18 @@ const endpoints = [
     setReferralLinks(referralData || []);
     break;
   }
-}
-
-      } else {
+    case 24: {
+        const data = value as unknown as {
+          jobseekers: CategoryAnalyticsItem[];
+          jobPosts: CategoryAnalyticsItem[];
+        };
+        setCategoryAnalytics(data);
+        break;
+      }
+      default:
+        break;
+    }
+  } else {
         const axiosError = result.reason as AxiosError<{ message?: string }>;
         console.error(`${endpoints[index]} failed:`, axiosError.response?.data?.message || axiosError.message);
         const errorMsg = axiosError.response?.data?.message || `Failed to load ${endpoints[index]} data`;
@@ -2080,23 +2168,29 @@ const handleNotifySubmit = async () => {
     alert('No job post selected.');
     return;
   }
-
   const n = Math.max(1, Number.parseInt(String(notifyLimit), 10) || 0);
   try {
-    const base = { limit: n, orderBy: notifyOrderBy as 'beginning' | 'end' | 'random' };
+    const base = {
+      limit: n,
+      orderBy: notifyOrderBy as 'beginning' | 'end' | 'random',
+      ...(notifyCategoryIds.length > 0 && { categoryIds: notifyCategoryIds })
+    };
     const res = notifyAudience === 'referral'
       ? await notifyReferralApplicants(notifyJobPostId, {
           ...base,
-          titleContains: notifyTitleFilter.trim() || undefined,
+          ...(selectedSourceJobIds.length > 0 && { sourceJobIds: selectedSourceJobIds })
         })
       : await notifyCandidates(notifyJobPostId, base);
-
     toast.success(`Notified ${res.sent} of ${res.total} candidates for job post ${res.jobPostId}`);
     setShowNotifyModal(false);
+    // Сброс
     setNotifyLimit('10');
     setNotifyOrderBy('beginning');
     setNotifyAudience('all');
-    setNotifyTitleFilter('');
+    setNotifyCategoryIds([]);
+    setNotifyJobTitleQuery('');
+    setSelectedSourceJobIds([]);
+    setAllSourceJobs([]);
   } catch (error: any) {
     const msg = error?.response?.data?.message || 'Failed to notify candidates.';
     console.error('Error notifying candidates:', error);
@@ -3025,7 +3119,8 @@ if (isLoading) {
   <div className="modal_notify">
     <div className="modal-content">
        <h3>Notify Candidates for Job Post: {notifyJob?.title || notifyJobPostId}</h3>
-        <fieldset className="form-group">
+       {/* === Audience Selector === */}
+<fieldset className="form-group">
   <legend>Audience</legend>
   <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', marginRight: 16 }}>
     <input
@@ -3034,9 +3129,8 @@ if (isLoading) {
       checked={notifyAudience === 'all'}
       onChange={() => setNotifyAudience('all')}
     />
-    All Applicants (current behavior)
+    Matched candidates (skills match this job)
   </label>
-
   <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
     <input
       type="radio"
@@ -3044,27 +3138,90 @@ if (isLoading) {
       checked={notifyAudience === 'referral'}
       onChange={() => setNotifyAudience('referral')}
     />
-    Users who registered via referral links (same category)
+    Referral signups from related jobs
   </label>
 </fieldset>
 
-{/* Insert right below the Audience fieldset */}
+{/* === Category Filter (for both audiences) === */}
+<div className="form-group">
+  <label>Filter by categories (optional)</label>
+  <select
+    multiple
+    className="category-select"
+    value={notifyCategoryIds}
+    // size: чтобы сразу было видно несколько строк
+    size={Math.min(
+      8,
+      (jobPosts.find(p => p.id === notifyJobPostId)?.categories?.length || 4)
+    )}
+    onChange={(e) => {
+      const selected = Array.from(e.target.selectedOptions, (opt) => opt.value);
+      setNotifyCategoryIds(selected);
+    }}
+  >
+    {(jobPosts.find(p => p.id === notifyJobPostId)?.categories || []).map((cat: any) => (
+      <option key={cat.id} value={cat.id}>
+        {cat.name}
+      </option>
+    ))}
+  </select>
+  <small className="hint">
+    Hold Ctrl (Cmd on Mac) to select multiple categories. Leave empty to use all
+    categories of this job post.
+  </small>
+</div>
+
+
+{/* === Previous Jobs Filter (only for referral) === */}
 {notifyAudience === 'referral' && (
   <div className="form-group">
-    <label>Filter by job title (optional):</label>
+    <label>Filter by previous jobs (optional)</label>
     <input
       type="text"
-      value={notifyTitleFilter}
-      onChange={(e) => setNotifyTitleFilter(e.target.value)}
-      placeholder="e.g., writer"
-      inputMode="search"
-      autoComplete="off"
+      value={notifyJobTitleQuery}
+      onChange={(e) => setNotifyJobTitleQuery(e.target.value)}
+      placeholder="Type to search job titles…"
     />
+
+    {jobSearchResults.length > 0 && (
+      <ul className="job-search-dropdown">
+        {jobSearchResults.map((job) => (
+          <li key={job.id} onClick={() => toggleSelectedJob(job)}>
+            <strong>{job.title}</strong>{' '}
+            {job.employer?.username && `— ${job.employer.username}`}
+            {selectedSourceJobIds.includes(job.id) && ' ✓'}
+          </li>
+        ))}
+      </ul>
+    )}
+
+    {selectedSourceJobIds.length > 0 && (
+      <div className="selected-jobs">
+        {selectedSourceJobIds.map((id) => {
+          const job = allSourceJobs.find((j) => j.id === id);
+          return job ? (
+            <span key={id} className="selected-job-tag">
+              {job.title}{' '}
+              <button
+                type="button"
+                onClick={() => removeSelectedJob(id)}
+                aria-label={`Remove ${job.title}`}
+              >
+                ×
+              </button>
+            </span>
+          ) : null;
+        })}
+      </div>
+    )}
+
     <small className="hint">
-      Applied only when audience is "referral" within the same category.
+      Only jobs sharing at least one category with this job are shown. Start typing
+      to see matching job titles and select one or more.
     </small>
   </div>
 )}
+
 
         <div className="form-group">
 
@@ -3929,55 +4086,64 @@ if (isLoading) {
   <button onClick={() => setGrowthPage(prev => prev + 1)} disabled={(growthPage * growthLimit) >= growthTrends.jobPosts.length} className="action-button">Next</button>
 </div>
 
-   {/* <h4>Top Employers by Total Applicants</h4> 
-{fetchErrors.getTopEmployers && <p className="error-message">{fetchErrors.getTopEmployers}</p>}
-<table className="dashboard-table">
-  <thead>
-    <tr>
-      <th>Username</th>
-      <th>Total Applicants</th> 
-    </tr>
-  </thead>
-  <tbody>
-    {topEmployers.length > 0 ? topEmployers.map((employer) => {
-      const totalApplicants = jobPostsWithApps
-        .filter(post => post.employer_id === employer.employer_id)
-        .reduce((sum, post) => sum + post.applicationCount, 0);
-      return (
-        <tr key={employer.employer_id}>
-          <td>{employer.username}</td>
-          <td>{totalApplicants}</td> 
-        </tr>
-      );
-    }) : (
-      <tr>
-        <td colSpan={2}>No top employers found.</td>
-      </tr>
-    )}
-  </tbody>
-</table>
-<h4>Top Jobseekers</h4>
-{fetchErrors.getTopJobseekers && <p className="error-message">{fetchErrors.getTopJobseekers}</p>}
-<table className="dashboard-table">
-  <thead>
-    <tr>
-      <th>Username</th>
-      <th>Application Count</th>
-    </tr>
-  </thead>
-  <tbody>
-    {topJobseekers.length > 0 ? topJobseekers.map((jobseeker) => (
-      <tr key={jobseeker.job_seeker_id}>
-        <td>{jobseeker.username}</td>
-        <td>{jobseeker.application_count > 0 ? jobseeker.application_count : 'No applications yet'}</td>
-      </tr>
-    )) : (
-      <tr>
-        <td colSpan={2}>No top jobseekers found.</td>
-      </tr>
-    )}
-  </tbody>
-</table> */}
+{/* === Category Analytics === */}
+{categoryAnalytics && (
+  <>
+    <h4>Jobseekers by Category</h4>
+    <div className="category-tree">
+      <ul className="category-tree-list">
+        {categoryAnalytics.jobseekers.map(cat => (
+          <li key={cat.id} className="category-tree-item">
+            <details open={expandedCategoryJobseekers[cat.id]} onToggle={(e) => {
+              const isOpen = (e.target as HTMLDetailsElement).open;
+              setExpandedCategoryJobseekers(prev => ({ ...prev, [cat.id]: isOpen }));
+            }}>
+              <summary>
+                {cat.name} ({cat.jobseekersCount})
+              </summary>
+              {cat.subcategories && cat.subcategories.length > 0 && (
+                <ul className="category-tree-sublist">
+                  {cat.subcategories.map(sub => (
+                    <li key={sub.id} className="category-tree-subitem">
+                      {sub.name} ({sub.jobseekersCount})
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </details>
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    <h4>Job Posts by Category</h4>
+    <div className="category-tree">
+      <ul className="category-tree-list">
+        {categoryAnalytics.jobPosts.map(cat => (
+          <li key={cat.id} className="category-tree-item">
+            <details open={expandedCategoryJobPosts[cat.id]} onToggle={(e) => {
+              const isOpen = (e.target as HTMLDetailsElement).open;
+              setExpandedCategoryJobPosts(prev => ({ ...prev, [cat.id]: isOpen }));
+            }}>
+              <summary>
+                {cat.name} ({cat.jobPostsCount})
+              </summary>
+              {cat.subcategories && cat.subcategories.length > 0 && (
+                <ul className="category-tree-sublist">
+                  {cat.subcategories.map(sub => (
+                    <li key={sub.id} className="category-tree-subitem">
+                      {sub.name} ({sub.jobPostsCount})
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </details>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </>
+)}
     <h4>Top Jobseekers by Profile Views</h4>
     {fetchErrors.getTopJobseekersByViews && <p className="error-message">{fetchErrors.getTopJobseekersByViews}</p>}
     <table className="dashboard-table">

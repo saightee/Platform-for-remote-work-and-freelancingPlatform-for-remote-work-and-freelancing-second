@@ -30,6 +30,8 @@ import { ReferralRegistration } from '../referrals/entities/referral-registratio
 import { ReferralLink } from '../referrals/entities/referral-link.entity';
 import { ConfigService } from '@nestjs/config';
 import { JobPostCategory } from '../job-posts/job-post-category.entity';
+import { Affiliate } from '../users/entities/affiliate.entity';
+import { AffiliateOffer } from '../affiliate-program/entities/affiliate-offer.entity';
 
 @Injectable()
 export class AdminService {
@@ -75,6 +77,10 @@ export class AdminService {
     private referralLinksRepository: Repository<ReferralLink>,
     @InjectRepository(ReferralRegistration)
     private referralRegistrationsRepository: Repository<ReferralRegistration>,
+    @InjectRepository(Affiliate)
+    private affiliatesRepository: Repository<Affiliate>,
+    @InjectRepository(AffiliateOffer)
+    private affiliateOffersRepository: Repository<AffiliateOffer>,
     private configService: ConfigService,
   ) {}
 
@@ -1181,6 +1187,7 @@ export class AdminService {
     jobPostId: string,
     limit: number,
     orderBy: 'beginning' | 'end' | 'random',
+    categoryIds?: string[],
   ) {
     await this.checkAdminRole(adminId);
 
@@ -1197,7 +1204,19 @@ export class AdminService {
     if (!attachedCatIds.length) {
       throw new BadRequestException('Job post has no categories assigned');
     }
-    const matchCatIds = await this.expandCategoryIdsForMatching(attachedCatIds);
+
+    let baseCatIds: string[];
+    if (categoryIds && categoryIds.length) {
+      const invalid = categoryIds.filter((id) => !attachedCatIds.includes(id));
+      if (invalid.length) {
+        throw new BadRequestException('Selected categories do not belong to this job post');
+      }
+      baseCatIds = categoryIds;
+    } else {
+      baseCatIds = attachedCatIds;
+    }
+
+    const matchCatIds = await this.expandCategoryIdsForMatching(baseCatIds);
 
     const subQuery = this.jobSeekerRepository
       .createQueryBuilder('js')
@@ -1212,14 +1231,22 @@ export class AdminService {
       .andWhere('user.role = :role', { role: 'jobseeker' })
       .andWhere('user.status = :status', { status: 'active' })
       .andWhere('user.is_email_verified = :isEmailVerified', { isEmailVerified: true })
-      .andWhere(`NOT EXISTS (
-        SELECT 1 FROM job_applications a2
-        WHERE a2.job_post_id = :thisJob AND a2.job_seeker_id = "jobSeeker"."user_id"
-      )`, { thisJob: jobPostId })
-      .andWhere(`NOT EXISTS (
-        SELECT 1 FROM email_notifications en
-        WHERE en.job_post_id = :thisJob AND en.recipient_email = "user"."email"
-      )`, { thisJob: jobPostId })
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM job_applications a2
+          WHERE a2.job_post_id = :thisJob 
+            AND a2.job_seeker_id = "jobSeeker"."user_id"
+        )`,
+        { thisJob: jobPostId },
+      )
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM email_notifications en
+          WHERE en.job_post_id = :thisJob 
+            AND en.recipient_email = "user"."email"
+        )`,
+        { thisJob: jobPostId },
+      )
       .setParameters(subQuery.getParameters());
 
     const total = await qb.getCount();
@@ -1250,9 +1277,10 @@ export class AdminService {
           {
             location: jobPost.location || (jobPost as any).work_mode || 'Remote',
             salary: jobPost.salary ?? null,
+            salary_max: jobPost.salary_max ?? null,
             salary_type: jobPost.salary_type as any,
             job_type: jobPost.job_type as any,
-          }
+          },
         );
 
         const notification = this.emailNotificationsRepository.create({
@@ -1294,6 +1322,8 @@ export class AdminService {
     jobPostId: string,
     limit: number,
     orderBy: 'beginning' | 'end' | 'random',
+    categoryIds?: string[],
+    sourceJobIds?: string[],
   ) {
     await this.checkAdminRole(adminId);
 
@@ -1307,7 +1337,36 @@ export class AdminService {
     if (!attachedCatIds.length) {
       throw new BadRequestException('Job post has no categories assigned');
     }
-    const matchCatIds = await this.expandCategoryIdsForMatching(attachedCatIds);
+
+    let baseCatIds: string[];
+    if (categoryIds && categoryIds.length) {
+      const invalid = categoryIds.filter((id) => !attachedCatIds.includes(id));
+      if (invalid.length) {
+        throw new BadRequestException('Selected categories do not belong to this job post');
+      }
+      baseCatIds = categoryIds;
+    } else {
+      baseCatIds = attachedCatIds;
+    }
+
+    const matchCatIds = await this.expandCategoryIdsForMatching(baseCatIds);
+
+    let allowedSourceJobIds: string[] | undefined;
+    if (sourceJobIds && sourceJobIds.length) {
+      const rows = await this.jobPostsRepository
+        .createQueryBuilder('jp')
+        .innerJoin(JobPostCategory, 'jpc', 'jpc.job_post_id = jp.id')
+        .where('jp.id IN (:...ids)', { ids: sourceJobIds })
+        .andWhere('jpc.category_id IN (:...attachedCatIds)', { attachedCatIds })
+        .select('DISTINCT jp.id', 'id')
+        .getRawMany();
+
+      allowedSourceJobIds = rows.map((r: any) => r.id);
+
+      if (!allowedSourceJobIds.length) {
+        throw new BadRequestException('Selected jobs do not share categories with this job post');
+      }
+    }
 
     const subRegs = this.referralRegistrationsRepository
       .createQueryBuilder('rr')
@@ -1315,8 +1374,13 @@ export class AdminService {
       .innerJoin('rl.job_post', 'jp')
       .innerJoin(JobPostCategory, 'jpc2', 'jpc2.job_post_id = jp.id')
       .innerJoin('rr.user', 'ru')
-      .where('jpc2.category_id IN (:...catIds)', { catIds: matchCatIds })
-      .select('DISTINCT ru.id');
+      .where('jpc2.category_id IN (:...catIds)', { catIds: matchCatIds });
+
+    if (allowedSourceJobIds && allowedSourceJobIds.length) {
+      subRegs.andWhere('jp.id IN (:...sourceJobIds)', { sourceJobIds: allowedSourceJobIds });
+    }
+
+    subRegs.select('DISTINCT ru.id');
 
     const qb = this.jobSeekerRepository
       .createQueryBuilder('js')
@@ -1325,14 +1389,22 @@ export class AdminService {
       .andWhere('u.role = :role', { role: 'jobseeker' })
       .andWhere('u.status = :status', { status: 'active' })
       .andWhere('u.is_email_verified = :verified', { verified: true })
-      .andWhere(`NOT EXISTS (
-        SELECT 1 FROM job_applications a2
-        WHERE a2.job_post_id = :thisJob AND a2.job_seeker_id = "js"."user_id"
-      )`, { thisJob: jobPostId })
-      .andWhere(`NOT EXISTS (
-        SELECT 1 FROM email_notifications en
-        WHERE en.job_post_id = :thisJob AND en.recipient_email = "u"."email"
-      )`, { thisJob: jobPostId })
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM job_applications a2
+          WHERE a2.job_post_id = :thisJob 
+            AND a2.job_seeker_id = "js"."user_id"
+        )`,
+        { thisJob: jobPostId },
+      )
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM email_notifications en
+          WHERE en.job_post_id = :thisJob 
+            AND en.recipient_email = "u"."email"
+        )`,
+        { thisJob: jobPostId },
+      )
       .setParameters(subRegs.getParameters());
 
     const total = await qb.getCount();
@@ -1361,9 +1433,10 @@ export class AdminService {
           {
             location: jobPost.location || (jobPost as any).work_mode || 'Remote',
             salary: jobPost.salary ?? null,
+            salary_max: jobPost.salary_max ?? null,
             salary_type: jobPost.salary_type as any,
             job_type: jobPost.job_type as any,
-          }
+          },
         );
 
         await this.emailNotificationsRepository.save(
@@ -1964,5 +2037,436 @@ export class AdminService {
     if (link.scope !== 'site') throw new BadRequestException('This link is not a site referral link');
     await this.referralLinksRepository.delete(linkId);
     return { message: 'Deleted' };
+  }
+
+  async getCategoryAnalytics(adminId: string) {
+    await this.checkAdminOrModerator(adminId);
+
+    const categories = await this.categoriesRepository.find();
+    const parentMap = new Map<string, string | null>();
+    categories.forEach((c) => parentMap.set(c.id, c.parent_id || null));
+
+    const jsRaw = await this.jobSeekerRepository
+      .createQueryBuilder('js')
+      .innerJoin('js.skills', 'skill')
+      .innerJoin('js.user', 'u')
+      .select('js.user_id', 'job_seeker_id')
+      .addSelect('skill.id', 'category_id')
+      .where('u.role = :role', { role: 'jobseeker' })
+      .andWhere('u.status = :status', { status: 'active' })
+      .getRawMany();
+
+    const jsSetsByCategory = new Map<string, Set<string>>();
+
+    for (const row of jsRaw) {
+      const jsId: string = row.job_seeker_id;
+      let catId: string | null = row.category_id;
+      const visited = new Set<string>();
+
+      while (catId) {
+        if (visited.has(catId)) break;
+        visited.add(catId);
+
+        let set = jsSetsByCategory.get(catId);
+        if (!set) {
+          set = new Set<string>();
+          jsSetsByCategory.set(catId, set);
+        }
+        set.add(jsId);
+
+        catId = parentMap.get(catId) ?? null;
+      }
+    }
+
+    const jsCountMap = new Map<string, number>();
+    categories.forEach((c) => {
+      const set = jsSetsByCategory.get(c.id);
+      if (set && set.size > 0) {
+        jsCountMap.set(c.id, set.size);
+      }
+    });
+
+    const jpRaw = await this.jobPostsRepository
+      .createQueryBuilder('jp')
+      .innerJoin(JobPostCategory, 'jpc', 'jpc.job_post_id = jp.id')
+      .select('jp.id', 'job_post_id')
+      .addSelect('jpc.category_id', 'category_id')
+      .where('jp.status = :status', { status: 'Active' })
+      .andWhere('jp.pending_review = :pending', { pending: false })
+      .getRawMany();
+
+    const jpSetsByCategory = new Map<string, Set<string>>();
+
+    for (const row of jpRaw) {
+      const jpId: string = row.job_post_id;
+      let catId: string | null = row.category_id;
+      const visited = new Set<string>();
+
+      while (catId) {
+        if (visited.has(catId)) break;
+        visited.add(catId);
+
+        let set = jpSetsByCategory.get(catId);
+        if (!set) {
+          set = new Set<string>();
+          jpSetsByCategory.set(catId, set);
+        }
+        set.add(jpId);
+
+        catId = parentMap.get(catId) ?? null;
+      }
+    }
+
+    const jpCountMap = new Map<string, number>();
+    categories.forEach((c) => {
+      const set = jpSetsByCategory.get(c.id);
+      if (set && set.size > 0) {
+        jpCountMap.set(c.id, set.size);
+      }
+    });
+
+    const buildTree = <
+      K extends 'jobseekersCount' | 'jobPostsCount'
+    >(countMap: Map<string, number>, key: K) => {
+      const parents = categories.filter((c) => !c.parent_id);
+
+      const result = parents
+        .map((parent) => {
+          const parentCount = countMap.get(parent.id) || 0;
+          if (!parentCount) return null;
+
+          const children = categories.filter((c) => c.parent_id === parent.id);
+          const subcategories = children
+            .map((child) => {
+              const childCount = countMap.get(child.id) || 0;
+              if (!childCount) return null;
+              return {
+                id: child.id,
+                name: child.name,
+                [key]: childCount,
+              } as any;
+            })
+            .filter(Boolean)
+            .sort((a: any, b: any) => b[key] - a[key]);
+
+          return {
+            id: parent.id,
+            name: parent.name,
+            [key]: parentCount,
+            subcategories,
+          } as any;
+        })
+        .filter(Boolean)
+        .sort((a: any, b: any) => b[key] - a[key]);
+
+      return result;
+    };
+
+    const jobseekers = buildTree(jsCountMap, 'jobseekersCount');
+    const jobPosts = buildTree(jpCountMap, 'jobPostsCount');
+
+    return { jobseekers, jobPosts };
+  }
+
+    /**
+   * Афилейты и афилейт программы
+   */
+
+  async listAffiliatesForAdmin(adminUserId: string) {
+    await this.checkAdminOrModerator(adminUserId);
+
+    const affiliates = await this.affiliatesRepository.find({
+      relations: ['user'],
+      order: { created_at: 'DESC' },
+    });
+
+    return affiliates.map((a) => ({
+      user_id: a.user_id,
+      account_type: a.account_type,
+      company_name: a.company_name,
+      website_url: a.website_url,
+      traffic_sources: a.traffic_sources,
+      promo_geo: a.promo_geo,
+      monthly_traffic: a.monthly_traffic,
+      payout_method: a.payout_method,
+      payout_details: a.payout_details,
+      telegram: a.telegram,
+      whatsapp: a.whatsapp,
+      skype: a.skype,
+      notes: a.notes,
+      created_at: a.created_at,
+      updated_at: a.updated_at,
+
+      user: a.user
+        ? {
+            id: a.user.id,
+            email: a.user.email,
+            username: a.user.username,
+            role: a.user.role,
+            country: a.user.country,
+            status: a.user.status,
+            created_at: a.user.created_at,
+          }
+        : null,
+    }));
+  }
+
+  async getAffiliateForAdmin(adminUserId: string, affiliateUserId: string) {
+    await this.checkAdminOrModerator(adminUserId);
+
+    const affiliate = await this.affiliatesRepository.findOne({
+      where: { user_id: affiliateUserId },
+      relations: ['user'],
+    });
+
+    if (!affiliate) {
+      throw new NotFoundException('Affiliate profile not found');
+    }
+
+    return {
+      user: affiliate.user,
+      affiliate,
+    };
+  }
+
+  async updateAffiliateFromAdmin(
+    adminUserId: string,
+    affiliateUserId: string,
+    payload: {
+      account_type?: string;
+      company_name?: string | null;
+      website_url?: string;
+      traffic_sources?: string | null;
+      promo_geo?: string | null;
+      monthly_traffic?: string | null;
+      payout_method?: string | null;
+      payout_details?: string | null;
+      telegram?: string | null;
+      whatsapp?: string | null;
+      skype?: string | null;
+      notes?: string | null;
+    },
+  ) {
+    await this.checkAdminOrModerator(adminUserId);
+
+    const affiliate = await this.affiliatesRepository.findOne({
+      where: { user_id: affiliateUserId },
+    });
+
+    if (!affiliate) {
+      throw new NotFoundException('Affiliate profile not found');
+    }
+
+    if (payload.account_type !== undefined) {
+      affiliate.account_type = payload.account_type as any;
+    }
+    if (payload.company_name !== undefined) {
+      affiliate.company_name = payload.company_name;
+    }
+    if (payload.website_url !== undefined) {
+      affiliate.website_url = payload.website_url;
+    }
+    if (payload.traffic_sources !== undefined) {
+      affiliate.traffic_sources = payload.traffic_sources;
+    }
+    if (payload.promo_geo !== undefined) {
+      affiliate.promo_geo = payload.promo_geo;
+    }
+    if (payload.monthly_traffic !== undefined) {
+      affiliate.monthly_traffic = payload.monthly_traffic;
+    }
+    if (payload.payout_method !== undefined) {
+      affiliate.payout_method = payload.payout_method;
+    }
+    if (payload.payout_details !== undefined) {
+      affiliate.payout_details = payload.payout_details;
+    }
+    if (payload.telegram !== undefined) {
+      affiliate.telegram = payload.telegram;
+    }
+    if (payload.whatsapp !== undefined) {
+      affiliate.whatsapp = payload.whatsapp;
+    }
+    if (payload.skype !== undefined) {
+      affiliate.skype = payload.skype;
+    }
+    if (payload.notes !== undefined) {
+      affiliate.notes = payload.notes;
+    }
+
+    const saved = await this.affiliatesRepository.save(affiliate);
+
+    return saved;
+  }
+
+  async listAffiliateOffersForAdmin(adminUserId: string) {
+    await this.checkAdminOrModerator(adminUserId);
+
+    const offers = await this.affiliateOffersRepository.find({
+      relations: ['affiliate_user'],
+      order: { created_at: 'DESC' },
+    });
+
+    return offers.map((o) => ({
+      id: o.id,
+      name: o.name,
+      target_role: o.target_role,
+      payout_model: o.payout_model,
+      default_cpa_amount: o.default_cpa_amount,
+      default_revshare_percent: o.default_revshare_percent,
+      currency: o.currency,
+      brand: o.brand,
+      is_active: o.is_active,
+      visibility: o.visibility,
+      affiliate_user_id: o.affiliate_user ? o.affiliate_user.id : null,
+      created_at: o.created_at,
+      updated_at: o.updated_at,
+    }));
+  }
+
+  async createAffiliateOfferForAdmin(
+    adminUserId: string,
+    payload: {
+      name: string;
+      target_role: 'jobseeker' | 'employer';
+      payout_model: 'cpa' | 'revshare' | 'hybrid';
+      default_cpa_amount?: number | null;
+      default_revshare_percent?: number | null;
+      currency?: string;
+      brand?: string;
+      is_active?: boolean;
+      visibility?: 'public' | 'private';
+      affiliate_user_id?: string | null;
+    },
+  ) {
+    await this.checkAdminOrModerator(adminUserId);
+
+    let affiliateUser: User | null = null;
+
+    if ((payload.visibility ?? 'public') === 'private') {
+      if (!payload.affiliate_user_id) {
+        throw new BadRequestException(
+          'affiliate_user_id is required for private offers',
+        );
+      }
+
+      affiliateUser = await this.usersRepository.findOne({
+        where: { id: payload.affiliate_user_id },
+      });
+
+      if (!affiliateUser) {
+        throw new NotFoundException('Affiliate user not found');
+      }
+    }
+
+    const offer = this.affiliateOffersRepository.create({
+      name: payload.name,
+      target_role: payload.target_role,
+      payout_model: payload.payout_model,
+      default_cpa_amount:
+        payload.default_cpa_amount !== undefined
+          ? payload.default_cpa_amount
+          : null,
+      default_revshare_percent:
+        payload.default_revshare_percent !== undefined
+          ? payload.default_revshare_percent
+          : null,
+      currency: payload.currency || 'USD',
+      brand:
+        payload.brand ||
+        this.configService.get<string>('SITE_BRAND') ||
+        this.configService.get<string>('BRAND') ||
+        'default',
+      is_active:
+        payload.is_active !== undefined ? payload.is_active : true,
+      visibility: payload.visibility || 'public',
+      affiliate_user: affiliateUser,
+    });
+
+    const saved = await this.affiliateOffersRepository.save(offer);
+    return saved;
+  }
+
+  async updateAffiliateOfferForAdmin(
+    adminUserId: string,
+    offerId: string,
+    payload: {
+      name?: string;
+      target_role?: 'jobseeker' | 'employer';
+      payout_model?: 'cpa' | 'revshare' | 'hybrid';
+      default_cpa_amount?: number | null;
+      default_revshare_percent?: number | null;
+      currency?: string;
+      brand?: string;
+      is_active?: boolean;
+      visibility?: 'public' | 'private';
+      affiliate_user_id?: string | null;
+    },
+  ) {
+    await this.checkAdminOrModerator(adminUserId);
+
+    const offer = await this.affiliateOffersRepository.findOne({
+      where: { id: offerId },
+      relations: ['affiliate_user'],
+    });
+
+    if (!offer) {
+      throw new NotFoundException('Affiliate offer not found');
+    }
+
+    if (payload.name !== undefined) {
+      offer.name = payload.name;
+    }
+    if (payload.target_role !== undefined) {
+      offer.target_role = payload.target_role;
+    }
+    if (payload.payout_model !== undefined) {
+      offer.payout_model = payload.payout_model;
+    }
+    if (payload.default_cpa_amount !== undefined) {
+      offer.default_cpa_amount = payload.default_cpa_amount;
+    }
+    if (payload.default_revshare_percent !== undefined) {
+      offer.default_revshare_percent = payload.default_revshare_percent;
+    }
+    if (payload.currency !== undefined) {
+      offer.currency = payload.currency;
+    }
+    if (payload.brand !== undefined) {
+      offer.brand = payload.brand;
+    }
+    if (payload.is_active !== undefined) {
+      offer.is_active = payload.is_active;
+    }
+    if (payload.visibility !== undefined) {
+      offer.visibility = payload.visibility;
+    }
+
+    // Логика привязки к аффу
+    if (payload.visibility === 'public') {
+      offer.affiliate_user = null;
+    } else if (payload.visibility === 'private') {
+      if (payload.affiliate_user_id) {
+        const affiliateUser = await this.usersRepository.findOne({
+          where: { id: payload.affiliate_user_id },
+        });
+        if (!affiliateUser) {
+          throw new NotFoundException('Affiliate user not found');
+        }
+        offer.affiliate_user = affiliateUser;
+      } else if (!offer.affiliate_user) {
+        throw new BadRequestException(
+          'affiliate_user_id is required for private offers',
+        );
+      }
+    }
+
+    if (payload.affiliate_user_id === null) {
+      // Явно отвязать оффер от конкретного аффа
+      offer.affiliate_user = null;
+    }
+
+    const saved = await this.affiliateOffersRepository.save(offer);
+    return saved;
   }
 }

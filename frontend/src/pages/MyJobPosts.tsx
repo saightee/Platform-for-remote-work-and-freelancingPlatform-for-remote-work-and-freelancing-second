@@ -31,7 +31,7 @@ import '../styles/post-job.css';
 import {
   FaBriefcase, FaEdit, FaEye, FaCheckCircle, FaTimesCircle,
   FaFolderOpen, FaChevronDown, FaChevronUp, FaSyncAlt, FaUser,
-  FaEnvelope, FaSearch, FaTimes, FaStar, FaComments, FaListUl
+  FaEnvelope, FaSearch, FaTimes, FaStar, FaComments, FaListUl, FaBuilding,
 } from 'react-icons/fa';
 
 import '../styles/my-job-posts.css';
@@ -289,20 +289,35 @@ const handleViewApplications = async (jobPostId: string) => {
   };
 
 
-  const handleSaveEdit = async (id: string) => {
+   const handleSaveEdit = async (id: string) => {
     if (!editingJob) return;
+
+    const salary =
+      editingJob.salary != null ? Number(editingJob.salary) : null;
+
+    const salaryMaxRaw = (editingJob as any).salary_max;
+    const salaryMax =
+      salaryMaxRaw != null && salaryMaxRaw !== ''
+        ? Number(salaryMaxRaw)
+        : null;
+
     if (!editingJob.title || !editingJob.description) {
       alert('Job title and description are required.');
       return;
     }
+
     if (editingJob.salary_type !== 'negotiable') {
-      if (editingJob.salary == null || editingJob.salary <= 0) {
+      if (salary == null || salary <= 0) {
         alert('Salary is required (>0) unless salary type is negotiable.');
+        return;
+      }
+      if (salaryMax != null && salary != null && salaryMax < salary) {
+        alert('Maximum salary cannot be less than minimum salary.');
         return;
       }
     }
 
-        try {
+    try {
       const payload: Partial<JobPost> = {
         title: editingJob.title,
         description: editingJob.description,
@@ -311,14 +326,29 @@ const handleViewApplications = async (jobPostId: string) => {
         salary:
           editingJob.salary_type === 'negotiable'
             ? null
-            : typeof editingJob.salary === 'number'
-              ? editingJob.salary
+            : typeof salary === 'number'
+              ? salary
               : null,
         job_type: editingJob.job_type ?? null,
         // --- changed: send multi-select categories ---
-        category_ids: ((editingJob as any).category_ids as string[] | undefined) ?? [],
+        category_ids:
+          ((editingJob as any).category_ids as string[] | undefined) ?? [],
         // legacy field not needed anymore
       } as any;
+
+              const companyNameRaw =
+          (editingJob as any).company_name ?? (editingJob as any).companyName ?? '';
+        if (typeof companyNameRaw === 'string') {
+          const trimmed = companyNameRaw.trim();
+          (payload as any).company_name = trimmed || null; // пустую строку превращаем в null
+        }
+
+      if (editingJob.salary_type === 'negotiable') {
+        (payload as any).salary_max = null;
+      } else {
+        (payload as any).salary_max = salaryMax;
+      }
+
       await handleUpdate(id, payload);
       setEditingJob(null);
     } catch (err: any) {
@@ -326,6 +356,7 @@ const handleViewApplications = async (jobPostId: string) => {
       alert(err.response?.data?.message || 'Failed to save changes.');
     }
   };
+
 
   const handleCancelEdit = () => setEditingJob(null);
 
@@ -459,6 +490,28 @@ const handleViewApplications = async (jobPostId: string) => {
                         />
                       </div>
 
+                        {/* Company name (NEW) */}
+                        <div className="mjp-row">
+                          <label className="mjp-label">
+                            <FaBuilding /> Company name
+                          </label>
+                          <input
+                            className="mjp-input"
+                            type="text"
+                            value={(editingJob as any).company_name || ''}
+                            onChange={(e) =>
+                              editingJob &&
+                              setEditingJob({
+                                ...(editingJob as any),
+                                company_name: e.target.value,
+                              } as any)
+                            }
+                            placeholder="e.g., BigJobs Inc."
+                            maxLength={255}
+                          />
+                        </div>
+                      
+
                       <div className="mjp-row">
                         <label className="mjp-label"><FaEdit /> Description</label>
                         <div className="mjp-quill-wrap">
@@ -484,9 +537,10 @@ const handleViewApplications = async (jobPostId: string) => {
                         </select>
                       </div>
 
-                      <div className="mjp-row">
+                                            <div className="mjp-row">
                         <label className="mjp-label"><FaFolderOpen /> Salary</label>
                         <div className="mjp-salary">
+                          {/* Min salary */}
                           <input
                             className="mjp-input"
                             type="number"
@@ -499,9 +553,35 @@ const handleViewApplications = async (jobPostId: string) => {
                               })
                             }
                             min={0}
-                            placeholder={editingJob?.salary_type === 'negotiable' ? 'Negotiable' : 'Enter salary'}
+                            placeholder={editingJob?.salary_type === 'negotiable' ? 'Negotiable' : 'Min'}
                             disabled={editingJob?.salary_type === 'negotiable'}
                           />
+
+                          {/* Max salary (optional) */}
+                          <input
+                            className="mjp-input"
+                            type="number"
+                            value={
+                              editingJob?.salary_type === 'negotiable'
+                                ? ''
+                                : ((editingJob as any).salary_max ?? '')
+                            }
+                            onChange={(e) =>
+                              editingJob &&
+                              setEditingJob({
+                                ...(editingJob as any),
+                                salary_max: e.target.value ? Number(e.target.value) : null,
+                              } as any)
+                            }
+                            min={0}
+                            placeholder={
+                              editingJob?.salary_type === 'negotiable'
+                                ? 'Negotiable'
+                                : 'Max (optional)'
+                            }
+                            disabled={editingJob?.salary_type === 'negotiable'}
+                          />
+
                           <select
                             className="mjp-select"
                             value={editingJob?.salary_type ?? 'per hour'}
@@ -509,10 +589,14 @@ const handleViewApplications = async (jobPostId: string) => {
                               if (!editingJob) return;
                               const st = e.target.value as SalaryType;
                               setEditingJob({
-                                ...editingJob,
+                                ...(editingJob as any),
                                 salary_type: st,
                                 salary: st === 'negotiable' ? null : editingJob.salary ?? null,
-                              });
+                                salary_max:
+                                  st === 'negotiable'
+                                    ? null
+                                    : ((editingJob as any).salary_max ?? null),
+                              } as any);
                             }}
                           >
                             <option value="per hour">per hour</option>
@@ -521,6 +605,7 @@ const handleViewApplications = async (jobPostId: string) => {
                           </select>
                         </div>
                       </div>
+
 
                       <div className="mjp-row">
                         <label className="mjp-label"><FaFolderOpen /> Job Type</label>

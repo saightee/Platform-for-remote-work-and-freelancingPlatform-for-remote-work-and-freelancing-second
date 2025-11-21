@@ -19,6 +19,7 @@ import { promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
 import { join, extname } from 'path';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { AffiliateRegisterDto } from './dto/affiliate-register.dto';
 
 const filesDriver = process.env.FILES_DRIVER || 's3';
 
@@ -62,36 +63,73 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  @UseInterceptors(FileFieldsInterceptor([
+  @UseInterceptors(FileFieldsInterceptor(
+    [
+      {
+        name: 'resume_file',
+        maxCount: 1,
+      },
+      {
+        name: 'avatar_file',
+        maxCount: 1,
+      },
+      {
+        name: 'portfolio_files',
+        maxCount: 10,
+      },
+    ],
     {
-      name: 'resume_file',
-      maxCount: 1,
+      storage: memoryStorage(),
+      fileFilter: (req, file, cb) => {
+        if (file.fieldname === 'resume_file') {
+          const allowedExt = /\.(pdf|doc|docx)$/i.test(file.originalname);
+          const allowedMime =
+            /pdf|msword|officedocument\.wordprocessingml\.document/.test(file.mimetype);
+          return allowedExt && allowedMime
+            ? cb(null, true)
+            : cb(
+                new BadRequestException(
+                  'Only PDF, DOC, and DOCX files are allowed for resume',
+                ),
+                false,
+              );
+        }
+        if (file.fieldname === 'avatar_file') {
+          const allowedExt = /\.(jpg|jpeg|png|webp)$/i.test(file.originalname);
+          const allowedMime = /^image\/(jpeg|png|webp)$/.test(file.mimetype);
+          return allowedExt && allowedMime
+            ? cb(
+                null,
+                true,
+              )
+            : cb(
+                new BadRequestException(
+                  'Avatar must be an image: JPG, PNG, or WEBP',
+                ),
+                false,
+              );
+        }
+        if (file.fieldname === 'portfolio_files') {
+          const allowedExt = /\.(pdf|doc|docx|jpg|jpeg|png|webp)$/i.test(
+            file.originalname,
+          );
+          const allowedMime = /pdf|msword|officedocument\.wordprocessingml\.document|image\/jpeg|image\/png|image\/webp/.test(
+            file.mimetype,
+          );
+          return allowedExt && allowedMime
+            ? cb(null, true)
+            : cb(
+                new BadRequestException(
+                  'Only PDF, DOC, DOCX, JPG, JPEG, PNG, and WEBP are allowed for portfolio files',
+                ),
+                false,
+              );
+        }
+        return cb(new BadRequestException('Unexpected file field'), false);
+      },
+      limits: { fileSize: 10 * 1024 * 1024 },
     },
-    {
-      name: 'avatar_file',
-      maxCount: 1,
-    },
-  ], {
-    storage: memoryStorage(),
-    fileFilter: (req, file, cb) => {
-      if (file.fieldname === 'resume_file') {
-        const allowedExt = /\.(pdf|doc|docx)$/i.test(file.originalname);
-        const allowedMime = /pdf|msword|officedocument\.wordprocessingml\.document/.test(file.mimetype);
-        return allowedExt && allowedMime
-          ? cb(null, true)
-          : cb(new BadRequestException('Only PDF, DOC, and DOCX files are allowed for resume'), false);
-      }
-      if (file.fieldname === 'avatar_file') {
-        const allowedExt = /\.(jpg|jpeg|png|webp)$/i.test(file.originalname);
-        const allowedMime = /^image\/(jpeg|png|webp)$/.test(file.mimetype);
-        return allowedExt && allowedMime
-          ? cb(null, true)
-          : cb(new BadRequestException('Avatar must be an image: JPG, PNG, or WEBP'), false);
-      }
-      return cb(new BadRequestException('Unexpected file field'), false);
-    },
-    limits: { fileSize: 10 * 1024 * 1024 },
-  }))
+  ))
   async register(
     @Body() registerDto: RegisterDto & { ref?: string },
     @Headers('x-forwarded-for') xForwardedFor?: string,
@@ -99,7 +137,12 @@ export class AuthController {
     @Headers('x-fingerprint') fingerprint?: string,
     @Headers('host') host?: string,
     @Req() req?: any,
-    @UploadedFiles() files?: { resume_file?: Express.Multer.File[]; avatar_file?: Express.Multer.File[] },
+    @UploadedFiles()
+    files?: {
+      resume_file?: Express.Multer.File[];
+      avatar_file?: Express.Multer.File[];
+      portfolio_files?: Express.Multer.File[];
+    },
   ) {
     const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
     const ip = (ipHeader || '').split(',')[0].trim();
@@ -107,6 +150,11 @@ export class AuthController {
 
     const resumeFile = files?.resume_file?.[0];
     const avatarFile = files?.avatar_file?.[0];
+    const portfolioFiles = files?.portfolio_files || [];
+
+    if (portfolioFiles.length > 10) {
+      throw new BadRequestException('You can upload up to 10 portfolio files');
+    }
 
     if (resumeFile?.buffer?.length) {
       if (filesDriver === 's3' && process.env.AWS_S3_BUCKET) {
@@ -147,19 +195,68 @@ export class AuthController {
       }
     }
 
+    const portfolioUrls: string[] = [];
+    for (const file of portfolioFiles) {
+      if (!file?.buffer?.length) continue;
+
+      if (filesDriver === 's3' && process.env.AWS_S3_BUCKET) {
+        const { key } = await this.s3.uploadBuffer(file.buffer, {
+          prefix: 'portfolios',
+          originalName: file.originalname,
+          contentType: file.mimetype,
+        });
+        const cdnBase = pickCdnBaseByHost(host);
+        portfolioUrls.push(`${cdnBase}/${key}`);
+      } else {
+        const ext = extname(file.originalname) || '';
+        const name = `${randomUUID()}${ext}`;
+        const dir = './uploads/portfolios';
+        await fs.mkdir(dir, { recursive: true });
+        await fs.writeFile(join(dir, name), file.buffer);
+        portfolioUrls.push(
+          `${process.env.BASE_URL}/uploads/portfolios/${name}`,
+        );
+      }
+    }
+
+    if (portfolioUrls.length) {
+      (registerDto as any).portfolio_files = portfolioUrls;
+    }
+
     const brand = mapBrandFromReq(req) || null;
     (registerDto as any).__brand = brand;
 
-    const refFromBody   = (registerDto as any)?.ref;
-    const refFromQuery  = req?.query?.ref as string | undefined;
-    const refFromHeader = (req?.headers?.['x-ref'] as string | undefined);
+    const refFromBody = (registerDto as any)?.ref;
+    const refFromQuery = req?.query?.ref as string | undefined;
+    const refFromHeader = req?.headers?.['x-ref'] as string | undefined;
     const refFromCookie = (req as any)?.cookies?.ref as string | undefined;
       
     const refCode =
       [refFromBody, refFromQuery, refFromHeader, refFromCookie]
         .find(v => typeof v === 'string' && v.trim()) || undefined;
-      
-    return this.authService.register(registerDto, ip, fingerprint, refCode, avatarUrl);
+
+    const affFromQuery = req?.query?.aff as string | undefined;
+    const affFromCookie = (req as any)?.cookies?.aff_code as string | undefined;
+    const affClickFromCookie = (req as any)?.cookies?.aff_click_id as string | undefined;
+
+    const affCode =
+      [affFromQuery, affFromCookie]
+        .find(v => typeof v === 'string' && v.trim()) || undefined;
+
+    const affClickId =
+      typeof affClickFromCookie === 'string' && affClickFromCookie.trim()
+        ? affClickFromCookie.trim()
+        : undefined;
+
+    return this.authService.register(
+      registerDto,
+      ip,
+      fingerprint,
+      refCode,
+      avatarUrl,
+      affCode,
+      affClickId,
+    );
   }
 
   @Get('verify-email')
@@ -185,6 +282,34 @@ export class AuthController {
         }
       }
     }
+
+  @Get('pending-session')
+  async getPendingSessionStatus(@Query('id') id: string) {
+    if (!id || typeof id !== 'string') {
+      throw new BadRequestException('id is required');
+    }
+
+    const raw = await this.redisService.get(`pending_session:${id}`);
+    if (!raw) {
+      return { status: 'not_found' as const };
+    }
+
+    let data: any;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return { status: 'pending' as const };
+    }
+
+    if (data && data.status === 'verified') {
+      return {
+        status: 'verified' as const,
+        accessToken: data.accessToken ?? null,
+      };
+    }
+
+    return { status: 'pending' as const };
+  }
 
   @Post('login')
   async login(@Body() loginDto: LoginDto, @Req() req: any) {
@@ -286,7 +411,7 @@ export class AuthController {
     const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
     const ip = ipHeader.split(',')[0].trim();
     console.log('Client IP:', ip);
-    return this.authService.register(createAdminDto, ip, fingerprint);
+        return this.authService.register(createAdminDto, ip, fingerprint, undefined, undefined, undefined, undefined);
   }
 
   @Post('create-moderator')
@@ -300,7 +425,7 @@ export class AuthController {
     const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
     const ip = ipHeader.split(',')[0].trim();
     console.log('Client IP:', ip);
-    return this.authService.register(createModeratorDto, ip, fingerprint);
+        return this.authService.register(createModeratorDto, ip, fingerprint, undefined, undefined, undefined, undefined);
   }
 
   @Post('forgot-password')
@@ -326,7 +451,7 @@ export class AuthController {
     const ip = ipHeader.split(',')[0].trim();
     console.log('Клиентский IP:', ip);
     const registerDto = { email: body.email, password: body.password, username: body.username, role: body.role };
-    const user = await this.authService.register(registerDto, ip, fingerprint);
+    const user = await this.authService.register(registerDto, ip, fingerprint, undefined, undefined, undefined, undefined);
     return res.json(user);
   }
 
@@ -334,5 +459,43 @@ export class AuthController {
   async resendVerification(@Body('email') email: string) {
     await this.authService.resendVerificationEmail(email);
     return { message: 'If the account exists and is not verified, we sent a new link.' };
+  }
+
+  @Post('register-affiliate')
+  async registerAffiliate(
+    @Body() registerDto: AffiliateRegisterDto & { ref?: string },
+    @Headers('x-forwarded-for') xForwardedFor?: string,
+    @Headers('x-real-ip') xRealIp?: string,
+    @Headers('x-fingerprint') fingerprint?: string,
+    @Req() req?: any,
+  ) {
+    const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
+    const ip = (ipHeader || '').split(',')[0].trim();
+
+    if (!fingerprint) {
+      throw new BadRequestException('Fingerprint is required');
+    }
+
+    const brand = mapBrandFromReq(req) || null;
+    (registerDto as any).__brand = brand;
+
+    const refFromBody = (registerDto as any)?.ref;
+    const refFromQuery = req?.query?.ref as string | undefined;
+    const refFromHeader = req?.headers?.['x-ref'] as string | undefined;
+    const refFromCookie = (req as any)?.cookies?.ref as string | undefined;
+
+    const refCode =
+      [refFromBody, refFromQuery, refFromHeader, refFromCookie]
+        .find((v) => typeof v === 'string' && v.trim()) || undefined;
+
+    return this.authService.register(
+      registerDto,
+      ip,
+      fingerprint,
+      refCode,
+      undefined,
+      undefined,
+      undefined,
+    );
   }
 }
