@@ -11,30 +11,44 @@ const REDIRECT_MS = 12000; // 12 seconds
 
 const RegistrationPending: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation() as {
-    state?: { email?: string; pendingSessionId?: string };
-  };
-
+  const location = useLocation() as { state?: { email?: string; pendingSessionId?: string } };
   const email = location?.state?.email;
   const progressRef = useRef<HTMLDivElement | null>(null);
 
   const { refreshProfile, profile } = useRole();
-
-  // флаг, что авто-логин сработал (получили токен из pending-session)
   const [autoLoginActive, setAutoLoginActive] = useState(false);
   const autoLoginStartedRef = useRef(false);
+
+  // есть ли вообще pendingSessionId (в state или localStorage)
+  const [hasPendingSession, setHasPendingSession] = useState(false);
+
+  useEffect(() => {
+    const stateId = location?.state?.pendingSessionId;
+    let storedId: string | null = null;
+    try {
+      storedId = localStorage.getItem('pendingSessionId');
+    } catch {
+      storedId = null;
+    }
+    setHasPendingSession(Boolean(stateId || storedId));
+  }, [location]);
+
 
   // -----------------------------
   // 1) Таймер + прогресс-бар
   // -----------------------------
-  useEffect(() => {
+   useEffect(() => {
+    // Если есть pendingSessionId, НЕ редиректим на /login, иначе сломаем автологин.
+    if (hasPendingSession) {
+      return;
+    }
+
     const t = setTimeout(() => {
       navigate('/login', { replace: true });
     }, REDIRECT_MS);
 
     let raf = 0;
     const start = performance.now();
-
     const tick = (now: number) => {
       const el = progressRef.current;
       if (!el) return;
@@ -43,14 +57,14 @@ const RegistrationPending: React.FC = () => {
       el.style.width = `${pct}%`;
       raf = requestAnimationFrame(tick);
     };
-
     raf = requestAnimationFrame(tick);
 
     return () => {
       clearTimeout(t);
       cancelAnimationFrame(raf);
     };
-  }, [navigate]);
+  }, [navigate, hasPendingSession]);
+
 
   // -----------------------------
   // 2) Пуллинг pending-session
@@ -224,14 +238,19 @@ const RegistrationPending: React.FC = () => {
           Please check your inbox (and spam folder) and click the link to verify your account.
         </p>
 
-        <div className="rp-info">
-          <span className="rp-dot" aria-hidden="true" />
-          You’ll be redirected to the login page in <strong>12 seconds</strong>.
-        </div>
+               {!hasPendingSession && (
+          <>
+            <div className="rp-info">
+              <span className="rp-dot" aria-hidden="true" />
+              After you confirm your email on any device, we’ll log you in here <strong>automatically</strong>.
+            </div>
 
-        <div className="rp-progress" aria-hidden="true">
-          <div className="rp-progress__bar" ref={progressRef} />
-        </div>
+            <div className="rp-progress" aria-hidden="true">
+              <div className="rp-progress__bar" ref={progressRef} />
+            </div>
+          </>
+        )}
+
 
         <div className="rp-actions">
           <Link className="rp-btn rp-btn--primary" to="/login">
