@@ -407,6 +407,17 @@ const submitInvite = async () => {
             </div>
 
             <ul className="ppx-kv">
+              {profile.role === 'jobseeker' && (
+                  <li>
+                    <span className="ppx-kv-icon">
+                      <FaBriefcase />
+                    </span>
+                    <span className="ppx-kv-label">Current position</span>
+                    <span className="ppx-kv-value">
+                      {(profile as any).current_position || 'Not specified'}
+                    </span>
+                  </li>
+                )}
               <li>
                 <span className="ppx-kv-icon">
                   <FaEnvelope />
@@ -744,12 +755,7 @@ const submitInvite = async () => {
               <div className="ppx-card">
                 <h3 className="ppx-block-title">Work Experience</h3>
 
-                {(profile as any).current_position && (
-                  <p className="ppx-text-muted" style={{ marginBottom: 8 }}>
-                    Current position:{' '}
-                    <strong>{(profile as any).current_position}</strong>
-                  </p>
-                )}
+             
 
                 {Array.isArray((profile as any).job_experience_items) &&
                 (profile as any).job_experience_items.length ? (
