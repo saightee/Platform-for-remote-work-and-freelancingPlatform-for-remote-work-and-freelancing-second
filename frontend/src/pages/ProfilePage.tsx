@@ -702,28 +702,27 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
       </div>
     );
 
-  // --- gallery images (avatar + portfolio images) ---
-  const galleryImages: string[] = (() => {
-    const urls: string[] = [];
 
-    if (profileData.avatar) {
-      const a = profileData.avatar as string;
-      urls.push(a.startsWith('http') ? a : `${brandOrigin()}/backend${a}`);
-    }
+  // --- gallery images (only portfolio images) ---
+  const portfolioFilesRaw: string[] =
+    profileData.role === 'jobseeker' &&
+    Array.isArray((profileData as any).portfolio_files)
+      ? ((profileData as any).portfolio_files as string[])
+      : [];
 
-    if (
-      profileData.role === 'jobseeker' &&
-      Array.isArray((profileData as any).portfolio_files)
-    ) {
-      (profileData as any).portfolio_files
-        .filter((u: string) => isImageUrl(u))
-        .forEach((u: string) => {
-          urls.push(u.startsWith('http') ? u : `${brandOrigin()}/backend${u}`);
-        });
-    }
+  const toFullUrl = (u: string) =>
+    u.startsWith('http') ? u : `${brandOrigin()}/backend${u}`;
 
-    return urls;
-  })();
+  const galleryImages: string[] = portfolioFilesRaw
+    .filter((u) => isImageUrl(u))
+    .map(toFullUrl);
+
+  // карта "url -> индекс" для открытия нужной картинки
+  const galleryIndexByUrl = new Map<string, number>();
+  galleryImages.forEach((src, idx) => {
+    galleryIndexByUrl.set(src, idx);
+  });
+
 
   const openGalleryAt = (idx: number) => {
     if (!galleryImages.length) return;
@@ -733,12 +732,21 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
   };
 
   const handleAvatarClick = () => {
-    if (!profileData?.avatar || isEditing) {
+    // В режиме редактирования — открываем выбор файла
+    if (isEditing) {
       avatarRef.current?.click();
-      return;
     }
-    openGalleryAt(0);
+    // В режиме просмотра — ничего не делаем
   };
+
+  const portfolioFiles = profileData.role === 'jobseeker'
+    ? portfolioFilesRaw.map((u) => {
+        const full = toFullUrl(u);
+        const isImg = isImageUrl(u);
+        const filename = u.split('/').pop() || 'File';
+        return { raw: u, src: full, isImg, filename };
+      })
+    : [];
 
   return (
     <div>
@@ -776,10 +784,10 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
               <div
                 className="pf-avatar-wrap"
                 onClick={handleAvatarClick}
-                title={
-                  profileData.avatar && !isEditing
-                    ? 'Click to view photos'
-                    : 'Click to upload avatar'
+                 title={
+                  isEditing
+                    ? 'Click to upload avatar'
+                    : undefined
                 }
                 role="button"
                 tabIndex={0}
@@ -2258,55 +2266,71 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
 
                   <div className="pf-row">
                     <label className="pf-label">Portfolio files</label>
-                    {Array.isArray((profileData as any).portfolio_files) &&
-                    (profileData as any).portfolio_files.length ? (
-                      <ul className="pf-files-grid">
-                        {(profileData as any).portfolio_files.map(
-                          (u: string, i: number) => (
-                            <li key={i} className="pf-file-pill">
-                              <a
-                                className="pf-link"
-                                href={u}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
+                    {portfolioFiles.length ? (
+                      <div className="pf-portfolio-grid">
+                        {portfolioFiles.map((file, i) => (
+                          <div key={i} className="pf-portfolio-item">
+                            {file.isImg ? (
+                              <button
+                                type="button"
+                                className="pf-portfolio-thumb"
+                                onClick={() => {
+                                  const idx = galleryIndexByUrl.get(file.src);
+                                  if (idx != null) {
+                                    openGalleryAt(idx);
+                                  } else {
+                                    window.open(file.src, '_blank', 'noopener');
+                                  }
                                 }}
                               >
-                                {u}
+                                <img
+                                  src={file.src}
+                                  alt={file.filename}
+                                  className="pf-portfolio-img"
+                                />
+                              </button>
+                            ) : (
+                              <a
+                                href={file.src}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="pf-portfolio-doc"
+                              >
+                                <span className="pf-portfolio-doc-icon">
+                                  <FaFilePdf />
+                                </span>
+                                <span className="pf-portfolio-doc-name">
+                                  {file.filename}
+                                </span>
                               </a>
-                              {isEditing && (
-                                <button
-                                  type="button"
-                                  className="pf-button pf-secondary"
-                                  onClick={() => {
-                                    const list = (
-                                      (profileData as any)
-                                        .portfolio_files || []
-                                    ).filter(
-                                      (_: string, idx: number) =>
-                                        idx !== i,
-                                    );
-                                    setProfileData(
-                                      {
-                                        ...(profileData as any),
-                                        portfolio_files: list,
-                                      } as any,
-                                    );
-                                  }}
-                                >
-                                  Remove
-                                </button>
-                              )}
-                            </li>
-                          ),
-                        )}
-                      </ul>
+                            )}
+
+                            {isEditing && (
+                              <button
+                                type="button"
+                                className="pf-portfolio-remove"
+                                onClick={() => {
+                                  const list = portfolioFilesRaw.filter(
+                                    (_u, idx) => idx !== i,
+                                  );
+                                  setProfileData(
+                                    {
+                                      ...(profileData as any),
+                                      portfolio_files: list,
+                                    } as any,
+                                  );
+                                }}
+                              >
+                                ×
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     ) : (
                       <div className="pf-muted">No files yet.</div>
                     )}
+
                  
                   </div>
 
