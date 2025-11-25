@@ -82,6 +82,18 @@ export class ProfilesService {
         canSeePrivateContacts = count > 0;
       }
 
+      const jobExperienceItems = ((jobSeeker as any).job_experience_items || []).sort((a: any, b: any) => {
+        const aYear = a.end_year ?? a.start_year ?? 0;
+        const bYear = b.end_year ?? b.start_year ?? 0;
+        return bYear - aYear;
+      });
+
+      const educationItems = ((jobSeeker as any).education_items || []).sort((a: any, b: any) => {
+        const aYear = a.end_year ?? a.start_year ?? 0;
+        const bYear = b.end_year ?? b.start_year ?? 0;
+        return bYear - aYear;
+      });
+
       return {
         id: user.id,
         role: user.role,
@@ -94,8 +106,8 @@ export class ProfilesService {
         job_experience: (jobSeeker as any).job_experience || null,
         current_position: (jobSeeker as any).current_position || null,
         education: (jobSeeker as any).education || null,
-        job_experience_items: (jobSeeker as any).job_experience_items || [],
-        education_items: (jobSeeker as any).education_items || [],
+        job_experience_items: jobExperienceItems,
+        education_items: educationItems,
         description: jobSeeker.description,
         portfolio: jobSeeker.portfolio,
         portfolio_files: jobSeeker.portfolio_files || [],
