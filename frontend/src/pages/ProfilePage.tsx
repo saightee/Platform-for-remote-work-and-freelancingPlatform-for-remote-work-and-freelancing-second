@@ -398,6 +398,14 @@ if (normCurrentPosition.length > 200) {
 }
 (now as any).current_position = normCurrentPosition || null;
 
+const bioRaw = ((now as any).description || '').toString();
+if (bioRaw.length > 250) {
+  setFormError('Bio must be at most 250 characters.');
+  setIsSaving(false);
+  return;
+}
+(now as any).description = bioRaw;
+
 
 const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtended[K]) =>
   o ? o[key] !== val : val !== undefined;
