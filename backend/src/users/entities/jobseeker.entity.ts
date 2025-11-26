@@ -84,6 +84,9 @@ export class JobSeeker {
   @Column({ type: 'varchar', nullable: true })
   expected_salary_type?: 'per month' | 'per day';
 
+  @Column({ type: 'text', array: true, nullable: true, default: [] })
+  preferred_job_types?: ('Full-time' | 'Part-time' | 'Project-based')[];
+
   @Column({ nullable: true })
   currency?: string;
 

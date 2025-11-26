@@ -26,6 +26,7 @@ export class TalentsService {
     expected_salary_min?: number;
     expected_salary_max?: number;
     expected_salary_type?: 'per month' | 'per day'; 
+    preferred_job_types?: string[];
     page?: number;
     limit?: number;
     sort_by?: 'average_rating' | 'profile_views';
@@ -97,6 +98,12 @@ export class TalentsService {
       }
     }
 
+    if (filters.preferred_job_types?.length) {
+      qb.andWhere('jobSeeker.preferred_job_types && ARRAY[:...jobTypes]', { 
+        jobTypes: filters.preferred_job_types 
+      });
+    }
+
     const total = await qb.getCount();
 
     const page = Math.max(1, filters.page ?? 1);
@@ -129,6 +136,7 @@ export class TalentsService {
         expected_salary: (js as any).expected_salary ?? null,
         expected_salary_max: (js as any).expected_salary_max ?? null,
         expected_salary_type: (js as any).expected_salary_type ?? null,
+        preferred_job_types: (js as any).preferred_job_types ?? [],
         average_rating: js.average_rating,
         profile_views: js.profile_views,
         job_search_status: (js as any).job_search_status,

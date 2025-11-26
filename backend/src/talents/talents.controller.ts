@@ -27,6 +27,8 @@ export class TalentsController {
     @Query('languages') languages?: string | string[],
     @Query('languages_mode') languages_mode?: 'any' | 'all',
     @Query('has_resume') has_resume?: 'true' | 'false',
+    @Query('preferred_job_types') preferred_job_types?: string | string[],
+    @Query('preferred_job_types[]') preferred_job_types_bracket?: string | string[],
   ) {
     const toArray = (v?: string | string[]) =>
       Array.isArray(v)
@@ -167,6 +169,22 @@ export class TalentsController {
 
     if (has_resume === 'true') filters.has_resume = true;
     if (has_resume === 'false') filters.has_resume = false;
+
+    const jobTypesArr = [
+      ...(Array.isArray(preferred_job_types) ? preferred_job_types : preferred_job_types ? [preferred_job_types] : []),
+      ...(Array.isArray(preferred_job_types_bracket) ? preferred_job_types_bracket : preferred_job_types_bracket ? [preferred_job_types_bracket] : []),
+    ];
+
+    if (jobTypesArr.length) {
+      const allowed = ['Full-time', 'Part-time', 'Project-based'];
+      const invalid = jobTypesArr.filter(v => !allowed.includes(v));
+      if (invalid.length > 0) {
+        throw new BadRequestException(
+          'preferred_job_types must be: Full-time | Part-time | Project-based'
+        );
+      }
+    filters.preferred_job_types = jobTypesArr;
+  }
 
     return this.talentsService.searchTalents(filters);
   }

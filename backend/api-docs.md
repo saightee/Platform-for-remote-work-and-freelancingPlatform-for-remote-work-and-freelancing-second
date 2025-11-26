@@ -322,6 +322,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "expected_salary": 4500.0,
     "expected_salary_max": 6000.0,
     "expected_salary_type": "per month", 
+    "preferred_job_types": "Full-time",
     "average_rating": 4.0,
     "profile_views": 10,
     "avatar": "https://example.com/avatar.jpg",
@@ -458,6 +459,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "expected_salary": 4500,
     "expected_salary_max": 6000,
     "expected_salary_type": "per month",
+    "preferred_job_types": "Full-time",
     "average_rating": 4.0,
     "profile_views": 11,
     "job_search_status": "open_to_offers",
@@ -528,6 +530,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "expected_salary": 4500,
     "expected_salary_max": 6000,
     "expected_salary_type": "per month",
+    "preferred_job_types": "Full-time",
     "average_rating": 4.0,
     "profile_views": 12,
     "job_search_status": "open_to_offers",
@@ -584,6 +587,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "telegram": "@handle",
     "description": "Up to 150 words ...",
     "portfolio": "https://portfolio.com",
+    "preferred_job_types": "Full-time",
     "portfolio_files": [
       "https://cdn.example.com/portfolios/file1.pdf",
       "https://cdn.example.com/portfolios/file2.png"
@@ -2979,6 +2983,7 @@ Note: This sets the global setting; applying it to existing job posts is handled
   - `expected_salary_type` *(enum, optional)* — "per month" | "per day";
   - `page` *(number as string, optional)* — **>= 1**; default `1`. Invalid → `400`.
   - `limit` *(number as string, optional)* — **1..100**; default `10`, capped at `100`. Invalid → `400`.
+  - `preferred_job_types`: `Full-time`.
   - `sort_by` *(enum, optional)* — `average_rating | profile_views`; default `average_rating`. Invalid → `400`.
   - `sort_order` *(enum, optional)* — `ASC | DESC`; default `DESC`. Invalid → `400`.
   - `country` *(string, optional)* — Country **name or ISO-2**; normalized to ISO-2 (e.g., `United States`,   `USA`, `us` → `US`).
@@ -3013,6 +3018,7 @@ Note: This sets the global setting; applying it to existing job posts is handled
         "average_rating": 4.6,
         "profile_views": 127,
         "job_search_status": "open_to_offers",
+        "preferred_job_types": "Full-time",
         "identity_verified": true,
         "avatar": "/uploads/avatars/john.png",
         "country": "US",

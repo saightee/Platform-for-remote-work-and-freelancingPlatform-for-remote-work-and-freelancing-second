@@ -112,6 +112,7 @@ export class ProfilesController {
       expected_salary?: number;
       expected_salary_max?: number;
       expected_salary_type?: 'per month' | 'per day';
+      preferred_job_types?: ('Full-time' | 'Part-time' | 'Project-based')[];
       linkedin?: string | null;
       instagram?: string | null;
       facebook?: string | null;

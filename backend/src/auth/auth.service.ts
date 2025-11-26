@@ -19,6 +19,11 @@ import { SettingsService } from '../settings/settings.service';
 import { AffiliateRegisterDto } from './dto/affiliate-register.dto';
 import { AffiliateProgramService } from '../affiliate-program/affiliate-program.service';
 
+function isValidUsername(username: string): boolean {
+  // Только буквы (латиница и кириллица), цифры и пробелы
+  return /^[a-zA-Zа-яА-ЯёЁ0-9\s]+$/.test(username);
+}
+
 const normalizeEmail = (e: string) => (e || '').trim().toLowerCase();
 const isStrongPassword = (pw: string) =>
   typeof pw === 'string' &&
@@ -57,6 +62,20 @@ export class AuthService {
     const emailNorm = (dto.email || '').trim().toLowerCase();
     const username = (dto as any).username;
     const password = (dto as any).password;
+
+    if (!username || typeof username !== 'string') {
+      throw new BadRequestException('Username is required');
+    }
+    const usernameTrimmed = username.trim();
+    if (!usernameTrimmed) {
+      throw new BadRequestException('Username cannot be empty');
+    }
+    if (usernameTrimmed.length > 100) {
+      throw new BadRequestException('Username is too long (max 100)');
+    }
+    if (!isValidUsername(usernameTrimmed)) {
+      throw new BadRequestException('Username can only contain letters, numbers, and spaces');
+    }
 
     const isPrivileged = 'secretKey' in dto;
 
