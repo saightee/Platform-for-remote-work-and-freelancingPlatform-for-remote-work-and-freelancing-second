@@ -78,6 +78,12 @@ export class JobSeeker {
   @Column({ type: 'numeric', nullable: true, precision: 12, scale: 2 })
   expected_salary?: number;
 
+  @Column({ type: 'numeric', nullable: true, precision: 12, scale: 2 })
+  expected_salary_max?: number;
+
+  @Column({ type: 'varchar', nullable: true })
+  expected_salary_type?: 'per month' | 'per day';
+
   @Column({ nullable: true })
   currency?: string;
 

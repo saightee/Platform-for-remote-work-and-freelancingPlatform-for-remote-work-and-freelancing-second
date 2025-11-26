@@ -110,6 +110,8 @@ export class ProfilesController {
       currency?: string;
       job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
       expected_salary?: number;
+      expected_salary_max?: number;
+      expected_salary_type?: 'per month' | 'per day';
       linkedin?: string | null;
       instagram?: string | null;
       facebook?: string | null;

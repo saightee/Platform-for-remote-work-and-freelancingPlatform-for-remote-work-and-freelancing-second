@@ -302,11 +302,16 @@ export class JobPostsService {
     });
     const categories = rows.map(r => ({ id: r.category_id, name: r.category?.name }));
 
+    const applicationsCount = await this.jobApplicationsRepository.count({
+      where: { job_post_id: jobPostId },
+    });
+
     return {
       ...jobPost,
       category_id: jobPost.category_id ?? null,
       categories,
       category_ids: categories.map(c => c.id),
+      applications_count: applicationsCount,
     };
   }
 
@@ -335,6 +340,21 @@ export class JobPostsService {
       byPost.set(row.job_post_id, arr);
     });
 
+    const applicationsCounts = new Map<string, number>();
+    if (ids.length) {
+      const counts = await this.jobApplicationsRepository
+        .createQueryBuilder('app')
+        .select('app.job_post_id', 'job_post_id')
+        .addSelect('COUNT(*)', 'count')
+        .where('app.job_post_id IN (:...ids)', { ids })
+        .groupBy('app.job_post_id')
+        .getRawMany();
+
+      counts.forEach(c => {
+        applicationsCounts.set(c.job_post_id, parseInt(c.count, 10));
+      });
+    }
+
     return posts.map(p => {
       const cats = byPost.get(p.id) || [];
       return {
@@ -342,6 +362,7 @@ export class JobPostsService {
         category_id: p.category_id ?? null,
         categories: cats,
         category_ids: cats.map(c => c.id),
+        applications_count: applicationsCounts.get(p.id) || 0,
       };
     });
   }
@@ -422,6 +443,21 @@ export class JobPostsService {
       byPost.set(row.job_post_id, arr);
     });
 
+    const applicationsCounts = new Map<string, number>();
+    if (ids.length) {
+      const counts = await this.jobApplicationsRepository
+        .createQueryBuilder('app')
+        .select('app.job_post_id', 'job_post_id')
+        .addSelect('COUNT(*)', 'count')
+        .where('app.job_post_id IN (:...ids)', { ids })
+        .groupBy('app.job_post_id')
+        .getRawMany();
+
+      counts.forEach(c => {
+        applicationsCounts.set(c.job_post_id, parseInt(c.count, 10));
+      });
+    }
+
     const data = rows.map(r => {
       const cats = byPost.get(r.id) || [];
       return {
@@ -429,6 +465,7 @@ export class JobPostsService {
         category_id: r.category_id ?? null,
         categories: cats,
         category_ids: cats.map(c => c.id),
+        applications_count: applicationsCounts.get(r.id) || 0,
       };
     });
 

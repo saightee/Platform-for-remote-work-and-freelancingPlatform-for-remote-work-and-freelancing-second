@@ -320,6 +320,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "timezone": "Europe/Moscow",
     "currency": "USD",
     "expected_salary": 4500.0,
+    "expected_salary_max": 6000.0,
+    "expected_salary_type": "per month", 
     "average_rating": 4.0,
     "profile_views": 10,
     "avatar": "https://example.com/avatar.jpg",
@@ -454,6 +456,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "timezone": "Europe/Moscow",
     "currency": "USD",
     "expected_salary": 4500,
+    "expected_salary_max": 6000,
+    "expected_salary_type": "per month",
     "average_rating": 4.0,
     "profile_views": 11,
     "job_search_status": "open_to_offers",
@@ -522,6 +526,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "timezone": "Europe/Moscow",
     "currency": "USD",
     "expected_salary": 4500,
+    "expected_salary_max": 6000,
+    "expected_salary_type": "per month",
     "average_rating": 4.0,
     "profile_views": 12,
     "job_search_status": "open_to_offers",
@@ -589,6 +595,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "currency": "EUR",
     "job_search_status": "actively_looking",
     "expected_salary": 4500,
+    "expected_salary_max": 6000,
+    "expected_salary_type": "per month", // "per month" | "per day"
     "current_position": "Senior Backend Developer",
     "education": "BSc in Computer Science",
     "job_experience_items": [
@@ -651,6 +659,15 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Response (Error — 400, education is too long (max 200 chars))**:
   ```json
   {"statusCode": 400, "message": "education is too long (max 200 chars)", "error": "Bad Request"}
+- **Response (Error — 400, expected_salary must be a non-negative number or null)**:
+  ```json
+  {"statusCode": 400, "message": "expected_salary must be a non-negative number or null", "error": "Bad Request"}
+- **Response (Error — 400, expected_salary_max must be a non-negative number or null)**:
+  ```json
+  {"statusCode": 400, "message": "expected_salary_max must be a non-negative number or null", "error": "Bad Request"}
+- **Response (Error — 400, expected_salary_type must be: per month | per day)**:
+  ```json
+  {"statusCode": 400, "message": "expected_salary_type must be: per month | per day", "error": "Bad Request"} 
 
 ### 14. Create Job Post
 - **Endpoint**: `POST /api/job-posts`
@@ -884,6 +901,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "status": "Active",
     "job_type": "Full-time",
     "salary_type": "negotiable",
+    "applications_count": 15,
     "excluded_locations": ["IN"],
     "pending_review": false,
     "category_id": "<categoryId>",
@@ -927,6 +945,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "status": "Active",
     "job_type": "Full-time",
     "salary_type": "negotiable",
+    "applications_count": 15,
     "excluded_locations": ["IN"],
     "pending_review": false,
     "category_id": "<catId1>",
@@ -1491,6 +1510,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
       "status": "Active",
       "job_type": "Full-time",
       "salary_type": "negotiable",
+      "applications_count": 15,
       "excluded_locations": ["IN"],
       "pending_review": false,
       "category_id": "<catId1>",                     // legacy single category field
@@ -2956,6 +2976,7 @@ Note: This sets the global setting; applying it to existing job posts is handled
   - `job_search_status` *(enum, optional)* — One of: `actively_looking | open_to_offers | hired`. Invalid → `400`.
   - `expected_salary_min` *(number as string, optional)* — **>= 0**; filters `expected_salary >= value`. Invalid  → `400`.
   - `expected_salary_max` *(number as string, optional)* — **>= 0**; filters `expected_salary <= value`. Invalid  → `400`.
+  - `expected_salary_type` *(enum, optional)* — "per month" | "per day";
   - `page` *(number as string, optional)* — **>= 1**; default `1`. Invalid → `400`.
   - `limit` *(number as string, optional)* — **1..100**; default `10`, capped at `100`. Invalid → `400`.
   - `sort_by` *(enum, optional)* — `average_rating | profile_views`; default `average_rating`. Invalid → `400`.
@@ -2987,6 +3008,8 @@ Note: This sets the global setting; applying it to existing job posts is handled
         "timezone": "America/New_York",
         "currency": "USD",
         "expected_salary": 3500,
+        "expected_salary_max": 5000,
+        "expected_salary_type": "per month", 
         "average_rating": 4.6,
         "profile_views": 127,
         "job_search_status": "open_to_offers",

@@ -17,6 +17,7 @@ export class TalentsController {
     @Query('job_search_status') job_search_status: JobSearchStatus,
     @Query('expected_salary_min') expected_salary_min: string,
     @Query('expected_salary_max') expected_salary_max: string,
+    @Query('expected_salary_type') expected_salary_type: 'per month' | 'per day',
     @Query('page') page: string,
     @Query('limit') limit: string,
     @Query('sort_by') sort_by: 'average_rating' | 'profile_views',
@@ -118,6 +119,13 @@ export class TalentsController {
       const v = parseFloat(expected_salary_max);
       if (!isNaN(v) && v >= 0) filters.expected_salary_max = v;
       else if (expected_salary_max) throw new BadRequestException('expected_salary_max must be a non-negative number');
+    }
+    if (expected_salary_type) {
+      const allowed = ['per month', 'per day'];
+    if (!allowed.includes(expected_salary_type)) {
+      throw new BadRequestException('expected_salary_type must be: per month | per day');
+    }
+      filters.expected_salary_type = expected_salary_type;
     }
 
     if (page) {

@@ -25,6 +25,7 @@ export class TalentsService {
     job_search_status?: JobSearchStatus;
     expected_salary_min?: number;
     expected_salary_max?: number;
+    expected_salary_type?: 'per month' | 'per day'; 
     page?: number;
     limit?: number;
     sort_by?: 'average_rating' | 'profile_views';
@@ -66,7 +67,12 @@ export class TalentsService {
       qb.andWhere('jobSeeker.expected_salary >= :es_min', { es_min: filters.expected_salary_min });
     }
     if (filters.expected_salary_max !== undefined) {
-      qb.andWhere('jobSeeker.expected_salary <= :es_max', { es_max: filters.expected_salary_max });
+      qb.andWhere('COALESCE(jobSeeker.expected_salary_max, jobSeeker.expected_salary) <= :es_max', { 
+        es_max: filters.expected_salary_max 
+      });
+    }
+    if (filters.expected_salary_type) {
+      qb.andWhere('jobSeeker.expected_salary_type = :est', { est: filters.expected_salary_type });
     }
 
     if (filters.country) {
@@ -121,6 +127,8 @@ export class TalentsService {
         timezone: js.timezone,
         currency: js.currency,
         expected_salary: (js as any).expected_salary ?? null,
+        expected_salary_max: (js as any).expected_salary_max ?? null,
+        expected_salary_type: (js as any).expected_salary_type ?? null,
         average_rating: js.average_rating,
         profile_views: js.profile_views,
         job_search_status: (js as any).job_search_status,

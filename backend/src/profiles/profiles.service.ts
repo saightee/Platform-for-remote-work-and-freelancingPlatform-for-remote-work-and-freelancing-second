@@ -116,6 +116,8 @@ export class ProfilesService {
         timezone: jobSeeker.timezone,
         currency: jobSeeker.currency,
         expected_salary: (jobSeeker as any).expected_salary ?? null,
+        expected_salary_max: (jobSeeker as any).expected_salary_max ?? null,
+        expected_salary_type: (jobSeeker as any).expected_salary_type ?? null,
         average_rating: jobSeeker.average_rating,
         profile_views: jobSeeker.profile_views,
         job_search_status: (jobSeeker as any).job_search_status,
@@ -244,9 +246,27 @@ export class ProfilesService {
       }
 
       if (Object.prototype.hasOwnProperty.call(updateData, 'expected_salary')) {
-        const v = Number(updateData.expected_salary);
-        if (Number.isNaN(v) || v < 0) throw new BadRequestException('expected_salary must be a non-negative number');
+        const v = updateData.expected_salary === null ? null : Number(updateData.expected_salary);
+        if (v !== null && (Number.isNaN(v) || v < 0)) {
+          throw new BadRequestException('expected_salary must be a non-negative number or null');
+        }
         (jobSeeker as any).expected_salary = v;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(updateData, 'expected_salary_max')) {
+        const v = updateData.expected_salary_max === null ? null : Number(updateData.expected_salary_max);
+        if (v !== null && (Number.isNaN(v) || v < 0)) {
+          throw new BadRequestException('expected_salary_max must be a non-negative number or null');
+        }
+        (jobSeeker as any).expected_salary_max = v;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(updateData, 'expected_salary_type')) {
+        const allowed = ['per month', 'per day'];
+        if (updateData.expected_salary_type && !allowed.includes(updateData.expected_salary_type)) {
+          throw new BadRequestException('expected_salary_type must be: per month | per day');
+        }
+        (jobSeeker as any).expected_salary_type = updateData.expected_salary_type || null;
       }
 
       if (Object.prototype.hasOwnProperty.call(updateData, 'linkedin'))  jobSeeker.linkedin  = updateData.linkedin  || null;
