@@ -1,63 +1,70 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaBriefcase, FaUsers, FaSearch, FaChevronRight } from 'react-icons/fa';
+import { Search, Briefcase, Users } from "lucide-react";
+import '../styles/lovable-home.css';
 
-interface SearchBarProps {
-  onSearch: (filters: { title?: string }) => void;
-}
-
-const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
+const SearchBar: React.FC = () => {
   const [title, setTitle] = useState('');
-  const [activeTab, setActiveTab] = useState<'find-work' | 'hire-talent'>('find-work');
+  const [mode, setMode] = useState<'jobs' | 'talent'>('jobs');
   const navigate = useNavigate();
-
-  const handleTabSwitch = (tab: 'find-work' | 'hire-talent') => {
-    setActiveTab(tab);
-    setTitle('');
-  };
 
   const handleSubmit = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (activeTab === 'find-work') {
+    if (mode === 'jobs') {
       navigate(`/find-job?title=${encodeURIComponent(title)}`);
     } else {
       navigate(`/find-talent?skills=${encodeURIComponent(title)}`);
     }
   };
 
-  const titlePlaceholder =
-    activeTab === 'find-work' ? 'job title or keyword' : 'candidate skills or role';
-
   return (
-    <div className="search-bar sb">
-      <div className="search-tabs sb-tabs">
+    <div className="oj-search">
+      {/* переключатель Find Jobs / Find Talent */}
+      <div className="oj-search-toggle">
         <button
-          className={`tab sb-tab ${activeTab === 'find-work' ? 'active' : 'inactive'}`}
-          onClick={() => handleTabSwitch('find-work')}
           type="button"
+          className={`oj-search-toggle-item ${
+            mode === 'jobs' ? 'is-active' : ''
+          }`}
+          onClick={() => setMode('jobs')}
         >
-          <FaBriefcase className="tab-icon sb-tab-icon" /> Find Work
+          <Briefcase className="oj-search-toggle-icon" />
+          Find Jobs
         </button>
         <button
-          className={`tab sb-tab ${activeTab === 'hire-talent' ? 'active' : 'inactive'}`}
-          onClick={() => handleTabSwitch('hire-talent')}
           type="button"
+          className={`oj-search-toggle-item ${
+            mode === 'talent' ? 'is-active' : ''
+          }`}
+          onClick={() => setMode('talent')}
         >
-          <FaUsers className="tab-icon sb-tab-icon" /> Hire Talent
+          <Users className="oj-search-toggle-icon" />
+          Find Talent
         </button>
       </div>
 
-      <div className="search-inputs sb-inputs">
-        <FaChevronRight className="input-icon sb-input-icon" />
-        <input
-          className="sb-input"
-          type="text"
-          placeholder={titlePlaceholder}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <button className="sb-btn" onClick={handleSubmit} type="button">
-          <FaSearch className="button-icon sb-button-icon" /> Search
+      {/* строка поиска как у Lovable */}
+      <div className="oj-search-bar">
+        <div className="oj-search-input-wrap">
+          <Search className="oj-search-input-icon" />
+          <input
+            className="oj-search-input"
+            type="text"
+            placeholder={
+              mode === 'jobs'
+                ? 'Search for jobs...'
+                : 'Search for talent...'
+            }
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </div>
+        <button
+          type="button"
+          className="oj-btn oj-btn--primary oj-search-btn"
+          onClick={handleSubmit}
+        >
+          Search
         </button>
       </div>
     </div>

@@ -1,0 +1,1414 @@
+/* ====== THEME TOKENS (в стиле Lovable, но чистый CSS) ====== */
+
+:root {
+  --oj-background: hsl(260, 25%, 97%);
+  --oj-foreground: hsl(260, 30%, 12%);
+
+  --oj-card: #ffffff;
+  --oj-card-foreground: hsl(260, 30%, 12%);
+
+  --oj-primary: hsl(270, 75%, 60%);
+  --oj-primary-hover: hsl(270, 75%, 52%);
+  --oj-primary-foreground: #ffffff;
+
+  --oj-secondary: hsl(260, 25%, 90%);
+  --oj-secondary-foreground: hsl(260, 30%, 12%);
+
+  --oj-muted: hsl(260, 20%, 94%);
+  --oj-muted-foreground: hsl(260, 15%, 45%);
+
+  --oj-accent: hsl(290, 65%, 65%);
+  --oj-accent-foreground: #ffffff;
+
+  --oj-border: hsl(260, 20%, 88%);
+
+  --oj-radius: 12px;
+
+  --oj-shadow-soft: 0 2px 8px rgba(73, 37, 130, 0.15);
+  --oj-shadow-medium: 0 4px 16px rgba(73, 37, 130, 0.2);
+  --oj-shadow-large: 0 8px 32px rgba(73, 37, 130, 0.25);
+}
+
+/* Можно не трогать body, если у тебя уже глобальная тема */
+body {
+  background-color: var(--oj-background);
+  color: var(--oj-foreground);
+}
+
+/* ====== LAYOUT ====== */
+
+.oj-page {
+  min-height: 100vh;
+  background-color: var(--oj-background);
+  color: var(--oj-foreground);
+}
+
+.oj-main {
+  padding-bottom: 4rem;
+}
+
+.oj-section {
+  padding: 1.2rem 1.5rem;
+}
+
+.oj-section--muted {
+  background-color: var(--oj-background);
+}
+
+.oj-section--jobs {
+  background-color: var(--oj-background);
+}
+
+.oj-section--talent {
+  background-color: var(--oj-background);
+}
+
+.oj-section-inner {
+  max-width: 950px;
+  margin: 0 auto;
+}
+
+/* ===== HERO light как у Lovable ===== */
+
+.oj-hero {
+  position: relative;
+  padding: 2rem 0 0.6rem;
+  overflow: hidden;
+  color: #111827;
+}
+
+.oj-hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+}
+
+.oj-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    rgba(248, 244, 255, 0.96),
+    rgba(248, 244, 255, 0.93),
+    rgba(248, 244, 255, 0.9)
+  );
+}
+
+/* основной контент */
+
+.oj-hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 950px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  text-align: center;
+}
+
+.oj-hero-title {
+  font-size: clamp(2.7rem, 4vw, 3.6rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin: 0 0 0.5rem;
+}
+
+.oj-hero-gradient {
+  background-image: linear-gradient(135deg, #a855f7, #ec4899);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: clamp(2.7rem, 4vw, 3.6rem);
+}
+
+.oj-hero-subtitle {
+  font-size: 1rem;
+  max-width: 30rem;
+  margin: 0 auto 1.5rem;
+  color: #6b7280;
+}
+
+/* две карточки Hire/Work */
+
+.oj-hero-cta-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+@media (min-width: 768px) {
+  .oj-hero-cta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.oj-hero-card {
+  background-color: rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  border: 1px solid rgba(209, 213, 219, 0.7);
+  padding: 1.2rem 1.8rem;
+  box-shadow: 0 12px 60px rgba(15, 23, 42, 0.12);
+  text-align: center;
+}
+
+.oj-hero-card-icon {
+  font-size: 2rem;
+  
+  color: #a855f7;
+}
+
+.oj-hero-card-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 0 0.45rem;
+  color: #111827;
+}
+
+.oj-hero-card-text {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin: 0 0 1.3rem;
+}
+
+.oj-hero-card .oj-btn {
+  width: 100%;
+  justify-content: center;
+  border-radius: 12px;
+  padding: 0.5rem 1.2rem;
+}
+
+/* SEARCH TOGGLE + INPUT (как у Lovable) */
+
+.oj-hero-search {
+  max-width: 32rem;
+  margin: 0 auto 2.4rem;
+}
+
+.oj-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+/* toggle */
+
+.oj-search-toggle {
+  display: inline-flex;
+  padding: 0.2rem;
+  border-radius: 12px;
+  
+  
+  margin: 0 auto;
+}
+
+.oj-search-toggle-item {
+  border-radius: 12px;
+  padding: 0.8rem 1.7rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: #4b5563;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.oj-search-toggle-item.is-active {
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(168, 85, 247, 0.4);
+}
+
+.oj-search-toggle-icon {
+  font-size: 0.9rem;
+}
+
+/* search input */
+
+.oj-search-bar {
+  display: flex;
+  gap: 0.6rem;
+  align-items: stretch;
+}
+
+.oj-search-input-wrap {
+  position: relative;
+  flex: 1;
+}
+
+.oj-search-input-icon {
+  position: absolute;
+  left: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.oj-search-input {
+  width: 100%;
+  height: 3rem;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 0 1rem 0 2.4rem;
+  background-color: #ffffff;
+  color: #111827;
+  font-size: 0.9rem;
+}
+
+.oj-search-input::placeholder {
+  color: #9ca3af;
+}
+
+.oj-search-input:focus {
+  outline: none;
+  border-color: #a855f7;
+  box-shadow: 0 0 0 1px #a855f7;
+}
+
+.oj-search-btn {
+  height: 3rem;
+  padding-inline: 1.7rem;
+  background: linear-gradient(135deg, #f97316, #fb923c);
+  color: #ffffff;
+  border-radius: 12px;
+  border: none;
+  font-weight: 600;
+  box-shadow: 0 10px 25px rgba(249, 115, 22, 0.45);
+}
+
+.oj-search-btn:hover {
+  filter: brightness(1.03);
+}
+
+/* mobile: стэк по вертикали */
+
+@media (max-width: 480px) {
+  .oj-search-bar {
+    flex-direction: column;
+  }
+  .oj-search-btn {
+    width: 100%;
+  }
+}
+
+/* ===== HERO STATS (если используешь) ===== */
+
+.oj-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  max-width: 26rem;
+  margin: 0 auto;
+}
+
+.oj-hero-stat {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 0.9rem 0.5rem;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.07);
+}
+
+.oj-hero-stat-number {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #111827;
+}
+
+.oj-hero-stat-label {
+  font-size: 0.72rem;
+  color: #6b7280;
+}
+
+/* ====== КНОПКИ (общие) ====== */
+
+.oj-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  /* font-weight: 600; */
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  background: transparent;
+}
+
+.oj-btn--primary {
+  background: #994de6;
+  color: #fff;
+  box-shadow: var(--oj-shadow-medium);
+}
+
+.oj-btn--primary:hover {
+  filter: brightness(1.05);
+  box-shadow: var(--oj-shadow-large);
+}
+
+.oj-btn--hero {
+  background: linear-gradient(135deg, #9c4ee8, #c569de);
+  color: #fff;
+  box-shadow: var(--oj-shadow-medium);
+
+}
+
+.oj-btn--hero:hover {
+  filter: brightness(1.05);
+  box-shadow: var(--oj-shadow-large);
+}
+
+.oj-btn--outline {
+  background-color: #fff;
+  border-color: rgba(148, 163, 184, 0.6);
+  color: var(--oj-foreground);
+  
+}
+
+.oj-btn--outline:hover {
+  background-color: var(--oj-secondary);
+}
+
+.oj-btn--ghost {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--oj-foreground);
+}
+
+.oj-btn--ghost:hover {
+  background-color: rgba(148, 163, 184, 0.12);
+}
+
+.oj-header-btn-full {
+  width: 100%;
+}
+
+/* ====== SECTION HEADER ====== */
+
+.oj-section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.oj-section-header--center {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.oj-section-title {
+  font-size: 2.6rem;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.oj-section-subtitle {
+  font-size: 0.95rem;
+  color: var(--oj-muted-foreground);
+  max-width: 480px;
+}
+
+.oj-section-header--center .oj-section-subtitle {
+  margin: 0 auto;
+}
+
+/* ====== LINK PRIMARY ====== */
+
+.oj-link-primary {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--oj-primary);
+  text-decoration: none;
+}
+
+.oj-link-primary:hover {
+  text-decoration: underline;
+}
+
+/* ====== HOW IT WORKS ====== */
+
+.oj-hiw-block {
+  margin-bottom: 2.5rem;
+}
+
+.oj-hiw-title {
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 1.2rem;
+}
+
+.oj-hiw-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .oj-hiw-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.oj-hiw-card {
+  background-color: #ffffff;
+  border-radius: 12px;
+  border: 1px solid var(--oj-border);
+  padding: 1.9rem 1.6rem 1.8rem;
+  text-align: center;
+  box-shadow: 0 22px 50px rgba(148, 163, 184, 0.25);
+}
+
+.oj-hiw-card--accent {
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
+.oj-hiw-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.8rem;
+  font-size: 1.6rem;
+}
+
+.oj-hiw-step-number {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--oj-primary);
+  margin-bottom: 0.4rem;
+}
+
+.oj-hiw-step-number--accent {
+  color: var(--oj-accent);
+}
+
+.oj-hiw-card-title {
+  font-weight: bold;
+  margin-bottom: 0.3rem;
+  font-size: 16px;
+  color: #333;
+}
+
+.oj-hiw-card-text {
+  font-size: 0.9rem;
+  color: var(--oj-muted-foreground);
+}
+
+/* ====== BANNER ====== */
+
+.oj-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #eef2ff, #fdf2ff);
+  border: 1px solid #e5e7eb;
+  box-shadow: var(--oj-shadow-soft);
+}
+
+@media (max-width: 768px) {
+  .oj-banner {
+    grid-template-columns: minmax(0, 1fr);
+    text-align: center;
+  }
+
+  .oj-banner-side--right {
+    display: none;
+  }
+}
+
+.oj-banner-side {
+  display: flex;
+  justify-content: center;
+}
+
+.oj-banner-img {
+  max-width: 80px;
+  height: auto;
+}
+
+.oj-banner-content {
+  text-align: left;
+}
+
+@media (max-width: 768px) {
+  .oj-banner-content {
+    text-align: center;
+  }
+}
+
+.oj-banner-title {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.85rem;
+  color: #6b21a8;
+  margin-bottom: 0.2rem;
+}
+
+.oj-banner-subtitle {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.oj-banner-text {
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.oj-banner-cta {
+  display: flex;
+  justify-content: center;
+}
+
+/* ====== JOBS GRID ====== */
+
+.oj-jobs-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .oj-jobs-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ====== FREELANCERS GRID (Lovable-style) ====== */
+
+.oj-freelancers-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .oj-freelancers-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.oj-freelancer-card {
+  position: relative;
+  overflow: hidden;
+  background-color: #ffffff;
+  border-radius: 12px;
+  border: 1px solid var(--oj-border);
+  padding: 2.1rem 1.8rem 1.8rem;
+  box-shadow: 0 22px 50px rgba(15, 23, 42, 0.08);
+  text-align: center;
+}
+
+/* Верхний фиолетовый «хедер» */
+.oj-freelancer-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 7px;
+  background: linear-gradient(90deg, #9e4bf2, #cb6ce0);
+  border-radius: 12px 12px 0 0;
+}
+
+/* аватар с подсветкой */
+.oj-freelancer-avatar-wrap {
+  position: relative;
+  margin-top: 1.4rem;
+  margin-bottom: 1.1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.oj-freelancer-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 4px solid #ffffff;
+  box-shadow: 0 12px 30px rgba(168, 85, 247, 0.45);
+}
+
+/* текст */
+
+.oj-freelancer-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 0.2rem;
+  color: var(--oj-foreground);
+}
+
+.oj-freelancer-title {
+  font-size: 0.85rem;
+  color: var(--oj-muted-foreground);
+  margin: 0 0 0.5rem;
+}
+
+.oj-freelancer-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--oj-muted-foreground);
+  margin-bottom: 1rem;
+}
+
+.oj-freelancer-location-icon {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+/* Age / Rate */
+
+.oj-freelancer-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-top: 0.8rem;
+  margin-top: 0.4rem;
+  margin-bottom: 1rem;
+  border-top: 1px solid var(--oj-border);
+}
+
+.oj-freelancer-stat {
+  flex: 1;
+  text-align: center;
+}
+
+.oj-freelancer-stat-label {
+  font-size: 0.72rem;
+  color: var(--oj-muted-foreground);
+  margin-bottom: 0.2rem;
+}
+
+.oj-freelancer-stat-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--oj-foreground);
+}
+
+.oj-freelancer-stat-rate {
+  color: var(--oj-primary);
+}
+
+.oj-freelancer-stat-divider {
+  width: 1px;
+  height: 2rem;
+  background-color: var(--oj-border);
+}
+
+/* skills */
+
+.oj-freelancer-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+  margin-bottom: 1.1rem;
+}
+
+.oj-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.oj-chip--secondary {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+/* кнопка внутри карточки — на всю ширину, как на скрине */
+.oj-freelancer-btn {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  margin-top: auto;
+  border-radius: 12px;
+}
+
+/* нижняя фиолетовая кнопка */
+
+.oj-freelancers-footer {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+/* ====== BENEFITS ====== */
+
+.oj-benefits-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .oj-benefits-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.oj-benefit-card {
+  background-color: #fff;
+  border-radius: 16px;
+  border: 1px solid var(--oj-border);
+  padding: 1.3rem 1.2rem;
+  box-shadow: var(--oj-shadow-soft);
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+}
+
+.oj-benefit-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background-color: rgba(129, 140, 248, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: var(--oj-primary);
+  flex-shrink: 0;
+}
+
+.oj-benefit-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.oj-benefit-text {
+  font-size: 0.9rem;
+  color: var(--oj-muted-foreground);
+}
+
+/* ====== FINAL CTA ====== */
+
+.oj-final-cta {
+  position: relative;
+  padding: 3.5rem 1.5rem 4rem;
+}
+
+.oj-final-cta-overlay {
+  max-width: 950px;
+  margin: 0 auto;
+  border-radius: 12px;
+  overflow: hidden;
+  background: radial-gradient(circle at top left, #a855f7, #1e293b);
+}
+
+.oj-final-cta-inner {
+  padding: 2.75rem 2rem;
+  text-align: center;
+  color: #e5e7eb;
+}
+
+.oj-final-cta-title {
+  font-size: 1.9rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+
+.oj-final-cta-text {
+  font-size: 0.95rem;
+  max-width: 520px;
+  margin: 0 auto 1.5rem;
+  color: #cbd5f5;
+}
+
+.oj-final-cta-btn {
+  min-width: 190px;
+}
+
+/* ====== ERRORS ====== */
+
+.oj-error {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background-color: #fee2e2;
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+
+/* ===== FOOTER (Lovable-style) ===== */
+
+.oj-footer {
+  background-color: #ffffff;
+  border-top: 1px solid var(--oj-border);
+  padding: 3rem 1.5rem 2rem;
+}
+
+.oj-footer-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* grid */
+
+.oj-footer-grid {
+  display: grid;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  text-align: left;
+}
+
+@media (min-width: 768px) {
+  .oj-footer-grid {
+    grid-template-columns: 1.2fr 1fr 1fr 1fr;
+  }
+}
+
+/* Brand */
+
+.oj-footer-brand-text {
+  font-size: 0.9rem;
+  color: var(--oj-muted-foreground);
+  margin-bottom: 0.75rem;
+}
+
+.oj-footer-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: var(--oj-foreground);
+  margin-bottom: 0.75rem;
+}
+
+.oj-footer-logo-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.oj-footer-logo-text {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.oj-footer-company {
+  font-size: 0.85rem;
+  color: var(--oj-muted-foreground);
+}
+
+.oj-footer-company-name {
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.oj-footer-company-address p {
+  margin: 0;
+}
+
+/* Columns */
+
+.oj-footer-col-title {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.oj-footer-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.oj-footer-links a {
+  text-decoration: none;
+  color: var(--oj-muted-foreground);
+}
+
+.oj-footer-links a:hover {
+  color: var(--oj-primary);
+}
+
+/* Bottom bar */
+
+.oj-footer-bottom {
+  border-top: 1px solid var(--oj-border);
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--oj-muted-foreground);
+}
+
+@media (min-width: 768px) {
+  .oj-footer-bottom {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.oj-footer-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.oj-footer-policy-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.oj-footer-policy-links a {
+  text-decoration: none;
+  color: var(--oj-muted-foreground);
+}
+
+.oj-footer-policy-links a:hover {
+  color: var(--oj-primary);
+}
+
+/* social */
+
+.oj-footer-social {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.oj-footer-social a {
+  color: var(--oj-muted-foreground);
+  font-size: 1rem;
+  text-decoration: none;
+}
+
+.oj-footer-social a:hover {
+  color: var(--oj-primary);
+}
+
+/* ===== COPYRIGHT (отдельный компонент) ===== */
+
+.oj-copy {
+  padding: 0.75rem 1.5rem 1.5rem;
+  font-size: 0.8rem;
+  color: var(--oj-muted-foreground);
+  background-color: transparent;
+}
+
+.oj-copy-inner {
+  max-width: 950px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+@media (min-width: 768px) {
+  .oj-copy-inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.oj-copy-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.oj-copy-links a {
+  text-decoration: none;
+  color: var(--oj-muted-foreground);
+}
+
+.oj-copy-links a:hover {
+  color: var(--oj-primary);
+}
+
+/* ====== RESET + БАЗА ====== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+  background-color: hsl(260, 25%, 97%);
+  color: hsl(260, 30%, 12%);
+}
+
+/* !!! важно: убираем ограничение ширины и text-align: center у #root */
+#root {
+  max-width: none;
+  padding: 0;
+  text-align: left;
+}
+
+/* контейнер как у max-w-[950px] */
+.oj-container {
+  max-width: 950px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* ===== HEADER (Lovable-style) ===== */
+
+.oj-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background-color: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--oj-border);
+  box-shadow: var(--oj-shadow-soft);
+}
+
+.oj-header-inner {
+  max-width: 950px;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+}
+
+.oj-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* ЛОГОТИП */
+
+.oj-header-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: var(--oj-foreground);
+}
+
+.oj-header-logo-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.oj-header-logo-text {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+/* НАВИГАЦИЯ */
+
+.oj-header-nav {
+  font-size: 0.9rem;
+}
+
+.oj-header-nav--desktop {
+  display: none;
+  align-items: center;
+  gap: 1rem;
+}
+
+.oj-header-link {
+  text-decoration: none;
+  color: var(--oj-foreground);
+  font-weight: 500;
+}
+
+.oj-header-link:hover {
+  color: var(--oj-primary);
+}
+
+.oj-header-mail {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: var(--oj-foreground);
+  font-size: 1rem;
+}
+
+.oj-header-pill {
+  position: absolute;
+  top: -0.4rem;
+  right: -0.5rem;
+  min-width: 1.1rem;
+  padding: 0 0.3rem;
+  border-radius: 12px;
+  background-color: #ef4444;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* MOBILE */
+
+.oj-header-mobile-toggle {
+  background: none;
+  border: none;
+  color: var(--oj-foreground);
+  font-size: 1.2rem;
+  display: block;
+}
+
+.oj-header-nav--mobile {
+  display: none;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-top: 1px solid var(--oj-border);
+  display: none;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.oj-header-nav--mobile .oj-header-link {
+  display: block;
+}
+
+.oj-header-divider {
+  display: block;
+  height: 1px;
+  width: 100%;
+  margin: 0.4rem 0;
+  background-color: var(--oj-border);
+}
+
+.oj-header-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  border: none;
+}
+
+/* responsive */
+
+@media (min-width: 768px) {
+  .oj-header-nav--desktop {
+    display: flex;
+  }
+  .oj-header-mobile-toggle {
+    display: none;
+  }
+  .oj-header-nav--mobile {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .oj-header-nav--mobile.is-open {
+    display: flex;
+  }
+}
+
+/* ====== JOB CARDS (Lovable-style) ====== */
+
+.oj-job-card {
+  background-color: #ffffff;
+  border-radius: 18px;
+  border: 1px solid var(--oj-border);
+  padding: 1.4rem 1.5rem 1.3rem;
+  box-shadow: var(--oj-shadow-soft);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.oj-job-card-main {
+  flex: 1;
+}
+
+/* Заголовок + бейдж типа работы */
+
+.oj-job-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.oj-job-title {
+  margin: 0;
+  padding: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--oj-foreground);
+}
+
+.oj-job-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.18rem 0.8rem;
+  border-radius: 999px;
+  background-color: var(--oj-secondary);
+  color: var(--oj-secondary-foreground);
+  white-space: nowrap;
+}
+
+/* Компания */
+
+.oj-job-company {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--oj-primary);
+}
+
+/* Метаданные: location / salary / posted */
+
+.oj-job-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.7rem;
+}
+
+.oj-job-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--oj-muted-foreground);
+}
+
+.oj-job-meta-item svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.oj-job-meta-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+}
+
+/* Описание */
+
+.oj-job-desc {
+  margin: 0 0 0.8rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--oj-muted-foreground);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Скиллы */
+
+.oj-job-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.9rem;
+}
+
+.oj-job-tag {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.2rem 0.8rem;
+  border-radius: 999px;
+  /* background-color: var(--oj-secondary); */
+  color: var(--oj-secondary-foreground);
+  border: 1px solid #e1dde9;
+  font-weight: 500;
+}
+
+.oj-job-tag--more {
+  background-color: #ffffff;
+  border: 1px dashed var(--oj-border);
+  color: var(--oj-muted-foreground);
+}
+
+/* Футер: аппликанты + кнопка */
+
+.oj-job-card-footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--oj-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.oj-job-footer-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--oj-muted-foreground);
+}
+
+.oj-job-footer-meta svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.oj-job-btn {
+  padding: 0.55rem 1.4rem;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.btn_link {
+    display: flex;
+    justify-content: center;
+    margin-top: 40px;
+}

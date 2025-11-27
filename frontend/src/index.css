@@ -161,11 +161,11 @@ h4 {
   box-sizing: border-box;
 }
 
-/* Табы (кнопки Find Work и Hire Talent) */
-.search-tabs {
+
+/* .search-tabs {
   display: flex;
-  border-right: 1px solid #e5e7eb; /* Разделитель между табами и инпутом */
-}
+  border-right: 1px solid #e5e7eb; 
+} */
 
 .tab {
   padding: 12px 24px;

@@ -2,8 +2,11 @@ import { Link } from 'react-router-dom';
 import { JobPost } from '@types';
 import { formatDateInTimezone } from '../utils/dateUtils';
 import { FaEye, FaUserCircle, FaMapMarkerAlt, FaCalendarAlt, FaBriefcase, FaBuilding } from 'react-icons/fa';
+import { MapPin, DollarSign, Clock, Briefcase} from "lucide-react";
+
 import sanitizeHtml from 'sanitize-html';
 import { brandBackendOrigin } from '../brand';
+import '../styles/lovable-home.css';
 
 interface JobCardProps {
   job: JobPost;
@@ -82,156 +85,134 @@ const getDisplayCompanyName = (job: JobPost): string => {
 
 
 const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
-const truncateDescription = (description: string | undefined, maxLength: number) => {
-  const clean = sanitizeHtml(description || '', { allowedTags: [], allowedAttributes: {} });
-  const decoded = decodeEntities(clean);
-  return decoded.length > maxLength ? decoded.slice(0, maxLength) + '…' : decoded;
-};
+  const truncateDescription = (description: string | undefined, maxLength: number) => {
+    const clean = sanitizeHtml(description || '', { allowedTags: [], allowedAttributes: {} });
+    const decoded = decodeEntities(clean);
+    return decoded.length > maxLength ? decoded.slice(0, maxLength) + '…' : decoded;
+  };
 
-  if (variant === 'home') {
-    return (
-      <div className="job-card job-card-home jc-card jc-card--home" role="article">
-        <div className="jc-body">
-          <div className="jc-row jc-row--title">
-            <h3 className="jc-title" title={job.title}>{job.title}</h3>
-            <span className="jc-views" aria-label="views">
-              <FaEye /> {job.views || 0}
+  const slugOrId = (job as any).slug_id || job.id;
+
+if (variant === 'home') {
+  // helper'ы прямо над return или выше файла
+  const renderPosted = (job: JobPost): string => {
+    const raw: any =
+      (job as any).created_at ||
+      (job as any).posted_at ||
+      (job as any).updated_at;
+
+    if (!raw) return 'Posted recently';
+
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return 'Posted recently';
+
+    const diffMs = Date.now() - d.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) return 'Posted today';
+    if (diffDays === 1) return 'Posted 1 day ago';
+    if (diffDays < 30) return `Posted ${diffDays} days ago`;
+
+    const diffMonths = Math.floor(diffDays / 30);
+    if (diffMonths === 1) return 'Posted 1 month ago';
+    return `Posted ${diffMonths} months ago`;
+  };
+
+  const renderApplicants = (job: JobPost): string => {
+    const n =
+      (job as any).applicants_count ??
+      (job as any).applications_count ??
+      (job as any).applicants;
+
+    if (typeof n === 'number' && n >= 0) {
+      return n === 1 ? '1 applicant' : `${n} applicants`;
+    }
+    // заглушка, если числа нет
+    return 'Be the first applicant';
+  };
+
+  // Lovable-card style
+  return (
+    <article className="oj-job-card" role="article">
+      <div className="oj-job-card-main">
+        <div className="oj-job-card-header">
+          <h3 className="oj-job-title" title={job.title}>
+            {job.title}
+          </h3>
+          {job.job_type && (
+            <span className="oj-job-badge">
+              {job.job_type}
             </span>
-          </div>
-
-          <div className="jc-meta jc-meta--compact">
-            <span className="jc-chip">
-              <FaBriefcase /> {job.job_type || 'Not specified'}
-            </span>
-            <span className="jc-chip">
-              <FaBuilding /> {job.location || 'Not specified'}
-            </span>
-          </div>
-
-          <p className="jc-employer">
-            <strong className="jc-employer-name">{getDisplayCompanyName(job)}</strong>
-            {' '}|{' '}
-            <span className="jc-date"><FaCalendarAlt /> {formatDateInTimezone(job.created_at)}</span>
-          </p>
-
-
-          <p className="jc-desc">
-            {truncateDescription(job.description, 100)}
-          </p>
-
-          {job.required_skills && job.required_skills.length > 0 && (
-            <div className="jc-tags" aria-label="required skills">
-              {job.required_skills.map((skill, i) => (
-                <span key={i} className="jc-tag">{skill}</span>
-              ))}
-            </div>
           )}
         </div>
 
-        <div className="jc-footer">
-          <span className="jc-salary">
-           {renderSalary(job)}
-          </span>
-         {(() => {
-  const slugOrId = (job as any).slug_id || job.id;
-  return (
-    <Link to={`/vacancy/${slugOrId}`}>
-      <button className="jc-btn jc-btn--primary" type="button">View Details</button>
-    </Link>
-  );
-})()}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="job-card job-card-find-jobs jc-card jc-card--list" role="article">
-      <div className="jc-avatar">
- {job.employer?.avatar ? (
-  (() => {
-    const a = job.employer.avatar || '';
-    const avatarSrc = a.startsWith('http')
-      ? a
-      : `${brandBackendOrigin()}${a}`;
-    return (
-      <img
-        src={avatarSrc}
-        alt="Employer Avatar"
-        className="jc-avatar-img"
-      />
-    );
-  })()
-) : (
-          <FaUserCircle className="jc-avatar-icon" />
-        )}
-      </div>
-
-      <div className="jc-body">
-        <div className="jc-row jc-row--title">
-          <h3 className="jc-title" title={job.title}>{job.title}</h3>
-          <span className="jc-views" aria-label="views">
-            <FaEye /> {job.views || 0}
-          </span>
-        </div>
-
-        <div className="jc-meta">
-          <span className="jc-chip"><FaBriefcase /> {job.job_type || 'Not specified'}</span>
-          <span className="jc-divider">•</span>
-          <span className="jc-employer-name">{getDisplayCompanyName(job)}</span>
-          <span className="jc-divider">|</span>
-          <span className="jc-date"><FaCalendarAlt /> {formatDateInTimezone(job.created_at)}</span>
-        </div>
-
-
-        <p className="jc-desc">
-          {truncateDescription(job.description, 150)}
+        <p className="oj-job-company">
+          {getDisplayCompanyName(job)}
         </p>
 
-        <p className="jc-location"><FaMapMarkerAlt /> {job.location || 'Not specified'}</p>
-
-                {(() => {
-          // back-compat mapping per spec:
-          const categories =
-            (job as any).categories?.length
-              ? (job as any).categories as { id: string; name?: string }[]
-              : ((job as any).category_id ? [{ id: (job as any).category_id, name: (job as any).category?.name }] : []);
-
-          if (!categories.length) return null;
-
-          return (
-            <div className="jc-tags" aria-label="categories" style={{ marginTop: 8 }}>
-              {categories.map((c) => (
-                <span key={c.id} className="jc-tag">{c.name || 'Category'}</span>
-              ))}
+        {/* блок как на скрине: location / salary / posted */}
+        <div className="oj-job-meta">
+          {job.location && (
+            <div className="oj-job-meta-item">
+              <MapPin /> <span>{job.location}</span>
             </div>
-          );
-        })()}
+          )}
 
+          <div className="oj-job-meta-item">
+            <DollarSign className="oj-job-meta-icon" />
+            <span>{renderSalary(job)}</span>
+          </div>
+
+          <div className="oj-job-meta-item">
+            <Clock /> <span>{renderPosted(job)}</span>
+          </div>
+        </div>
+
+        <p className="oj-job-desc">
+          {truncateDescription(job.description, 160)}
+        </p>
 
         {job.required_skills && job.required_skills.length > 0 && (
-          <div className="jc-tags" aria-label="required skills">
-            {job.required_skills.map((skill, i) => (
-              <span key={i} className="jc-tag">{skill}</span>
+          <div className="oj-job-tags">
+            {job.required_skills.slice(0, 3).map((skill, i) => (
+              <span key={i} className="oj-job-tag">
+                {skill}
+              </span>
             ))}
+            {job.required_skills.length > 3 && (
+              <span className="oj-job-tag oj-job-tag--more">
+                +{job.required_skills.length - 3}
+              </span>
+            )}
           </div>
         )}
-
-        <div className="jc-footer">
-          <span className="jc-salary">
-            {renderSalary(job)}
-          </span>
-        {(() => {
-  const slugOrId = (job as any).slug_id || job.id;
-  return (
-    <Link to={`/vacancy/${slugOrId}`}>
-      <button className="jc-btn jc-btn--primary" type="button">View Details</button>
-    </Link>
-  );
-})()}
-        </div>
       </div>
-    </div>
+
+      {/* нижняя часть: иконка портфеля + количество аппликантов, справа кнопка */}
+      <div className="oj-job-card-footer">
+        <div className="oj-job-footer-meta">
+          <Briefcase />
+          <span>{renderApplicants(job)}</span>
+        </div>
+        <Link
+          to={`/vacancy/${slugOrId}`}
+          className="oj-btn oj-btn--primary oj-job-btn"
+        >
+          Apply Now
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+
+  // find-jobs вариант можно пока оставить близким к тому, что был
+  return (
+    <article className="jc-card jc-card--list" role="article">
+      {/* оставь здесь свой текущий верст, если он уже работает на странице поиска */}
+      {/* при желании его тоже можно потом привести к oj-стилю */}
+      {/* ... */}
+    </article>
   );
 };
 

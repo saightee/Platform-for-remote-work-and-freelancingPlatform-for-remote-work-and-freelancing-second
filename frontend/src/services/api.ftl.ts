@@ -10,6 +10,12 @@ const isDevPublicProfile =
 
 // Всё, что нужно для dev-талантов И dev-паблик-профиля
 const isDevTalentLike = isDevTalent || isDevPublicProfile;
+const isDevHome =
+  isBrowser &&
+  window.location?.pathname?.startsWith?.('/dev-home');
+
+const isDevHomeLike = isDevHome; // можешь |= с другими, если хочешь
+
 
 import * as real from './api';
 import * as mock from './api.mock';
@@ -32,3 +38,17 @@ export const getReviewsForUser = (...a:any[]) =>
 
 export const incrementProfileView = (...a:any[]) =>
   (isDevPublicProfile ? (mock as any).incrementProfileView(...a) : (real as any).incrementProfileView(...a));
+
+
+
+
+export const getHomeFeaturedTalents = (...a: any[]) =>
+  (isDevHomeLike ? (mock as any).getHomeFeaturedTalents(...a) : (real as any).getHomeFeaturedTalents(...a));
+
+export const getHomeFeaturedJobs = (...a: any[]) =>
+  (isDevHome ? (mock as any).getHomeFeaturedJobs(...a)
+             : (real as any).getHomeFeaturedJobs(...a));
+
+             export const searchJobPosts = (...a: any[]) =>
+  (isDevHome ? (mock as any).searchJobPosts(...a)
+            : (real as any).searchJobPosts(...a));
