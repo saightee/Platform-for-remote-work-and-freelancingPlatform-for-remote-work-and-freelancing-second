@@ -101,6 +101,8 @@ const removePortfolioIndex = (idx: number) => {
   setPortfolioFiles(next);
 };
 
+const hasAtLeastOneImage = () =>
+  portfolioFiles.some(f => f.type.startsWith('image/'));
 
 const processAvatarFile = (f: File | null) => {
   setAvatarErr(null);
@@ -430,6 +432,11 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
   if (avatarErr) { setErr(avatarErr); return; }
 
+  if (role === 'jobseeker') {
+  if (portfolioFiles.length === 0 || !hasAtLeastOneImage()) {
+    setErr('Please upload at least 1 photo (JPG/PNG/WEBP) in Portfolio Files.');
+    return;
+  }
   if (portfolioFiles.length > 10) {
     setErr('You can upload up to 10 portfolio files.');
     return;
