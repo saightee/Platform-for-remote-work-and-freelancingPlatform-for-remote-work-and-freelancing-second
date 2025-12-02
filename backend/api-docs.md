@@ -35,6 +35,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "telegram": "@username",
     "description": "up to 150 words",
     "languages": ["English", "German"],
+    "portfolio": ["https://github.com/user", "https://dribbble.com/user"],  // ← НОВОЕ: массив URL, макс 10
+    "portfoliofiles": ["https://cdn.com/file1.pdf"],
     "ref": "<referralCode>",                // optional (also accepted via query/header/cookie)
     "secretKey": "<admin-or-moderator-secret>" // privileged registration only
   }
@@ -83,6 +85,9 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Response (Unexpected file field)**:
   ```json
   {"statusCode": 400, "message": "Unexpected file field", "error": "Bad Request"}
+- **Response (Portfolio can have up to 10 links)**:
+  ```json
+  {"statusCode": 400, "message": "Portfolio can have up to 10 links", "error": "Bad Request"}
 
 ### 2. Verify Email
 - **Endpoint**: `GET api/auth/verify-email`
@@ -309,7 +314,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "instagram": "https://www.instagram.com/username",
     "facebook": "https://www.facebook.com/username",
     "description": "Experienced web developer specializing in React and Node.js",
-    "portfolio": "https://portfolio.com",
+    "portfolio": ["https://github.com/user", "https://dribbble.com/user"],
     "portfolio_files": [
     "https://cdn.example.com/portfolios/file1.pdf",
     "https://cdn.example.com/portfolios/file2.png"
@@ -446,7 +451,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
       }
     ],
     "description": "Experienced web developer specializing in React and Node.js",
-    "portfolio": "https://portfolio.com",
+    "portfolio": ["https://github.com/user", "https://dribbble.com/user"],
     "portfolio_files": [
     "https://cdn.example.com/portfolios/file1.pdf",
     "https://cdn.example.com/portfolios/file2.png"
@@ -517,7 +522,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
       }
     ],
     "description": "Experienced web developer specializing in React and Node.js",
-    "portfolio": "https://portfolio.com",
+    "portfolio": ["https://github.com/user", "https://dribbble.com/user"],
     "portfolio_files": [
     "https://cdn.example.com/portfolios/file1.pdf",
     "https://cdn.example.com/portfolios/file2.png"
@@ -586,7 +591,7 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "whatsapp": "+15551234567",
     "telegram": "@handle",
     "description": "Up to 150 words ...",
-    "portfolio": "https://portfolio.com",
+    "portfolio": ["https://github.com/user", "https://dribbble.com/user"],
     "preferred_job_types": "Full-time",
     "portfolio_files": [
       "https://cdn.example.com/portfolios/file1.pdf",
@@ -672,6 +677,9 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Response (Error — 400, expected_salary_type must be: per month | per day)**:
   ```json
   {"statusCode": 400, "message": "expected_salary_type must be: per month | per day", "error": "Bad Request"} 
+- **Response (Portfolio can have up to 10 links)**:
+  ```json
+  {"statusCode": 400, "message": "Portfolio can have up to 10 links", "error": "Bad Request"}
 
 ### 14. Create Job Post
 - **Endpoint**: `POST /api/job-posts`

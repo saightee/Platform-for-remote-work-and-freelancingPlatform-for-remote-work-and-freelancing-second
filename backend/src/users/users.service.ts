@@ -63,6 +63,10 @@ export class UsersService {
       jobSeekerEntity.resume = additionalData.resume || null;
       jobSeekerEntity.experience = additionalData.experience || null;
 
+      if (Array.isArray(additionalData.portfolio)) {
+        jobSeekerEntity.portfolio = additionalData.portfolio.slice(0, 10);
+      }
+
       if (Array.isArray(additionalData.portfolio_files)) {
         (jobSeekerEntity as any).portfolio_files = additionalData.portfolio_files;
       }
@@ -173,6 +177,11 @@ export class UsersService {
       }
 
       if (additionalData.description) jobSeeker.description = additionalData.description;
+      if (additionalData.portfolio) {
+        jobSeeker.portfolio = Array.isArray(additionalData.portfolio)
+        ? additionalData.portfolio.slice(0, 10)
+        : null;
+      }
       if (additionalData.portfolio) jobSeeker.portfolio = additionalData.portfolio;
       if (additionalData.video_intro) jobSeeker.video_intro = additionalData.video_intro;
       if (additionalData.timezone) jobSeeker.timezone = additionalData.timezone;

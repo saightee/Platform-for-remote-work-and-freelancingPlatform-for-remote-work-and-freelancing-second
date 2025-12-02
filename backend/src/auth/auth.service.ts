@@ -196,6 +196,9 @@ export class AuthService {
       if (Array.isArray(r.languages)) {
         additionalData.languages = r.languages;
       }
+      if (Array.isArray(r.portfolio)) {
+        additionalData.portfolio = r.portfolio.slice(0, 10);
+      }
       if (Array.isArray((r as any).portfolio_files) && (r as any).portfolio_files.length) {
         additionalData.portfolio_files = (r as any).portfolio_files.slice(0, 10);
       }

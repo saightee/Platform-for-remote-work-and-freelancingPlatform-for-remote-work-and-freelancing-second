@@ -127,7 +127,7 @@ export class AuthController {
         }
         return cb(new BadRequestException('Unexpected file field'), false);
       },
-      limits: { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: 15 * 1024 * 1024 },
     },
   ))
   async register(

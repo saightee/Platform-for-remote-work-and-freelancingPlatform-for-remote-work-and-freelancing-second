@@ -234,7 +234,13 @@ export class ProfilesService {
       }
 
       if (Object.prototype.hasOwnProperty.call(updateData, 'portfolio')) {
-        jobSeeker.portfolio = updateData.portfolio;
+        const urls = Array.isArray(updateData.portfolio) 
+          ? updateData.portfolio.filter((v: any) => typeof v === 'string' && v.trim())
+          : [];
+        if (urls.length > 10) {
+          throw new BadRequestException('Portfolio can have up to 10 links');
+        }
+        jobSeeker.portfolio = urls;
       }
 
       if (Object.prototype.hasOwnProperty.call(updateData, 'portfolio_files')) {

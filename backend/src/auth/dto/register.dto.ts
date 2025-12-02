@@ -24,4 +24,9 @@ export class RegisterDto {
   @IsArray()
   @IsString({ each: true })
   portfolio_files?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsUrl({}, { each: true })
+  portfolio?: string[]
 }
