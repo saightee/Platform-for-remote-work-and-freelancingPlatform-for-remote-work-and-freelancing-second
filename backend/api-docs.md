@@ -88,6 +88,19 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
 - **Response (Portfolio can have up to 10 links)**:
   ```json
   {"statusCode": 400, "message": "Portfolio can have up to 10 links", "error": "Bad Request"}
+- **Response (Error - 400, User is under 18)**:
+  ```json
+  {
+    "statusCode": 400,
+    "message": {
+      "code": "AGE_RESTRICTED",
+      "field": "date_of_birth",
+      "message": "You must be at least 18 years old to register",
+      "minAge": 18,
+      "maxAllowedBirthDate": "2007-12-05"
+    },
+    "error": "Bad Request"
+  }
 
 ### 2. Verify Email
 - **Endpoint**: `GET api/auth/verify-email`

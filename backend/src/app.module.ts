@@ -30,6 +30,7 @@ import { ContactModule } from './contact/contact.module';
 import { SeoModule } from './seo/seo.module';
 import { AffiliateProgramModule } from './affiliate-program/affiliate-program.module';
 import { AffiliatesModule } from './affiliates/affiliates.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -89,6 +90,7 @@ import { AffiliatesModule } from './affiliates/affiliates.module';
     SeoModule,
     AffiliateProgramModule,
     AffiliatesModule,
+    SubscriptionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

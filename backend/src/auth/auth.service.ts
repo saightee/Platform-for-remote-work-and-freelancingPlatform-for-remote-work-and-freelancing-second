@@ -155,6 +155,37 @@ export class AuthService {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
         throw new BadRequestException('date_of_birth must be in format YYYY-MM-DD');
       }
+
+      const [year, month, day] = dob.split('-').map(Number);
+      const dobDate = new Date(Date.UTC(year, month - 1, day));
+        
+      if (Number.isNaN(dobDate.getTime())) {
+        throw new BadRequestException('date_of_birth must be a valid date');
+      }
+    
+      const today = new Date();
+      let age = today.getFullYear() - dobDate.getFullYear();
+      const m = today.getMonth() - dobDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < dobDate.getDate())) {
+        age--;
+      }
+    
+      if (age < 18) {
+        const cutoff = new Date(
+          today.getFullYear() - 18,
+          today.getMonth(),
+          today.getDate()
+        );
+        const cutoffStr = cutoff.toISOString().slice(0, 10); // YYYY-MM-DD
+      
+        throw new BadRequestException({
+          code: 'AGE_RESTRICTED',
+          field: 'date_of_birth',
+          message: 'You must be at least 18 years old to register',
+          minAge: 18,
+          maxAllowedBirthDate: cutoffStr,
+        });
+      }
     }
 
     if (role === 'affiliate') {

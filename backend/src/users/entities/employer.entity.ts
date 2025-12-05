@@ -1,5 +1,15 @@
-import { Entity, Column, PrimaryColumn, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToOne,
+  JoinColumn,
+  ManyToOne,
+} from 'typeorm';
 import { User } from './user.entity';
+import { SubscriptionPlan } from '../../subscriptions/subscription-plan.entity';
 
 @Entity('employers')
 export class Employer {
@@ -30,6 +40,13 @@ export class Employer {
 
   @Column({ type: 'float', default: 0 }) 
   average_rating: number;
+
+  @Column({ type: 'uuid', nullable: true })
+  active_subscription_plan_id?: string | null;
+
+  @ManyToOne(() => SubscriptionPlan, { nullable: true })
+  @JoinColumn({ name: 'active_subscription_plan_id' })
+  active_subscription_plan?: SubscriptionPlan | null;
 
   @CreateDateColumn()
   created_at: Date;
