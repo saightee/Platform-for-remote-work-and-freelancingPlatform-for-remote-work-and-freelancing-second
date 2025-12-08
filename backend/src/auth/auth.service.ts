@@ -19,6 +19,11 @@ import { SettingsService } from '../settings/settings.service';
 import { AffiliateRegisterDto } from './dto/affiliate-register.dto';
 import { AffiliateProgramService } from '../affiliate-program/affiliate-program.service';
 
+function isValidUsername(username: string): boolean {
+  // Только буквы (латиница и кириллица), цифры и пробелы
+  return /^[a-zA-Zа-яА-ЯёЁ0-9\s]+$/.test(username);
+}
+
 const normalizeEmail = (e: string) => (e || '').trim().toLowerCase();
 const isStrongPassword = (pw: string) =>
   typeof pw === 'string' &&
@@ -57,6 +62,20 @@ export class AuthService {
     const emailNorm = (dto.email || '').trim().toLowerCase();
     const username = (dto as any).username;
     const password = (dto as any).password;
+
+    if (!username || typeof username !== 'string') {
+      throw new BadRequestException('Username is required');
+    }
+    const usernameTrimmed = username.trim();
+    if (!usernameTrimmed) {
+      throw new BadRequestException('Username cannot be empty');
+    }
+    if (usernameTrimmed.length > 100) {
+      throw new BadRequestException('Username is too long (max 100)');
+    }
+    if (!isValidUsername(usernameTrimmed)) {
+      throw new BadRequestException('Username can only contain letters, numbers, and spaces');
+    }
 
     const isPrivileged = 'secretKey' in dto;
 
@@ -136,6 +155,37 @@ export class AuthService {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
         throw new BadRequestException('date_of_birth must be in format YYYY-MM-DD');
       }
+
+      const [year, month, day] = dob.split('-').map(Number);
+      const dobDate = new Date(Date.UTC(year, month - 1, day));
+        
+      if (Number.isNaN(dobDate.getTime())) {
+        throw new BadRequestException('date_of_birth must be a valid date');
+      }
+    
+      const today = new Date();
+      let age = today.getFullYear() - dobDate.getFullYear();
+      const m = today.getMonth() - dobDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < dobDate.getDate())) {
+        age--;
+      }
+    
+      if (age < 18) {
+        const cutoff = new Date(
+          today.getFullYear() - 18,
+          today.getMonth(),
+          today.getDate()
+        );
+        const cutoffStr = cutoff.toISOString().slice(0, 10); // YYYY-MM-DD
+      
+        throw new BadRequestException({
+          code: 'AGE_RESTRICTED',
+          field: 'date_of_birth',
+          message: 'You must be at least 18 years old to register',
+          minAge: 18,
+          maxAllowedBirthDate: cutoffStr,
+        });
+      }
     }
 
     if (role === 'affiliate') {
@@ -176,6 +226,9 @@ export class AuthService {
       }
       if (Array.isArray(r.languages)) {
         additionalData.languages = r.languages;
+      }
+      if (Array.isArray(r.portfolio)) {
+        additionalData.portfolio = r.portfolio.slice(0, 10);
       }
       if (Array.isArray((r as any).portfolio_files) && (r as any).portfolio_files.length) {
         additionalData.portfolio_files = (r as any).portfolio_files.slice(0, 10);

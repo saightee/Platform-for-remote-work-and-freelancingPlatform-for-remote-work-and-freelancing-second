@@ -302,11 +302,16 @@ export class JobPostsService {
     });
     const categories = rows.map(r => ({ id: r.category_id, name: r.category?.name }));
 
+    const applicationsCount = await this.jobApplicationsRepository.count({
+      where: { job_post_id: jobPostId },
+    });
+
     return {
       ...jobPost,
       category_id: jobPost.category_id ?? null,
       categories,
       category_ids: categories.map(c => c.id),
+      applications_count: applicationsCount,
     };
   }
 
@@ -335,6 +340,21 @@ export class JobPostsService {
       byPost.set(row.job_post_id, arr);
     });
 
+    const applicationsCounts = new Map<string, number>();
+    if (ids.length) {
+      const counts = await this.jobApplicationsRepository
+        .createQueryBuilder('app')
+        .select('app.job_post_id', 'job_post_id')
+        .addSelect('COUNT(*)', 'count')
+        .where('app.job_post_id IN (:...ids)', { ids })
+        .groupBy('app.job_post_id')
+        .getRawMany();
+
+      counts.forEach(c => {
+        applicationsCounts.set(c.job_post_id, parseInt(c.count, 10));
+      });
+    }
+
     return posts.map(p => {
       const cats = byPost.get(p.id) || [];
       return {
@@ -342,6 +362,7 @@ export class JobPostsService {
         category_id: p.category_id ?? null,
         categories: cats,
         category_ids: cats.map(c => c.id),
+        applications_count: applicationsCounts.get(p.id) || 0,
       };
     });
   }
@@ -422,6 +443,21 @@ export class JobPostsService {
       byPost.set(row.job_post_id, arr);
     });
 
+    const applicationsCounts = new Map<string, number>();
+    if (ids.length) {
+      const counts = await this.jobApplicationsRepository
+        .createQueryBuilder('app')
+        .select('app.job_post_id', 'job_post_id')
+        .addSelect('COUNT(*)', 'count')
+        .where('app.job_post_id IN (:...ids)', { ids })
+        .groupBy('app.job_post_id')
+        .getRawMany();
+
+      counts.forEach(c => {
+        applicationsCounts.set(c.job_post_id, parseInt(c.count, 10));
+      });
+    }
+
     const data = rows.map(r => {
       const cats = byPost.get(r.id) || [];
       return {
@@ -429,6 +465,7 @@ export class JobPostsService {
         category_id: r.category_id ?? null,
         categories: cats,
         category_ids: cats.map(c => c.id),
+        applications_count: applicationsCounts.get(r.id) || 0,
       };
     });
 
@@ -509,81 +546,57 @@ export class JobPostsService {
     return { message: 'View count incremented', views: jobPost.views };
   }
 
-  async generateDescription(data: {
-    aiBrief: string;
-    title?: string;
-    location?: string;
-    salary?: number;
-    salary_max?: number;
-    salary_type?: 'per hour' | 'per month' | 'negotiable';
-    job_type?: 'Full-time' | 'Part-time' | 'Project-based';
-  }): Promise<string> {
-    if (!data.aiBrief) {
-      throw new BadRequestException('AI brief is required for description generation');
-    }
-    const apiKey = this.configService.get<string>('XAI_API_KEY');
-    if (!apiKey) {
-      throw new InternalServerErrorException('xAI API key is not configured');
-    }
-    const salaryText =
-      data.salary_type === 'negotiable'
-        ? 'Negotiable'
-        : data.salary != null && data.salary_max != null
-        ? `${data.salary}-${data.salary_max} ${data.salary_type || ''}`
-        : data.salary != null
-        ? `${data.salary} ${data.salary_type || ''}`
-        : 'Not specified';
-    const prompt = `
-      Generate a professional job description in English based solely on the provided brief: "${data.aiBrief}".
-      Do NOT add any fictional details (e.g., company names, team sizes, benefits, or unspecified information).
-      Use the exact details provided below for the job. Structure the description with markdown:
-      - Use ## for section headers.
-      - Use - for bullet points in lists.
-      - Do NOT insert empty lines between sections or inside lists (no extra blank lines at all).
-      - Keep the total length between 150-180 words.
-      - Ensure the markdown is simple, HTML-compatible, and suitable for rendering in ReactQuill rich text editor.
-      - Do NOT insert extra <p> or blank paragraphs; output only clean markdown without extra spacing.
+  async generateDescription(
+    data: { aiBrief: string; title?: string; location?: string; salary?: number; salary_max?: number; salary_type?: string; job_type?: string; }
+  ): Promise<string> {
+    if (!data.aiBrief) throw new BadRequestException('AI brief is required for description generation');
 
-      **Structure**:
-      One sentence summarizing the role based on the brief and title.
-      ## Responsibilities
-      - List 3-5 key duties extracted directly from the brief.
-      ## Requirements
-      - List 3-5 skills or qualifications from the brief.
-      ## Work Details
-      - **Work Mode**: ${data.location || 'Not specified'}
-      - **Salary**: ${salaryText}
-      - **Job Type**: ${data.job_type || 'Not specified'}
-      **Provided Details**:
-      - Job Title: ${data.title || 'Not specified'}
-      - Brief: ${data.aiBrief}
-    `;
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    if (!apiKey) throw new InternalServerErrorException('OpenAI API key is not configured');
 
-  try {
-      const response = await axios.post('https://api.x.ai/v1/chat/completions', {
-        model: 'grok-3-mini',
+    const salaryText = data.salary_type === 'negotiable' 
+      ? 'Negotiable' 
+      : (data.salary != null && data.salary_max != null) 
+        ? `${data.salary}-${data.salary_max} ${data.salary_type}`
+        : data.salary != null 
+          ? `${data.salary} ${data.salary_type}` 
+          : 'Not specified';
+
+    const prompt = `Generate professional job description in English ONLY from brief "${data.aiBrief}". NO fictional details. ONLY these facts:
+
+  Job Title: ${data.title || 'Not specified'}
+  Location: ${data.location || 'Not specified'} 
+  Salary: ${salaryText}
+  Type: ${data.job_type || 'Not specified'}
+
+  STRICT FORMAT - NO EMPTY LINES ANYWHERE:
+  1 summary sentence.## Responsibilities- 3-5 duties from brief ONLY## Requirements- 3-5 skills from brief ONLY## Details- Work Mode: ${data.location ||  'Not specified'}- Salary: ${salaryText}- Job Type: ${data.job_type || 'Not specified'}
+
+  250-300 words. Markdown only (## headers, - bullets). Continuous text, no spacing.`;
+
+    try {
+      const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
+        max_tokens: 500,
+        temperature: 0.1
       }, {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
+          'Content-Type': 'application/json'
+        }
       });
-      console.log('xAI response:', response.data);
 
-      const markdownContent = response.data.choices[0].message.content.trim();
-      console.log('markdownContent:', markdownContent); 
+      const markdownContent = response.data.choices[0].message.content?.trim() || '';
       const htmlContent = await marked.parse(markdownContent);
-      console.log('htmlContent:', htmlContent); 
       const sanitizedHtml = sanitizeHtml(htmlContent, {
         allowedTags: ['h2', 'ul', 'li', 'p', 'strong', 'em'],
-        allowedAttributes: {},
+        allowedAttributes: {}
       });
-      console.log('sanitizedHtml:', sanitizedHtml); 
 
       return sanitizedHtml;
     } catch (error) {
-      console.error('xAI API Error:', error.response?.data || error.message);
+      console.error('OpenAI API Error:', error);
       throw new InternalServerErrorException('Failed to generate description with AI');
     }
   }
