@@ -509,9 +509,11 @@ input[type="password"]::-ms-clear {
 
 /* уменьшенная кнопка для удаления файла */
 .reg2-btn--chip {
-  padding: 6px 10px;
+  padding: 8px 15px;
   font-size: 12px;
-  border-radius: 999px;
+  
+  margin-top: 10px;
+  font-weight: 700;
 }
 
 /* mobile tweaks */

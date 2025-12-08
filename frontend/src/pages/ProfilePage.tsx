@@ -54,10 +54,23 @@ import DOMPurify from 'dompurify';
 
 
 const USERNAME_RGX = /^[a-zA-Z0-9 ._-]{3,20}$/; // простая валидация
+
+const BIO_MIN = 200;
+const BIO_MAX = 750;
+
+const bioPlainText = (raw?: string | null): string => {
+  return (raw || '')
+    .replace(/<[^>]+>/g, '') // вырезаем HTML теги, если вдруг есть
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 type JobSeekerExtended = JobSeekerProfile & {
   // сохраняем возможность строки из инпута
   expected_salary?: number | string | null;
-
+  expected_salary_max?: number | string | null;
+  expected_salary_type?: 'per month' | 'per day' | null;
+  preferred_job_types?: ('Full-time' | 'Part-time' | 'Project-based')[] | null;
   // дублируем совместимый тип
   job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired' | string | null;
   date_of_birth?: string | null;
@@ -70,6 +83,7 @@ type JobSeekerExtended = JobSeekerProfile & {
   facebook?: string | null;
   whatsapp?: string | null;
   telegram?: string | null;
+  portfolio?: string[] | null;
   portfolio_files?: string[];
   current_position?: string | null;       
   education?: string | null;             
@@ -116,7 +130,8 @@ const ProfilePage: React.FC = () => {
   const [usernameDraft, setUsernameDraft] = useState('');
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
-  
+  const [newPortfolioLink, setNewPortfolioLink] = useState('');
+
 
   const navigate = useNavigate();
 
@@ -327,18 +342,49 @@ const ProfilePage: React.FC = () => {
     try {
       const orig = originalRef.current;
 
-    if (profileData.role === 'jobseeker') {
-        // validate salary
-        const salaryRaw = (profileData as any).expected_salary;
-        let expectedSalaryNum: number | undefined = undefined;
-        if (salaryRaw !== '' && salaryRaw != null) {
-          const parsed = Number(salaryRaw);
+        if (profileData.role === 'jobseeker') {
+        // validate salary (min / max / type)
+        const salaryMinRaw = (profileData as any).expected_salary;
+        const salaryMaxRaw = (profileData as any).expected_salary_max;
+        const salaryTypeRaw = (profileData as any).expected_salary_type;
+
+        let expectedSalaryMinNum: number | null = null;
+        let expectedSalaryMaxNum: number | null = null;
+
+        if (salaryMinRaw !== '' && salaryMinRaw != null) {
+          const parsed = Number(salaryMinRaw);
           if (!Number.isFinite(parsed) || parsed < 0) {
             setFormError('Expected salary must be a non-negative number');
             return;
           }
-          expectedSalaryNum = Math.round(parsed * 100) / 100;
+          expectedSalaryMinNum = Math.round(parsed * 100) / 100;
         }
+
+        if (salaryMaxRaw !== '' && salaryMaxRaw != null) {
+          const parsedMax = Number(salaryMaxRaw);
+          if (!Number.isFinite(parsedMax) || parsedMax < 0) {
+            setFormError('Expected salary must be a non-negative number');
+            return;
+          }
+          expectedSalaryMaxNum = Math.round(parsedMax * 100) / 100;
+        }
+
+        if (
+          expectedSalaryMinNum != null &&
+          expectedSalaryMaxNum != null &&
+          expectedSalaryMaxNum < expectedSalaryMinNum
+        ) {
+          setFormError(
+            'Maximum expected salary must be greater than or equal to minimum expected salary.',
+          );
+          return;
+        }
+
+        const normalizedSalaryType =
+          salaryTypeRaw === 'per month' || salaryTypeRaw === 'per day'
+            ? salaryTypeRaw
+            : null;
+        (profileData as any).expected_salary_type = normalizedSalaryType;
 
         // validate structured job experience
         const hasInvalidJobItem = jobExperienceItems.some((item) => {
@@ -387,24 +433,78 @@ const ProfilePage: React.FC = () => {
           return;
         }
 
-        const now = profileData as JobSeekerExtended;
+        if (!profileData.timezone) {
+          setFormError('Please select a timezone.');
+          setIsSaving(false);
+          return;
+        }
+
+const now = profileData as JobSeekerExtended;
 const o   = (orig as JobSeekerExtended | null);
+
+
+// перенесём нормализованные значения зарплаты в now
+(now as any).expected_salary      = expectedSalaryMinNum;
+(now as any).expected_salary_max  = expectedSalaryMaxNum;
+(now as any).expected_salary_type = normalizedSalaryType;
 
 const normCurrentPosition = ((now as any).current_position || '').trim();
 if (normCurrentPosition.length > 200) {
   setFormError('Current position must be at most 200 characters.');
-  setIsSaving(false);
   return;
 }
 (now as any).current_position = normCurrentPosition || null;
 
-const bioRaw = ((now as any).description || '').toString();
-if (bioRaw.length > 250) {
-  setFormError('Bio must be at most 250 characters.');
+// BIO: 200–750 ????????, ??????? ?? plain text
+// ???? ???? ? description ?????? ????? HTML
+const bioSrc = ((now as any).description || '').toString();
+const bioDiv = document.createElement('div');
+bioDiv.innerHTML = bioSrc;
+const bioText = (bioDiv.textContent || '').trim();
+
+if (bioText.length < BIO_MIN) {
+  setFormError(`Bio must be at least ${BIO_MIN} characters.`);
+  return;
+}
+if (bioText.length > BIO_MAX) {
+  setFormError(`Bio must be at most ${BIO_MAX} characters.`);
+  return;
+}
+
+// ? ??????? ??????? ?????? ??? ?????? ????? 
+(now as any).description = bioText;
+
+// Normalize and validate portfolio links
+const rawPortfolio = (now as any).portfolio;
+let normPortfolio: string[] = Array.isArray(rawPortfolio)
+  ? rawPortfolio
+  : rawPortfolio
+  ? [String(rawPortfolio)]
+  : [];
+
+
+normPortfolio = normPortfolio
+  .map((u) => (u || '').trim())
+  .filter(Boolean);
+
+if (normPortfolio.length > 10) {
+  setFormError('You can add up to 10 portfolio links.');
   setIsSaving(false);
   return;
 }
-(now as any).description = bioRaw;
+
+for (const url of normPortfolio) {
+  try {
+    // eslint-disable-next-line no-new
+    new URL(url);
+  } catch {
+    setFormError('One of portfolio links is invalid. Please use full URL starting with http:// or https://');
+    setIsSaving(false);
+    return;
+  }
+}
+
+(now as any).portfolio = normPortfolio.length ? normPortfolio : null;
 
 
 const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtended[K]) =>
@@ -416,11 +516,33 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
           skillsIdsNow.length !== skillsIdsOrig.length ||
           skillsIdsNow.some((id, i) => id !== skillsIdsOrig[i]);
 
-        const patch: any = { role: 'jobseeker' }; // на бэке бывает нужно
+        const patch: any = { role: 'jobseeker' }; // ?? ???? ?????? ?????
         if (changed('username', usernameToSave))             patch.username         = usernameToSave;
         if (changed('timezone', now.timezone))               patch.timezone         = now.timezone;
         if (changed('currency', now.currency))               patch.currency         = now.currency;
-        if (changed('expected_salary', expectedSalaryNum))   patch.expected_salary  = expectedSalaryNum;
+
+        // expected salary: min / max / type
+        const expectedSalaryMinNorm =
+          typeof expectedSalaryMinNum === 'number' ? expectedSalaryMinNum : null;
+        const expectedSalaryMaxNorm =
+          typeof expectedSalaryMaxNum === 'number' ? expectedSalaryMaxNum : null;
+
+        if (changed('expected_salary', expectedSalaryMinNorm as any)) {
+          patch.expected_salary = expectedSalaryMinNorm;
+        }
+        if (changed('expected_salary_max', expectedSalaryMaxNorm as any)) {
+          patch.expected_salary_max = expectedSalaryMaxNorm;
+        }
+        if (
+          changed(
+            'expected_salary_type',
+            ((now as any).expected_salary_type ?? null) as any,
+          )
+        ) {
+          patch.expected_salary_type =
+            (now as any).expected_salary_type ?? null;
+        }
+
         if (changed('job_search_status', (now as any).job_search_status || 'open_to_offers'))
                                                              patch.job_search_status = (now as any).job_search_status || 'open_to_offers';
         if (skillsChanged)                                   patch.skillIds         = skillsIdsNow;
@@ -428,19 +550,18 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
         if (changed('current_position', now.current_position ?? null)) {
             patch.current_position = now.current_position || null;
           }
-        
+        if (changed('portfolio', now.portfolio))             patch.portfolio        = now.portfolio;
 
-       
 
         const toRichHtml = (t?: string | null): string | null => {
           const v = (t || '').trim();
           if (!v) return null;
 
-          // если это уже HTML (прилетело из Quill или старой версии) — оставляем как есть
+          // ???? ??? ??? HTML (????????? ?? Quill ??? ?????? ??????) — ????????? ??? ????
           const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(v);
           if (looksLikeHtml) return v;
 
-          // обычный текст: абзацы через пустую строку, переносы → <br/>
+          // ??????? ?????: ?????? ????? ?????? ??????, ???????? ? <br/>
           const parts = v
             .split(/\n{2,}/)
             .map((s) => s.trim())
@@ -471,6 +592,24 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
         if (changed('resume', now.resume))                   patch.resume           = now.resume;
         if (changed('country', now.country ?? undefined))    patch.country   = now.country ?? undefined;
         if (Array.isArray(now.languages))                    patch.languages = now.languages!;
+
+        // preferred_job_types
+        const origPreferred =
+          Array.isArray((o as any)?.preferred_job_types)
+            ? (o as any).preferred_job_types
+            : [];
+        const nowPreferred =
+          Array.isArray((now as any).preferred_job_types)
+            ? (now as any).preferred_job_types
+            : [];
+        const preferredChanged =
+          origPreferred.length !== nowPreferred.length ||
+          origPreferred.some((v: any, i: number) => v !== nowPreferred[i]);
+
+        if (preferredChanged) {
+          patch.preferred_job_types =
+            nowPreferred.length > 0 ? nowPreferred : null;
+        }
 
         if (changed('date_of_birth', now.date_of_birth ?? null))         patch.date_of_birth    = now.date_of_birth ?? null;
 
@@ -556,6 +695,8 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
         }
 
         alert('The changes are saved');
+
+
 
       } else if (profileData.role === 'employer') {
         // для работодателя тоже шлём только изменённое
@@ -710,6 +851,18 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
       </div>
     );
 
+const isJobseeker = profileData.role === 'jobseeker';
+
+  const bioText = isJobseeker
+    ? bioPlainText((profileData as any).description as string | undefined)
+    : '';
+
+  const bioLength = isJobseeker ? bioText.length : 0;
+  const bioTooShort =
+    isJobseeker && isEditing && bioLength > 0 && bioLength < BIO_MIN;
+  const bioTooLong =
+    isJobseeker && isEditing && bioLength > BIO_MAX;
+
 
   // --- gallery images (only portfolio images) ---
   const portfolioFilesRaw: string[] =
@@ -730,6 +883,76 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
   galleryImages.forEach((src, idx) => {
     galleryIndexByUrl.set(src, idx);
   });
+
+  const portfolioLinks: string[] =
+  profileData.role === 'jobseeker'
+    ? Array.isArray((profileData as any).portfolio)
+      ? (profileData as any).portfolio
+      : ( (profileData as any).portfolio
+          ? [String((profileData as any).portfolio)]
+          : []
+        )
+    : [];
+
+const addPortfolioLink = () => {
+  const v = newPortfolioLink.trim();
+  if (!v) return;
+
+  try {
+    // базовая проверка URL
+    // eslint-disable-next-line no-new
+    new URL(v);
+  } catch {
+    setFormError('Portfolio URL seems invalid. Please use full link starting with http:// or https://');
+    return;
+  }
+
+  setFormError(null);
+
+  setProfileData(prev => {
+    if (!prev || prev.role !== 'jobseeker') return prev;
+    const raw = (prev as any).portfolio;
+    let current: string[] = Array.isArray(raw)
+      ? [...raw]
+      : raw
+      ? [String(raw)]
+      : [];
+
+    if (current.length >= 10) {
+      return prev;
+    }
+
+    if (!current.includes(v)) {
+      current = [...current, v];
+    }
+
+    return {
+      ...(prev as any),
+      portfolio: current,
+    } as any;
+  });
+
+  setNewPortfolioLink('');
+};
+
+const removePortfolioLinkAt = (idx: number) => {
+  setProfileData(prev => {
+    if (!prev || prev.role !== 'jobseeker') return prev;
+    const raw = (prev as any).portfolio;
+    let current: string[] = Array.isArray(raw)
+      ? [...raw]
+      : raw
+      ? [String(raw)]
+      : [];
+
+    current = current.filter((_, i) => i !== idx);
+
+    return {
+      ...(prev as any),
+      portfolio: current.length ? current : null,
+    } as any;
+  });
+};
 
 
   const openGalleryAt = (idx: number) => {
@@ -1028,13 +1251,7 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                 <div className="pf-section">
                   {!isEditing ? (
                     <div className="pf-kv">
-                      <div className="pf-kv-row">
-                        <span className="pf-k">Company Name</span>
-                        <span className="pf-v">
-                          {(profileData as EmployerProfile).company_name ||
-                            'Not specified'}
-                        </span>
-                      </div>
+                      
                       <div className="pf-kv-row">
                         <span className="pf-k">Company Info</span>
                         <span className="pf-v">
@@ -1042,36 +1259,11 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                             'Not specified'}
                         </span>
                       </div>
-                      <div className="pf-kv-row">
-                        <span className="pf-k">Referral Link</span>
-                        <span className="pf-v">
-                          {(profileData as EmployerProfile).referral_link ||
-                            'Not specified'}
-                        </span>
-                      </div>
+                      
                     </div>
                   ) : (
                     <>
-                      <div className="pf-row">
-                        <label className="pf-label">Company Name</label>
-                        <input
-                          className="pf-input"
-                          type="text"
-                          value={
-                            (profileData as EmployerProfile).company_name ||
-                            ''
-                          }
-                          onChange={(e) =>
-                            setProfileData(
-                              {
-                                ...(profileData as any),
-                                company_name: e.target.value,
-                              } as any,
-                            )
-                          }
-                          placeholder="Enter company name"
-                        />
-                      </div>
+                     
                       <div className="pf-row">
                         <label className="pf-label">Company Info</label>
                         <textarea
@@ -1092,26 +1284,7 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                           placeholder="Enter company information"
                         />
                       </div>
-                      <div className="pf-row">
-                        <label className="pf-label">Referral Link</label>
-                        <input
-                          className="pf-input"
-                          type="text"
-                          value={
-                            (profileData as EmployerProfile).referral_link ||
-                            ''
-                          }
-                          onChange={(e) =>
-                            setProfileData(
-                              {
-                                ...(profileData as any),
-                                referral_link: e.target.value,
-                              } as any,
-                            )
-                          }
-                          placeholder="Enter referral link"
-                        />
-                      </div>
+                      
                     </>
                   )}
 
@@ -1222,6 +1395,17 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                         </span>
                       </div>
 
+                      {/* Preferred job types */}
+                      {Array.isArray((profileData as any).preferred_job_types) &&
+                        (profileData as any).preferred_job_types.length > 0 && (
+                          <div className="pf-kv-row">
+                            <span className="pf-k">Preferred job type</span>
+                            <span className="pf-v">
+                              {(profileData as any).preferred_job_types.join(', ')}
+                            </span>
+                          </div>
+                        )}
+
                       <div className="pf-kv-row">
                                <span className="pf-k">Current position</span>
                                <span className="pf-v">
@@ -1240,17 +1424,50 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                       </div>
 
                       {/* Expected salary */}
-                      {(profileData as any).expected_salary != null &&
-                        (profileData as any).expected_salary !== '' &&
-                        Number((profileData as any).expected_salary) !== 0 && (
+                      {(() => {
+                        const js: any = profileData;
+                        const min = js.expected_salary;
+                        const max = js.expected_salary_max;
+                        const type = js.expected_salary_type;
+                        const hasMin =
+                          min != null &&
+                          min !== '' &&
+                          Number(min) !== 0;
+                        const hasMax =
+                          max != null &&
+                          max !== '' &&
+                          Number(max) !== 0;
+
+                        if (!hasMin && !hasMax) return null;
+
+                        const currency = profileData.currency || '';
+                        const minNum = hasMin ? Number(min) : null;
+                        const maxNum = hasMax ? Number(max) : null;
+
+                        let text = '';
+                        if (hasMin && hasMax) {
+                          text = `${minNum} - ${maxNum}`;
+                        } else if (hasMin) {
+                          text = `${minNum}`;
+                        } else if (hasMax) {
+                          text = `${maxNum}`;
+                        }
+
+                        if (currency) {
+                          text = `${text} ${currency}`;
+                        }
+
+                        if (type === 'per month' || type === 'per day') {
+                          text = `${text} ${type}`;
+                        }
+
+                        return (
                           <div className="pf-kv-row">
                             <span className="pf-k">Expected salary</span>
-                            <span className="pf-v">
-                              {(profileData as any).expected_salary}{' '}
-                              {profileData.currency || ''}
-                            </span>
+                            <span className="pf-v">{text}</span>
                           </div>
-                        )}
+                        );
+                      })()}
 
                       {/* Timezone */}
                       <div className="pf-kv-row">
@@ -1259,6 +1476,7 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                           {profileData.timezone || 'Not specified'}
                         </span>
                       </div>
+
 
                       {/* Video intro */}
                       <div className="pf-kv-row">
@@ -1298,14 +1516,60 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                         </span>
                       </div>
 
-                      {/* Portfolio link */}
-                      <div className="pf-kv-row">
-                        <span className="pf-k">Portfolio link</span>
-                        <span className="pf-v">
-                          {(profileData as JobSeekerProfile).portfolio ||
-                            'Not specified'}
-                        </span>
-                      </div>
+{/* Portfolio links */}
+<div className="pf-row">
+  <label className="pf-label">Portfolio links (optional, up to 10)</label>
+  <div className="pf-tags-input">
+    <div className="pf-tags-input-main">
+      <input
+        className="pf-input"
+        type="url"
+        value={newPortfolioLink}
+        onChange={(e) => setNewPortfolioLink(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            addPortfolioLink();
+          }
+        }}
+        placeholder="https://github.com/…, https://dribbble.com/…"
+      />
+      <button
+        type="button"
+        className="pf-button pf-secondary"
+        onClick={addPortfolioLink}
+        disabled={!newPortfolioLink.trim() || portfolioLinks.length >= 10}
+      >
+        Add link
+      </button>
+    </div>
+
+    {portfolioLinks.length > 0 && (
+      <div className="pf-tags">
+        {portfolioLinks.map((url, idx) => (
+          <span key={idx} className="pf-tag">
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pf-link"
+            >
+              {url}
+            </a>
+            <span
+              className="pf-tag-x"
+              onClick={() => removePortfolioLinkAt(idx)}
+            >
+              ×
+            </span>
+          </span>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
+
+
 
                       {/* Socials icons */}
                       {(((profileData as any).linkedin ||
@@ -1389,9 +1653,9 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                         null}
                     </div>
                   ) : (
-                    /* EDIT MODE SUMMARY */
+                    
                     <div className="pf-summary-edit">
-                      {/* Job status */}
+                     
                       <div className="pf-row">
                         <label className="pf-label">Job status</label>
                         <select
@@ -1419,6 +1683,48 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                         </select>
                       </div>
 
+                      {/* Preferred job type */}
+                      <div className="pf-row">
+                        <label className="pf-label">Preferred job type</label>
+                        <div>
+                          {(['Full-time', 'Part-time', 'Project-based'] as const).map((jt) => {
+                            const list: string[] = Array.isArray((profileData as any).preferred_job_types)
+                              ? (profileData as any).preferred_job_types
+                              : [];
+                            const checked = list.includes(jt);
+                            return (
+                              <label
+                                key={jt}
+                                style={{ display: 'inline-flex', alignItems: 'center', marginRight: 12 }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => {
+                                    const prevList: string[] = Array.isArray((profileData as any).preferred_job_types)
+                                      ? [...(profileData as any).preferred_job_types]
+                                      : [];
+                                    let next: string[];
+                                    if (e.target.checked) {
+                                      next = prevList.includes(jt) ? prevList : [...prevList, jt];
+                                    } else {
+                                      next = prevList.filter((x) => x !== jt);
+                                    }
+                                    setProfileData(
+                                      {
+                                        ...(profileData as any),
+                                        preferred_job_types: next.length ? next : undefined,
+                                      } as any,
+                                    );
+                                  }}
+                                />
+                                <span style={{ marginLeft: 4 }}>{jt}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                     {/* Current position */}
                      <div className="pf-row">
                        <label className="pf-label">Current position</label>
@@ -1435,9 +1741,10 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                              } as any,
                            )
                          }
-                         placeholder="e.g., Senior Backend Developer"
+                         placeholder="e.g. Senior Backend Developer"
                        />
                      </div>
+
 
                   {/* Skills */}
                     <div className="pf-row">
@@ -1557,7 +1864,7 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
 </div>
 
 
-                      {/* Currency + Expected salary */}
+                                           {/* Currency + Expected salary */}
                       <div className="pf-row pf-row-two">
                         <div>
                           <label className="pf-label">Currency</label>
@@ -1585,14 +1892,14 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                         </div>
 
                         <div>
-                          <label className="pf-label">Expected salary</label>
+                          <label className="pf-label">Expected salary (min)</label>
                           <input
                             className="pf-input"
                             type="number"
                             step="0.01"
                             min="0"
                             inputMode="decimal"
-                            placeholder="e.g., 4000"
+                            placeholder="e.g. 4000"
                             value={
                               (profileData as any).expected_salary ?? ''
                             }
@@ -1613,10 +1920,72 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                                   expected_salary: raw,
                                 } as any,
                               );
+
                             }}
                           />
                         </div>
                       </div>
+
+                      {/* Expected salary max + type */}
+                      <div className="pf-row pf-row-two">
+                        <div>
+                          <label className="pf-label">Expected salary (max)</label>
+                          <input
+                            className="pf-input"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            inputMode="decimal"
+                            placeholder="e.g. 6000"
+                            value={
+                              (profileData as any).expected_salary_max ?? ''
+                            }
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                            if (raw === '') {
+                              setProfileData(
+                                {
+                                  ...(profileData as any),
+                                  expected_salary_max: '',
+                                } as any,
+                              );
+                              return;
+                            }
+                            setProfileData(
+                              {
+                                ...(profileData as any),
+                                expected_salary_max: raw,
+                              } as any,
+                            );
+
+                            }}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="pf-label">Salary type</label>
+                          <select
+                            className="pf-select"
+                            value={(profileData as any).expected_salary_type || ''}
+                            onChange={(e) =>
+                            setProfileData(
+                              {
+                                ...(profileData as any),
+                                expected_salary_type: e.target.value || undefined,
+                              } as any,
+                            )
+                          }
+
+                          >
+                            <option value="" disabled>
+                              Select type
+                            </option>
+                            <option value="per month">per month</option>
+                            <option value="per day">per day</option>
+                          </select>
+                        </div>
+                      </div>
+
 
                       {/* Timezone */}
                       <div className="pf-row">
@@ -1666,28 +2035,7 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                         />
                       </div>
 
-                      {/* Resume link + upload */}
-                      <div className="pf-row">
-                        <label className="pf-label">
-                          Resume Link (optional)
-                        </label>
-                        <input
-                          className="pf-input"
-                          type="url"
-                          value={
-                            (profileData as JobSeekerProfile).resume || ''
-                          }
-                          onChange={(e) =>
-                            setProfileData(
-                              {
-                                ...(profileData as any),
-                                resume: e.target.value,
-                              } as any,
-                            )
-                          }
-                          placeholder="https://example.com/resume.pdf"
-                        />
-                      </div>
+
 
                       <div className="pf-row">
                         <label className="pf-label">
@@ -1728,27 +2076,7 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                         </div>
                       </div>
 
-                      {/* Portfolio link (URL) */}
-                      <div className="pf-row">
-                        <label className="pf-label">Portfolio link</label>
-                        <input
-                          className="pf-input"
-                          type="text"
-                          value={
-                            (profileData as JobSeekerProfile).portfolio ||
-                            ''
-                          }
-                          onChange={(e) =>
-                            setProfileData(
-                              {
-                                ...(profileData as any),
-                                portfolio: e.target.value,
-                              } as any,
-                            )
-                          }
-                          placeholder="Enter portfolio URL"
-                        />
-                      </div>
+
 
                       {/* Socials (edit) */}
                       <div className="pf-row">
@@ -1885,44 +2213,72 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
           {/* WIDE SECTIONS: BIO / JOB EXPERIENCE / PORTFOLIO (FILES) */}
           {profileData.role === 'jobseeker' && (
             <>
-              {/* BIO */}
-              <div className="pf-section-wide">
-                <div className="pf-row">
-                  <label className="pf-label pf-label-section">Bio</label>
-                  {!isEditing ? (
-                    (profileData as JobSeekerProfile).description ? (
-                      <div
-                        className="pf-richtext"
-                        dangerouslySetInnerHTML={{
-                          __html: DOMPurify.sanitize(
-                            (profileData as JobSeekerProfile)
-                              .description as string,
-                          ),
-                        }}
-                      />
-                    ) : (
-                      <div className="pf-muted">Not specified</div>
-                    )
-                  ) : (
-                    <textarea
-                      className="pf-textarea"
-                      rows={4}
-                      value={
-                        (profileData as JobSeekerProfile).description || ''
-                      }
-                      onChange={(e) =>
-                        setProfileData(
-                          {
-                            ...(profileData as any),
-                            description: e.target.value,
-                          } as any,
-                        )
-                      }
-                      placeholder="Tell a bit about yourself…"
-                    />
-                  )}
-                </div>
+                 {/* BIO */}
+    <div className="pf-section-wide">
+      <div className="pf-row">
+        <label className="pf-label pf-label-section">
+          Bio <span className="pf-label-opt">(200–750 characters)</span>
+        </label>
+
+        {!isEditing ? (
+          (profileData as JobSeekerProfile).description ? (
+            <div
+              className="pf-richtext"
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(
+                  (profileData as JobSeekerProfile)
+                    .description as string,
+                ),
+              }}
+            />
+          ) : (
+            <div className="pf-muted">Not specified</div>
+          )
+        ) : (
+          <>
+            <textarea
+              className="pf-textarea"
+              rows={4}
+              value={
+                (profileData as JobSeekerProfile).description || ''
+              }
+              onChange={(e) =>
+                setProfileData(
+                  {
+                    ...(profileData as any),
+                    description: e.target.value,
+                  } as any,
+                )
+              }
+              placeholder="Tell a bit about yourself…"
+            />
+
+            {/* Счётчик символов */}
+            <div
+              className={`pf-counter ${
+                bioTooShort || bioTooLong ? 'is-over' : ''
+              }`}
+            >
+              {bioLength} / {BIO_MAX} characters
+            </div>
+
+            {/* Подсказки под счётчиком */}
+            {bioTooShort && (
+              <div className="pf-hint pf-hint--err">
+                Minimum {BIO_MIN} characters required.
               </div>
+            )}
+
+            {bioTooLong && (
+              <div className="pf-hint pf-hint--err">
+                Maximum {BIO_MAX} characters exceeded.
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+
 
                            {/* JOB EXPERIENCE */}
               <div className="pf-section-wide">
@@ -1945,11 +2301,12 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                                   </span>
                                 )}
                               </div>
-                              <div className="pf-experience-dates">
-                                {item.start_year}
-                                {' — '}
-                                {item.end_year ?? 'Present'}
-                              </div>
+                            {(item.start_year || item.end_year) && (
+                                <div className="pf-experience-dates">
+                                  {item.start_year || '—'} {' — '} {item.end_year ?? 'Present'}
+                                </div>
+                              )}
+
                             </div>
                             {item.description && (
                               <div className="pf-experience-description">
@@ -2128,11 +2485,12 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
                               <div className="pf-education-institution">
                                 {item.institution}
                               </div>
-                              <div className="pf-education-dates">
-                                {item.start_year}
-                                {' — '}
-                                {item.end_year ?? 'Present'}
-                              </div>
+                                {(item.start_year || item.end_year) && (
+                                  <div className="pf-education-dates">
+                                    {item.start_year || '—'} {' — '} {item.end_year ?? 'Present'}
+                                  </div>
+                                )}
+
                             </div>
                           </div>
                         ))}

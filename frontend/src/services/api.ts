@@ -1497,14 +1497,16 @@ export const searchTalents = async (params: {
   /** NEW: expected salary filters (no currency conversion) */
   expected_salary_min?: number;
   expected_salary_max?: number;
+  expected_salary_type?: 'per month' | 'per day';
   /** NEW: job search status filter */
   job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
-  /** ✅ NEW GEO & LANG FILTERS */
-  country?: string;                 // "United States" | "US" | "Россия" и т.п.
-  countries?: string | string[];    // "US,CA" или ["US","CA"] или "India,Philippines"
-  languages?: string | string[];    // "english,spanish" или массив сырого ввода
+  /** ? NEW GEO & LANG FILTERS */
+  country?: string;                 // "United States" | "US" | "??????" ? ?.?.
+  countries?: string | string[];    // "US,CA" ??? ["US","CA"] ??? "India,Philippines"
+  languages?: string | string[];    // "english,spanish" ??? ?????? ?????? ?????
   languages_mode?: 'any' | 'all';   // default any
   has_resume?: boolean;             // true | false
+  preferred_job_types?: ('Full-time' | 'Part-time' | 'Project-based')[] | string;
   /** common */
   page?: number;
   limit?: number;
@@ -1514,6 +1516,7 @@ export const searchTalents = async (params: {
   const response = await api.get<PaginatedResponse<JobSeekerProfile>>('/talents', { params });
   return response.data;
 };
+
 
 
 

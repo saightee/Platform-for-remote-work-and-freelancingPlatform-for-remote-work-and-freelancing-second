@@ -74,18 +74,19 @@ const [filters, setFilters] = useState<{
   rating?: number;
   expected_salary_min?: number;
   expected_salary_max?: number;
+  expected_salary_type?: 'per month' | 'per day';
   job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
   page: number;
   limit: number;
   description?: string;
-
-  /** ✅ NEW */
-  country: string;               // одно поле ввода; CSV => countries, одно значение => country
-  languages: string[];                     // список тегов как ввёл пользователь
+  country: string; 
+  languages: string[]; 
   languages_mode: 'any' | 'all';
   has_resume?: boolean;
+  preferred_job_types: ('Full-time' | 'Part-time' | 'Project-based')[];
+  
 }>({
-  username: searchParams.get('username') || '',
+   username: searchParams.get('username') || '',
   experience: '',
   rating: undefined,
   expected_salary_min: searchParams.get('expected_salary_min')
@@ -94,6 +95,10 @@ const [filters, setFilters] = useState<{
   expected_salary_max: searchParams.get('expected_salary_max')
     ? Number(searchParams.get('expected_salary_max'))
     : undefined,
+  expected_salary_type: ((): 'per month' | 'per day' | undefined => {
+    const v = searchParams.get('expected_salary_type');
+    return v === 'per month' || v === 'per day' ? v : undefined;
+  })(),
   job_search_status: ((): any => {
     const v = searchParams.get('job_search_status');
     return v === 'actively_looking' || v === 'open_to_offers' || v === 'hired' ? v : undefined;
@@ -121,6 +126,17 @@ const [filters, setFilters] = useState<{
   has_resume: ((): boolean | undefined => {
     const v = searchParams.get('has_resume');
     return v === 'true' ? true : v === 'false' ? false : undefined;
+  })(),
+  preferred_job_types: ((): ('Full-time' | 'Part-time' | 'Project-based')[] => {
+    const csv = searchParams.get('preferred_job_types');
+    if (!csv) return [];
+    const allowed = ['Full-time', 'Part-time', 'Project-based'] as const;
+    return csv
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s): s is ('Full-time' | 'Part-time' | 'Project-based') =>
+        (allowed as readonly string[]).includes(s)
+      );
   })(),
 });
 
@@ -315,47 +331,56 @@ useEffect(() => {
       const autoIds = debouncedAutoSkillsKey ? debouncedAutoSkillsKey.split(',').filter(Boolean) : [];
       const useAutoSkills = !selectedSkillId && autoIds.length > 0;
 
-      const effectiveDescription =
+          const effectiveDescription =
         (selectedSkillId || useAutoSkills)
           ? undefined
           : (debouncedFilters.description || undefined);
-const countryCode = (debouncedFilters.country || '').toUpperCase();
-const geoParams: any = countryCode ? { country: countryCode } : {};
 
-// языки — как есть, без нормализации на фронте
-const langs = (debouncedFilters.languages || []).map(s => s.trim()).filter(Boolean);
-const langParams: any = {};
-if (langs.length) {
-  langParams.languages = langs.join(','); // можно и массив, бэку ок; оставим CSV для простоты
-  langParams.languages_mode = debouncedFilters.languages_mode || 'any';
+      const countryCode = (debouncedFilters.country || '').toUpperCase();
+      const geoParams: any = countryCode ? { country: countryCode } : {};
+
+      // языки — как есть, без нормализации на фронте
+      const langs = (debouncedFilters.languages || []).map(s => s.trim()).filter(Boolean);
+      const langParams: any = {};
+      if (langs.length) {
+        langParams.languages = langs.join(','); // можно и массив, бэку ок; оставим CSV для простоты
+        langParams.languages_mode = debouncedFilters.languages_mode || 'any';
+      }
+
+      // резюме
+      const resumeParam = (typeof debouncedFilters.has_resume === 'boolean')
+        ? { has_resume: debouncedFilters.has_resume }
+        : {};
+
+
+const talentParams: any = {
+  experience: debouncedFilters.experience || undefined,
+  rating: debouncedFilters.rating,
+  skills: selectedSkillId ? [selectedSkillId] : (useAutoSkills ? autoIds : undefined),
+  description: effectiveDescription,
+  expected_salary_min: debouncedFilters.expected_salary_min,
+  expected_salary_max: debouncedFilters.expected_salary_max,
+  expected_salary_type: debouncedFilters.expected_salary_type,
+  job_search_status: debouncedFilters.job_search_status,
+  page: debouncedFilters.page,
+  limit: debouncedFilters.limit,
+  ...geoParams,
+  ...langParams,
+  ...resumeParam,
+};
+
+if (debouncedFilters.preferred_job_types && debouncedFilters.preferred_job_types.length) {
+  talentParams.preferred_job_types = debouncedFilters.preferred_job_types;
 }
 
-// резюме
-const resumeParam = (typeof debouncedFilters.has_resume === 'boolean')
-  ? { has_resume: debouncedFilters.has_resume }
-  : {};
 const response = await (searchType === 'talents'
-  ? searchTalents({
-      experience: debouncedFilters.experience || undefined,
-      rating: debouncedFilters.rating,
-      skills: selectedSkillId ? [selectedSkillId] : (useAutoSkills ? autoIds : undefined),
-      description: effectiveDescription,
-      expected_salary_min: debouncedFilters.expected_salary_min,
-      expected_salary_max: debouncedFilters.expected_salary_max,
-      job_search_status: debouncedFilters.job_search_status,
-      page: debouncedFilters.page,
-      limit: debouncedFilters.limit,
-
-      // ✅ NEW:
-      ...geoParams,
-      ...langParams,
-      ...resumeParam,
-    })
+  ? searchTalents(talentParams)
   : searchJobseekers({
       username: debouncedFilters.username || undefined,
       page: debouncedFilters.page,
       limit: debouncedFilters.limit,
     }));
+
 
         let talentData: Profile[] = [];
       let totalCount = 0;
@@ -508,6 +533,7 @@ useEffect(() => {
     rating: undefined,
     expected_salary_min: undefined,
     expected_salary_max: undefined,
+    expected_salary_type: undefined,
     job_search_status: undefined,
     page: 1,
     limit: 25,
@@ -516,6 +542,7 @@ useEffect(() => {
     languages: [],
     languages_mode: 'any',
     has_resume: undefined,
+    preferred_job_types: [],
   });
   setSearchInput('');
   setLangInput('');
@@ -523,6 +550,7 @@ useEffect(() => {
   setSelectedSkillId('');
   setSearchParams({}, { replace: true });
 };
+
 
 
 const handleSearch = (e: React.FormEvent) => {
@@ -543,29 +571,34 @@ const handleSearch = (e: React.FormEvent) => {
   if (!useAutoSkills && !selectedSkillId && searchInput.trim()) nextParams.description = searchInput.trim();
   if (filters.expected_salary_min != null && !Number.isNaN(filters.expected_salary_min)) nextParams.expected_salary_min = String(filters.expected_salary_min);
   if (filters.expected_salary_max != null && !Number.isNaN(filters.expected_salary_max)) nextParams.expected_salary_max = String(filters.expected_salary_max);
+  if (filters.expected_salary_type) nextParams.expected_salary_type = filters.expected_salary_type;
   if (filters.job_search_status) nextParams.job_search_status = filters.job_search_status;
-  // ✅ NEW: страна/страны
+  // ? NEW: ??????/??????
 
 if (filters.country) nextParams.country = filters.country.toUpperCase();
 
-// ✅ NEW: языки (CSV)
+// ? NEW: ????? (CSV)
 if (filters.languages.length) {
   nextParams.languages = filters.languages.join(',');
-  // сохраняем режим только если есть хотя бы один язык
+  // ????????? ????? ?????? ???? ???? ???? ?? ???? ????
   if (filters.languages_mode) nextParams.languages_mode = filters.languages_mode;
 }
 
-// ✅ NEW: резюме
+// ? NEW: ??????
 if (typeof filters.has_resume === 'boolean') {
   nextParams.has_resume = String(filters.has_resume);
+}
+
+if (filters.preferred_job_types.length) {
+  nextParams.preferred_job_types = filters.preferred_job_types.join(',');
 }
 
 nextParams.page  = '1';
 nextParams.limit = String(filters.limit || 25);
 
-  setSearchParams(nextParams, { replace: true }); // чтобы не засорять историю
-  setIsFilterPanelOpen(false);
+setSearchParams(nextParams, { replace: true }); 
 };
+
 
 
 const handlePageChange = (newPage: number) => {
@@ -906,6 +939,62 @@ const getVisiblePages = () => {
     }}
   />
 </div>
+<div className="ftl-row">
+  <label className="ftl-label">Salary Type</label>
+  <select
+    className="ftl-input"
+    value={filters.expected_salary_type || ''}
+    onChange={(e) =>
+      setFilters(prev => ({
+        ...prev,
+        expected_salary_type: (e.target.value || undefined) as 'per month' | 'per day' | undefined,
+        page: 1,
+      }))
+    }
+  >
+    <option value="">Any</option>
+    <option value="per month">per month</option>
+    <option value="per day">per day</option>
+  </select>
+</div>
+<div className="ftl-row">
+  <label className="ftl-label">Preferred Job Type</label>
+  <div>
+    {(['Full-time', 'Part-time', 'Project-based'] as const).map((jt) => {
+      const list = filters.preferred_job_types || [];
+      const checked = list.includes(jt);
+      return (
+        <label
+          key={jt}
+          style={{ display: 'inline-flex', alignItems: 'center', marginRight: 12 }}
+        >
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={(e) => {
+              setFilters(prev => {
+                const prevList = prev.preferred_job_types || [];
+                let next: ('Full-time' | 'Part-time' | 'Project-based')[];
+                if (e.target.checked) {
+                  next = prevList.includes(jt) ? prevList : [...prevList, jt];
+                } else {
+                  next = prevList.filter((x) => x !== jt);
+                }
+                return {
+                  ...prev,
+                  preferred_job_types: next,
+                  page: 1,
+                };
+              });
+            }}
+          />
+          <span style={{ marginLeft: 4 }}>{jt}</span>
+        </label>
+      );
+    })}
+  </div>
+</div>
+
 
                 <div className="ftl-row">
                   <label className="ftl-label">Category/Skill</label>
@@ -1086,7 +1175,7 @@ const getVisiblePages = () => {
            
             </div>
 
-            <div className="ftl-col">
+                       <div className="ftl-col">
               <p className="ftl-line">
                 <strong>Profile Views:</strong>{' '}
                 {typeof profileViews === 'number' ? profileViews : 0}
@@ -1102,15 +1191,60 @@ const getVisiblePages = () => {
                 <strong>Experience:</strong> {experience || 'Not specified'}
               </p>
 
-              {(talent as any).expected_salary != null &&
-                (talent as any).expected_salary !== '' && (
+              {Array.isArray((talent as any).preferred_job_types) &&
+                (talent as any).preferred_job_types.length > 0 && (
                   <p className="ftl-line">
-                    <strong>Expected salary:</strong>{' '}
-                    {(talent as any).expected_salary}{' '}
-                    {(talent as any).currency || ''}
+                    <strong>Preferred job type:</strong>{' '}
+                    {(talent as any).preferred_job_types.join(', ')}
                   </p>
               )}
+
+              {(() => {
+                const t: any = talent;
+                const min = t.expected_salary;
+                const max = t.expected_salary_max;
+                const type = t.expected_salary_type;
+                const hasMin =
+                  min != null &&
+                  min !== '' &&
+                  Number(min) !== 0;
+                const hasMax =
+                  max != null &&
+                  max !== '' &&
+                  Number(max) !== 0;
+
+                if (!hasMin && !hasMax) return null;
+
+                const currency = (talent as any).currency || '';
+                const minNum = hasMin ? Number(min) : null;
+                const maxNum = hasMax ? Number(max) : null;
+
+                let text = '';
+                if (hasMin && hasMax) {
+                  text = `${minNum} - ${maxNum}`;
+                } else if (hasMin) {
+                  text = `${minNum}`;
+                } else if (hasMax) {
+                  text = `${maxNum}`;
+                }
+
+                if (currency) {
+                  text = `${text} ${currency}`;
+                }
+
+                if (type === 'per month' || type === 'per day') {
+                  text = `${text} ${type}`;
+                }
+
+                return (
+                  <p className="ftl-line">
+                    <strong>Expected salary:</strong>{' '}
+                    {text}
+                  </p>
+                );
+              })()}
             </div>
+
           </div>
 
           <div className="ftl-foot">

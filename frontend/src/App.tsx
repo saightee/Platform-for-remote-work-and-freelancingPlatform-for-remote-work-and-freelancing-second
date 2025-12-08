@@ -100,6 +100,7 @@ const App: React.FC = () => {
               <Route index element={<ProfilePage />} />
             </Route>
             <Route path="/dev-public-profile/:id" element={<PublicProfile />} />
+             <Route path="/dev-home" element={<Home />} />
 
         <Route element={<RequireAuth allowed={['employer']} />}>
           <Route path="/employer-dashboard" element={<EmployerDashboard />}>

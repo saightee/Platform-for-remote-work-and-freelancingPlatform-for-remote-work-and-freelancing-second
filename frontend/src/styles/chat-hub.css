@@ -90,7 +90,7 @@
   white-space:nowrap;} 
 .ch-chatlist__badge{
   background:var(--ch-accent); color:#fff; font-size:12px;
-  padding:2px 6px; border-radius:999px; flex-shrink:0; 
+  padding:0px 8px; border-radius:999px; flex-shrink:0; 
 }
 
 /* СПРАВА — карточка чата */

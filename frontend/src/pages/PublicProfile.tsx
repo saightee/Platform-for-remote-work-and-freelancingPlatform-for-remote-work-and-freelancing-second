@@ -109,8 +109,7 @@ const [sendingInvite, setSendingInvite] = useState(false);
     return list;
   }, [profile]);
 
-  // Смещение индексов для портфолио (если есть аватар, портфолио начинается с 1, иначе с 0)
-  const galleryBaseIndex = profile?.avatar ? 1 : 0;
+
 
   const openGallery = (index: number) => {
     if (!galleryPhotos.length) return;
@@ -227,12 +226,6 @@ const submitInvite = async () => {
     );
   }
 
-  // список файлов портфолио
-  const portfolioFiles: string[] = Array.isArray((profile as any).portfolio_files)
-    ? (profile as any).portfolio_files.filter((u: string) => !!u)
-    : [];
-
-  const isImageUrl = (u: string) => /\.(jpe?g|png|webp|gif)$/i.test(u);
 
 
   return (
@@ -477,7 +470,7 @@ const submitInvite = async () => {
                   </li>
                 )}
 
-              {profile.role === 'jobseeker' && (
+                           {profile.role === 'jobseeker' && (
                 <li>
                   <span className="ppx-kv-icon">
                     <FaBriefcase />
@@ -515,29 +508,102 @@ const submitInvite = async () => {
                 </li>
               )}
 
-              <li>
-                <span className="ppx-kv-icon">
-                  <FaDollarSign />
-                </span>
-                <span className="ppx-kv-label">Currency</span>
-                <span className="ppx-kv-value">
-                  {profile.currency || 'Not specified'}
-                </span>
-              </li>
+              {/* Preferred job type */}
+              {profile.role === 'jobseeker' &&
+                Array.isArray((profile as any).preferred_job_types) &&
+                (profile as any).preferred_job_types.length > 0 && (
+                  <li>
+                    <span className="ppx-kv-icon">
+                      <FaBriefcase />
+                    </span>
+                    <span className="ppx-kv-label">Preferred job type</span>
+                    <span className="ppx-kv-value">
+                      {(profile as any).preferred_job_types.join(', ')}
+                    </span>
+                  </li>
+                )}
 
-              {(profile as any).expected_salary != null &&
-                (profile as any).expected_salary !== '' && (
+              {(() => {
+                const js: any = profile;
+                const min = js.expected_salary;
+                const max = js.expected_salary_max;
+                const type = js.expected_salary_type;
+                const hasMin =
+                  min != null &&
+                  min !== '' &&
+                  Number(min) !== 0;
+                const hasMax =
+                  max != null &&
+                  max !== '' &&
+                  Number(max) !== 0;
+
+                const hasSalary = hasMin || hasMax;
+
+                // Currency row: скрываем для jobseeker, если есть expected salary
+                if (!(profile.role === 'jobseeker' && hasSalary)) {
+                  return (
+                    <li>
+                      <span className="ppx-kv-icon">
+                        <FaDollarSign />
+                      </span>
+                      <span className="ppx-kv-label">Currency</span>
+                      <span className="ppx-kv-value">
+                        {profile.currency || 'Not specified'}
+                      </span>
+                    </li>
+                  );
+                }
+                return null;
+              })()}
+
+              {(() => {
+                const js: any = profile;
+                const min = js.expected_salary;
+                const max = js.expected_salary_max;
+                const type = js.expected_salary_type;
+                const hasMin =
+                  min != null &&
+                  min !== '' &&
+                  Number(min) !== 0;
+                const hasMax =
+                  max != null &&
+                  max !== '' &&
+                  Number(max) !== 0;
+
+                if (!hasMin && !hasMax) return null;
+
+                const currency = profile.currency || '';
+                const minNum = hasMin ? Number(min) : null;
+                const maxNum = hasMax ? Number(max) : null;
+
+                let text = '';
+                if (hasMin && hasMax) {
+                  text = `${minNum} - ${maxNum}`;
+                } else if (hasMin) {
+                  text = `${minNum}`;
+                } else if (hasMax) {
+                  text = `${maxNum}`;
+                }
+
+                if (currency) {
+                  text = `${text} ${currency}`;
+                }
+
+                if (type === 'per month' || type === 'per day') {
+                  text = `${text} ${type}`;
+                }
+
+                return (
                   <li>
                     <span className="ppx-kv-icon">
                       <FaDollarSign />
                     </span>
                     <span className="ppx-kv-label">Expected salary</span>
-                    <span className="ppx-kv-value">
-                      {(profile as any).expected_salary}{' '}
-                      {profile.currency || ''}
-                    </span>
+                    <span className="ppx-kv-value">{text}</span>
                   </li>
-                )}
+                );
+              })()}
+
 
               <li>
                 <span className="ppx-kv-icon">
@@ -549,27 +615,41 @@ const submitInvite = async () => {
                 </span>
               </li>
 
-              <li>
-                <span className="ppx-kv-icon">
-                  <FaLink />
-                </span>
-                <span className="ppx-kv-label">Portfolio</span>
-                <span className="ppx-kv-value">
-                  {profile.portfolio ? (
-                    <a
-                      className="ppx-link"
-                      title={profile.portfolio}
-                      href={profile.portfolio}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {profile.portfolio}
-                    </a>
-                  ) : (
-                    'Not visible'
-                  )}
-                </span>
-              </li>
+             <li>
+  <span className="ppx-kv-icon">
+    <FaLink />
+  </span>
+  <span className="ppx-kv-label">Portfolio</span>
+  <span className="ppx-kv-value">
+    {(() => {
+      const raw = (profile as any).portfolio;
+      const links: string[] = Array.isArray(raw)
+        ? raw
+        : raw
+        ? [String(raw)]
+        : [];
+
+      if (!links.length) return 'Not visible';
+
+      return (
+        <div className="ppx-portfolio-links">
+          {links.map((url, idx) => (
+            <a
+              key={idx}
+              className="ppx-link"
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {url}
+            </a>
+          ))}
+        </div>
+      );
+    })()}
+  </span>
+</li>
+
 
 
               <li>
@@ -767,11 +847,16 @@ const submitInvite = async () => {
                             <div className="ppx-timeline-title">
                               {item.title || 'Untitled role'}
                             </div>
-                            <div className="ppx-timeline-sub">
-                              {item.company || 'Company not specified'} ·{' '}
-                              {item.start_year || '—'} —{' '}
-                              {item.end_year ?? 'Present'}
-                            </div>
+                        <div className="ppx-timeline-sub">
+                            {item.company || 'Company not specified'}
+                            { (item.start_year || item.end_year) && (
+                              <>
+                                {' · '}
+                                {item.start_year || '—'} — {item.end_year ?? 'Present'}
+                              </>
+                            )}
+                          </div>
+
                           </div>
                           {item.description && (
                             <div className="ppx-timeline-desc">
@@ -813,11 +898,15 @@ const submitInvite = async () => {
                               {item.degree || 'Degree not specified'}
                             </div>
                             <div className="ppx-timeline-sub">
-                              {item.institution ||
-                                'Institution not specified'}{' '}
-                              · {item.start_year || '—'} —{' '}
-                              {item.end_year ?? 'Present'}
+                              {item.institution || 'Institution not specified'}
+                              { (item.start_year || item.end_year) && (
+                                <>
+                                  {' · '}
+                                  {item.start_year || '—'} — {item.end_year ?? 'Present'}
+                                </>
+                              )}
                             </div>
+
                           </div>
                         </li>
                       )

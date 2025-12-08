@@ -925,39 +925,49 @@ const applicationsMap = useMemo(() =>
 
 const chatList = useMemo<ChatListItem[]>(() => {
   if (currentRole === 'employer') {
-    return activeJobApps
-      .filter(app => app.status === 'Pending' || app.status === 'Accepted')
+    // 1) Берём все Pending/Accepted заявки по всем активным job-постам
+    const allAllowed = Object.values(jobPostApplications)
+      .flat()
+      .filter(app => app.status === 'Pending' || app.status === 'Accepted');
+
+    // 2) Если выбран конкретный job (activeJobId есть) —
+    //    показываем чаты только по нему.
+    //    Если job не выбран (activeJobId === null) — показываем все.
+    const source = activeJobId
+      ? activeJobApps.filter(
+          app => app.status === 'Pending' || app.status === 'Accepted'
+        )
+      : allAllowed;
+
+    return source
       .map((app): ChatListItem => {
-      const jobPost = jobPostsMap.get(app.job_post_id);
-const id = toId(app.applicationId);
-        
+        const jobPost = jobPostsMap.get(app.job_post_id);
+        const id = toId(app.applicationId);
 
+        const cc = getCountryCodeFrom(app as any);
 
-
-
-
-// из ответа бэка берём в таком приоритете:
-const cc = getCountryCodeFrom(app as any);
-
-
-return {
-  id,
-  title: jobPost?.title || 'Unknown Job',
-  partner: app.username,
-  status: app.status,
-  unreadCount: unreadCounts[id] ?? 0,
-  coverLetter: app.coverLetter ?? null,
-  userId: app.userId,
-  job_post_id: app.job_post_id,
-  appliedAt: app.appliedAt,
-  lastMessage: getLastPreview(id),
-  lastActivity: getLastActivity(id, app.appliedAt),
-  countryCode: cc,
-};
-
+        return {
+          id,
+          title: jobPost?.title || 'Unknown Job',
+          partner: app.username,
+          status: app.status,
+          unreadCount: unreadCounts[id] ?? 0,
+          coverLetter: app.coverLetter ?? null,
+          userId: app.userId,
+          job_post_id: app.job_post_id,
+          appliedAt: app.appliedAt,
+          lastMessage: getLastPreview(id),
+          lastActivity: getLastActivity(id, app.appliedAt),
+          countryCode: cc,
+        };
       })
+      // сортировка по последней активности (новые сообщения и так будут сверху)
       .sort((a, b) => (b.lastActivity ?? 0) - (a.lastActivity ?? 0));
   }
+
+  // Jobseeker — оставляем как было
+  // ...
+
 
   // Jobseeker
   let source = applications;
@@ -1100,6 +1110,22 @@ const handleSelectChat = async (rawId: string) => {
     }
   }
 };
+
+// Автовыбор самого свежего чата при заходе на страницу,
+// если никакой чат ещё не выбран
+useEffect(() => {
+  // Если чатов нет — делаем ничего
+  if (!allChats.length) return;
+
+  // Если уже есть выбранный чат (из localStorage или перехода со страницы вакансии) — уважаем его
+  if (selectedChat) return;
+
+  // allChats уже отсортированы по дате последней активности (новые сверху)
+  const first = allChats[0];
+
+  // Открываем самый свежий диалог
+  handleSelectChat(first.id);
+}, [allChats, selectedChat, handleSelectChat]);
 
 
   // текущая заявка (для действий работодателя)
@@ -1595,7 +1621,7 @@ data-chat-id={chat.id}
                   ))}
                 </ul>
               ) : (
-                <p className="ch-muted">No chats for this job yet.</p>
+                <p className="ch-muted">No chats yet.</p>
               )}
             </aside>
 

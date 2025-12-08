@@ -15,7 +15,17 @@ import 'react-quill/dist/quill.snow.css';
 
 const urlOk = (v: string) => /^https?:\/\/\S+$/i.test(v.trim());
 
-const USERNAME_RGX = /^[a-zA-Z0-9 ._-]{3,20}$/; // 3–20 символов: буквы, цифры, пробел, ._- 
+// 3–20 символов
+// Jobseeker: только буквы + пробел
+const FULL_NAME_RGX = /^[a-zA-Z ]{3,20}$/;
+
+// Employer: буквы + цифры + пробел (без спец символов)
+const COMPANY_NAME_RGX = /^[a-zA-Z0-9 ]{3,20}$/;
+
+// BIO limits (plain text, без HTML)
+const BIO_MIN = 200;
+const BIO_MAX = 750;
+
 
 const getCookie = (name: string): string | undefined => {
   const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '=([^;]*)'));
@@ -46,7 +56,8 @@ const portfolioInputRef = useRef<HTMLInputElement | null>(null);
 const [portfolioFiles, setPortfolioFiles] = useState<File[]>([]);
 const [portfolioErr, setPortfolioErr] = useState<string | null>(null);
 const [isPortfolioDragOver, setIsPortfolioDragOver] = useState(false);
-
+const [portfolioLinks, setPortfolioLinks] = useState<string[]>([]);
+const [portfolioInput, setPortfolioInput] = useState('');
 
 const processResumeFile = (f: File | null) => {
   if (!f) { setResumeFile(null); return; }
@@ -101,6 +112,33 @@ const removePortfolioIndex = (idx: number) => {
   setPortfolioFiles(next);
 };
 
+const addPortfolioLink = () => {
+  const v = portfolioInput.trim();
+  if (!v) return;
+
+  if (!urlOk(v)) {
+    setErr('Portfolio URL is invalid (use https://...).');
+    return;
+  }
+  setErr(null);
+
+  setPortfolioLinks(prev => {
+    if (prev.length >= 10) {
+      toast.info('You can add up to 10 portfolio links.');
+      return prev;
+    }
+    if (prev.includes(v)) return prev;
+    return [...prev, v];
+  });
+
+  setPortfolioInput('');
+};
+
+const removePortfolioLink = (idx: number) => {
+  setPortfolioLinks(prev => prev.filter((_, i) => i !== idx));
+};
+
+
 const hasAtLeastOneImage = () =>
   portfolioFiles.some(f => f.type.startsWith('image/'));
 
@@ -124,15 +162,13 @@ const processAvatarFile = (f: File | null) => {
 };
 
 
- const [resumeLink, setResumeLink] = useState('');
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
 
-  const resumeProvided = useMemo(() => {
-  if (!isJobseeker) return true;                
-  if (resumeFile) return true;                   
-  const s = resumeLink.trim();
-  return s.length > 0 && urlOk(s);              
-}, [isJobseeker, resumeFile, resumeLink]);
+const [resumeFile, setResumeFile] = useState<File | null>(null);
+
+const resumeProvided = useMemo(() => {
+  if (!isJobseeker) return true;
+  return !!resumeFile; // только файл
+}, [isJobseeker, resumeFile]);
 
 
 const [avatarRequired, setAvatarRequired] = useState<boolean | null>(null);
@@ -212,14 +248,17 @@ const [languages, setLanguages] = useState<string[]>([]);
     return () => clearTimeout(t);
   }, [skillQuery, role]);
 
-const wordCount = useMemo(() => {
-  // about теперь HTML из Quill — вытащим видимый текст
+const bioLength = useMemo(() => {
+  // about — HTML из Quill, достаём чистый текст и считаем символы
   const div = document.createElement('div');
   div.innerHTML = about || '';
   const text = (div.textContent || '').trim();
-  if (!text) return 0;
-  return text.split(/\s+/).length;
+  return text.length;
 }, [about]);
+
+const bioTooShort = bioLength > 0 && bioLength < BIO_MIN;
+const bioTooLong  = bioLength > BIO_MAX;
+
 
 const toRichBioHtml = (t?: string | null): string | null => {
   const v = (t || '').trim();
@@ -266,7 +305,7 @@ const toRichBioHtml = (t?: string | null): string | null => {
       setExperience(d.experience ?? '');
       setCountry(d.country ?? '');
       setLanguages(Array.isArray(d.languages) ? d.languages : []);
-      setResumeLink(d.resumeLink ?? '');
+      
       setLinkedin(d.linkedin ?? '');
       setInstagram(d.instagram ?? '');
       setFacebook(d.facebook ?? '');
@@ -275,6 +314,9 @@ const toRichBioHtml = (t?: string | null): string | null => {
       setAbout(d.about ?? '');
       setDob(d.dob || '');
       setSelectedSkills(Array.isArray(d.selectedSkills) ? d.selectedSkills : []);
+    }
+    if (Array.isArray(d.portfolioLinks)) {
+    setPortfolioLinks(d.portfolioLinks);
     }
 
     // пароли и файл не восстанавливаем по соображениям безопасности
@@ -299,7 +341,7 @@ useEffect(() => {
     draft.experience   = experience;
     draft.country      = country;
     draft.languages    = languages;
-    draft.resumeLink   = resumeLink;
+    
     draft.linkedin     = linkedin;
     draft.instagram    = instagram;
     draft.facebook     = facebook;
@@ -308,6 +350,7 @@ useEffect(() => {
     draft.about        = about;
     draft.dob = dob;
     draft.selectedSkills = selectedSkills; // храним как есть (id+name)
+    draft.portfolioLinks = portfolioLinks;
   }
 
   try {
@@ -317,9 +360,9 @@ useEffect(() => {
 }, [
   role,
   username, email, confirmEmail,
-  experience, country, languages, resumeLink,
+  experience, country, languages, 
   linkedin, instagram, facebook, whatsapp, telegram,
-  about, dob, selectedSkills
+  about, dob, selectedSkills, portfolioLinks
 ]);
 
 useEffect(() => {
@@ -381,14 +424,21 @@ const handleSubmit = async (e: React.FormEvent) => {
   const normConfirmEmail = confirmEmail.trim().toLowerCase();
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  // валидации
-   const usernameTrim = username.trim();
+// валидации
+const usernameTrim = username.trim();
 
-  // валидации
-  if (!USERNAME_RGX.test(usernameTrim)) {
-    setErr('Username must be 3–20 characters and can contain letters, numbers, spaces, ".", "-", "_".');
-    return;
+// выбираем нужный регэксп по роли
+const nameRegex = isJobseeker ? FULL_NAME_RGX : COMPANY_NAME_RGX;
+
+if (!nameRegex.test(usernameTrim)) {
+  if (isJobseeker) {
+    setErr('Full name must be 3–20 characters and contain only letters and spaces.');
+  } else {
+    setErr('Company name must be 3–20 characters and contain only letters, numbers and spaces.');
   }
+  return;
+}
+
   if (!normEmail || !emailRe.test(normEmail)) { setErr('Valid email is required.'); return; }
 
   if (!normConfirmEmail || !emailRe.test(normConfirmEmail)) { setErr('Please re-enter a valid email.'); return; }
@@ -415,13 +465,9 @@ const handleSubmit = async (e: React.FormEvent) => {
         return;
       }
     }
-  if (role === 'jobseeker') {
-  if (!resumeFile && !resumeLink.trim()) {
-    setErr('Resume is required: upload a file or provide a URL.');
-    return;
-  }
-  if (!resumeFile && resumeLink.trim() && !urlOk(resumeLink)) {
-    setErr('Resume URL is invalid (use https://...).');
+if (role === 'jobseeker') {
+  if (!resumeFile) {
+    setErr('Resume file is required.');
     return;
   }
 }
@@ -432,30 +478,65 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
   if (avatarErr) { setErr(avatarErr); return; }
 
-  if (role === 'jobseeker') {
-  if (portfolioFiles.length === 0 || !hasAtLeastOneImage()) {
-    setErr('Please upload at least 1 photo (JPG/PNG/WEBP) in Portfolio Files.');
-    return;
-  }
+ if (role === 'jobseeker') {
   if (portfolioFiles.length > 10) {
     setErr('You can upload up to 10 portfolio files.');
     return;
   }
 }
 
-  // URL-поля
-  const urlErrors: string[] = [];
-  const check = (val: string, label: string) => { if (val && !urlOk(val)) urlErrors.push(`${label} URL is invalid (use https://...)`); };
-  check(resumeLink, 'Resume');
-  check(linkedin, 'LinkedIn');
-  check(instagram, 'Instagram');
-  check(facebook, 'Facebook');
-  if (urlErrors.length) { setErr(urlErrors[0]); return; }
+// URL-валидация
+const urlErrors: string[] = [];
+const check = (val: string, label: string) => {
+  if (val && !urlOk(val)) {
+    urlErrors.push(`${label} URL is invalid (use https://...)`);
+  }
+};
 
-  try {
+// ResumeLink больше не проверяем
+check(linkedin, 'LinkedIn');
+check(instagram, 'Instagram');
+check(facebook, 'Facebook');
+if (urlErrors.length) { setErr(urlErrors[0]); return; }
+
+if (portfolioLinks.length > 10) {
+  setErr('You can add up to 10 portfolio links.');
+  return;
+}
+for (const url of portfolioLinks) {
+  if (!urlOk(url)) {
+    setErr('One of portfolio links is invalid (use https://...).');
+    return;
+  }
+}
+
+   try {
     setBusy(true);
     setErr(null);
-    const richAbout = toRichBioHtml(about);
+
+    let richAbout: string | null = null;
+
+    if (role === 'jobseeker') {
+      // BIO length check (plain text из Quill-HTML)
+      const bioDiv = document.createElement('div');
+      bioDiv.innerHTML = about || '';
+      const bioText = (bioDiv.textContent || '').trim();
+      const bioLen = bioText.length;
+
+      if (bioLen < BIO_MIN) {
+        setErr(`BIO must be at least ${BIO_MIN} characters.`);
+        return;
+      }
+      if (bioLen > BIO_MAX) {
+        setErr(`BIO must be at most ${BIO_MAX} characters.`);
+        return;
+      }
+
+      richAbout = toRichBioHtml(about);
+    }
+
+
+
     // единоразово считаем refCode
     const urlRef = new URLSearchParams(window.location.search).get('ref') || undefined;
     const lsRef  = localStorage.getItem('referralCode') || undefined;
@@ -475,51 +556,63 @@ const handleSubmit = async (e: React.FormEvent) => {
       fd.append('password', password);
       fd.append('role', role);
 
-      if (resumeFile) fd.append('resume_file', resumeFile);
-if (avatarFile) fd.append('avatar_file', avatarFile); // строгое имя поля, как ждёт бек
+    if (resumeFile) fd.append('resume_file', resumeFile);
+if (avatarFile) fd.append('avatar_file', avatarFile);
 
- if (role === 'jobseeker' && portfolioFiles.length) {
-    portfolioFiles.forEach(f => fd.append('portfolio_files', f));
-  }
+if (role === 'jobseeker' && portfolioFiles.length) {
+  portfolioFiles.forEach(f => fd.append('portfolio_files', f));
+}
 
+if (role === 'jobseeker' && portfolioLinks.length) {
+  portfolioLinks.forEach(u => fd.append('portfolio[]', u.trim()));
+}
 
-      if (role === 'jobseeker') {
-        if (experience)            fd.append('experience', experience);
-        if (selectedSkills.length) selectedSkills.forEach(s => fd.append('skills[]', String(s.id)));
-        if (resumeLink.trim())     fd.append('resume', resumeLink.trim());
-        if (dob.trim())            fd.append('date_of_birth', dob.trim());
-        if (linkedin.trim())       fd.append('linkedin', linkedin.trim());
-        if (instagram.trim())      fd.append('instagram', instagram.trim());
-        if (facebook.trim())       fd.append('facebook', facebook.trim());
-        if (whatsapp.trim())       fd.append('whatsapp', whatsapp.trim());
-        if (telegram.trim())       fd.append('telegram', telegram.trim());
-        if (richAbout)             fd.append('description', richAbout);
-        if (country.trim())        fd.append('country', country.trim().toUpperCase());
-        if (languages.length)      languages.forEach(l => fd.append('languages[]', l));
-      }
+if (role === 'jobseeker') {
+  if (experience)            fd.append('experience', experience);
+  if (selectedSkills.length) selectedSkills.forEach(s => fd.append('skills[]', String(s.id)));
+  // resumeLink не отправляем
+  if (dob.trim())            fd.append('date_of_birth', dob.trim());
+  if (linkedin.trim())       fd.append('linkedin', linkedin.trim());
+  if (instagram.trim())      fd.append('instagram', instagram.trim());
+  if (facebook.trim())       fd.append('facebook', facebook.trim());
+  if (whatsapp.trim())       fd.append('whatsapp', whatsapp.trim());
+  if (telegram.trim())       fd.append('telegram', telegram.trim());
+  if (richAbout)             fd.append('description', richAbout);
+  if (country.trim())        fd.append('country', country.trim().toUpperCase());
+  if (languages.length)      languages.forEach(l => fd.append('languages[]', l));
+}
+
 
       if (refCode) fd.append('ref', refCode);
       payload = fd;
-    } else {
+} else {
       payload = {
         username: usernameTrim,
         email: normEmail,
         password,
         role,
-        ...(role === 'jobseeker' ? {
-          ...(experience ? { experience } : {}),
-          ...(selectedSkills.length ? { skills: selectedSkills.map(s => String(s.id)) } : {}),
-          ...(resumeLink.trim() ? { resume: resumeLink.trim() } : {}),
-          ...(linkedin.trim() ? { linkedin: linkedin.trim() } : {}),
-          ...(instagram.trim() ? { instagram: instagram.trim() } : {}),
-          ...(facebook.trim() ? { facebook: facebook.trim() } : {}),
-          ...(whatsapp.trim() ? { whatsapp: whatsapp.trim() } : {}),
-          ...(telegram.trim() ? { telegram: telegram.trim() } : {}),
-          ...(richAbout ? { description: richAbout } : {}),
-          ...(dob.trim() ? { date_of_birth: dob.trim() } : {}),
-          ...(country.trim() ? { country: country.trim().toUpperCase() } : {}),
-          ...(languages.length ? { languages } : {}),
-        } : {})
+        ...(role === 'jobseeker'
+          ? {
+              ...(experience ? { experience } : {}),
+              ...(selectedSkills.length
+                ? { skills: selectedSkills.map((s) => String(s.id)) }
+                : {}),
+              ...(portfolioLinks.length
+                ? { portfolio: portfolioLinks.map((u) => u.trim()) }
+                : {}),
+              ...(linkedin.trim() ? { linkedin: linkedin.trim() } : {}),
+              ...(instagram.trim() ? { instagram: instagram.trim() } : {}),
+              ...(facebook.trim() ? { facebook: facebook.trim() } : {}),
+              ...(whatsapp.trim() ? { whatsapp: whatsapp.trim() } : {}),
+              ...(telegram.trim() ? { telegram: telegram.trim() } : {}),
+              ...(richAbout ? { description: richAbout } : {}),
+              ...(dob.trim() ? { date_of_birth: dob.trim() } : {}),
+              ...(country.trim()
+                ? { country: country.trim().toUpperCase() }
+                : {}),
+              ...(languages.length ? { languages } : {}),
+            }
+          : {}),
       };
       if (refCode) (payload as any).ref = refCode;
     }
@@ -588,21 +681,46 @@ if (role === 'jobseeker' && refCode && afterReturn) {
     navigate('/registration-pending', {
   state: { email: normEmail, pendingSessionId },
 });
-  } catch (error: any) {
-    console.error('Register error', error);
-    const msg = error?.response?.data?.message;
-    if (msg?.includes('Account exists but not verified')) {
-      navigate('/registration-pending', { state: { email: normEmail } });
-      return;
-    }
-    if (error?.response?.status === 403 && msg === 'Registration is not allowed from your country') {
-      setErr('Registration is not allowed from your country.');
-    } else {
-      setErr(msg || 'Registration failed. Please try again.');
-    }
-  } finally {
-    setBusy(false);
+} catch (error: any) {
+  console.error('Register error', error);
+
+  const status = error?.response?.status;
+  const rawMessage = error?.response?.data?.message;
+
+  // 1) Специальная обработка 18+ для jobseeker
+  if (
+    status === 400 &&
+    rawMessage &&
+    typeof rawMessage === 'object' &&
+    (rawMessage as any).code === 'AGE_RESTRICTED'
+  ) {
+    const minAge = (rawMessage as any).minAge ?? 18;
+    setErr(`Registration is 18+ for jobseekers. You must be at least ${minAge} years old to register.`);
+    return;
   }
+
+  // 2) Нормализуем message в строку
+  let msg = '';
+  if (typeof rawMessage === 'string') {
+    msg = rawMessage;
+  } else if (rawMessage && typeof rawMessage === 'object' && typeof (rawMessage as any).message === 'string') {
+    msg = (rawMessage as any).message;
+  }
+
+  if (msg.includes('Account exists but not verified')) {
+    navigate('/registration-pending', { state: { email: normEmail } });
+    return;
+  }
+
+  if (status === 403 && msg === 'Registration is not allowed from your country') {
+    setErr('Registration is not allowed from your country.');
+  } else {
+    setErr(msg || 'Registration failed. Please try again.');
+  }
+} finally {
+  setBusy(false);
+}
+
 };
 
 
@@ -625,21 +743,35 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
         <form onSubmit={handleSubmit} className={`reg2-form ${isJobseeker ? 'is-two' : ''}`}>
           {/* left column */}
-          <div className="reg2-field reg2-span2">
-            <label className="reg2-label">Username <span className="reg2-req">*</span></label>
-              <input
-                className="reg2-input"
-                type="text"
-                id="signup-nickname"
-                name="display-name"                // не "username", чтобы менеджер не путал
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                placeholder="Enter your username"
-                autoComplete="nickname"
-                required
-              />
+<div className="reg2-field reg2-span2">
+  <label className="reg2-label">
+    {isJobseeker ? 'Full name' : 'Company name'} <span className="reg2-req">*</span>
+  </label>
+  <input
+    className="reg2-input"
+    type="text"
+    id="signup-nickname"
+    name="display-name"
+    value={username}
+    onChange={(e) => {
+      const raw = e.target.value;
 
-          </div>
+      // общая часть: убираем спец-символы, оставляем буквы/цифры/пробел
+      let cleaned = raw.replace(/[^a-zA-Z0-9 ]+/g, '');
+
+      // у jobseeker: дополнительно вырезаем цифры
+      if (isJobseeker) {
+        cleaned = cleaned.replace(/\d+/g, '');
+      }
+
+      setUsername(cleaned);
+    }}
+    placeholder={isJobseeker ? 'Enter your full name' : 'Enter your company name'}
+    autoComplete={isJobseeker ? 'name' : 'organization'}
+    required
+  />
+</div>
+
 
           <div className="reg2-field">
             <label className="reg2-label">Email <span className="reg2-req">*</span></label>
@@ -661,7 +793,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
           
 <div className="reg2-field">
-  <label className="reg2-label">Confirm Email</label>
+  <label className="reg2-label">Confirm Email <span className="reg2-req">*</span></label>
   <input
     className="reg2-input"
     type="email"
@@ -714,7 +846,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 </div>
 
           <div className="reg2-field">
-            <label className="reg2-label">Confirm Password</label>
+            <label className="reg2-label">Confirm Password <span className="reg2-req">*</span></label>
             <div className="reg2-passwrap">
               <input
                 className="reg2-input"
@@ -743,6 +875,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
                   required
                 >
                   <option value="" disabled>Select experience level</option>
+                  <option value="No experience yet">No experience yet</option>
                   <option value="Less than 1 year">Less than 1 year</option>
                   <option value="1-2 years">1-2 years</option>
                   <option value="2-3 years">2-3 years</option>
@@ -763,22 +896,25 @@ if (role === 'jobseeker' && refCode && afterReturn) {
     <LanguagesInput value={languages} onChange={setLanguages} />
   </div>
 
-  <div>
-    <label className="reg2-label">
-      Date of birth <span className="reg2-req">*</span>
-    </label>
-    <input
-      className="reg2-input"
-      type="date"
-      value={dob}
-      onChange={e => setDob(e.target.value)}
-      placeholder="YYYY-MM-DD"
-      max={new Date().toISOString().slice(0, 10)}
-      required={isJobseeker}
-    />
-    <div className="reg2-note reg_dob">Format: YYYY-MM-DD</div>
+<div>
+  <label className="reg2-label">
+    Date of birth <span className="reg2-req">*</span>
+  </label>
+  <input
+    className="reg2-input"
+    type="date"
+    value={dob}
+    onChange={e => setDob(e.target.value)}
+    placeholder="YYYY-MM-DD"
+    max={new Date().toISOString().slice(0, 10)}
+    required={isJobseeker}
+  />
+  <div className="reg2-note reg_dob">
+    Format: YYYY-MM-DD. Jobseeker registration is 18+ only.
   </div>
 </div>
+</div>
+
 
 
 {/* NEW: Avatar (required? depends on flag) */}
@@ -866,10 +1002,9 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 <div className="reg2-line">
   {/* LEFT: Photos / Portfolio files */}
   <div className="reg2-field">
-  <label className="reg2-label">
-    Photos / Portfolio files <span className="reg2-req">*</span> 
-    <span className="reg2-opt">(min. 1 photo)</span>
-  </label>
+<label className="reg2-label">
+  Photos / Portfolio files <span className="reg2-opt">(up to 10)</span>
+</label>
 
   <div
     className={`reg2-dropzone ${isPortfolioDragOver ? 'is-dragover' : ''}`}
@@ -946,7 +1081,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
   {/* RIGHT: Resume File */}
   <div className="reg2-field">
     <label className="reg2-label">
-      Resume File <span className="reg2-req">*</span> <span className="reg2-opt">(required if no link)</span>
+      Resume File <span className="reg2-req">*</span>
     </label>
 
     <div
@@ -988,7 +1123,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
       {resumeFile && (
         <button
           type="button"
-          className="reg2-btn"
+          className="reg2-btn reg2-btn--chip"
           onClick={(e) => { e.stopPropagation(); setResumeFile(null); if (fileInputResumeRef.current) fileInputResumeRef.current.value = ''; }}
         >
           Remove
@@ -1006,21 +1141,60 @@ if (role === 'jobseeker' && refCode && afterReturn) {
   </div>
 </div>
 
-{/* Resume Link и Talents/Skills в одной строке */}
+
 <div className="reg2-line">
-  {/* LEFT: Resume Link */}
-  <div className="reg2-field">
-    <label className="reg2-label">
-      Resume Link <span className="reg2-req">*</span> <span className="reg2-opt">(required if no file)</span>
-    </label>
-    <input
-      className="reg2-input"
-      type="url"
-      value={resumeLink}
-      onChange={e => setResumeLink(e.target.value)}
-      placeholder="https://example.com/resume.pdf"
-    />
-  </div>
+  {/* LEFT: Portfolio links */}
+  {isJobseeker && (
+    <div className="reg2-field">
+      <label className="reg2-label">
+        Portfolio links <span className="reg2-opt">(optional, up to 10)</span>
+      </label>
+
+      <div className="reg2-auto">
+        <input
+          className="reg2-input"
+          type="url"
+          value={portfolioInput}
+          onChange={e => setPortfolioInput(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addPortfolioLink();
+            }
+          }}
+          placeholder="https://github.com/…, https://dribbble.com/…"
+        />
+
+        <button
+          type="button"
+          className="reg2-btn reg2-btn--chip"
+          onClick={addPortfolioLink}
+          disabled={!portfolioInput.trim() || portfolioLinks.length >= 10}
+        >
+          Add link
+        </button>
+      </div>
+
+      {portfolioLinks.length > 0 && (
+        <div className="reg2-tags reg2-tags--stacked">
+          {portfolioLinks.map((url, idx) => (
+            <span key={idx} className="reg2-tag">
+              <span className="reg2-tag__text">{url}</span>
+              <button
+                type="button"
+                className="reg2-tag__x"
+                onClick={() => removePortfolioLink(idx)}
+                aria-label="Remove portfolio link"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )}
+
 
   {/* RIGHT: Talents/Skills */}
   <div className="reg2-field">
@@ -1061,8 +1235,8 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
 
               {/* Optional socials */}
-              <div className="reg2-divider reg2-span2">Optional</div>
-
+              
+<div className="reg2-divider reg2-span2"></div>
               <div className="reg2-field">
                 <label className="reg2-label">
                   LinkedIn 
@@ -1131,7 +1305,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
 <div className="reg2-field reg2-span2">
   <label className="reg2-label">
-    BIO <span className="reg2-opt">(up to 150 words)</span>
+    BIO <span className="reg2-opt">(200–750 characters)</span>
   </label>
 
   <div className="reg2-quill">
@@ -1142,17 +1316,36 @@ if (role === 'jobseeker' && refCode && afterReturn) {
       formats={[]}                
       value={about}
       onChange={(html) => {
-      
         setAbout(html || '');
       }}
       placeholder="Tell briefly about your experience, strengths and what roles you're seeking…"
     />
   </div>
 
-  <div className={`reg2-counter ${wordCount > 150 ? 'is-over' : ''}`}>
-    {wordCount} / 150 words
+  <div
+    className={`reg2-counter ${
+      bioTooShort || bioTooLong ? 'is-over' : ''
+    }`}
+  >
+    {bioLength} / {BIO_MAX} characters
   </div>
+
+  {bioTooShort && (
+    <div className="reg2-hint reg2-hint--err">
+      Minimum {BIO_MIN} characters required.
+    </div>
+  )}
+
+  {bioTooLong && (
+    <div className="reg2-hint reg2-hint--err">
+      Maximum {BIO_MAX} characters exceeded.
+    </div>
+  )}
 </div>
+
+
+
+
 
 
             </>

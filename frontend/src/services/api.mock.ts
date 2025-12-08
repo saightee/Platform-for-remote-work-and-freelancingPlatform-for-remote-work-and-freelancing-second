@@ -373,3 +373,78 @@ export async function incrementProfileView(userId: string): Promise<{ ok: boolea
   await delay(80);
   return { ok: true };
 }
+
+
+
+
+export async function getHomeFeaturedJobs(): Promise<JobPost[]> {
+  await delay(150);
+  return HOME_JOBS;
+}
+
+export async function getHomeFeaturedTalents(): Promise<Profile[]> {
+  await delay(150);
+  return HOME_TALENTS;
+}
+
+const HOME_JOBS: JobPost[] = ([
+  {
+    id: 201,
+    title: 'Senior React Developer',
+    status: 'Active',
+    job_type: 'Full time',
+    location: 'Remote',
+    salary: 5000,
+    salary_type: 'per month',
+    currency: '$',
+    required_skills: ['React', 'TypeScript', 'CSS'],
+    company_name: 'PixelCraft Studio',
+    description:
+      'We are looking for a Senior React Developer to build and maintain a modern front-end stack with TypeScript, Vite and Tailwind. You will work closely with designers and backend engineers to ship high-quality UI.',
+  },
+  {
+    id: 202,
+    title: 'UI/UX Designer',
+    status: 'Active',
+    job_type: 'Contract',
+    location: 'Remote',
+    salary: 40,
+    salary_type: 'per hour',
+    currency: '$',
+    required_skills: ['Figma', 'Prototyping', 'UI'],
+    company_name: 'Flow Design Lab',
+    description:
+      'Contract position for a UI/UX Designer to create wireframes, prototypes and production-ready layouts in Figma for web dashboards and marketing websites. Experience with design systems is a plus.',
+  },
+  {
+    id: 203,
+    title: 'Content Writer',
+    status: 'Active',
+    job_type: 'Part time',
+    location: 'Remote',
+    salary: 1200,
+    salary_type: 'per month',
+    currency: '$',
+    required_skills: ['Copywriting', 'SEO', 'Blog'],
+    company_name: 'BrightWords Media',
+    description:
+      'Part-time role for a Content Writer to create blog posts, landing page copy and basic SEO content. Ideal for someone with experience in tech or SaaS topics.',
+  },
+] as unknown) as JobPost[];
+
+
+// имитируем реальный searchJobPosts: тебе нужен только res.data
+export async function searchJobPosts(_: any): Promise<{
+  data: JobPost[];
+  total: number;
+  page: number;
+  limit: number;
+}> {
+  await delay(150);
+  return {
+    data: HOME_JOBS,
+    total: HOME_JOBS.length,
+    page: 1,
+    limit: HOME_JOBS.length,
+  };
+}
