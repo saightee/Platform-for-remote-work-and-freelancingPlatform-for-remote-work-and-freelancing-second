@@ -4,6 +4,8 @@ import { FaFacebookF, FaTwitter, FaLinkedinIn, FaInstagram } from 'react-icons/f
 import { jwtDecode } from 'jwt-decode';
 import { brand } from '../brand';
 import '../styles/lovable-home.css';
+import { Facebook, Twitter, Linkedin, Instagram } from 'lucide-react';
+
 
 type JwtPayload = { exp?: number };
 
@@ -34,7 +36,7 @@ const Footer: React.FC = () => {
               className="oj-footer-logo"
               aria-label="Go to home page"
             >
-              <div className="oj-footer-logo-mark">OJ</div>
+              {/* <div className="oj-footer-logo-mark">OJ</div> */}
               <span className="oj-footer-logo-text">{brand.wordmark}</span>
             </Link>
             <p className="oj-footer-brand-text">
@@ -95,30 +97,32 @@ const Footer: React.FC = () => {
         {/* Bottom bar */}
         <div className="oj-footer-bottom">
           <div className="oj-footer-copy">
-            <p>
-              © {currentYear} {brand.name}. All rights reserved.
-            </p>
-            <div className="oj-footer-policy-links">
+              <div className="oj-footer-policy-links">
               <Link to="/privacy-policy">Privacy Policy</Link>
               <span>•</span>
               <Link to="/terms-of-service">Terms of Service</Link>
             </div>
+            <p className='copyright_new'>
+              © {currentYear} {brand.name}. All rights reserved.
+            </p>
+          
           </div>
 
           <div className="oj-footer-social">
-            <a href="#" aria-label="Facebook">
-              <FaFacebookF />
-            </a>
-            <a href="#" aria-label="Twitter">
-              <FaTwitter />
-            </a>
-            <a href="#" aria-label="LinkedIn">
-              <FaLinkedinIn />
-            </a>
-            <a href="#" aria-label="Instagram">
-              <FaInstagram />
-            </a>
-          </div>
+  <a href="#" aria-label="Facebook">
+    <Facebook />
+  </a>
+  <a href="#" aria-label="Twitter">
+    <Twitter />
+  </a>
+  <a href="#" aria-label="LinkedIn">
+    <Linkedin />
+  </a>
+  <a href="#" aria-label="Instagram">
+    <Instagram />
+  </a>
+</div>
+
         </div>
       </div>
     </footer>

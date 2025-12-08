@@ -18,6 +18,7 @@ const SearchBar: React.FC = () => {
   };
 
   return (
+     <div className="oj-search-container">
     <div className="oj-search">
       {/* переключатель Find Jobs / Find Talent */}
       <div className="oj-search-toggle">
@@ -67,6 +68,7 @@ const SearchBar: React.FC = () => {
           Search
         </button>
       </div>
+    </div>
     </div>
   );
 };

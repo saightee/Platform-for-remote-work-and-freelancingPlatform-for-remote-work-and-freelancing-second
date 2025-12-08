@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import JobCard from './JobCard';
 import Loader from './Loader';
-import { searchJobPosts } from '../services/api.ftl';
+import { searchJobPosts } from '../services/api';
 import { JobPost } from '@types';
 import '../styles/lovable-home.css';
 
@@ -44,7 +44,7 @@ const FeaturedJobs: React.FC = () => {
 
         </div>
 
-        {isLoading && <Loader variant="bar" />}
+        {isLoading && <Loader />}
         {error && <div className="oj-error">{error}</div>}
 
         {!isLoading && !error && (
@@ -60,8 +60,8 @@ const FeaturedJobs: React.FC = () => {
           
         )}
         <div className='btn_link'>
-             <Link to="/find-job" className="oj-btn oj-btn--hero">
-            View all jobs
+             <Link to="/find-job" className="oj-btn oj-btn--hero jobs_talent_btn">
+            View All Job Postings
           </Link>
         </div>
      

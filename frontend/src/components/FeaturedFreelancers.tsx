@@ -1,66 +1,186 @@
+import { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
-import freelancer1 from "../assets/freelancer-1.jpg";
-import freelancer2 from "../assets/freelancer-2.jpg";
-import freelancer3 from "../assets/freelancer-3.jpg";
-import { Link } from 'react-router-dom';
+import { Link } from "react-router-dom";
+import { searchTalents } from "../services/api";
+import { brandBackendOrigin } from "../brand";
+import { Profile } from "@types";
+
+// calcAge такой же, как в других местах
+const calcAge = (dob?: string | null): number | null => {
+  if (!dob) return null;
+  const m = dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+
+  const year = Number(m[1]);
+  const month = Number(m[2]) - 1;
+  const day = Number(m[3]);
+  const birth = new Date(year, month, day);
+  if (Number.isNaN(birth.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const mdiff = today.getMonth() - birth.getMonth();
+  if (mdiff < 0 || (mdiff === 0 && today.getDate() < birth.getDate())) age--;
+
+  if (age < 0 || age > 150) return null;
+  return age;
+};
+
+// вытаскиваем названия скиллов из разных возможных полей
+function extractSkillNames(t: any): string[] {
+  const out: string[] = [];
+
+  const pushNames = (v: any) => {
+    if (!v) return;
+    if (Array.isArray(v)) {
+      for (const x of v) {
+        if (!x) continue;
+        if (typeof x === "string") out.push(x);
+        else if (x?.name) out.push(x.name);
+      }
+    } else if (typeof v === "string") {
+      out.push(
+        ...v
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      );
+    }
+  };
+
+  pushNames(t?.skills);
+  pushNames(t?.skills_all);
+  pushNames(t?.all_skills);
+  pushNames(t?.skills_full);
+  pushNames(t?.profile_skills);
+  pushNames(t?.skills_text);
+
+  if (Array.isArray(t?.categories)) {
+    for (const c of t.categories) {
+      if (c?.name) out.push(c.name);
+      if (Array.isArray(c?.subcategories)) {
+        for (const sub of c.subcategories) if (sub?.name) out.push(sub.name);
+      }
+    }
+  }
+
+  pushNames(t?.categories_all);
+  pushNames(t?.profile_categories);
+  pushNames(t?.skill_names);
+  pushNames(t?.skill_list);
+
+  return Array.from(new Set(out));
+}
+
+// строим строку рейта из expected salary
+const buildRate = (t: any): string | null => {
+  const min = t.expected_salary;
+  const max = t.expected_salary_max;
+  const type = t.expected_salary_type; // 'per month' | 'per day'
+  const currency = t.currency || "";
+
+  const hasMin = min != null && min !== "" && Number(min) !== 0;
+  const hasMax = max != null && max !== "" && Number(max) !== 0;
+  if (!hasMin && !hasMax) return null;
+
+  const minNum = hasMin ? Number(min) : null;
+  const maxNum = hasMax ? Number(max) : null;
+
+  let amount = "";
+  if (hasMin && hasMax) {
+    if (minNum === maxNum) amount = String(minNum);
+    else amount = `${minNum}–${maxNum}`;
+  } else if (hasMin) {
+    amount = String(minNum);
+  } else if (hasMax) {
+    amount = String(maxNum);
+  }
+
+  if (currency) amount = `${currency} ${amount}`;
+
+  let suffix = "";
+  if (type === "per day") suffix = "/day";
+  else if (type === "per month") suffix = "/month";
+
+  return `${amount}${suffix}`;
+};
 
 const FeaturedFreelancers = () => {
-  const freelancers = [
-    {
-      name: "Sarah Chen",
-      title: "Full Stack Developer",
-      location: "Remote, Philippines",
-      age: 28,
-      hourlyRate: "$45",
-      skills: ["React", "Node.js", "TypeScript", "PostgreSQL"],
-      image: freelancer1,
-    },
-    {
-      name: "Miguel Santos",
-      title: "UI/UX Designer",
-      location: "Remote, Philippines",
-      age: 32,
-      hourlyRate: "$40",
-      skills: ["Figma", "Adobe XD", "Prototyping", "Branding"],
-      image: freelancer2,
-    },
-    {
-      name: "Elena Rodriguez",
-      title: "Digital Marketing Specialist",
-      location: "Remote, Philippines",
-      age: 29,
-      hourlyRate: "$35",
-      skills: ["SEO", "Google Ads", "Content Strategy", "Analytics"],
-      image: freelancer3,
-    },
-    {
-      name: "James Liu",
-      title: "Virtual Assistant",
-      location: "Remote, Philippines",
-      age: 26,
-      hourlyRate: "$25",
-      skills: ["Admin Support", "Customer Service", "Data Entry", "Scheduling"],
-      image: freelancer1,
-    },
-    {
-      name: "Ana Martinez",
-      title: "Content Writer",
-      location: "Remote, Philippines",
-      age: 30,
-      hourlyRate: "$30",
-      skills: ["SEO Writing", "Copywriting", "Blog Posts", "Technical Writing"],
-      image: freelancer2,
-    },
-    {
-      name: "David Park",
-      title: "Data Analyst",
-      location: "Remote, Philippines",
-      age: 27,
-      hourlyRate: "$38",
-      skills: ["Python", "SQL", "Data Visualization", "Excel"],
-      image: freelancer3,
-    },
-  ];
+  const [featured, setFeatured] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        setLoading(true);
+
+        // берём пачку талантов, дальше сами фильтруем/рандомим
+        const res: any = await searchTalents({ page: 1, limit: 60 });
+
+        let all: Profile[] = [];
+        if (res && typeof res === "object" && "data" in res && Array.isArray(res.data)) {
+          all = res.data as Profile[];
+        } else if (Array.isArray(res)) {
+          all = res as Profile[];
+        }
+
+        // фильтр по требованиям карточки
+        const eligible = all.filter((t: any) => {
+          if (!t) return false;
+
+          const avatar = t.avatar;
+          if (!avatar) return false;
+
+          const username = t.username;
+          if (!username) return false;
+
+          const title =
+            (t as any).current_position ||
+            (t as any).headline ||
+            (t as any).title ||
+            null;
+          if (!title) return false;
+
+          const country = (t as any).country_name || (t as any).country || "";
+          if (!country) return false;
+
+          const age = calcAge((t as any).date_of_birth || null);
+          if (age == null) return false;
+
+          const rate = buildRate(t);
+          if (!rate) return false;
+
+          const skills = extractSkillNames(t);
+          if (!skills.length) return false;
+
+          return true;
+        });
+
+        if (!mounted) return;
+
+        if (!eligible.length) {
+          setFeatured([]);
+          return;
+        }
+
+        // рандомно выбираем до 6
+        const shuffled = [...eligible].sort(() => Math.random() - 0.5);
+        setFeatured(shuffled.slice(0, 6));
+      } catch (e) {
+        console.error("Failed to load featured talents", e);
+        if (mounted) setFeatured([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <section id="freelancers" className="oj-section oj-section--talent">
@@ -73,65 +193,100 @@ const FeaturedFreelancers = () => {
         </header>
 
         <div className="oj-freelancers-grid">
-          {freelancers.map((freelancer, index) => (
-            <article key={index} className="oj-freelancer-card">
-              <div className="oj-freelancer-avatar-wrap">
-                <img
-                  src={freelancer.image}
-                  alt={freelancer.name}
-                  className="oj-freelancer-avatar"
-                />
-              </div>
+          {loading && featured.length === 0 && (
+            // можно простой плейсхолдер, верстка не ломается
+            <p style={{ gridColumn: "1 / -1", textAlign: "center" }}>
+              Loading featured talent…
+            </p>
+          )}
 
-              <h3 className="oj-freelancer-name">{freelancer.name}</h3>
-              <p className="oj-freelancer-title">{freelancer.title}</p>
+          {!loading && featured.length === 0 && (
+            <p style={{ gridColumn: "1 / -1", textAlign: "center" }}>
+              No featured talent yet.
+            </p>
+          )}
 
-              <div className="oj-freelancer-location">
-                <MapPin className="oj-freelancer-location-icon" />
-                <span>{freelancer.location}</span>
-              </div>
+          {featured.map((talent: any) => {
+            const age = calcAge(talent.date_of_birth || null)!;
+            const country =
+              talent.country_name || talent.country || "Unknown country";
+            const locationLabel = `Remote, ${country}`; // заглушка Remote
+            const rate = buildRate(talent)!;
+            const skills = extractSkillNames(talent);
+            const avatarSrc = talent.avatar.startsWith("http")
+              ? talent.avatar
+              : `${brandBackendOrigin()}${talent.avatar}`;
 
-              <div className="oj-freelancer-stats">
-                <div className="oj-freelancer-stat">
-                  <div className="oj-freelancer-stat-label">Age</div>
-                  <div className="oj-freelancer-stat-value">
-                    {freelancer.age} yrs
+            const title =
+              talent.current_position ||
+              talent.headline ||
+              talent.title ||
+              "Specialist";
+
+            return (
+              <article key={talent.id} className="oj-freelancer-card">
+                <div className="oj-freelancer-avatar-wrap">
+                  <img
+                    src={avatarSrc}
+                    alt={talent.username}
+                    className="oj-freelancer-avatar"
+                  />
+                </div>
+
+                <h3 className="oj-freelancer-name">{talent.username}</h3>
+                <p className="oj-freelancer-title">{title}</p>
+
+                <div className="oj-freelancer-location">
+                  <MapPin className="oj-freelancer-location-icon" />
+                  <span>{locationLabel}</span>
+                </div>
+
+                <div className="oj-freelancer-stats">
+                  <div className="oj-freelancer-stat">
+                    <div className="oj-freelancer-stat-label">Age</div>
+                    <div className="oj-freelancer-stat-value">{age} yrs</div>
+                  </div>
+
+                  <div className="oj-freelancer-stat-divider" />
+
+                  <div className="oj-freelancer-stat">
+                    <div className="oj-freelancer-stat-label">Rate</div>
+                    <div className="oj-freelancer-stat-value oj-freelancer-stat-rate">
+                      {rate}
+                    </div>
                   </div>
                 </div>
 
-                <div className="oj-freelancer-stat-divider" />
-
-                <div className="oj-freelancer-stat">
-                  <div className="oj-freelancer-stat-label">Rate</div>
-                  <div className="oj-freelancer-stat-value oj-freelancer-stat-rate">
-                    {freelancer.hourlyRate}/hr
-                  </div>
+                <div className="oj-freelancer-skills">
+                  {skills.slice(0, 3).map((skill, i) => (
+                    <span key={i} className="oj-chip oj-chip--secondary">
+                      {skill}
+                    </span>
+                  ))}
+                  {skills.length > 3 && (
+                    <span className="oj-chip oj-chip--secondary">
+                      +{skills.length - 3}
+                    </span>
+                  )}
                 </div>
-              </div>
 
-              <div className="oj-freelancer-skills">
-                {freelancer.skills.slice(0, 3).map((skill, i) => (
-                  <span key={i} className="oj-chip oj-chip--secondary">
-                    {skill}
-                  </span>
-                ))}
-                {freelancer.skills.length > 3 && (
-                  <span className="oj-chip oj-chip--secondary">
-                    +{freelancer.skills.length - 3}
-                  </span>
-                )}
-              </div>
-
-              <button className="oj-btn oj-btn--primary oj-freelancer-btn">
-                View Profile
-              </button>
-            </article>
-          ))}
+                <Link
+                  to={`/public-profile/${talent.id}`}
+                  className="oj-btn oj-btn--primary oj-freelancer-btn"
+                >
+                  View Profile
+                </Link>
+              </article>
+            );
+          })}
         </div>
 
         <div className="oj-freelancers-footer">
-              <Link to="/find-talent" className="oj-btn oj-btn--hero">
-            Browse All Talents
+          <Link
+            to="/find-talent"
+            className="oj-btn oj-btn--hero jobs_talent_btn"
+          >
+            Browse All Freelancers
           </Link>
         </div>
       </div>

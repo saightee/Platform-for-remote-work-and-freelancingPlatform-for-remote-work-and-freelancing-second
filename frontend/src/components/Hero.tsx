@@ -51,7 +51,7 @@ const Hero: React.FC = () => {
         {/* две карточки как у Lovable Hero */}
         <div className="oj-hero-cta-grid">
           <div className="oj-hero-card oj-hero-card--hire">
-            <Briefcase className="oj-hero-card-icon" />
+            <Users className="oj-hero-card-icon" />
             <h3 className="oj-hero-card-title">Hire Talent</h3>
             <p className="oj-hero-card-text">
               Post a job and receive up to 50 applications
@@ -62,7 +62,7 @@ const Hero: React.FC = () => {
           </div>
 
           <div className="oj-hero-card oj-hero-card--work">
-            <Users className="oj-hero-card-icon" />
+            <Briefcase className="oj-hero-card-icon" />
             <h3 className="oj-hero-card-title">Find Work</h3>
             <p className="oj-hero-card-text">
               Browse thousands of remote opportunities

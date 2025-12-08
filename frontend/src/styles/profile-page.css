@@ -801,3 +801,32 @@
     height: 72px;
   }
 }
+
+
+.pf-counter {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  text-align: right;
+}
+
+.pf-counter.is-over {
+  color: #b91c1c;
+  font-weight: 500;
+}
+
+.pf-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.pf-hint--err {
+  color: #b91c1c;
+}
+.pf-label-opt {
+  font-weight: 400;
+  font-size: 12px;
+  color: #6b7280;
+  margin-left: 4px;
+}

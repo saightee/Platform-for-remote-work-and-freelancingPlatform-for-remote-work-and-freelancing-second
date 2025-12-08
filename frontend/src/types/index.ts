@@ -54,13 +54,15 @@ export interface JobSeekerProfile {
 
   // NEW
   country?: string;         // ISO-3166 alpha-2
-  languages?: string[];     // произвольные строки
+  languages?: string[];     
   expected_salary?: number | null;
+  expected_salary_max?: number | null;
+  expected_salary_type?: 'per month' | 'per day' | null;
   job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired' | string | null;
   date_of_birth?: string | null;
   
 
-  // соцсети (чтобы не было any)
+  
   linkedin?: string | null;
   instagram?: string | null;
   facebook?: string | null;
@@ -75,6 +77,7 @@ export interface JobSeekerProfile {
   video_intro?: string;
   timezone?: string;
   currency?: string;
+  preferred_job_types?: ('Full-time' | 'Part-time' | 'Project-based')[] | null;
   average_rating: number;
   profile_views: number;
   avatar?: string | null;
@@ -83,6 +86,7 @@ export interface JobSeekerProfile {
   resume?: string;
   reviews: Review[];
 }
+
 
 export interface AdminProfile {
   id: string;

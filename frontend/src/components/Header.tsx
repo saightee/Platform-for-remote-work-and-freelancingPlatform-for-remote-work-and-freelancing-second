@@ -222,7 +222,7 @@ const Header: React.FC = () => {
         <div className="oj-header-inner">
           <div className="oj-header-row">
             <Link to="/" className="oj-header-logo">
-              <div className="oj-header-logo-mark">OJ</div>
+              {/* <div className="oj-header-logo-mark">OJ</div> */}
               <span className="oj-header-logo-text">{brand.wordmark}</span>
             </Link>
           </div>
@@ -236,7 +236,7 @@ const Header: React.FC = () => {
       <div className="oj-header-inner">
         <div className="oj-header-row">
           <Link to="/" className="oj-header-logo" onClick={closeMobileMenu}>
-            <div className="oj-header-logo-mark">OJ</div>
+            {/* <div className="oj-header-logo-mark">OJ</div> */}
             <span className="oj-header-logo-text">{brand.wordmark}</span>
           </Link>
 
