@@ -368,9 +368,9 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
   ```json
   {"statusCode": 404,"message": "User not found","error": "Not Found"}
 
-### 12. Get Profile by ID
+### 12. Get Profile by ID or Slug
 - **Endpoint**: `GET /api/profile/:id`
-- **Description**: Returns the profile of a specific user (jobseeker or employer) by **user ID**.  
+- **Description**: Returns the profile of a specific user (jobseeker or employer) by user ID or SEO slug.
   - Works for both authenticated and unauthenticated requests.  
   - If a valid JWT is provided, the response may include additional fields (e.g., `email`).  
   - **Jobseeker profiles**: view counter is incremented on each successful fetch.
@@ -383,6 +383,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "id": "<userId>",
     "role": "employer",
     "username": "acme_hr",
+    "slug": "acme-hr",
+    "slug_id": "acme-hr--a1b2c3d4",
     "country_name": "United States",
     "company_name": "Acme Inc",
     "company_info": "We build great things",
@@ -413,6 +415,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "role": "employer",
     "email": "employer@example.com",
     "username": "acme_hr",
+    "slug": "acme-hr",
+    "slug_id": "acme-hr--a1b2c3d4",
     "country_name": "United States",
     "company_name": "Acme Inc",
     "company_info": "We build great things",
@@ -431,6 +435,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "id": "<userId>",
     "role": "jobseeker",
     "username": "jane_dev",
+    "slug": "jane-dev",
+    "slug_id": "jane-dev--a1b2c3d4",
     "country": "US",
     "country_name": "United States",
     "skills": [
@@ -510,6 +516,8 @@ Also supports privileged creation of admin/moderator users when a valid secretKe
     "role": "jobseeker",
     "email": "test@example.com",
     "username": "jane_dev",
+    "slug": "jane-dev",
+    "slug_id": "jane-dev--a1b2c3d4",
     "country": "US",
     "country_name": "United States",
     "skills": [],

@@ -15,6 +15,12 @@ export class User {
   @Column()
   username: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  slug: string | null;
+
+  @Column({ type: 'varchar', length: 300, unique: true, nullable: true })
+  slug_id: string | null;
+
   @Column()
   role: 'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate';
 

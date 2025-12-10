@@ -55,7 +55,7 @@ export class ProfilesController {
 
   @Get(':id')
   async getProfileById(
-    @Param('id') userId: string,
+    @Param('id') idOrSlug: string,
     @Headers('authorization') authHeader?: string,
   ) {
     let viewerId: string | null = null;
@@ -75,6 +75,8 @@ export class ProfilesController {
         isAuthenticated = false;
       }
     }
+
+    const userId = await this.profilesService.resolveUserId(idOrSlug);
 
     const profile = await this.profilesService.getProfile(userId, {
       isAuthenticated,

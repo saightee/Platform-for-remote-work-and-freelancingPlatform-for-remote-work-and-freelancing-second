@@ -23,6 +23,16 @@ export class UsersService {
     private affiliateRepository: Repository<Affiliate>,
   ) {}
 
+  private slugify(input: string): string {
+    return (input || '')
+      .toLowerCase()
+      .trim()
+      .replace(/&/g, ' and ')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-');
+  }
+
   async create(
     userData: Partial<User> & {
       email: string;
@@ -43,7 +53,18 @@ export class UsersService {
       avatar: userData.avatar || null,
     };
     const user = this.usersRepository.create(userEntity);
-    const savedUser = await this.usersRepository.save(user);
+    let savedUser = await this.usersRepository.save(user);
+
+    const baseSlug = this.slugify(savedUser.username);
+    const shortId = (savedUser.id || '').replace(/-/g, '').slice(0, 8);
+
+    const slug = baseSlug || 'user';
+    const slugId = shortId ? `${slug}--${shortId}` : slug;
+
+    savedUser.slug = slug;
+    savedUser.slug_id = slugId;
+
+    savedUser = await this.usersRepository.save(savedUser);
 
     if (userData.role === 'jobseeker') {
       const jobSeekerEntity: DeepPartial<JobSeeker> = {
