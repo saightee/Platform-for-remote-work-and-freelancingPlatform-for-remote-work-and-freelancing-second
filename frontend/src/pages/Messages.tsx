@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
-import Copyright from '../components/Copyright';
+
+
+
 import { useRole } from '../context/RoleContext';
 import {
   getMyApplications,
@@ -1350,7 +1350,7 @@ useEffect(() => {
   if (isLoading) {
     return (
       <div>
-        <Header />
+        
         <div className="ch-shell">
           <div className="ch-card">
             <h1 className="ch-title">
@@ -1367,7 +1367,7 @@ useEffect(() => {
   if (!profile || !['jobseeker', 'employer'].includes(currentRole || '')) {
     return (
       <div>
-        <Header />
+       
         <div className="ch-shell">
           <div className="ch-card">
             <h1 className="ch-title">
@@ -1379,15 +1379,15 @@ useEffect(() => {
             </div>
           </div>
         </div>
-        <Footer />
-        <Copyright />
+       
+      
       </div>
     );
   }
 
   return (
     <div>
-      <Header />
+     
       <div className="ch-shell">
         <div className="ch-card">
           <div className="ch-headrow">
@@ -2176,8 +2176,8 @@ clearSelection();        // ← сбрасываем чекбоксы
 )}
 
 
-      <Footer />
-      <Copyright />
+  
+    
     </div>
   );
 };

@@ -2,14 +2,20 @@ import { useState, useEffect, Fragment, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import Copyright from '../components/Copyright';
-import { searchTalents, searchJobseekers, getCategories, searchCategories, getMyJobPosts, sendInvitation } from '../services/api';
+
+import {
+  searchTalents,
+  searchJobseekers,
+  getCategories,
+  searchCategories,
+  getMyJobPosts,
+  sendInvitation,
+} from '../services/api';
 import { Profile, Category, JobPost } from '@types';
 import { FaUserCircle, FaFilter } from 'react-icons/fa';
 import { AxiosError } from 'axios';
 import Loader from '../components/Loader';
-import '../styles/find-talent.css';
-import '../styles/invite-modal.css';
+import '../styles/find-talent-v2.css';
 import { Helmet } from 'react-helmet-async';
 import { brand, brandBackendOrigin } from '../brand';
 import { useRole } from '../context/RoleContext';
@@ -32,7 +38,6 @@ interface TalentResponse {
   data: Profile[];
 }
 
-
 const calcAge = (dob?: string | null): number | null => {
   if (!dob) return null;
   const m = dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -53,98 +58,98 @@ const calcAge = (dob?: string | null): number | null => {
   return age;
 };
 
-
 const FindTalent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(searchParams.get('description') || '');
   const [langInput, setLangInput] = useState('');
 
-const addLang = (raw: string) => {
-  const val = raw.trim().replace(/,$/, '');
-  if (!val) return;
-  setFilters(prev => {
-    const exists = prev.languages.some(l => l.toLowerCase() === val.toLowerCase());
-    return exists ? prev : { ...prev, languages: [...prev.languages, val], page: 1 };
+  const addLang = (raw: string) => {
+    const val = raw.trim().replace(/,$/, '');
+    if (!val) return;
+    setFilters((prev) => {
+      const exists = prev.languages.some((l) => l.toLowerCase() === val.toLowerCase());
+      return exists ? prev : { ...prev, languages: [...prev.languages, val], page: 1 };
+    });
+    setLangInput('');
+  };
+
+  const [filters, setFilters] = useState<{
+    username: string;
+    experience: string;
+    rating?: number;
+    expected_salary_min?: number;
+    expected_salary_max?: number;
+    expected_salary_type?: 'per month' | 'per day';
+    job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
+    page: number;
+    limit: number;
+    description?: string;
+    country: string;
+    languages: string[];
+    languages_mode: 'any' | 'all';
+    has_resume?: boolean;
+    preferred_job_types: ('Full-time' | 'Part-time' | 'Project-based')[];
+  }>({
+    username: searchParams.get('username') || '',
+    experience: '',
+    rating: undefined,
+    expected_salary_min: searchParams.get('expected_salary_min')
+      ? Number(searchParams.get('expected_salary_min'))
+      : undefined,
+    expected_salary_max: searchParams.get('expected_salary_max')
+      ? Number(searchParams.get('expected_salary_max'))
+      : undefined,
+    expected_salary_type: ((): 'per month' | 'per day' | undefined => {
+      const v = searchParams.get('expected_salary_type');
+      return v === 'per month' || v === 'per day' ? v : undefined;
+    })(),
+    job_search_status: ((): any => {
+      const v = searchParams.get('job_search_status');
+      return v === 'actively_looking' || v === 'open_to_offers' || v === 'hired' ? v : undefined;
+    })(),
+    page: Number(searchParams.get('page') || '1'),
+    limit: Number(searchParams.get('limit') || '25'),
+    description: searchParams.get('description') || '',
+    country: (() => {
+      const single = (searchParams.get('country') || '').toUpperCase();
+      const multi = searchParams.getAll('countries');
+      if (multi.length) {
+        const first = multi
+          .join(',')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)[0];
+        return (first || single).toUpperCase();
+      }
+      return single;
+    })(),
+    languages: ((): string[] => {
+      const raw = searchParams.getAll('languages');
+      if (raw.length) return raw.join(',').split(',').map((s) => s.trim()).filter(Boolean);
+      const csv = searchParams.get('languages');
+      return csv ? csv.split(',').map((s) => s.trim()).filter(Boolean) : [];
+    })(),
+    languages_mode: ((): 'any' | 'all' =>
+      searchParams.get('languages_mode') === 'all' ? 'all' : 'any')(),
+    has_resume: ((): boolean | undefined => {
+      const v = searchParams.get('has_resume');
+      return v === 'true' ? true : v === 'false' ? false : undefined;
+    })(),
+    preferred_job_types: ((): ('Full-time' | 'Part-time' | 'Project-based')[] => {
+      const csv = searchParams.get('preferred_job_types');
+      if (!csv) return [];
+      const allowed = ['Full-time', 'Part-time', 'Project-based'] as const;
+      return csv
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s): s is 'Full-time' | 'Part-time' | 'Project-based' =>
+          (allowed as readonly string[]).includes(s),
+        );
+    })(),
   });
-  setLangInput('');
-};
-const [filters, setFilters] = useState<{
-  username: string;
-  experience: string;
-  rating?: number;
-  expected_salary_min?: number;
-  expected_salary_max?: number;
-  expected_salary_type?: 'per month' | 'per day';
-  job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
-  page: number;
-  limit: number;
-  description?: string;
-  country: string; 
-  languages: string[]; 
-  languages_mode: 'any' | 'all';
-  has_resume?: boolean;
-  preferred_job_types: ('Full-time' | 'Part-time' | 'Project-based')[];
-  
-}>({
-   username: searchParams.get('username') || '',
-  experience: '',
-  rating: undefined,
-  expected_salary_min: searchParams.get('expected_salary_min')
-    ? Number(searchParams.get('expected_salary_min'))
-    : undefined,
-  expected_salary_max: searchParams.get('expected_salary_max')
-    ? Number(searchParams.get('expected_salary_max'))
-    : undefined,
-  expected_salary_type: ((): 'per month' | 'per day' | undefined => {
-    const v = searchParams.get('expected_salary_type');
-    return v === 'per month' || v === 'per day' ? v : undefined;
-  })(),
-  job_search_status: ((): any => {
-    const v = searchParams.get('job_search_status');
-    return v === 'actively_looking' || v === 'open_to_offers' || v === 'hired' ? v : undefined;
-  })(),
-  page: Number(searchParams.get('page') || '1'),
-  limit: Number(searchParams.get('limit') || '25'),
-  description: searchParams.get('description') || '',
-
-  country: (() => {
-    const single = (searchParams.get('country') || '').toUpperCase();
-    const multi  = searchParams.getAll('countries');
-    if (multi.length) {
-      const first = multi.join(',').split(',').map(s => s.trim()).filter(Boolean)[0];
-      return (first || single).toUpperCase();
-    }
-   return single;
- })(),
-  languages: ((): string[] => {
-    const raw = searchParams.getAll('languages');
-    if (raw.length) return raw.join(',').split(',').map(s => s.trim()).filter(Boolean);
-    const csv = searchParams.get('languages');
-    return csv ? csv.split(',').map(s => s.trim()).filter(Boolean) : [];
-  })(),
-  languages_mode: ((): 'any'|'all' => (searchParams.get('languages_mode') === 'all' ? 'all' : 'any'))(),
-  has_resume: ((): boolean | undefined => {
-    const v = searchParams.get('has_resume');
-    return v === 'true' ? true : v === 'false' ? false : undefined;
-  })(),
-  preferred_job_types: ((): ('Full-time' | 'Part-time' | 'Project-based')[] => {
-    const csv = searchParams.get('preferred_job_types');
-    if (!csv) return [];
-    const allowed = ['Full-time', 'Part-time', 'Project-based'] as const;
-    return csv
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s): s is ('Full-time' | 'Part-time' | 'Project-based') =>
-        (allowed as readonly string[]).includes(s)
-      );
-  })(),
-});
-
-
-
 
   const flattenCats = (cats: Category[]): Category[] =>
-    cats.flatMap(c => [c, ...(c.subcategories ? flattenCats(c.subcategories) : [])]);
+    cats.flatMap((c) => [c, ...(c.subcategories ? flattenCats(c.subcategories) : [])]);
 
   const norm = (s: string) => s.trim().toLowerCase();
   const [talents, setTalents] = useState<Profile[]>([]);
@@ -156,144 +161,141 @@ const [filters, setFilters] = useState<{
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const navigate = useNavigate();
   const resultsRef = useRef<HTMLDivElement>(null);
-  // Invite modal state
-const { profile: currentUser } = useRole();
-const [inviteOpen, setInviteOpen] = useState(false);
-const [inviteTarget, setInviteTarget] = useState<Profile | null>(null);
-const [myActiveJobs, setMyActiveJobs] = useState<JobPost[]>([]);
-const [selectedJobId, setSelectedJobId] = useState('');
-const [inviteMessage, setInviteMessage] = useState('');
-const [loadingJobs, setLoadingJobs] = useState(false);
-const [sendingInvite, setSendingInvite] = useState(false);
 
-const openInvite = async (talent: Profile) => {
-  setInviteTarget(talent);
-  setInviteOpen(true);
-  setSelectedJobId('');
-  setInviteMessage('');
-  try {
-    setLoadingJobs(true);
-    const jobs = await getMyJobPosts();
-    const active = (jobs || []).filter((j: any) => j.status === 'Active' && !j.pending_review);
-    setMyActiveJobs(active);
-  } catch (e) {
-    console.error('getMyJobPosts error', e);
-    setMyActiveJobs([]);
-  } finally {
-    setLoadingJobs(false);
-  }
-};
+  // Invite modal
+  const { profile: currentUser } = useRole();
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteTarget, setInviteTarget] = useState<Profile | null>(null);
+  const [myActiveJobs, setMyActiveJobs] = useState<JobPost[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState('');
+  const [inviteMessage, setInviteMessage] = useState('');
+  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [sendingInvite, setSendingInvite] = useState(false);
 
-const closeInvite = () => {
-  setInviteOpen(false);
-  setInviteTarget(null);
-};
+  const openInvite = async (talent: Profile) => {
+    setInviteTarget(talent);
+    setInviteOpen(true);
+    setSelectedJobId('');
+    setInviteMessage('');
+    try {
+      setLoadingJobs(true);
+      const jobs = await getMyJobPosts();
+      const active = (jobs || []).filter((j: any) => j.status === 'Active' && !j.pending_review);
+      setMyActiveJobs(active);
+    } catch (e) {
+      console.error('getMyJobPosts error', e);
+      setMyActiveJobs([]);
+    } finally {
+      setLoadingJobs(false);
+    }
+  };
 
-const submitInvite = async () => {
-  if (!inviteTarget || !selectedJobId) return;
-  try {
-    setSendingInvite(true);
-    await sendInvitation({
-      job_post_id: selectedJobId,
-      job_seeker_id: String(inviteTarget.id),
-      message: inviteMessage || undefined,
-    });
-    toast.success('Invitation sent');
-    closeInvite();
-  } catch (e: any) {
-    const msg = e?.response?.data?.message || e?.message || 'Failed to send invitation';
-    toast.error(msg);
-  } finally {
-    setSendingInvite(false);
-  }
-};
+  const closeInvite = () => {
+    setInviteOpen(false);
+    setInviteTarget(null);
+  };
 
+  const submitInvite = async () => {
+    if (!inviteTarget || !selectedJobId) return;
+    try {
+      setSendingInvite(true);
+      await sendInvitation({
+        job_post_id: selectedJobId,
+        job_seeker_id: String(inviteTarget.id),
+        message: inviteMessage || undefined,
+      });
+      toast.success('Invitation sent');
+      closeInvite();
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || 'Failed to send invitation';
+      toast.error(msg);
+    } finally {
+      setSendingInvite(false);
+    }
+  };
 
-  // ---- autocomplete state
+  // autocomplete
   const [skillInput, setSkillInput] = useState('');
   const [filteredSkills, setFilteredSkills] = useState<Category[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  // ВАЖНО: используем ID категории для поиска на бэке
-  const [selectedSkillId, setSelectedSkillId] = useState<string>(searchParams.get('category_id') || '');
+  const [selectedSkillId, setSelectedSkillId] = useState<string>(
+    searchParams.get('category_id') || '',
+  );
 
   const allCats = useMemo(() => flattenCats(categories), [categories]);
 
-    const autoSkillIds = useMemo(() => {
+  const autoSkillIds = useMemo(() => {
     const q = norm(searchInput);
     if (!q || q.length < 2) return [];
 
-    const exact = allCats.filter(c => norm(c.name) === q).map(c => c.id);
+    const exact = allCats.filter((c) => norm(c.name) === q).map((c) => c.id);
     if (exact.length) return Array.from(new Set(exact));
 
     const partial = allCats
-      .filter(c => norm(c.name).includes(q))
+      .filter((c) => norm(c.name).includes(q))
       .slice(0, 3)
-      .map(c => c.id);
+      .map((c) => c.id);
 
     return Array.from(new Set(partial));
   }, [searchInput, allCats]);
 
   const debouncedFilters = useDebouncedValue(filters, 400);
-const autoSkillsKey = useMemo(() => autoSkillIds.join(','), [autoSkillIds]); // стабильный ключ
-const debouncedAutoSkillsKey = useDebouncedValue(autoSkillsKey, 400);
+  const autoSkillsKey = useDebouncedValue(autoSkillIds.join(','), 400);
 
-const uniq = <T,>(arr: T[]) => Array.from(new Set(arr));
-
-function extractSkillNames(t: any): string[] {
-  const out: string[] = [];
-  const pushNames = (v: any) => {
-    if (!v) return;
-    if (Array.isArray(v)) {
-      for (const x of v) {
-        if (!x) continue;
-        if (typeof x === 'string') out.push(x);
-        else if (x?.name) out.push(x.name);
+  function extractSkillNames(t: any): string[] {
+    const out: string[] = [];
+    const pushNames = (v: any) => {
+      if (!v) return;
+      if (Array.isArray(v)) {
+        for (const x of v) {
+          if (!x) continue;
+          if (typeof x === 'string') out.push(x);
+          else if (x?.name) out.push(x.name);
+        }
+      } else if (typeof v === 'string') {
+        out.push(
+          ...v
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        );
       }
-    } else if (typeof v === 'string') {
-      out.push(...v.split(',').map((s) => s.trim()).filter(Boolean));
-    }
-  };
+    };
 
-  // Основные поля
-  pushNames(t?.skills);
-  pushNames(t?.skills_all);
-  pushNames(t?.all_skills);
-  pushNames(t?.skills_full);
-  pushNames(t?.profile_skills);
-  pushNames(t?.skills_text);
+    pushNames(t?.skills);
+    pushNames(t?.skills_all);
+    pushNames(t?.all_skills);
+    pushNames(t?.skills_full);
+    pushNames(t?.profile_skills);
+    pushNames(t?.skills_text);
 
-  // Категории + подкатегории
-  if (Array.isArray(t?.categories)) {
-    for (const c of t.categories) {
-      if (c?.name) out.push(c.name);
-      if (Array.isArray(c?.subcategories)) {
-        for (const sub of c.subcategories) if (sub?.name) out.push(sub.name);
+    if (Array.isArray(t?.categories)) {
+      for (const c of t.categories) {
+        if (c?.name) out.push(c.name);
+        if (Array.isArray(c?.subcategories)) {
+          for (const sub of c.subcategories) if (sub?.name) out.push(sub.name);
+        }
       }
     }
+
+    pushNames(t?.categories_all);
+    pushNames(t?.profile_categories);
+    pushNames(t?.skill_names);
+    pushNames(t?.skill_list);
+
+    return Array.from(new Set(out));
   }
-
-  // На случай, если бэкенд кладёт в другое поле
-  pushNames(t?.categories_all);
-  pushNames(t?.profile_categories);
-  pushNames(t?.skill_names);
-  pushNames(t?.skill_list);
-
-  return Array.from(new Set(out));
-}
-
-
 
   useEffect(() => {
     if (!selectedSkillId || !categories.length) return;
     const all = allCats;
-    const cat = all.find(c => c.id === selectedSkillId);
+    const cat = all.find((c) => c.id === selectedSkillId);
     if (!cat) return;
-    const parent = cat.parent_id ? all.find(c => c.id === cat.parent_id) : undefined;
+    const parent = cat.parent_id ? all.find((c) => c.id === cat.parent_id) : undefined;
     const label = parent ? `${parent.name} > ${cat.name}` : cat.name;
     setSkillInput(label);
-  }, [selectedSkillId, allCats]);
+  }, [selectedSkillId, allCats, categories]);
 
-  // грузим категории ОДИН РАЗ (для дерева/выпадашки)
   useEffect(() => {
     const loadCats = async () => {
       try {
@@ -307,201 +309,174 @@ function extractSkillNames(t: any): string[] {
     loadCats();
   }, []);
 
-  // рядом с остальными useState сверху компонента
-const [isMobile, setIsMobile] = useState(false);
-useEffect(() => {
-  const onResize = () => setIsMobile(window.innerWidth <= 480);
-  onResize();
-  window.addEventListener('resize', onResize);
-  return () => window.removeEventListener('resize', onResize);
-}, []);
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 480);
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
-
-  // Подгрузка талантов / соискателей
   const reqSeq = useRef(0);
   const firstRunRef = useRef(true);
- useEffect(() => {
-  const seq = ++reqSeq.current;
-  const fetchData = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  const skipAutoOnInitRef = useRef(true);
 
-      // auto skills берём из задебаунсенного ключа
-      const autoIds = debouncedAutoSkillsKey ? debouncedAutoSkillsKey.split(',').filter(Boolean) : [];
-      const useAutoSkills = !selectedSkillId && autoIds.length > 0;
+  useEffect(() => {
+    const seq = ++reqSeq.current;
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-          const effectiveDescription =
-        (selectedSkillId || useAutoSkills)
-          ? undefined
-          : (debouncedFilters.description || undefined);
+        const autoIds = autoSkillsKey ? autoSkillsKey.split(',').filter(Boolean) : [];
+        const useAutoSkills = !selectedSkillId && autoIds.length > 0;
 
-      const countryCode = (debouncedFilters.country || '').toUpperCase();
-      const geoParams: any = countryCode ? { country: countryCode } : {};
+        const effectiveDescription =
+          selectedSkillId || useAutoSkills ? undefined : debouncedFilters.description || undefined;
 
-      // языки — как есть, без нормализации на фронте
-      const langs = (debouncedFilters.languages || []).map(s => s.trim()).filter(Boolean);
-      const langParams: any = {};
-      if (langs.length) {
-        langParams.languages = langs.join(','); // можно и массив, бэку ок; оставим CSV для простоты
-        langParams.languages_mode = debouncedFilters.languages_mode || 'any';
-      }
+        const countryCode = (debouncedFilters.country || '').toUpperCase();
+        const geoParams: any = countryCode ? { country: countryCode } : {};
 
-      // резюме
-      const resumeParam = (typeof debouncedFilters.has_resume === 'boolean')
-        ? { has_resume: debouncedFilters.has_resume }
-        : {};
+        const langs = (debouncedFilters.languages || []).map((s) => s.trim()).filter(Boolean);
+        const langParams: any = {};
+        if (langs.length) {
+          langParams.languages = langs.join(',');
+          langParams.languages_mode = debouncedFilters.languages_mode || 'any';
+        }
 
+        const resumeParam =
+          typeof debouncedFilters.has_resume === 'boolean'
+            ? { has_resume: debouncedFilters.has_resume }
+            : {};
 
-const talentParams: any = {
-  experience: debouncedFilters.experience || undefined,
-  rating: debouncedFilters.rating,
-  skills: selectedSkillId ? [selectedSkillId] : (useAutoSkills ? autoIds : undefined),
-  description: effectiveDescription,
-  expected_salary_min: debouncedFilters.expected_salary_min,
-  expected_salary_max: debouncedFilters.expected_salary_max,
-  expected_salary_type: debouncedFilters.expected_salary_type,
-  job_search_status: debouncedFilters.job_search_status,
-  page: debouncedFilters.page,
-  limit: debouncedFilters.limit,
-  ...geoParams,
-  ...langParams,
-  ...resumeParam,
-};
+        const talentParams: any = {
+          experience: debouncedFilters.experience || undefined,
+          rating: debouncedFilters.rating,
+          skills: selectedSkillId ? [selectedSkillId] : useAutoSkills ? autoIds : undefined,
+          description: effectiveDescription,
+          expected_salary_min: debouncedFilters.expected_salary_min,
+          expected_salary_max: debouncedFilters.expected_salary_max,
+          expected_salary_type: debouncedFilters.expected_salary_type,
+          job_search_status: debouncedFilters.job_search_status,
+          page: debouncedFilters.page,
+          limit: debouncedFilters.limit,
+          ...geoParams,
+          ...langParams,
+          ...resumeParam,
+        };
 
-if (debouncedFilters.preferred_job_types && debouncedFilters.preferred_job_types.length) {
-  talentParams.preferred_job_types = debouncedFilters.preferred_job_types;
-}
+        if (debouncedFilters.preferred_job_types && debouncedFilters.preferred_job_types.length) {
+          talentParams.preferred_job_types = debouncedFilters.preferred_job_types;
+        }
 
-const response = await (searchType === 'talents'
-  ? searchTalents(talentParams)
-  : searchJobseekers({
-      username: debouncedFilters.username || undefined,
-      page: debouncedFilters.page,
-      limit: debouncedFilters.limit,
-    }));
-
+        const response =
+          searchType === 'talents'
+            ? await searchTalents(talentParams)
+            : await searchJobseekers({
+                username: debouncedFilters.username || undefined,
+                page: debouncedFilters.page,
+                limit: debouncedFilters.limit,
+              });
 
         let talentData: Profile[] = [];
-      let totalCount = 0;
-      if (response && typeof response === 'object' && 'total' in response && 'data' in response && Array.isArray((response as any).data)) {
-        const r = response as TalentResponse;
-        talentData = r.data;
-        totalCount = r.total;
-      } else if (Array.isArray(response)) {
-        talentData = response as Profile[];
-        totalCount = (response as Profile[]).length;
-      } else {
-        if (seq !== reqSeq.current) return;
-        setError('Invalid data format received from server. Please try again.');
-        setTalents([]);
-        setTotal(0);
-        return;
-      }
-
-     
-      setTalents(talentData);
-      setTotal(totalCount);
-    } catch (err) {
-      const axiosError = err as AxiosError<{ message?: string }>;
-      if (seq === reqSeq.current) {
-        if (axiosError.response?.status === 401) {
-          setError('Unauthorized access. Please log in again.');
-          navigate('/login');
+        let totalCount = 0;
+        if (
+          response &&
+          typeof response === 'object' &&
+          'total' in response &&
+          'data' in response &&
+          Array.isArray((response as any).data)
+        ) {
+          const r = response as TalentResponse;
+          talentData = r.data;
+          totalCount = r.total;
+        } else if (Array.isArray(response)) {
+          talentData = response as Profile[];
+          totalCount = (response as Profile[]).length;
         } else {
-          setError(axiosError.response?.data?.message || 'Failed to load talents. Please try again.');
+          if (seq !== reqSeq.current) return;
+          setError('Invalid data format received from server. Please try again.');
+          setTalents([]);
+          setTotal(0);
+          return;
         }
+
+        setTalents(talentData);
+        setTotal(totalCount);
+      } catch (err) {
+        const axiosError = err as AxiosError<{ message?: string }>;
+        if (seq === reqSeq.current) {
+          if (axiosError.response?.status === 401) {
+            setError('Unauthorized access. Please log in again.');
+            navigate('/login');
+          } else {
+            setError(
+              axiosError.response?.data?.message || 'Failed to load talents. Please try again.',
+            );
+          }
+        }
+      } finally {
+        if (seq === reqSeq.current) setIsLoading(false);
       }
-    } finally {
-      if (seq === reqSeq.current) setIsLoading(false);
+    };
+    fetchData();
+  }, [debouncedFilters, searchType, autoSkillsKey, selectedSkillId, navigate]);
+
+  useEffect(() => {
+    if (firstRunRef.current) {
+      firstRunRef.current = false;
+      return;
     }
-  };
-  fetchData();
-  // навигатор стабилен — в зависимостях не нужен
-}, [debouncedFilters, searchType, debouncedAutoSkillsKey]);
 
-// useEffect(() => {
-//   if (firstRunRef.current) { firstRunRef.current = false; return; }
+    if (skipAutoOnInitRef.current) {
+      skipAutoOnInitRef.current = false;
+      return;
+    }
 
-//   const t = setTimeout(() => {
-    
-//     if (selectedSkillId) return;
+    const t = setTimeout(() => {
+      if (selectedSkillId) return;
 
-//     const useAutoSkills = autoSkillIds.length > 0;
-//     const nextDesc = useAutoSkills ? undefined : (searchInput || undefined);
+      const useAutoSkills = autoSkillIds.length > 0;
+      const nextDesc = useAutoSkills ? undefined : searchInput || undefined;
 
-//     setFilters(prev =>
-//       prev.description === nextDesc ? prev : { ...prev, description: nextDesc, page: 1 }
-//     );
-//   }, 400);
+      setFilters((prev) =>
+        prev.description === nextDesc ? prev : { ...prev, description: nextDesc, page: 1 },
+      );
+    }, 400);
 
-//   return () => clearTimeout(t);
-// }, [searchInput, selectedSkillId, autoSkillIds]);
+    return () => clearTimeout(t);
+  }, [searchInput, selectedSkillId, autoSkillIds]);
 
-const skipAutoOnInitRef = useRef(true);
-
-useEffect(() => {
-  if (firstRunRef.current) { 
-    firstRunRef.current = false; 
-    return; 
-  }
-
-  // не реагируем на автоскиллы сразу после загрузки категорий
-  if (skipAutoOnInitRef.current) {
-    skipAutoOnInitRef.current = false;
-    return;
-  }
-
-  const t = setTimeout(() => {
-    if (selectedSkillId) return;
-
-    // ВАЖНО: autoSkillIds тут больше не в зависимостях!
-    const useAutoSkills = autoSkillIds.length > 0;
-    const nextDesc = useAutoSkills ? undefined : (searchInput || undefined);
-
-    setFilters(prev =>
-      prev.description === nextDesc ? prev : { ...prev, description: nextDesc, page: 1 }
+  useEffect(() => {
+    const p = Number(searchParams.get('page') || '1');
+    const l = Number(searchParams.get('limit') || '25');
+    setFilters((prev) =>
+      prev.page === p && prev.limit === l ? prev : { ...prev, page: p, limit: l },
     );
-  }, 400);
+  }, [searchParams]);
 
-  return () => clearTimeout(t);
-}, [searchInput, selectedSkillId]); 
+  useEffect(() => {
+    if (isLoading) return;
 
-useEffect(() => {
-  const p = Number(searchParams.get('page') || '1');
-  const l = Number(searchParams.get('limit') || '25');
-  setFilters(prev =>
-    (prev.page === p && prev.limit === l) ? prev : { ...prev, page: p, limit: l }
-  );
-}, [searchParams]);
+    let r1 = 0,
+      r2 = 0;
+    const doScroll = () => {
+      if (resultsRef.current) resultsRef.current.scrollTop = 0;
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      window.scrollTo(0, 0);
+    };
 
-useEffect(() => {
-  if (isLoading) return;
+    r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(doScroll);
+    });
 
-  let r1 = 0, r2 = 0;
-  const doScroll = () => {
-    // скроллим и контейнер, и окно — что бы ни было реально скроллящимся
-    if (resultsRef.current) resultsRef.current.scrollTop = 0;
-    // дубль на всякий
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
-    window.scrollTo(0, 0);
-  };
+    return () => {
+      if (r1) cancelAnimationFrame(r1);
+      if (r2) cancelAnimationFrame(r2);
+    };
+  }, [filters.page, total, isLoading]);
 
-  // ждём раскладку/пейнт
-  r1 = requestAnimationFrame(() => {
-    r2 = requestAnimationFrame(doScroll);
-  });
-
-  return () => {
-    if (r1) cancelAnimationFrame(r1);
-    if (r2) cancelAnimationFrame(r2);
-  };
-}, [filters.page, total, isLoading]); // total добавлен: меняется высота списка
-
-
-
-  // автокомплит категорий
   useEffect(() => {
     const searchCategoriesAsync = async () => {
       if (skillInput.trim() === '') {
@@ -517,7 +492,10 @@ useEffect(() => {
         setIsDropdownOpen(true);
       } catch (error) {
         const axiosError = error as AxiosError<{ message?: string }>;
-        console.error('Error searching categories:', axiosError.response?.data?.message || axiosError.message);
+        console.error(
+          'Error searching categories:',
+          axiosError.response?.data?.message || axiosError.message,
+        );
         setFilteredSkills([]);
         setIsDropdownOpen(false);
       }
@@ -527,260 +505,189 @@ useEffect(() => {
   }, [skillInput]);
 
   const resetAll = () => {
-  setFilters({
-    username: '',
-    experience: '',
-    rating: undefined,
-    expected_salary_min: undefined,
-    expected_salary_max: undefined,
-    expected_salary_type: undefined,
-    job_search_status: undefined,
-    page: 1,
-    limit: 25,
-    description: '',
-    country: '',
-    languages: [],
-    languages_mode: 'any',
-    has_resume: undefined,
-    preferred_job_types: [],
-  });
-  setSearchInput('');
-  setLangInput('');
-  setSkillInput('');
-  setSelectedSkillId('');
-  setSearchParams({}, { replace: true });
-};
+    setFilters({
+      username: '',
+      experience: '',
+      rating: undefined,
+      expected_salary_min: undefined,
+      expected_salary_max: undefined,
+      expected_salary_type: undefined,
+      job_search_status: undefined,
+      page: 1,
+      limit: 25,
+      description: '',
+      country: '',
+      languages: [],
+      languages_mode: 'any',
+      has_resume: undefined,
+      preferred_job_types: [],
+    });
+    setSearchInput('');
+    setLangInput('');
+    setSkillInput('');
+    setSelectedSkillId('');
+    setSearchParams({}, { replace: true });
+  };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
 
+    const useAutoSkills = !selectedSkillId && autoSkillIds.length > 0;
+    const nextDesc = useAutoSkills || selectedSkillId ? undefined : searchInput || undefined;
 
-const handleSearch = (e: React.FormEvent) => {
-  e.preventDefault();
+    setFilters((prev) =>
+      prev.description === nextDesc && prev.page === 1
+        ? prev
+        : { ...prev, description: nextDesc, page: 1 },
+    );
 
-  const useAutoSkills = !selectedSkillId && autoSkillIds.length > 0;
-  const nextDesc = useAutoSkills || selectedSkillId ? undefined : (searchInput || undefined);
+    const nextParams: Record<string, string> = {};
+    if (selectedSkillId) nextParams.category_id = selectedSkillId;
+    else if (useAutoSkills && autoSkillIds.length === 1) nextParams.category_id = autoSkillIds[0];
+    if (!useAutoSkills && !selectedSkillId && searchInput.trim())
+      nextParams.description = searchInput.trim();
+    if (filters.expected_salary_min != null && !Number.isNaN(filters.expected_salary_min))
+      nextParams.expected_salary_min = String(filters.expected_salary_min);
+    if (filters.expected_salary_max != null && !Number.isNaN(filters.expected_salary_max))
+      nextParams.expected_salary_max = String(filters.expected_salary_max);
+    if (filters.expected_salary_type) nextParams.expected_salary_type = filters.expected_salary_type;
+    if (filters.job_search_status) nextParams.job_search_status = filters.job_search_status;
 
-  setFilters(prev =>
-    prev.description === nextDesc && prev.page === 1
-      ? prev
-      : { ...prev, description: nextDesc, page: 1 }
-  );
+    if (filters.country) nextParams.country = filters.country.toUpperCase();
 
-  const nextParams: Record<string, string> = {};
-  if (selectedSkillId) nextParams.category_id = selectedSkillId;
-  else if (useAutoSkills && autoSkillIds.length === 1) nextParams.category_id = autoSkillIds[0];
-  if (!useAutoSkills && !selectedSkillId && searchInput.trim()) nextParams.description = searchInput.trim();
-  if (filters.expected_salary_min != null && !Number.isNaN(filters.expected_salary_min)) nextParams.expected_salary_min = String(filters.expected_salary_min);
-  if (filters.expected_salary_max != null && !Number.isNaN(filters.expected_salary_max)) nextParams.expected_salary_max = String(filters.expected_salary_max);
-  if (filters.expected_salary_type) nextParams.expected_salary_type = filters.expected_salary_type;
-  if (filters.job_search_status) nextParams.job_search_status = filters.job_search_status;
-  // ? NEW: ??????/??????
+    if (filters.languages.length) {
+      nextParams.languages = filters.languages.join(',');
+      if (filters.languages_mode) nextParams.languages_mode = filters.languages_mode;
+    }
 
-if (filters.country) nextParams.country = filters.country.toUpperCase();
+    if (typeof filters.has_resume === 'boolean') {
+      nextParams.has_resume = String(filters.has_resume);
+    }
 
-// ? NEW: ????? (CSV)
-if (filters.languages.length) {
-  nextParams.languages = filters.languages.join(',');
-  // ????????? ????? ?????? ???? ???? ???? ?? ???? ????
-  if (filters.languages_mode) nextParams.languages_mode = filters.languages_mode;
-}
+    if (filters.preferred_job_types.length) {
+      nextParams.preferred_job_types = filters.preferred_job_types.join(',');
+    }
 
-// ? NEW: ??????
-if (typeof filters.has_resume === 'boolean') {
-  nextParams.has_resume = String(filters.has_resume);
-}
+    nextParams.page = '1';
+    nextParams.limit = String(filters.limit || 25);
 
-if (filters.preferred_job_types.length) {
-  nextParams.preferred_job_types = filters.preferred_job_types.join(',');
-}
+    setSearchParams(nextParams, { replace: true });
+  };
 
-nextParams.page  = '1';
-nextParams.limit = String(filters.limit || 25);
+  const handlePageChange = (newPage: number) => {
+    resultsRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    setFilters((prev) => (prev.page === newPage ? prev : { ...prev, page: newPage }));
 
-setSearchParams(nextParams, { replace: true }); 
-};
-
-
-
-const handlePageChange = (newPage: number) => {
-  resultsRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  setFilters(prev => (prev.page === newPage ? prev : { ...prev, page: newPage }));
-
-  // синхронизируем URL -> триггер для ScrollToTop()
-  const params = new URLSearchParams(searchParams);
-  params.set('page', String(newPage));
-  params.set('limit', String(filters.limit || 25));
-  setSearchParams(params, { replace: true });
-  // больше НЕ скроллим вручную — ScrollToTop сделает это сам
-};
-
-
-
+    const params = new URLSearchParams(searchParams);
+    params.set('page', String(newPage));
+    params.set('limit', String(filters.limit || 25));
+    setSearchParams(params, { replace: true });
+  };
 
   const toggleFilterPanel = () => setIsFilterPanelOpen((prev) => !prev);
 
-  const truncateDescription = (description: string | undefined, maxLength: number) =>
-    description && description.length > maxLength ? description.substring(0, maxLength) + '…' : (description || '');
-
   const totalPages = Math.ceil(total / filters.limit) || 1;
-
-const getVisiblePages = () => {
-  const currentPage = filters.page;
-  const totalPages = Math.ceil(total / filters.limit) || 1;
-
-  if (totalPages <= 1) {
-    return [1];
-  }
-
-  if (isMobile) {
-    // === MOBILE LOGIC ===
-    const pages: (number | string)[] = [];
-
-    // [1, 2, 3, ..., N] — если всего ≤ 5
-    if (totalPages <= 5) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-
-    if (currentPage === 1) {
-      return [1, 2, 3, '…', totalPages];
-    } else if (currentPage === 2) {
-      return [1, 2, 3, '…', totalPages];
-    } else if (currentPage === 3) {
-      return ['…', 3, '…', totalPages];
-    } else if (currentPage >= 4 && currentPage < totalPages) {
-      return ['…', currentPage, '…', totalPages];
-    } else if (currentPage === totalPages) {
-      // Последняя страница → показываем последние 3 + "…" + предыдущая кнопка
-      if (totalPages >= 4) {
-        return ['…', totalPages - 2, totalPages - 1, totalPages];
-      } else {
-        return Array.from({ length: totalPages }, (_, i) => i + 1);
-      }
-    }
-
-    return [1];
-  } else {
-    // === DESKTOP LOGIC ===
-    const pages: (number | string)[] = [];
-
-    // [1..7, ..., N] — для началa
-    if (currentPage <= 7) {
-      for (let i = 1; i <= Math.min(7, totalPages); i++) {
-        pages.push(i);
-      }
-      if (totalPages > 7) {
-        pages.push('…');
-        pages.push(totalPages);
-      }
-      return pages;
-    }
-
-    // Последние 7 страниц → [1, ..., N-6, ..., N]
-    if (currentPage > totalPages - 7) {
-      pages.push(1);
-      pages.push('…');
-      for (let i = Math.max(2, totalPages - 6); i <= totalPages; i++) {
-        pages.push(i);
-      }
-      return pages;
-    }
-
-    // Середина → [1, ..., currentPage-2, ..., currentPage, ..., currentPage+2, ..., N]
-    pages.push(1);
-    pages.push('…');
-    for (let i = currentPage - 2; i <= currentPage + 2; i++) {
-      if (i > 1 && i < totalPages) {
-        pages.push(i);
-      }
-    }
-    pages.push('…');
-    pages.push(totalPages);
-    return pages;
-  }
-};
-
-
 
   return (
-    <div>
-<Helmet>
-  <title>Hire Remote Talent | {brand.name}</title>
-  <meta name="description" content="Post a job and reach vetted remote talent worldwide." />
-  <link rel="canonical" href={`https://${brand.domain}/find-talent`} />
-</Helmet>
-
+    <div className="talv-root">
+      <Helmet>
+        <title>Hire Remote Talent | {brand.name}</title>
+        <meta
+          name="description"
+          content="Post a job and reach vetted remote talent worldwide."
+        />
+        <link rel="canonical" href={`https://${brand.domain}/find-talent`} />
+      </Helmet>
 
       <Header />
 
-      {/* overlay-лоадер в едином стиле */}
-      <div className={`ftl-loading ${isLoading ? 'is-visible' : ''}`}>
+      <div className={`talv-loading ${isLoading ? 'talv-loading--visible' : ''}`}>
         {isLoading && <Loader />}
       </div>
 
-      <div className="ftl-shell">
-        <div className="ftl-card">
-          <div className="ftl-headbar">
-            <h1 className="ftl-title">Find Talent</h1>
+      <div className="talv-shell">
+        <div className="talv-card">
+          <div className="talv-header">
+            <h1 className="talv-title">Find Talent</h1>
 
-       <form className="ftl-search" onSubmit={handleSearch}>
-        <div className="ftl-count">
-      {isLoading ? 'Loading…' : `${total} talents found`}
-    </div>
-  <input
-    className="ftl-input"
-    type="text"
-    placeholder="Search by skills or keywords"
-    value={searchInput}
-    onChange={(e) => setSearchInput(e.target.value)}
-  />
-  <button className="ftl-btn ftl-primary" type="submit">Search</button>
-
-  {/* mobile-only toggle */}
-  <button
-    className={`ftl-iconbtn ${isFilterPanelOpen ? 'is-active' : ''}`}
-    type="button"
-    onClick={toggleFilterPanel}
-    aria-label="Toggle filters"
-    title="Filters"
-  >
-    <FaFilter />
-    <span className="ftl-iconbtn__label">Filters</span>
-  </button>
-</form>
-
+            <form className="talv-search" onSubmit={handleSearch}>
+              <div className="talv-search-count">
+                {isLoading ? 'Loading…' : `${total} talented professionals found`}
+              </div>
+              <input
+                className="talv-input talv-input--search"
+                type="text"
+                placeholder="Search by skills, keywords, or location..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+              />
+              <button className="talv-button talv-button-primary" type="submit">
+                Search
+              </button>
+              <button
+                className={`talv-filters-toggle ${
+                  isFilterPanelOpen ? 'talv-filters-toggle--active' : ''
+                }`}
+                type="button"
+                onClick={toggleFilterPanel}
+                aria-label="Toggle filters"
+                title="Filters"
+              >
+                <FaFilter />
+                <span className="talv-filters-toggle-label">Filters</span>
+              </button>
+            </form>
           </div>
 
-          {error && <div className="ftl-alert ftl-err">{error}</div>}
+          {error && <div className="talv-alert talv-alert-error">{error}</div>}
 
-          <div className="ftl-content">
-            {/* Filters */}
-<aside className={`ftl-filters ${isFilterPanelOpen ? 'is-open' : ''}`}>
-  <div className="ftl-filters-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-    <h3 className="ftl-filters-title">Filters</h3>
-    <button type="button" className="ftl-btn ftl-link ftl-reset" onClick={resetAll} title="Reset all filters">Reset</button>
-  </div>
-  <form onSubmit={handleSearch} className="ftl-form">
+          <div className="talv-layout">
+            {/* FILTERS */}
+            <aside
+              className={`talv-filters ${isFilterPanelOpen ? 'talv-filters--open' : ''}`}
+            >
+              <div className="talv-filters-header">
+                <h3 className="talv-filters-title">Filters</h3>
+                <button
+                  type="button"
+                  className="talv-button talv-button-link"
+                  onClick={resetAll}
+                >
+                  Reset Filters
+                </button>
+              </div>
 
+              <form onSubmit={handleSearch} className="talv-filters-form">
                 {searchType === 'jobseekers' && (
-                  <div className="ftl-row">
-                    <label className="ftl-label">Username</label>
+                  <div className="talv-field">
+                    <label className="talv-label">Username</label>
                     <input
-                      className="ftl-input"
+                      className="talv-input"
                       type="text"
                       value={filters.username}
-                      onChange={(e) => setFilters({ ...filters, username: e.target.value })}
+                      onChange={(e) =>
+                        setFilters({ ...filters, username: e.target.value })
+                      }
                       placeholder="Enter username"
                     />
                   </div>
                 )}
 
-                <div className="ftl-row">
-                  <label className="ftl-label">Experience</label>
+                <div className="talv-field">
+                  <label className="talv-label">Experience</label>
                   <select
-                    className="ftl-input"
+                    className="talv-input"
                     value={filters.experience}
-                    onChange={(e) => setFilters({ ...filters, experience: e.target.value, page: 1 })}
+                    onChange={(e) =>
+                      setFilters({
+                        ...filters,
+                        experience: e.target.value,
+                        page: 1,
+                      })
+                    }
                   >
                     <option value="">All</option>
+                    <option value="No experience yet">No experience yet</option>
                     <option value="Less than 1 year">Less than 1 year</option>
                     <option value="1-2 years">1-2 years</option>
                     <option value="2-3 years">2-3 years</option>
@@ -789,87 +696,104 @@ const getVisiblePages = () => {
                   </select>
                 </div>
 
-<div className="ftl-row">
-  <CountrySelect
-    label="Country"
-    placeholder="Start typing a country…"
-    value={filters.country}
-    onChange={(code) => setFilters(prev => ({ ...prev, country: code || '', page: 1 }))}
-  />
- </div>
-{/* ✅ Languages tag-input (без нормализации) */}
-<div className="ftl-row">
-  <label className="ftl-label">Languages</label>
-  <div className="ftl-tags">
-    {filters.languages.map((l, i) => (
-      <span className="ftl-tag" key={i}>
-        {l}
-        <button
-          type="button"
-          className="ftl-tag-x"
-          onClick={() => setFilters(prev => ({
-            ...prev,
-            languages: prev.languages.filter((_, idx) => idx !== i),
-            page: 1,
-          }))}
-          aria-label="Remove language"
-          title="Remove"
-        >
-          ×
-        </button>
-      </span>
-    ))}
-   <input
-  className="ftl-input"
-  type="text"
-  placeholder='Type a language and press Enter or comma'
-  value={langInput}
-  onChange={(e) => setLangInput(e.target.value)}
-  onKeyDown={(e) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      addLang(langInput);
-    }
-  }}
-  onBlur={() => addLang(langInput)}
-  style={{ minWidth: 160 }}
-/>
+                <div className="talv-field">
+                  <CountrySelect
+                    label="Country"
+                    placeholder="Start typing a country..."
+                    value={filters.country}
+                    onChange={(code) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        country: code || '',
+                        page: 1,
+                      }))
+                    }
+                  />
+                </div>
 
-  </div>
-</div>
+                <div className="talv-field">
+                  <label className="talv-label">Languages</label>
+                  <div className="talv-tags">
+                    {filters.languages.map((l, i) => (
+                      <span className="talv-tag" key={i}>
+                        {l}
+                        <button
+                          type="button"
+                          className="talv-tag-remove"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              languages: prev.languages.filter(
+                                (_, idx) => idx !== i,
+                              ),
+                              page: 1,
+                            }))
+                          }
+                          aria-label="Remove language"
+                          title="Remove"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      className="talv-input talv-input--tag"
+                      type="text"
+                      placeholder="Type a language and press Enter or comma"
+                      value={langInput}
+                      onChange={(e) => setLangInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ',') {
+                          e.preventDefault();
+                          addLang(langInput);
+                        }
+                      }}
+                      onBlur={() => addLang(langInput)}
+                    />
+                  </div>
+                </div>
 
-{/* ✅ languages_mode */}
-<div className="ftl-row">
-  <label className="ftl-label">Languages match</label>
-  <select
-    className="ftl-input"
-    value={filters.languages_mode}
-    onChange={(e) => setFilters(prev => ({
-      ...prev,
-      languages_mode: (e.target.value === 'all' ? 'all' : 'any'),
-      page: 1
-    }))}
-  >
-    <option value="any">any (default)</option>
-    <option value="all">all</option>
-  </select>
-</div>
+                <div className="talv-field">
+                  <label className="talv-label">Languages match</label>
+                  <select
+                    className="talv-input"
+                    value={filters.languages_mode}
+                    onChange={(e) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        languages_mode:
+                          e.target.value === 'all' ? 'all' : 'any',
+                        page: 1,
+                      }))
+                    }
+                  >
+                    <option value="any">any (default)</option>
+                    <option value="all">all</option>
+                  </select>
+                </div>
 
-{/* ✅ Has resume */}
-<div className="ftl-row" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-  <label className="ftl-label" htmlFor="has-resume" style={{ marginBottom: 0 }}>Has resume</label>
-  <input
-    id="has-resume"
-    type="checkbox"
-    checked={!!filters.has_resume}
-    onChange={(e) => setFilters(prev => ({ ...prev, has_resume: e.target.checked ? true : undefined, page: 1 }))}
-  />
-</div>
-
-                <div className="ftl-row">
-                  <label className="ftl-label">Minimum Rating</label>
+                <div className="talv-field talv-field--inline">
+                  <label className="talv-label" htmlFor="talv-has-resume">
+                    Has resume
+                  </label>
                   <input
-                    className="ftl-input"
+                    id="talv-has-resume"
+                    type="checkbox"
+                    checked={!!filters.has_resume}
+                    onChange={(e) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        has_resume: e.target.checked ? true : undefined,
+                        page: 1,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="talv-field">
+                  <label className="talv-label">Minimum Rating</label>
+                  <input
+                    className="talv-input"
                     type="number"
                     min="0"
                     max="5"
@@ -877,193 +801,242 @@ const getVisiblePages = () => {
                     onChange={(e) =>
                       setFilters({
                         ...filters,
-                        rating: e.target.value ? Number(e.target.value) : undefined,
+                        rating: e.target.value
+                          ? Number(e.target.value)
+                          : undefined,
                         page: 1,
                       })
                     }
                     placeholder="Enter rating (0-5)"
                   />
                 </div>
-<div className="ftl-row">
-  <label className="ftl-label">Job status</label>
-  <select
-    className="ftl-input"
-    value={filters.job_search_status ?? ''}
-    onChange={(e) => setFilters({
-      ...filters,
-      job_search_status: (e.target.value || undefined) as any,
-      page: 1
-    })}
-  >
-    <option value="">All</option>
-    <option value="actively_looking">Actively looking</option>
-    <option value="open_to_offers">Open to offers</option>
-    <option value="hired">Hired</option>
-  </select>
-</div>
-                <div className="ftl-row">
-  <label className="ftl-label">Salary From</label>
-  <input
-    className="ftl-input"
-    type="number"
-    step="0.01"
-    min="0"
-    placeholder="e.g., 3000"
-    value={filters.expected_salary_min ?? ''}
-    onChange={(e) => {
-      const v = e.target.value;
-      setFilters(prev => ({
-        ...prev,
-        expected_salary_min: v === '' ? undefined : Number(v),
-        page: 1,
-      }));
-    }}
-  />
-</div>
-<div className="ftl-row">
-  <label className="ftl-label">Salary To</label>
-  <input
-    className="ftl-input"
-    type="number"
-    step="0.01"
-    min="0"
-    placeholder="e.g., 5000"
-    value={filters.expected_salary_max ?? ''}
-    onChange={(e) => {
-      const v = e.target.value;
-      setFilters(prev => ({
-        ...prev,
-        expected_salary_max: v === '' ? undefined : Number(v),
-        page: 1,
-      }));
-    }}
-  />
-</div>
-<div className="ftl-row">
-  <label className="ftl-label">Salary Type</label>
-  <select
-    className="ftl-input"
-    value={filters.expected_salary_type || ''}
-    onChange={(e) =>
-      setFilters(prev => ({
-        ...prev,
-        expected_salary_type: (e.target.value || undefined) as 'per month' | 'per day' | undefined,
-        page: 1,
-      }))
-    }
-  >
-    <option value="">Any</option>
-    <option value="per month">per month</option>
-    <option value="per day">per day</option>
-  </select>
-</div>
-<div className="ftl-row">
-  <label className="ftl-label">Preferred Job Type</label>
-  <div>
-    {(['Full-time', 'Part-time', 'Project-based'] as const).map((jt) => {
-      const list = filters.preferred_job_types || [];
-      const checked = list.includes(jt);
-      return (
-        <label
-          key={jt}
-          style={{ display: 'inline-flex', alignItems: 'center', marginRight: 12 }}
-        >
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={(e) => {
-              setFilters(prev => {
-                const prevList = prev.preferred_job_types || [];
-                let next: ('Full-time' | 'Part-time' | 'Project-based')[];
-                if (e.target.checked) {
-                  next = prevList.includes(jt) ? prevList : [...prevList, jt];
-                } else {
-                  next = prevList.filter((x) => x !== jt);
-                }
-                return {
-                  ...prev,
-                  preferred_job_types: next,
-                  page: 1,
-                };
-              });
-            }}
-          />
-          <span style={{ marginLeft: 4 }}>{jt}</span>
-        </label>
-      );
-    })}
-  </div>
-</div>
 
+                <div className="talv-field">
+                  <label className="talv-label">Job status</label>
+                  <select
+                    className="talv-input"
+                    value={filters.job_search_status ?? ''}
+                    onChange={(e) =>
+                      setFilters({
+                        ...filters,
+                        job_search_status: (e.target.value ||
+                          undefined) as any,
+                        page: 1,
+                      })
+                    }
+                  >
+                    <option value="">All</option>
+                    <option value="actively_looking">Actively looking</option>
+                    <option value="open_to_offers">Open to offers</option>
+                    <option value="hired">Hired</option>
+                  </select>
+                </div>
 
-                <div className="ftl-row">
-                  <label className="ftl-label">Category/Skill</label>
-                  <div className="ftl-autocomplete">
+                <div className="talv-field">
+                  <label className="talv-label">Salary From</label>
+                  <input
+                    className="talv-input"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="e.g., 3000"
+                    value={filters.expected_salary_min ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setFilters((prev) => ({
+                        ...prev,
+                        expected_salary_min:
+                          v === '' ? undefined : Number(v),
+                        page: 1,
+                      }));
+                    }}
+                  />
+                </div>
+
+                <div className="talv-field">
+                  <label className="talv-label">Salary To</label>
+                  <input
+                    className="talv-input"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="e.g., 5000"
+                    value={filters.expected_salary_max ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setFilters((prev) => ({
+                        ...prev,
+                        expected_salary_max:
+                          v === '' ? undefined : Number(v),
+                        page: 1,
+                      }));
+                    }}
+                  />
+                </div>
+
+                <div className="talv-field">
+                  <label className="talv-label">Salary Type</label>
+                  <select
+                    className="talv-input"
+                    value={filters.expected_salary_type || ''}
+                    onChange={(e) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        expected_salary_type: (e.target.value ||
+                          undefined) as 'per month' | 'per day' | undefined,
+                        page: 1,
+                      }))
+                    }
+                  >
+                    <option value="">Any</option>
+                    <option value="per month">per month</option>
+                    <option value="per day">per day</option>
+                  </select>
+                </div>
+
+                <div className="talv-field">
+                  <label className="talv-label">Preferred Job Type</label>
+                  <div className="talv-checkbox-group">
+                    {(['Full-time', 'Part-time', 'Project-based'] as const).map(
+                      (jt) => {
+                        const list = filters.preferred_job_types || [];
+                        const checked = list.includes(jt);
+                        return (
+                          <label
+                            key={jt}
+                            className="talv-checkbox-label"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                setFilters((prev) => {
+                                  const prevList =
+                                    prev.preferred_job_types || [];
+                                  let next: (
+                                    | 'Full-time'
+                                    | 'Part-time'
+                                    | 'Project-based'
+                                  )[];
+                                  if (e.target.checked) {
+                                    next = prevList.includes(jt)
+                                      ? prevList
+                                      : [...prevList, jt];
+                                  } else {
+                                    next = prevList.filter(
+                                      (x) => x !== jt,
+                                    );
+                                  }
+                                  return {
+                                    ...prev,
+                                    preferred_job_types: next,
+                                    page: 1,
+                                  };
+                                });
+                              }}
+                            />
+                            <span>{jt}</span>
+                          </label>
+                        );
+                      },
+                    )}
+                  </div>
+                </div>
+
+                <div className="talv-field">
+                  <label className="talv-label">Category/Skill</label>
+                  <div className="talv-skill-autocomplete">
                     <input
-                      className="ftl-input"
+                      className="talv-input"
                       type="text"
                       value={skillInput}
                       onChange={(e) => setSkillInput(e.target.value)}
                       placeholder="Type to search categories/skills..."
                       onFocus={() => setIsDropdownOpen(true)}
-                      onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                      onBlur={() =>
+                        setTimeout(() => setIsDropdownOpen(false), 200)
+                      }
                     />
-                    {isDropdownOpen && (skillInput.trim() ? filteredSkills.length > 0 : categories.length > 0) && (
-                      <ul className="ftl-autocomplete-list">
-                        {(skillInput.trim() ? filteredSkills : categories).map((cat) => (
-                          <Fragment key={cat.id}>
-                            <li
-                              className="ftl-autocomplete-item"
-                            onMouseDown={() => {
-                            const displayName = cat.parent_id
-                              ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}`
-                              : cat.name;
-                            setSelectedSkillId(cat.id);
-                            setSkillInput(displayName);
-                            setIsDropdownOpen(false);
-                            setFilters(prev => ({ ...prev, description: undefined, page: 1 }));
-                          }}
-                            >
-                              {cat.parent_id
-                                ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}`
-                                : cat.name}
-                            </li>
-                            {cat.subcategories?.map((sub) => (
+                    {isDropdownOpen &&
+                      (skillInput.trim()
+                        ? filteredSkills.length > 0
+                        : categories.length > 0) && (
+                        <ul className="talv-skill-list">
+                          {(skillInput.trim()
+                            ? filteredSkills
+                            : categories
+                          ).map((cat) => (
+                            <Fragment key={cat.id}>
                               <li
-                                key={sub.id}
-                                className="ftl-autocomplete-item ftl-sub"
-                               onMouseDown={() => {
-                                setSelectedSkillId(sub.id);
-                                setSkillInput(`${cat.name} > ${sub.name}`);
-                                setIsDropdownOpen(false);
-                                setFilters(prev => ({ ...prev, description: undefined, page: 1 }));
-                              }}
+                                className="talv-skill-item"
+                                onMouseDown={() => {
+                                  const displayName = cat.parent_id
+                                    ? `${
+                                        categories.find(
+                                          (c) => c.id === cat.parent_id,
+                                        )?.name || ''
+                                      } > ${cat.name}`
+                                    : cat.name;
+                                  setSelectedSkillId(cat.id);
+                                  setSkillInput(displayName);
+                                  setIsDropdownOpen(false);
+                                  setFilters((prev) => ({
+                                    ...prev,
+                                    description: undefined,
+                                    page: 1,
+                                  }));
+                                }}
                               >
-                                {`${cat.name} > ${sub.name}`}
+                                {cat.parent_id
+                                  ? `${
+                                      categories.find(
+                                        (c) => c.id === cat.parent_id,
+                                      )?.name || ''
+                                    } > ${cat.name}`
+                                  : cat.name}
                               </li>
-                            ))}
-                          </Fragment>
-                        ))}
-                      </ul>
-                    )}
+                              {cat.subcategories?.map((sub) => (
+                                <li
+                                  key={sub.id}
+                                  className="talv-skill-item talv-skill-item--nested"
+                                  onMouseDown={() => {
+                                    setSelectedSkillId(sub.id);
+                                    setSkillInput(
+                                      `${cat.name} > ${sub.name}`,
+                                    );
+                                    setIsDropdownOpen(false);
+                                    setFilters((prev) => ({
+                                      ...prev,
+                                      description: undefined,
+                                      page: 1,
+                                    }));
+                                  }}
+                                >
+                                  {`${cat.name} > ${sub.name}`}
+                                </li>
+                              ))}
+                            </Fragment>
+                          ))}
+                        </ul>
+                      )}
                   </div>
 
                   {selectedSkillId && (
-                    <div className="ftl-tags">
-                      <span className="ftl-tag">
+                    <div className="talv-tags" style={{ marginTop: 6 }}>
+                      <span className="talv-tag">
                         {skillInput || 'Selected category'}
                         <button
                           type="button"
-                          className="ftl-tag-x"
-                         onClick={() => {
-                          setSelectedSkillId('');
-                          setSkillInput('');
-                          setFilters(prev => ({
-                            ...prev,
-                            description: searchInput ? searchInput : undefined,
-                            page: 1,
-                          }));
-                        }}
+                          className="talv-tag-remove"
+                          onClick={() => {
+                            setSelectedSkillId('');
+                            setSkillInput('');
+                            setFilters((prev) => ({
+                              ...prev,
+                              description: searchInput || undefined,
+                              page: 1,
+                            }));
+                          }}
                           aria-label="Remove category"
                           title="Remove"
                         >
@@ -1074,292 +1047,423 @@ const getVisiblePages = () => {
                   )}
                 </div>
 
-                <button type="submit" className="ftl-btn ftl-primary" style={{ marginTop: 4 }}>
+                <button
+                  type="submit"
+                  className="talv-button talv-button-primary talv-filters-submit"
+                >
                   Apply Filters
                 </button>
               </form>
             </aside>
 
-            {/* Results */}
-            <section className="ftl-results" ref={resultsRef}>
+            {/* RESULTS */}
+            <section className="talv-results" ref={resultsRef}>
               {isLoading ? (
-                <div className="ftl-results-loader"><Loader /></div>
+                <div className="talv-results-loader">
+                  <Loader />
+                </div>
               ) : error ? (
-                <p className="ftl-error">{error}</p>
+                <p className="talv-error">{error}</p>
               ) : (
                 <>
-                  <div className="ftl-list" key={filters.page}>
-                   {talents.length > 0 ? (
-  talents.map((talent) => {
-    const rating =
-      (talent as any).average_rating ?? (talent as any).averageRating ?? null;
-    const skillNames = extractSkillNames(talent);
+                  <div className="talv-cards" key={filters.page}>
+                    {talents.length > 0 ? (
+                      talents.map((talent) => {
+                        const rating =
+                          (talent as any).average_rating ??
+                          (talent as any).averageRating ??
+                          null;
+                        const skillNames = extractSkillNames(talent);
+                        const experience = (talent as any).experience ?? null;
+                        const profileViews =
+                          (talent as any).profile_views ??
+                          (talent as any).profileViews ??
+                          0;
 
-    const experience = (talent as any).experience ?? null;
-    const profileViews =
-      (talent as any).profile_views ?? (talent as any).profileViews ?? 0;
+                        const jobStatus = (talent as any).job_search_status;
+                        let statusLabel: string | null = null;
+                        let statusClass = '';
+                        if (jobStatus === 'actively_looking') {
+                          statusLabel = 'Actively looking';
+                          statusClass = 'talv-status-pill--looking';
+                        } else if (jobStatus === 'hired') {
+                          statusLabel = 'Hired';
+                          statusClass = 'talv-status-pill--hired';
+                        } else if (jobStatus === 'open_to_offers') {
+                          statusLabel = 'Open to offers';
+                        }
 
-    return (
-      <article key={talent.id} className="ftl-card-item" role="article">
-        <div className="ftl-body">
-          <div className="ftl-row ftl-row-head">
-            <div className={`ftl-avatar ${talent.avatar ? 'has-img' : ''}`}>
-              {talent.avatar && (() => {
-                const a = talent.avatar || '';
-                const avatarSrc = a.startsWith('http')
-                  ? a
-                  : `${brandBackendOrigin()}${a}`;
-                return (
-                  <img
-                    src={avatarSrc}
-                    alt="Talent Avatar"
-                    className="ftl-avatar-img"
-                    onError={(e) => {
-                      const box = e.currentTarget.parentElement as HTMLElement | null;
-                      box?.classList.remove('has-img');
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                );
-              })()}
+                        const preferredJobTypes: string[] = Array.isArray(
+                          (talent as any).preferred_job_types,
+                        )
+                          ? (talent as any).preferred_job_types
+                          : [];
 
-              <FaUserCircle className="ftl-avatar-fallback" />
-            </div>
+                        const jobTitle =
+                          (talent as any).headline ||
+                          (talent as any).job_title ||
+                          (talent as any).title ||
+                          '';
 
-            <div className="ftl-name-stars">
-              <h3 className="ftl-name">{talent.username}</h3>
-              {(() => {
-                const v = (talent as any).job_search_status;
-                if (!v) return null;
-                const label =
-                  v === 'actively_looking'
-                    ? 'Actively looking'
-                    : v === 'hired'
-                    ? 'Hired'
-                    : 'Open to offers';
-                return <span className={`ftl-status-badge ${v}`}>{label}</span>;
-              })()}
-              {typeof rating === 'number' && (
-                <span className="ftl-stars" aria-label={`rating ${rating}/5`}>
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <span
-                      key={i}
-                      className={i < Math.floor(rating) ? 'ftl-star is-on' : 'ftl-star'}
-                    >
-                      ★
-                    </span>
-                  ))}
-                </span>
-              )}
-            </div>
-          </div>
+                        // salary text (как раньше, только в одну строчку)
+                        const salaryText = (() => {
+                          const tAny: any = talent;
+                          const min = tAny.expected_salary;
+                          const max = tAny.expected_salary_max;
+                          const type = tAny.expected_salary_type;
+                          const hasMin =
+                            min != null && min !== '' && Number(min) !== 0;
+                          const hasMax =
+                            max != null && max !== '' && Number(max) !== 0;
+                          if (!hasMin && !hasMax) return '';
+                          const currency = tAny.currency || '';
+                          const minNum = hasMin ? Number(min) : null;
+                          const maxNum = hasMax ? Number(max) : null;
+                          let base = '';
+                          if (hasMin && hasMax) base = `${minNum} - ${maxNum}`;
+                          else if (hasMin) base = String(minNum);
+                          else if (hasMax) base = String(maxNum);
+                          if (currency) base = `${base} ${currency}`;
+                          if (type === 'per month' || type === 'per day') {
+                            base = `${base} ${type}`;
+                          }
+                          return base;
+                        })();
 
-          <div className="ftl-cols">
-            <div className="ftl-col">
-              <p className="ftl-line">
-                <strong>Skills:</strong>{' '}
-                {skillNames.length > 0 ? skillNames.join(', ') : 'Not specified'}
-              </p>
-             
-              <p className="ftl-line">
-                <strong>Country:</strong>{' '}
-                {(talent as any).country || 'Not specified'}
-              </p>
-              {Array.isArray((talent as any).languages) &&
-                (talent as any).languages.length > 0 && (
-                  <p className="ftl-line">
-                    <strong>Languages:</strong>{' '}
-                    {(talent as any).languages.join(', ')}
-                  </p>
-              )}
-           
-            </div>
+                        const languages =
+                          Array.isArray((talent as any).languages) &&
+                          (talent as any).languages.length > 0
+                            ? (talent as any).languages.join(', ')
+                            : '';
 
-                       <div className="ftl-col">
-              <p className="ftl-line">
-                <strong>Profile Views:</strong>{' '}
-                {typeof profileViews === 'number' ? profileViews : 0}
-              </p>
-                 <p className="ftl-line">
-                <strong>Age:</strong>{' '}
-                {(() => {
-                  const age = calcAge((talent as any).date_of_birth || null);
-                  return age != null ? `${age}` : 'Not specified';
-                })()}
-              </p>
-               <p className="ftl-line">
-                <strong>Experience:</strong> {experience || 'Not specified'}
-              </p>
+                        return (
+                          <article
+                            key={talent.id}
+                            className="talv-card-item"
+                            role="article"
+                          >
+                            <div className="talv-card-body">
+                              {/* HEADER */}
+                              <div className="talv-card-header">
+                                <div className="talv-card-header-main">
+                                  <div className="talv-avatar">
+                                    {talent.avatar &&
+                                      (() => {
+                                        const a = talent.avatar || '';
+                                        const avatarSrc = a.startsWith('http')
+                                          ? a
+                                          : `${brandBackendOrigin()}${a}`;
+                                        return (
+                                          <img
+                                            src={avatarSrc}
+                                            alt="Talent Avatar"
+                                            className="talv-avatar-image"
+                                            onError={(e) => {
+                                              const box =
+                                                e.currentTarget
+                                                  .parentElement as
+                                                  | HTMLElement
+                                                  | null;
+                                              box?.classList.remove(
+                                                'talv-avatar--has-image',
+                                              );
+                                              e.currentTarget.style.display =
+                                                'none';
+                                            }}
+                                          />
+                                        );
+                                      })()}
+                                    {!talent.avatar && (
+                                      <FaUserCircle className="talv-avatar-fallback" />
+                                    )}
+                                  </div>
 
-              {Array.isArray((talent as any).preferred_job_types) &&
-                (talent as any).preferred_job_types.length > 0 && (
-                  <p className="ftl-line">
-                    <strong>Preferred job type:</strong>{' '}
-                    {(talent as any).preferred_job_types.join(', ')}
-                  </p>
-              )}
+                                  <div className="talv-header-text">
+                                    <h3 className="talv-name">
+                                      {talent.username}
+                                    </h3>
+                                    {jobTitle && (
+                                      <p className="talv-subtitle">
+                                        {jobTitle}
+                                      </p>
+                                    )}
+                                    {typeof rating === 'number' && (
+                                      <span
+                                        className="talv-stars"
+                                        aria-label={`rating ${rating}/5`}
+                                      >
+                                        {Array.from(
+                                          { length: 5 },
+                                          (_, i) => (
+                                            <span
+                                              key={i}
+                                              className={`talv-star ${
+                                                i < Math.floor(rating)
+                                                  ? 'talv-star--on'
+                                                  : ''
+                                              }`}
+                                            >
+                                              ★
+                                            </span>
+                                          ),
+                                        )}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
 
-              {(() => {
-                const t: any = talent;
-                const min = t.expected_salary;
-                const max = t.expected_salary_max;
-                const type = t.expected_salary_type;
-                const hasMin =
-                  min != null &&
-                  min !== '' &&
-                  Number(min) !== 0;
-                const hasMax =
-                  max != null &&
-                  max !== '' &&
-                  Number(max) !== 0;
+                                <div className="talv-header-badges">
+                                  {statusLabel && (
+                                    <span
+                                      className={`talv-status-pill ${statusClass}`}
+                                    >
+                                      {statusLabel}
+                                    </span>
+                                  )}
+                                  {preferredJobTypes.map((jt) => (
+                                    <span
+                                      key={jt}
+                                      className="talv-jobtype-pill"
+                                    >
+                                      {jt}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
 
-                if (!hasMin && !hasMax) return null;
+                              {/* SKILLS */}
+                              <div className="talv-skill-row">
+                                {skillNames.length > 0 ? (
+                                  skillNames.slice(0, 8).map((s) => (
+                                    <span
+                                      key={s}
+                                      className="talv-skill-pill"
+                                    >
+                                      {s}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="talv-skill-pill">
+                                    Not specified
+                                  </span>
+                                )}
+                              </div>
 
-                const currency = (talent as any).currency || '';
-                const minNum = hasMin ? Number(min) : null;
-                const maxNum = hasMax ? Number(max) : null;
+                              {/* META ROW */}
+                              <div className="talv-meta-row">
+                                {(talent as any).country && (
+                                  <div className="talv-meta-item">
+                                    <span className="talv-meta-icon">📍</span>
+                                    <span>
+                                      {(talent as any).country}
+                                    </span>
+                                  </div>
+                                )}
 
-                let text = '';
-                if (hasMin && hasMax) {
-                  text = `${minNum} - ${maxNum}`;
-                } else if (hasMin) {
-                  text = `${minNum}`;
-                } else if (hasMax) {
-                  text = `${maxNum}`;
-                }
+                                {salaryText && (
+                                  <div className="talv-meta-item">
+                                    <span className="talv-meta-bold">
+                                      {salaryText}
+                                    </span>
+                                  </div>
+                                )}
 
-                if (currency) {
-                  text = `${text} ${currency}`;
-                }
+                                <div className="talv-meta-item">
+                                  <span className="talv-meta-icon">👁</span>
+                                  <span>
+                                    {typeof profileViews === 'number'
+                                      ? profileViews
+                                      : 0}{' '}
+                                    views
+                                  </span>
+                                </div>
 
-                if (type === 'per month' || type === 'per day') {
-                  text = `${text} ${type}`;
-                }
+                                {experience && (
+                                  <div className="talv-meta-item">
+                                    <span className="talv-meta-icon">🧳</span>
+                                    <span>{experience}</span>
+                                  </div>
+                                )}
+                              </div>
 
-                return (
-                  <p className="ftl-line">
-                    <strong>Expected salary:</strong>{' '}
-                    {text}
-                  </p>
-                );
-              })()}
-            </div>
+                              {/* LANGUAGES / возраст при желании */}
+                              {languages && (
+                                <div className="talv-lang-row">
+                                  <strong>Languages:</strong>{' '}
+                                  <span>{languages}</span>
+                                </div>
+                              )}
 
-          </div>
+                              {/* можно оставить возраст отдельной строкой, если нужно */}
+                              {(() => {
+                                const age = calcAge(
+                                  (talent as any).date_of_birth || null,
+                                );
+                                if (age == null) return null;
+                                return (
+                                  <div className="talv-lang-row">
+                                    <strong>Age:</strong>{' '}
+                                    <span>{age}</span>
+                                  </div>
+                                );
+                              })()}
 
-          <div className="ftl-foot">
-            <div className="ftl-spacer" />
-            {currentUser?.role === 'employer' &&
-              currentUser.id !== talent.id && (
-                <button
-                  type="button"
-                  className="ftl-btn ftl-primary"
-                  onClick={() => openInvite(talent)}
-                  title="Invite to job"
-                >
-                  Invite to interview
-                </button>
-            )}
-            <Link to={`/public-profile/${talent.id}`}>
-              <button className="ftl-btn ftl-outline">View Profile</button>
-            </Link>
-          </div>
-        </div>
-      </article>
-    );
-  })
-) : (
-  <p className="ftl-empty">No talents found. Try adjusting filters.</p>
-)}
-
+                              {/* FOOTER BUTTONS */}
+                              <div className="talv-card-footer">
+                                <div className="talv-card-footer-spacer" />
+                                {currentUser?.role === 'employer' &&
+                                  currentUser.id !== talent.id && (
+                                    <button
+                                      type="button"
+                                      className="talv-button talv-button-primary"
+                                      onClick={() => openInvite(talent)}
+                                      title="Invite to job"
+                                    >
+                                      Invite to interview
+                                    </button>
+                                  )}
+                                <Link to={`/public-profile/${talent.slug_id ?? talent.id}`}>
+                                  <button className="talv-button talv-button-outline">
+                                    View Profile
+                                  </button>
+                                </Link>
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <p className="talv-empty">
+                        No talents found. Try adjusting filters.
+                      </p>
+                    )}
                   </div>
 
-
-{total > 0 && (
-  <Pagination
-    currentPage={filters.page}
-    totalPages={totalPages}
-    totalItems={total}
-    onPageChange={handlePageChange}
-    isMobile={isMobile}
-  />
-)}
-          </>
-        )}
-      </section>
-    </div>
-  </div>
-</div>
-
-
-      
-{inviteOpen && (
-  <div className="invmd-backdrop" onClick={closeInvite}>
-    <div className="invmd-card mjp-modal-content" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="invmd-title">
-      <div className="invmd-head">
-        <h3 id="invmd-title" className="invmd-title">Select Job to invite</h3>
-        <button className="invmd-x" onClick={closeInvite} aria-label="Close">×</button>
-      </div>
-
-      <div className="invmd-body">
-        <div className="invmd-row">
-          <label className="invmd-label">Candidate</label>
-          <div className="invmd-value">{inviteTarget?.username}</div>
-        </div>
-
-        <div className="invmd-row">
-          <label className="invmd-label" htmlFor="invmd-job">Job Post</label>
-          {loadingJobs ? (
-            <div className="invmd-note">Loading your active jobs…</div>
-          ) : myActiveJobs.length ? (
-            <select
-              id="invmd-job"
-              className="invmd-input"
-              value={selectedJobId}
-              onChange={(e) => setSelectedJobId(e.target.value)}
-            >
-              <option value="" disabled>Select a job post</option>
-              {myActiveJobs.map((j) => (
-                <option key={j.id} value={String(j.id)}>
-                  {j.title}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="invmd-note">You have no active jobs available.</div>
-          )}
-        </div>
-
-        <div className="invmd-row">
-          <label className="invmd-label" htmlFor="invmd-msg">Message to candidate <span className="invmd-opt">(optional)</span></label>
-          <textarea
-            id="invmd-msg"
-            className="invmd-textarea"
-            rows={4}
-            value={inviteMessage}
-            onChange={(e) => setInviteMessage(e.target.value)}
-            placeholder="We think you’re a great fit for this role…"
-          />
+                  {total > 0 && (
+                    <Pagination
+                      currentPage={filters.page}
+                      totalPages={totalPages}
+                      totalItems={total}
+                      onPageChange={handlePageChange}
+                      isMobile={isMobile}
+                    />
+                  )}
+                </>
+              )}
+            </section>
+          </div>
         </div>
       </div>
 
-      <div className="invmd-foot">
-        <button className="invmd-btn invmd-secondary" type="button" onClick={closeInvite}>Cancel</button>
-        <button
-          className="invmd-btn invmd-primary"
-          type="button"
-          onClick={submitInvite}
-          disabled={!selectedJobId || sendingInvite}
-        >
-          {sendingInvite ? 'Sending…' : 'Send Invitation'}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      {/* INVITE MODAL */}
+      {inviteOpen && (
+        <div className="talv-modal-backdrop" onClick={closeInvite}>
+          <div
+            className="talv-modal-card talv-modal-content"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="talv-modal-title"
+          >
+            <div className="talv-modal-header">
+              <h3 id="talv-modal-title" className="talv-modal-title">
+                Select Job to invite
+              </h3>
+              <button
+                className="talv-modal-close"
+                onClick={closeInvite}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="talv-modal-body">
+              <div className="talv-modal-row">
+                <label className="talv-modal-label">Candidate</label>
+                <div className="talv-modal-value">
+                  {inviteTarget?.username}
+                </div>
+              </div>
+
+              <div className="talv-modal-row">
+                <label
+                  className="talv-modal-label"
+                  htmlFor="talv-modal-job"
+                >
+                  Job Post
+                </label>
+                {loadingJobs ? (
+                  <div className="talv-modal-note">
+                    Loading your active jobs…
+                  </div>
+                ) : myActiveJobs.length ? (
+                  <select
+                    id="talv-modal-job"
+                    className="talv-modal-input"
+                    value={selectedJobId}
+                    onChange={(e) => setSelectedJobId(e.target.value)}
+                  >
+                    <option value="" disabled>
+                      Select a job post
+                    </option>
+                    {myActiveJobs.map((j) => (
+                      <option key={j.id} value={String(j.id)}>
+                        {j.title}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="talv-modal-note">
+                    You have no active jobs available.
+                  </div>
+                )}
+              </div>
+
+              <div className="talv-modal-row">
+                <label
+                  className="talv-modal-label"
+                  htmlFor="talv-modal-msg"
+                >
+                  Message to candidate{' '}
+                  <span className="talv-modal-optional">
+                    (optional)
+                  </span>
+                </label>
+                <textarea
+                  id="talv-modal-msg"
+                  className="talv-modal-textarea"
+                  rows={4}
+                  value={inviteMessage}
+                  onChange={(e) => setInviteMessage(e.target.value)}
+                  placeholder="We think you’re a great fit for this role…"
+                />
+              </div>
+            </div>
+
+            <div className="talv-modal-footer">
+              <button
+                className="talv-modal-button talv-modal-button-secondary"
+                type="button"
+                onClick={closeInvite}
+              >
+                Cancel
+              </button>
+              <button
+                className="talv-modal-button talv-modal-button-primary"
+                type="button"
+                onClick={submitInvite}
+                disabled={!selectedJobId || sendingInvite}
+              >
+                {sendingInvite ? 'Sending…' : 'Send Invitation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
-      <Copyright />
+   
     </div>
   );
 };

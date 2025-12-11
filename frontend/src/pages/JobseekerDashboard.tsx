@@ -211,7 +211,7 @@ const handleLogout = async () => {
 
       <div className="jsd-bottom">
         <Footer />
-        <Copyright />
+       
       </div>
     </div>
   );

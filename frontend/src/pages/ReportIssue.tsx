@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import Header from '../components/Header';
 import Footer from '../components/Footer';
-import Copyright from '../components/Copyright';
 import { submitIssueFeedback } from '../services/api';
 import '../styles/contact-support.css';
 
-const ReportIssue: React.FC = () => {
+type ReportIssueProps = {
+  embedded?: boolean;
+};
+
+const ReportIssue: React.FC<ReportIssueProps> = ({ embedded }) => {
   const [category, setCategory] = useState<'' | 'Bug' | 'UI' | 'Performance' | 'Data' | 'Other'>('');
   const [summary, setSummary] = useState('');
   const [steps, setSteps] = useState('');
@@ -26,9 +28,13 @@ const ReportIssue: React.FC = () => {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setOk(null); setErr(null);
+    setOk(null);
+    setErr(null);
     const v = validate();
-    if (v) { setErr(v); return; }
+    if (v) {
+      setErr(v);
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -55,11 +61,12 @@ const ReportIssue: React.FC = () => {
 
   return (
     <div>
-      <Header />
       <div className="cs-shell">
         <div className="cs-card">
           <h1 className="cs-title">Report a Technical Issue</h1>
-          <p className="cs-subtitle">Tell us what went wrong — we’ll route it to the team.</p>
+          <p className="cs-subtitle">
+            Tell us what went wrong — we’ll route it to the team.
+          </p>
 
           {ok && <div className="cs-alert cs-ok">{ok}</div>}
           {err && <div className="cs-alert cs-err">{err}</div>}
@@ -68,22 +75,22 @@ const ReportIssue: React.FC = () => {
             <div className="cs-row">
               <label className="cs-label">Category</label>
               <div className="cs-select" style={{ ['--cs-arrow-gap' as any]: '22px' }}>
-    <select
-      id="cs-category"
-      className="cs-input cs-select__el"
-      value={category}
-      onChange={(e) => setCategory(e.target.value as any)}
-      required
-    >
-      <option value="">Choose…</option>
-      <option value="Bug">Bug</option>
-      <option value="UI">UI</option>
-      <option value="Performance">Performance</option>
-      <option value="Data">Data</option>
-      <option value="Other">Other</option>
-    </select>
-  </div>
-</div>
+                <select
+                  id="cs-category"
+                  className="cs-input cs-select__el"
+                  value={category}
+                  onChange={e => setCategory(e.target.value as any)}
+                  required
+                >
+                  <option value="">Choose…</option>
+                  <option value="Bug">Bug</option>
+                  <option value="UI">UI</option>
+                  <option value="Performance">Performance</option>
+                  <option value="Data">Data</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
 
             <div className="cs-row">
               <label className="cs-label">Summary</label>
@@ -91,7 +98,7 @@ const ReportIssue: React.FC = () => {
                 className="cs-input"
                 placeholder="Short description (1–2 sentences)"
                 value={summary}
-                onChange={(e) => setSummary(e.target.value)}
+                onChange={e => setSummary(e.target.value)}
                 required
                 maxLength={200}
               />
@@ -105,7 +112,7 @@ const ReportIssue: React.FC = () => {
                 rows={4}
                 placeholder={`1) …\n2) …\n3) …`}
                 value={steps}
-                onChange={(e) => setSteps(e.target.value)}
+                onChange={e => setSteps(e.target.value)}
               />
             </div>
 
@@ -115,7 +122,7 @@ const ReportIssue: React.FC = () => {
                 className="cs-textarea"
                 rows={3}
                 value={expected}
-                onChange={(e) => setExpected(e.target.value)}
+                onChange={e => setExpected(e.target.value)}
               />
             </div>
 
@@ -125,18 +132,20 @@ const ReportIssue: React.FC = () => {
                 className="cs-textarea"
                 rows={3}
                 value={actual}
-                onChange={(e) => setActual(e.target.value)}
+                onChange={e => setActual(e.target.value)}
               />
             </div>
 
             <div className="cs-actions">
-              <button className="cs-button" disabled={submitting}>Submit</button>
+              <button className="cs-button" disabled={submitting}>
+                Submit
+              </button>
             </div>
           </form>
         </div>
       </div>
-      <Footer />
-      <Copyright />
+
+      {!embedded && <Footer />}
     </div>
   );
 };

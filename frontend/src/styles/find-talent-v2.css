@@ -1,0 +1,812 @@
+/* ====== Базовые вещи ====== */
+
+* {
+  box-sizing: border-box;
+}
+
+.talv-root {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+/* ====== Лоадер поверх страницы ====== */
+
+.talv-loading {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease-out;
+  z-index: 50;
+}
+
+.talv-loading.talv-loading--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ====== Внешний контейнер ====== */
+
+.talv-shell {
+  background: #f5f5fb;
+  padding: 32px 16px 48px;
+  display: flex;
+  justify-content: center;
+}
+
+.talv-card {
+  width: 100%;
+  max-width: 850px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.09);
+  padding: 24px 24px 28px;
+}
+
+/* ====== Header + поиск ====== */
+
+.talv-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.talv-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.talv-search {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.talv-search-count {
+  white-space: nowrap;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.talv-input {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 14px;
+  padding: 8px 11px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.talv-input:focus {
+  border-color: #a855f7;
+  box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.4);
+  background: #ffffff;
+}
+
+.talv-input--search {
+  flex: 1 1 auto;
+  border-radius: 12px;
+  background: #f3f4ff;
+}
+
+.talv-input--tag {
+  border-radius: 12px;
+  min-width: 140px;
+}
+
+/* ====== Кнопки ====== */
+
+.talv-button {
+  border-radius: 12px;
+  border: 1px solid transparent;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease, transform 0.05s ease;
+  white-space: nowrap;
+}
+
+.talv-button-primary {
+  background: #a855f7;
+  color: #ffffff;
+  border-color: #a855f7;
+  box-shadow: 0 10px 18px rgba(168, 85, 247, 0.35);
+}
+
+.talv-button-primary:hover {
+  background: #9333ea;
+  border-color: #9333ea;
+  transform: translateY(-0.5px);
+}
+
+.talv-button-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+
+.talv-button-outline {
+  background: #ffffff;
+  color: #a855f7;
+  border-color: #e5d5ff;
+}
+
+.talv-button-outline:hover {
+  border-color: #a855f7;
+  background: #faf5ff;
+}
+
+.talv-button-link {
+  background: transparent;
+  border-color: transparent;
+  color: #6b7280;
+  padding-inline: 0;
+  box-shadow: none;
+}
+
+.talv-button-link:hover {
+  color: #4b5563;
+  background: transparent;
+}
+
+/* ====== Мобильная кнопка фильтров ====== */
+
+.talv-filters-toggle {
+  display: none;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #4b5563;
+  align-items: center;
+  gap: 6px;
+}
+
+.talv-filters-toggle svg {
+  font-size: 14px;
+}
+
+.talv-filters-toggle-label {
+  display: none;
+}
+
+.talv-filters-toggle--active {
+  border-color: #a855f7;
+  color: #a855f7;
+}
+
+/* ====== Alerts ====== */
+
+.talv-alert {
+  margin-top: 6px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.talv-alert-error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* ====== Макет: фильтры + результаты ====== */
+
+.talv-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  margin-top: 10px;
+}
+
+/* ---- Панель фильтров ---- */
+
+.talv-filters {
+  width: 250px;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 14px 14px 16px;
+}
+
+.talv-filters-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.talv-filters-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4b5563;
+  margin: 0;
+}
+
+.talv-filters-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.talv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.talv-field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.talv-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.talv-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.talv-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.talv-filters-submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* Теги (языки / категория) */
+
+.talv-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.talv-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ede9fe;
+  color: #4c1d95;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.talv-tag-remove {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  color: #4c1d95;
+}
+
+/* Autocomplete категорий */
+
+.talv-skill-autocomplete {
+  position: relative;
+}
+
+.talv-skill-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.16);
+  padding: 6px 0;
+  margin-top: 4px;
+  z-index: 20;
+}
+
+.talv-skill-item {
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #374151;
+}
+
+.talv-skill-item:hover {
+  background: #f3f4ff;
+}
+
+.talv-skill-item--nested {
+  padding-left: 22px;
+  font-size: 12px;
+}
+
+/* ---- Результаты ---- */
+
+.talv-results {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.talv-results-loader {
+  display: flex;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.talv-error {
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.talv-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.talv-empty {
+  font-size: 14px;
+  color: #6b7280;
+  padding: 24px 0;
+}
+
+/* ====== Карточка таланта ====== */
+
+.talv-card-item {
+  border-radius: 12px;
+  border: 1px solid #f3f4f6;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+  padding: 18px 20px 16px;
+}
+
+.talv-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* --- Шапка карточки (аватар + имя + бейджи справа) --- */
+
+.talv-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.talv-card-header-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* avatar */
+
+.talv-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  border: 2px solid #f3e8ff;
+  background: #f5f3ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+  color: #a855f7;
+}
+
+.talv-avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.talv-avatar-fallback {
+  position: absolute;
+  font-size: 46px;
+  color: #c4b5fd;
+}
+
+.talv-header-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.talv-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 2px;
+}
+
+.talv-subtitle {
+  font-size: 13px;
+  color: #a855f7;
+  margin: 0;
+}
+
+/* бейджи справа */
+
+.talv-header-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: 12px;
+}
+
+.talv-status-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.talv-status-pill--looking {
+  background: #facc15;
+  color: #854d0e;
+}
+
+.talv-status-pill--hired {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.talv-jobtype-pill {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+/* рейтинг */
+
+.talv-stars {
+  font-size: 13px;
+  color: #e5e7eb;
+  margin-top: 4px;
+}
+
+.talv-star {
+  margin-right: 1px;
+}
+
+.talv-star--on {
+  color: #fbbf24;
+}
+
+/* пиллы навыков */
+
+.talv-skill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.talv-skill-pill {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+/* мета-строка */
+
+.talv-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.talv-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.talv-meta-icon {
+  font-size: 14px;
+}
+
+.talv-meta-bold {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* языки */
+
+.talv-lang-row {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.talv-lang-row span {
+  color: #4b5563;
+  font-weight: 500;
+}
+
+/* футер карточки */
+
+.talv-card-footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.talv-card-footer-spacer {
+  flex: 1 1 auto;
+}
+
+/* ====== Modal (Invite) ====== */
+
+.talv-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.talv-modal-card {
+  width: 100%;
+  max-width: 460px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
+}
+
+.talv-modal-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.talv-modal-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.talv-modal-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.talv-modal-close {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #6b7280;
+}
+
+.talv-modal-body {
+  padding: 14px 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.talv-modal-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.talv-modal-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.talv-modal-value {
+  font-size: 14px;
+  color: #111827;
+}
+
+.talv-modal-note {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.talv-modal-input,
+.talv-modal-textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 8px 10px;
+  font-size: 14px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.talv-modal-input:focus,
+.talv-modal-textarea:focus {
+  outline: none;
+  border-color: #a855f7;
+  box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.3);
+}
+
+.talv-modal-optional {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.talv-modal-footer {
+  padding: 10px 18px 14px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.talv-modal-button {
+  border-radius: 12px;
+  border: 1px solid transparent;
+  padding: 7px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.talv-modal-button-primary {
+  background: #a855f7;
+  color: #ffffff;
+  border-color: #a855f7;
+}
+
+.talv-modal-button-primary:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.talv-modal-button-secondary {
+  background: #f9fafb;
+  color: #374151;
+  border-color: #e5e7eb;
+}
+
+/* ====== Адаптив ====== */
+
+@media (max-width: 960px) {
+  .talv-card {
+    padding-inline: 18px;
+  }
+}
+
+@media (max-width: 768px) {
+  .talv-header {
+    align-items: flex-start;
+  }
+
+  .talv-layout {
+    flex-direction: column;
+  }
+
+  .talv-filters {
+    width: 100%;
+    display: none;
+  }
+
+  .talv-filters.talv-filters--open {
+    display: block;
+  }
+
+  .talv-filters-toggle {
+    display: inline-flex;
+  }
+
+  .talv-filters-toggle-label {
+    display: inline;
+  }
+
+  .talv-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .talv-header-badges {
+    justify-content: flex-start;
+    margin-left: 76px; /* под аватаркой, как на макете */
+  }
+}
+
+@media (max-width: 600px) {
+  .talv-card-footer {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .talv-card-footer-spacer {
+    flex-basis: 100%;
+    height: 0;
+  }
+
+  .talv-search-count {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .talv-shell {
+    padding-inline: 10px;
+  }
+
+  .talv-card {
+    padding-inline: 14px;
+  }
+
+  .talv-title {
+    font-size: 20px;
+  }
+
+  .talv-search {
+    gap: 8px;
+  }
+
+  .talv-button {
+    padding-inline: 12px;
+  }
+}

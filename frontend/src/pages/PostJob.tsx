@@ -3,8 +3,7 @@ import { useState, useEffect, FormEvent, useRef } from 'react';
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
-import Footer from '../components/Footer';
-import Copyright from '../components/Copyright';
+
 import { createJobPost, getCategories, searchCategories, generateDescription, getMyJobPosts, getJobPost   } from '../services/api';
 import { Category, JobPost, SalaryType } from '@types';
 import { useRole } from '../context/RoleContext';
@@ -441,7 +440,7 @@ navigate('/employer-dashboard');
             <Loader />
           </div>
         </div>
-        {!embedded && (<><Footer /><Copyright /></>)}
+       
       </div>
     );
   }
@@ -456,7 +455,7 @@ navigate('/employer-dashboard');
             <p className="pjx-subtitle">This page is only available for Employers.</p>
           </div>
         </div>
-        {!embedded && (<><Footer /><Copyright /></>)}
+       
       </div>
     );
   }
@@ -853,7 +852,7 @@ navigate('/employer-dashboard');
         </form>
       </div>
 
-      {!embedded && (<><Footer /><Copyright /></>)}
+      
     </div>
   );
 };

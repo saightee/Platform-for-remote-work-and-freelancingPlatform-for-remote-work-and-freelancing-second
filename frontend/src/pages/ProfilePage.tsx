@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
-import Copyright from '../components/Copyright';
+
+
+
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import {
@@ -981,7 +981,7 @@ const removePortfolioLinkAt = (idx: number) => {
 
   return (
     <div>
-      <Header />
+     
 
       <div className="pf-shell">
         <div className="pf-card">
@@ -2825,8 +2825,8 @@ const removePortfolioLinkAt = (idx: number) => {
 
    
 
-      <Footer />
-      <Copyright />
+
+     
     </div>
   );
 };

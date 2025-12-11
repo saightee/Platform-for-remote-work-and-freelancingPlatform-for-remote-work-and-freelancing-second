@@ -271,7 +271,7 @@ const FeaturedFreelancers = () => {
                 </div>
 
                 <Link
-                  to={`/public-profile/${talent.id}`}
+                  to={`/public-profile/${talent.slug_id ?? talent.id}`}
                   className="oj-btn oj-btn--primary oj-freelancer-btn"
                 >
                   View Profile
