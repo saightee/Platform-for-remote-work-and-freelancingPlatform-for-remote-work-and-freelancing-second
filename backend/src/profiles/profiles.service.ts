@@ -217,7 +217,16 @@ export class ProfilesService {
       const baseSlug = this.slugify(newUsername);
       const shortId = (user.id || '').replace(/-/g, '').slice(0, 8);
       const slug = baseSlug || 'user';
-      const slugId = shortId ? `${slug}--${shortId}` : slug;
+
+      let slugId = slug;
+
+      const existingWithSameSlug = await this.usersRepository.findOne({
+        where: { slug_id: slug },
+      });
+
+      if (existingWithSameSlug && existingWithSameSlug.id !== user.id) {
+        slugId = shortId ? `${slug}-${shortId}` : slug;
+      }
 
       (user as any).slug = slug;
       (user as any).slug_id = slugId;

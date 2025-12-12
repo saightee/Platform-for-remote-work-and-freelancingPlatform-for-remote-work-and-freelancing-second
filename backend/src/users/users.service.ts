@@ -59,7 +59,16 @@ export class UsersService {
     const shortId = (savedUser.id || '').replace(/-/g, '').slice(0, 8);
 
     const slug = baseSlug || 'user';
-    const slugId = shortId ? `${slug}--${shortId}` : slug;
+
+    let slugId = slug;
+
+    const existingWithSameSlug = await this.usersRepository.findOne({
+      where: { slug_id: slug },
+    });
+
+    if (existingWithSameSlug) {
+      slugId = shortId ? `${slug}-${shortId}` : slug;
+    }
 
     savedUser.slug = slug;
     savedUser.slug_id = slugId;
