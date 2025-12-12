@@ -15,6 +15,63 @@ import 'react-quill/dist/quill.snow.css';
 
 const urlOk = (v: string) => /^https?:\/\/\S+$/i.test(v.trim());
 
+const compactPortfolioUrl = (raw: string): string => {
+  try {
+    const url = new URL(raw);
+    const base = url.origin; // https://example.com
+    const path = url.pathname || '/';
+
+    // Убираем ведущий и завершающий слеши для обработки
+    const cleanPath = path.replace(/^\/|\/$/g, '');
+    
+    if (!cleanPath) {
+      return base + '/';
+    }
+
+    // Всегда формат: origin + / + 2 символа + … + 2 последних символа
+    const firstTwo = cleanPath.slice(0, 2);
+    const lastTwo = cleanPath.slice(-2);
+    
+    // Если путь короче 5 символов, показываем полностью без троеточия
+    if (cleanPath.length <= 5) {
+      return `${base}/${cleanPath}`;
+    }
+    
+    return `${base}/${firstTwo}…${lastTwo}`;
+    
+  } catch {
+    // Если не парсится как URL, обрабатываем как строку
+    const trimmed = raw.trim();
+    
+    // Пытаемся найти слеш для аналогичного форматирования
+    const slashIndex = trimmed.indexOf('/');
+    
+    if (slashIndex === -1) {
+      // Нет слеша - возвращаем как есть (или обрезаем если очень длинный)
+      return trimmed.length > 30 ? trimmed.slice(0, 27) + "…" : trimmed;
+    }
+    
+    const beforeSlash = trimmed.slice(0, slashIndex);
+    const afterSlash = trimmed.slice(slashIndex + 1);
+    
+    if (!afterSlash) {
+      return `${beforeSlash}/`;
+    }
+    
+    const firstTwo = afterSlash.slice(0, 2);
+    const lastTwo = afterSlash.slice(-2);
+    
+    if (afterSlash.length <= 5) {
+      return `${beforeSlash}/${afterSlash}`;
+    }
+    
+    return `${beforeSlash}/${firstTwo}…${lastTwo}`;
+  }
+};
+
+
+
+
 // 3–20 символов
 // Jobseeker: только буквы + пробел
 const FULL_NAME_RGX = /^[a-zA-Z ]{3,20}$/;
@@ -1175,23 +1232,34 @@ if (role === 'jobseeker' && refCode && afterReturn) {
         </button>
       </div>
 
-      {portfolioLinks.length > 0 && (
-        <div className="reg2-tags reg2-tags--stacked">
-          {portfolioLinks.map((url, idx) => (
-            <span key={idx} className="reg2-tag">
-              <span className="reg2-tag__text">{url}</span>
-              <button
-                type="button"
-                className="reg2-tag__x"
-                onClick={() => removePortfolioLink(idx)}
-                aria-label="Remove portfolio link"
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
+{portfolioLinks.length > 0 && (
+  <div className="reg2-tags reg2-tags--stacked">
+    {portfolioLinks.map((url, idx) => {
+      // Проверка на валидность URL для надёжности
+      if (!url) return null;
+      
+      return (
+        <span key={`${url}-${idx}`} className="reg2-tag">
+          <span
+            className="reg2-tag__text"
+            title={url}
+          >
+            {compactPortfolioUrl(url) || url}
+          </span>
+          <button
+            type="button"
+            className="reg2-tag__x"
+            onClick={() => removePortfolioLink(idx)}
+            aria-label={`Remove ${url}`}
+            tabIndex={0}
+          >
+            ×
+          </button>
+        </span>
+      );
+    })}
+  </div>
+)}
     </div>
   )}
 

@@ -30,10 +30,9 @@ export interface EmployerProfile {
   role: 'employer';
   email: string;
   username: string;
-
-  // NEW
+  slug?: string | null;
+  slug_id?: string | null;
   country?: string;
-
   company_name?: string;
   company_info?: string;
   referral_link?: string;
@@ -51,6 +50,8 @@ export interface JobSeekerProfile {
   role: 'jobseeker';
   email?: string;
   username: string;
+  slug?: string | null;
+  slug_id?: string | null;
 
   // NEW
   country?: string;         // ISO-3166 alpha-2
@@ -93,7 +94,8 @@ export interface AdminProfile {
   role: 'admin';
   email: string;
   username: string;
-
+  slug?: string | null;
+  slug_id?: string | null;
   // NEW — чтобы union Profile видел поле
   country?: string;
 
@@ -109,7 +111,8 @@ export interface ModeratorProfile {
   role: 'moderator';
   email: string;
   username: string;
-
+  slug?: string | null;
+  slug_id?: string | null;
   // NEW
   country?: string;
 
@@ -125,12 +128,13 @@ export interface AffiliateUserProfile {
   role: 'affiliate';
   email: string;
   username: string;
-timezone?: string;
+  timezone?: string;
   currency?: string;
   country?: string | null;
   avatar?: string | null;
   status?: 'active' | 'blocked';
-
+  slug?: string | null;
+  slug_id?: string | null;
   created_at: string;
   updated_at: string;
 }

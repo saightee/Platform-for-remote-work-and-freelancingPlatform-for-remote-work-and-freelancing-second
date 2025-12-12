@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
+
+
 import { getMyApplications, createReview, listInvitations, acceptInvitation,
   declineInvitation } from '../services/api';
 import { JobApplication } from '@types';
 import { useRole } from '../context/RoleContext';
-import Copyright from '../components/Copyright';
+
 import { formatDateInTimezone } from '../utils/dateUtils';
 import Loader from '../components/Loader';
 import { Link } from 'react-router-dom';
@@ -255,7 +255,7 @@ const filteredApps = useMemo(() => {
   if (isLoading) {
     return (
       <div>
-        <Header />
+      
         <div className="ma-shell">
           <div className="ma-card">
             <h1 className="ma-title"><FaBriefcase /> My Applications</h1>
@@ -269,7 +269,7 @@ const filteredApps = useMemo(() => {
   if (!roleLoading && currentRole !== 'jobseeker') {
     return (
       <div>
-        <Header />
+     
         <div className="ma-shell">
           <div className="ma-card">
             <h1 className="ma-title"><FaBriefcase /> My Applications</h1>
@@ -282,7 +282,7 @@ const filteredApps = useMemo(() => {
 
   return (
     <div>
-      <Header />
+    
       <div className="ma-shell">
         <div className="ma-card">
           <h1 className="ma-title"><FaBriefcase /> My Applications</h1>
@@ -687,8 +687,7 @@ const filteredApps = useMemo(() => {
         </div>
       )}
 
-      <Footer />
-      <Copyright />
+    
     </div>
   );
 };

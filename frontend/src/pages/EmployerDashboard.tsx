@@ -177,7 +177,7 @@ useEffect(() => {               // +++
 
       <div className="edb-bottom">
         <Footer />
-        <Copyright />
+       
       </div>
     </div>
   );
