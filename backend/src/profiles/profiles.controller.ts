@@ -301,7 +301,8 @@ export class ProfilesController {
   }
 
   @Post(':id/increment-view')
-  async incrementProfileView(@Param('id') userId: string) {
+  async incrementProfileView(@Param('id') idOrSlug: string) {
+    const userId = await this.profilesService.resolveUserId(idOrSlug);
     return this.profilesService.incrementProfileView(userId);
   }
 
