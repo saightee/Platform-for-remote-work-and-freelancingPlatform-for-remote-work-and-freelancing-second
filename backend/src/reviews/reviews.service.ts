@@ -22,6 +22,25 @@ export class ReviewsService {
     private employerRepository: Repository<Employer>,
   ) {}
 
+  private readonly uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  private async findUserByIdOrSlug(idOrSlug: string): Promise<User> {
+    let user: User | null = null;
+
+    if (this.uuidRegex.test(idOrSlug)) {
+      user = await this.usersRepository.findOne({ where: { id: idOrSlug } });
+    } else {
+      user = await this.usersRepository.findOne({ where: { slug_id: idOrSlug } });
+    }
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
+
   async createReview(userId: string, jobApplicationId: string, rating: number, comment?: string) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -75,9 +94,9 @@ export class ReviewsService {
     return saved;
   }
 
-  async getReviewsForUser(userId: string) {
-    const user = await this.usersRepository.findOne({ where: { id: userId } });
-    if (!user) throw new NotFoundException('User not found');
+  async getReviewsForUser(idOrSlug: string) {
+    const user = await this.findUserByIdOrSlug(idOrSlug);
+    const userId = user.id;
 
     return this.reviewsRepository.find({
       where: { reviewed_id: userId, status: 'Approved' },
