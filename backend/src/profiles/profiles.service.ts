@@ -40,7 +40,32 @@ export class ProfilesService {
     }
   }
 
-  
+  private readonly uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  async resolveUserId(idOrSlug: string): Promise<string> {
+    if (this.uuidRegex.test(idOrSlug)) {
+      return idOrSlug;
+    }
+
+    const user = await this.usersRepository.findOne({
+      where: { slug_id: idOrSlug },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user.id;
+  }
+
+  private slugify(input: string): string {
+    return (input || '')
+      .toLowerCase()
+      .trim()
+      .replace(/&/g, ' and ')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-');
+  }
 
   async getProfile(
     userId: string,
@@ -106,6 +131,8 @@ export class ProfilesService {
         role: user.role,
         email: canSeePrivateContacts ? user.email : undefined,
         username: user.username,
+        slug: (user as any).slug || null,
+        slug_id: (user as any).slug_id || null,
         country: user.country,
         country_name: this.countryNameFromISO(user.country),
         skills: jobSeeker.skills,
@@ -148,6 +175,8 @@ export class ProfilesService {
         role: user.role,
         email: isAuthenticated ? user.email : undefined,
         username: user.username,
+        slug: (user as any).slug || null,
+        slug_id: (user as any).slug_id || null,
         country_name: this.countryNameFromISO(user.country),
         company_name: employer.company_name,
         company_info: employer.company_info,
@@ -185,6 +214,13 @@ export class ProfilesService {
       }
 
       user.username = newUsername;
+      const baseSlug = this.slugify(newUsername);
+      const shortId = (user.id || '').replace(/-/g, '').slice(0, 8);
+      const slug = baseSlug || 'user';
+      const slugId = shortId ? `${slug}--${shortId}` : slug;
+
+      (user as any).slug = slug;
+      (user as any).slug_id = slugId;
       await this.usersRepository.save(user);
     }
 

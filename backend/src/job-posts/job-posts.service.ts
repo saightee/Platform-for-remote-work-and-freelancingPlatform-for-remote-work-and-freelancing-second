@@ -547,51 +547,93 @@ export class JobPostsService {
   }
 
   async generateDescription(
-    data: { aiBrief: string; title?: string; location?: string; salary?: number; salary_max?: number; salary_type?: string; job_type?: string; }
+    data: {
+      aiBrief: string;
+      title?: string;
+      location?: string;
+      salary?: number;
+      salary_max?: number;
+      salary_type?: string;
+      job_type?: string;
+    }
   ): Promise<string> {
-    if (!data.aiBrief) throw new BadRequestException('AI brief is required for description generation');
+    if (!data.aiBrief) {
+      throw new BadRequestException('AI brief is required for description generation');
+    }
 
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    if (!apiKey) throw new InternalServerErrorException('OpenAI API key is not configured');
+    if (!apiKey) {
+      throw new InternalServerErrorException('OpenAI API key is not configured');
+    }
 
-    const salaryText = data.salary_type === 'negotiable' 
-      ? 'Negotiable' 
-      : (data.salary != null && data.salary_max != null) 
+    const salaryText =
+      data.salary_type === 'negotiable'
+        ? 'Negotiable'
+        : data.salary != null && data.salary_max != null
         ? `${data.salary}-${data.salary_max} ${data.salary_type}`
-        : data.salary != null 
-          ? `${data.salary} ${data.salary_type}` 
-          : 'Not specified';
+        : data.salary != null
+        ? `${data.salary} ${data.salary_type}`
+        : 'Not specified';
 
-    const prompt = `Generate professional job description in English ONLY from brief "${data.aiBrief}". NO fictional details. ONLY these facts:
+    const prompt = `
+    You are writing a professional job description in **English only**.
 
-  Job Title: ${data.title || 'Not specified'}
-  Location: ${data.location || 'Not specified'} 
-  Salary: ${salaryText}
-  Type: ${data.job_type || 'Not specified'}
+    Use ONLY these facts (do not invent anything):
+    - Job title: ${data.title || 'Not specified'}
+    - Location / Work mode: ${data.location || 'Not specified'}
+    - Salary: ${salaryText}
+    - Job type: ${data.job_type || 'Not specified'}
+    - Brief: "${data.aiBrief}"
 
-  STRICT FORMAT - NO EMPTY LINES ANYWHERE:
-  1 summary sentence.## Responsibilities- 3-5 duties from brief ONLY## Requirements- 3-5 skills from brief ONLY## Details- Work Mode: ${data.location ||  'Not specified'}- Salary: ${salaryText}- Job Type: ${data.job_type || 'Not specified'}
+    OUTPUT RULES (VERY IMPORTANT):
 
-  250-300 words. Markdown only (## headers, - bullets). Continuous text, no spacing.`;
+    1. Do NOT print the job title on a separate line.
+    2. Do NOT write "Job Title:" anywhere in the output.
+    3. Start with 1–2 summary sentences beginning with "We are seeking" or "We are looking for".
+    4. After the summary, use EXACTLY these sections in this order:
+
+    ## Responsibilities
+    - 3–5 bullet points with main duties (start each with a verb).
+
+    ## Requirements
+    - 3–5 bullet points with key skills and experience.
+
+    ## Details
+    - Work Mode: ${data.location || 'Not specified'}
+    - Salary: ${salaryText}
+    - Job Type: ${data.job_type || 'Not specified'}
+
+    FORMATTING:
+    - Markdown only.
+    - Use exactly the headers: "## Responsibilities", "## Requirements", "## Details".
+    - Use "-" for bullets.
+    - No other headers, no separate title line, no extra sections.
+    - Around 400–600 words total.
+    - No empty lines between paragraphs except the ones required by Markdown for headers and lists.
+    `.trim();
 
     try {
-      const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 500,
-        temperature: 0.1
-      }, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 500,
+          temperature: 0.1,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
 
       const markdownContent = response.data.choices[0].message.content?.trim() || '';
       const htmlContent = await marked.parse(markdownContent);
       const sanitizedHtml = sanitizeHtml(htmlContent, {
         allowedTags: ['h2', 'ul', 'li', 'p', 'strong', 'em'],
-        allowedAttributes: {}
+        allowedAttributes: {},
       });
 
       return sanitizedHtml;
