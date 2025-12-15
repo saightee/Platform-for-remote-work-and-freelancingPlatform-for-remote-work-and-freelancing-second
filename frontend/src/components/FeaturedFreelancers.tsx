@@ -5,26 +5,43 @@ import { searchTalents } from "../services/api";
 import { brandBackendOrigin } from "../brand";
 import { Profile } from "@types";
 
-// calcAge такой же, как в других местах
 const calcAge = (dob?: string | null): number | null => {
   if (!dob) return null;
-  const m = dob.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return null;
 
-  const year = Number(m[1]);
-  const month = Number(m[2]) - 1;
-  const day = Number(m[3]);
+  let year: number;
+  let month: number;
+  let day: number;
+
+  // Поддерживаем и чистый "YYYY-MM-DD", и "YYYY-MM-DDTHH:mm:ss..."
+  const m = dob.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    year = Number(m[1]);
+    month = Number(m[2]) - 1;
+    day = Number(m[3]);
+  } else {
+    // fallback: пусть JS сам парсит дату
+    const d = new Date(dob);
+    if (Number.isNaN(d.getTime())) return null;
+    year = d.getFullYear();
+    month = d.getMonth();
+    day = d.getDate();
+  }
+
   const birth = new Date(year, month, day);
   if (Number.isNaN(birth.getTime())) return null;
 
   const today = new Date();
   let age = today.getFullYear() - birth.getFullYear();
   const mdiff = today.getMonth() - birth.getMonth();
-  if (mdiff < 0 || (mdiff === 0 && today.getDate() < birth.getDate())) age--;
+
+  if (mdiff < 0 || (mdiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
 
   if (age < 0 || age > 150) return null;
   return age;
 };
+
 
 // вытаскиваем названия скиллов из разных возможных полей
 function extractSkillNames(t: any): string[] {

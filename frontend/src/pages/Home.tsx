@@ -91,7 +91,7 @@ const Home: React.FC = () => {
 
       <main>
         <Hero />
-        <HowItWorks />
+        {!authed && <HowItWorks />}
         <FeaturedJobs />
         <FeaturedFreelancers />
         <Benefits />

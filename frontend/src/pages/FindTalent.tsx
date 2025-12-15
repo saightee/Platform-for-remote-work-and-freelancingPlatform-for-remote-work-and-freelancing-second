@@ -2,7 +2,8 @@ import { useState, useEffect, Fragment, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-
+import { UserCircle2, MapPin, Eye, Briefcase, Languages, Star } from 'lucide-react';
+import { Search as SearchIcon } from 'lucide-react';
 import {
   searchTalents,
   searchJobseekers,
@@ -612,15 +613,18 @@ const FindTalent: React.FC = () => {
 
             <form className="talv-search" onSubmit={handleSearch}>
               <div className="talv-search-count">
-                {isLoading ? 'Loading…' : `${total} talented professionals found`}
+                {isLoading ? 'Loading…' : `${total} talents found`}
               </div>
-              <input
-                className="talv-input talv-input--search"
-                type="text"
-                placeholder="Search by skills, keywords, or location..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-              />
+        <div className="talv-searchbar-wrap">
+  <SearchIcon className="talv-searchbar-icon" aria-hidden="true" />
+  <input
+    className="talv-input talv-input--search talv-searchbar"
+    type="text"
+    placeholder="Search by skills, keywords, or location..."
+    value={searchInput}
+    onChange={(e) => setSearchInput(e.target.value)}
+  />
+</div>
               <button className="talv-button talv-button-primary" type="submit">
                 Search
               </button>
@@ -648,13 +652,7 @@ const FindTalent: React.FC = () => {
             >
               <div className="talv-filters-header">
                 <h3 className="talv-filters-title">Filters</h3>
-                <button
-                  type="button"
-                  className="talv-button talv-button-link"
-                  onClick={resetAll}
-                >
-                  Reset Filters
-                </button>
+             
               </div>
 
               <form onSubmit={handleSearch} className="talv-filters-form">
@@ -739,7 +737,7 @@ const FindTalent: React.FC = () => {
                     <input
                       className="talv-input talv-input--tag"
                       type="text"
-                      placeholder="Type a language and press Enter or comma"
+                      placeholder="Type a language, press Enter"
                       value={langInput}
                       onChange={(e) => setLangInput(e.target.value)}
                       onKeyDown={(e) => {
@@ -772,23 +770,7 @@ const FindTalent: React.FC = () => {
                   </select>
                 </div>
 
-                <div className="talv-field talv-field--inline">
-                  <label className="talv-label" htmlFor="talv-has-resume">
-                    Has resume
-                  </label>
-                  <input
-                    id="talv-has-resume"
-                    type="checkbox"
-                    checked={!!filters.has_resume}
-                    onChange={(e) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        has_resume: e.target.checked ? true : undefined,
-                        page: 1,
-                      }))
-                    }
-                  />
-                </div>
+         
 
                 <div className="talv-field">
                   <label className="talv-label">Minimum Rating</label>
@@ -894,56 +876,7 @@ const FindTalent: React.FC = () => {
                   </select>
                 </div>
 
-                <div className="talv-field">
-                  <label className="talv-label">Preferred Job Type</label>
-                  <div className="talv-checkbox-group">
-                    {(['Full-time', 'Part-time', 'Project-based'] as const).map(
-                      (jt) => {
-                        const list = filters.preferred_job_types || [];
-                        const checked = list.includes(jt);
-                        return (
-                          <label
-                            key={jt}
-                            className="talv-checkbox-label"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(e) => {
-                                setFilters((prev) => {
-                                  const prevList =
-                                    prev.preferred_job_types || [];
-                                  let next: (
-                                    | 'Full-time'
-                                    | 'Part-time'
-                                    | 'Project-based'
-                                  )[];
-                                  if (e.target.checked) {
-                                    next = prevList.includes(jt)
-                                      ? prevList
-                                      : [...prevList, jt];
-                                  } else {
-                                    next = prevList.filter(
-                                      (x) => x !== jt,
-                                    );
-                                  }
-                                  return {
-                                    ...prev,
-                                    preferred_job_types: next,
-                                    page: 1,
-                                  };
-                                });
-                              }}
-                            />
-                            <span>{jt}</span>
-                          </label>
-                        );
-                      },
-                    )}
-                  </div>
-                </div>
-
-                <div className="talv-field">
+                         <div className="talv-field">
                   <label className="talv-label">Category/Skill</label>
                   <div className="talv-skill-autocomplete">
                     <input
@@ -951,7 +884,7 @@ const FindTalent: React.FC = () => {
                       type="text"
                       value={skillInput}
                       onChange={(e) => setSkillInput(e.target.value)}
-                      placeholder="Type to search categories/skills..."
+                      placeholder="Search skills or categories"
                       onFocus={() => setIsDropdownOpen(true)}
                       onBlur={() =>
                         setTimeout(() => setIsDropdownOpen(false), 200)
@@ -1021,6 +954,75 @@ const FindTalent: React.FC = () => {
                       )}
                   </div>
 
+       <div className="talv-field talv-field--inline">
+                  <label className="talv-label" htmlFor="talv-has-resume">
+                    Has resume
+                  </label>
+                  <input
+                    id="talv-has-resume"
+                    type="checkbox"
+                    checked={!!filters.has_resume}
+                    onChange={(e) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        has_resume: e.target.checked ? true : undefined,
+                        page: 1,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="talv-field">
+                  <label className="talv-label">Preferred Job Type</label>
+                  <div className="talv-checkbox-group">
+                    {(['Full-time', 'Part-time', 'Project-based'] as const).map(
+                      (jt) => {
+                        const list = filters.preferred_job_types || [];
+                        const checked = list.includes(jt);
+                        return (
+                          <label
+                            key={jt}
+                            className="talv-checkbox-label"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                setFilters((prev) => {
+                                  const prevList =
+                                    prev.preferred_job_types || [];
+                                  let next: (
+                                    | 'Full-time'
+                                    | 'Part-time'
+                                    | 'Project-based'
+                                  )[];
+                                  if (e.target.checked) {
+                                    next = prevList.includes(jt)
+                                      ? prevList
+                                      : [...prevList, jt];
+                                  } else {
+                                    next = prevList.filter(
+                                      (x) => x !== jt,
+                                    );
+                                  }
+                                  return {
+                                    ...prev,
+                                    preferred_job_types: next,
+                                    page: 1,
+                                  };
+                                });
+                              }}
+                            />
+                            <span>{jt}</span>
+                          </label>
+                        );
+                      },
+                    )}
+                  </div>
+                </div>
+                
+
+       
+
                   {selectedSkillId && (
                     <div className="talv-tags" style={{ marginTop: 6 }}>
                       <span className="talv-tag">
@@ -1052,6 +1054,13 @@ const FindTalent: React.FC = () => {
                   className="talv-button talv-button-primary talv-filters-submit"
                 >
                   Apply Filters
+                </button>
+                   <button
+                  type="button"
+                  className="talv-button talv-button-link"
+                  onClick={resetAll}
+                >
+                  Reset Filters
                 </button>
               </form>
             </aside>
@@ -1143,192 +1152,154 @@ const FindTalent: React.FC = () => {
                             role="article"
                           >
                             <div className="talv-card-body">
-                              {/* HEADER */}
-                              <div className="talv-card-header">
-                                <div className="talv-card-header-main">
-                                  <div className="talv-avatar">
-                                    {talent.avatar &&
-                                      (() => {
-                                        const a = talent.avatar || '';
-                                        const avatarSrc = a.startsWith('http')
-                                          ? a
-                                          : `${brandBackendOrigin()}${a}`;
-                                        return (
-                                          <img
-                                            src={avatarSrc}
-                                            alt="Talent Avatar"
-                                            className="talv-avatar-image"
-                                            onError={(e) => {
-                                              const box =
-                                                e.currentTarget
-                                                  .parentElement as
-                                                  | HTMLElement
-                                                  | null;
-                                              box?.classList.remove(
-                                                'talv-avatar--has-image',
-                                              );
-                                              e.currentTarget.style.display =
-                                                'none';
-                                            }}
-                                          />
-                                        );
-                                      })()}
-                                    {!talent.avatar && (
-                                      <FaUserCircle className="talv-avatar-fallback" />
-                                    )}
-                                  </div>
+  {/* HEADER */}
+  <div className="talv-card-header">
+    <div className="talv-card-header-main">
+      <div className="talv-avatar">
+        {talent.avatar &&
+          (() => {
+            const a = talent.avatar || '';
+            const avatarSrc = a.startsWith('http')
+              ? a
+              : `${brandBackendOrigin()}${a}`;
+            return (
+              <img
+                src={avatarSrc}
+                alt="Talent Avatar"
+                className="talv-avatar-image"
+                onError={(e) => {
+                  const box = e.currentTarget.parentElement as HTMLElement | null;
+                  box?.classList.remove('talv-avatar--has-image');
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            );
+          })()}
 
-                                  <div className="talv-header-text">
-                                    <h3 className="talv-name">
-                                      {talent.username}
-                                    </h3>
-                                    {jobTitle && (
-                                      <p className="talv-subtitle">
-                                        {jobTitle}
-                                      </p>
-                                    )}
-                                    {typeof rating === 'number' && (
-                                      <span
-                                        className="talv-stars"
-                                        aria-label={`rating ${rating}/5`}
-                                      >
-                                        {Array.from(
-                                          { length: 5 },
-                                          (_, i) => (
-                                            <span
-                                              key={i}
-                                              className={`talv-star ${
-                                                i < Math.floor(rating)
-                                                  ? 'talv-star--on'
-                                                  : ''
-                                              }`}
-                                            >
-                                              ★
-                                            </span>
-                                          ),
-                                        )}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
+        {!talent.avatar && (
+          <UserCircle2 className="talv-avatar-fallback" />
+        )}
+      </div>
 
-                                <div className="talv-header-badges">
-                                  {statusLabel && (
-                                    <span
-                                      className={`talv-status-pill ${statusClass}`}
-                                    >
-                                      {statusLabel}
-                                    </span>
-                                  )}
-                                  {preferredJobTypes.map((jt) => (
-                                    <span
-                                      key={jt}
-                                      className="talv-jobtype-pill"
-                                    >
-                                      {jt}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
+      <div className="talv-header-text">
+        <h3 className="talv-name">{talent.username}</h3>
 
-                              {/* SKILLS */}
-                              <div className="talv-skill-row">
-                                {skillNames.length > 0 ? (
-                                  skillNames.slice(0, 8).map((s) => (
-                                    <span
-                                      key={s}
-                                      className="talv-skill-pill"
-                                    >
-                                      {s}
-                                    </span>
-                                  ))
-                                ) : (
-                                  <span className="talv-skill-pill">
-                                    Not specified
-                                  </span>
-                                )}
-                              </div>
+        {jobTitle && <p className="talv-subtitle">{jobTitle}</p>}
 
-                              {/* META ROW */}
-                              <div className="talv-meta-row">
-                                {(talent as any).country && (
-                                  <div className="talv-meta-item">
-                                    <span className="talv-meta-icon">📍</span>
-                                    <span>
-                                      {(talent as any).country}
-                                    </span>
-                                  </div>
-                                )}
+        {typeof rating === 'number' && (
+          <span className="talv-stars" aria-label={`rating ${rating}/5`}>
+            {Array.from({ length: 5 }, (_, i) => (
+              <Star
+                key={i}
+                className={`talv-star-icon ${
+                  i < Math.floor(rating) ? 'talv-star-icon--on' : ''
+                }`}
+                aria-hidden="true"
+              />
+            ))}
+          </span>
+        )}
+      </div>
+    </div>
 
-                                {salaryText && (
-                                  <div className="talv-meta-item">
-                                    <span className="talv-meta-bold">
-                                      {salaryText}
-                                    </span>
-                                  </div>
-                                )}
+    <div className="talv-header-badges">
+      {statusLabel && (
+        <span className={`talv-status-pill ${statusClass}`}>
+          {statusLabel}
+        </span>
+      )}
 
-                                <div className="talv-meta-item">
-                                  <span className="talv-meta-icon">👁</span>
-                                  <span>
-                                    {typeof profileViews === 'number'
-                                      ? profileViews
-                                      : 0}{' '}
-                                    views
-                                  </span>
-                                </div>
+      {preferredJobTypes.map((jt) => (
+        <span key={jt} className="talv-jobtype-pill">
+          {jt}
+        </span>
+      ))}
+    </div>
+  </div>
 
-                                {experience && (
-                                  <div className="talv-meta-item">
-                                    <span className="talv-meta-icon">🧳</span>
-                                    <span>{experience}</span>
-                                  </div>
-                                )}
-                              </div>
+  {/* SKILLS */}
+  <div className="talv-skill-row">
+    {skillNames.length > 0 ? (
+      skillNames.slice(0, 8).map((s) => (
+        <span key={s} className="talv-skill-pill">
+          {s}
+        </span>
+      ))
+    ) : (
+      <span className="talv-skill-pill">Not specified</span>
+    )}
+  </div>
 
-                              {/* LANGUAGES / возраст при желании */}
-                              {languages && (
-                                <div className="talv-lang-row">
-                                  <strong>Languages:</strong>{' '}
-                                  <span>{languages}</span>
-                                </div>
-                              )}
+  {/* META ROW */}
+  <div className="talv-meta-row">
+    {(talent as any).country && (
+      <div className="talv-meta-item">
+        <MapPin className="talv-meta-icon" />
+        <span>{(talent as any).country}</span>
+      </div>
+    )}
 
-                              {/* можно оставить возраст отдельной строкой, если нужно */}
-                              {(() => {
-                                const age = calcAge(
-                                  (talent as any).date_of_birth || null,
-                                );
-                                if (age == null) return null;
-                                return (
-                                  <div className="talv-lang-row">
-                                    <strong>Age:</strong>{' '}
-                                    <span>{age}</span>
-                                  </div>
-                                );
-                              })()}
+    {salaryText && (
+      <div className="talv-meta-item">
+        <span className="talv-meta-bold">{salaryText}</span>
+      </div>
+    )}
 
-                              {/* FOOTER BUTTONS */}
-                              <div className="talv-card-footer">
-                                <div className="talv-card-footer-spacer" />
-                                {currentUser?.role === 'employer' &&
-                                  currentUser.id !== talent.id && (
-                                    <button
-                                      type="button"
-                                      className="talv-button talv-button-primary"
-                                      onClick={() => openInvite(talent)}
-                                      title="Invite to job"
-                                    >
-                                      Invite to interview
-                                    </button>
-                                  )}
-                                <Link to={`/public-profile/${talent.slug_id ?? talent.id}`}>
-                                  <button className="talv-button talv-button-outline">
-                                    View Profile
-                                  </button>
-                                </Link>
-                              </div>
-                            </div>
+    <div className="talv-meta-item">
+      <Eye className="talv-meta-icon" />
+      <span>{typeof profileViews === 'number' ? profileViews : 0} views</span>
+    </div>
+
+    {experience && (
+      <div className="talv-meta-item">
+        <Briefcase className="talv-meta-icon" />
+        <span>{experience}</span>
+      </div>
+    )}
+  </div>
+
+  {/* LANGUAGES */}
+  {languages && (
+    <div className="talv-lang-row">
+      <Languages className="talv-lang-icon" />
+      <span>{languages}</span>
+    </div>
+  )}
+
+  {/* AGE (если нужен) */}
+  {(() => {
+    const age = calcAge((talent as any).date_of_birth || null);
+    if (age == null) return null;
+    return (
+      <div className="talv-lang-row">
+        <span className="talv-lang-label">Age</span>
+        <span>{age}</span>
+      </div>
+    );
+  })()}
+
+  {/* FOOTER BUTTONS */}
+  <div className="talv-card-footer">
+    <div className="talv-card-footer-spacer" />
+
+    {currentUser?.role === 'employer' && currentUser.id !== talent.id && (
+      <button
+        type="button"
+        className="talv-button talv-button-primary"
+        onClick={() => openInvite(talent)}
+        title="Invite to job"
+      >
+        Invite to interview
+      </button>
+    )}
+
+    <Link to={`/public-profile/${talent.slug_id ?? talent.id}`}>
+      <button className="talv-button talv-button-outline">
+        View Profile
+      </button>
+    </Link>
+  </div>
+</div>
                           </article>
                         );
                       })
