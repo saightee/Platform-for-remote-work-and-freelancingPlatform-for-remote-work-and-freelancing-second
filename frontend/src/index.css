@@ -7043,7 +7043,7 @@ header nav.mobile-menu-open .find-job {
 
 /* Вариант LIST — аватар слева, контент справа (на десктопе) */
 .jc-card--list {
-  grid-template-columns: 80px 1fr;
+  /* grid-template-columns: 80px 1fr; */
   align-items: start;
 }
 
