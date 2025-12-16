@@ -110,7 +110,7 @@
 .cl-field{
   display:flex;
   flex-direction:column;
-  gap:8px;                 /* было 6px — из-за этого блок "проседал" */
+  gap:0px;                 /* было 6px — из-за этого блок "проседал" */
   position: relative;      /* якорь для .cl-dd */
   margin:0;                /* на всякий */
 }
@@ -182,4 +182,37 @@
 
 @media (max-width:640px){
   .cl-dd{ max-height:60vh; }
+}
+
+/* CountrySelect внутри фильтров Find Talent: выравниваем под talv-input/talv-label */
+.talv-field .cl-field .reg2-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  margin: 0 0 4px;
+  display: block;
+}
+
+.talv-field .cl-field .reg2-input {
+  width: 100%;
+  min-height: 34px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 14px;
+  padding: 8px 11px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.talv-field .cl-field .reg2-input:focus {
+  border-color: #a855f7;
+  box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.4);
+  background: #ffffff;
+}
+
+/* dropdown тоже чуть в стиль страницы */
+.talv-field .cl-field .cl-dd {
+  border-radius: 12px;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.16);
 }

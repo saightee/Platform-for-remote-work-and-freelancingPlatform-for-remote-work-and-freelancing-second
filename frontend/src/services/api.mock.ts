@@ -72,6 +72,9 @@ const TALENTS: MockProfile[] = [
     categories: [CATS[0].subcategories![0]],
     avatar: MOCK_AVATAR,                 // ← АВАТАР ДЛЯ СПИСКА ТАЛАНТОВ
     portfolio_files: MOCK_PORTFOLIO_IMAGES, // ← чтобы и в поиске, и в профайле были фотки (если надо)
+    current_position: 'Frontend Developer',
+    headline: 'Frontend Developer',
+    title: 'Frontend Developer',
   },
   {
     id: 2,
@@ -89,6 +92,9 @@ const TALENTS: MockProfile[] = [
     skills: ['CSS Grid', 'Animations', 'A11y'],
     categories: [CATS[0].subcategories![0]],
     resume: '/mock-resume.pdf',
+    current_position: 'Frontend Developer',
+    headline: 'Frontend Developer',
+    title: 'Frontend Developer',
   },
   {
     id: 3,

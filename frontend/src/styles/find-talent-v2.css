@@ -32,7 +32,7 @@
 /* ====== Внешний контейнер ====== */
 
 .talv-shell {
-  background: #f5f5fb;
+  background: #fafafa;;
   padding: 32px 16px 48px;
   display: flex;
   justify-content: center;
@@ -41,16 +41,16 @@
 .talv-card {
   width: 100%;
   max-width: 850px;
-  background: #ffffff;
+  /* background: #ffffff; */
   border-radius: 12px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.09);
+  /* box-shadow: 0 12px 30px rgba(15, 23, 42, 0.09); */
   padding: 24px 24px 28px;
 }
 
 /* ====== Header + поиск ====== */
 
 .talv-header {
-  display: flex;
+  /* display: flex; */
   align-items: center;
   gap: 16px;
   margin-bottom: 18px;
@@ -62,6 +62,7 @@
   font-weight: 700;
   color: #111827;
   margin: 0;
+  padding-bottom: 12px;
 }
 
 .talv-search {
@@ -80,16 +81,17 @@
 
 .talv-input {
   width: 100%;
-  min-height: 40px;
-  border-radius: 12px;
+  min-height: 20px;
+  border-radius: 10px;
   border: 1px solid #e5e7eb;
   background: #f9fafb;
   font-size: 14px;
-  padding: 8px 11px;
+  padding: 6px 11px;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease,
     background 0.15s ease;
 }
+
 
 .talv-input:focus {
   border-color: #a855f7;
@@ -99,22 +101,33 @@
 
 .talv-input--search {
   flex: 1 1 auto;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #f3f4ff;
 }
 
 .talv-input--tag {
-  border-radius: 12px;
+  border-radius: 10px;
   min-width: 140px;
 }
-
+.talv-searchbar {
+  width: 100%;
+  min-height: 20px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #fafafa;
+  font-size: 14px;
+  padding: 10px 11px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background 0.15s ease;
+}
 /* ====== Кнопки ====== */
 
 .talv-button {
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid transparent;
-  padding: 8px 18px;
-  font-size: 14px;
+  padding:10px 18px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
@@ -218,18 +231,18 @@
 .talv-layout {
   display: flex;
   align-items: flex-start;
-  gap: 24px;
+  gap: 16px;
   margin-top: 10px;
 }
 
 /* ---- Панель фильтров ---- */
 
 .talv-filters {
-  width: 250px;
-  background: #f9fafb;
+  width: 220px;
+  /* background: #f9fafb; */
   border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  padding: 14px 14px 16px;
+  /* border: 1px solid #e5e7eb; */
+  padding: 0px 6px 16px;
 }
 
 .talv-filters-header {
@@ -241,16 +254,16 @@
 }
 
 .talv-filters-title {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
-  color: #4b5563;
+  color: #262b31;
   margin: 0;
 }
 
 .talv-filters-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .talv-field {
@@ -390,7 +403,7 @@
 
 .talv-card-item {
   border-radius: 12px;
-  border: 1px solid #f3f4f6;
+  border: 1px solid #e7e2e9;
   background: #ffffff;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
   padding: 18px 20px 16px;
@@ -399,7 +412,7 @@
 .talv-card-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 /* --- Шапка карточки (аватар + имя + бейджи справа) --- */
@@ -416,13 +429,14 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
+  padding-bottom: 10px;
 }
 
 /* avatar */
 
 .talv-avatar {
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
   border-radius: 999px;
   border: 2px solid #f3e8ff;
   background: #f5f3ff;
@@ -454,7 +468,7 @@
 }
 
 .talv-name {
-  font-size: 16px;
+  font-size: 22px;
   font-weight: 600;
   color: #111827;
   margin: 0 0 2px;
@@ -464,6 +478,7 @@
   font-size: 13px;
   color: #a855f7;
   margin: 0;
+  font-weight: 600;
 }
 
 /* бейджи справа */
@@ -530,11 +545,12 @@
 }
 
 .talv-skill-pill {
-  font-size: 11px;
+  font-size: 12px;
   padding: 4px 10px;
   border-radius: 999px;
   background: #f3f4f6;
-  color: #4b5563;
+  color: #262b31;
+  font-weight: 500;
 }
 
 /* мета-строка */
@@ -544,7 +560,7 @@
   flex-wrap: wrap;
   gap: 18px;
   margin-top: 10px;
-  font-size: 12px;
+  font-size: 14px;
   color: #6b7280;
 }
 
@@ -567,19 +583,19 @@
 
 .talv-lang-row {
   margin-top: 6px;
-  font-size: 12px;
+  font-size: 14px;
   color: #6b7280;
 }
 
 .talv-lang-row span {
   color: #4b5563;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 /* футер карточки */
 
 .talv-card-footer {
-  margin-top: 12px;
+  /* margin-top: 12px; */
   padding-top: 10px;
   border-top: 1px solid #f3f4f6;
   display: flex;
@@ -800,6 +816,7 @@
 
   .talv-title {
     font-size: 20px;
+    padding-bottom: 12px;
   }
 
   .talv-search {
@@ -809,4 +826,68 @@
   .talv-button {
     padding-inline: 12px;
   }
+}
+
+
+.talv-meta-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.talv-lang-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.talv-lang-icon {
+  width: 16px;
+  height: 16px;
+  color: #6b7280;
+}
+
+/* ⭐ Lucide stars */
+.talv-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.talv-star-icon {
+  width: 15px;
+  height: 15px;
+  color: #e5e7eb; /* off */
+}
+
+.talv-star-icon--on {
+  color: #fbbf24; /* on */
+}
+
+/* возраст — аккуратно, если оставляешь Age */
+.talv-lang-label {
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.talv-searchbar-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.talv-searchbar-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.talv-searchbar {
+  padding-left: 34px; /* место под лупу */
+  padding-right: 12px; /* небольшой отступ справа */
 }
