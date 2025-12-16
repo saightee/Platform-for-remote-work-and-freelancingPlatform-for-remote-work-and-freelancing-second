@@ -122,6 +122,9 @@ const buildRate = (t: any): string | null => {
   return `${amount}${suffix}`;
 };
 
+const DEBUG_FEATURED = true; // потом поставишь false
+
+
 const FeaturedFreelancers = () => {
   const [featured, setFeatured] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -143,37 +146,112 @@ const FeaturedFreelancers = () => {
           all = res as Profile[];
         }
 
-        // фильтр по требованиям карточки
-        const eligible = all.filter((t: any) => {
-          if (!t) return false;
+const stats = {
+  total: all.length,
+  pass: 0,
+  fail: {
+    avatar: 0,
+    username: 0,
+    title: 0,
+    country: 0,
+    dob: 0,
+    rate: 0,
+    skills: 0,
+  },
+  samples: {
+    avatar: null as any,
+    username: null as any,
+    title: null as any,
+    country: null as any,
+    dob: null as any,
+    rate: null as any,
+    skills: null as any,
+  },
+};
 
-          const avatar = t.avatar;
-          if (!avatar) return false;
+const eligible = all.filter((t: any) => {
+  if (!t) return false;
 
-          const username = t.username;
-          if (!username) return false;
+  // 1) avatar
+  const avatar = t.avatar;
+  if (!avatar) {
+    stats.fail.avatar++;
+    stats.samples.avatar ||= t;
+    return false;
+  }
 
-          const title =
-            (t as any).current_position ||
-            (t as any).headline ||
-            (t as any).title ||
-            null;
-          if (!title) return false;
+  // 2) username
+  const username = t.username;
+  if (!username) {
+    stats.fail.username++;
+    stats.samples.username ||= t;
+    return false;
+  }
 
-          const country = (t as any).country_name || (t as any).country || "";
-          if (!country) return false;
+  // 3) title
+  const title =
+    t.current_position ||
+    t.headline ||
+    t.title ||
+    null;
+  if (!title) {
+    stats.fail.title++;
+    stats.samples.title ||= t;
+    return false;
+  }
 
-          const age = calcAge((t as any).date_of_birth || null);
-          if (age == null) return false;
+  // 4) country
+  const country = t.country_name || t.country || '';
+  if (!country) {
+    stats.fail.country++;
+    stats.samples.country ||= t;
+    return false;
+  }
 
-          const rate = buildRate(t);
-          if (!rate) return false;
+  // 5) date_of_birth
+  const dob = t.date_of_birth || null;
+  const age = calcAge(dob);
+  if (age == null) {
+    stats.fail.dob++;
+    stats.samples.dob ||= { ...t, _dob: dob };
+    return false;
+  }
 
-          const skills = extractSkillNames(t);
-          if (!skills.length) return false;
+  // 6) rate
+  const rate = buildRate(t);
+  if (!rate) {
+    stats.fail.rate++;
+    stats.samples.rate ||= t;
+    return false;
+  }
 
-          return true;
-        });
+  // 7) skills
+  const skills = extractSkillNames(t);
+  if (!skills.length) {
+    stats.fail.skills++;
+    stats.samples.skills ||= t;
+    return false;
+  }
+
+  stats.pass++;
+  return true;
+});
+
+if (DEBUG_FEATURED) {
+  console.group('[FeaturedFreelancers] filter diagnostics');
+  console.log('total:', stats.total);
+  console.log('pass:', stats.pass);
+  console.table(stats.fail);
+  console.log('sample fail avatar:', stats.samples.avatar);
+  console.log('sample fail username:', stats.samples.username);
+  console.log('sample fail title:', stats.samples.title);
+  console.log('sample fail country:', stats.samples.country);
+  console.log('sample fail dob:', stats.samples.dob);
+  console.log('sample fail rate:', stats.samples.rate);
+  console.log('sample fail skills:', stats.samples.skills);
+  console.groupEnd();
+}
+
 
         if (!mounted) return;
 
