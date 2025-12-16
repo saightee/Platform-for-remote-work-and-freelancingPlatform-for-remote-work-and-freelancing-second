@@ -146,6 +146,7 @@ export class TalentsService {
         languages: js.languages ?? null,
         has_resume: !!js.resume,
         date_of_birth: js.date_of_birth ?? null,
+        current_position: js.current_position ?? null,
       })),
     };
   }
