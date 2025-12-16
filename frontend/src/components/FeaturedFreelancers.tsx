@@ -275,32 +275,30 @@ const eligible = all.filter((t: any) => {
     return false;
   }
 
-// 3) title (НЕ обязателен для Featured)
-const title =
-  t.current_position ||
-  t.headline ||
-  t.title ||
-  null;
+  // 3) title
+  const title =
+    t.current_position ||
+    t.headline ||
+    t.title ||
+    null;
 
-// оставляем только диагностику, но НЕ исключаем
-if (!title) {
-  stats.fail.title++;
-  if (DEBUG_FEATURED && stats.samples.title.length < 5) {
-    stats.samples.title.push({
-      username: t.username,
-      id: t.id,
-      hasAvatar: true,
-      avatarKey: picked.key,
-      avatarValue: rawAvatar,
-      current_position: t.current_position,
-      headline: t.headline,
-      title: t.title,
-      allKeys: Object.keys(t || {}),
-    });
+  if (!title) {
+    stats.fail.title++;
+    if (DEBUG_FEATURED && stats.samples.title.length < 5) {
+      stats.samples.title.push({
+        username: t.username,
+        id: t.id,
+        hasAvatar: true,
+        avatarKey: picked.key,
+        avatarValue: rawAvatar,
+        current_position: t.current_position,
+        headline: t.headline,
+        title: t.title,
+        allKeys: Object.keys(t || {}),
+      });
+    }
+    return false;
   }
-  // ❗️НЕ return false
-}
-
 
   // 4) country
   const country = t.country_name || t.country || '';
