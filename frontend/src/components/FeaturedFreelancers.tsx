@@ -158,25 +158,113 @@ const stats = {
     rate: 0,
     skills: 0,
   },
+  avatar: {
+    // детализация причин
+    missing: 0,        // undefined/null
+    empty: 0,          // '' or whitespace
+    nonString: 0,      // объект/число
+    stringNull: 0,     // 'null' / 'undefined'
+    badValue: 0,       // прочее странное
+  },
+  avatarCandidates: [] as any[], // кто реально имеет аватар-поле (хотя бы какое-то)
   samples: {
-    avatar: null as any,
-    username: null as any,
-    title: null as any,
-    country: null as any,
-    dob: null as any,
-    rate: null as any,
-    skills: null as any,
+    avatar: [] as any[],
+    title: [] as any[],
   },
 };
+
+const avatarKeys = [
+  'avatar',
+  'avatar_url',
+  'avatarUrl',
+  'photo',
+  'photo_url',
+  'image',
+  'image_url',
+  'profile_photo',
+  'profilePhoto',
+  'picture',
+  'picture_url',
+];
+
+const pickAvatar = (t: any) => {
+  for (const k of avatarKeys) {
+    if (t?.[k] != null) return { key: k, value: t[k] };
+  }
+  return { key: null, value: null };
+};
+
+const normStr = (v: any) => (typeof v === 'string' ? v.trim() : v);
+
+if (DEBUG_FEATURED) {
+  console.group('[FeaturedFreelancers] RAW API CHECK');
+  console.log('all.length:', all.length);
+  console.log('sample[0] keys:', Object.keys(all[0] || {}));
+  console.log('sample[0] avatar candidates:', avatarKeys.reduce((acc: any, k) => {
+    if ((all[0] as any)?.[k] != null) acc[k] = (all[0] as any)[k];
+    return acc;
+  }, {}));
+  console.groupEnd();
+}
 
 const eligible = all.filter((t: any) => {
   if (!t) return false;
 
-  // 1) avatar
-  const avatar = t.avatar;
-  if (!avatar) {
+  // --- DEBUG: что за объект пришёл (разово для первых 3) ---
+  if (DEBUG_FEATURED && stats.samples.avatar.length === 0) {
+    console.log('[FeaturedFreelancers] first talent raw:', t);
+  }
+
+  // 1) avatar (расширенная проверка + лог)
+  const picked = pickAvatar(t);
+  const rawAvatar = picked.value;            // может быть string/obj/null
+  const avatar = normStr(rawAvatar);         // если string -> trim
+
+  // считаем "у кого вообще есть хоть какое-то поле аватара"
+  if (picked.key) {
+    if (stats.avatarCandidates.length < 10) {
+      stats.avatarCandidates.push({
+        username: t.username,
+        pickedKey: picked.key,
+        pickedValue: rawAvatar,
+      });
+    }
+  }
+
+  let avatarOk = true;
+  if (avatar == null) {
+    stats.avatar.missing++;
+    avatarOk = false;
+  } else if (typeof avatar !== 'string') {
+    stats.avatar.nonString++;
+    avatarOk = false;
+  } else if (avatar === '') {
+    stats.avatar.empty++;
+    avatarOk = false;
+  } else if (avatar.toLowerCase() === 'null' || avatar.toLowerCase() === 'undefined') {
+    stats.avatar.stringNull++;
+    avatarOk = false;
+  } else {
+    // строка есть, но может быть "битая" (опционально)
+    // например просто "/" или "N/A"
+    if (avatar.length < 3) {
+      stats.avatar.badValue++;
+      avatarOk = false;
+    }
+  }
+
+  if (!avatarOk) {
     stats.fail.avatar++;
-    stats.samples.avatar ||= t;
+    if (DEBUG_FEATURED && stats.samples.avatar.length < 5) {
+      stats.samples.avatar.push({
+        username: t.username,
+        id: t.id,
+        pickedKey: picked.key,
+        rawAvatar,
+        normalizedAvatar: avatar,
+        keys: Object.keys(t || {}),
+      });
+    }
     return false;
   }
 
@@ -184,7 +272,6 @@ const eligible = all.filter((t: any) => {
   const username = t.username;
   if (!username) {
     stats.fail.username++;
-    stats.samples.username ||= t;
     return false;
   }
 
@@ -194,9 +281,22 @@ const eligible = all.filter((t: any) => {
     t.headline ||
     t.title ||
     null;
+
   if (!title) {
     stats.fail.title++;
-    stats.samples.title ||= t;
+    if (DEBUG_FEATURED && stats.samples.title.length < 5) {
+      stats.samples.title.push({
+        username: t.username,
+        id: t.id,
+        hasAvatar: true,
+        avatarKey: picked.key,
+        avatarValue: rawAvatar,
+        current_position: t.current_position,
+        headline: t.headline,
+        title: t.title,
+        allKeys: Object.keys(t || {}),
+      });
+    }
     return false;
   }
 
@@ -204,7 +304,6 @@ const eligible = all.filter((t: any) => {
   const country = t.country_name || t.country || '';
   if (!country) {
     stats.fail.country++;
-    stats.samples.country ||= t;
     return false;
   }
 
@@ -213,7 +312,6 @@ const eligible = all.filter((t: any) => {
   const age = calcAge(dob);
   if (age == null) {
     stats.fail.dob++;
-    stats.samples.dob ||= { ...t, _dob: dob };
     return false;
   }
 
@@ -221,7 +319,6 @@ const eligible = all.filter((t: any) => {
   const rate = buildRate(t);
   if (!rate) {
     stats.fail.rate++;
-    stats.samples.rate ||= t;
     return false;
   }
 
@@ -229,7 +326,6 @@ const eligible = all.filter((t: any) => {
   const skills = extractSkillNames(t);
   if (!skills.length) {
     stats.fail.skills++;
-    stats.samples.skills ||= t;
     return false;
   }
 
@@ -238,19 +334,32 @@ const eligible = all.filter((t: any) => {
 });
 
 if (DEBUG_FEATURED) {
-  console.group('[FeaturedFreelancers] filter diagnostics');
+  console.group('[FeaturedFreelancers] filter diagnostics (DETAILED)');
   console.log('total:', stats.total);
   console.log('pass:', stats.pass);
+
   console.table(stats.fail);
-  console.log('sample fail avatar:', stats.samples.avatar);
-  console.log('sample fail username:', stats.samples.username);
-  console.log('sample fail title:', stats.samples.title);
-  console.log('sample fail country:', stats.samples.country);
-  console.log('sample fail dob:', stats.samples.dob);
-  console.log('sample fail rate:', stats.samples.rate);
-  console.log('sample fail skills:', stats.samples.skills);
+  console.log('avatar breakdown:', stats.avatar);
+
+  console.log('avatar candidates (up to 10):', stats.avatarCandidates);
+
+  console.log('sample avatar fails (up to 5):', stats.samples.avatar);
+  console.log('sample title fails WITH avatar (up to 5):', stats.samples.title);
+
+  // Дополнительно: кто выглядит "почти годным"
+  const withAvatar = all.filter((t: any) => {
+    const p = pickAvatar(t);
+    const v = normStr(p.value);
+    return typeof v === 'string' && v.trim() !== '' && v.toLowerCase() !== 'null' && v.toLowerCase() !== 'undefined';
+  });
+  console.log('count with (some) avatar:', withAvatar.length);
+
+  const withTitle = all.filter((t: any) => !!(t.current_position || t.headline || t.title));
+  console.log('count with title:', withTitle.length);
+
   console.groupEnd();
 }
+
 
 
         if (!mounted) return;
