@@ -489,7 +489,7 @@ const JobDetails: React.FC = () => {
             </a>
             {/* <h1 className="jd-title">{job.title}</h1> */}
 
-            {!profile && (
+            {/* {!profile && (
               <p className="login-prompt">
                 <span>Please</span>
                 <Link to="/login" className="lp-btn lp-primary">
@@ -501,7 +501,7 @@ const JobDetails: React.FC = () => {
                 </Link>
                 <span>as jobseeker to apply for this job.</span>
               </p>
-            )}
+            )} */}
 
             {error && (
               <p

@@ -752,8 +752,8 @@
   }
 
   .ppx-avatar-wrap {
-    width: 130px;
-    height: 170px;
+    width: 146px;
+    height: 180px;
   }
 }
 
@@ -773,4 +773,12 @@
   .ppx-photo-thumb-img {
     height: 96px;
   }
+
+  .ppx-meta-row {
+  display: flex;
+  flex-direction: column;
 }
+
+}
+
+

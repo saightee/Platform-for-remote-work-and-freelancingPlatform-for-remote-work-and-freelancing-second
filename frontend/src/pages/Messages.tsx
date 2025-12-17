@@ -42,6 +42,7 @@ type ChatListItem = {
   status?: 'Pending' | 'Accepted' | 'Rejected' | string;
   coverLetter?: string | null;
   userId?: string;
+  userSlugId?: string
   job_post_id?: string;
   appliedAt?: string; 
   lastMessage?: string;
@@ -1866,7 +1867,7 @@ clearSelection();        // ← сбрасываем чекбоксы
             className="ch-btn ch-review-btn"
             // style={{ marginLeft: 10 }}
             onClick={() => {
-              navigate(`/public-profile/${currentApp.userId}`);
+              navigate(`/oj/${currentApp.userId}`);
               closeAllMenus();
             }}
           >
@@ -1895,7 +1896,7 @@ clearSelection();        // ← сбрасываем чекбоксы
             <button
               className="ch-dd__item"
               onClick={() => {
-                navigate(`/public-profile/${currentApp.userId}`);
+                navigate(`/oj/${currentApp.userSlugId || currentApp.userId}`);
                 closeAllMenus();
               }}
             >

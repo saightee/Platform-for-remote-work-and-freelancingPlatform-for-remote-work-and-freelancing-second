@@ -7020,7 +7020,7 @@ header nav.mobile-menu-open .find-job {
 
 /* ===== Общая карточка ===== */
 .jc-card {
-  background-color: #4e74c808;
+  background-color: #ffffff;
   border: 1px solid var(--jc-border);
   border-radius: var(--jc-radius);
   box-shadow: var(--jc-shadow);
@@ -7190,7 +7190,7 @@ padding: 10px 0px 10px 0px;
 
 /* Кнопка в твоем цвете */
 .jc-btn {
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 8px 12px;
   font-weight: 700;
   font-size: 0.95rem;

@@ -1,9 +1,9 @@
 :root {
-  --fj-primary: #b447eb;
+  --fj-primary: #a855f7;
   --fj-primary-hover: #a03dd8;
   --fj-primary-soft: #f6e8ff;
   --fj-border: #e5e7eb;
-  --fj-bg: #f5f5fb;
+  --fj-bg: #ffffff;
   --fj-text-main: #111827;
   --fj-text-muted: #6b7280;
 }
@@ -41,20 +41,27 @@
   margin: 0 auto;
 }
 
-/* HEAD */
-
+/* ===== HEAD ===== */
 .fj-head {
+  margin-bottom: 18px;
+}
+
+/* NEW: контейнер для заголовка + счетчик */
+.fj-head-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
 .fj-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--fj-text-main);
-  margin: 0 0 4px;
+  margin: 0;
+  padding-bottom: 0;
 }
 
 .fj-title-icon {
@@ -75,79 +82,87 @@
   color: var(--fj-text-muted);
 }
 
-/* SEARCH BAR */
-
-.fj-searchbar {
+/* ===== SEARCH ===== */
+.fj-search {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 18px;
-  margin-top: 14px;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  margin-bottom: 12px;
 }
 
-.fj-searchbar-main {
+.fj-search-count {
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--fj-text-muted);
+  font-weight: 500;
+}
+
+/* Инпут с иконкой */
+.fj-searchbar-wrap {
+  position: relative;
   flex: 1 1 auto;
   min-width: 0;
-  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-.fj-searchbar-main-icon {
+.fj-searchbar-icon {
   position: absolute;
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
   color: #9ca3af;
-  font-size: 14px;
   pointer-events: none;
-}
-
-.fj-input {
-  width: 100%;
-  border-radius: 999px;
-  border: 1px solid var(--fj-border);
-  padding: 9px 14px;
-  font-size: 13px;
-  outline: none;
-  background: #fff;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    background 0.15s ease;
-}
-
-.fj-input:focus {
-  border-color: var(--fj-primary);
-  box-shadow: 0 0 0 1px var(--fj-primary);
-  background: #fff;
-}
-
-.fj-searchbar-actions {
   display: flex;
-  gap: 8px;
-  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
 }
 
-/* BUTTONS */
+.fj-searchbar {
+  width: 100%;
+  height: 40px; /* фиксированная высота для выравнивания с кнопкой */
+  border-radius: 12px;
+  border: 1px solid var(--fj-border);
+  background: #fafafa;
+  font-size: 14px;
+  padding: 10px 14px;
+  padding-left: 40px; /* увеличили отступ от иконки */
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  display: flex;
+  align-items: center;
+}
 
+.fj-searchbar::placeholder {
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
+.fj-searchbar:focus {
+  border-color: var(--fj-primary);
+  box-shadow: 0 0 0 1px rgba(180, 71, 235, 0.35);
+  background: #ffffff;
+}
+
+/* ===== BUTTONS ===== */
 .fj-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border-radius: 999px;
+  border-radius: 12px;
   border: 1px solid transparent;
   padding: 0 16px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  height: 36px;
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.05s ease;
+  height: 40px; /* та же высота что и у инпута */
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease, transform 0.05s ease;
 }
 
 .fj-btn:active {
@@ -181,12 +196,12 @@
   color: var(--fj-primary);
 }
 
-/* кнопка Filters: по умолчанию мобильная, на десктопе скрываем */
-
+/* Кнопка Filters: скрыта на десктопе */
 .fj-filter-toggle {
-  display: inline-flex;
+  display: none;
 }
 
+/* кнопка Filters: по умолчанию мобильная, на десктопе скрываем */
 @media (min-width: 900px) {
   .fj-filter-toggle {
     display: none;
@@ -235,7 +250,6 @@
   width: 18px;
   height: 18px;
   border-radius: 999px;
-  background: #f3f4ff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -273,6 +287,23 @@
   font-size: 12px;
   font-weight: 500;
   color: #4b5563;
+}
+
+.fj-input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--fj-border);
+  padding: 9px 14px;
+  font-size: 13px;
+  outline: none;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.fj-input:focus {
+  border-color: var(--fj-primary);
+  box-shadow: 0 0 0 1px var(--fj-primary);
+  background: #fff;
 }
 
 .fj-grid-2 {
@@ -352,8 +383,6 @@
   min-width: 0;
 }
 
-/* делаем шрифт в списке чуть крупнее */
-
 .fj-results,
 .fj-results * {
   font-size: 14px;
@@ -370,6 +399,8 @@
 .fj-results-count {
   font-size: 13px;
   color: var(--fj-text-muted);
+  font-weight: 600;
+  padding-bottom: 4px;
 }
 
 .fj-grid {
@@ -384,7 +415,7 @@
   color: var(--fj-text-muted);
 }
 
-/* JOB CARD (если JobCard использует эти классы) */
+/* JOB CARD */
 
 .fj-job-card {
   background: #ffffff;
@@ -400,7 +431,7 @@
   flex-shrink: 0;
   width: 40px;
   height: 40px;
-  border-radius: 999px; /* аватар остаётся круглым */
+  border-radius: 999px;
   background: var(--fj-primary);
   display: flex;
   align-items: center;
@@ -500,15 +531,62 @@
   font-size: 12px;
 }
 
-/* RESPONSIVE */
+.fj-btn-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  background: transparent;
+}
 
+.fj-button-outline-main {
+  background: #a855f7;
+  color: #fff;
+  box-shadow: 0 5px 17px 1px rgba(73, 37, 130, 0.2);
+}
+
+.fj-job-btn-second {
+  padding: 8px 22px;
+  border-radius: 12px;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.fj-btn-main-view {
+  border-radius: 10px;
+  border: 1px solid transparent;
+  padding: 8px 22px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease, transform 0.05s ease;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.fj-button-outline {
+  background: #ffffff;
+  color: #282829;
+  border-color: #e5d5ff;
+}
+
+/* ===== RESPONSIVE ===== */
 @media (max-width: 900px) {
   .fj-layout {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  /* на мобиле фильтр не sticky и не overlay;
-     просто открывается/скрывается блоком над карточками */
 
   .fj-filters {
     position: static;
@@ -522,37 +600,63 @@
   }
 
   .fj-shell {
-    padding-top: 16px;
+    padding-top: 30px;
   }
 
-  .fj-searchbar {
-    flex-direction: column;
-  }
-
-  .fj-searchbar-actions {
+  /* Показываем кнопку Filters на мобилке */
+  .fj-filter-toggle {
+    display: flex;
     width: 100%;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    margin-bottom: 20px;
+    height: 40px;
   }
 
-  .fj-btn {
-    flex: 1 1 0;
-    justify-content: center;
+  .fj-search {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 600px) {
+  .fj-search .fj-search-count {
+    display: none;
   }
 }
 
 @media (max-width: 480px) {
   .fj-title {
-    font-size: 18px;
+    font-size: 20px;
   }
 
   .fj-sub {
     font-size: 12px;
   }
 
-  .fj-input {
+  .fj-searchbar {
     font-size: 13px;
+    height: 38px;
   }
 
   .fj-label {
     font-size: 11px;
   }
+
+  .fj-search-count {
+    font-size: 11px;
+    color: #9ca3af;
+    font-weight: 600;
+  }
+
+  .fj-btn.fj-primary {
+    padding: 10px 14px;
+    min-width: 70px;
+    height: 38px;
+  }
 }
+  .fj-search-count {
+    display: none;
+  }

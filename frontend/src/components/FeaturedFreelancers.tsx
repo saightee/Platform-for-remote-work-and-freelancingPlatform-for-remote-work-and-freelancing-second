@@ -475,7 +475,7 @@ if (DEBUG_FEATURED) {
                 </div>
 
                 <Link
-                  to={`/public-profile/${talent.slug_id ?? talent.id}`}
+                  to={`/oj/${talent.slug_id ?? talent.id}`}
                   className="oj-btn oj-btn--primary oj-freelancer-btn"
                 >
                   View Profile

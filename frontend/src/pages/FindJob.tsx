@@ -37,6 +37,7 @@ const FindJob: React.FC = () => {
   const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [totalJobs, setTotalJobs] = useState(0);
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth <= 480);
@@ -122,6 +123,11 @@ const FindJob: React.FC = () => {
 
         setJobs(jobsResponse.data || []);
         setTotalPages(Math.ceil(jobsResponse.total / searchState.limit) || 1);
+
+        setJobs(jobsResponse.data || []);
+        setTotalJobs(Number(jobsResponse.total) || 0);
+        setTotalPages(Math.ceil((Number(jobsResponse.total) || 0) / searchState.limit) || 1);
+
 
         const sortCategories = (cats: Category[]) => cats.sort((a, b) => a.name.localeCompare(b.name));
         setCategories(sortCategories(categoriesResponse) || []);
@@ -308,60 +314,49 @@ const FindJob: React.FC = () => {
         </div>
       )}
 
-      <div className="fj-shell">
-        <div className="fj-card">
-          <div className="fj-head">
-            <h1 className="fj-title">
-              <span className="fj-title-icon">
-                <Briefcase />
-              </span>
-              Find Jobs
-            </h1>
-            <p className="fj-sub">Search and filter open roles across categories and work modes.</p>
-          </div>
+    <div className="fj-shell">
+  <div className="fj-card">
+    <div className="fj-head">
+      <div className="fj-head-top">
+        <h1 className="fj-title">Find Jobs</h1>
+        <div className="fj-search-count">
+          {totalJobs ? `${totalJobs} jobs found` : 'No jobs found'}
+        </div>
+      </div>
 
-          {error && <div className="fj-alert fj-err">{error}</div>}
+      <form className="fj-search" onSubmit={(e) => handleSearch(e)}>
+        <div className="fj-searchbar-wrap">
+          <span className="fj-searchbar-icon">
+            <Search />
+          </span>
+          <input
+            type="text"
+            className="fj-searchbar"
+            placeholder="Search by job title, company, keywords..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </div>
 
-          {/* SEARCH BAR */}
-          <div className="fj-searchbar">
-            <div className="fj-searchbar-main">
-              <span className="fj-searchbar-main-icon">
-                <Search />
-              </span>
-              <input
-                type="text"
-                className="fj-input"
-                style={{ paddingLeft: 32 }}
-                placeholder="Search by job title or company"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-              />
-            </div>
+        <button type="submit" className="fj-btn fj-primary">
+         
+          Search
+        </button>
+      </form>
 
-            <div className="fj-searchbar-actions">
-              <button
-                type="button"
-                className="fj-btn fj-primary"
-                onClick={(e) => handleSearch(e)}
-              >
-                <Search />
-                Search
-              </button>
+      <button
+        type="button"
+        className={`fj-btn fj-ghost fj-filter-toggle ${isFilterPanelOpen ? 'active' : ''}`}
+        onClick={() => setIsFilterPanelOpen((v) => !v)}
+        aria-expanded={isFilterPanelOpen}
+      >
+        <Filter />
+        Filters
+      </button>
+    </div>
 
-              {/* кнопка фильтра только для мобилки (прячем через CSS на десктопе) */}
-              <button
-                type="button"
-                className={`fj-btn fj-ghost fj-filter-toggle ${
-                  isFilterPanelOpen ? 'active' : ''
-                }`}
-                onClick={() => setIsFilterPanelOpen((v) => !v)}
-                aria-expanded={isFilterPanelOpen}
-              >
-                <Filter />
-                Filters
-              </button>
-            </div>
-          </div>
+    {error && <div className="fj-alert fj-err">{error}</div>}
+
 
           <div className="fj-layout">
             {/* FILTERS */}

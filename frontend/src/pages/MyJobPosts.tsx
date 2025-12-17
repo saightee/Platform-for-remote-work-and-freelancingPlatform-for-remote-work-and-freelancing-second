@@ -886,7 +886,7 @@ const handleViewApplications = async (jobPostId: string) => {
                                           </button>
 
                                           <Link
-                                            to={`/public-profile/${app.userId}`}
+                                            to={`/oj/${app.userId}`}
                                             onClick={() => { setOpenMenuId(null); setMenuPos(null); }}
                                             className="mjp-menu-item"
                                             style={{ textDecoration: 'none' }}
