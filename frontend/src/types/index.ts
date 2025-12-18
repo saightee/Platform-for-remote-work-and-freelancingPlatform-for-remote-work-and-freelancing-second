@@ -323,6 +323,7 @@ export interface RegisterCredentials extends LoginCredentials {
 export interface JobApplicationDetails {
   applicationId: string;
   userId: string;
+  userSlugId?: string;
   username: string;
   email: string;
   jobDescription: string;

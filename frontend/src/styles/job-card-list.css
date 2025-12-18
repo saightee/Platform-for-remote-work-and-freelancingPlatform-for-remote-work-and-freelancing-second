@@ -32,8 +32,8 @@
 }
 
 .jc-card-avatar-circle {
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
   border-radius: 9999px;
   background: linear-gradient(135deg, #a855f7, #ec4899);
   display: flex;
@@ -225,6 +225,9 @@
 
   .jc-card-actions {
     width: 100%;
+    display: flex;
+    justify-content: right;
+    margin-top: 6px;
   }
 
   .jc-card-actions .jc-btn {

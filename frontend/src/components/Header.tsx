@@ -4,7 +4,7 @@ import { FaBars, FaTimes, FaEnvelope } from 'react-icons/fa';
 import { useRole } from '../context/RoleContext';
 import { logout } from '../services/api';
 import { brand } from '../brand';
-import '../styles/lovable-home.css'; // или твой глобальный файл со стилями
+import '../styles/Header.css'; // или твой глобальный файл со стилями
 
 const Header: React.FC = () => {
   const { profile, isLoading, currentRole } = useRole();
@@ -218,7 +218,8 @@ const Header: React.FC = () => {
 
   if (isLoading) {
     return (
-      <header className="oj-header">
+      <header className={`oj-header ${isMobileMenuOpen ? 'is-menu-open' : ''}`}>
+
         <div className="oj-header-inner">
           <div className="oj-header-row">
             <Link to="/" className="oj-header-logo">
@@ -232,7 +233,8 @@ const Header: React.FC = () => {
   }
 
   return (
-    <header className="oj-header">
+    <header className={`oj-header ${isMobileMenuOpen ? 'is-menu-open' : ''}`}>
+
       <div className="oj-header-inner">
         <div className="oj-header-row">
           <Link to="/" className="oj-header-logo" onClick={closeMobileMenu}>
@@ -265,13 +267,15 @@ const Header: React.FC = () => {
         </nav>
       </div>
 
-      {isMobileMenuOpen && (
-        <button
-          className="oj-header-overlay"
-          aria-label="Close menu"
-          onClick={closeMobileMenu}
-        />
-      )}
+
+{isMobileMenuOpen && (
+  <button
+    className={`oj-header-overlay ${isMobileMenuOpen ? 'is-visible' : ''}`}
+    aria-label="Close menu"
+    onClick={closeMobileMenu}
+  />
+)}
+
     </header>
   );
 };

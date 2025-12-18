@@ -21,10 +21,9 @@ interface JobCardProps {
   variant?: 'home' | 'find-jobs';
 }
 
-// наверх файла
 const decodeEntities = (s: string) => {
   if (!s) return s;
-  if (typeof window === 'undefined') return s; // SSR-guard
+  if (typeof window === 'undefined') return s;
   const el = document.createElement('textarea');
   el.innerHTML = s;
   return el.value;
@@ -38,32 +37,58 @@ const renderSalary = (j: JobPost): string => {
 
   if (st === 'negotiable') return 'Negotiable';
 
-  const unit =
-    st === 'per hour'
-      ? 'per hour'
-      : st === 'per month'
-      ? 'per month'
-      : st || '';
-
   const min = j.salary != null ? Number(j.salary) : NaN;
   const max = (j as any).salary_max != null ? Number((j as any).salary_max) : NaN;
 
-  const currency =
+  const currencyRaw = (
     (j as any).currency ||
     (j as any).salary_currency ||
-    '';
+    ''
+  ).trim().toUpperCase();
+
+  // Мапа валют → символы
+  const currencySymbols: Record<string, string> = {
+    USD: '$',
+    EUR: '€',
+    GBP: '£',
+    RUB: '₽',
+    UAH: '₴',
+    PLN: 'zł',
+    BRL: 'R$',
+    INR: '₹',
+    JPY: '¥',
+    CNY: '¥',
+    KRW: '₩',
+    AUD: 'A$',
+    CAD: 'C$',
+    CHF: 'CHF',
+    SEK: 'kr',
+    NOK: 'kr',
+    DKK: 'kr',
+    TRY: '₺',
+    MXN: 'MX$',
+    ARS: 'ARS$',
+  };
+
+  const symbol = currencySymbols[currencyRaw] || currencyRaw || '$';
+
+  // Сокращения для типа зарплаты
+  const unitShort =
+    st === 'per hour' ? '/hr' :
+    st === 'per month' ? '/month' :
+    st ? `/${st}` : '';
 
   if (!Number.isFinite(min) && !Number.isFinite(max)) return 'Not specified';
 
+  // Диапазон
   if (Number.isFinite(min) && Number.isFinite(max) && max !== min) {
-    const prefix = currency ? `${currency}` : '';
-    return `${prefix}${min}–${max} ${unit}`.trim();
+    return `${symbol}${min.toLocaleString()}–${symbol}${max.toLocaleString()}${unitShort}`;
   }
 
+  // Одно значение
   const value = Number.isFinite(min) ? min : max;
   if (Number.isFinite(value)) {
-    const prefix = currency ? `${currency}` : '';
-    return unit ? `${prefix}${value} ${unit}`.trim() : `${prefix}${value}`;
+    return `${symbol}${value.toLocaleString()}${unitShort}`;
   }
 
   return 'Not specified';
@@ -83,7 +108,6 @@ const getDisplayCompanyName = (job: JobPost): string => {
   return (byCompanyField && byCompanyField.trim()) || byEmployer;
 };
 
-// вспомогательные для обоих вариантов
 const renderPosted = (job: JobPost): string => {
   const raw: any =
     (job as any).created_at ||
@@ -136,7 +160,6 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
 
   const slugOrId = (job as any).slug_id || job.id;
 
-  // 👉 Вариант для ГЛАВНОЙ — оставляем по сути как был
   if (variant === 'home') {
     return (
       <article className="oj-job-card" role="article">
@@ -198,7 +221,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
     );
   }
 
-  // 👉 Вариант ДЛЯ /find-job — в стиле твоего Lovable-примера
+  // Вариант для /find-job
   const companyName = getDisplayCompanyName(job);
   const salary = renderSalary(job);
   const skills = Array.isArray(job.required_skills) ? job.required_skills : [];
@@ -255,7 +278,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
                   {location}
                 </span>
               )}
-              <span className="jc-card-info-item jc-card-info-salary">{salary}</span>
+              
 
               {views !== null && (
                 <span className="jc-card-info-item">
@@ -263,18 +286,19 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
                   {views}
                 </span>
               )}
+              <span className="jc-card-info-item jc-card-info-salary">{salary}</span>
             </div>
 
             <div className="jc-card-actions">
               <Link
                 to={`/vacancy/${slugOrId}`}
-                className="jc-btn jc-btn--outline"
+                className="fj-btn-main-view fj-button-outline"
               >
                 View
               </Link>
               <Link
                 to={`/vacancy/${slugOrId}`}
-                className="jc-btn jc-btn--primary"
+                className="fj-btn-main fj-button-outline-main fj-job-btn-second"
               >
                 Apply
               </Link>

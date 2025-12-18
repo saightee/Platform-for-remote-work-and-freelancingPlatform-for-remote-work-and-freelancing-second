@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { UserCircle2, MapPin, Eye, Briefcase, Languages, Star } from 'lucide-react';
+import { UserCircle2, MapPin, Eye, Briefcase, Languages, Star, Filter } from 'lucide-react';
 import { Search as SearchIcon } from 'lucide-react';
 import {
   searchTalents,
@@ -608,40 +608,44 @@ const FindTalent: React.FC = () => {
 
       <div className="talv-shell">
         <div className="talv-card">
-          <div className="talv-header">
-            <h1 className="talv-title">Find Talent</h1>
+         <div className="talv-header">
+  <div className="talv-header-top">
+    <h1 className="talv-title">Find Talent</h1>
+    <div className="talv-search-count">
+      {isLoading ? 'Loading…' : `${total} talents found`}
+    </div>
+  </div>
 
-            <form className="talv-search" onSubmit={handleSearch}>
-              <div className="talv-search-count">
-                {isLoading ? 'Loading…' : `${total} talents found`}
-              </div>
-        <div className="talv-searchbar-wrap">
-  <SearchIcon className="talv-searchbar-icon" aria-hidden="true" />
-  <input
-    className="talv-input talv-input--search talv-searchbar"
-    type="text"
-    placeholder="Search by skills, keywords, or location..."
-    value={searchInput}
-    onChange={(e) => setSearchInput(e.target.value)}
-  />
+  <form className="talv-search" onSubmit={handleSearch}>
+    <div className="talv-searchbar-wrap">
+      <SearchIcon className="talv-searchbar-icon" aria-hidden="true" />
+      <input
+        className="talv-input talv-input--search talv-searchbar"
+        type="text"
+        placeholder="Search by skills, keywords, or location..."
+        value={searchInput}
+        onChange={(e) => setSearchInput(e.target.value)}
+      />
+    </div>
+    <button className="talv-button talv-button-primary" type="submit">
+      Search
+    </button>
+  </form>
+
+  <button
+    className={`talv-filters-toggle ${
+      isFilterPanelOpen ? 'talv-filters-toggle--active' : ''
+    }`}
+    type="button"
+    onClick={toggleFilterPanel}
+    aria-label="Toggle filters"
+    title="Filters"
+  >
+    <FaFilter />
+    <span className="talv-filters-toggle-label">Filters</span>
+  </button>
 </div>
-              <button className="talv-button talv-button-primary" type="submit">
-                Search
-              </button>
-              <button
-                className={`talv-filters-toggle ${
-                  isFilterPanelOpen ? 'talv-filters-toggle--active' : ''
-                }`}
-                type="button"
-                onClick={toggleFilterPanel}
-                aria-label="Toggle filters"
-                title="Filters"
-              >
-                <FaFilter />
-                <span className="talv-filters-toggle-label">Filters</span>
-              </button>
-            </form>
-          </div>
+
 
           {error && <div className="talv-alert talv-alert-error">{error}</div>}
 
@@ -651,7 +655,7 @@ const FindTalent: React.FC = () => {
               className={`talv-filters ${isFilterPanelOpen ? 'talv-filters--open' : ''}`}
             >
               <div className="talv-filters-header">
-                <h3 className="talv-filters-title">Filters</h3>
+                <h3 className="talv-filters-title"><span className='icon'><Filter /></span> Filters</h3>
              
               </div>
 
@@ -765,8 +769,8 @@ const FindTalent: React.FC = () => {
                       }))
                     }
                   >
-                    <option value="any">any (default)</option>
-                    <option value="all">all</option>
+                    <option value="any">Any</option>
+                    <option value="all">All</option>
                   </select>
                 </div>
 
@@ -1115,29 +1119,50 @@ const FindTalent: React.FC = () => {
                           '';
 
                         // salary text (как раньше, только в одну строчку)
-                        const salaryText = (() => {
-                          const tAny: any = talent;
-                          const min = tAny.expected_salary;
-                          const max = tAny.expected_salary_max;
-                          const type = tAny.expected_salary_type;
-                          const hasMin =
-                            min != null && min !== '' && Number(min) !== 0;
-                          const hasMax =
-                            max != null && max !== '' && Number(max) !== 0;
-                          if (!hasMin && !hasMax) return '';
-                          const currency = tAny.currency || '';
-                          const minNum = hasMin ? Number(min) : null;
-                          const maxNum = hasMax ? Number(max) : null;
-                          let base = '';
-                          if (hasMin && hasMax) base = `${minNum} - ${maxNum}`;
-                          else if (hasMin) base = String(minNum);
-                          else if (hasMax) base = String(maxNum);
-                          if (currency) base = `${base} ${currency}`;
-                          if (type === 'per month' || type === 'per day') {
-                            base = `${base} ${type}`;
-                          }
-                          return base;
-                        })();
+const salaryText = (() => {
+  const tAny: any = talent;
+  const min = tAny.expected_salary;
+  const max = tAny.expected_salary_max;
+  const type = tAny.expected_salary_type;
+  const hasMin = min != null && min !== '' && Number(min) !== 0;
+  const hasMax = max != null && max !== '' && Number(max) !== 0;
+  
+  if (!hasMin && !hasMax) return '';
+  
+  const currencyRaw = (tAny.currency || 'USD').trim().toUpperCase();
+  
+  // Мапа валют → символы
+  const currencySymbols: Record<string, string> = {
+    USD: '$', EUR: '€', GBP: '£', RUB: '₽', UAH: '₴',
+    PLN: 'zł', BRL: 'R$', INR: '₹', JPY: '¥', CNY: '¥',
+    KRW: '₩', AUD: 'A$', CAD: 'C$', CHF: 'CHF',
+    SEK: 'kr', NOK: 'kr', DKK: 'kr', TRY: '₺',
+    MXN: 'MX$', ARS: 'ARS$',
+  };
+  
+  const symbol = currencySymbols[currencyRaw] || currencyRaw || '$';
+  
+  // Сокращения типа
+  const unitShort =
+    type === 'per month' ? '/month' :
+    type === 'per day' ? '/day' :
+    type === 'per hour' ? '/hr' :
+    type ? `/${type}` : '';
+  
+  const minNum = hasMin ? Number(min) : null;
+  const maxNum = hasMax ? Number(max) : null;
+  
+  if (hasMin && hasMax) {
+    return `${symbol}${minNum!.toLocaleString()}–${symbol}${maxNum!.toLocaleString()}${unitShort}`;
+  } else if (hasMin) {
+    return `${symbol}${minNum!.toLocaleString()}${unitShort}`;
+  } else if (hasMax) {
+    return `${symbol}${maxNum!.toLocaleString()}${unitShort}`;
+  }
+  
+  return '';
+})();
+
 
                         const languages =
                           Array.isArray((talent as any).languages) &&
@@ -1239,11 +1264,7 @@ const FindTalent: React.FC = () => {
       </div>
     )}
 
-    {salaryText && (
-      <div className="talv-meta-item">
-        <span className="talv-meta-bold">{salaryText}</span>
-      </div>
-    )}
+ 
 
     <div className="talv-meta-item">
       <Eye className="talv-meta-icon" />
@@ -1254,6 +1275,12 @@ const FindTalent: React.FC = () => {
       <div className="talv-meta-item">
         <Briefcase className="talv-meta-icon" />
         <span>{experience}</span>
+      </div>
+    )}
+
+       {salaryText && (
+      <div className="talv-meta-item">
+        <span className="talv-meta-bold">{salaryText}</span>
       </div>
     )}
   </div>
@@ -1293,7 +1320,7 @@ const FindTalent: React.FC = () => {
       </button>
     )}
 
-    <Link to={`/public-profile/${talent.slug_id ?? talent.id}`}>
+    <Link to={`/oj/${talent.slug_id || talent.id}`}>
       <button className="talv-button talv-button-outline">
         View Profile
       </button>

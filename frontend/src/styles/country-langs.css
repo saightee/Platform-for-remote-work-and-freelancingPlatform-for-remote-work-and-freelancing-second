@@ -198,11 +198,12 @@
   min-height: 34px;
   border-radius: 12px;
   border: 1px solid #e5e7eb;
-  background: #f9fafb;
-  font-size: 14px;
+  /* background: #f9fafb; */
+  font-size: 13px;
   padding: 8px 11px;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  color: #111827;
 }
 
 .talv-field .cl-field .reg2-input:focus {

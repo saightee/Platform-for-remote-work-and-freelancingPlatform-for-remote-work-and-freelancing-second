@@ -20,10 +20,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 14px;
   color: #6b7280;
   text-decoration: none;
-  margin-bottom: 10px;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -625,5 +625,20 @@
 
   .modal-content {
     margin: 0 12px;
+  }
+}
+
+@media (max-width: 899px) {
+  .jd-top {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .jd-main-card {
+    order: 1;
+  }
+
+  .jd-details-card {
+    order: 2;
   }
 }

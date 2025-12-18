@@ -1402,7 +1402,7 @@ const safeDescription = sanitizeHtml(
                     <td>
   {user.role !== 'admin' && user.role !== 'moderator' && (
     <a
-      href={`/public-profile/${user.id}`}
+      href={`/oj/${user.id}`}
       target="_blank"
       rel="noopener noreferrer"
       className="action-button"

@@ -2890,7 +2890,7 @@ if (isLoading) {
         <td>
   {user.role !== 'admin' && (
     <a
-      href={`/public-profile/${user.id}`}
+      href={`/oj/${user.id}`}
       target="_blank"
       rel="noopener noreferrer"
       className="action-button-view-a"

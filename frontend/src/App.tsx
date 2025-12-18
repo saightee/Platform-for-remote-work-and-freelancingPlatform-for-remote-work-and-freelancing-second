@@ -98,10 +98,11 @@ const App: React.FC = () => {
             <Route path="/dev-talent" element={<FindTalent />} />
             <Route path="/dev-messages" element={<Messages />} />
             <Route path="/dev-profilepage/:username" element={<JobseekerDashboard />}>
-              <Route index element={<ProfilePage />} />
+            <Route index element={<ProfilePage />} />
             </Route>
             <Route path="/dev-public-profile/:id" element={<PublicProfile />} />
-             <Route path="/dev-home" element={<Home />} />
+            <Route path="/dev-home" element={<Home />} />
+            <Route path="/dev-jobs" element={<FindJob />} />
 
 <Route element={<RequireAuth allowed={['employer']} />}>
   <Route path="/employer-dashboard" element={<EmployerDashboard />}>
@@ -127,7 +128,7 @@ const App: React.FC = () => {
 </Route>
          
           <Route path="/admin/email-notifications" element={<EmailNotifications />} />
-          <Route path="/public-profile/:id" element={<PublicProfile />} />
+          <Route path="/oj/:id" element={<PublicProfile />} />
           <Route path="/check-email" element={<CheckEmail />} />
           <Route path="/registration-pending" element={<RegistrationPending />} />
           <Route path="/post-job" element={<PostJob />} />
