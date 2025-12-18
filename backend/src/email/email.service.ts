@@ -30,7 +30,6 @@ export class EmailService {
 
     while (attempt <= maxRetries) {
       try {
-        console.log(`Attempt ${attempt} to send verification email to ${toEmail}`);
         const verificationLink = `${this.config.get<string>('BASE_URL')!}/api/auth/verify-email?token=${verificationToken}`;
 
         const response = await axios.post(
@@ -55,10 +54,8 @@ export class EmailService {
             timeout: 15000,
           },
         );
-        console.log(`Verification email sent to ${toEmail}:`, response.data);
         return;
       } catch (error: any) {
-        console.error(`Attempt ${attempt} failed for ${toEmail}:`, error.message);
         if (attempt === maxRetries) {
           throw new Error(`Failed to send verification email after ${maxRetries} attempts: ${error.message}`);
         }
@@ -78,7 +75,6 @@ export class EmailService {
 
     while (attempt <= maxRetries) {
       try {
-        console.log(`Attempt ${attempt} to send password reset email to ${toEmail}`);
         const resetLink = `${this.config.get<string>('BASE_URL')!}/reset-password/confirm?token=${resetToken}`;
 
         const response = await axios.post(
@@ -103,10 +99,8 @@ export class EmailService {
             timeout: 15000,
           },
         );
-        console.log(`Password reset email sent to ${toEmail}:`, response.data);
         return;
       } catch (error: any) {
-        console.error(`Attempt ${attempt} failed for ${toEmail}:`, error.message);
         if (attempt === maxRetries) {
           throw new Error(`Failed to send password reset email after ${maxRetries} attempts: ${error.message}`);
         }
@@ -218,7 +212,6 @@ export class EmailService {
 
     while (attempt <= maxRetries) {
       try {
-        console.log(`Attempt ${attempt} to send job post rejection email to ${toEmail}`);
         const response = await axios.post(
           'https://api.brevo.com/v3/smtp/email',
           {
@@ -243,10 +236,8 @@ export class EmailService {
             timeout: 15000,
           },
         );
-        console.log(`Job post rejection email sent to ${toEmail}:`, response.data);
         return;
       } catch (error: any) {
-        console.error(`Attempt ${attempt} failed for ${toEmail}:`, error.message);
         if (attempt === maxRetries) {
           throw new Error(
             `Failed to send job post rejection email after ${maxRetries} attempts: ${error.message}`,
@@ -296,10 +287,8 @@ export class EmailService {
             timeout: 15000,
           },
         );
-        console.log('Contact email sent:', res.data);
         return;
       } catch (error: any) {
-        console.error(`Attempt ${attempt} failed:`, error.message);
         if (attempt === maxRetries) {
           throw new Error(`Failed after ${maxRetries} attempts: ${error.message}`);
         }
@@ -322,7 +311,6 @@ export class EmailService {
 
     while (attempt <= maxRetries) {
       try {
-        console.log(`Attempt ${attempt} to send jobseeker accepted email to ${toEmail}`);
         await axios.post(
           'https://api.brevo.com/v3/smtp/email',
           {
@@ -346,10 +334,8 @@ export class EmailService {
             timeout: 15000,
           },
         );
-        console.log(`Jobseeker accepted email sent to ${toEmail}`);
         return;
       } catch (error: any) {
-        console.error(`Attempt ${attempt} failed for ${toEmail}:`, error.message);
         if (attempt === maxRetries) {
           throw new Error(
             `Failed to send jobseeker accepted email after ${maxRetries} attempts: ${error.message}`,
@@ -404,10 +390,8 @@ export class EmailService {
             timeout: 15000,
           },
         );
-        console.log('Chat notification sent:', res.data);
         return;
       } catch (error: any) {
-        console.error(`Attempt ${attempt} failed (chat email):`, error.message);
         if (attempt === maxRetries) throw error;
         attempt++;
         await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));

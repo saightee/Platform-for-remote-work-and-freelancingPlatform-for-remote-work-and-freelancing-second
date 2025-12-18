@@ -330,7 +330,6 @@ export class AdminService {
 
       return { message: 'User deleted successfully' };
     } catch (error) {
-      console.error('Error deleting user:', error);
       throw new BadRequestException('Failed to delete user: ' + error.message);
     }
   }
@@ -510,7 +509,6 @@ export class AdminService {
       await this.jobPostsRepository.delete(jobPostId);
       return { message: 'Job post deleted successfully' };
     } catch (error) {
-      console.error('Error deleting job post:', error);
       throw new BadRequestException('Failed to delete job post: ' + error.message);
     }
   }
@@ -1155,8 +1153,6 @@ export class AdminService {
     }
 
     const jobPosts = await query.getRawMany();
-    console.log('Raw query result:', JSON.stringify(jobPosts, null, 2));
-    console.log('Query:', query.getSql());
 
     return jobPosts.map((row) => ({
       id: row.id,
@@ -1295,7 +1291,6 @@ export class AdminService {
         sentEmails.push(js.user.email);
         sentCount++;
       } catch (error: any) {
-        console.error(`Failed to send email to ${js.user.email}:`, error.message);
       }
     }
 
@@ -1450,7 +1445,6 @@ export class AdminService {
         );
         sent++;
       } catch (e: any) {
-        console.error(`NotifyReferralApplicants: failed to send to ${js.user.email}:`, e.message);
       }
     }
 
@@ -1614,7 +1608,6 @@ export class AdminService {
         reason
       );
     } catch (error) {
-      console.error(`Failed to send rejection email to ${jobPost.employer.email}:`, error.message);
     }
 
     return { message: 'Job post rejected successfully', reason };
@@ -1636,7 +1629,6 @@ export class AdminService {
     const jobPosts = await this.jobPostsRepository.find({ where: { category_id: categoryId } });
     if (jobPosts.length > 0) {
       await this.jobPostsRepository.update({ category_id: categoryId }, { category_id: null });
-      console.log(`Updated ${jobPosts.length} vacancies: category_id set to null`);
     }
 
     const jobSeekers = await this.jobSeekerRepository
@@ -1650,7 +1642,6 @@ export class AdminService {
         jobSeeker.skills = jobSeeker.skills.filter(skill => skill.id !== categoryId);
         await this.jobSeekerRepository.save(jobSeeker);
       }
-      console.log(`Updated ${jobSeekers.length} jobseeker profiles: category removed from skills`);
     }
 
     await this.categoriesRepository.delete(categoryId);

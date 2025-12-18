@@ -638,7 +638,6 @@ export class JobPostsService {
 
       return sanitizedHtml;
     } catch (error) {
-      console.error('OpenAI API Error:', error);
       throw new InternalServerErrorException('Failed to generate description with AI');
     }
   }

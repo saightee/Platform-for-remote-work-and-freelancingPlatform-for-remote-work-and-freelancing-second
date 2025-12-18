@@ -124,7 +124,6 @@ export class UsersService {
       };
       const employer = this.employerRepository.create(employerEntity);
       await this.employerRepository.save(employer);
-      console.log('Employer profile created:', employer);
     } else if (userData.role === 'affiliate') {
       const affiliateEntity: DeepPartial<Affiliate> = {
         user_id: savedUser.id,
@@ -149,9 +148,7 @@ export class UsersService {
       };
       const affiliate = this.affiliateRepository.create(affiliateEntity);
       await this.affiliateRepository.save(affiliate);
-      console.log('Affiliate profile created:', affiliate);
     } else if (userData.role === 'admin' || userData.role === 'moderator') {
-      console.log(`${userData.role} user created:`, savedUser);
     }
 
     return savedUser;
@@ -170,10 +167,8 @@ export class UsersService {
     role: 'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate',
     additionalData: any
   ) {
-    console.log(`[UsersService] Обновление пользователя: userId=${userId}, role=${role}, data=${JSON.stringify(additionalData)}`);
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
-      console.error(`[UsersService] Пользователь не найден: userId=${userId}`);
       throw new NotFoundException('User not found');
     }
 
@@ -188,9 +183,7 @@ export class UsersService {
 
     try {
       const updatedUser = await this.usersRepository.save(user);
-      console.log(`[UsersService] User updated: ${JSON.stringify(updatedUser)}`);
     } catch (error) {
-      console.error(`[UsersService] Error during user update: ${error.message}`);
       throw error;
     }
 
@@ -227,7 +220,6 @@ export class UsersService {
       }
 
       await this.jobSeekerRepository.save(jobSeeker);
-      console.log(`[UsersService] JobSeeker profile updated: ${JSON.stringify(jobSeeker)}`);
 
     } else if (role === 'employer') {
       const employerEntity: DeepPartial<Employer> = {
@@ -240,7 +232,6 @@ export class UsersService {
       };
       const employer = this.employerRepository.create(employerEntity);
       await this.employerRepository.save(employer);
-      console.log(`[UsersService] Employer profile updated: ${JSON.stringify(employer)}`);
     }
 
     return user;
