@@ -117,7 +117,7 @@ export class JobApplicationsService {
       this.server.to(chatRoom).emit('newMessage', msg);
       this.server.to(recipientRoom).except(chatRoom).emit('newMessage', msg);
     } catch (e) {
-      console.error('Failed to send initial chat message for application', saved.id, e);
+      
     }
 
     return saved;
@@ -235,7 +235,7 @@ export class JobApplicationsService {
           );
         }
       } catch (e) {
-        console.error('Failed to send acceptance email:', (e as Error).message);
+        
       }
 
       return updated;

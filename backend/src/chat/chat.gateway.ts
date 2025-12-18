@@ -28,20 +28,15 @@ export class ChatGateway {
     private jwtService: JwtService,
     private redisService: RedisService,
   ) {
-    console.log('ChatGateway constructed');
   }
 
   async afterInit() {
-    console.log('ChatGateway afterInit, server:', this.server ? 'Initialized' : 'Not initialized');
     try {
       const redisClient = this.redisService.getClient();
-      console.log('Redis client:', redisClient ? 'Available' : 'Not available');
       const pubClient = redisClient.duplicate();
       const subClient = redisClient.duplicate();
       this.server.adapter(createAdapter(pubClient, subClient));
-      console.log('Socket.IO server initialized with Redis adapter');
     } catch (error) {
-      console.error('Error initializing Socket.IO adapter:', error);
     }
 
     this.server.engine.on('connection_error', (err) => {
@@ -69,7 +64,6 @@ export class ChatGateway {
     
       const userRoom = `user:${client.data.userId}`;
       client.join(userRoom);
-      console.log(`User ${client.data.userId} joined ${userRoom}`);
     } catch (err: any) {
       const msg = err?.name === 'TokenExpiredError' ? 'Token expired' : err?.message || 'Unauthorized';
       client.emit('error', { message: msg });
@@ -80,7 +74,6 @@ export class ChatGateway {
   async handleDisconnect(client: Socket) {
     if (client.data.userId) {
       await this.redisService.del(`socket:${client.data.userId}`);
-      console.log(`User ${client.data.userId} disconnected, socketId=${client.id}, namespace: ${client.nsp.name}`);
     }
   }
 
@@ -91,7 +84,6 @@ export class ChatGateway {
   ) {
     const { jobApplicationId } = data;
     const userId = client.data.userId;
-    console.log(`JoinChat attempt: userId=${userId}, jobApplicationId=${jobApplicationId}, namespace: ${client.nsp.name}`);
 
     try {
       const application = await this.chatService.hasChatAccess(userId, jobApplicationId);
@@ -101,29 +93,24 @@ export class ChatGateway {
 
       const room = `chat:${jobApplicationId}`;
       if (client.data.joinedRooms.has(room)) {
-        console.log(`User ${userId} already in chat room ${room}, skipping join`);
         return;
       }
 
       client.join(room);
       client.data.joinedRooms.add(room); 
-      console.log(`User ${userId} joined chat room ${room}`);
 
       if (!this.server) {
-        console.error('Socket.IO server is null in ChatGateway');
       } else {
         this.server.to(room).emit('chatInitialized', {
           jobApplicationId,
           jobSeekerId: application.job_seeker_id,
           employerId: application.job_post.employer_id,
         });
-        console.log(`Emitted chatInitialized for room ${room}`);
       }
 
       const messages = await this.chatService.getChatHistory(jobApplicationId);
       client.emit('chatHistory', messages);
     } catch (error) {
-      console.error(`JoinChat error for user ${userId}: ${error.message}`);
       client.emit('error', { message: error.message });
     }
   }
@@ -158,15 +145,12 @@ export class ChatGateway {
   ) {
     const { jobApplicationId } = data;
     const userId = client.data.userId;
-    console.log(`MarkMessagesAsRead attempt: userId=${userId}, jobApplicationId=${jobApplicationId}`);
 
     try {
       const updatedMessages = await this.chatService.markMessagesAsRead(jobApplicationId, userId);
       const room = `chat:${jobApplicationId}`;
       this.server.to(room).emit('messagesRead', updatedMessages);
-      console.log(`Messages marked as read for user ${userId} in room ${room}`);
     } catch (error) {
-      console.error(`MarkMessagesAsRead error for user ${userId}: ${error.message}`);
       client.emit('error', { message: error.message });
     }
   }
@@ -178,7 +162,6 @@ export class ChatGateway {
   ) {
     const { jobApplicationId, isTyping } = data;
     const userId = client.data.userId;
-    console.log(`Typing event: userId=${userId}, jobApplicationId=${jobApplicationId}, isTyping=${isTyping}`);
 
     try {
       const hasAccess = await this.chatService.hasChatAccess(userId, jobApplicationId);
@@ -188,9 +171,7 @@ export class ChatGateway {
 
       const room = `chat:${jobApplicationId}`;
       client.to(room).emit('typing', { userId: client.data.userId, jobApplicationId, isTyping });
-      console.log(`Broadcasted typing event to room ${room} for user ${userId}`);
     } catch (error) {
-      console.error(`Typing event error for user ${userId}: ${error.message}`);
       client.emit('error', { message: error.message });
     }
   }

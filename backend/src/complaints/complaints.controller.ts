@@ -22,7 +22,6 @@ export class ComplaintsController {
     @Headers('authorization') authHeader: string,
     @Body() body: CreateComplaintDto,
   ) {
-    console.log('Create Complaint Request:', { authHeader, body });
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
     }
