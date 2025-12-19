@@ -74,10 +74,10 @@ const compactPortfolioUrl = (raw: string): string => {
 
 // 3–20 символов
 // Jobseeker: только буквы + пробел
-const FULL_NAME_RGX = /^[a-zA-Z ]{3,20}$/;
+const FULL_NAME_RGX = /^[a-zA-Z ]{3,30}$/;
 
 // Employer: буквы + цифры + пробел (без спец символов)
-const COMPANY_NAME_RGX = /^[a-zA-Z0-9 ]{3,20}$/;
+const COMPANY_NAME_RGX = /^[a-zA-Z0-9 ]{3,30}$/;
 
 // BIO limits (plain text, без HTML)
 const BIO_MIN = 200;
@@ -489,9 +489,9 @@ const nameRegex = isJobseeker ? FULL_NAME_RGX : COMPANY_NAME_RGX;
 
 if (!nameRegex.test(usernameTrim)) {
   if (isJobseeker) {
-    setErr('Full name must be 3–20 characters and contain only letters and spaces.');
+    setErr('Full name must be 3–30 characters and contain only letters and spaces.');
   } else {
-    setErr('Company name must be 3–20 characters and contain only letters, numbers and spaces.');
+    setErr('Company name must be 3–30 characters and contain only letters, numbers and spaces.');
   }
   return;
 }
@@ -810,6 +810,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
     id="signup-nickname"
     name="display-name"
     value={username}
+    maxLength={30} 
     onChange={(e) => {
       const raw = e.target.value;
 
