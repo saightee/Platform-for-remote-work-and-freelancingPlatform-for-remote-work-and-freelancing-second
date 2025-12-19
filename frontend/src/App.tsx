@@ -62,6 +62,7 @@ import AffiliateLanding from './pages/AffiliateLanding';
 import AffiliateRegister from './pages/AffiliateRegister';
 import AffiliateDashboard from './pages/AffiliateDashboard';
 import Header from './components/Header';
+import NotFound404Animated from './pages/NotFound404Animated';
 
 
 const App: React.FC = () => {
@@ -179,6 +180,9 @@ const App: React.FC = () => {
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/complaint" element={<Complaint />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+
+          <Route path="*" element={<NotFound404Animated />} />
+
         </Routes>
       </Router>
     </RoleProvider>

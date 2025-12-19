@@ -532,7 +532,7 @@ select.ftl-input {
 }
 
 .ftl-page.is-current {
-  background: linear-gradient(135deg, var(--cs-accent) 0%, var(--cs-accent-hover) 100%);
+  background: #a855f7;
   color: #fff;
   border-color: var(--cs-accent);
 }

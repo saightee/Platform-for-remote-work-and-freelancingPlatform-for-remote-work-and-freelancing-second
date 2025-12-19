@@ -1373,7 +1373,7 @@ if (role === 'jobseeker' && refCode && afterReturn) {
 
 <div className="reg2-field reg2-span2">
   <label className="reg2-label">
-    BIO <span className="reg2-opt">(200–750 characters)</span>
+    BIO <span className="reg2-opt">(200–750 characters) <span className="reg2-req">*</span></span>
   </label>
 
   <div className="reg2-quill">

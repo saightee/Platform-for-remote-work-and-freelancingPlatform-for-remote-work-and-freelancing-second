@@ -235,3 +235,23 @@
     justify-content: center;
   }
 }
+
+.jc-job-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.jc-job-cat {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #f3f4ff;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.jc-job-cat--more {
+  opacity: 0.85;
+}

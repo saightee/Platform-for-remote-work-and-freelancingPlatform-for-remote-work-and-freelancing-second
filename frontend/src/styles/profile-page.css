@@ -830,3 +830,10 @@
   color: #6b7280;
   margin-left: 4px;
 }
+
+@media (max-width: 480px) {
+ .pf-row-two {
+  display: grid;
+  grid-template-columns: 1fr;
+ }
+}

@@ -1526,15 +1526,18 @@ export const searchTalents = async (params: {
 // };
 
 // services/api.ts
-export const checkJobApplicationStatus = async (job_post_id: string) => {
-  try {
-    const { data } = await api.get<{ hasApplied: boolean }>(`/job-applications/check/${job_post_id}`);
-    return data;
-  } catch (e: any) {
-    if (e?.response?.status === 404) return { hasApplied: false };
-    throw e;
+export const checkJobApplicationStatus = async (jobPostId: string) => {
+  const res = await api.get(`/job-applications/check/${jobPostId}`, {
+    validateStatus: (s) => (s >= 200 && s < 300) || s === 404,
+  });
+
+  if (res.status === 404) {
+    return { hasApplied: false };
   }
+
+  return res.data; // ожидаем { hasApplied: true/false } или что у тебя там
 };
+
 
 
 

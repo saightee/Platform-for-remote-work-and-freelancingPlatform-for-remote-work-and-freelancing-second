@@ -55,7 +55,7 @@
 .reg2-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  /* gap: 8px; */
 }
 
 /* === Labels & Helpers === */
@@ -67,6 +67,7 @@
 
 .reg2-req {
   color: #ef4444;
+  font-size: 16px;
 }
 
 .reg2-opt {
