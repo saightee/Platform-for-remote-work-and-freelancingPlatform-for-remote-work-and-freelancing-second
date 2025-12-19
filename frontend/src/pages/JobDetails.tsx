@@ -216,6 +216,8 @@ const JobDetails: React.FC = () => {
     setIsApplyModalOpen(true);
   };
 
+  
+
   useEffect(() => {
     if (!isApplyModalOpen) return;
     const onKey = (e: KeyboardEvent) => {

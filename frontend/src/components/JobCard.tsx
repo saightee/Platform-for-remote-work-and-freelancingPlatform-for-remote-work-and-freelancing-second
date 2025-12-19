@@ -10,6 +10,7 @@ import {
   FaBuilding,
 } from 'react-icons/fa';
 import { MapPin, DollarSign, Clock, Briefcase as BriefcaseLucide } from 'lucide-react';
+import { useRole } from '../context/RoleContext';
 
 import sanitizeHtml from 'sanitize-html';
 import { brandBackendOrigin } from '../brand';
@@ -94,6 +95,27 @@ const renderSalary = (j: JobPost): string => {
   return 'Not specified';
 };
 
+const getJobCategories = (job: JobPost): string[] => {
+  const anyJob: any = job;
+
+  // multi
+  if (Array.isArray(anyJob.categories) && anyJob.categories.length) {
+    return anyJob.categories
+      .map((c: any) => (typeof c === 'string' ? c : c?.name))
+      .filter(Boolean);
+  }
+
+  // single fallback
+  if (anyJob.category) {
+    if (typeof anyJob.category === 'string') return [anyJob.category];
+    if (anyJob.category?.name) return [anyJob.category.name];
+  }
+  if (anyJob.category_name) return [anyJob.category_name];
+
+  return [];
+};
+
+
 const getDisplayCompanyName = (job: JobPost): string => {
   const j = job as JobPost & { company_name?: string | null; companyName?: string | null };
   const byCompanyField = j.company_name ?? j.companyName;
@@ -159,6 +181,9 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
   };
 
   const slugOrId = (job as any).slug_id || job.id;
+  const { profile } = useRole();
+  const isJobseeker = profile?.role === 'jobseeker';
+  const viewPath = `/vacancy/${slugOrId}`;
 
   if (variant === 'home') {
     return (
@@ -192,6 +217,22 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
 
           <p className="oj-job-desc">{truncateDescription(job.description, 160)}</p>
 
+          {getJobCategories(job).length > 0 && (
+  <div className="oj-job-cats">
+    {getJobCategories(job).slice(0, 3).map((cat, i) => (
+      <span key={i} className="oj-job-cat">
+        {cat}
+      </span>
+    ))}
+    {getJobCategories(job).length > 3 && (
+      <span className="oj-job-cat oj-job-cat--more">
+        +{getJobCategories(job).length - 3}
+      </span>
+    )}
+  </div>
+)}
+
+
           {job.required_skills && job.required_skills.length > 0 && (
             <div className="oj-job-tags">
               {job.required_skills.slice(0, 3).map((skill, i) => (
@@ -208,15 +249,27 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
           )}
         </div>
 
-        <div className="oj-job-card-footer">
-          <div className="oj-job-footer-meta">
-            <BriefcaseLucide />
-            <span>{renderApplicants(job)}</span>
-          </div>
-          <Link to={`/vacancy/${slugOrId}`} className="oj-btn oj-btn--primary oj-job-btn">
-            Apply Now
-          </Link>
-        </div>
+       <div className="oj-job-card-footer">
+  <div className="oj-job-footer-meta">
+    <BriefcaseLucide />
+    <span>{renderApplicants(job)}</span>
+  </div>
+
+  <Link to={viewPath} className="oj-btn oj-btn--primary oj-job-btn">
+    View
+  </Link>
+
+  {isJobseeker && (
+    <Link
+      to={viewPath}
+      state={{ openApply: true }}
+      className="oj-btn oj-btn--primary oj-job-btn"
+    >
+      Apply Now
+    </Link>
+  )}
+</div>
+
       </article>
     );
   }
@@ -246,6 +299,21 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
               </h3>
               <p className="jc-job-company">{companyName}</p>
               <p className="jc-job-posted">{posted}</p>
+              {getJobCategories(job).length > 0 && (
+  <div className="jc-job-cats">
+    {getJobCategories(job).slice(0, 3).map((cat, i) => (
+      <span key={i} className="jc-job-cat">
+        {cat}
+      </span>
+    ))}
+    {getJobCategories(job).length > 3 && (
+      <span className="jc-job-cat jc-job-cat--more">
+        +{getJobCategories(job).length - 3}
+      </span>
+    )}
+  </div>
+)}
+
             </div>
 
             {job.job_type && (
@@ -290,19 +358,23 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
             </div>
 
             <div className="jc-card-actions">
-              <Link
-                to={`/vacancy/${slugOrId}`}
-                className="fj-btn-main-view fj-button-outline"
-              >
-                View
-              </Link>
-              <Link
-                to={`/vacancy/${slugOrId}`}
-                className="fj-btn-main fj-button-outline-main fj-job-btn-second"
-              >
-                Apply
-              </Link>
-            </div>
+  <Link
+    to={viewPath}
+    className="fj-btn-main-view fj-button-outline"
+  >
+    View
+  </Link>
+
+  {isJobseeker && (
+    <Link
+      to={viewPath}
+      state={{ openApply: true }}
+      className="fj-btn-main fj-button-outline-main fj-job-btn-second"
+    >
+      Apply
+    </Link>
+  )}
+</div>
           </div>
         </div>
       </div>

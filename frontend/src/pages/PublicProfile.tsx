@@ -221,6 +221,9 @@ const PublicProfile: React.FC = () => {
     run();
   }, [id]);
 
+ 
+
+
   const backAfterReport =
     currentUser?.role === 'employer'
       ? '/employer-dashboard'
@@ -260,6 +263,17 @@ const stars = useMemo(() => {
       </div>
     );
   }
+
+const toIdNum = (v: unknown): number | null => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const viewerId = toIdNum(currentUser?.id);
+const profileId = toIdNum(profile.id);
+
+const isOwner = viewerId != null && profileId != null && viewerId === profileId;
+const canSeeContacts = currentUser?.role === 'employer' || isOwner;
 
   // ====== Derived data for header ======
 
@@ -493,7 +507,7 @@ return (
                     (profile as any).country) && (
                     <>
                       <span className="ppx-meta-item">
-                        <Globe2 />{' '}
+                        <Globe2  className="ppx-icon" />{' '}
                         {(profile as any).country_name ||
                           (profile as any).country}
                       </span>
@@ -505,7 +519,7 @@ return (
                     (profile as any).date_of_birth && (
                       <>
                         <span className="ppx-meta-item">
-                          <CalendarDays />{' '}
+                          <CalendarDays  className="ppx-icon" />{' '}
                           {(() => {
                             const age = calcAge(
                               (profile as any).date_of_birth,
@@ -520,7 +534,7 @@ return (
                   {profile.experience && (
                     <>
                       <span className="ppx-meta-item">
-                        <Clock /> {profile.experience}
+                        <Clock  className="ppx-icon" /> {profile.experience}
                       </span>
                       <span className="ppx-meta-dot" />
                     </>
@@ -555,7 +569,7 @@ return (
 
                     return (
                       <span className="ppx-meta-item">
-                        <CircleDollarSign /> {text}
+                        <CircleDollarSign  className="ppx-icon"/> {text}
                       </span>
                     );
                   })()}
@@ -630,7 +644,7 @@ return (
                     </button>
                   )}
 
-                  <button
+                  {/* <button
                     type="button"
                     className="ppx-btn ppx-btn-outline"
                     disabled
@@ -638,9 +652,9 @@ return (
                   >
                     <Mail />
                     Message
-                  </button>
+                  </button> */}
                 </div>
-                <div className="ppx-header-actions-row">
+                {/* <div className="ppx-header-actions-row">
                   <button
                     type="button"
                     className="ppx-btn ppx-btn-outline"
@@ -673,7 +687,7 @@ return (
                   >
                     <Share2 />
                   </button>
-                </div>
+                </div> */}
               </div>
             )}
           </div>
@@ -737,107 +751,157 @@ return (
             <div className="ppx-contact-note">
               <Shield />
               <span>
-                Contact information and social networks may be private. Connect
-                to unlock if hidden.
+                Contact information and social networks are private. Connect to unlock.
               </span>
             </div>
 
-            <div className="ppx-contact-grid">
-              <div className="ppx-contact-chip">
-                <span className="ppx-contact-chip-icon">
-                  <Mail />
-                </span>
-                {profile.email || 'Not visible'}
+            {/* 👇 всё что внутри — блюрится если нельзя смотреть */}
+            <div className={'ppx-contact-private' + (canSeeContacts ? '' : ' is-blurred')}>
+              <div className="ppx-contact-grid">
+                <div className="ppx-contact-chip">
+                  <span className="ppx-contact-chip-icon">
+                    <Mail />
+                  </span>
+                  {profile.email || 'Not visible'}
+                </div>
+
+                {(() => {
+                  const raw = (profile as any).portfolio;
+                  const links: string[] = Array.isArray(raw)
+                    ? raw
+                    : raw
+                    ? [String(raw)]
+                    : [];
+                  if (!links.length) return null;
+
+                  // если скрыто — делаем не-ссылкой (чтобы нельзя было открыть)
+                  if (!canSeeContacts) {
+                    return (
+                      <div className="ppx-contact-chip" aria-hidden="true">
+                        <span className="ppx-contact-chip-icon">
+                          <Link2 />
+                        </span>
+                        {links[0]}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <a
+                      className="ppx-contact-chip"
+                      href={links[0]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span className="ppx-contact-chip-icon">
+                        <Link2 />
+                      </span>
+                      {links[0]}
+                    </a>
+                  );
+                })()}
               </div>
 
-              {(() => {
-                const raw = (profile as any).portfolio;
-                const links: string[] = Array.isArray(raw)
-                  ? raw
-                  : raw
-                  ? [String(raw)]
-                  : [];
-                if (!links.length) return null;
-                return (
-                  <a
-                    className="ppx-contact-chip"
-                    href={links[0]}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <span className="ppx-contact-chip-icon">
-                      <Link2 />
-                    </span>
-                    {links[0]}
-                  </a>
-                );
-              })()}
+              {(profile as any).linkedin ||
+              (profile as any).instagram ||
+              (profile as any).facebook ||
+              (profile as any).whatsapp ||
+              (profile as any).telegram ? (
+                <div className="ppx-socials">
+                  {(profile as any).linkedin && (
+                    canSeeContacts ? (
+                      <a
+                        className="ppx-soc ppx-ln"
+                        href={normalizeLinkedIn((profile as any).linkedin)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="LinkedIn"
+                      >
+                        <Linkedin />
+                      </a>
+                    ) : (
+                      <span className="ppx-soc ppx-ln" aria-hidden="true">
+                        <Linkedin />
+                      </span>
+                    )
+                  )}
+
+                  {(profile as any).instagram && (
+                    canSeeContacts ? (
+                      <a
+                        className="ppx-soc ppx-ig"
+                        href={normalizeInstagram((profile as any).instagram)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Instagram"
+                      >
+                        <Instagram />
+                      </a>
+                    ) : (
+                      <span className="ppx-soc ppx-ig" aria-hidden="true">
+                        <Instagram />
+                      </span>
+                    )
+                  )}
+
+                  {(profile as any).facebook && (
+                    canSeeContacts ? (
+                      <a
+                        className="ppx-soc ppx-fb"
+                        href={normalizeFacebook((profile as any).facebook)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Facebook"
+                      >
+                        <Facebook />
+                      </a>
+                    ) : (
+                      <span className="ppx-soc ppx-fb" aria-hidden="true">
+                        <Facebook />
+                      </span>
+                    )
+                  )}
+
+                  {(profile as any).whatsapp && (
+                    canSeeContacts ? (
+                      <a
+                        className="ppx-soc ppx-wa"
+                        href={normalizeWhatsApp((profile as any).whatsapp)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="WhatsApp"
+                      >
+                        <MessageCircle />
+                      </a>
+                    ) : (
+                      <span className="ppx-soc ppx-wa" aria-hidden="true">
+                        <MessageCircle />
+                      </span>
+                    )
+                  )}
+
+                  {(profile as any).telegram && (
+                    canSeeContacts ? (
+                      <a
+                        className="ppx-soc ppx-tg"
+                        href={normalizeTelegram((profile as any).telegram)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Telegram"
+                      >
+                        <Send />
+                      </a>
+                    ) : (
+                      <span className="ppx-soc ppx-tg" aria-hidden="true">
+                        <Send />
+                      </span>
+                    )
+                  )}
+                </div>
+              ) : null}
             </div>
-
-            {(profile as any).linkedin ||
-            (profile as any).instagram ||
-            (profile as any).facebook ||
-            (profile as any).whatsapp ||
-            (profile as any).telegram ? (
-              <div className="ppx-socials">
-                {(profile as any).linkedin && (
-                  <a
-                    className="ppx-soc ppx-ln"
-                    href={normalizeLinkedIn((profile as any).linkedin)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="LinkedIn"
-                  >
-                    <Linkedin />
-                  </a>
-                )}
-                {(profile as any).instagram && (
-                  <a
-                    className="ppx-soc ppx-ig"
-                    href={normalizeInstagram((profile as any).instagram)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Instagram"
-                  >
-                    <Instagram />
-                  </a>
-                )}
-                {(profile as any).facebook && (
-                  <a
-                    className="ppx-soc ppx-fb"
-                    href={normalizeFacebook((profile as any).facebook)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Facebook"
-                  >
-                    <Facebook />
-                  </a>
-                )}
-                {(profile as any).whatsapp && (
-                  <a
-                    className="ppx-soc ppx-wa"
-                    href={normalizeWhatsApp((profile as any).whatsapp)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="WhatsApp"
-                  >
-                    <MessageCircle />
-                  </a>
-                )}
-                {(profile as any).telegram && (
-                  <a
-                    className="ppx-soc ppx-tg"
-                    href={normalizeTelegram((profile as any).telegram)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Telegram"
-                  >
-                    <Send />
-                  </a>
-                )}
-              </div>
-            ) : null}
           </div>
+
         </section>
 
         {/* PHOTOS */}
@@ -875,7 +939,7 @@ return (
         )}
 
         {/* PORTFОЛИО ФАЙЛЫ */}
-        <section className="ppx-card">
+        {/* <section className="ppx-card">
           <div className="ppx-section-header">
             <div className="ppx-block-title-row">
               <span className="ppx-section-icon">
@@ -941,7 +1005,7 @@ return (
           ) : (
             <p className="ppx-text muted">No portfolio files yet.</p>
           )}
-        </section>
+        </section> */}
 
         {/* ABOUT + EXPERIENCE + SKILLS + EDUCATION */}
         <div className="ppx-main-grid">

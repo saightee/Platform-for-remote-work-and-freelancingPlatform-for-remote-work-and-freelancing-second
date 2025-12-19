@@ -1,0 +1,116 @@
+/* ====== ROOT ====== */
+.nf-root{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:
+    radial-gradient(1200px 400px at 50% -10%, #eef2ff, transparent),
+    #f9fafb;
+}
+
+/* ====== CARD ====== */
+.nf-card{
+  max-width:420px;
+  width:100%;
+  background:#fff;
+  border-radius:20px;
+  padding:40px 32px;
+  text-align:center;
+  box-shadow:
+    0 20px 40px rgba(0,0,0,.08),
+    0 2px 6px rgba(0,0,0,.04);
+  animation:nf-fade .5s ease;
+}
+
+/* ====== GHOST ====== */
+.nf-ghost-wrap{
+  margin-bottom:12px;
+}
+
+.nf-ghost{
+  animation:nf-float 3.5s ease-in-out infinite;
+}
+
+/* breathing */
+.nf-ghost path,
+.nf-ghost circle{
+  animation:nf-breath 3.5s ease-in-out infinite;
+}
+
+/* ====== TEXT ====== */
+.nf-code{
+  font-size:72px;
+  font-weight:800;
+  margin:8px 0;
+  color:#111827;
+}
+
+.nf-title{
+  font-size:22px;
+  font-weight:600;
+  margin:6px 0;
+  color:#1f2937;
+}
+
+.nf-text{
+  font-size:15px;
+  color:#6b7280;
+  margin:12px 0 28px;
+}
+
+/* ====== BUTTON ====== */
+.nf-btn{
+  display:inline-block;
+  padding:12px 20px;
+  border-radius:12px;
+  background:#4f46e5;
+  color:#fff;
+  text-decoration:none;
+  font-weight:500;
+  transition:.2s ease;
+}
+
+.nf-btn:hover{
+  background:#4338ca;
+  transform:translateY(-1px);
+}
+
+/* ====== ANIMATIONS ====== */
+@keyframes nf-float{
+  0%{ transform:translateY(0) }
+  50%{ transform:translateY(-10px) }
+  100%{ transform:translateY(0) }
+}
+
+@keyframes nf-breath{
+  0%,100%{ opacity:1 }
+  50%{ opacity:.85 }
+}
+
+@keyframes nf-fade{
+  from{
+    opacity:0;
+    transform:translateY(10px);
+  }
+  to{
+    opacity:1;
+    transform:none;
+  }
+}
+
+/* ====== MOBILE ====== */
+@media (max-width:480px){
+  .nf-card{
+    padding:32px 20px;
+  }
+
+  .nf-code{
+    font-size:56px;
+  }
+
+  .nf-title{
+    font-size:20px;
+  }
+}

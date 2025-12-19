@@ -713,7 +713,7 @@ const FindTalent: React.FC = () => {
                   />
                 </div>
 
-                <div className="talv-field">
+                {/* <div className="talv-field">
                   <label className="talv-label">Languages</label>
                   <div className="talv-tags">
                     {filters.languages.map((l, i) => (
@@ -772,7 +772,7 @@ const FindTalent: React.FC = () => {
                     <option value="any">Any</option>
                     <option value="all">All</option>
                   </select>
-                </div>
+                </div> */}
 
          
 
@@ -958,7 +958,7 @@ const FindTalent: React.FC = () => {
                       )}
                   </div>
 
-       <div className="talv-field talv-field--inline">
+       {/* <div className="talv-field talv-field--inline">
                   <label className="talv-label" htmlFor="talv-has-resume">
                     Has resume
                   </label>
@@ -974,7 +974,7 @@ const FindTalent: React.FC = () => {
                       }))
                     }
                   />
-                </div>
+                </div> */}
                 <div className="talv-field">
                   <label className="talv-label">Preferred Job Type</label>
                   <div className="talv-checkbox-group">
@@ -1294,7 +1294,7 @@ const salaryText = (() => {
   )}
 
   {/* AGE (если нужен) */}
-  {(() => {
+  {/* {(() => {
     const age = calcAge((talent as any).date_of_birth || null);
     if (age == null) return null;
     return (
@@ -1303,7 +1303,7 @@ const salaryText = (() => {
         <span>{age}</span>
       </div>
     );
-  })()}
+  })()} */}
 
   {/* FOOTER BUTTONS */}
   <div className="talv-card-footer">

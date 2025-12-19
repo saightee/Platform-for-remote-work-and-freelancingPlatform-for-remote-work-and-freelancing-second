@@ -222,7 +222,7 @@
 
 /* ====== Filters (single source of truth) ====== */
 .talv-filters {
-  width: 230px;
+  /* width: 230px; */
   max-width: 100%;
   background: #ffffff;
   border: 1px solid #eef0f4;

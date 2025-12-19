@@ -65,6 +65,21 @@ const bioPlainText = (raw?: string | null): string => {
     .trim();
 };
 
+const shortenUrl = (raw: string, tail = 10) => {
+  if (!raw) return raw;
+  try {
+    const u = new URL(raw.startsWith('http') ? raw : `https://${raw}`);
+    const domain = u.hostname.replace(/^www\./, '');
+    const rest = (u.pathname + u.search + u.hash).replace(/^\/+/, '');
+    if (!rest) return domain;
+    return `${domain}/${rest.slice(0, tail)}…`;
+  } catch {
+    // если это не URL (или кривой) — просто режем строку
+    return raw.length > 32 ? raw.slice(0, 32) + '…' : raw;
+  }
+};
+
+
 type JobSeekerExtended = JobSeekerProfile & {
   // сохраняем возможность строки из инпута
   expected_salary?: number | string | null;
@@ -155,6 +170,21 @@ const ProfilePage: React.FC = () => {
   // --- static sets
   const timezones = Intl.supportedValuesOf('timeZone').sort();
   const currencies = ['USD', 'EUR', 'GBP', 'JPY'];
+
+  const formatLinkLabel = (rawUrl: string, tail = 18) => {
+  try {
+    const u = new URL(rawUrl);
+    const host = u.host.replace(/^www\./, '');
+    const path = (u.pathname + u.search + u.hash).replace(/\/+$/, '');
+    if (!path || path === '/') return host;
+    const short = path.length > tail ? path.slice(0, tail) + '…' : path;
+    return host + short;
+  } catch {
+    // если пришло невалидное — просто режем строку
+    return rawUrl.length > 28 ? rawUrl.slice(0, 28) + '…' : rawUrl;
+  }
+};
+
 
   // ------- categories load
   useEffect(() => {
@@ -455,12 +485,9 @@ if (normCurrentPosition.length > 200) {
 }
 (now as any).current_position = normCurrentPosition || null;
 
-// BIO: 200–750 ????????, ??????? ?? plain text
-// ???? ???? ? description ?????? ????? HTML
-const bioSrc = ((now as any).description || '').toString();
-const bioDiv = document.createElement('div');
-bioDiv.innerHTML = bioSrc;
-const bioText = (bioDiv.textContent || '').trim();
+
+const bioHtml = ((now as any).description || '').toString();
+const bioText = bioPlainText(bioHtml);
 
 if (bioText.length < BIO_MIN) {
   setFormError(`Bio must be at least ${BIO_MIN} characters.`);
@@ -471,8 +498,8 @@ if (bioText.length > BIO_MAX) {
   return;
 }
 
-// ? ??????? ??????? ?????? ??? ?????? ????? 
-(now as any).description = bioText;
+
+// (now as any).description = bioText;
 
 // Normalize and validate portfolio links
 const rawPortfolio = (now as any).portfolio;
@@ -505,6 +532,10 @@ for (const url of normPortfolio) {
 }
 
 (now as any).portfolio = normPortfolio.length ? normPortfolio : null;
+
+// normalize video intro (empty => null)
+const videoIntroNorm = String((now as any).video_intro || '').trim();
+(now as any).video_intro = videoIntroNorm ? videoIntroNorm : null;
 
 
 const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtended[K]) =>
@@ -588,7 +619,7 @@ const changed = <K extends keyof JobSeekerExtended>(key: K, val: JobSeekerExtend
           if (!same) patch.portfolio_files = (now as any).portfolio_files;
         }
 
-        if (changed('video_intro', now.video_intro))         patch.video_intro      = now.video_intro;
+        if (changed('video_intro', (now as any).video_intro ?? null)) { patch.video_intro = (now as any).video_intro ?? null;}
         if (changed('resume', now.resume))                   patch.resume           = now.resume;
         if (changed('country', now.country ?? undefined))    patch.country   = now.country ?? undefined;
         if (Array.isArray(now.languages))                    patch.languages = now.languages!;
@@ -1481,10 +1512,22 @@ const removePortfolioLinkAt = (idx: number) => {
                       {/* Video intro */}
                       <div className="pf-kv-row">
                         <span className="pf-k">Video intro</span>
-                        <span className="pf-v">
-                          {(profileData as JobSeekerProfile).video_intro ||
-                            'Not specified'}
-                        </span>
+                   <span className="pf-v">
+  {(profileData as JobSeekerProfile).video_intro ? (
+    <a
+      className="pf-link"
+      href={(profileData as JobSeekerProfile).video_intro as string}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={(profileData as JobSeekerProfile).video_intro as string}
+    >
+      {shortenUrl((profileData as JobSeekerProfile).video_intro as string, 14)}
+    </a>
+  ) : (
+    'Not specified'
+  )}
+</span>
+
                       </div>
 
                       {/* Resume */}
@@ -1519,55 +1562,62 @@ const removePortfolioLinkAt = (idx: number) => {
 {/* Portfolio links */}
 <div className="pf-row">
   <label className="pf-label">Portfolio links (optional, up to 10)</label>
-  <div className="pf-tags-input">
-    <div className="pf-tags-input-main">
-      <input
-        className="pf-input"
-        type="url"
-        value={newPortfolioLink}
-        onChange={(e) => setNewPortfolioLink(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            addPortfolioLink();
-          }
-        }}
-        placeholder="https://github.com/…, https://dribbble.com/…"
-      />
-      <button
-        type="button"
-        className="pf-button pf-secondary"
-        onClick={addPortfolioLink}
-        disabled={!newPortfolioLink.trim() || portfolioLinks.length >= 10}
-      >
-        Add link
-      </button>
-    </div>
 
-    {portfolioLinks.length > 0 && (
-      <div className="pf-tags">
-        {portfolioLinks.map((url, idx) => (
-          <span key={idx} className="pf-tag">
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="pf-link"
-            >
-              {url}
-            </a>
-            <span
-              className="pf-tag-x"
-              onClick={() => removePortfolioLinkAt(idx)}
-            >
+  {isEditing && (
+    <div className="pf-tags-input">
+      <div className="pf-tags-input-main">
+        <input
+          className="pf-input"
+          type="url"
+          value={newPortfolioLink}
+          onChange={(e) => setNewPortfolioLink(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addPortfolioLink();
+            }
+          }}
+          placeholder="https://github.com/…, https://dribbble.com/…"
+        />
+        <button
+          type="button"
+          className="pf-button pf-secondary"
+          onClick={addPortfolioLink}
+          disabled={!newPortfolioLink.trim() || portfolioLinks.length >= 10}
+        >
+          Add link
+        </button>
+      </div>
+    </div>
+  )}
+
+  {portfolioLinks.length > 0 ? (
+    <div className="pf-tags" style={{ marginTop: 8 }}>
+      {portfolioLinks.map((url, idx) => (
+        <span key={idx} className="pf-tag">
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pf-link"
+            title={url}
+          >
+            {shortenUrl(url, 14)}
+          </a>
+
+          {isEditing && (
+            <span className="pf-tag-x" onClick={() => removePortfolioLinkAt(idx)}>
               ×
             </span>
-          </span>
-        ))}
-      </div>
-    )}
-  </div>
+          )}
+        </span>
+      ))}
+    </div>
+  ) : (
+    <div className="pf-muted">Not specified</div>
+  )}
 </div>
+
 
 
 
@@ -2236,22 +2286,22 @@ const removePortfolioLinkAt = (idx: number) => {
           )
         ) : (
           <>
-            <textarea
-              className="pf-textarea"
-              rows={4}
-              value={
-                (profileData as JobSeekerProfile).description || ''
-              }
-              onChange={(e) =>
-                setProfileData(
-                  {
-                    ...(profileData as any),
-                    description: e.target.value,
-                  } as any,
-                )
-              }
-              placeholder="Tell a bit about yourself…"
-            />
+           <div className="pf-quill">
+  <ReactQuill
+    theme="snow"
+    value={(profileData as JobSeekerProfile).description || ''}
+    onChange={(html) =>
+      setProfileData(
+        {
+          ...(profileData as any),
+          description: html,
+        } as any,
+      )
+    }
+    placeholder="Tell a bit about yourself…"
+  />
+</div>
+
 
             {/* Счётчик символов */}
             <div
