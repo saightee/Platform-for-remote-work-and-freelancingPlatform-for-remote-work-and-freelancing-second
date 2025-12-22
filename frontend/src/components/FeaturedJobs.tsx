@@ -6,7 +6,11 @@ import { searchJobPosts } from '../services/api';
 import { JobPost } from '@types';
 import '../styles/lovable-home.css';
 
-const FeaturedJobs: React.FC = () => {
+type FeaturedJobsProps = {
+  onApply?: (job: JobPost) => void;
+};
+
+const FeaturedJobs: React.FC<FeaturedJobsProps> = ({ onApply }) => {
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +45,6 @@ const FeaturedJobs: React.FC = () => {
               Browse current openings and apply directly through the platform.
             </p>
           </div>
-
         </div>
 
         {isLoading && <Loader />}
@@ -51,20 +54,24 @@ const FeaturedJobs: React.FC = () => {
           <div className="oj-jobs-grid">
             {jobs.length > 0 ? (
               jobs.slice(0, 6).map((job) => (
-                <JobCard key={job.id} job={job} variant="home" />
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  variant="home"
+                  onApply={() => onApply?.(job)}
+                />
               ))
             ) : (
               <p>No recent jobs found.</p>
             )}
           </div>
-          
         )}
-        <div className='btn_link'>
-             <Link to="/find-job" className="oj-btn oj-btn--hero jobs_talent_btn">
+
+        <div className="btn_link">
+          <Link to="/find-job" className="oj-btn oj-btn--hero jobs_talent_btn">
             View All Job Postings
           </Link>
         </div>
-     
       </div>
     </section>
   );

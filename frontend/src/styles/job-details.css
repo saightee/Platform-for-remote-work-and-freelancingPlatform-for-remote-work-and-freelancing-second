@@ -642,3 +642,36 @@
     order: 2;
   }
 }
+
+
+/* job categories under company (red zone) */
+.jd-cat-chips{
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.jd-cat-chip{
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: #111827;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* mobile: чуть плотнее */
+@media (max-width: 480px){
+  .jd-cat-chips{
+    gap: 5px;
+  }
+  .jd-cat-chip{
+    font-size: 10.5px;
+    padding: 4px 9px;
+  }
+}

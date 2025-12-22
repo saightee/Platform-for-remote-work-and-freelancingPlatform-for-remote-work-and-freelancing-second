@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import "../styles/lovable-home.css";
+import ApplyJobModal from '../components/ApplyJobModal';
 
 type JwtPayload = { exp?: number };
 
@@ -29,9 +30,24 @@ const isAuthenticated = (): boolean => {
 const COOKIE_KEY = 'cookieConsent';
 const CONSENT_TTL_DAYS = 365;
 
+
 const Home: React.FC = () => {
   const authed = isAuthenticated();
   const [showCookieBanner, setShowCookieBanner] = useState(false);
+
+  const [applyOpen, setApplyOpen] = useState(false);
+const [applyJob, setApplyJob] = useState<any | null>(null);
+
+const openApply = (job: any) => {
+  setApplyJob(job);
+  setApplyOpen(true);
+};
+
+const closeApply = () => {
+  setApplyOpen(false);
+  setApplyJob(null);
+};
+
 
   // cookie-баннер (оставляем твою логику)
   useEffect(() => {
@@ -92,13 +108,14 @@ const Home: React.FC = () => {
       <main>
         <Hero />
         {!authed && <HowItWorks />}
-        <FeaturedJobs />
+        <FeaturedJobs onApply={openApply} />
         <FeaturedFreelancers />
         <Benefits />
       </main>
+<ApplyJobModal isOpen={applyOpen} job={applyJob} onClose={closeApply} />
 
       <Footer />
-
+    
       {/* cookie banner как был */}
       {showCookieBanner && (
         <div

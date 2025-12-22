@@ -837,3 +837,68 @@
   grid-template-columns: 1fr;
  }
 }
+
+
+/* Header username pencil next to name */
+.pf-title-wrap { display: flex; align-items: center; min-width: 0; }
+
+.pf-title-edit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pf-title-edit .pf-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pf-title-pen { flex: 0 0 auto; }
+
+/* inline username edit in header */
+.pf-title-inline-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pf-title-input {
+  width: min(320px, 56vw);
+}
+
+.pf-role-inline {
+  color: var(--cs-muted);
+  font-size: 20px;
+}
+
+/* mobile */
+@media (max-width: 640px) {
+  .pf-title-edit { flex-wrap: wrap; align-items: flex-start; }
+  .pf-title-input { width: 100%; }
+  .pf-role-inline { font-size: 18px; }
+}
+
+/* Portfolio tags inside kv row */
+.pf-tags--kv { margin-top: 0; }
+
+/* input + button in one line */
+.pf-tags-input-main{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.pf-tags-input-main .pf-input{
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* mobile: stack input and button */
+@media (max-width: 520px){
+  .pf-tags-input-main{ flex-direction: column; align-items: stretch; }
+  .pf-tags-input-main .pf-button{ width: 100%; }
+}

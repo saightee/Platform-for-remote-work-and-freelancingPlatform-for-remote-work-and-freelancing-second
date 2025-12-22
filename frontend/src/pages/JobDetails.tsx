@@ -62,129 +62,127 @@ const JobDetails: React.FC = () => {
   const viewed = useRef(false);
 
   // ===== LOAD JOB =====
-  useEffect(() => {
-    if (!slugOrId) return;
+// ===== LOAD JOB =====
+useEffect(() => {
+  if (!slugOrId) return;
 
-    let alive = true;
+  let alive = true;
+  viewed.current = false; // IMPORTANT: сброс при смене вакансии
 
-    const fetchJob = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        setHasApplied(null);
+  const fetchJob = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setHasApplied(null);
 
-        // --- 1) Load job by slug or id ---
-        const jobData = await getJobBySlugOrId(slugOrId);
-        if (!alive) return;
+      // 1) Load job
+      const jobData = await getJobBySlugOrId(slugOrId);
+      if (!alive) return;
 
-        const normalizeJob = (raw: any): JobPost => {
-          const empObj =
-            raw.employer ??
-            raw.owner ??
-            raw.created_by ??
-            raw.createdBy ??
-            raw.posted_by ??
-            raw.postedBy ??
-            ((raw.employer_id ||
-              raw.employer_username ||
-              raw.employer_avatar ||
-              raw.owner_id ||
-              raw.owner_username ||
-              raw.owner_avatar ||
-              raw.created_by_id ||
-              raw.created_by_username ||
-              raw.created_by_avatar ||
-              raw.posted_by_id ||
-              raw.posted_by_username ||
-              raw.posted_by_avatar) && {
-              id:
-                raw.employer_id ??
-                raw.owner_id ??
-                raw.created_by_id ??
-                raw.posted_by_id ??
-                raw.employer?.id ??
-                null,
-              username:
-                raw.employer_username ??
-                raw.owner_username ??
-                raw.created_by_username ??
-                raw.posted_by_username ??
-                raw.employer?.username ??
-                null,
-              avatar:
-                raw.employer_avatar ??
-                raw.owner_avatar ??
-                raw.created_by_avatar ??
-                raw.posted_by_avatar ??
-                raw.employer?.avatar ??
-                null,
-            });
+      const normalizeJob = (raw: any): JobPost => {
+        const empObj =
+          raw.employer ??
+          raw.owner ??
+          raw.created_by ??
+          raw.createdBy ??
+          raw.posted_by ??
+          raw.postedBy ??
+          ((raw.employer_id ||
+            raw.employer_username ||
+            raw.employer_avatar ||
+            raw.owner_id ||
+            raw.owner_username ||
+            raw.owner_avatar ||
+            raw.created_by_id ||
+            raw.created_by_username ||
+            raw.created_by_avatar ||
+            raw.posted_by_id ||
+            raw.posted_by_username ||
+            raw.posted_by_avatar) && {
+            id:
+              raw.employer_id ??
+              raw.owner_id ??
+              raw.created_by_id ??
+              raw.posted_by_id ??
+              raw.employer?.id ??
+              null,
+            username:
+              raw.employer_username ??
+              raw.owner_username ??
+              raw.created_by_username ??
+              raw.posted_by_username ??
+              raw.employer?.username ??
+              null,
+            avatar:
+              raw.employer_avatar ??
+              raw.owner_avatar ??
+              raw.created_by_avatar ??
+              raw.posted_by_avatar ??
+              raw.employer?.avatar ??
+              null,
+          });
 
-          return {
-            ...raw,
-            employer: empObj,
-          };
-        };
+        return { ...raw, employer: empObj };
+      };
 
-        const normalized = normalizeJob(jobData);
-        setJob(normalized);
+      const normalized = normalizeJob(jobData);
+      setJob(normalized);
 
-        const jobId = jobData.id;
+      const jobId = jobData?.id;
+      if (!jobId) return;
 
-        // --- 2) Referral code from ?ref ---
-        const refFromUrl = new URLSearchParams(window.location.search).get('ref');
-        if (refFromUrl && jobId) {
-          localStorage.setItem('referralCode', refFromUrl);
-          localStorage.setItem('referralJobId', jobId);
-          const clean = location.pathname + (location.hash || '');
-          window.history.replaceState(null, '', clean);
-        }
+      // 2) Referral code from ?ref (чистим URL без лишних deps)
+      const refFromUrl = new URLSearchParams(window.location.search).get('ref');
+      if (refFromUrl) {
+        localStorage.setItem('referralCode', refFromUrl);
+        localStorage.setItem('referralJobId', jobId);
 
-        // --- 3) Increment views (once) ---
-        if (!viewed.current && jobId) {
-          viewed.current = true;
-          try {
-            const response = await incrementJobView(jobId);
-            if (!alive) return;
-            setJob(prev =>
-              prev
-                ? { ...prev, views: response?.views ?? (jobData.views || 0) + 1 }
-                : prev,
-            );
-          } catch (viewError) {
-            console.error('Error incrementing job view:', viewError);
-          }
-        }
-
-        // --- 4) Application status for jobseeker ---
-        if (profile?.role === 'jobseeker' && jobId) {
-          try {
-            const applicationStatus = await checkJobApplicationStatus(jobId);
-            if (!alive) return;
-            setHasApplied(applicationStatus.hasApplied);
-          } catch (e) {
-            console.warn('check status failed → assume not applied', e);
-            if (!alive) return;
-            setHasApplied(false);
-          }
-        }
-      } catch (err: any) {
-        console.error('Error fetching job:', err);
-        if (!alive) return;
-        setError(
-          err?.response?.data?.message ||
-            'Failed to load job details. Please try again.',
-        );
-      } finally {
-        if (alive) setLoading(false);
+        // убираем ref из URL (оставляем pathname+hash)
+        const clean = window.location.pathname + window.location.hash;
+        window.history.replaceState(null, '', clean);
       }
-    };
 
-    fetchJob();
-    return () => {
-      alive = false;
-    };
-  }, [slugOrId, profile, location.pathname, location.hash]);
+      // 3) Increment views once
+      if (!viewed.current) {
+        viewed.current = true;
+        try {
+          const response = await incrementJobView(jobId);
+          if (!alive) return;
+          setJob(prev =>
+            prev ? { ...prev, views: response?.views ?? ((prev as any).views || 0) + 1 } : prev
+          );
+        } catch (e) {
+          console.error('Error incrementing job view:', e);
+        }
+      }
+
+      // 4) Application status (jobseeker only)
+      if (profile?.role === 'jobseeker') {
+        try {
+          const st = await checkJobApplicationStatus(jobId);
+          if (!alive) return;
+          setHasApplied(!!st?.hasApplied);
+        } catch (e) {
+          console.warn('check status failed -> assume not applied', e);
+          if (!alive) return;
+          setHasApplied(false);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error fetching job:', err);
+      if (!alive) return;
+      setError(err?.response?.data?.message || 'Failed to load job details. Please try again.');
+    } finally {
+      if (alive) setLoading(false);
+    }
+  };
+
+  fetchJob();
+  return () => {
+    alive = false;
+  };
+}, [slugOrId, profile?.role]);
+
 
   // ===== REFERRAL PRESENCE (for register URL) =====
   const [hasReferral, setHasReferral] = useState(false);
@@ -238,23 +236,30 @@ const JobDetails: React.FC = () => {
     }
 
     try {
-      const jobId = job?.id;
-      if (jobId) {
-        await applyToJobPostExtended({
-          job_post_id: jobId,
-          cover_letter: coverLetter.trim(),
-          relevant_experience: relevantExperience.trim(),
-          full_name: fullName.trim() || undefined,
-          referred_by: referredBy.trim() || undefined,
-        });
-        setHasApplied(true);
-        setIsApplyModalOpen(false);
+    const jobId = job?.id;
+    if (jobId) {
+      const refFromLS = localStorage.getItem('referralCode') || undefined;
 
-        navigate('/jobseeker-dashboard/messages', {
-          replace: true,
-          state: { jobPostId: jobId },
-        });
-      }
+      await applyToJobPostExtended({
+        job_post_id: jobId,
+        cover_letter: coverLetter.trim(),
+        relevant_experience: relevantExperience.trim(),
+        full_name: fullName.trim() || undefined,
+        referred_by: referredBy.trim() || undefined,
+
+        // по доке (алиасы)
+        ref: refFromLS,
+        refCode: refFromLS,
+      });
+
+      setHasApplied(true);
+      setIsApplyModalOpen(false);
+
+      navigate('/jobseeker-dashboard/messages', {
+        replace: true,
+        state: { jobPostId: jobId },
+      });
+    }
     } catch (err: any) {
       console.error('Error applying to job:', err);
       const msg: string = err?.response?.data?.message || '';
@@ -296,6 +301,35 @@ const JobDetails: React.FC = () => {
   if (loading) return <Loader />;
   if (!job) return <div>Job not found.</div>;
 
+  const currencySymbol = (codeRaw: unknown): string => {
+  const code = String(codeRaw || '').trim().toUpperCase();
+  if (!code) return '';
+
+  const map: Record<string, string> = {
+    USD: '$',
+    EUR: '€',
+    GBP: '£',
+    JPY: '¥',
+    CNY: '¥',
+    KRW: '₩',
+    INR: '₹',
+    RUB: '₽',
+    UAH: '₴',
+    PLN: 'zł',
+    BRL: 'R$',
+    CAD: '$',
+    AUD: '$',
+    CHF: 'CHF',
+    SEK: 'kr',
+    NOK: 'kr',
+    DKK: 'kr',
+  };
+
+  // если нет в мапе — покажем код + пробел (например: "AED ")
+  return map[code] ? map[code] : `${code} `;
+};
+
+
   const renderSalary = (j: JobPost): string => {
     const st = String(j.salary_type ?? '')
       .trim()
@@ -321,16 +355,16 @@ const JobDetails: React.FC = () => {
 
     if (!Number.isFinite(min) && !Number.isFinite(max)) return 'Not specified';
 
-    if (Number.isFinite(min) && Number.isFinite(max) && max !== min) {
-      const prefix = currency ? `${currency}` : '';
-      return `${prefix}${min}–${max} ${unit}`.trim();
-    }
+   const prefix = currencySymbol(currency);
 
-    const value = Number.isFinite(min) ? min : max;
-    if (Number.isFinite(value)) {
-      const prefix = currency ? `${currency}` : '';
-      return unit ? `${prefix}${value} ${unit}`.trim() : `${prefix}${value}`;
-    }
+if (Number.isFinite(min) && Number.isFinite(max) && max !== min) {
+  return `${prefix}${min}–${max} ${unit}`.trim();
+}
+
+const value = Number.isFinite(min) ? min : max;
+if (Number.isFinite(value)) {
+  return unit ? `${prefix}${value} ${unit}`.trim() : `${prefix}${value}`;
+}
 
     return 'Not specified';
   };
@@ -430,6 +464,26 @@ const JobDetails: React.FC = () => {
     }
     return anyJob.category?.name || 'Not specified';
   })();
+
+  const jobCategoryNames = (() => {
+  const anyJob: any = job;
+  const names: string[] = [];
+
+  // 1) если сервер отдаёт массив categories: [{id,name},...]
+  if (Array.isArray(anyJob.categories) && anyJob.categories.length) {
+    for (const c of anyJob.categories) {
+      const n = String(c?.name || '').trim();
+      if (n) names.push(n);
+    }
+  }
+
+  // 2) если сервер отдаёт одиночную category: {name}
+  const single = String(anyJob.category?.name || '').trim();
+  if (single) names.push(single);
+
+  // uniq + preserve order
+  return Array.from(new Set(names));
+})();
 
   const registerUrl = (() => {
     const base = '/register/jobseeker';
@@ -626,19 +680,29 @@ const JobDetails: React.FC = () => {
                   )}
 
                   <div className="jd-main-company">{displayEmployer}</div>
+{jobCategoryNames.length > 0 && (
+  <div className="jd-cat-chips" aria-label="Job categories">
+    {jobCategoryNames.map((name, idx) => (
+      <span key={`${name}-${idx}`} className="jd-cat-chip">
+        {name}
+      </span>
+    ))}
+  </div>
+)}
+                  
                 </div>
               </div>
 
-              {Array.isArray(job.required_skills) &&
-                job.required_skills.length > 0 && (
-                  <div className="jd-skill-chips">
-                    {job.required_skills.map((skill, idx) => (
-                      <span key={idx} className="jd-skill-chip">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                )}
+         {Array.isArray(job.required_skills) &&
+  job.required_skills.length > 0 && (
+    <div className="jd-skill-chips">
+      {job.required_skills.map((skill, idx) => (
+        <span key={idx} className="jd-skill-chip">
+          {skill}
+        </span>
+      ))}
+    </div>
+  )}
 
               <div className="jd-main-actions">
                 {profile?.role === 'jobseeker' && isJobOpen ? (

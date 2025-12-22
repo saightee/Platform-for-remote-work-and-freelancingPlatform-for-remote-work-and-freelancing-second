@@ -678,6 +678,68 @@ export const getMyJobPosts = async () => {
   return response.data;
 };
 
+export const hasEmployerAccessToJobSeekerContacts = async (jobSeekerId: string) => {
+  const cacheKey = `emp_access_js_${jobSeekerId}`;
+
+  try {
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      const { allowed, ts } = JSON.parse(cached);
+      if (Date.now() - ts < 60_000) return { allowed: !!allowed };
+    }
+  } catch {}
+
+  const posts = await getMyJobPosts();
+  if (!Array.isArray(posts) || posts.length === 0) {
+    try {
+      sessionStorage.setItem(cacheKey, JSON.stringify({ allowed: false, ts: Date.now() }));
+    } catch {}
+    return { allowed: false };
+  }
+
+  for (const p of posts) {
+    try {
+      const res = await getApplicationsForJobPost(String(p.id));
+
+      const apps: any[] = Array.isArray(res)
+        ? res
+        : Array.isArray((res as any)?.data)
+        ? (res as any).data
+        : Array.isArray((res as any)?.items)
+        ? (res as any).items
+        : [];
+
+const hit =
+  Array.isArray(apps) &&
+  apps.some((a: any) => {
+    const uid =
+      a?.userId ??
+      a?.job_seeker_id ??
+      a?.jobSeekerId ??
+      a?.job_seeker?.id ??
+      a?.user?.id;
+    return uid != null && String(uid) === String(jobSeekerId);
+  });
+
+
+      if (hit) {
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify({ allowed: true, ts: Date.now() }));
+        } catch {}
+        return { allowed: true };
+      }
+    } catch {
+      // ignore -> check next job post
+    }
+  }
+
+  try {
+    sessionStorage.setItem(cacheKey, JSON.stringify({ allowed: false, ts: Date.now() }));
+  } catch {}
+  return { allowed: false };
+};
+
+
 export const searchJobPosts = async (params: {
   title?: string;
   location?: string;
@@ -837,6 +899,8 @@ export const applyToJobPostExtended = async (payload: {
   relevant_experience: string;     // NEW (required)
   full_name?: string;
   referred_by?: string;
+   ref?: string;
+  refCode?: string;
 }) => {
   const response = await api.post<JobApplication>('/job-applications', payload);
   return response.data;

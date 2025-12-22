@@ -2,6 +2,7 @@ import { useState, useEffect, Fragment, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import ApplyJobModal from '../components/ApplyJobModal';
 
 import JobCard from '../components/JobCard';
 import { JobPost, Category } from '@types';
@@ -38,6 +39,19 @@ const FindJob: React.FC = () => {
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [totalJobs, setTotalJobs] = useState(0);
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyJob, setApplyJob] = useState<any | null>(null);
+
+  const openApply = (job: any) => {
+    setApplyJob(job);
+    setApplyOpen(true);
+  };
+
+  const closeApply = () => {
+    setApplyOpen(false);
+    setApplyJob(null);
+  };
+
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth <= 480);
@@ -576,7 +590,7 @@ const FindJob: React.FC = () => {
               <div className="fj-grid">
                 {jobs.length > 0 ? (
                   jobs.map((job) => (
-                    <JobCard key={job.id} job={job} variant="find-jobs" />
+                    <JobCard key={job.id} job={job} onApply={openApply} variant="find-jobs" />
                   ))
                 ) : (
                   <p className="fj-empty">No jobs found.</p>
@@ -597,8 +611,11 @@ const FindJob: React.FC = () => {
         </div>
       </div>
 
+<ApplyJobModal isOpen={applyOpen} job={applyJob} onClose={closeApply} />
+
+
       <Footer />
-     
+
     </div>
   );
 };
