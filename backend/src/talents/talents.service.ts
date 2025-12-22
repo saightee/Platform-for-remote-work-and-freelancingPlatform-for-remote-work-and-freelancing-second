@@ -122,6 +122,8 @@ export class TalentsService {
         id: js.user_id,
         username: js.user.username,
         email: js.user.email,
+        slug: js.user.slug ?? null,
+        slug_id: js.user.slug_id ?? null,
         skills: js.skills.map(cat => ({
           id: cat.id,
           name: cat.name,
