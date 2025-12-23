@@ -36,6 +36,7 @@ export class TalentsService {
     languages?: string[];
     languages_mode?: 'any' | 'all';
     has_resume?: boolean;
+    has_avatar?: string;
   }) {
     const qb = this.jobSeekerRepository
       .createQueryBuilder('jobSeeker')
@@ -43,6 +44,12 @@ export class TalentsService {
       .leftJoinAndSelect('jobSeeker.skills', 'skills')
       .where('user.role = :role', { role: 'jobseeker' })
       .andWhere('user.status = :status', { status: 'active' });
+
+    if (filters.has_avatar === 'true') {
+      qb.andWhere("user.avatar IS NOT NULL");
+      qb.andWhere("user.avatar != ''");
+      qb.andWhere("user.avatar != 'null'");
+    }
 
     if (filters.skills?.length) {
       const expandedSkills = await this.categoriesService.expandCategoryIdsWithDescendants(filters.skills);
