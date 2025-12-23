@@ -209,28 +209,15 @@ if (DEBUG_FEATURED) {
 
 const eligible = all.filter((t: any) => {
   if (!t) return false;
-
-  // --- DEBUG: что за объект пришёл (разово для первых 3) ---
-  if (DEBUG_FEATURED && stats.samples.avatar.length === 0) {
-    console.log('[FeaturedFreelancers] first talent raw:', t);
-  }
-
-  // 1) avatar (расширенная проверка + лог)
+  
+  // === ДЕБАГ: отслеживаем DENY ===
+  const isDeny = t.username?.includes('DENY');
+  
+  // 1) avatar
   const picked = pickAvatar(t);
-  const rawAvatar = picked.value;            // может быть string/obj/null
-  const avatar = normStr(rawAvatar);         // если string -> trim
-
-  // считаем "у кого вообще есть хоть какое-то поле аватара"
-  if (picked.key) {
-    if (stats.avatarCandidates.length < 10) {
-      stats.avatarCandidates.push({
-        username: t.username,
-        pickedKey: picked.key,
-        pickedValue: rawAvatar,
-      });
-    }
-  }
-
+  const rawAvatar = picked.value;
+  const avatar = normStr(rawAvatar);
+  
   let avatarOk = true;
   if (avatar == null) {
     stats.avatar.missing++;
@@ -244,94 +231,84 @@ const eligible = all.filter((t: any) => {
   } else if (avatar.toLowerCase() === 'null' || avatar.toLowerCase() === 'undefined') {
     stats.avatar.stringNull++;
     avatarOk = false;
-  } else {
-    // строка есть, но может быть "битая" (опционально)
-    // например просто "/" или "N/A"
-    if (avatar.length < 3) {
-      stats.avatar.badValue++;
-      avatarOk = false;
-    }
+  } else if (avatar.length < 3) {
+    stats.avatar.badValue++;
+    avatarOk = false;
   }
-
+  
   if (!avatarOk) {
     stats.fail.avatar++;
-    if (DEBUG_FEATURED && stats.samples.avatar.length < 5) {
-      stats.samples.avatar.push({
-        username: t.username,
-        id: t.id,
-        pickedKey: picked.key,
-        rawAvatar,
-        normalizedAvatar: avatar,
-        keys: Object.keys(t || {}),
-      });
-    }
+    if (isDeny) console.error('[DENY FAILED] avatar check', { avatar, rawAvatar });
     return false;
   }
-
+  
   // 2) username
-  const username = t.username;
-  if (!username) {
+  if (!t.username) {
     stats.fail.username++;
+    if (isDeny) console.error('[DENY FAILED] username check');
     return false;
   }
-
+  
   // 3) title
-  const title =
-    t.current_position ||
-    t.headline ||
-    t.title ||
-    null;
-
+  const title = t.current_position || t.headline || t.title || null;
   if (!title) {
     stats.fail.title++;
-    if (DEBUG_FEATURED && stats.samples.title.length < 5) {
-      stats.samples.title.push({
-        username: t.username,
-        id: t.id,
-        hasAvatar: true,
-        avatarKey: picked.key,
-        avatarValue: rawAvatar,
-        current_position: t.current_position,
-        headline: t.headline,
-        title: t.title,
-        allKeys: Object.keys(t || {}),
-      });
-    }
+    if (isDeny) console.error('[DENY FAILED] title check', {
+      current_position: t.current_position,
+      headline: t.headline,
+      title: t.title,
+    });
     return false;
   }
-
+  
   // 4) country
   const country = t.country_name || t.country || '';
   if (!country) {
     stats.fail.country++;
+    if (isDeny) console.error('[DENY FAILED] country check');
     return false;
   }
-
+  
   // 5) date_of_birth
   const dob = t.date_of_birth || null;
   const age = calcAge(dob);
   if (age == null) {
     stats.fail.dob++;
+    if (isDeny) console.error('[DENY FAILED] dob check', { dob, age });
     return false;
   }
-
+  
   // 6) rate
   const rate = buildRate(t);
   if (!rate) {
     stats.fail.rate++;
+    if (isDeny) console.error('[DENY FAILED] rate check', {
+      expected_salary: t.expected_salary,
+      expected_salary_max: t.expected_salary_max,
+      rate,
+    });
     return false;
   }
-
+  
   // 7) skills
   const skills = extractSkillNames(t);
   if (!skills.length) {
     stats.fail.skills++;
+    if (isDeny) console.error('[DENY FAILED] skills check', {
+      skills: t.skills,
+      extracted: skills,
+    });
     return false;
   }
-
+  
+  if (isDeny) {
+    console.log('[DENY PASSED ALL CHECKS] ✅');
+  }
+  
   stats.pass++;
   return true;
 });
+
 
 if (DEBUG_FEATURED) {
   console.group('[FeaturedFreelancers] filter diagnostics (DETAILED)');
