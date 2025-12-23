@@ -20,6 +20,7 @@ import '../styles/job-card-list.css';
 interface JobCardProps {
   job: JobPost;
   variant?: 'home' | 'find-jobs';
+  onApply?: (job: any) => void;
 }
 
 const decodeEntities = (s: string) => {
@@ -173,7 +174,7 @@ const getViewsCount = (job: JobPost): number | null => {
   return typeof n === 'number' && n >= 0 ? n : null;
 };
 
-const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
+const JobCard: React.FC<JobCardProps> = ({ job, onApply, variant = 'find-jobs' }) => {
   const truncateDescription = (description: string | undefined, maxLength: number) => {
     const clean = sanitizeHtml(description || '', { allowedTags: [], allowedAttributes: {} });
     const decoded = decodeEntities(clean);
@@ -254,20 +255,22 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
     <BriefcaseLucide />
     <span>{renderApplicants(job)}</span>
   </div>
-
+<div className="oj-job-card-btn">
   <Link to={viewPath} className="oj-btn oj-btn--primary oj-job-btn">
     View
   </Link>
 
-  {isJobseeker && (
-    <Link
-      to={viewPath}
-      state={{ openApply: true }}
-      className="oj-btn oj-btn--primary oj-job-btn"
-    >
-      Apply Now
-    </Link>
-  )}
+{isJobseeker && (
+  <button
+    type="button"
+    className="oj-btn oj-btn--primary oj-job-btn"
+    onClick={() => onApply?.(job)}
+  >
+    Apply Now
+  </button>
+)}
+</div>
+
 </div>
 
       </article>
@@ -366,13 +369,13 @@ const JobCard: React.FC<JobCardProps> = ({ job, variant = 'find-jobs' }) => {
   </Link>
 
   {isJobseeker && (
-    <Link
-      to={viewPath}
-      state={{ openApply: true }}
-      className="fj-btn-main fj-button-outline-main fj-job-btn-second"
-    >
-      Apply
-    </Link>
+   <button
+  type="button"
+  className="fj-btn-main fj-button-outline-main fj-job-btn-second"
+  onClick={() => onApply?.(job)}
+>
+  Apply
+</button>
   )}
 </div>
           </div>

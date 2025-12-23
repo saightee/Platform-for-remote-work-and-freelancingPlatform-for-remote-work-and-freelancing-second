@@ -1030,25 +1030,29 @@ const FindTalent: React.FC = () => {
                   {selectedSkillId && (
                     <div className="talv-tags" style={{ marginTop: 6 }}>
                       <span className="talv-tag">
-                        {skillInput || 'Selected category'}
-                        <button
-                          type="button"
-                          className="talv-tag-remove"
-                          onClick={() => {
-                            setSelectedSkillId('');
-                            setSkillInput('');
-                            setFilters((prev) => ({
-                              ...prev,
-                              description: searchInput || undefined,
-                              page: 1,
-                            }));
-                          }}
-                          aria-label="Remove category"
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </span>
+  <span className="talv-tag-text" title={skillInput || 'Selected category'}>
+    {skillInput || 'Selected category'}
+  </span>
+
+  <button
+    type="button"
+    className="talv-tag-remove"
+    onClick={() => {
+      setSelectedSkillId('');
+      setSkillInput('');
+      setFilters((prev) => ({
+        ...prev,
+        description: searchInput || undefined,
+        page: 1,
+      }));
+    }}
+    aria-label="Remove category"
+    title="Remove"
+  >
+    ×
+  </button>
+</span>
+
                     </div>
                   )}
                 </div>
@@ -1325,6 +1329,7 @@ const salaryText = (() => {
         View Profile
       </button>
     </Link>
+    
   </div>
 </div>
                           </article>

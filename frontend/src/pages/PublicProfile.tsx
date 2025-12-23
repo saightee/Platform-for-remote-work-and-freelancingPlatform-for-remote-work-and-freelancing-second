@@ -8,6 +8,7 @@ import {
   incrementProfileView,
   getMyJobPosts,
   sendInvitation,
+  hasEmployerAccessToJobSeekerContacts,
 } from '../services/api';
 import { JobSeekerProfile, Review, Category, JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
@@ -96,6 +97,8 @@ const PublicProfile: React.FC = () => {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [employerHasAccess, setEmployerHasAccess] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(false);
 
   const galleryPhotos = useMemo(() => {
     if (!profile) return [];
@@ -221,7 +224,69 @@ const PublicProfile: React.FC = () => {
     run();
   }, [id]);
 
- 
+ useEffect(() => {
+  let alive = true;
+
+  const run = async () => {
+    // ✅ сброс состояний в одном месте
+    if (alive) {
+      setEmployerHasAccess(false);
+      setCheckingAccess(false);
+    }
+
+    // если не залогинен или профиль не загружен — доступа нет
+    if (!currentUser || !profile) return;
+
+    const viewerId = Number(currentUser.id);
+    const profileId = Number(profile.id);
+
+    if (!Number.isFinite(viewerId) || !Number.isFinite(profileId)) return;
+
+    // owner всегда видит без блюра
+    if (viewerId === profileId) {
+      if (alive) setEmployerHasAccess(true);
+      return;
+    }
+
+    // jobseeker НИКОГДА не видит чужие контакты
+    if (currentUser.role === 'jobseeker') {
+      if (alive) setEmployerHasAccess(false);
+      return;
+    }
+
+    // если не employer — тоже не видит
+    if (currentUser.role !== 'employer') {
+      if (alive) setEmployerHasAccess(false);
+      return;
+    }
+
+    // employer: доступ только если jobseeker апплаился на вакансии employer
+    try {
+      if (alive) setCheckingAccess(true);
+
+      const res = await hasEmployerAccessToJobSeekerContacts(String(profileId));
+      if (!alive) return;
+
+      setEmployerHasAccess(!!res?.allowed);
+    } catch (e) {
+      console.error('contact access check error', e);
+      if (!alive) return;
+
+      setEmployerHasAccess(false);
+    } finally {
+      if (alive) setCheckingAccess(false);
+    }
+  };
+
+  run();
+
+  return () => {
+    alive = false;
+  };
+}, [currentUser?.id, currentUser?.role, profile?.id]);
+
+
+
 
 
   const backAfterReport =
@@ -272,8 +337,14 @@ const toIdNum = (v: unknown): number | null => {
 const viewerId = toIdNum(currentUser?.id);
 const profileId = toIdNum(profile.id);
 
-const isOwner = viewerId != null && profileId != null && viewerId === profileId;
-const canSeeContacts = currentUser?.role === 'employer' || isOwner;
+const isOwner =
+  viewerId != null && profileId != null && viewerId === profileId;
+
+
+const canSeeContacts =
+  isOwner ||
+  (currentUser?.role === 'employer' && employerHasAccess);
+
 
   // ====== Derived data for header ======
 

@@ -170,6 +170,25 @@ const ProfilePage: React.FC = () => {
   // --- static sets
   const timezones = Intl.supportedValuesOf('timeZone').sort();
   const currencies = ['USD', 'EUR', 'GBP', 'JPY'];
+  const currencySymbol = (code?: string) => {
+  switch ((code || '').toUpperCase()) {
+    case 'USD': return '$';
+    case 'EUR': return '€';
+    case 'GBP': return '£';
+    case 'JPY': return '¥';
+    case 'CAD': return 'C$';
+    case 'AUD': return 'A$';
+    default: return code ? code.toUpperCase() : '';
+  }
+};
+
+const salarySuffix = (t?: string | null) => {
+  if (t === 'per hour') return '/hr';
+  if (t === 'per month') return '/month';
+  if (t === 'per day') return '/day';
+  return '';
+};
+
 
   const formatLinkLabel = (rawUrl: string, tail = 18) => {
   try {
@@ -1017,24 +1036,99 @@ const removePortfolioLinkAt = (idx: number) => {
       <div className="pf-shell">
         <div className="pf-card">
           {/* HEADER */}
-          <div className="pf-header">
-            <h5 className="pf-title">
-              {profileData.username}{' '}
-              <span className="pf-role">| {profileData.role}</span>
-            </h5>
+          {/* HEADER */}
+<div className="pf-header">
+  {/* left: title */}
+  <div className="pf-title-wrap">
+    {/* jobseeker: показываем карандаш только в режиме редактирования */}
+    {profileData.role === 'jobseeker' && isEditing ? (
+      !usernameEditMode ? (
+        <div className="pf-title-edit">
+          <h5 className="pf-title">
+            {profileData.username}{' '}
+            <span className="pf-role">| {profileData.role}</span>
+          </h5>
 
-            {!isEditing && (
-              <div className="pf-actions-top">
-                <button
-                  className="pf-button"
-                  onClick={() => setIsEditing(true)}
-                >
-                  Edit Profile
-                </button>
-                {/* <button className="pf-button pf-danger" onClick={handleDeleteAccount}>Delete Account</button> */}
-              </div>
-            )}
+          <button
+            type="button"
+            className="pf-icon-btn pf-title-pen"
+            title="Edit username"
+            onClick={() => {
+              setUsernameDraft(profileData.username || '');
+              setUsernameEditMode(true);
+            }}
+          >
+            <FaPen />
+          </button>
+        </div>
+      ) : (
+        <div className="pf-title-edit">
+          <div className="pf-title-inline-edit">
+            <input
+              className="pf-input pf-title-input"
+              type="text"
+              value={usernameDraft}
+              onChange={(e) => setUsernameDraft(e.target.value)}
+              placeholder="Choose a username"
+            />
+
+            <button
+              type="button"
+              className="pf-icon-btn pf-ok"
+              title="Save username"
+              onClick={() => {
+                if (usernameDraft && !USERNAME_RGX.test(usernameDraft.trim())) {
+                  setFormError(
+                    'Username must be 3-20 chars and contain only letters, numbers, ".", "-", "_".',
+                  );
+                  return;
+                }
+                setProfileData({
+                  ...(profileData as any),
+                  username: usernameDraft.trim(),
+                } as any);
+                setUsernameEditMode(false);
+              }}
+            >
+              <FaCheck />
+            </button>
+
+            <button
+              type="button"
+              className="pf-icon-btn pf-danger"
+              title="Cancel"
+              onClick={() => {
+                setUsernameDraft(profileData.username || '');
+                setUsernameEditMode(false);
+              }}
+            >
+              <FaTimes />
+            </button>
           </div>
+
+          {/* роль оставляем справа от инпута, чтобы вид был как на макете */}
+          <span className="pf-role pf-role-inline">| {profileData.role}</span>
+        </div>
+      )
+    ) : (
+      // все остальные случаи: как было
+      <h5 className="pf-title">
+        {profileData.username}{' '}
+        <span className="pf-role">| {profileData.role}</span>
+      </h5>
+    )}
+  </div>
+
+  {/* right: actions */}
+  {!isEditing && (
+    <div className="pf-actions-top">
+      <button className="pf-button" onClick={() => setIsEditing(true)}>
+        Edit Profile
+      </button>
+    </div>
+  )}
+</div>
+
 
           {formError && <div className="pf-alert pf-err">{formError}</div>}
 
@@ -1140,79 +1234,7 @@ const removePortfolioLinkAt = (idx: number) => {
                     </div>
                   ) : (
                     <>
-                      {/* Username inline edit */}
-                      <div className="pf-row pf-username-row">
-                        <label className="pf-label">Username</label>
-
-                        {!usernameEditMode ? (
-                          <div className="pf-inline-edit">
-                            <span className="pf-inline-value">
-                              {profileData.username || '—'}
-                            </span>
-                            <button
-                              type="button"
-                              className="pf-icon-btn"
-                              title="Edit username"
-                              onClick={() => {
-                                setUsernameDraft(profileData.username || '');
-                                setUsernameEditMode(true);
-                              }}
-                            >
-                              <FaPen />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="pf-inline-edit">
-                            <input
-                              className="pf-input"
-                              type="text"
-                              value={usernameDraft}
-                              onChange={(e) =>
-                                setUsernameDraft(e.target.value)
-                              }
-                              placeholder="Choose a username"
-                            />
-                            <button
-                              type="button"
-                              className="pf-icon-btn pf-ok"
-                              title="Save username"
-                              onClick={() => {
-                                if (
-                                  usernameDraft &&
-                                  !USERNAME_RGX.test(
-                                    usernameDraft.trim(),
-                                  )
-                                ) {
-                                  setFormError(
-                                    'Username must be 3-20 chars and contain only letters, numbers, ".", "-", "_".',
-                                  );
-                                  return;
-                                }
-                                setProfileData({
-                                  ...(profileData as any),
-                                  username: usernameDraft.trim(),
-                                } as any);
-                                setUsernameEditMode(false);
-                              }}
-                            >
-                              <FaCheck />
-                            </button>
-                            <button
-                              type="button"
-                              className="pf-icon-btn pf-danger"
-                              title="Cancel"
-                              onClick={() => {
-                                setUsernameDraft(
-                                  profileData.username || '',
-                                );
-                                setUsernameEditMode(false);
-                              }}
-                            >
-                              <FaTimes />
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                     
 
                       {/* DOB */}
                       <div className="pf-row">
@@ -1484,18 +1506,22 @@ const removePortfolioLinkAt = (idx: number) => {
                           text = `${maxNum}`;
                         }
 
-                        if (currency) {
-                          text = `${text} ${currency}`;
-                        }
+const symbol = currencySymbol(profileData.currency);
+const suf = salarySuffix(type);
 
-                        if (type === 'per month' || type === 'per day') {
-                          text = `${text} ${type}`;
-                        }
+let range = '';
+if (hasMin && hasMax) range = `${minNum} - ${maxNum}`;
+else if (hasMin) range = `${minNum}`;
+else if (hasMax) range = `${maxNum}`;
+
+// формат: "$200 - 400 /month"
+const salaryText = `${symbol}${range}${suf ? ` ${suf}` : ''}`;
+
 
                         return (
                           <div className="pf-kv-row">
                             <span className="pf-k">Expected salary</span>
-                            <span className="pf-v">{text}</span>
+                            <span className="pf-v">{salaryText}</span>
                           </div>
                         );
                       })()}
@@ -1559,64 +1585,32 @@ const removePortfolioLinkAt = (idx: number) => {
                         </span>
                       </div>
 
-{/* Portfolio links */}
-<div className="pf-row">
-  <label className="pf-label">Portfolio links (optional, up to 10)</label>
-
-  {isEditing && (
-    <div className="pf-tags-input">
-      <div className="pf-tags-input-main">
-        <input
-          className="pf-input"
-          type="url"
-          value={newPortfolioLink}
-          onChange={(e) => setNewPortfolioLink(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              addPortfolioLink();
-            }
-          }}
-          placeholder="https://github.com/…, https://dribbble.com/…"
-        />
-        <button
-          type="button"
-          className="pf-button pf-secondary"
-          onClick={addPortfolioLink}
-          disabled={!newPortfolioLink.trim() || portfolioLinks.length >= 10}
-        >
-          Add link
-        </button>
+{/* Portfolio links (VIEW MODE) */}
+<div className="pf-kv-row">
+  <span className="pf-k">Portfolio links</span>
+  <span className="pf-v">
+    {portfolioLinks.length > 0 ? (
+      <div className="pf-tags pf-tags--kv">
+        {portfolioLinks.map((url, idx) => (
+          <span key={idx} className="pf-tag">
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pf-link"
+              title={url}
+            >
+              {shortenUrl(url, 14)}
+            </a>
+          </span>
+        ))}
       </div>
-    </div>
-  )}
-
-  {portfolioLinks.length > 0 ? (
-    <div className="pf-tags" style={{ marginTop: 8 }}>
-      {portfolioLinks.map((url, idx) => (
-        <span key={idx} className="pf-tag">
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="pf-link"
-            title={url}
-          >
-            {shortenUrl(url, 14)}
-          </a>
-
-          {isEditing && (
-            <span className="pf-tag-x" onClick={() => removePortfolioLinkAt(idx)}>
-              ×
-            </span>
-          )}
-        </span>
-      ))}
-    </div>
-  ) : (
-    <div className="pf-muted">Not specified</div>
-  )}
+    ) : (
+      <span className="pf-muted">Not specified</span>
+    )}
+  </span>
 </div>
+
 
 
 
@@ -2126,6 +2120,65 @@ const removePortfolioLinkAt = (idx: number) => {
                         </div>
                       </div>
 
+                      {/* Portfolio links (EDIT MODE) */}
+<div className="pf-row">
+  <label className="pf-label">
+    Portfolio links <span className="pf-label-opt">(optional, up to 10)</span>
+  </label>
+
+  <div className="pf-tags-input">
+    <div className="pf-tags-input-main">
+      <input
+        className="pf-input"
+        type="url"
+        value={newPortfolioLink}
+        onChange={(e) => setNewPortfolioLink(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            addPortfolioLink();
+          }
+        }}
+        placeholder="https://github.com/…, https://dribbble.com/…"
+      />
+
+      <button
+        type="button"
+        className="pf-button pf-secondary"
+        onClick={addPortfolioLink}
+        disabled={!newPortfolioLink.trim() || portfolioLinks.length >= 10}
+      >
+        Add link
+      </button>
+    </div>
+
+    {portfolioLinks.length > 0 && (
+      <div className="pf-tags" style={{ marginTop: 8 }}>
+        {portfolioLinks.map((url, idx) => (
+          <span key={idx} className="pf-tag">
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pf-link"
+              title={url}
+            >
+              {shortenUrl(url, 14)}
+            </a>
+
+            <span
+              className="pf-tag-x"
+              onClick={() => removePortfolioLinkAt(idx)}
+              title="Remove"
+            >
+              ×
+            </span>
+          </span>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
 
 
                       {/* Socials (edit) */}
