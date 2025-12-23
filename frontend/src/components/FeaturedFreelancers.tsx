@@ -136,8 +136,15 @@ const FeaturedFreelancers = () => {
       try {
         setLoading(true);
 
-        // берём пачку талантов, дальше сами фильтруем/рандомим
-        const res: any = await searchTalents({ page: 1, limit: 60 });
+const res: any = await searchTalents({ 
+  page: 1, 
+  limit: 30,                           // чуть больше для запаса
+  expected_salary_min: 1,              // фильтр по salary
+  job_search_status: 'open_to_offers', // активные кандидаты
+});
+
+
+
 
         let all: Profile[] = [];
         if (res && typeof res === "object" && "data" in res && Array.isArray(res.data)) {
