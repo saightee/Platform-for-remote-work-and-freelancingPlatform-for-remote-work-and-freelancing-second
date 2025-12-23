@@ -22,6 +22,7 @@ export class TalentsController {
     @Query('limit') limit: string,
     @Query('sort_by') sort_by: 'average_rating' | 'profile_views',
     @Query('sort_order') sort_order: 'ASC' | 'DESC',
+    @Query('has_avatar') has_avatar?: string,
     @Query('country') country?: string,
     @Query('countries') countries?: string | string[],
     @Query('languages') languages?: string | string[],
@@ -169,6 +170,8 @@ export class TalentsController {
 
     if (has_resume === 'true') filters.has_resume = true;
     if (has_resume === 'false') filters.has_resume = false;
+
+    if (has_avatar === 'true') filters.has_avatar = 'true';
 
     const jobTypesArr = [
       ...(Array.isArray(preferred_job_types) ? preferred_job_types : preferred_job_types ? [preferred_job_types] : []),
