@@ -30,10 +30,9 @@ export interface EmployerProfile {
   role: 'employer';
   email: string;
   username: string;
-
-  // NEW
+  slug?: string | null;
+  slug_id?: string | null;
   country?: string;
-
   company_name?: string;
   company_info?: string;
   referral_link?: string;
@@ -51,16 +50,20 @@ export interface JobSeekerProfile {
   role: 'jobseeker';
   email?: string;
   username: string;
+  slug?: string | null;
+  slug_id?: string | null;
 
   // NEW
   country?: string;         // ISO-3166 alpha-2
-  languages?: string[];     // произвольные строки
+  languages?: string[];     
   expected_salary?: number | null;
+  expected_salary_max?: number | null;
+  expected_salary_type?: 'per month' | 'per day' | null;
   job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired' | string | null;
   date_of_birth?: string | null;
   
 
-  // соцсети (чтобы не было any)
+  
   linkedin?: string | null;
   instagram?: string | null;
   facebook?: string | null;
@@ -75,6 +78,7 @@ export interface JobSeekerProfile {
   video_intro?: string;
   timezone?: string;
   currency?: string;
+  preferred_job_types?: ('Full-time' | 'Part-time' | 'Project-based')[] | null;
   average_rating: number;
   profile_views: number;
   avatar?: string | null;
@@ -84,12 +88,14 @@ export interface JobSeekerProfile {
   reviews: Review[];
 }
 
+
 export interface AdminProfile {
   id: string;
   role: 'admin';
   email: string;
   username: string;
-
+  slug?: string | null;
+  slug_id?: string | null;
   // NEW — чтобы union Profile видел поле
   country?: string;
 
@@ -105,7 +111,8 @@ export interface ModeratorProfile {
   role: 'moderator';
   email: string;
   username: string;
-
+  slug?: string | null;
+  slug_id?: string | null;
   // NEW
   country?: string;
 
@@ -121,12 +128,13 @@ export interface AffiliateUserProfile {
   role: 'affiliate';
   email: string;
   username: string;
-timezone?: string;
+  timezone?: string;
   currency?: string;
   country?: string | null;
   avatar?: string | null;
   status?: 'active' | 'blocked';
-
+  slug?: string | null;
+  slug_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -315,6 +323,7 @@ export interface RegisterCredentials extends LoginCredentials {
 export interface JobApplicationDetails {
   applicationId: string;
   userId: string;
+  userSlugId?: string;
   username: string;
   email: string;
   jobDescription: string;

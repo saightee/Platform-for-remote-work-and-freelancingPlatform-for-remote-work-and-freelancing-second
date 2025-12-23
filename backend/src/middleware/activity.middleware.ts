@@ -15,7 +15,6 @@ export class ActivityMiddleware implements NestMiddleware {
   ) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
-    console.log(`ActivityMiddleware: Обработка запроса, path=${req.path}, sessionID=${req.sessionID}`);
     const authHeader = req.headers.authorization;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -29,9 +28,6 @@ export class ActivityMiddleware implements NestMiddleware {
           'jobseeker' | 'employer' | 'admin' | 'moderator' | 'affiliate';
 
         if (['jobseeker', 'employer', 'admin', 'moderator', 'affiliate'].includes(role)) {
-          console.log(
-            `ActivityMiddleware: Установка статуса онлайн для userId=${userId}, role=${role}, sessionID=${req.sessionID}`,
-          );
 
           await this.redisService.extendOnlineStatus(userId, role);
 
@@ -41,9 +37,6 @@ export class ActivityMiddleware implements NestMiddleware {
             try {
               await this.usersService.touchLastSeen(userId);
             } catch (e: any) {
-              console.error(
-                `ActivityMiddleware: Ошибка touchLastSeen userId=${userId}: ${e?.message}`,
-              );
             }
             await this.redisService.set(throttleKey, '1', 60);
           }
@@ -52,34 +45,15 @@ export class ActivityMiddleware implements NestMiddleware {
             req.session.user = { id: userId, email: payload.email, role };
             req.session.save((err) => {
               if (err) {
-                console.error(
-                  `ActivityMiddleware: Ошибка сохранения сессии для userId=${userId}, sessionID=${req.sessionID}, error=${err.message}`,
-                );
               } else {
-                console.log(
-                  `ActivityMiddleware: Сессия обновлена для userId=${userId}, sessionID=${req.sessionID}`,
-                );
               }
             });
           }
         } else {
-          console.warn(
-            `ActivityMiddleware: Неверная или неподдерживаемая роль role=${role}, userId=${userId}`,
-          );
         }
       } catch (error: any) {
-        console.error(
-          `ActivityMiddleware ошибка: userId=${req.session.user?.id || 'unknown'}, sessionID=${
-            req.sessionID
-          }, error=${error?.message}`,
-        );
       }
     } else {
-      console.log(
-        `ActivityMiddleware: Нет валидного заголовка авторизации, sessionID=${req.sessionID}, headers=${JSON.stringify(
-          req.headers,
-        )}`,
-      );
     }
     next();
   }

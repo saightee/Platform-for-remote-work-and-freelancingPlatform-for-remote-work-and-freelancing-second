@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import Copyright from '../components/Copyright';
+
 import { contactSupport, getProfile } from '../services/api';
 import Turnstile from '../components/Turnstile';
 import '../styles/contact-support.css';
@@ -184,7 +184,7 @@ const ContactSupport: React.FC = () => {
 
       {!embedded && <>
         <Footer />
-        <Copyright />
+       
       </>}
     </div>
   );

@@ -61,6 +61,8 @@ import Loader from './components/Loader';
 import AffiliateLanding from './pages/AffiliateLanding';
 import AffiliateRegister from './pages/AffiliateRegister';
 import AffiliateDashboard from './pages/AffiliateDashboard';
+import Header from './components/Header';
+import NotFound404Animated from './pages/NotFound404Animated';
 
 
 const App: React.FC = () => {
@@ -97,35 +99,37 @@ const App: React.FC = () => {
             <Route path="/dev-talent" element={<FindTalent />} />
             <Route path="/dev-messages" element={<Messages />} />
             <Route path="/dev-profilepage/:username" element={<JobseekerDashboard />}>
-              <Route index element={<ProfilePage />} />
+            <Route index element={<ProfilePage />} />
             </Route>
             <Route path="/dev-public-profile/:id" element={<PublicProfile />} />
+            <Route path="/dev-home" element={<Home />} />
+            <Route path="/dev-jobs" element={<FindJob />} />
 
-        <Route element={<RequireAuth allowed={['employer']} />}>
-          <Route path="/employer-dashboard" element={<EmployerDashboard />}>
-            <Route index element={<EmployerOverview />} />
-            <Route path="profile" element={<ProfilePage />} />
-            <Route path="my-job-posts" element={<MyJobPosts />} />
-            <Route path="post-job" element={<PostJob />} />
-            <Route path="messages" element={<Messages />} />
-            <Route path="report-issue" element={<ReportIssue />} />
-            <Route path="share-story" element={<ShareStory />} />
-          </Route>
-        </Route> 
+<Route element={<RequireAuth allowed={['employer']} />}>
+  <Route path="/employer-dashboard" element={<EmployerDashboard />}>
+    <Route index element={<EmployerOverview />} />
+    <Route path="profile" element={<ProfilePage />} />
+    <Route path="my-job-posts" element={<MyJobPosts />} />
+    <Route path="post-job" element={<PostJob />} />
+    <Route path="messages" element={<Messages />} />
+    <Route path="report-issue" element={<ReportIssue embedded />} />
+    <Route path="share-story" element={<ShareStory embedded />} />
+  </Route>
+</Route>
 
-        <Route element={<RequireAuth allowed={['jobseeker']} />}>
-          <Route path="/jobseeker-dashboard" element={<JobseekerDashboard />}>
-            <Route index element={<JobseekerOverview />} />
-            <Route path="profile" element={<ProfilePage />} />
-            <Route path="my-applications" element={<MyApplications />} />
-            <Route path="messages" element={<Messages />} />
-            <Route path="report-issue" element={<ReportIssue />} />
-            <Route path="share-story" element={<ShareStory />} />
-          </Route>
-        </Route>
+<Route element={<RequireAuth allowed={['jobseeker']} />}>
+  <Route path="/jobseeker-dashboard" element={<JobseekerDashboard />}>
+    <Route index element={<JobseekerOverview />} />
+    <Route path="profile" element={<ProfilePage />} />
+    <Route path="my-applications" element={<MyApplications />} />
+    <Route path="messages" element={<Messages />} />
+    <Route path="report-issue" element={<ReportIssue embedded />} />
+    <Route path="share-story" element={<ShareStory embedded />} />
+  </Route>
+</Route>
          
           <Route path="/admin/email-notifications" element={<EmailNotifications />} />
-          <Route path="/public-profile/:id" element={<PublicProfile />} />
+          <Route path="/oj/:id" element={<PublicProfile />} />
           <Route path="/check-email" element={<CheckEmail />} />
           <Route path="/registration-pending" element={<RegistrationPending />} />
           <Route path="/post-job" element={<PostJob />} />
@@ -176,6 +180,9 @@ const App: React.FC = () => {
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/complaint" element={<Complaint />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+
+          <Route path="*" element={<NotFound404Animated />} />
+
         </Routes>
       </Router>
     </RoleProvider>

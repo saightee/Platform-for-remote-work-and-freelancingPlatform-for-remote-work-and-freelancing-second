@@ -25,6 +25,8 @@ export class TalentsService {
     job_search_status?: JobSearchStatus;
     expected_salary_min?: number;
     expected_salary_max?: number;
+    expected_salary_type?: 'per month' | 'per day'; 
+    preferred_job_types?: string[];
     page?: number;
     limit?: number;
     sort_by?: 'average_rating' | 'profile_views';
@@ -66,7 +68,12 @@ export class TalentsService {
       qb.andWhere('jobSeeker.expected_salary >= :es_min', { es_min: filters.expected_salary_min });
     }
     if (filters.expected_salary_max !== undefined) {
-      qb.andWhere('jobSeeker.expected_salary <= :es_max', { es_max: filters.expected_salary_max });
+      qb.andWhere('COALESCE(jobSeeker.expected_salary_max, jobSeeker.expected_salary) <= :es_max', { 
+        es_max: filters.expected_salary_max 
+      });
+    }
+    if (filters.expected_salary_type) {
+      qb.andWhere('jobSeeker.expected_salary_type = :est', { est: filters.expected_salary_type });
     }
 
     if (filters.country) {
@@ -91,6 +98,12 @@ export class TalentsService {
       }
     }
 
+    if (filters.preferred_job_types?.length) {
+      qb.andWhere('jobSeeker.preferred_job_types && ARRAY[:...jobTypes]', { 
+        jobTypes: filters.preferred_job_types 
+      });
+    }
+
     const total = await qb.getCount();
 
     const page = Math.max(1, filters.page ?? 1);
@@ -109,6 +122,8 @@ export class TalentsService {
         id: js.user_id,
         username: js.user.username,
         email: js.user.email,
+        slug: js.user.slug ?? null,
+        slug_id: js.user.slug_id ?? null,
         skills: js.skills.map(cat => ({
           id: cat.id,
           name: cat.name,
@@ -121,6 +136,9 @@ export class TalentsService {
         timezone: js.timezone,
         currency: js.currency,
         expected_salary: (js as any).expected_salary ?? null,
+        expected_salary_max: (js as any).expected_salary_max ?? null,
+        expected_salary_type: (js as any).expected_salary_type ?? null,
+        preferred_job_types: (js as any).preferred_job_types ?? [],
         average_rating: js.average_rating,
         profile_views: js.profile_views,
         job_search_status: (js as any).job_search_status,
@@ -130,6 +148,7 @@ export class TalentsService {
         languages: js.languages ?? null,
         has_resume: !!js.resume,
         date_of_birth: js.date_of_birth ?? null,
+        current_position: js.current_position ?? null,
       })),
     };
   }

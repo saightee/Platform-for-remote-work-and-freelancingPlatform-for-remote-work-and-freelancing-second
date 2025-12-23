@@ -23,6 +23,16 @@ export class UsersService {
     private affiliateRepository: Repository<Affiliate>,
   ) {}
 
+  private slugify(input: string): string {
+    return (input || '')
+      .toLowerCase()
+      .trim()
+      .replace(/&/g, ' and ')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-');
+  }
+
   async create(
     userData: Partial<User> & {
       email: string;
@@ -43,7 +53,27 @@ export class UsersService {
       avatar: userData.avatar || null,
     };
     const user = this.usersRepository.create(userEntity);
-    const savedUser = await this.usersRepository.save(user);
+    let savedUser = await this.usersRepository.save(user);
+
+    const baseSlug = this.slugify(savedUser.username);
+    const shortId = (savedUser.id || '').replace(/-/g, '').slice(0, 8);
+
+    const slug = baseSlug || 'user';
+
+    let slugId = slug;
+
+    const existingWithSameSlug = await this.usersRepository.findOne({
+      where: { slug_id: slug },
+    });
+
+    if (existingWithSameSlug) {
+      slugId = shortId ? `${slug}-${shortId}` : slug;
+    }
+
+    savedUser.slug = slug;
+    savedUser.slug_id = slugId;
+
+    savedUser = await this.usersRepository.save(savedUser);
 
     if (userData.role === 'jobseeker') {
       const jobSeekerEntity: DeepPartial<JobSeeker> = {
@@ -62,6 +92,10 @@ export class UsersService {
 
       jobSeekerEntity.resume = additionalData.resume || null;
       jobSeekerEntity.experience = additionalData.experience || null;
+
+      if (Array.isArray(additionalData.portfolio)) {
+        jobSeekerEntity.portfolio = additionalData.portfolio.slice(0, 10);
+      }
 
       if (Array.isArray(additionalData.portfolio_files)) {
         (jobSeekerEntity as any).portfolio_files = additionalData.portfolio_files;
@@ -90,7 +124,6 @@ export class UsersService {
       };
       const employer = this.employerRepository.create(employerEntity);
       await this.employerRepository.save(employer);
-      console.log('Employer profile created:', employer);
     } else if (userData.role === 'affiliate') {
       const affiliateEntity: DeepPartial<Affiliate> = {
         user_id: savedUser.id,
@@ -115,9 +148,7 @@ export class UsersService {
       };
       const affiliate = this.affiliateRepository.create(affiliateEntity);
       await this.affiliateRepository.save(affiliate);
-      console.log('Affiliate profile created:', affiliate);
     } else if (userData.role === 'admin' || userData.role === 'moderator') {
-      console.log(`${userData.role} user created:`, savedUser);
     }
 
     return savedUser;
@@ -136,10 +167,8 @@ export class UsersService {
     role: 'employer' | 'jobseeker' | 'admin' | 'moderator' | 'affiliate',
     additionalData: any
   ) {
-    console.log(`[UsersService] Обновление пользователя: userId=${userId}, role=${role}, data=${JSON.stringify(additionalData)}`);
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
-      console.error(`[UsersService] Пользователь не найден: userId=${userId}`);
       throw new NotFoundException('User not found');
     }
 
@@ -154,9 +183,7 @@ export class UsersService {
 
     try {
       const updatedUser = await this.usersRepository.save(user);
-      console.log(`[UsersService] User updated: ${JSON.stringify(updatedUser)}`);
     } catch (error) {
-      console.error(`[UsersService] Error during user update: ${error.message}`);
       throw error;
     }
 
@@ -173,6 +200,11 @@ export class UsersService {
       }
 
       if (additionalData.description) jobSeeker.description = additionalData.description;
+      if (additionalData.portfolio) {
+        jobSeeker.portfolio = Array.isArray(additionalData.portfolio)
+        ? additionalData.portfolio.slice(0, 10)
+        : null;
+      }
       if (additionalData.portfolio) jobSeeker.portfolio = additionalData.portfolio;
       if (additionalData.video_intro) jobSeeker.video_intro = additionalData.video_intro;
       if (additionalData.timezone) jobSeeker.timezone = additionalData.timezone;
@@ -188,7 +220,6 @@ export class UsersService {
       }
 
       await this.jobSeekerRepository.save(jobSeeker);
-      console.log(`[UsersService] JobSeeker profile updated: ${JSON.stringify(jobSeeker)}`);
 
     } else if (role === 'employer') {
       const employerEntity: DeepPartial<Employer> = {
@@ -201,7 +232,6 @@ export class UsersService {
       };
       const employer = this.employerRepository.create(employerEntity);
       await this.employerRepository.save(employer);
-      console.log(`[UsersService] Employer profile updated: ${JSON.stringify(employer)}`);
     }
 
     return user;

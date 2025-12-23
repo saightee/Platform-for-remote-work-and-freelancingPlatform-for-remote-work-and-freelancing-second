@@ -8,6 +8,11 @@ import { ReviewsService } from '../reviews/reviews.service';
 import { Category } from '../categories/category.entity';
 import { JobApplication } from '../job-applications/job-application.entity';
 
+function isValidUsername(username: string): boolean {
+  // Только буквы (латиница и кириллица), цифры и пробелы
+  return /^[a-zA-Zа-яА-ЯёЁ0-9\s]+$/.test(username);
+}
+
 @Injectable()
 export class ProfilesService {
   constructor(
@@ -33,6 +38,33 @@ export class ProfilesService {
     } catch {
       return c;
     }
+  }
+
+  private readonly uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  async resolveUserId(idOrSlug: string): Promise<string> {
+    if (this.uuidRegex.test(idOrSlug)) {
+      return idOrSlug;
+    }
+
+    const user = await this.usersRepository.findOne({
+      where: { slug_id: idOrSlug },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user.id;
+  }
+
+  private slugify(input: string): string {
+    return (input || '')
+      .toLowerCase()
+      .trim()
+      .replace(/&/g, ' and ')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-');
   }
 
   async getProfile(
@@ -99,6 +131,8 @@ export class ProfilesService {
         role: user.role,
         email: canSeePrivateContacts ? user.email : undefined,
         username: user.username,
+        slug: (user as any).slug || null,
+        slug_id: (user as any).slug_id || null,
         country: user.country,
         country_name: this.countryNameFromISO(user.country),
         skills: jobSeeker.skills,
@@ -116,9 +150,12 @@ export class ProfilesService {
         timezone: jobSeeker.timezone,
         currency: jobSeeker.currency,
         expected_salary: (jobSeeker as any).expected_salary ?? null,
+        expected_salary_max: (jobSeeker as any).expected_salary_max ?? null,
+        expected_salary_type: (jobSeeker as any).expected_salary_type ?? null,
         average_rating: jobSeeker.average_rating,
         profile_views: jobSeeker.profile_views,
         job_search_status: (jobSeeker as any).job_search_status,
+        preferred_job_types: (jobSeeker as any).preferred_job_types ?? [],
         linkedin: canSeePrivateContacts ? jobSeeker.linkedin : undefined,
         instagram: canSeePrivateContacts ? jobSeeker.instagram : undefined,
         facebook: canSeePrivateContacts ? jobSeeker.facebook : undefined,
@@ -138,6 +175,8 @@ export class ProfilesService {
         role: user.role,
         email: isAuthenticated ? user.email : undefined,
         username: user.username,
+        slug: (user as any).slug || null,
+        slug_id: (user as any).slug_id || null,
         country_name: this.countryNameFromISO(user.country),
         company_name: employer.company_name,
         company_info: employer.company_info,
@@ -169,7 +208,28 @@ export class ProfilesService {
       if (!newUsername) throw new BadRequestException('Username cannot be empty');
       if (newUsername.length > 100)
         throw new BadRequestException('Username is too long (max 100)');
+
+      if (!isValidUsername(newUsername)) {
+        throw new BadRequestException('Username can only contain letters, numbers, and spaces');
+      }
+
       user.username = newUsername;
+      const baseSlug = this.slugify(newUsername);
+      const shortId = (user.id || '').replace(/-/g, '').slice(0, 8);
+      const slug = baseSlug || 'user';
+
+      let slugId = slug;
+
+      const existingWithSameSlug = await this.usersRepository.findOne({
+        where: { slug_id: slug },
+      });
+
+      if (existingWithSameSlug && existingWithSameSlug.id !== user.id) {
+        slugId = shortId ? `${slug}-${shortId}` : slug;
+      }
+
+      (user as any).slug = slug;
+      (user as any).slug_id = slugId;
       await this.usersRepository.save(user);
     }
 
@@ -219,7 +279,13 @@ export class ProfilesService {
       }
 
       if (Object.prototype.hasOwnProperty.call(updateData, 'portfolio')) {
-        jobSeeker.portfolio = updateData.portfolio;
+        const urls = Array.isArray(updateData.portfolio) 
+          ? updateData.portfolio.filter((v: any) => typeof v === 'string' && v.trim())
+          : [];
+        if (urls.length > 10) {
+          throw new BadRequestException('Portfolio can have up to 10 links');
+        }
+        jobSeeker.portfolio = urls;
       }
 
       if (Object.prototype.hasOwnProperty.call(updateData, 'portfolio_files')) {
@@ -244,9 +310,27 @@ export class ProfilesService {
       }
 
       if (Object.prototype.hasOwnProperty.call(updateData, 'expected_salary')) {
-        const v = Number(updateData.expected_salary);
-        if (Number.isNaN(v) || v < 0) throw new BadRequestException('expected_salary must be a non-negative number');
+        const v = updateData.expected_salary === null ? null : Number(updateData.expected_salary);
+        if (v !== null && (Number.isNaN(v) || v < 0)) {
+          throw new BadRequestException('expected_salary must be a non-negative number or null');
+        }
         (jobSeeker as any).expected_salary = v;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(updateData, 'expected_salary_max')) {
+        const v = updateData.expected_salary_max === null ? null : Number(updateData.expected_salary_max);
+        if (v !== null && (Number.isNaN(v) || v < 0)) {
+          throw new BadRequestException('expected_salary_max must be a non-negative number or null');
+        }
+        (jobSeeker as any).expected_salary_max = v;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(updateData, 'expected_salary_type')) {
+        const allowed = ['per month', 'per day'];
+        if (updateData.expected_salary_type && !allowed.includes(updateData.expected_salary_type)) {
+          throw new BadRequestException('expected_salary_type must be: per month | per day');
+        }
+        (jobSeeker as any).expected_salary_type = updateData.expected_salary_type || null;
       }
 
       if (Object.prototype.hasOwnProperty.call(updateData, 'linkedin'))  jobSeeker.linkedin  = updateData.linkedin  || null;
@@ -258,6 +342,24 @@ export class ProfilesService {
       if (Object.prototype.hasOwnProperty.call(updateData, 'languages')) {
         const langs = Array.isArray(updateData.languages) ? updateData.languages : [];
         jobSeeker.languages = langs;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(updateData, 'preferred_job_types')) {
+        const arr = Array.isArray(updateData.preferred_job_types)
+          ? updateData.preferred_job_types
+          : [];
+
+        const allowed = ['Full-time', 'Part-time', 'Project-based'];
+        const invalid = arr.filter(v => !allowed.includes(v));
+
+        if (invalid.length > 0) {
+          throw new BadRequestException(
+            'preferred_job_types must contain only: Full-time | Part-time | Project-based'
+          );
+        }
+
+        const unique = [...new Set(arr)];
+        (jobSeeker as any).preferred_job_types = unique;
       }
 
       if (Object.prototype.hasOwnProperty.call(updateData, 'current_position')) {

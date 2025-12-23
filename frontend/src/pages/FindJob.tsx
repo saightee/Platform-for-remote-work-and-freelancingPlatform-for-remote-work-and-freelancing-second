@@ -2,11 +2,17 @@ import { useState, useEffect, Fragment, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import Copyright from '../components/Copyright';
+import ApplyJobModal from '../components/ApplyJobModal';
+
 import JobCard from '../components/JobCard';
 import { JobPost, Category } from '@types';
-import { FaFilter, FaSearch, FaBriefcase, FaTimes } from 'react-icons/fa';
-import { searchJobPosts, getCategories, checkJobApplicationStatus, searchCategories } from '../services/api';
+import { Filter, Search, Briefcase, X } from 'lucide-react';
+import {
+  searchJobPosts,
+  getCategories,
+  checkJobApplicationStatus,
+  searchCategories,
+} from '../services/api';
 import { useRole } from '../context/RoleContext';
 import Loader from '../components/Loader';
 import '../styles/find-job.css';
@@ -32,12 +38,27 @@ const FindJob: React.FC = () => {
   const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-useEffect(() => {
-  const onResize = () => setIsMobile(window.innerWidth <= 480);
-  onResize();
-  window.addEventListener('resize', onResize);
-  return () => window.removeEventListener('resize', onResize);
-}, []);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyJob, setApplyJob] = useState<any | null>(null);
+
+  const openApply = (job: any) => {
+    setApplyJob(job);
+    setApplyOpen(true);
+  };
+
+  const closeApply = () => {
+    setApplyOpen(false);
+    setApplyJob(null);
+  };
+
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 480);
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const initialCategoryId = searchParams.get('category_id') || '';
 
@@ -85,7 +106,7 @@ useEffect(() => {
     salary_type: '',
   });
 
-  // грузим категории/вакансии
+  // загрузка вакансий + категорий
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -117,13 +138,18 @@ useEffect(() => {
         setJobs(jobsResponse.data || []);
         setTotalPages(Math.ceil(jobsResponse.total / searchState.limit) || 1);
 
+        setJobs(jobsResponse.data || []);
+        setTotalJobs(Number(jobsResponse.total) || 0);
+        setTotalPages(Math.ceil((Number(jobsResponse.total) || 0) / searchState.limit) || 1);
+
+
         const sortCategories = (cats: Category[]) => cats.sort((a, b) => a.name.localeCompare(b.name));
         setCategories(sortCategories(categoriesResponse) || []);
 
         if (profile?.role === 'jobseeker') {
           try {
             const statusPromises = jobsResponse.data.map((job) =>
-              checkJobApplicationStatus(job.id).catch(() => ({ hasApplied: false }))
+              checkJobApplicationStatus(job.id).catch(() => ({ hasApplied: false })),
             );
             const statuses = await Promise.all(statusPromises);
             const statusMap = jobsResponse.data.reduce((acc, job, index) => {
@@ -145,21 +171,20 @@ useEffect(() => {
     fetchData();
   }, [searchState, profile]);
 
-  // debounce по полю "Search by job title"
+  // debounce по полю верхнего поиска
   const firstRunRef = useRef(true);
-useEffect(() => {
-  if (firstRunRef.current) {
-    firstRunRef.current = false;
-    return;
-  }
-  if (applyingFromFiltersRef.current) return; // ⬅️ важно
+  useEffect(() => {
+    if (firstRunRef.current) {
+      firstRunRef.current = false;
+      return;
+    }
+    if (applyingFromFiltersRef.current) return;
 
-  const t = setTimeout(() => {
-    setSearchState((prev) => ({ ...prev, title: searchInput, page: 1 }));
-  }, 500);
-  return () => clearTimeout(t);
-}, [searchInput]);
-
+    const t = setTimeout(() => {
+      setSearchState((prev) => ({ ...prev, title: searchInput, page: 1 }));
+    }, 500);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   // автокомплит категорий
   useEffect(() => {
@@ -183,7 +208,6 @@ useEffect(() => {
     return () => clearTimeout(d);
   }, [skillInput]);
 
-  // Сброс категории
   const clearCategory = () => {
     setSkillInput('');
     setTempSearchState((s) => ({ ...s, category_id: '' }));
@@ -194,48 +218,50 @@ useEffect(() => {
     setSearchParams(nextParams, { replace: true });
   };
 
-const handleSearch = (e: React.FormEvent, fromFilters = false) => {
-  e.preventDefault();
+  const handleSearch = (e: React.FormEvent, fromFilters = false) => {
+    e.preventDefault();
 
-  // берём title в зависимости от источника
-  const titleFromFilters = (tempSearchState.title || '').trim();
-  const titleToUse = fromFilters
-    ? (titleFromFilters || searchInput.trim())
-    : searchInput.trim();
+    const titleFromFilters = (tempSearchState.title || '').trim();
+    const titleToUse = fromFilters ? titleFromFilters || searchInput.trim() : searchInput.trim();
 
-  // собираем next-state
-  const next = {
-    ...searchState,
-    ...(fromFilters ? tempSearchState : {}), // применяем остальные поля фильтра только из фильтров
-    title: titleToUse,
-    salary_min: (fromFilters ? tempSearchState.salary_type : searchState.salary_type) === 'negotiable'
-      ? undefined
-      : (fromFilters ? tempSearchState.salary_min : searchState.salary_min),
-    salary_max: (fromFilters ? tempSearchState.salary_type : searchState.salary_type) === 'negotiable'
-      ? undefined
-      : (fromFilters ? tempSearchState.salary_max : searchState.salary_max),
-    category_id: (skillInput.trim() && fromFilters) ? tempSearchState.category_id : (fromFilters ? '' : searchState.category_id),
-    page: 1,
+    const next = {
+      ...searchState,
+      ...(fromFilters ? tempSearchState : {}),
+      title: titleToUse,
+      salary_min:
+        (fromFilters ? tempSearchState.salary_type : searchState.salary_type) === 'negotiable'
+          ? undefined
+          : (fromFilters ? tempSearchState.salary_min : searchState.salary_min),
+      salary_max:
+        (fromFilters ? tempSearchState.salary_type : searchState.salary_type) === 'negotiable'
+          ? undefined
+          : (fromFilters ? tempSearchState.salary_max : searchState.salary_max),
+      category_id:
+        skillInput.trim() && fromFilters
+          ? tempSearchState.category_id
+          : fromFilters
+          ? ''
+          : searchState.category_id,
+      page: 1,
+    };
+
+    setSearchState(next);
+
+    if (!fromFilters) {
+      setTempSearchState((s) => ({ ...s, title: titleToUse }));
+    } else {
+      applyingFromFiltersRef.current = true;
+      setTimeout(() => {
+        applyingFromFiltersRef.current = false;
+      }, 650);
+    }
+
+    const nextParams: Record<string, string> = {};
+    if (titleToUse) nextParams.title = titleToUse;
+    setSearchParams(nextParams, { replace: true });
+
+    setIsFilterPanelOpen(false);
   };
-
-  setSearchState(next);
-
-  // ⚠️ НЕ синхроним верхнее поле, если сабмит из фильтров
-  if (!fromFilters) {
-    setTempSearchState((s) => ({ ...s, title: titleToUse }));
-  } else {
-    applyingFromFiltersRef.current = true;
-    setTimeout(() => { applyingFromFiltersRef.current = false; }, 650);
-  }
-
-  const nextParams: Record<string,string> = {};
-  if (titleToUse) nextParams.title = titleToUse;
-  setSearchParams(nextParams, { replace: true });
-
-  setIsFilterPanelOpen(false);
-};
-
-
 
   const handlePageChange = (newPage: number) => {
     setSearchState((prev) => ({ ...prev, page: newPage }));
@@ -262,7 +288,6 @@ const handleSearch = (e: React.FormEvent, fromFilters = false) => {
     return pages;
   };
 
-  // найти категорию по id
   const findCategoryById = (id: string, cats: Category[]): Category | undefined => {
     for (const c of cats) {
       if (c.id === id) return c;
@@ -274,7 +299,6 @@ const handleSearch = (e: React.FormEvent, fromFilters = false) => {
     return undefined;
   };
 
-  // красивое имя выбранной категории для бейджа
   const selectedCategoryLabel = useMemo(() => {
     const id = tempSearchState.category_id || searchState.category_id;
     if (!id || categories.length === 0) return '';
@@ -290,11 +314,11 @@ const handleSearch = (e: React.FormEvent, fromFilters = false) => {
 
   return (
     <div>
- <Helmet>
-  <title>Find Remote Jobs | {brand.name}</title>
-  <meta name="robots" content="noindex,follow" />
-  <link rel="canonical" href={`https://${brand.domain}/find-job`} />
-</Helmet>
+      <Helmet>
+        <title>Find Remote Jobs | {brand.name}</title>
+        <meta name="robots" content="noindex,follow" />
+        <link rel="canonical" href={`https://${brand.domain}/find-job`} />
+      </Helmet>
 
       <Header />
 
@@ -304,41 +328,66 @@ const handleSearch = (e: React.FormEvent, fromFilters = false) => {
         </div>
       )}
 
-      <div className="fj-shell">
-        <div className="fj-card">
-          <div className="fj-head">
-            <h1 className="fj-title"><FaBriefcase /> Find Jobs</h1>
-            <p className="fj-sub">Search and filter open roles across categories and work modes.</p>
-          </div>
+    <div className="fj-shell">
+  <div className="fj-card">
+    <div className="fj-head">
+      <div className="fj-head-top">
+        <h1 className="fj-title">Find Jobs</h1>
+        <div className="fj-search-count">
+          {totalJobs ? `${totalJobs} jobs found` : 'No jobs found'}
+        </div>
+      </div>
 
-          {error && <div className="fj-alert fj-err">{error}</div>}
+      <form className="fj-search" onSubmit={(e) => handleSearch(e)}>
+        <div className="fj-searchbar-wrap">
+          <span className="fj-searchbar-icon">
+            <Search />
+          </span>
+          <input
+            type="text"
+            className="fj-searchbar"
+            placeholder="Search by job title, company, keywords..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </div>
 
-          <div className="fj-searchbar">
-            <input
-              type="text"
-              className="fj-input"
-              placeholder="Search by job title or company"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
-<button className="fj-btn fj-primary" onClick={(e) => handleSearch(e)}>
-  <FaSearch /> Search
-</button>
-            <button
-              className={`fj-btn fj-ghost ${isFilterPanelOpen ? 'active' : ''}`}
-              onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-            >
-              <FaFilter /> Filters
-            </button>
-          </div>
+        <button type="submit" className="fj-btn fj-primary">
+         
+          Search
+        </button>
+      </form>
+
+      <button
+        type="button"
+        className={`fj-btn fj-ghost fj-filter-toggle ${isFilterPanelOpen ? 'active' : ''}`}
+        onClick={() => setIsFilterPanelOpen((v) => !v)}
+        aria-expanded={isFilterPanelOpen}
+      >
+        <Filter />
+        Filters
+      </button>
+    </div>
+
+    {error && <div className="fj-alert fj-err">{error}</div>}
+
 
           <div className="fj-layout">
-            {/* Filters */}
+            {/* FILTERS */}
             <aside className={`fj-filters ${isFilterPanelOpen ? 'open' : ''}`}>
               <div className="fj-filters-head">
-                <h3 className="fj-filters-title"><FaFilter /> Filters</h3>
-                <button className="fj-filters-close" onClick={() => setIsFilterPanelOpen(false)}>
-                  <FaTimes />
+                <h3 className="fj-filters-title">
+                  <span className="icon">
+                    <Filter />
+                  </span>
+                  Filters
+                </h3>
+                <button
+                  type="button"
+                  className="fj-filters-close"
+                  onClick={() => setIsFilterPanelOpen(false)}
+                >
+                  <X />
                 </button>
               </div>
 
@@ -349,7 +398,9 @@ const handleSearch = (e: React.FormEvent, fromFilters = false) => {
                     type="text"
                     className="fj-input"
                     value={tempSearchState.title}
-                    onChange={(e) => setTempSearchState({ ...tempSearchState, title: e.target.value })}
+                    onChange={(e) =>
+                      setTempSearchState({ ...tempSearchState, title: e.target.value })
+                    }
                     placeholder="Enter job title"
                   />
                 </div>
@@ -359,7 +410,9 @@ const handleSearch = (e: React.FormEvent, fromFilters = false) => {
                   <select
                     className="fj-input"
                     value={tempSearchState.location}
-                    onChange={(e) => setTempSearchState({ ...tempSearchState, location: e.target.value })}
+                    onChange={(e) =>
+                      setTempSearchState({ ...tempSearchState, location: e.target.value })
+                    }
                   >
                     <option value="">All Locations</option>
                     <option value="Remote">Remote</option>
@@ -400,7 +453,9 @@ const handleSearch = (e: React.FormEvent, fromFilters = false) => {
                       onChange={(e) =>
                         setTempSearchState({
                           ...tempSearchState,
-                          salary_min: e.target.value ? Number(e.target.value) : undefined,
+                          salary_min: e.target.value
+                            ? Number(e.target.value)
+                            : undefined,
                         })
                       }
                       placeholder="e.g. 500"
@@ -417,7 +472,9 @@ const handleSearch = (e: React.FormEvent, fromFilters = false) => {
                       onChange={(e) =>
                         setTempSearchState({
                           ...tempSearchState,
-                          salary_max: e.target.value ? Number(e.target.value) : undefined,
+                          salary_max: e.target.value
+                            ? Number(e.target.value)
+                            : undefined,
                         })
                       }
                       placeholder="e.g. 3000"
@@ -431,7 +488,9 @@ const handleSearch = (e: React.FormEvent, fromFilters = false) => {
                   <select
                     className="fj-input"
                     value={tempSearchState.job_type}
-                    onChange={(e) => setTempSearchState({ ...tempSearchState, job_type: e.target.value })}
+                    onChange={(e) =>
+                      setTempSearchState({ ...tempSearchState, job_type: e.target.value })
+                    }
                   >
                     <option value="">All Types</option>
                     <option value="Full-time">Full-time</option>
@@ -452,85 +511,111 @@ const handleSearch = (e: React.FormEvent, fromFilters = false) => {
                       onFocus={() => setIsCategoryDropdownOpen(true)}
                       onBlur={() => setTimeout(() => setIsCategoryDropdownOpen(false), 200)}
                     />
-                    {isCategoryDropdownOpen && (skillInput.trim() ? filteredCategories.length > 0 : categories.length > 0) && (
-                      <ul className="fj-autocomplete-list">
-                        {(skillInput.trim() ? filteredCategories : categories).map((cat) => (
-                          <Fragment key={cat.id}>
-                            <li
-                              className="fj-autocomplete-item"
-                              onMouseDown={() => {
-                                const displayName = cat.parent_id
-                                  ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}`
-                                  : cat.name;
-                                setTempSearchState({ ...tempSearchState, category_id: cat.id });
-                                setSkillInput(displayName);
-                                setIsCategoryDropdownOpen(false);
-                              }}
-                            >
-                              {cat.parent_id
-                                ? `${categories.find(c => c.id === cat.parent_id)?.name || ''} > ${cat.name}`
-                                : cat.name}
-                            </li>
-                            {cat.subcategories?.map((sub) => (
+                    {isCategoryDropdownOpen &&
+                      (skillInput.trim() ? filteredCategories.length > 0 : categories.length > 0) && (
+                        <ul className="fj-autocomplete-list">
+                          {(skillInput.trim() ? filteredCategories : categories).map((cat) => (
+                            <Fragment key={cat.id}>
                               <li
-                                key={sub.id}
-                                className="fj-autocomplete-item fj-sub"
+                                className="fj-autocomplete-item"
                                 onMouseDown={() => {
-                                  setTempSearchState({ ...tempSearchState, category_id: sub.id });
-                                  setSkillInput(`${cat.name} > ${sub.name}`);
+                                  const displayName = cat.parent_id
+                                    ? `${categories.find((c) => c.id === cat.parent_id)?.name || ''} > ${
+                                        cat.name
+                                      }`
+                                    : cat.name;
+                                  setTempSearchState({ ...tempSearchState, category_id: cat.id });
+                                  setSkillInput(displayName);
                                   setIsCategoryDropdownOpen(false);
                                 }}
                               >
-                                {`${cat.name} > ${sub.name}`}
+                                {cat.parent_id
+                                  ? `${
+                                      categories.find((c) => c.id === cat.parent_id)?.name || ''
+                                    } > ${cat.name}`
+                                  : cat.name}
                               </li>
-                            ))}
-                          </Fragment>
-                        ))}
-                      </ul>
-                    )}
+                              {cat.subcategories?.map((sub) => (
+                                <li
+                                  key={sub.id}
+                                  className="fj-autocomplete-item fj-sub"
+                                  onMouseDown={() => {
+                                    setTempSearchState({
+                                      ...tempSearchState,
+                                      category_id: sub.id,
+                                    });
+                                    setSkillInput(`${cat.name} > ${sub.name}`);
+                                    setIsCategoryDropdownOpen(false);
+                                  }}
+                                >
+                                  {`${cat.name} > ${sub.name}`}
+                                </li>
+                              ))}
+                            </Fragment>
+                          ))}
+                        </ul>
+                      )}
                   </div>
 
                   {(searchState.category_id || tempSearchState.category_id) && (
                     <div className="fj-tags">
                       <span className="fj-tag">
                         {selectedCategoryLabel || skillInput || 'Selected category'}
-                        <button type="button" className="fj-tag-x" onClick={clearCategory}>×</button>
+                        <button
+                          type="button"
+                          className="fj-tag-x"
+                          onClick={clearCategory}
+                        >
+                          ×
+                        </button>
                       </span>
                     </div>
                   )}
                 </div>
 
-                <button type="submit" className="fj-btn fj-primary fj-apply">Apply Filters</button>
+                <button type="submit" className="fj-btn fj-primary fj-apply">
+                  Apply Filters
+                </button>
               </form>
             </aside>
 
-            {/* Results */}
+            {/* RESULTS */}
             <main className="fj-results">
+              <div className="fj-results-head">
+                <span className="fj-results-count">
+                  {jobs.length ? `${jobs.length} job opportunities found` : 'No jobs found'}
+                </span>
+              </div>
+
               <div className="fj-grid">
                 {jobs.length > 0 ? (
-                  jobs.map((job) => <JobCard key={job.id} job={job} variant="find-jobs" />)
+                  jobs.map((job) => (
+                    <JobCard key={job.id} job={job} onApply={openApply} variant="find-jobs" />
+                  ))
                 ) : (
                   <p className="fj-empty">No jobs found.</p>
                 )}
               </div>
 
-{/* Pagination */}
-{jobs.length > 0 && (
-  <Pagination
-    currentPage={searchState.page}
-    totalPages={totalPages}
-    totalItems={jobs.length * totalPages} // или можно передать total из response если есть
-    onPageChange={handlePageChange}
-    isMobile={false} // или добавь состояние isMobile если нужно
-  />
-)}
+              {jobs.length > 0 && (
+                <Pagination
+                  currentPage={searchState.page}
+                  totalPages={totalPages}
+                  totalItems={jobs.length * totalPages}
+                  onPageChange={handlePageChange}
+                  isMobile={false}
+                />
+              )}
             </main>
           </div>
         </div>
       </div>
 
+<ApplyJobModal isOpen={applyOpen} job={applyJob} onClose={closeApply} />
+
+
       <Footer />
-      <Copyright />
+
     </div>
   );
 };

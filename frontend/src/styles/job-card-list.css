@@ -1,0 +1,261 @@
+/* Контейнер карточки */
+.jc-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  width: 100%;
+}
+
+.jc-card--list {
+  margin-bottom: 8px;
+}
+
+.jc-card:hover {
+  border-color: #a855f7; /* фиолетовый */
+  box-shadow: 0 4px 16px rgba(148, 163, 184, 0.25);
+  background-color: #faf5ff;
+}
+
+/* Внутренний флекс */
+.jc-card-inner {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+/* Аватар с буквой компании */
+.jc-card-avatar-wrap {
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+.jc-card-avatar-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Основной контент */
+.jc-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Верхняя строка: заголовок + тип занятости */
+.jc-card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.jc-card-title-block {
+  flex: 1;
+  min-width: 0;
+}
+
+.jc-job-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.jc-job-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.jc-job-title a:hover {
+  text-decoration: underline;
+}
+
+.jc-job-company {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.jc-job-posted {
+  margin: 2px 0 0;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+/* Пилюля с типом работы */
+.jc-card-type-wrap {
+  flex-shrink: 0;
+}
+
+.jc-card-type-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  height: 18px;
+  border-radius: 9999px;
+  border: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  font-size: 10px;
+  color: #374151;
+  white-space: nowrap;
+}
+
+/* Теги навыков */
+.jc-job-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0 8px;
+}
+
+.jc-job-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  height: 18px;
+  border-radius: 9999px;
+  background-color: #f3f4f6;
+  font-size: 10px;
+  color: #4b5563;
+}
+
+.jc-job-tag--more {
+  background-color: #ede9fe;
+  color: #6d28d9;
+}
+
+/* Нижняя часть: инфо + кнопки */
+.jc-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+/* Левая часть с иконками */
+.jc-card-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 10px;
+  color: #6b7280;
+}
+
+.jc-card-info-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.jc-card-info-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.jc-card-info-salary {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Правая часть — кнопки */
+.jc-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.jc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Outline-кнопка (View) */
+.jc-btn--outline {
+  background-color: #ffffff;
+  border-color: #e5e7eb;
+  color: #4b5563;
+}
+
+.jc-btn--outline:hover {
+  border-color: #a855f7;
+  color: #1f2933;
+}
+
+/* Primary-кнопка (Apply) */
+.jc-btn--primary {
+  background-image: linear-gradient(90deg, #a855f7, #ec4899);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.jc-btn--primary:hover {
+  filter: brightness(1.05);
+}
+
+/* Адаптив под очень узкие экраны */
+@media (max-width: 640px) {
+  .jc-card-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .jc-card-actions {
+    width: 100%;
+    display: flex;
+    justify-content: right;
+    margin-top: 6px;
+  }
+
+  .jc-card-actions .jc-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+.jc-job-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.jc-job-cat {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #f3f4ff;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.jc-job-cat--more {
+  opacity: 0.85;
+}
+
+.oj-view-btn {
+  margin-right: 10px;
+}

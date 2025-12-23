@@ -9,9 +9,13 @@
   box-sizing: border-box;
 }
 
+:root {
+  --font-main: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
 body, html {
   margin: 0;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   background-color: #ffffff;
   color: #333;
   overflow-x: hidden;
@@ -161,10 +165,10 @@ h4 {
   box-sizing: border-box;
 }
 
-/* Табы (кнопки Find Work и Hire Talent) */
+
 .search-tabs {
   display: flex;
-  border-right: 1px solid #e5e7eb; /* Разделитель между табами и инпутом */
+  border-right: 1px solid #e5e7eb; 
 }
 
 .tab {
@@ -7016,7 +7020,7 @@ header nav.mobile-menu-open .find-job {
 
 /* ===== Общая карточка ===== */
 .jc-card {
-  background-color: #4e74c808;
+  background-color: #ffffff;
   border: 1px solid var(--jc-border);
   border-radius: var(--jc-radius);
   box-shadow: var(--jc-shadow);
@@ -7039,7 +7043,7 @@ header nav.mobile-menu-open .find-job {
 
 /* Вариант LIST — аватар слева, контент справа (на десктопе) */
 .jc-card--list {
-  grid-template-columns: 80px 1fr;
+  /* grid-template-columns: 80px 1fr; */
   align-items: start;
 }
 
@@ -7186,7 +7190,7 @@ padding: 10px 0px 10px 0px;
 
 /* Кнопка в твоем цвете */
 .jc-btn {
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 8px 12px;
   font-weight: 700;
   font-size: 0.95rem;

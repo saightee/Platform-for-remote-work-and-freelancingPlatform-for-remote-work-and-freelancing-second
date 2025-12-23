@@ -62,7 +62,7 @@ const TALENTS: MockProfile[] = [
     languages: ['English', 'Lithuanian'],
     description: 'Pixel-perfect, BEM, Tailwind, Grid/Flex.',
     experience: '3-6 years',
-    expected_salary: 3500,
+    expected_salary: 40,
     currency: 'EUR',
     average_rating: 4.8 as any,          // ← число (чтобы звёзды зажглись), тип подавили
     averageRating: 4.8 as any,           // ← дублируем на всякий
@@ -72,6 +72,9 @@ const TALENTS: MockProfile[] = [
     categories: [CATS[0].subcategories![0]],
     avatar: MOCK_AVATAR,                 // ← АВАТАР ДЛЯ СПИСКА ТАЛАНТОВ
     portfolio_files: MOCK_PORTFOLIO_IMAGES, // ← чтобы и в поиске, и в профайле были фотки (если надо)
+    current_position: 'Frontend Developer',
+    headline: 'Frontend Developer',
+    title: 'Frontend Developer',
   },
   {
     id: 2,
@@ -89,8 +92,139 @@ const TALENTS: MockProfile[] = [
     skills: ['CSS Grid', 'Animations', 'A11y'],
     categories: [CATS[0].subcategories![0]],
     resume: '/mock-resume.pdf',
+    current_position: 'Frontend Developer',
+    headline: 'Frontend Developer',
+    title: 'Frontend Developer',
   },
   {
+    id: 3,
+    username: 'tailwind_sam',
+    country: 'DE',
+    languages: ['German', 'English'],
+    description: 'Design systems with Tailwind, dark mode.',
+    experience: '2-3 years',
+    expected_salary: 3900,
+    currency: 'EUR',
+    average_rating: 4.2 as any,          // ← число
+    averageRating: 4.2 as any,
+    job_search_status: 'hired',
+    profile_views: 45,
+    skills: ['Tailwind', 'Design Systems', 'Dark Mode'],
+    categories: [CATS[0].subcategories![1]],
+  },
+    {
+    id: 3,
+    username: 'tailwind_sam',
+    country: 'DE',
+    languages: ['German', 'English'],
+    description: 'Design systems with Tailwind, dark mode.',
+    experience: '2-3 years',
+    expected_salary: 3900,
+    currency: 'EUR',
+    average_rating: 4.2 as any,          // ← число
+    averageRating: 4.2 as any,
+    job_search_status: 'hired',
+    profile_views: 45,
+    skills: ['Tailwind', 'Design Systems', 'Dark Mode'],
+    categories: [CATS[0].subcategories![1]],
+  },
+    {
+    id: 3,
+    username: 'tailwind_sam',
+    country: 'DE',
+    languages: ['German', 'English'],
+    description: 'Design systems with Tailwind, dark mode.',
+    experience: '2-3 years',
+    expected_salary: 3900,
+    currency: 'EUR',
+    average_rating: 4.2 as any,          // ← число
+    averageRating: 4.2 as any,
+    job_search_status: 'hired',
+    profile_views: 45,
+    skills: ['Tailwind', 'Design Systems', 'Dark Mode'],
+    categories: [CATS[0].subcategories![1]],
+  },
+    {
+    id: 3,
+    username: 'tailwind_sam',
+    country: 'DE',
+    languages: ['German', 'English'],
+    description: 'Design systems with Tailwind, dark mode.',
+    experience: '2-3 years',
+    expected_salary: 3900,
+    currency: 'EUR',
+    average_rating: 4.2 as any,          // ← число
+    averageRating: 4.2 as any,
+    job_search_status: 'hired',
+    profile_views: 45,
+    skills: ['Tailwind', 'Design Systems', 'Dark Mode'],
+    categories: [CATS[0].subcategories![1]],
+  },
+    {
+    id: 3,
+    username: 'tailwind_sam',
+    country: 'DE',
+    languages: ['German', 'English'],
+    description: 'Design systems with Tailwind, dark mode.',
+    experience: '2-3 years',
+    expected_salary: 3900,
+    currency: 'EUR',
+    average_rating: 4.2 as any,          // ← число
+    averageRating: 4.2 as any,
+    job_search_status: 'hired',
+    profile_views: 45,
+    skills: ['Tailwind', 'Design Systems', 'Dark Mode'],
+    categories: [CATS[0].subcategories![1]],
+  },
+    {
+    id: 3,
+    username: 'tailwind_sam',
+    country: 'DE',
+    languages: ['German', 'English'],
+    description: 'Design systems with Tailwind, dark mode.',
+    experience: '2-3 years',
+    expected_salary: 3900,
+    currency: 'EUR',
+    average_rating: 4.2 as any,          // ← число
+    averageRating: 4.2 as any,
+    job_search_status: 'hired',
+    profile_views: 45,
+    skills: ['Tailwind', 'Design Systems', 'Dark Mode'],
+    categories: [CATS[0].subcategories![1]],
+  },
+    {
+    id: 3,
+    username: 'tailwind_sam',
+    country: 'DE',
+    languages: ['German', 'English'],
+    description: 'Design systems with Tailwind, dark mode.',
+    experience: '2-3 years',
+    expected_salary: 3900,
+    currency: 'EUR',
+    average_rating: 4.2 as any,          // ← число
+    averageRating: 4.2 as any,
+    job_search_status: 'hired',
+    profile_views: 45,
+    skills: ['Tailwind', 'Design Systems', 'Dark Mode'],
+    categories: [CATS[0].subcategories![1]],
+  },
+    {
+    id: 3,
+    username: 'tailwind_sam',
+    country: 'DE',
+    languages: ['German', 'English'],
+    description: 'Design systems with Tailwind, dark mode.',
+    experience: '2-3 years',
+    expected_salary: 3900,
+    currency: 'EUR',
+    average_rating: 4.2 as any,          // ← число
+    averageRating: 4.2 as any,
+    job_search_status: 'hired',
+    profile_views: 45,
+    skills: ['Tailwind', 'Design Systems', 'Dark Mode'],
+    categories: [CATS[0].subcategories![1]],
+  },
+    {
     id: 3,
     username: 'tailwind_sam',
     country: 'DE',
@@ -372,4 +506,326 @@ export async function getReviewsForUser(userId: string): Promise<Review[]> {
 export async function incrementProfileView(userId: string): Promise<{ ok: boolean }> {
   await delay(80);
   return { ok: true };
+}
+
+
+
+
+export async function getHomeFeaturedJobs(): Promise<JobPost[]> {
+  await delay(150);
+  return HOME_JOBS;
+}
+
+export async function getHomeFeaturedTalents(): Promise<Profile[]> {
+  await delay(150);
+  return HOME_TALENTS;
+}
+
+const HOME_JOBS: JobPost[] = ([
+  {
+    id: 201,
+    title: 'Senior React Developer',
+    status: 'Active',
+    job_type: 'Full time',
+    location: 'Remote',
+    salary: 5000,
+    salary_type: 'per month',
+    currency: '$',
+    required_skills: ['React', 'TypeScript', 'CSS'],
+    company_name: 'PixelCraft Studio',
+    description:
+      'We are looking for a Senior React Developer to build and maintain a modern front-end stack with TypeScript, Vite and Tailwind. You will work closely with designers and backend engineers to ship high-quality UI.',
+  },
+  {
+    id: 202,
+    title: 'UI/UX Designer',
+    status: 'Active',
+    job_type: 'Contract',
+    location: 'Remote',
+    salary: 40,
+    salary_type: 'per hour',
+    currency: '$',
+    required_skills: ['Figma', 'Prototyping', 'UI'],
+    company_name: 'Flow Design Lab',
+    description:
+      'Contract position for a UI/UX Designer to create wireframes, prototypes and production-ready layouts in Figma for web dashboards and marketing websites. Experience with design systems is a plus.',
+  },
+  {
+    id: 203,
+    title: 'Content Writer',
+    status: 'Active',
+    job_type: 'Part time',
+    location: 'Remote',
+    salary: 1200,
+    salary_type: 'per month',
+    currency: '$',
+    required_skills: ['Copywriting', 'SEO', 'Blog'],
+    company_name: 'BrightWords Media',
+    description:
+      'Part-time role for a Content Writer to create blog posts, landing page copy and basic SEO content. Ideal for someone with experience in tech or SaaS topics.',
+  },
+] as unknown) as JobPost[];
+
+
+// имитируем реальный searchJobPosts: тебе нужен только res.data
+export async function searchJobPosts(_: any): Promise<{
+  data: JobPost[];
+  total: number;
+  page: number;
+  limit: number;
+}> {
+  await delay(150);
+  return {
+    data: HOME_JOBS,
+    total: HOME_JOBS.length,
+    page: 1,
+    limit: HOME_JOBS.length,
+  };
+}
+
+
+// В конец файла api.mock.ts добавь:
+
+// В api.mock.ts — добавь в каждую вакансию поле views:
+
+const MOCK_JOBS: JobPost[] = ([
+  {
+    id: 'job-1',
+    title: 'Senior Frontend Developer (CSS/Tailwind)',
+    description: '<p>We need a frontend expert with strong CSS skills for responsive layouts and design systems.</p>',
+    status: 'Active',
+    job_type: 'Full-time',
+    location: 'Remote',
+    salary: 5000,
+    salary_max: 7000,
+    salary_type: 'per month',
+    currency: 'USD',
+    required_skills: ['CSS', 'Tailwind', 'React', 'TypeScript'],
+    category_id: 'htmlcss',
+    category: { id: 'htmlcss', name: 'HTML/CSS' },
+    company_name: 'TechCorp',
+    employer_id: 'emp-1',
+    employer: {
+      id: 'emp-1',
+      username: 'techcorp_hr',
+      avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100',
+      company_name: 'TechCorp',
+    },
+    views: 1245, // ← добавил
+    created_at: stamp(),
+    updated_at: stamp(),
+  },
+  {
+    id: 'job-2',
+    title: 'UI/UX Designer',
+    description: '<p>Looking for a creative designer to build modern interfaces with Figma.</p>',
+    status: 'Active',
+    job_type: 'Contract',
+    location: 'Remote',
+    salary: 40,
+    salary_type: 'per hour',
+    currency: 'USD',
+    required_skills: ['Figma', 'UI', 'Prototyping'],
+    category_id: 'ui',
+    category: { id: 'ui', name: 'UI' },
+    company_name: 'DesignLab',
+    employer_id: 'emp-2',
+    employer: {
+      id: 'emp-2',
+      username: 'designlab',
+      company_name: 'DesignLab',
+    },
+    views: 892, // ← добавил
+    created_at: stamp(),
+    updated_at: stamp(),
+  },
+  {
+    id: 'job-3',
+    title: 'React Developer',
+    description: '<p>Build modern web apps with React, TypeScript, and state management.</p>',
+    status: 'Active',
+    job_type: 'Part-time',
+    location: 'Hybrid',
+    salary: 3500,
+    salary_type: 'per month',
+    currency: 'EUR',
+    required_skills: ['React', 'TypeScript', 'Redux'],
+    category_id: 'react',
+    category: { id: 'react', name: 'React' },
+    company_name: 'StartupXYZ',
+    employer_id: 'emp-3',
+    employer: {
+      id: 'emp-3',
+      username: 'startup_xyz',
+      company_name: 'StartupXYZ',
+    },
+    views: 567, // ← добавил
+    created_at: stamp(),
+    updated_at: stamp(),
+  },
+  {
+    id: 'job-4',
+    title: 'Full Stack Engineer',
+    description: '<p>Work on both frontend and backend with Node.js and React.</p>',
+    status: 'Active',
+    job_type: 'Full-time',
+    location: 'Remote',
+    salary: 6000,
+    salary_max: 8500,
+    salary_type: 'per month',
+    currency: 'USD',
+    required_skills: ['React', 'Node.js', 'PostgreSQL'],
+    category_id: 'web',
+    category: { id: 'web', name: 'Web' },
+    company_name: 'WebStudio',
+    views: 2103, // ← добавил
+    created_at: stamp(),
+    updated_at: stamp(),
+  },
+  {
+    id: 'job-5',
+    title: 'CSS Animations Specialist',
+    description: '<p>Create stunning animations and micro-interactions.</p>',
+    status: 'Active',
+    job_type: 'Project-based',
+    location: 'Remote',
+    salary: 50,
+    salary_type: 'per hour',
+    currency: 'USD',
+    required_skills: ['CSS', 'Animations', 'GSAP'],
+    category_id: 'htmlcss',
+    category: { id: 'htmlcss', name: 'HTML/CSS' },
+    company_name: 'AnimateLab',
+    views: 734, // ← добавил
+    created_at: stamp(),
+    updated_at: stamp(),
+  },
+  {
+    id: 'job-6',
+    title: 'Tailwind Expert',
+    description: '<p>Design and implement design systems with Tailwind CSS.</p>',
+    status: 'Active',
+    job_type: 'Full-time',
+    location: 'Remote',
+    salary: 4500,
+    salary_type: 'per month',
+    currency: 'EUR',
+    required_skills: ['Tailwind', 'CSS', 'Design Systems'],
+    category_id: 'htmlcss',
+    category: { id: 'htmlcss', name: 'HTML/CSS' },
+    company_name: 'StyleHouse',
+    views: 1456, // ← добавил
+    created_at: stamp(),
+    updated_at: stamp(),
+  },
+  {
+    id: 'job-7',
+    title: 'UX Researcher',
+    description: '<p>Conduct user research and usability testing.</p>',
+    status: 'Active',
+    job_type: 'Part-time',
+    location: 'Hybrid',
+    salary: 35,
+    salary_type: 'per hour',
+    currency: 'USD',
+    required_skills: ['UX', 'Research', 'Figma'],
+    category_id: 'ux',
+    category: { id: 'ux', name: 'UX' },
+    company_name: 'ResearchPro',
+    views: 321, // ← добавил
+    created_at: stamp(),
+    updated_at: stamp(),
+  },
+  {
+    id: 'job-8',
+    title: 'Frontend Mentor',
+    description: '<p>Mentor junior developers in HTML, CSS, and JavaScript.</p>',
+    status: 'Active',
+    job_type: 'Contract',
+    location: 'Remote',
+    salary: 3000,
+    salary_type: 'per month',
+    currency: 'USD',
+    required_skills: ['HTML', 'CSS', 'JavaScript', 'Mentoring'],
+    category_id: 'htmlcss',
+    category: { id: 'htmlcss', name: 'HTML/CSS' },
+    company_name: 'CodeAcademy',
+    views: 978, // ← добавил
+    created_at: stamp(),
+    updated_at: stamp(),
+  },
+] as unknown) as JobPost[];
+
+
+/* -------------------- MOCK API: searchJobPosts -------------------- */
+export async function searchJobPostsMock(params: any): Promise<{
+  data: JobPost[];
+  total: number;
+  page: number;
+  limit: number;
+}> {
+  await delay(150);
+  let list = [...MOCK_JOBS];
+
+  // Фильтр по title
+  if (params.title) {
+    const q = String(params.title).toLowerCase();
+    list = list.filter(j =>
+      (j.title || '').toLowerCase().includes(q) ||
+      (j.company_name || '').toLowerCase().includes(q)
+    );
+  }
+
+  // Фильтр по location
+  if (params.location) {
+    list = list.filter(j => (j.location || '').toLowerCase() === String(params.location).toLowerCase());
+  }
+
+  // Фильтр по job_type
+  if (params.job_type) {
+    list = list.filter(j => (j.job_type || '') === params.job_type);
+  }
+
+  // Фильтр по category_id
+  if (params.category_id) {
+    list = list.filter(j => (j.category_id || '') === params.category_id);
+  }
+
+  // Фильтр по salary_min/max
+  if (params.salary_min != null) {
+    list = list.filter(j => Number(j.salary ?? 0) >= Number(params.salary_min));
+  }
+  if (params.salary_max != null) {
+    list = list.filter(j => Number(j.salary ?? 0) <= Number(params.salary_max));
+  }
+
+  // Фильтр по salary_type
+  if (params.salary_type) {
+    list = list.filter(j => (j.salary_type || '') === params.salary_type);
+  }
+
+  // Фильтр по required_skills (пересечение)
+  if (params.required_skills) {
+    const skills = Array.isArray(params.required_skills)
+      ? params.required_skills
+      : String(params.required_skills).split(',').map(s => s.trim());
+    list = list.filter(j => {
+      const jSkills = (j.required_skills || []).map(s => String(s).toLowerCase());
+      return skills.some(sk => jSkills.includes(String(sk).toLowerCase()));
+    });
+  }
+
+  const page = Number(params.page || 1);
+  const limit = Number(params.limit || 30);
+  const total = list.length;
+  const data = list.slice((page - 1) * limit, page * limit);
+
+  return { total, data, page, limit };
+}
+
+/* -------------------- MOCK API: checkJobApplicationStatus -------------------- */
+export async function checkJobApplicationStatusMock(jobPostId: string): Promise<{ hasApplied: boolean }> {
+  await delay(80);
+  // Для мока всегда false
+  return { hasApplied: false };
 }

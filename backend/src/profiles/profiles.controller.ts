@@ -55,7 +55,7 @@ export class ProfilesController {
 
   @Get(':id')
   async getProfileById(
-    @Param('id') userId: string,
+    @Param('id') idOrSlug: string,
     @Headers('authorization') authHeader?: string,
   ) {
     let viewerId: string | null = null;
@@ -75,6 +75,8 @@ export class ProfilesController {
         isAuthenticated = false;
       }
     }
+
+    const userId = await this.profilesService.resolveUserId(idOrSlug);
 
     const profile = await this.profilesService.getProfile(userId, {
       isAuthenticated,
@@ -110,6 +112,9 @@ export class ProfilesController {
       currency?: string;
       job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
       expected_salary?: number;
+      expected_salary_max?: number;
+      expected_salary_type?: 'per month' | 'per day';
+      preferred_job_types?: ('Full-time' | 'Part-time' | 'Project-based')[];
       linkedin?: string | null;
       instagram?: string | null;
       facebook?: string | null;
@@ -146,7 +151,7 @@ export class ProfilesController {
           ? cb(null, true)
           : cb(new BadRequestException('Only JPEG, JPG, and PNG files are allowed'), false);
       },
-      limits: { fileSize: 5 * 1024 * 1024 },
+      limits: { fileSize: 8 * 1024 * 1024 },
     }),
   )
   async uploadAvatar(
@@ -202,7 +207,7 @@ export class ProfilesController {
               false,
             );
       },
-      limits: { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: 15 * 1024 * 1024 },
     }),
   )
   async uploadIdentity(
@@ -255,7 +260,7 @@ export class ProfilesController {
           ? cb(null, true)
           : cb(new BadRequestException('Only PDF, DOC, and DOCX files are allowed'), false);
       },
-      limits: { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: 15 * 1024 * 1024 },
     }),
   )
   async uploadResume(
@@ -296,7 +301,8 @@ export class ProfilesController {
   }
 
   @Post(':id/increment-view')
-  async incrementProfileView(@Param('id') userId: string) {
+  async incrementProfileView(@Param('id') idOrSlug: string) {
+    const userId = await this.profilesService.resolveUserId(idOrSlug);
     return this.profilesService.incrementProfileView(userId);
   }
 
@@ -321,7 +327,7 @@ export class ProfilesController {
               false,
             );
       },
-      limits: { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: 20 * 1024 * 1024 },
     }),
   )
   async uploadPortfolio(

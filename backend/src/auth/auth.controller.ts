@@ -127,7 +127,7 @@ export class AuthController {
         }
         return cb(new BadRequestException('Unexpected file field'), false);
       },
-      limits: { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: 15 * 1024 * 1024 },
     },
   ))
   async register(
@@ -377,10 +377,8 @@ export class AuthController {
     @Res() res: Response,
     @Query('callbackUrl') callbackUrl: string,
   ) {
-    console.log('Google Callback - req.user:', req.user);
     try {
       const tempToken = await this.authService.storeOAuthUserData(req.user);
-      console.log('Google Callback - Temp Token:', tempToken);
 
       const user = await this.authService.completeRegistration(tempToken, req.user.role, {
         timezone: 'UTC',
@@ -395,7 +393,6 @@ export class AuthController {
 
       return res.redirect(`${redirectUrl}?${redirectParams}`);
     } catch (error) {
-      console.error('Google Callback - Error:', error);
       return res.status(500).json({ message: 'Authentication failed', error: error.message });
     }
   }
@@ -410,7 +407,6 @@ export class AuthController {
   ) {
     const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
     const ip = ipHeader.split(',')[0].trim();
-    console.log('Client IP:', ip);
         return this.authService.register(createAdminDto, ip, fingerprint, undefined, undefined, undefined, undefined);
   }
 
@@ -424,7 +420,6 @@ export class AuthController {
   ) {
     const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
     const ip = ipHeader.split(',')[0].trim();
-    console.log('Client IP:', ip);
         return this.authService.register(createModeratorDto, ip, fingerprint, undefined, undefined, undefined, undefined);
   }
 
@@ -449,7 +444,6 @@ export class AuthController {
   ) {
     const ipHeader = xForwardedFor || xRealIp || req?.socket?.remoteAddress || '127.0.0.1';
     const ip = ipHeader.split(',')[0].trim();
-    console.log('Клиентский IP:', ip);
     const registerDto = { email: body.email, password: body.password, username: body.username, role: body.role };
     const user = await this.authService.register(registerDto, ip, fingerprint, undefined, undefined, undefined, undefined);
     return res.json(user);

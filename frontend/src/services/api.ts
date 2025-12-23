@@ -678,6 +678,9 @@ export const getMyJobPosts = async () => {
   return response.data;
 };
 
+
+
+
 export const searchJobPosts = async (params: {
   title?: string;
   location?: string;
@@ -837,6 +840,8 @@ export const applyToJobPostExtended = async (payload: {
   relevant_experience: string;     // NEW (required)
   full_name?: string;
   referred_by?: string;
+   ref?: string;
+  refCode?: string;
 }) => {
   const response = await api.post<JobApplication>('/job-applications', payload);
   return response.data;
@@ -1497,14 +1502,16 @@ export const searchTalents = async (params: {
   /** NEW: expected salary filters (no currency conversion) */
   expected_salary_min?: number;
   expected_salary_max?: number;
+  expected_salary_type?: 'per month' | 'per day';
   /** NEW: job search status filter */
   job_search_status?: 'actively_looking' | 'open_to_offers' | 'hired';
-  /** ✅ NEW GEO & LANG FILTERS */
-  country?: string;                 // "United States" | "US" | "Россия" и т.п.
-  countries?: string | string[];    // "US,CA" или ["US","CA"] или "India,Philippines"
-  languages?: string | string[];    // "english,spanish" или массив сырого ввода
+  /** ? NEW GEO & LANG FILTERS */
+  country?: string;                 // "United States" | "US" | "??????" ? ?.?.
+  countries?: string | string[];    // "US,CA" ??? ["US","CA"] ??? "India,Philippines"
+  languages?: string | string[];    // "english,spanish" ??? ?????? ?????? ?????
   languages_mode?: 'any' | 'all';   // default any
   has_resume?: boolean;             // true | false
+  preferred_job_types?: ('Full-time' | 'Part-time' | 'Project-based')[] | string;
   /** common */
   page?: number;
   limit?: number;
@@ -1517,21 +1524,25 @@ export const searchTalents = async (params: {
 
 
 
+
 // export const checkJobApplicationStatus = async (job_post_id: string) => {
 //   const response = await api.get<{ hasApplied: boolean }>(`/job-applications/check/${job_post_id}`);
 //   return response.data;
 // };
 
 // services/api.ts
-export const checkJobApplicationStatus = async (job_post_id: string) => {
-  try {
-    const { data } = await api.get<{ hasApplied: boolean }>(`/job-applications/check/${job_post_id}`);
-    return data;
-  } catch (e: any) {
-    if (e?.response?.status === 404) return { hasApplied: false };
-    throw e;
+export const checkJobApplicationStatus = async (jobPostId: string) => {
+  const res = await api.get(`/job-applications/check/${jobPostId}`, {
+    validateStatus: (s) => (s >= 200 && s < 300) || s === 404,
+  });
+
+  if (res.status === 404) {
+    return { hasApplied: false };
   }
+
+  return res.data; // ожидаем { hasApplied: true/false } или что у тебя там
 };
+
 
 
 

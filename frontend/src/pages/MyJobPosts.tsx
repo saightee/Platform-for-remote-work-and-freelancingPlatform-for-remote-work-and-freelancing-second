@@ -3,9 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 
-import Header from '../components/Header';
-import Footer from '../components/Footer';
-import Copyright from '../components/Copyright';
+
+
+
 import {
   closeJobPost,
   createReview,
@@ -417,7 +417,7 @@ const handleViewApplications = async (jobPostId: string) => {
   if (isLoading) {
     return (
       <div>
-        <Header />
+       
         <div className="mjp-shell">
           <div className="mjp-card">
             <h1 className="mjp-title"><FaBriefcase /> My Job Posts</h1>
@@ -431,22 +431,22 @@ const handleViewApplications = async (jobPostId: string) => {
   if (roleLoading || !profile || profile.role !== 'employer') {
     return (
       <div>
-        <Header />
+       
         <div className="mjp-shell">
           <div className="mjp-card">
             <h1 className="mjp-title"><FaBriefcase /> My Job Posts</h1>
             <p className="mjp-subtitle">This page is only available for employers.</p>
           </div>
         </div>
-        <Footer />
-        <Copyright />
+
+      
       </div>
     );
   }
 
   return (
     <div>
-      <Header />
+      
       <div className="mjp-shell">
         <div className="mjp-header">
           <h1 className="mjp-title"><FaBriefcase /> My Job Posts</h1>
@@ -886,7 +886,7 @@ const handleViewApplications = async (jobPostId: string) => {
                                           </button>
 
                                           <Link
-                                            to={`/public-profile/${app.userId}`}
+                                            to={`/oj/${app.userId}`}
                                             onClick={() => { setOpenMenuId(null); setMenuPos(null); }}
                                             className="mjp-menu-item"
                                             style={{ textDecoration: 'none' }}
@@ -1149,8 +1149,8 @@ const handleViewApplications = async (jobPostId: string) => {
         </div>
       )}
 
-      <Footer />
-      <Copyright />
+
+     
     </div>
   );
 };

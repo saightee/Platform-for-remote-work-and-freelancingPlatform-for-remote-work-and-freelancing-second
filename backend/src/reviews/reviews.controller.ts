@@ -26,7 +26,7 @@ export class ReviewsController {
   }
 
   @Get('user/:id')
-  async getReviewsForUser(@Param('id') userId: string) {
-    return this.reviewsService.getReviewsForUser(userId);
+  async getReviewsForUser(@Param('id') idOrSlug: string) {
+    return this.reviewsService.getReviewsForUser(idOrSlug);
   }
 }

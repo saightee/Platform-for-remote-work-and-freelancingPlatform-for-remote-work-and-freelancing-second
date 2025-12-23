@@ -798,7 +798,6 @@ export class AdminController {
     @Param('id') complaintId: string,
     @Body() body: { status: 'Resolved' | 'Rejected'; comment?: string },
   ) {
-    console.log('Resolve Complaint Request:', { authHeader, complaintId, body });
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid token');
     }
@@ -1083,46 +1082,34 @@ export class AdminController {
 
   @Post('webhooks/brevo')
   async handleBrevoWebhook(@Body() body: any) {
-    console.log('Webhook received:', JSON.stringify(body, null, 2)); 
 
     const event = body.event;
     const messageId = body['message-id'];
     const timestamp = body.ts;
 
-    console.log('Extracted event:', event, 'messageId:', messageId, 'timestamp:', timestamp);
-
     if (!messageId || !event) {
-      console.log('Ignored: missing messageId or event');
       return { status: 'ignored' };
     }
 
     try {
       const notification = await this.adminService.getNotificationByMessageId(messageId);
       if (!notification) {
-        console.log('Notification not found for messageId:', messageId);
         return { status: 'not_found' };
       }
-
-      console.log('Found notification:', notification);
 
       if (['first_opening', 'unique_opened'].includes(event)) {
         notification.opened = true;
         notification.opened_at = new Date(timestamp * 1000);
-        console.log('Updating opened for notification:', notification.id);
       } else if (['clicked', 'click'].includes(event)) {
         notification.clicked = true;
         notification.clicked_at = new Date(timestamp * 1000);
-        console.log('Updating clicked for notification:', notification.id);
       } else {
-        console.log('Ignored event:', event);
         return { status: 'ignored_event' };
       }
 
       await this.adminService.updateNotification(notification);
-      console.log('Notification updated successfully:', notification);
       return { status: 'ok' };
     } catch (error) {
-      console.error('Error processing webhook:', error.message);
       return { status: 'error', message: error.message };
     }
   }

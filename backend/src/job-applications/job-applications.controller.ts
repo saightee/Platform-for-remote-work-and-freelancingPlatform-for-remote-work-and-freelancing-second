@@ -157,21 +157,17 @@ export class JobApplicationsController {
       authHeader: authHeader ? 'Present' : 'Missing',
     });
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('Invalid token error', { authHeader });
       throw new UnauthorizedException('Invalid token');
     }
     const token = authHeader.replace('Bearer ', '');
     let payload;
     try {
       payload = this.jwtService.verify(token);
-      console.log('Token verified', { userId: payload.sub, role: payload.role });
     } catch (error) {
-      console.log('Token verification failed', { error: error.message });
       throw new UnauthorizedException('Invalid token');
     }
     const userId = payload.sub;
     const result = await this.jobApplicationsService.updateApplicationStatus(userId, applicationId, status);
-    console.log('Update application status result', { result });
     return result;
   }
 

@@ -48,8 +48,8 @@ export class JobSeeker {
   @Column({ type: 'varchar', default: 'open_to_offers' })
   job_search_status: 'actively_looking' | 'open_to_offers' | 'hired';
 
-  @Column({ nullable: true })
-  portfolio?: string;
+  @Column({ type: 'text', array: true, nullable: true })
+  portfolio?: string[];
 
   @Column({ type: 'text', array: true, nullable: true })
   portfolio_files?: string[];
@@ -77,6 +77,15 @@ export class JobSeeker {
 
   @Column({ type: 'numeric', nullable: true, precision: 12, scale: 2 })
   expected_salary?: number;
+
+  @Column({ type: 'numeric', nullable: true, precision: 12, scale: 2 })
+  expected_salary_max?: number;
+
+  @Column({ type: 'varchar', nullable: true })
+  expected_salary_type?: 'per month' | 'per day';
+
+  @Column({ type: 'text', array: true, nullable: true, default: [] })
+  preferred_job_types?: ('Full-time' | 'Part-time' | 'Project-based')[];
 
   @Column({ nullable: true })
   currency?: string;

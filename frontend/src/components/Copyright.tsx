@@ -1,16 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import '../styles/footer.css';
 import { brand } from '../brand';
+import '../styles/lovable-home.css';
 
 const Copyright: React.FC = () => {
   return (
-    <div className="jf2-copy">
-      <div className="jf2-copy__inner">
-        <p className="jf2-copy__text">{brand.copyright}</p>
-        <div className="jf2-copy__links">
+    <div className="oj-copy">
+      <div className="oj-copy-inner">
+        <p className="oj-copy-text">{brand.copyright}</p>
+        <div className="oj-copy-links">
           <Link to="/privacy-policy">Privacy Policy</Link>
-          <span className="jf2-copy__dot">•</span>
+          <span>•</span>
           <Link to="/terms-of-service">Terms of Service</Link>
         </div>
       </div>

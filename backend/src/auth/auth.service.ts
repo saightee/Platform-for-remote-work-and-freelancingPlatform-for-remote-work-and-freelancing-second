@@ -19,6 +19,11 @@ import { SettingsService } from '../settings/settings.service';
 import { AffiliateRegisterDto } from './dto/affiliate-register.dto';
 import { AffiliateProgramService } from '../affiliate-program/affiliate-program.service';
 
+function isValidUsername(username: string): boolean {
+  // Только буквы (латиница и кириллица), цифры и пробелы
+  return /^[a-zA-Zа-яА-ЯёЁ0-9\s]+$/.test(username);
+}
+
 const normalizeEmail = (e: string) => (e || '').trim().toLowerCase();
 const isStrongPassword = (pw: string) =>
   typeof pw === 'string' &&
@@ -57,6 +62,20 @@ export class AuthService {
     const emailNorm = (dto.email || '').trim().toLowerCase();
     const username = (dto as any).username;
     const password = (dto as any).password;
+
+    if (!username || typeof username !== 'string') {
+      throw new BadRequestException('Username is required');
+    }
+    const usernameTrimmed = username.trim();
+    if (!usernameTrimmed) {
+      throw new BadRequestException('Username cannot be empty');
+    }
+    if (usernameTrimmed.length > 100) {
+      throw new BadRequestException('Username is too long (max 100)');
+    }
+    if (!isValidUsername(usernameTrimmed)) {
+      throw new BadRequestException('Username can only contain letters, numbers, and spaces');
+    }
 
     const isPrivileged = 'secretKey' in dto;
 
@@ -136,6 +155,37 @@ export class AuthService {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
         throw new BadRequestException('date_of_birth must be in format YYYY-MM-DD');
       }
+
+      const [year, month, day] = dob.split('-').map(Number);
+      const dobDate = new Date(Date.UTC(year, month - 1, day));
+        
+      if (Number.isNaN(dobDate.getTime())) {
+        throw new BadRequestException('date_of_birth must be a valid date');
+      }
+    
+      const today = new Date();
+      let age = today.getFullYear() - dobDate.getFullYear();
+      const m = today.getMonth() - dobDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < dobDate.getDate())) {
+        age--;
+      }
+    
+      if (age < 18) {
+        const cutoff = new Date(
+          today.getFullYear() - 18,
+          today.getMonth(),
+          today.getDate()
+        );
+        const cutoffStr = cutoff.toISOString().slice(0, 10); // YYYY-MM-DD
+      
+        throw new BadRequestException({
+          code: 'AGE_RESTRICTED',
+          field: 'date_of_birth',
+          message: 'You must be at least 18 years old to register',
+          minAge: 18,
+          maxAllowedBirthDate: cutoffStr,
+        });
+      }
     }
 
     if (role === 'affiliate') {
@@ -177,6 +227,9 @@ export class AuthService {
       if (Array.isArray(r.languages)) {
         additionalData.languages = r.languages;
       }
+      if (Array.isArray(r.portfolio)) {
+        additionalData.portfolio = r.portfolio.slice(0, 10);
+      }
       if (Array.isArray((r as any).portfolio_files) && (r as any).portfolio_files.length) {
         additionalData.portfolio_files = (r as any).portfolio_files.slice(0, 10);
       }
@@ -205,7 +258,6 @@ export class AuthService {
         await this.antiFraudService.calculateRiskScore(newUser.id, fingerprint, ip);
       }
     } catch (e) {
-      console.error('[AntiFraud] calc on register failed:', e?.message || e);
     }
     if (refCode) {
       try {
@@ -230,7 +282,6 @@ export class AuthService {
         });
       }
     } catch (err) {
-      console.error('[Affiliate] trackRegistration failed', err);
     }
 
     if (role === 'admin' || role === 'moderator') {
@@ -271,7 +322,6 @@ export class AuthService {
   }
 
   async verifyEmail(token: string): Promise<{ message: string; accessToken: string }> {
-      console.log(`[verifyEmail] Start verification with token: ${token}`);
       const userId = await this.redisService.get(`verify:${token}`);
       if (!userId) throw new BadRequestException('Invalid or expired verification token');
 
@@ -282,28 +332,21 @@ export class AuthService {
 
       const user = await this.usersService.getUserById(userId);
       if (!user) {
-        console.error(`[verifyEmail] User not found for userId: ${userId}`);
         throw new BadRequestException('User not found');
       }
-      console.log(`[verifyEmail] User found: ${user.email}, is_email_verified: ${user.is_email_verified}`);
 
       if (user.is_email_verified) {
-        console.log(`[verifyEmail] Email already confirmed for ${user.email}`);
         throw new BadRequestException('Email has already been confirmed');
       }
 
       try {
-        console.log(`[verifyEmail] Update is_email_verified for userId: ${userId}`);
         await this.usersService.updateUser(userId, user.role, { is_email_verified: true });
-        console.log(`[verifyEmail] The update was successful for ${user.email}`);
       } catch (error: any) {
-        console.error(`[verifyEmail] Error updating user: ${error.message}`);
         throw error;
       }
 
       await this.redisService.del(`verify:${token}`);
       await this.redisService.del(`verify_latest:${userId}`);
-      console.log(`[verifyEmail] Token removed from Redis: verify:${token}`);
     
       const payload = { email: user.email, sub: user.id, role: user.role };
       const accessToken = this.jwtService.sign(payload, { expiresIn: '7d' });
@@ -322,12 +365,8 @@ export class AuthService {
             value,
             LOGIN_TOKEN_TTL_SECONDS,
           );
-          console.log(
-            `[verifyEmail] Pending session ${pendingSessionId} marked as verified for user ${user.id}`,
-          );
         }
       } catch (e) {
-        console.error('[verifyEmail] Failed to update pending session:', (e as any)?.message || e);
       }
 
       return { message: 'Email successfully confirmed', accessToken };
@@ -377,7 +416,6 @@ export class AuthService {
         await this.antiFraudService.calculateRiskScore(user.id, fingerprint, ip);
       }
     } catch (e) {
-      console.error('[AntiFraud] calc on login failed:', e?.message || e);
     }
 
     return new Promise((resolve, reject) => {
@@ -427,7 +465,6 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired token');
     }
     const userData = JSON.parse(userDataString);
-    console.log('User Data:', userData);
 
     let existingUser = await this.usersService.findByEmail(userData.email);
     if (!existingUser) {
@@ -440,11 +477,8 @@ export class AuthService {
         is_email_verified: true,
       };
       existingUser = await this.usersService.create(userToCreate, additionalData);
-      console.log('New User Created:', existingUser);
     } else {
-      console.log('Existing User Found:', existingUser);
       await this.usersService.updateUser(existingUser.id, userData.role || role, additionalData);
-      console.log('User Updated:', { role: userData.role || role, additionalData });
     }
 
     const payload = { email: existingUser.email, sub: existingUser.id, role: existingUser.role };
