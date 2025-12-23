@@ -256,7 +256,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onApply, variant = 'find-jobs' }
     <span>{renderApplicants(job)}</span>
   </div>
 <div className="oj-job-card-btn">
-  <Link to={viewPath} className="oj-btn oj-btn--primary oj-job-btn">
+  <Link to={viewPath} className="oj-btn oj-btn--primary oj-job-btn oj-view-btn">
     View
   </Link>
 
