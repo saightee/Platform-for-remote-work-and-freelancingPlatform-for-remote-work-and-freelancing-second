@@ -8,7 +8,6 @@ import {
   incrementProfileView,
   getMyJobPosts,
   sendInvitation,
-  hasEmployerAccessToJobSeekerContacts,
 } from '../services/api';
 import { JobSeekerProfile, Review, Category, JobPost } from '@types';
 import { useRole } from '../context/RoleContext';
@@ -97,8 +96,7 @@ const PublicProfile: React.FC = () => {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [galleryIndex, setGalleryIndex] = useState(0);
-  const [employerHasAccess, setEmployerHasAccess] = useState(false);
-  const [checkingAccess, setCheckingAccess] = useState(false);
+
 
   const galleryPhotos = useMemo(() => {
     if (!profile) return [];
@@ -224,66 +222,7 @@ const PublicProfile: React.FC = () => {
     run();
   }, [id]);
 
- useEffect(() => {
-  let alive = true;
 
-  const run = async () => {
-    // ✅ сброс состояний в одном месте
-    if (alive) {
-      setEmployerHasAccess(false);
-      setCheckingAccess(false);
-    }
-
-    // если не залогинен или профиль не загружен — доступа нет
-    if (!currentUser || !profile) return;
-
-    const viewerId = Number(currentUser.id);
-    const profileId = Number(profile.id);
-
-    if (!Number.isFinite(viewerId) || !Number.isFinite(profileId)) return;
-
-    // owner всегда видит без блюра
-    if (viewerId === profileId) {
-      if (alive) setEmployerHasAccess(true);
-      return;
-    }
-
-    // jobseeker НИКОГДА не видит чужие контакты
-    if (currentUser.role === 'jobseeker') {
-      if (alive) setEmployerHasAccess(false);
-      return;
-    }
-
-    // если не employer — тоже не видит
-    if (currentUser.role !== 'employer') {
-      if (alive) setEmployerHasAccess(false);
-      return;
-    }
-
-    // employer: доступ только если jobseeker апплаился на вакансии employer
-    try {
-      if (alive) setCheckingAccess(true);
-
-      const res = await hasEmployerAccessToJobSeekerContacts(String(profileId));
-      if (!alive) return;
-
-      setEmployerHasAccess(!!res?.allowed);
-    } catch (e) {
-      console.error('contact access check error', e);
-      if (!alive) return;
-
-      setEmployerHasAccess(false);
-    } finally {
-      if (alive) setCheckingAccess(false);
-    }
-  };
-
-  run();
-
-  return () => {
-    alive = false;
-  };
-}, [currentUser?.id, currentUser?.role, profile?.id]);
 
 
 
@@ -341,9 +280,27 @@ const isOwner =
   viewerId != null && profileId != null && viewerId === profileId;
 
 
+const viewerRole = currentUser?.role || null;
+
+// любые приватные поля, которые бэк отдаёт только при доступе
+const hasPrivateData =
+  !!profile.email ||
+  !!(profile as any).linkedin ||
+  !!(profile as any).instagram ||
+  !!(profile as any).facebook ||
+  !!(profile as any).whatsapp ||
+  !!(profile as any).telegram;
+
 const canSeeContacts =
   isOwner ||
-  (currentUser?.role === 'employer' && employerHasAccess);
+  viewerRole === 'admin' ||
+  viewerRole === 'moderator' ||
+  (viewerRole === 'employer' && hasPrivateData);
+
+// jobseeker чужие контакты не видит никогда (даже если вдруг прилетело что-то)
+const finalCanSeeContacts =
+  isOwner ? true : viewerRole === 'jobseeker' ? false : canSeeContacts;
+
 
 
   // ====== Derived data for header ======
@@ -827,13 +784,16 @@ return (
             </div>
 
             {/* 👇 всё что внутри — блюрится если нельзя смотреть */}
-            <div className={'ppx-contact-private' + (canSeeContacts ? '' : ' is-blurred')}>
+            <div className={'ppx-contact-private' + (finalCanSeeContacts ? '' : ' is-blurred')}>
               <div className="ppx-contact-grid">
                 <div className="ppx-contact-chip">
                   <span className="ppx-contact-chip-icon">
                     <Mail />
                   </span>
-                  {profile.email || 'Not visible'}
+                  {finalCanSeeContacts
+  ? (profile.email || 'Not provided')
+  : 'Hidden'}
+
                 </div>
 
                 {(() => {
@@ -845,17 +805,17 @@ return (
                     : [];
                   if (!links.length) return null;
 
-                  // если скрыто — делаем не-ссылкой (чтобы нельзя было открыть)
-                  if (!canSeeContacts) {
-                    return (
-                      <div className="ppx-contact-chip" aria-hidden="true">
-                        <span className="ppx-contact-chip-icon">
-                          <Link2 />
-                        </span>
-                        {links[0]}
-                      </div>
-                    );
-                  }
+           if (!finalCanSeeContacts) {
+  return (
+    <div className="ppx-contact-chip" aria-hidden="true">
+      <span className="ppx-contact-chip-icon">
+        <Link2 />
+      </span>
+      Hidden
+    </div>
+  );
+}
+
 
                   return (
                     <a
@@ -880,7 +840,7 @@ return (
               (profile as any).telegram ? (
                 <div className="ppx-socials">
                   {(profile as any).linkedin && (
-                    canSeeContacts ? (
+                    finalCanSeeContacts ? (
                       <a
                         className="ppx-soc ppx-ln"
                         href={normalizeLinkedIn((profile as any).linkedin)}
@@ -897,77 +857,78 @@ return (
                     )
                   )}
 
-                  {(profile as any).instagram && (
-                    canSeeContacts ? (
-                      <a
-                        className="ppx-soc ppx-ig"
-                        href={normalizeInstagram((profile as any).instagram)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Instagram"
-                      >
-                        <Instagram />
-                      </a>
-                    ) : (
-                      <span className="ppx-soc ppx-ig" aria-hidden="true">
-                        <Instagram />
-                      </span>
-                    )
-                  )}
+           {(profile as any).instagram && (
+  finalCanSeeContacts ? (
+    <a
+      className="ppx-soc ppx-ig"
+      href={normalizeInstagram((profile as any).instagram)}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Instagram"
+    >
+      <Instagram />
+    </a>
+  ) : (
+    <span className="ppx-soc ppx-ig" aria-hidden="true">
+      <Instagram />
+    </span>
+  )
+)}
 
-                  {(profile as any).facebook && (
-                    canSeeContacts ? (
-                      <a
-                        className="ppx-soc ppx-fb"
-                        href={normalizeFacebook((profile as any).facebook)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Facebook"
-                      >
-                        <Facebook />
-                      </a>
-                    ) : (
-                      <span className="ppx-soc ppx-fb" aria-hidden="true">
-                        <Facebook />
-                      </span>
-                    )
-                  )}
+{(profile as any).facebook && (
+  finalCanSeeContacts ? (
+    <a
+      className="ppx-soc ppx-fb"
+      href={normalizeFacebook((profile as any).facebook)}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Facebook"
+    >
+      <Facebook />
+    </a>
+  ) : (
+    <span className="ppx-soc ppx-fb" aria-hidden="true">
+      <Facebook />
+    </span>
+  )
+)}
 
-                  {(profile as any).whatsapp && (
-                    canSeeContacts ? (
-                      <a
-                        className="ppx-soc ppx-wa"
-                        href={normalizeWhatsApp((profile as any).whatsapp)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="WhatsApp"
-                      >
-                        <MessageCircle />
-                      </a>
-                    ) : (
-                      <span className="ppx-soc ppx-wa" aria-hidden="true">
-                        <MessageCircle />
-                      </span>
-                    )
-                  )}
+{(profile as any).whatsapp && (
+  finalCanSeeContacts ? (
+    <a
+      className="ppx-soc ppx-wa"
+      href={normalizeWhatsApp((profile as any).whatsapp)}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="WhatsApp"
+    >
+      <MessageCircle />
+    </a>
+  ) : (
+    <span className="ppx-soc ppx-wa" aria-hidden="true">
+      <MessageCircle />
+    </span>
+  )
+)}
 
-                  {(profile as any).telegram && (
-                    canSeeContacts ? (
-                      <a
-                        className="ppx-soc ppx-tg"
-                        href={normalizeTelegram((profile as any).telegram)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Telegram"
-                      >
-                        <Send />
-                      </a>
-                    ) : (
-                      <span className="ppx-soc ppx-tg" aria-hidden="true">
-                        <Send />
-                      </span>
-                    )
-                  )}
+{(profile as any).telegram && (
+  finalCanSeeContacts ? (
+    <a
+      className="ppx-soc ppx-tg"
+      href={normalizeTelegram((profile as any).telegram)}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Telegram"
+    >
+      <Send />
+    </a>
+  ) : (
+    <span className="ppx-soc ppx-tg" aria-hidden="true">
+      <Send />
+    </span>
+  )
+)}
+
                 </div>
               ) : null}
             </div>
