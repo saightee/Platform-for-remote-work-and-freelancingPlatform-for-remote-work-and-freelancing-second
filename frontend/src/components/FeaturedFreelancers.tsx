@@ -410,79 +410,109 @@ if (DEBUG_FEATURED) {
             </p>
           )}
 
-          {featured.map((talent: any) => {
-            const age = calcAge(talent.date_of_birth || null)!;
-            const country =
-              talent.country_name || talent.country || "Unknown country";
-            const locationLabel = `Remote, ${country}`; // заглушка Remote
-            const rate = buildRate(talent)!;
-            const skills = extractSkillNames(talent);
-            const avatarSrc = talent.avatar.startsWith("http")
-              ? talent.avatar
-              : `${brandBackendOrigin()}${talent.avatar}`;
+{featured.map((talent: any) => {
+  // === ДЕБАГ: проверяем данные перед рендером ===
+  const age = calcAge(talent.date_of_birth || null);
+  const rate = buildRate(talent);
+  const skills = extractSkillNames(talent);
+  
+  console.log('[RENDER CHECK]', talent.username, {
+    id: talent.id,
+    slug_id: talent.slug_id,
+    has_age: age !== null,
+    age_value: age,
+    has_rate: rate !== null,
+    rate_value: rate,
+    skills_count: skills.length,
+    avatar: talent.avatar,
+    date_of_birth: talent.date_of_birth,
+    expected_salary: talent.expected_salary,
+  });
+  
+  // === ЗАЩИТА: скипаем если нет критичных данных ===
+  if (!age || !rate) {
+    console.error('[RENDER SKIPPED]', talent.username, {
+      reason: !age ? 'no age' : 'no rate',
+      age,
+      rate,
+    });
+    return null;
+  }
+  
+  // === Безопасное извлечение остальных данных ===
+  const country = talent.country_name || talent.country || "Unknown country";
+  const locationLabel = `Remote, ${country}`;
+  
+  const avatarSrc = talent.avatar?.startsWith("http")
+    ? talent.avatar
+    : `${brandBackendOrigin()}${talent.avatar}`;
+  
+  const title =
+    talent.current_position ||
+    talent.headline ||
+    talent.title ||
+    "Specialist";
+  
+  console.log('[RENDER SUCCESS]', talent.username);
+  
+  // === Рендер карточки ===
+  return (
+    <article key={talent.id} className="oj-freelancer-card">
+      <div className="oj-freelancer-avatar-wrap">
+        <img
+          src={avatarSrc}
+          alt={talent.username}
+          className="oj-freelancer-avatar"
+        />
+      </div>
 
-            const title =
-              talent.current_position ||
-              talent.headline ||
-              talent.title ||
-              "Specialist";
+      <h3 className="oj-freelancer-name">{talent.username}</h3>
+      <p className="oj-freelancer-title">{title}</p>
 
-            return (
-              <article key={talent.id} className="oj-freelancer-card">
-                <div className="oj-freelancer-avatar-wrap">
-                  <img
-                    src={avatarSrc}
-                    alt={talent.username}
-                    className="oj-freelancer-avatar"
-                  />
-                </div>
+      <div className="oj-freelancer-location">
+        <MapPin className="oj-freelancer-location-icon" />
+        <span>{locationLabel}</span>
+      </div>
 
-                <h3 className="oj-freelancer-name">{talent.username}</h3>
-                <p className="oj-freelancer-title">{title}</p>
+      <div className="oj-freelancer-stats">
+        <div className="oj-freelancer-stat">
+          <div className="oj-freelancer-stat-label">Age</div>
+          <div className="oj-freelancer-stat-value">{age} yrs</div>
+        </div>
 
-                <div className="oj-freelancer-location">
-                  <MapPin className="oj-freelancer-location-icon" />
-                  <span>{locationLabel}</span>
-                </div>
+        <div className="oj-freelancer-stat-divider" />
 
-                <div className="oj-freelancer-stats">
-                  <div className="oj-freelancer-stat">
-                    <div className="oj-freelancer-stat-label">Age</div>
-                    <div className="oj-freelancer-stat-value">{age} yrs</div>
-                  </div>
+        <div className="oj-freelancer-stat">
+          <div className="oj-freelancer-stat-label">Rate</div>
+          <div className="oj-freelancer-stat-value oj-freelancer-stat-rate">
+            {rate}
+          </div>
+        </div>
+      </div>
 
-                  <div className="oj-freelancer-stat-divider" />
+      <div className="oj-freelancer-skills">
+        {skills.slice(0, 3).map((skill, i) => (
+          <span key={i} className="oj-chip oj-chip--secondary">
+            {skill}
+          </span>
+        ))}
+        {skills.length > 3 && (
+          <span className="oj-chip oj-chip--secondary">
+            +{skills.length - 3}
+          </span>
+        )}
+      </div>
 
-                  <div className="oj-freelancer-stat">
-                    <div className="oj-freelancer-stat-label">Rate</div>
-                    <div className="oj-freelancer-stat-value oj-freelancer-stat-rate">
-                      {rate}
-                    </div>
-                  </div>
-                </div>
+      <Link
+        to={`/oj/${talent.slug_id || talent.id}`}
+        className="oj-btn oj-btn--primary oj-freelancer-btn"
+      >
+        View Profile
+      </Link>
+    </article>
+  );
+})}
 
-                <div className="oj-freelancer-skills">
-                  {skills.slice(0, 3).map((skill, i) => (
-                    <span key={i} className="oj-chip oj-chip--secondary">
-                      {skill}
-                    </span>
-                  ))}
-                  {skills.length > 3 && (
-                    <span className="oj-chip oj-chip--secondary">
-                      +{skills.length - 3}
-                    </span>
-                  )}
-                </div>
-
-                <Link
-                  to={`/oj/${talent.slug_id ?? talent.id}`}
-                  className="oj-btn oj-btn--primary oj-freelancer-btn"
-                >
-                  View Profile
-                </Link>
-              </article>
-            );
-          })}
         </div>
 
         <div className="oj-freelancers-footer">
