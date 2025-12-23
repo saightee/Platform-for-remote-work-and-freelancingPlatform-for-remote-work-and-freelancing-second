@@ -255,3 +255,7 @@
 .jc-job-cat--more {
   opacity: 0.85;
 }
+
+.oj-view-btn {
+  margin-right: 10px;
+}

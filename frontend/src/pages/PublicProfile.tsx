@@ -273,16 +273,16 @@ const toIdNum = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-const viewerId = toIdNum(currentUser?.id);
-const profileId = toIdNum(profile.id);
+const viewerId = currentUser?.id ? String(currentUser.id) : null;
+const profileId = profile?.id ? String(profile.id) : null;
 
-const isOwner =
-  viewerId != null && profileId != null && viewerId === profileId;
+const isOwner = !!viewerId && !!profileId && viewerId === profileId;
 
 
-const viewerRole = currentUser?.role || null;
 
-// любые приватные поля, которые бэк отдаёт только при доступе
+const viewerRole = currentUser?.role ?? null;
+const isAuthenticated = !!currentUser;
+
 const hasPrivateData =
   !!profile.email ||
   !!(profile as any).linkedin ||
@@ -291,15 +291,17 @@ const hasPrivateData =
   !!(profile as any).whatsapp ||
   !!(profile as any).telegram;
 
-const canSeeContacts =
-  isOwner ||
-  viewerRole === 'admin' ||
-  viewerRole === 'moderator' ||
-  (viewerRole === 'employer' && hasPrivateData);
-
-// jobseeker чужие контакты не видит никогда (даже если вдруг прилетело что-то)
+// итоговое право (ТОЛЬКО этим пользуемся дальше)
 const finalCanSeeContacts =
-  isOwner ? true : viewerRole === 'jobseeker' ? false : canSeeContacts;
+  isAuthenticated &&
+  (
+    isOwner ||
+    viewerRole === 'admin' ||
+    viewerRole === 'moderator' ||
+    (viewerRole === 'employer' && hasPrivateData)
+  ) &&
+  !(viewerRole === 'jobseeker' && !isOwner);
+
 
 
 
@@ -805,16 +807,15 @@ return (
                     : [];
                   if (!links.length) return null;
 
-           if (!finalCanSeeContacts) {
+if (!finalCanSeeContacts) {
   return (
     <div className="ppx-contact-chip" aria-hidden="true">
-      <span className="ppx-contact-chip-icon">
-        <Link2 />
-      </span>
+      <span className="ppx-contact-chip-icon"><Link2 /></span>
       Hidden
     </div>
   );
 }
+
 
 
                   return (
