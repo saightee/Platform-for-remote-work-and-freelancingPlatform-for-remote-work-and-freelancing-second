@@ -5,7 +5,15 @@ import { extname } from 'path';
 
 @Injectable()
 export class S3StorageService {
-  private s3 = new S3Client({ region: process.env.AWS_REGION });
+    private s3 = new S3Client({
+    region: process.env.AWS_REGION || 'auto',
+    endpoint: process.env.AWS_S3_ENDPOINT,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    },
+    forcePathStyle: true,
+  });
 
   async uploadBuffer(
     buf: Buffer,
